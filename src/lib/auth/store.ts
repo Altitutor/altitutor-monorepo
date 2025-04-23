@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AuthState, AuthStore } from './types';
-import { authApi } from '../api/auth';
+import { supabase } from '../api/auth';
 
 const initialState: AuthState = {
   isAuthenticated: false,
@@ -11,7 +11,7 @@ const initialState: AuthState = {
   error: null,
 };
 
-export const useAuthStore = create<AuthStore>()(
+export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       ...initialState,
@@ -19,11 +19,17 @@ export const useAuthStore = create<AuthStore>()(
       login: async (email: string, password: string) => {
         set({ loading: true, error: null });
         try {
-          const response = await authApi.login({ email, password });
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          
+          if (error) throw error;
+
           set({
             isAuthenticated: true,
-            user: response.user,
-            token: response.session.access_token,
+            user: data.user,
+            token: data.session?.access_token || null,
             loading: false,
           });
         } catch (error) {
@@ -35,15 +41,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: async () => {
-        const token = get().token;
-        if (!token) {
-          set({ ...initialState });
-          return;
-        }
-        
         set({ loading: true });
         try {
-          await authApi.logout(token);
+          const { error } = await supabase.auth.signOut();
+          if (error) throw error;
         } catch (error) {
           console.error('Logout error:', error);
         } finally {
@@ -52,16 +53,16 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       refreshSession: async () => {
-        const token = get().token;
-        if (!token) return;
-
         set({ loading: true });
         try {
-          const response = await authApi.verifyToken(token);
-          if (response.valid && response.user) {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          
+          if (session) {
             set({
               isAuthenticated: true,
-              user: response.user,
+              user: session.user,
+              token: session.access_token,
               loading: false,
             });
           } else {
@@ -74,6 +75,22 @@ export const useAuthStore = create<AuthStore>()(
 
       clearError: () => set({ error: null }),
       setLoading: (loading: boolean) => set({ loading }),
+
+      setAuth: (user) => set({ isAuthenticated: true, user }),
+      clearAuth: () => set({ isAuthenticated: false, user: null }),
+      initializeAuth: async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            set({ isAuthenticated: true, user });
+          } else {
+            set({ isAuthenticated: false, user: null });
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error);
+          set({ isAuthenticated: false, user: null });
+        }
+      },
     }),
     {
       name: 'auth-storage',

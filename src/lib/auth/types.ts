@@ -1,11 +1,6 @@
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'super_admin';
-  createdAt: string;
-  updatedAt: string;
-}
+import { User as SupabaseUser } from '@supabase/supabase-js';
+
+export type User = SupabaseUser;
 
 export interface AuthState {
   isAuthenticated: boolean;

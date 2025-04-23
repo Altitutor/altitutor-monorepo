@@ -1,9 +1,27 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { db, isDatabaseHealthy } from './db';
-import { startSync, stopSync, getSyncStatus } from './sync';
 import { useAuthStore } from '../auth/store';
+
+// Only import Dexie-related modules if not using Supabase
+const isDexieMode = process.env.NEXT_PUBLIC_AUTH_MODE !== 'supabase';
+
+// Dynamically import Dexie modules only if needed
+let db: any;
+let isDatabaseHealthy: any;
+let startSync: any;
+let stopSync: any;
+let getSyncStatus: any;
+
+if (isDexieMode) {
+  const dbModule = require('./db');
+  const syncModule = require('./sync');
+  db = dbModule.db;
+  isDatabaseHealthy = dbModule.isDatabaseHealthy;
+  startSync = syncModule.startSync;
+  stopSync = syncModule.stopSync;
+  getSyncStatus = syncModule.getSyncStatus;
+}
 
 // Updated sync status type to match the new format
 interface SyncStatusType {
@@ -42,6 +60,13 @@ export function DbProvider({ children }: DbProviderProps) {
 
   // Initialize database
   useEffect(() => {
+    // If using Supabase, just mark as ready
+    if (!isDexieMode) {
+      setIsReady(true);
+      return;
+    }
+
+    // Otherwise initialize Dexie
     async function initDb() {
       try {
         await db.open();
@@ -61,12 +86,16 @@ export function DbProvider({ children }: DbProviderProps) {
     initDb();
     
     return () => {
-      db.close();
+      if (isDexieMode) {
+        db.close();
+      }
     };
   }, []);
   
   // Fetch sync status safely
   const fetchSyncStatus = async () => {
+    if (!isDexieMode) return null;
+
     try {
       const result = await getSyncStatus();
       
@@ -91,6 +120,8 @@ export function DbProvider({ children }: DbProviderProps) {
   
   // Start/stop sync based on auth state
   useEffect(() => {
+    if (!isDexieMode) return;
+
     if (isAuthenticated && isReady) {
       const stopSyncFn = startSync();
       
@@ -112,6 +143,8 @@ export function DbProvider({ children }: DbProviderProps) {
   
   // Force sync now
   const forceSyncNow = async () => {
+    if (!isDexieMode) return;
+
     if (isAuthenticated && isReady) {
       try {
         await import('./sync').then(sync => sync.forceSyncNow());
@@ -127,6 +160,8 @@ export function DbProvider({ children }: DbProviderProps) {
   
   // Reset database (for testing)
   const resetDatabase = async () => {
+    if (!isDexieMode) return;
+
     if (confirm('Are you sure you want to reset the local database? All local data will be lost.')) {
       stopSync();
       await db.delete();

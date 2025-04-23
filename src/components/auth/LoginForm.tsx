@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,15 +27,8 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const router = useRouter();
-  const { login, loading, error, clearError, isAuthenticated } = useAuthStore();
+  const { login, loading, error, clearError } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, router]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

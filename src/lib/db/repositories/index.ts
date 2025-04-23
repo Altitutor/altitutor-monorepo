@@ -11,19 +11,19 @@ import {
 export const studentRepository = new Repository<Student>('students');
 export const staffRepository = new Repository<Staff>('staff');
 export const classRepository = new Repository<Class>('classes');
-export const classEnrollmentRepository = new Repository<ClassEnrollment>('classEnrollments');
-export const classAssignmentRepository = new Repository<ClassAssignment>('classAssignments');
+export const classEnrollmentRepository = new Repository<ClassEnrollment>('class_enrollments');
+export const classAssignmentRepository = new Repository<ClassAssignment>('class_assignments');
 export const absenceRepository = new Repository<Absence>('absences');
 export const meetingRepository = new Repository<Meeting>('meetings');
-export const draftingSessionRepository = new Repository<DraftingSession>('draftingSessions');
-export const shiftSwapRepository = new Repository<ShiftSwap>('shiftSwaps');
+export const draftingSessionRepository = new Repository<DraftingSession>('drafting_sessions');
+export const shiftSwapRepository = new Repository<ShiftSwap>('shift_swaps');
 export const sessionRepository = new Repository<Session>('sessions');
-export const sessionAttendanceRepository = new Repository<SessionAttendance>('sessionAttendances');
+export const sessionAttendanceRepository = new Repository<SessionAttendance>('session_attendances');
 export const messageRepository = new Repository<Message>('messages');
 export const fileRepository = new Repository<File>('files');
-export const studentAuditLogRepository = new Repository<StudentAuditLog>('studentAuditLogs');
-export const staffAuditLogRepository = new Repository<StaffAuditLog>('staffAuditLogs');
-export const classAuditLogRepository = new Repository<ClassAuditLog>('classAuditLogs');
+export const studentAuditLogRepository = new Repository<StudentAuditLog>('student_audit_logs');
+export const staffAuditLogRepository = new Repository<StaffAuditLog>('staff_audit_logs');
+export const classAuditLogRepository = new Repository<ClassAuditLog>('class_audit_logs');
 
 // Export all repositories
 export const repositories = {

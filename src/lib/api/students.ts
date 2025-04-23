@@ -1,28 +1,28 @@
-import { api } from './client';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export interface Student {
   id: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email?: string;
-  phoneNumber?: string;
-  parentName?: string;
-  parentEmail?: string;
-  parentPhone?: string;
+  phone_number?: string;
+  parent_name?: string;
+  parent_email?: string;
+  parent_phone?: string;
   status: 'CURRENT' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED';
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface CreateStudentRequest {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email?: string;
-  phoneNumber?: string;
-  parentName?: string;
-  parentEmail?: string;
-  parentPhone?: string;
+  phone_number?: string;
+  parent_name?: string;
+  parent_email?: string;
+  parent_phone?: string;
   status?: 'CURRENT' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED';
   notes?: string;
 }
@@ -33,30 +33,76 @@ export const studentsApi = {
   /**
    * Get all students
    */
-  getAll: (token: string) => 
-    api.get<Student[]>('/students', token),
+  getAll: async () => {
+    const supabase = createClientComponentClient();
+    const { data, error } = await supabase
+      .from('students')
+      .select('*');
+    
+    if (error) throw error;
+    return data;
+  },
   
   /**
    * Get a student by ID
    */
-  getById: (id: string, token: string) => 
-    api.get<Student>(`/students/${id}`, token),
+  getById: async (id: string) => {
+    const supabase = createClientComponentClient();
+    const { data, error } = await supabase
+      .from('students')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
   
   /**
    * Create a new student
    */
-  create: (data: CreateStudentRequest, token: string) => 
-    api.post<Student>('/students', data, token),
+  create: async (data: CreateStudentRequest) => {
+    const supabase = createClientComponentClient();
+    const { data: newStudent, error } = await supabase
+      .from('students')
+      .insert([{
+        ...data,
+        id: crypto.randomUUID() // Generate UUID on client side
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return newStudent;
+  },
   
   /**
    * Update a student
    */
-  update: (id: string, data: UpdateStudentRequest, token: string) => 
-    api.put<Student>(`/students/${id}`, data, token),
+  update: async (id: string, data: UpdateStudentRequest) => {
+    const supabase = createClientComponentClient();
+    const { data: updatedStudent, error } = await supabase
+      .from('students')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return updatedStudent;
+  },
   
   /**
    * Delete a student
    */
-  delete: (id: string, token: string) => 
-    api.delete<{ message: string }>(`/students/${id}`, token),
+  delete: async (id: string) => {
+    const supabase = createClientComponentClient();
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    return { message: 'Student deleted successfully' };
+  },
 }; 

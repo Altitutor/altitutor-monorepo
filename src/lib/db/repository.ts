@@ -1,133 +1,97 @@
-import { db } from './db';
-import { Table } from 'dexie';
-import { BaseEntity, SyncQueueItem, SyncState } from './types';
-import { v4 as uuidv4 } from 'uuid';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { BaseEntity } from './types';
 
 /**
- * Generic repository class for database entities
+ * Generic repository class for Supabase database entities
  */
 export class Repository<T extends BaseEntity> {
-  private table: Table<T>;
-  private entityName: string;
+  private tableName: string;
+  private supabase = createClientComponentClient();
 
-  constructor(tableName: keyof typeof db & string) {
-    this.table = db[tableName] as unknown as Table<T>;
-    this.entityName = tableName;
+  constructor(tableName: string) {
+    this.tableName = tableName;
   }
 
   /**
    * Get all entities
    */
   async getAll(): Promise<T[]> {
-    return await this.table.toArray();
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select('*');
+    
+    if (error) throw error;
+    return data as T[];
   }
 
   /**
    * Get an entity by ID
    */
   async getById(id: string): Promise<T | undefined> {
-    return await this.table.get(id);
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data as T;
   }
 
   /**
    * Get entities by a specific field value
    */
   async getBy(field: keyof T, value: any): Promise<T[]> {
-    return await this.table.where(field as string).equals(value).toArray();
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select('*')
+      .eq(field as string, value);
+    
+    if (error) throw error;
+    return data as T[];
   }
 
   /**
    * Create a new entity
    */
   async create(data: Partial<T>): Promise<T> {
-    const now = new Date().toISOString();
+    const { data: newEntity, error } = await this.supabase
+      .from(this.tableName)
+      .insert([{
+        ...data,
+        id: crypto.randomUUID() // Generate UUID on client side
+      }])
+      .select()
+      .single();
     
-    const entity = {
-      id: uuidv4(),
-      createdAt: now,
-      updatedAt: now,
-      ...data,
-    } as T;
-    
-    await this.table.add(entity);
-    
-    // Add to sync queue
-    await this.addToSyncQueue(entity.id, 'CREATE', entity);
-    
-    return entity;
+    if (error) throw error;
+    return newEntity as T;
   }
 
   /**
    * Update an existing entity
    */
   async update(id: string, data: Partial<T>): Promise<T> {
-    const existing = await this.getById(id);
+    const { data: updatedEntity, error } = await this.supabase
+      .from(this.tableName)
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
     
-    if (!existing) {
-      throw new Error(`Entity with ID ${id} not found`);
-    }
-    
-    const updatedEntity = {
-      ...existing,
-      ...data,
-      updatedAt: new Date().toISOString(),
-    } as T;
-    
-    // Use proper update method with changes object
-    await this.table.update(id, data as any);
-    
-    // Add to sync queue
-    await this.addToSyncQueue(id, 'UPDATE', updatedEntity);
-    
-    return updatedEntity;
+    if (error) throw error;
+    return updatedEntity as T;
   }
 
   /**
    * Delete an entity
    */
   async delete(id: string): Promise<void> {
-    const existing = await this.getById(id);
+    const { error } = await this.supabase
+      .from(this.tableName)
+      .delete()
+      .eq('id', id);
     
-    if (!existing) {
-      throw new Error(`Entity with ID ${id} not found`);
-    }
-    
-    await this.table.delete(id);
-    
-    // Add to sync queue
-    await this.addToSyncQueue(id, 'DELETE');
-  }
-
-  /**
-   * Add operation to sync queue
-   */
-  private async addToSyncQueue(
-    entityId: string, 
-    operation: 'CREATE' | 'UPDATE' | 'DELETE',
-    data?: any
-  ): Promise<void> {
-    const queueItem: SyncQueueItem = {
-      id: uuidv4(),
-      entityType: this.entityName,
-      entityId,
-      operation,
-      data: operation !== 'DELETE' ? data : undefined,
-      createdAt: new Date().toISOString(),
-      attempts: 0,
-      status: 'PENDING',
-    };
-    
-    await db.syncQueue.add(queueItem);
-    
-    // Update sync state
-    const syncState: SyncState = {
-      id: entityId,
-      entityType: this.entityName,
-      lastSynced: operation === 'DELETE' ? new Date().toISOString() : '',
-      isDirty: operation !== 'DELETE',
-      serverVersion: null
-    };
-    
-    await db.syncState.put(syncState);
+    if (error) throw error;
   }
 } 

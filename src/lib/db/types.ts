@@ -89,22 +89,22 @@ export enum AuditAction {
 // Base entity interface with common fields
 export interface BaseEntity {
   id: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Core entity interfaces
 export interface Student extends BaseEntity {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email?: string | null;
-  phoneNumber?: string | null;
-  parentName?: string | null;
-  parentEmail?: string | null;
-  parentPhone?: string | null;
+  phone_number?: string | null;
+  parent_name?: string | null;
+  parent_email?: string | null;
+  parent_phone?: string | null;
   status: StudentStatus;
   notes?: string | null;
-  userId?: string | null; // Link to auth user
+  user_id?: string | null; // Link to auth user
 }
 
 export interface Staff extends BaseEntity {
