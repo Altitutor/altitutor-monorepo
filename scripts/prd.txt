@@ -1,0 +1,231 @@
+# Altitutor Admin App - Product Requirements Document
+
+## 1. Project Overview
+The Altitutor Admin App is a comprehensive CRM system designed specifically for Altitutor's administrative staff. It serves as a central hub for managing tutors, students, classes, and all administrative workflows. The app will modernize and streamline the existing Obsidian-based system while maintaining its proven workflows. The application will be available both as a native macOS application and as a web application, ensuring maximum flexibility and offline capabilities.
+
+### Goals
+- Provide a user-friendly interface for admin staff to manage all aspects of Altitutor's operations
+- Streamline student registration, class organization, and tutor assignment processes
+- Centralize communication with students, parents, and tutors
+- Facilitate efficient billing and payment processing
+- Maintain data consistency and synchronization with the backend system
+- Support offline capabilities for uninterrupted work in both web and desktop environments
+- Provide a native macOS experience while maintaining web accessibility
+
+### Technology Stack
+- **Core Framework**
+  * Next.js (v14+) for web interface
+  * Tauri for native macOS application
+  * TypeScript (v5.0+)
+- **UI & Styling**
+  * Tailwind CSS
+  * Shadcn/ui
+  * Radix UI
+  * Lucide Icons
+- **State & Data Management**
+  * React Query (TanStack Query) for server state
+  * Zustand for client state
+  * SQLite for local data storage (desktop)
+  * IndexedDB for web offline storage
+- **Forms & Validation**
+  * React Hook Form
+  * Zod
+- **Native Features** (macOS)
+  * File system access
+  * Native notifications
+  * Local data persistence
+  * System tray integration
+  * Auto-updates
+- **Testing**
+  * Vitest
+  * React Testing Library
+  * Playwright
+- **Build Tools**
+  * Turborepo
+  * ESLint
+  * Prettier
+
+## 2. User Stories & Requirements
+
+### Authentication & Authorization
+- As an admin staff member, I want to securely log in to the system
+- As a system administrator, I want to manage admin staff access and permissions
+- As an admin staff member, I want my session to persist across app restarts
+- As a system administrator, I want to ensure only admin staff can access the app
+
+### Student Management
+- As an admin staff member, I want to:
+  * Register new students and record their trial session details
+  * View and update student information (year level, school, subjects, etc.)
+  * Track student attendance and manage absences
+  * Schedule and reschedule classes
+  * Record and track student progress and grades
+  * Generate and send customized messages to students and parents
+  * Process and track student payments
+  * View complete student history (absences, meetings, subject registrations)
+
+### Tutor Management
+- As an admin staff member, I want to:
+  * Register new tutors and record their interview details
+  * Manage tutor availability and schedules
+  * Assign tutors to classes
+  * Track tutor attendance and manage shift swaps
+  * Record tutor feedback and performance
+  * Manage tutor documentation (keys, parking, etc.)
+  * View tutor history (trial shifts, rescheduled shifts)
+
+### Class Management
+- As an admin staff member, I want to:
+  * Create and manage class schedules
+  * Handle permanent class changes
+  * Process class cancellations and makeups
+  * Track class attendance
+  * Manage English drafting sessions
+  * Handle trial sessions and confirmations
+
+### Communication
+- As an admin staff member, I want to:
+  * Send templated messages to students, parents, and tutors
+  * Track communication history
+  * Schedule and manage meetings
+  * Send notifications for class changes, cancellations, etc.
+
+### Billing & Payments
+- As an admin staff member, I want to:
+  * Process student payments
+  * Generate and send invoices
+  * Track payment history
+  * Handle subsidy applications and interviews
+  * Manage payment reminders
+
+## 3. Features & Functionality
+
+### Core Features
+1. Authentication System
+   - Secure login for admin staff
+   - Session management
+   - Password reset functionality
+
+2. Dashboard
+   - Overview of daily activities
+   - Upcoming classes and meetings
+   - Recent communications
+   - Outstanding tasks and notifications
+
+3. Student Module
+   - Student registration workflow
+   - Student profile management
+   - Class scheduling interface
+   - Attendance tracking
+   - Payment processing
+   - Communication history
+
+4. Tutor Module
+   - Tutor registration workflow
+   - Schedule management
+   - Shift assignment
+   - Performance tracking
+   - Document management
+
+5. Class Module
+   - Class creation and management
+   - Schedule visualization
+   - Attendance tracking
+   - Class change workflow
+   - Trial session management
+
+6. Communication Center
+   - Message template system
+   - Bulk messaging capabilities
+   - Communication history
+   - Meeting scheduler
+
+7. Billing Center
+   - Payment processing
+   - Invoice generation
+   - Payment tracking
+   - Subsidy management
+
+### Technical Requirements
+1. Cross-Platform Support
+   - Native macOS application via Tauri
+   - Web application for browser access
+   - Consistent experience across platforms
+   - Platform-specific optimizations
+
+2. Offline Support
+   - Local data storage (SQLite for desktop, IndexedDB for web)
+   - Sync queue for operations
+   - Conflict resolution
+   - Background sync when online
+   - Local-first architecture
+
+3. Data Management
+   - Real-time synchronization with backend when online
+   - Data validation
+   - Error handling
+   - Backup and recovery
+   - Cross-device sync
+
+4. Integration Requirements
+   - Backend API integration
+   - Payment gateway integration
+   - Communication service integration
+   - Native system integration (macOS)
+
+5. Desktop-Specific Features
+   - System tray integration
+   - Native file handling
+   - Local database management
+   - Auto-updates
+   - Native notifications
+
+## 4. Design & UX Guidelines
+
+### Design Principles
+- Clean, professional interface
+- Intuitive navigation
+- Efficient workflows
+- Responsive design for various screen sizes
+- Consistent with Altitutor branding
+
+### UX Requirements
+- Maximum 3 clicks to reach any function
+- Quick actions for common tasks
+- Keyboard shortcuts for efficiency
+- Clear feedback for all actions
+- Comprehensive search functionality
+- Bulk action support
+
+## 5. Success Metrics
+- Reduced time for administrative tasks
+- Increased accuracy in scheduling and billing
+- Improved communication efficiency
+- Higher staff satisfaction with tools
+- Reduced data entry errors
+- Faster onboarding for new admin staff
+
+## 6. Timeline & Milestones
+Phase 1 (MVP - 6 weeks):
+- Authentication system
+- Basic student and tutor management
+- Essential class management
+- Core communication features
+- Basic offline support
+- Native macOS shell
+
+Phase 2 (10 weeks):
+- Advanced scheduling features
+- Complete billing system
+- Enhanced communication features
+- Full offline support
+- Native system integration
+- Cross-device sync
+
+Phase 3 (14 weeks):
+- Advanced reporting
+- Analytics dashboard
+- Integration with additional services
+- Performance optimizations
+- Enhanced native features
+- System tray functionality 
