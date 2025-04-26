@@ -29,3 +29,6 @@ tasks.json
 tasks/ 
 *storybook.log
 .next
+
+# Resource folder
+altitutor-admin-obsidian-vault/

@@ -1,5 +1,9 @@
 module.exports = {
-  extends: ['../../.eslintrc.js', 'plugin:@typescript-eslint/recommended', 'plugin:storybook/recommended'],
+  extends: [
+    'next/core-web-vitals',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:storybook/recommended'
+  ],
   rules: {
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     'no-console': ['warn', { allow: ['warn', 'error'] }],
@@ -10,7 +14,6 @@ module.exports = {
     '.next/',
     'out/',
     'public/',
-    'src-tauri/',
     '*.config.js',
   ],
 } 

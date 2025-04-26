@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { DbProvider } from '@/lib/db/context'
 import { SupabaseProvider } from '@/lib/supabase/provider'
-import { Navbar } from '@/components/nav/Navbar'
+import { Navbar } from '@/components/layouts/Navbar'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={inter.className} style={{ "--navbar-height": "64px" } as React.CSSProperties}>
         <SupabaseProvider>
           <AuthGuard>
             <ThemeProvider
@@ -31,9 +31,9 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <DbProvider>
-                <div className="min-h-screen bg-background">
+                <div className="flex flex-col min-h-screen bg-background">
                   <Navbar />
-                  <main className="pt-16">
+                  <main className="flex-1 pt-[var(--navbar-height)]">
                     {children}
                   </main>
                 </div>
