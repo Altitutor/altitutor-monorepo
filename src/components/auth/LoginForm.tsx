@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuthStore } from '../../lib/auth/store';
+import { AuthStore } from '../../lib/auth/types';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -18,6 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -27,8 +30,9 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const { login, loading, error, clearError } = useAuthStore();
+  const { login, loading, error, clearError } = useAuthStore() as AuthStore;
   const [showPassword, setShowPassword] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -44,8 +48,17 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
       <div className="space-y-2 text-center">
+        <div className="flex justify-center">
+          <Image 
+            src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
+            alt="Altitutor Logo" 
+            width={120} 
+            height={120} 
+            className="mb-4"
+          />
+        </div>
         <h1 className="text-2xl font-bold">Welcome Back</h1>
         <p className="text-gray-500 dark:text-gray-400">
           Sign in to access your admin dashboard
@@ -95,7 +108,7 @@ export function LoginForm() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-darkBlue dark:text-brand-lightBlue"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? 'Hide' : 'Show'}
@@ -104,7 +117,11 @@ export function LoginForm() {
                 </FormControl>
                 <FormMessage />
                 <div className="text-right">
-                  <Button variant="link" className="px-0" asChild>
+                  <Button 
+                    variant="link" 
+                    className="px-0 text-brand-mediumBlue dark:text-brand-lightBlue" 
+                    asChild
+                  >
                     <Link href="/forgot-password">Forgot password?</Link>
                   </Button>
                 </div>
@@ -114,7 +131,7 @@ export function LoginForm() {
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-darkBlue dark:hover:bg-brand-lightBlue/90"
             disabled={loading}
           >
             {loading ? (

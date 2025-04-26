@@ -1,10 +1,11 @@
 import { supabase } from './client';
 import { v4 as uuidv4 } from 'uuid';
+import type { BaseEntity } from '../db/types'; // adjust path as needed
 
 /**
  * Base repository for Supabase table operations
  */
-export class SupabaseRepository<T extends { id: string }> {
+export class SupabaseRepository<T extends BaseEntity> {
   protected tableName: string;
 
   constructor(tableName: string) {

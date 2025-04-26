@@ -3,11 +3,37 @@
 ## High Priority Tasks
 
 ### Database Schema Design
-- [ ] Design complete entity relationship diagram for the database
-- [ ] Create SQL migrations for core tables (users, students, staff, classes, sessions)
-- [ ] Implement row-level security policies for data protection
-- [ ] Set up database triggers for audit trails and automated processes
-- [ ] Validate schema design with sample data
+- [x] Design complete entity relationship diagram for the database
+- [x] Create SQL migrations for core tables (users, students, staff, classes, sessions)
+- [x] Implement row-level security policies for data protection
+- [x] Set up database triggers for audit trails and automated processes
+- [x] Validate schema design with sample data
+
+### Registration Forms & User Onboarding
+- [ ] Implement subjects table management UI in settings page
+- [ ] Create student registration form with multi-select subjects
+- [ ] Create tutor registration form with multi-select subjects  
+- [ ] Create admin staff registration form with multi-select subjects
+- [ ] Implement frontend UI for public access to registration forms
+- [ ] Add user role assignment during registration
+
+### Core UI & Data Display
+- [ ] Update students page with complete table display and filtering
+- [ ] Update staff page with complete table display and filtering
+- [ ] Update classes page with complete table display and filtering
+- [ ] Update sessions page with complete table display and filtering
+- [ ] Implement calendar view for classes
+
+### Workflow Implementation
+- [ ] Create workflow for logging planned absences
+- [ ] Create workflow for adding students to classes
+- [ ] Create workflow for permanent class changes
+- [ ] Create workflow for drafting session booking
+- [ ] Create workflow for trial session booking
+- [ ] Create workflow for subsidy interview booking
+- [ ] Create workflow for tutor interview booking
+- [ ] Create workflow for staff shift swaps
+- [ ] Create workflow for staff trial shifts
 
 ### Authentication System
 - [ ] Complete sign-in page with email/password authentication

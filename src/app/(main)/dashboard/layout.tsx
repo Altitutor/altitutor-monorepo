@@ -19,6 +19,9 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/store';
+import { AuthStore } from '@/lib/auth/types';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -70,22 +73,32 @@ const navItems = [
 
 function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProps) {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user } = useAuthStore() as AuthStore;
+  const { resolvedTheme } = useTheme();
   
   return (
     <div 
       className={cn(
-        "flex flex-col border-r bg-background h-[calc(100vh-var(--navbar-height))] transition-all duration-300",
+        "flex flex-col border-r bg-background dark:bg-brand-dark-bg dark:border-brand-dark-border h-[calc(100vh-var(--navbar-height))] transition-all duration-300",
         collapsed ? "w-[70px]" : "w-[250px]",
         className
       )} 
       {...props}
     >
-      <div className="flex h-14 items-center px-4 border-b">
-        <Button variant="ghost" size="icon" onClick={onToggle} className="mr-2">
+      <div className="flex h-14 items-center px-4 border-b dark:border-brand-dark-border">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onToggle} 
+          className="mr-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
+        >
           {collapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
         </Button>
-        {!collapsed && <h2 className="text-lg font-semibold">AltiTutor</h2>}
+        {!collapsed && (
+          <div className="flex items-center">
+            <h2 className="text-lg font-semibold">Altitutor Admin</h2>
+          </div>
+        )}
       </div>
       
       <ScrollArea className="flex-1">
@@ -97,8 +110,8 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                 pathname === item.href 
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                  : "hover:bg-accent hover:text-accent-foreground",
+                  ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
+                  : "hover:bg-brand-lightBlue/20 hover:text-brand-darkBlue dark:hover:bg-brand-dark-card/70 dark:text-white dark:hover:text-white",
                 collapsed && "justify-center px-0"
               )}
             >
@@ -109,10 +122,10 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
         </nav>
       </ScrollArea>
       
-      <div className="border-t p-4">
+      <div className="border-t dark:border-brand-dark-border p-4">
         {!collapsed ? (
           <div className="flex items-center gap-3 text-sm">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+            <div className="h-8 w-8 rounded-full bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg">
               {(user?.user_metadata?.name as string)?.charAt(0) || user?.email?.charAt(0) || 'U'}
             </div>
             <div className="truncate">
@@ -122,7 +135,7 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
           </div>
         ) : (
           <div className="flex justify-center">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+            <div className="h-8 w-8 rounded-full bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg">
               {(user?.user_metadata?.name as string)?.charAt(0) || user?.email?.charAt(0) || 'U'}
             </div>
           </div>

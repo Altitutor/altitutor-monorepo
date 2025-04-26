@@ -17,6 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 import { authApi } from '@/lib/api/auth';
 
 const forgotPasswordSchema = z.object({
@@ -29,6 +31,7 @@ export function ForgotPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   const form = useForm<ForgotPasswordData>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -52,14 +55,26 @@ export function ForgotPasswordForm() {
 
   if (success) {
     return (
-      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
+        <div className="flex justify-center">
+          <Image 
+            src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
+            alt="Altitutor Logo" 
+            width={120} 
+            height={120} 
+            className="mb-4"
+          />
+        </div>
         <div className="space-y-2 text-center">
           <h2 className="text-2xl font-bold text-green-600 dark:text-green-400">Check Your Email</h2>
           <p className="text-gray-500 dark:text-gray-400">
             If an account exists with that email, we've sent password reset instructions.
           </p>
         </div>
-        <Button asChild className="w-full">
+        <Button 
+          asChild
+          className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+        >
           <Link href="/login">Return to Login</Link>
         </Button>
       </div>
@@ -67,7 +82,16 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
+      <div className="flex justify-center">
+        <Image 
+          src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
+          alt="Altitutor Logo" 
+          width={120} 
+          height={120} 
+          className="mb-4"
+        />
+      </div>
       <div className="space-y-2 text-center">
         <h1 className="text-2xl font-bold">Reset Password</h1>
         <p className="text-gray-500 dark:text-gray-400">
@@ -104,7 +128,7 @@ export function ForgotPasswordForm() {
           <div className="space-y-4">
             <Button
               type="submit"
-              className="w-full"
+              className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-dark dark:hover:bg-brand-lightBlue/90"
               disabled={loading}
             >
               {loading ? (
@@ -119,7 +143,7 @@ export function ForgotPasswordForm() {
 
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full hover:bg-brand-lightBlue/20 dark:hover:bg-brand-dark-card"
               asChild
             >
               <Link href="/login">Back to Login</Link>

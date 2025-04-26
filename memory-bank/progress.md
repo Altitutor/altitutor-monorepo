@@ -11,22 +11,25 @@
 ## Authentication (In Progress)
 - [x] Set up Supabase project
 - [x] Configure Supabase authentication
+- [x] Implement custom user role claim system (ADMINSTAFF, TUTOR, STUDENT)
 - [ ] Implement sign-in page
 - [ ] Implement sign-up page
 - [ ] Add password reset functionality
 - [ ] Create protected route middleware
 
-## Database Schema (In Progress)
+## Database Schema (Completed)
 - [x] Create initial users table
-- [ ] Design and implement students table
-- [ ] Design and implement staff table
-- [ ] Design and implement classes table
-- [ ] Design and implement sessions table
-- [ ] Design and implement absences table
-- [ ] Design and implement messages table
-- [ ] Design and implement drafting sessions table
-- [ ] Set up relationships between tables
-- [ ] Implement row-level security policies
+- [x] Design and implement students table
+- [x] Design and implement staff table
+- [x] Design and implement classes table
+- [x] Design and implement sessions table
+- [x] Design and implement absences table
+- [x] Create subjects and topics tables
+- [x] Implement many-to-many relationships (students_subjects, staff_subjects)
+- [x] Create resource files tables
+- [x] Implement staff availability tracking
+- [x] Set up relationships between tables
+- [x] Implement row-level security policies based on user roles
 
 ## Core UI (Not Started)
 - [ ] Create main layout component

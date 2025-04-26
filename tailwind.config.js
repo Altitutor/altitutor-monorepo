@@ -20,7 +20,10 @@ module.exports = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
+        background: {
+          DEFAULT: "hsl(var(--background))",
+          dark: "#171717",
+        },
         foreground: "hsl(var(--foreground))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
@@ -51,11 +54,15 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         brand: {
-          primary: "#1E40AF",
-          secondary: "#1D4ED8",
-          accent: "#3B82F6",
-          light: "#93C5FD",
-          dark: "#1E3A8A",
+          darkBlue: "#0a2941",
+          mediumBlue: "#144e72",
+          lightBlue: "#92b9c6",
+          white: "#ffffff",
+          dark: {
+            bg: "#171717",
+            card: "#1f1f1f",
+            border: "#2e2e2e",
+          },
           gray: {
             light: "#F3F4F6",
             DEFAULT: "#9CA3AF",

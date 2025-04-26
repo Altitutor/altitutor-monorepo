@@ -1,4 +1,82 @@
-# Active Context
+# Active Development Context
+
+## Current Focus Areas
+
+### Database Schema Implementation
+We've completed the database schema implementation through a series of migrations:
+
+1. Initial schema creation (20250426130921_initial_schema.sql)
+   - Created core tables: students, staff, classes, etc.
+   - Set up initial relationships and constraints
+   - Added basic RLS policies
+
+2. Schema updates (20250427000000_schema_updates.sql)
+   - Enhanced students table with additional fields
+   - Created subjects table and related tables
+   - Added many-to-many relationships (students_subjects, staff_subjects)
+   - Created resource_files tables
+
+3. Custom claim-based RLS (20250428000000_custom_claim_based_rls.sql)
+   - Implemented custom claim-based RLS
+   - Created helper functions for permission checks
+   - Enhanced security with user role-based access
+
+4. User role claim system (20250428000001_add_user_role_claim.sql)
+   - Added user_role claim to users
+   - Set up user role enforcement
+   - Configured roles: ADMINSTAFF, TUTOR, STUDENT
+
+5. Staff availability (20250428000002_add_staff_availability.sql)
+   - Added availability tracking to staff table
+
+### Next Implementation Priorities
+
+1. Subjects Management
+   - Create UI for adding/editing subjects in settings
+
+2. User Registration Forms
+   - Student registration with multi-select subjects
+   - Tutor registration with multi-select subjects
+   - Admin staff registration with multi-select subjects
+   - Public-facing UI for these forms
+
+3. UI Enhancement
+   - Complete data tables with filtering and sorting
+   - Calendar view for classes
+
+4. Workflow Implementation
+   - Planned absences
+   - Class changes
+   - Session bookings
+   - Staff shift management
+
+## Development Approach
+
+### UI Implementation
+- Create consistent form patterns for all registration types
+- Use multi-select components for subject selection
+- Ensure proper user role assignment during registration
+- Build responsive tables with filtering capabilities
+
+### Workflow Implementation
+- Use step-by-step wizards for complex workflows
+- Implement validation at each step
+- Keep track of workflow progress
+- Support aborting and resuming workflows
+
+## Current Challenges
+
+- Designing intuitive registration forms for different user types
+- Implementing proper validation for multi-step workflows
+- Managing complex relationships between tables
+- Ensuring proper user role assignment and permissions
+
+## Recent Decisions
+
+- Using custom claims for role-based access control
+- Implementing staff availability tracking similar to student availability
+- Separating admin staff and tutors as different roles
+- Creating specialized workflows for different scenarios
 
 ## Current Development Focus
 The project is in the early stages of development, with the following areas as the current focus:

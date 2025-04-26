@@ -17,6 +17,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 import { authApi } from '@/lib/api/auth';
 
 const resetPasswordSchema = z.object({
@@ -41,6 +43,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { resolvedTheme } = useTheme();
 
   const form = useForm<ResetPasswordData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -67,8 +70,17 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   };
 
   return (
-    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+    <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
       <div className="space-y-2 text-center">
+        <div className="flex justify-center">
+          <Image 
+            src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
+            alt="Altitutor Logo" 
+            width={120} 
+            height={120} 
+            className="mb-4"
+          />
+        </div>
         <h1 className="text-2xl font-bold">Reset Your Password</h1>
         <p className="text-gray-500 dark:text-gray-400">
           Enter your new password below
@@ -121,7 +133,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
             disabled={loading}
           >
             {loading ? (
