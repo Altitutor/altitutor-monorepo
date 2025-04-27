@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { StudentForm } from '@/components/features/students';
+import { StudentForm, StudentFormData } from '@/components/features/students';
 import { useStudents } from '@/lib/db/hooks';
-import { Student } from '@/lib/db/types';
+import { Student, StudentStatus } from '@/lib/db/types';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { LoadingSpinner } from '@/components/ui/spinner';
@@ -45,9 +45,14 @@ export default function EditStudentPage({ params }: EditStudentPageProps) {
     loadStudent();
   }, [params.id, fetchById, router]);
 
-  const handleSubmit = async (data: Partial<Student>) => {
+  const handleSubmit = async (data: StudentFormData) => {
     try {
-      await update(params.id, data);
+      const studentData: Partial<Student> = {
+        ...data,
+        status: data.status as StudentStatus
+      };
+      
+      await update(params.id, studentData);
       toast.success('Student updated successfully');
       router.push(`/dashboard/students/${params.id}`);
     } catch (error) {

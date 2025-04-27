@@ -1,6 +1,6 @@
 import { supabase } from './client';
 import { v4 as uuidv4 } from 'uuid';
-import type { BaseEntity } from '../db/types'; // adjust path as needed
+import type { BaseEntity, Student, Staff, Class } from '../db/types'; // adjust path as needed
 
 /**
  * Base repository for Supabase table operations
@@ -180,7 +180,7 @@ export class SupabaseRepository<T extends BaseEntity> {
 }
 
 // Export specific repositories
-export class StudentsRepository extends SupabaseRepository<unknown> {
+export class StudentsRepository extends SupabaseRepository<Student> {
   constructor() {
     super('students');
   }
@@ -197,11 +197,11 @@ export class StudentsRepository extends SupabaseRepository<unknown> {
       throw error;
     }
     
-    return data;
+    return data as Student[];
   }
 }
 
-export class StaffRepository extends SupabaseRepository<unknown> {
+export class StaffRepository extends SupabaseRepository<Staff> {
   constructor() {
     super('staff');
   }
@@ -218,11 +218,11 @@ export class StaffRepository extends SupabaseRepository<unknown> {
       throw error;
     }
     
-    return data;
+    return data as Staff[];
   }
 }
 
-export class ClassesRepository extends SupabaseRepository<unknown> {
+export class ClassesRepository extends SupabaseRepository<Class> {
   constructor() {
     super('classes');
   }
@@ -239,7 +239,7 @@ export class ClassesRepository extends SupabaseRepository<unknown> {
       throw error;
     }
     
-    return data;
+    return data as Class[];
   }
 }
 

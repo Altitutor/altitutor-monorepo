@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AuthState, AuthStore } from './types';
+import { AuthState, User } from './types';
 import { supabase } from '../api/auth';
 
 const initialState: AuthState = {
@@ -13,7 +13,7 @@ const initialState: AuthState = {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       ...initialState,
 
       login: async (email: string, password: string) => {
@@ -76,7 +76,7 @@ export const useAuthStore = create<AuthState>()(
       clearError: () => set({ error: null }),
       setLoading: (loading: boolean) => set({ loading }),
 
-      setAuth: (user) => set({ isAuthenticated: true, user }),
+      setAuth: (user: User) => set({ isAuthenticated: true, user }),
       clearAuth: () => set({ isAuthenticated: false, user: null }),
       initializeAuth: async () => {
         try {

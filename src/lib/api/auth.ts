@@ -1,20 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import { User } from '../auth/types';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-interface LoginResponse {
-  user: User;
-  session: {
-    access_token: string;
-    refresh_token: string;
-    expires_at: number;
-  };
-}
 
 interface LoginRequest {
   email: string;

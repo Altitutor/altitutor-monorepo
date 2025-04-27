@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Edit, Mail, Phone, FileText, Calendar, CreditCard, MessageSquare } from 'lucide-react';
-import { useStudents, useClassEnrollments, useSessions, useSessionAttendances, useAbsences, useFiles } from '@/lib/db/hooks';
+import { ArrowLeft, Edit, Mail, Phone, Calendar, MessageSquare } from 'lucide-react';
+import { useStudents } from '@/lib/db/hooks';
 import { StudentStatus, Student } from '@/lib/db/types';
 
 type StudentPageProps = {
@@ -88,7 +88,7 @@ export default function StudentPage({ params }: StudentPageProps) {
             Back
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">
-            {student.firstName} {student.lastName}
+            {student.first_name} {student.last_name}
           </h1>
           <Badge className={getStatusBadgeColor(student.status)}>
             {student.status}
@@ -119,7 +119,7 @@ export default function StudentPage({ params }: StudentPageProps) {
           <CardContent>
             <div className="flex items-center">
               <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
-              {student.phoneNumber || 'Not provided'}
+              {student.phone_number || 'Not provided'}
             </div>
           </CardContent>
         </Card>
@@ -129,17 +129,17 @@ export default function StudentPage({ params }: StudentPageProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
-              <div>{student.parentName || 'Not provided'}</div>
-              {student.parentEmail && (
+              <div>{student.parent_name || 'Not provided'}</div>
+              {student.parent_email && (
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Mail className="h-3 w-3 mr-1" />
-                  {student.parentEmail}
+                  {student.parent_email}
                 </div>
               )}
-              {student.parentPhone && (
+              {student.parent_phone && (
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Phone className="h-3 w-3 mr-1" />
-                  {student.parentPhone}
+                  {student.parent_phone}
                 </div>
               )}
             </div>
@@ -152,7 +152,7 @@ export default function StudentPage({ params }: StudentPageProps) {
           <CardContent>
             <div className="flex items-center">
               <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-              {new Date(student.createdAt).toLocaleDateString()}
+              {new Date(student.created_at).toLocaleDateString()}
             </div>
           </CardContent>
         </Card>
@@ -218,7 +218,7 @@ export default function StudentPage({ params }: StudentPageProps) {
               <Button size="sm">Add to Class</Button>
             </CardHeader>
             <CardContent>
-              <StudentClassesTable studentId={student.id} />
+              <StudentClassesTable _studentId={student.id} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -233,7 +233,7 @@ export default function StudentPage({ params }: StudentPageProps) {
               <Button size="sm">Record Session</Button>
             </CardHeader>
             <CardContent>
-              <StudentSessionsTable studentId={student.id} />
+              <StudentSessionsTable _studentId={student.id} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -248,7 +248,7 @@ export default function StudentPage({ params }: StudentPageProps) {
               <Button size="sm">Record Absence</Button>
             </CardHeader>
             <CardContent>
-              <StudentAbsencesTable studentId={student.id} />
+              <StudentAbsencesTable _studentId={student.id} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -263,7 +263,7 @@ export default function StudentPage({ params }: StudentPageProps) {
               <Button size="sm">Upload Document</Button>
             </CardHeader>
             <CardContent>
-              <StudentDocumentsTable studentId={student.id} />
+              <StudentDocumentsTable _studentId={student.id} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -298,35 +298,22 @@ export default function StudentPage({ params }: StudentPageProps) {
   );
 }
 
-// Placeholder components for the tabs - these will be implemented fully later
-function StudentClassesTable({ studentId }: { studentId: string }) {
-  return (
-    <div className="text-center text-muted-foreground py-8">
-      Class enrollment data will be shown here
-    </div>
-  );
+function StudentClassesTable({ _studentId }: { _studentId: string }) {
+  // Implementation will be added later
+  return <div>Classes implementation pending</div>;
 }
 
-function StudentSessionsTable({ studentId }: { studentId: string }) {
-  return (
-    <div className="text-center text-muted-foreground py-8">
-      Session history will be shown here
-    </div>
-  );
+function StudentSessionsTable({ _studentId }: { _studentId: string }) {
+  // Implementation will be added later
+  return <div>Sessions implementation pending</div>;
 }
 
-function StudentAbsencesTable({ studentId }: { studentId: string }) {
-  return (
-    <div className="text-center text-muted-foreground py-8">
-      Absence records will be shown here
-    </div>
-  );
+function StudentAbsencesTable({ _studentId }: { _studentId: string }) {
+  // Implementation will be added later
+  return <div>Absences implementation pending</div>;
 }
 
-function StudentDocumentsTable({ studentId }: { studentId: string }) {
-  return (
-    <div className="text-center text-muted-foreground py-8">
-      Student documents will be shown here
-    </div>
-  );
+function StudentDocumentsTable({ _studentId }: { _studentId: string }) {
+  // Implementation will be added later
+  return <div>Documents implementation pending</div>;
 } 

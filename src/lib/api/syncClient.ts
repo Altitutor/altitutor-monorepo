@@ -150,7 +150,9 @@ const connectToSyncServer = (token: string) => {
               break;
               
             default:
-              console.log('Received message:', message);
+              // Silent handling for unknown message types
+              // console.log('Received message:', message);
+              break;
           }
         } catch (error: unknown) {
           console.error('Error processing message:', error instanceof Error ? error.message : error);

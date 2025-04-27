@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { StudentForm } from '@/components/features/students';
+import { StudentForm, StudentFormData } from '@/components/features/students';
 import { useStudents } from '@/lib/db/hooks';
 import { Student, StudentStatus } from '@/lib/db/types';
 import { toast } from 'sonner';
@@ -13,14 +13,14 @@ export default function NewStudentPage() {
   const router = useRouter();
   const { create } = useStudents();
 
-  const handleSubmit = async (data: Partial<Student>) => {
+  const handleSubmit = async (data: StudentFormData) => {
     try {
-      // Set default status to TRIAL for new students
-      const studentData = {
+      // Convert StudentFormData to Partial<Student>
+      const studentData: Partial<Student> = {
         ...data,
-        status: StudentStatus.TRIAL
+        status: data.status as StudentStatus
       };
-
+      
       await create(studentData);
       toast.success('Student created successfully');
       router.push('/dashboard/students');

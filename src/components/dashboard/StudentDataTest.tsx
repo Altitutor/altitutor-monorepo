@@ -97,11 +97,11 @@ export function StudentDataTest() {
                 {students.slice(0, displayCount).map((student) => (
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">
-                      {student.firstName} {student.lastName}
+                      {student.first_name} {student.last_name}
                     </TableCell>
                     <TableCell>{student.email || 'N/A'}</TableCell>
                     <TableCell>{renderStatus(student.status)}</TableCell>
-                    <TableCell>{student.parentName || 'N/A'}</TableCell>
+                    <TableCell>{student.parent_name || 'N/A'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -20,8 +20,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/store';
 import { AuthStore } from '@/lib/auth/types';
-import Image from 'next/image';
-import { useTheme } from 'next-themes';
 import { navHoverStyles } from '@/lib/utils';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -75,7 +73,6 @@ const navItems = [
 function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProps) {
   const pathname = usePathname();
   const { user } = useAuthStore() as AuthStore;
-  const { resolvedTheme } = useTheme();
   
   return (
     <div 
