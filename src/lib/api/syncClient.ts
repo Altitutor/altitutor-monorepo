@@ -302,4 +302,35 @@ const resolveConflict = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      entityType,
+      entityId,
+      resolution,
+      data
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Failed to resolve conflict: ${errorData.error || response.statusText}`);
+  }
+
+  return await response.json();
+};
+
+/**
+ * Trigger an event to all registered listeners
+ */
+const triggerEvent = (event: string, data: unknown) => {
+  if (!eventListeners[event]) return;
+  
+  for (const listener of eventListeners[event]) {
+    try {
+      listener(data);
+    } catch (error: unknown) {
+      console.error(`Error in event listener for ${event}:`, error instanceof Error ? error.message : error);
+    }
+  }
+};
