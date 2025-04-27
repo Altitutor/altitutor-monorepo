@@ -31,6 +31,7 @@ export default function StudentPage({ params }: StudentPageProps) {
         const studentData = await fetchById(params.id);
         if (!studentData) {
           setError("Student not found");
+          setLoading(false);
           return;
         }
         setStudent(studentData);

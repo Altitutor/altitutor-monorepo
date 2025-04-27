@@ -27,7 +27,12 @@ export default function EditStudentPage({ params }: EditStudentPageProps) {
     const loadStudent = async () => {
       try {
         const data = await fetchById(params.id);
-        setStudent(data);
+        if (data) {
+          setStudent(data);
+        } else {
+          toast.error('Student not found');
+          router.push('/dashboard/students');
+        }
       } catch (error) {
         console.error('Error loading student:', error);
         toast.error('Failed to load student');
