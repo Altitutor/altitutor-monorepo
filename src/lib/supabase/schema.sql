@@ -82,6 +82,30 @@ CREATE TYPE "public"."resource_type" AS ENUM (
 ALTER TYPE "public"."resource_type" OWNER TO "postgres";
 
 
+CREATE TYPE "public"."subject_curriculum" AS ENUM (
+    'SACE',
+    'IB',
+    'PRESACE',
+    'PRIMARY'
+);
+
+
+ALTER TYPE "public"."subject_curriculum" OWNER TO "postgres";
+
+
+CREATE TYPE "public"."subject_discipline" AS ENUM (
+    'MATHEMATICS',
+    'SCIENCE',
+    'HUMANITIES',
+    'ENGLISH',
+    'ART',
+    'LANGUAGE'
+);
+
+
+ALTER TYPE "public"."subject_discipline" OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."create_admin_staff"("p_email" "text", "p_user_id" "uuid") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -407,6 +431,15 @@ CREATE TABLE IF NOT EXISTS "public"."staff" (
     "updated_at" timestamp with time zone DEFAULT "now"(),
     "office_key_number" integer,
     "has_parking_remote" "text",
+    "availability_monday" boolean DEFAULT false,
+    "availability_tuesday" boolean DEFAULT false,
+    "availability_wednesday" boolean DEFAULT false,
+    "availability_thursday" boolean DEFAULT false,
+    "availability_friday" boolean DEFAULT false,
+    "availability_saturday_am" boolean DEFAULT false,
+    "availability_saturday_pm" boolean DEFAULT false,
+    "availability_sunday_am" boolean DEFAULT false,
+    "availability_sunday_pm" boolean DEFAULT false,
     CONSTRAINT "staff_has_parking_remote_check" CHECK (("has_parking_remote" = ANY (ARRAY['VIRTUAL'::"text", 'PHYSICAL'::"text", 'NONE'::"text"]))),
     CONSTRAINT "staff_role_check" CHECK (("role" = ANY (ARRAY['ADMINSTAFF'::"text", 'TUTOR'::"text"]))),
     CONSTRAINT "staff_status_check" CHECK (("status" = ANY (ARRAY['ACTIVE'::"text", 'INACTIVE'::"text", 'TRIAL'::"text"])))
@@ -414,6 +447,42 @@ CREATE TABLE IF NOT EXISTS "public"."staff" (
 
 
 ALTER TABLE "public"."staff" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."staff"."availability_monday" IS 'Staff availability on Monday';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_tuesday" IS 'Staff availability on Tuesday';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_wednesday" IS 'Staff availability on Wednesday';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_thursday" IS 'Staff availability on Thursday';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_friday" IS 'Staff availability on Friday';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_saturday_am" IS 'Staff availability on Saturday morning';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_saturday_pm" IS 'Staff availability on Saturday afternoon';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_sunday_am" IS 'Staff availability on Sunday morning';
+
+
+
+COMMENT ON COLUMN "public"."staff"."availability_sunday_pm" IS 'Staff availability on Sunday afternoon';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."staff_audit_logs" (
@@ -508,11 +577,28 @@ CREATE TABLE IF NOT EXISTS "public"."subjects" (
     "name" "text" NOT NULL,
     "year_level" integer,
     "created_at" timestamp with time zone DEFAULT "now"(),
-    "updated_at" timestamp with time zone DEFAULT "now"()
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "curriculum" "public"."subject_curriculum",
+    "discipline" "public"."subject_discipline",
+    "level" "text",
+    CONSTRAINT "valid_ib_level" CHECK ((("curriculum" <> 'IB'::"public"."subject_curriculum") OR (("curriculum" = 'IB'::"public"."subject_curriculum") AND (("level" = 'HL'::"text") OR ("level" = 'SL'::"text"))))),
+    CONSTRAINT "valid_presace_level" CHECK ((("curriculum" <> 'PRESACE'::"public"."subject_curriculum") OR (("curriculum" = 'PRESACE'::"public"."subject_curriculum") AND (("level" = 'ADVANCED'::"text") OR ("level" = 'STANDARD'::"text")))))
 );
 
 
 ALTER TABLE "public"."subjects" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."subjects"."curriculum" IS 'Subject curriculum type: SACE, IB, PRESACE, or PRIMARY';
+
+
+
+COMMENT ON COLUMN "public"."subjects"."discipline" IS 'Subject discipline category: MATHEMATICS, SCIENCE, HUMANITIES, ENGLISH, ART, or LANGUAGE';
+
+
+
+COMMENT ON COLUMN "public"."subjects"."level" IS 'Subject level - HL/SL for IB, ADVANCED/STANDARD for PRESACE, NULL for SACE/PRIMARY';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."subtopics" (

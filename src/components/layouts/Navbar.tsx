@@ -44,7 +44,6 @@ export function Navbar() {
           <Button 
             variant="outline" 
             onClick={handleLogout}
-            className="border-brand-lightBlue hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:border-brand-dark-border dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white"
           >
             Logout
           </Button>

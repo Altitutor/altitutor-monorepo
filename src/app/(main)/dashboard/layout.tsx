@@ -22,6 +22,7 @@ import { useAuthStore } from '@/lib/auth/store';
 import { AuthStore } from '@/lib/auth/types';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
+import { navHoverStyles } from '@/lib/utils';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -111,7 +112,7 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                 pathname === item.href 
                   ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                  : "hover:bg-brand-lightBlue/20 hover:text-brand-darkBlue dark:hover:bg-brand-dark-card/70 dark:text-white dark:hover:text-white",
+                  : navHoverStyles,
                 collapsed && "justify-center px-0"
               )}
             >
