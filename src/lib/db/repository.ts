@@ -41,7 +41,7 @@ export class Repository<T extends BaseEntity> {
   /**
    * Get entities by a specific field value
    */
-  async getBy(field: keyof T, value: any): Promise<T[]> {
+  async getBy(field: keyof T, value: unknown): Promise<T[]> {
     const { data, error } = await this.supabase
       .from(this.tableName)
       .select('*')

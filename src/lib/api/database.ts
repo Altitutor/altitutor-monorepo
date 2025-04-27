@@ -83,13 +83,8 @@ export const databaseApi = {
       }
 
       return data;
-    } catch (error: any) {
-      console.error('Error in addTestStudent:', {
-        message: error.message,
-        details: error?.details,
-        hint: error?.hint,
-        code: error?.code
-      });
+    } catch (error: unknown) {
+      console.error('Error in addTestStudent:', error instanceof Error ? error.message : error);
       throw error;
     }
   },
@@ -123,7 +118,7 @@ export const databaseApi = {
     return data;
   },
 
-  async updateStudent(id: string, updates: any) {
+  async updateStudent(id: string, updates: Record<string, unknown>) {
     try {
       // Ensure user is an admin first
       await this.ensureAdminUser();
@@ -141,8 +136,8 @@ export const databaseApi = {
       }
 
       return data;
-    } catch (error: any) {
-      console.error('Error in updateStudent:', error);
+    } catch (error: unknown) {
+      console.error('Error in updateStudent:', error instanceof Error ? error.message : error);
       throw error;
     }
   },
@@ -161,8 +156,8 @@ export const databaseApi = {
         console.error('Error deleting student:', error);
         throw error;
       }
-    } catch (error: any) {
-      console.error('Error in deleteStudent:', error);
+    } catch (error: unknown) {
+      console.error('Error in deleteStudent:', error instanceof Error ? error.message : error);
       throw error;
     }
   },

@@ -26,7 +26,7 @@ export interface CalendarEvent {
   start: Date
   end: Date
   allDay?: boolean
-  resource?: any
+  resource?: unknown
 }
 
 interface CalendarProps {

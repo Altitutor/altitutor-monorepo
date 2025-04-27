@@ -28,7 +28,7 @@ const getDeviceId = (): string => {
 
 // Store for WebSocket connection
 let wsConnection: WebSocket | null = null;
-let wsReconnectTimer: NodeJS.Timeout | null = null;
+let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSyncTimestamp: string | null = null;
 
 // Event callbacks
@@ -64,7 +64,7 @@ export const initSyncClient = (token: string) => {
       entityType: string, 
       entityId: string, 
       resolution: 'CLIENT_WINS' | 'SERVER_WINS' | 'MERGE', 
-      data?: any
+      data?: unknown
     ) => resolveConflict(entityType, entityId, resolution, data, token),
     
     // Add an event listener
@@ -127,12 +127,12 @@ const connectToSyncServer = (token: string) => {
         }
       };
       
-      wsConnection.onerror = (event) => {
+      wsConnection.onerror = (event: unknown) => {
         console.error('WebSocket error:', event);
         reject('WebSocket connection error');
       };
       
-      wsConnection.onmessage = (event) => {
+      wsConnection.onmessage = (event: MessageEvent) => {
         try {
           const message = JSON.parse(event.data);
           
@@ -152,8 +152,8 @@ const connectToSyncServer = (token: string) => {
             default:
               console.log('Received message:', message);
           }
-        } catch (error) {
-          console.error('Error processing message:', error);
+        } catch (error: unknown) {
+          console.error('Error processing message:', error instanceof Error ? error.message : error);
         }
       };
       
@@ -295,42 +295,11 @@ const resolveConflict = async (
   entityType: string,
   entityId: string,
   resolution: 'CLIENT_WINS' | 'SERVER_WINS' | 'MERGE',
-  data: any,
+  data: unknown,
   token: string
 ) => {
   const response = await fetch(`${API_BASE_URL}/sync/resolve`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      entityType,
-      entityId,
-      resolution,
-      data
-    })
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Failed to resolve conflict: ${errorData.error || response.statusText}`);
-  }
-  
-  return await response.json();
-};
-
-/**
- * Trigger an event to all registered listeners
- */
-const triggerEvent = (event: string, data: unknown) => {
-  if (!eventListeners[event]) return;
-  
-  for (const listener of eventListeners[event]) {
-    try {
-      listener(data);
-    } catch (error) {
-      console.error(`Error in event listener for ${event}:`, error);
-    }
-  }
-}; 
+      'Authorization': `
