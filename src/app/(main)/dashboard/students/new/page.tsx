@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { StudentForm } from '@/components/features/students';
 import { useStudents } from '@/lib/db/hooks';
-import { StudentStatus } from '@/lib/db/types';
+import { Student, StudentStatus } from '@/lib/db/types';
 import { toast } from 'sonner';
 
 export default function NewStudentPage() {
   const router = useRouter();
   const { create } = useStudents();
 
-  const handleSubmit = async (data: unknown) => {
+  const handleSubmit = async (data: Partial<Student>) => {
     try {
       // Set default status to TRIAL for new students
       const studentData = {

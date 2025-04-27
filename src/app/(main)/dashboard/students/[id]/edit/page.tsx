@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { StudentForm } from '@/components/features/students';
 import { useStudents } from '@/lib/db/hooks';
+import { Student } from '@/lib/db/types';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { LoadingSpinner } from '@/components/ui/spinner';
@@ -19,7 +20,7 @@ interface EditStudentPageProps {
 export default function EditStudentPage({ params }: EditStudentPageProps) {
   const router = useRouter();
   const { fetchById, update } = useStudents();
-  const [student, setStudent] = useState<unknown>(null);
+  const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function EditStudentPage({ params }: EditStudentPageProps) {
     loadStudent();
   }, [params.id, fetchById, router]);
 
-  const handleSubmit = async (data: unknown) => {
+  const handleSubmit = async (data: Partial<Student>) => {
     try {
       await update(params.id, data);
       toast.success('Student updated successfully');
