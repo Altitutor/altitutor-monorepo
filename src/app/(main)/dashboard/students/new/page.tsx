@@ -13,7 +13,7 @@ export default function NewStudentPage() {
   const router = useRouter();
   const { create } = useStudents();
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: unknown) => {
     try {
       // Set default status to TRIAL for new students
       const studentData = {

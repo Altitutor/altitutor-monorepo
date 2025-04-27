@@ -24,9 +24,9 @@ export function DbTester() {
     setLoading(false);
   };
 
-  const handleError = (error: any) => {
+  const handleError = (error: unknown) => {
     setStatus('error');
-    setMessage(error?.message || 'An error occurred');
+    setMessage(error instanceof Error ? error.message : 'An error occurred');
     setLoading(false);
   };
 

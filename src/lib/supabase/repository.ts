@@ -180,7 +180,7 @@ export class SupabaseRepository<T extends BaseEntity> {
 }
 
 // Export specific repositories
-export class StudentsRepository extends SupabaseRepository<any> {
+export class StudentsRepository extends SupabaseRepository<unknown> {
   constructor() {
     super('students');
   }
@@ -201,7 +201,7 @@ export class StudentsRepository extends SupabaseRepository<any> {
   }
 }
 
-export class StaffRepository extends SupabaseRepository<any> {
+export class StaffRepository extends SupabaseRepository<unknown> {
   constructor() {
     super('staff');
   }
@@ -222,7 +222,7 @@ export class StaffRepository extends SupabaseRepository<any> {
   }
 }
 
-export class ClassesRepository extends SupabaseRepository<any> {
+export class ClassesRepository extends SupabaseRepository<unknown> {
   constructor() {
     super('classes');
   }

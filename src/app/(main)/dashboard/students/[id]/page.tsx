@@ -20,7 +20,7 @@ type StudentPageProps = {
 export default function StudentPage({ params }: StudentPageProps) {
   const router = useRouter();
   const { fetchById } = useStudents();
-  const [student, setStudent] = useState<any>(null);
+  const [student, setStudent] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');

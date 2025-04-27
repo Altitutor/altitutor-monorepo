@@ -13,5 +13,5 @@ export interface SortingParams {
 }
 
 export interface FilterParams {
-  [key: string]: any;
+  [key: string]: unknown;
 } 

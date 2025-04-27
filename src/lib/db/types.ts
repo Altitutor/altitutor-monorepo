@@ -248,7 +248,7 @@ export interface File extends BaseEntity {
 // Audit log interfaces
 export interface StudentAuditLog extends BaseEntity {
   action: AuditAction;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   studentId: string;
   
   // Loaded relations
@@ -257,7 +257,7 @@ export interface StudentAuditLog extends BaseEntity {
 
 export interface StaffAuditLog extends BaseEntity {
   action: AuditAction;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   staffId: string;
   
   // Loaded relations
@@ -266,7 +266,7 @@ export interface StaffAuditLog extends BaseEntity {
 
 export interface ClassAuditLog extends BaseEntity {
   action: AuditAction;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   classId: string;
   
   // Loaded relations
@@ -288,7 +288,7 @@ export interface SyncQueueItem {
   entityType: string;
   entityId: string;
   operation: 'CREATE' | 'UPDATE' | 'DELETE';
-  data?: any; // For CREATE/UPDATE
+  data?: unknown; // For CREATE/UPDATE
   createdAt: string;
   attempts: number;
   lastAttempt?: string | null;

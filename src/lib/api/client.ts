@@ -8,7 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   token?: string;
 }
 
@@ -69,10 +69,10 @@ export const api = {
   get: <T>(endpoint: string, token?: string): Promise<T> => 
     fetchApi(endpoint, { method: 'GET', token }),
   
-  post: <T>(endpoint: string, data?: any, token?: string): Promise<T> => 
+  post: <T>(endpoint: string, data?: unknown, token?: string): Promise<T> => 
     fetchApi(endpoint, { method: 'POST', body: data, token }),
   
-  put: <T>(endpoint: string, data?: any, token?: string): Promise<T> => 
+  put: <T>(endpoint: string, data?: unknown, token?: string): Promise<T> => 
     fetchApi(endpoint, { method: 'PUT', body: data, token }),
   
   delete: <T>(endpoint: string, token?: string): Promise<T> => 

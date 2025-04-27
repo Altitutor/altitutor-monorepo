@@ -32,7 +32,7 @@ let wsReconnectTimer: NodeJS.Timeout | null = null;
 let lastSyncTimestamp: string | null = null;
 
 // Event callbacks
-type SyncEventListener = (event: any) => void;
+type SyncEventListener = (event: unknown) => void;
 const eventListeners: Record<string, SyncEventListener[]> = {
   'sync-notification': [],
   'entity-changed': [],
@@ -323,7 +323,7 @@ const resolveConflict = async (
 /**
  * Trigger an event to all registered listeners
  */
-const triggerEvent = (event: string, data: any) => {
+const triggerEvent = (event: string, data: unknown) => {
   if (!eventListeners[event]) return;
   
   for (const listener of eventListeners[event]) {

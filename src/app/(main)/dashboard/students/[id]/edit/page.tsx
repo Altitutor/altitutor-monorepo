@@ -19,7 +19,7 @@ interface EditStudentPageProps {
 export default function EditStudentPage({ params }: EditStudentPageProps) {
   const router = useRouter();
   const { fetchById, update } = useStudents();
-  const [student, setStudent] = useState<any>(null);
+  const [student, setStudent] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function EditStudentPage({ params }: EditStudentPageProps) {
     loadStudent();
   }, [params.id, fetchById, router]);
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: unknown) => {
     try {
       await update(params.id, data);
       toast.success('Student updated successfully');

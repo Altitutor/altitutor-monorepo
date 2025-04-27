@@ -11,25 +11,25 @@ jest.mock('../../../lib/auth/store', () => ({
 
 // Mock the UI components
 jest.mock('@/components/ui/button', () => ({
-  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+  Button: ({ children, ...props }: unknown) => <button {...props}>{children}</button>,
 }));
 
 jest.mock('@/components/ui/form', () => ({
-  Form: ({ children }: any) => <div>{children}</div>,
-  FormControl: ({ children }: any) => <div>{children}</div>,
-  FormField: ({ render }: any) => render({ field: { value: '', onChange: jest.fn() } }),
-  FormItem: ({ children }: any) => <div>{children}</div>,
-  FormLabel: ({ children }: any) => <label>{children}</label>,
+  Form: ({ children }: unknown) => <div>{children}</div>,
+  FormControl: ({ children }: unknown) => <div>{children}</div>,
+  FormField: ({ render }: unknown) => render({ field: { value: '', onChange: jest.fn() } }),
+  FormItem: ({ children }: unknown) => <div>{children}</div>,
+  FormLabel: ({ children }: unknown) => <label>{children}</label>,
   FormMessage: () => null,
 }));
 
 jest.mock('@/components/ui/input', () => ({
-  Input: (props: any) => <input {...props} />,
+  Input: (props: unknown) => <input {...props} />,
 }));
 
 jest.mock('@/components/ui/alert', () => ({
-  Alert: ({ children }: any) => <div role="alert">{children}</div>,
-  AlertDescription: ({ children }: any) => <div>{children}</div>,
+  Alert: ({ children }: unknown) => <div role="alert">{children}</div>,
+  AlertDescription: ({ children }: unknown) => <div>{children}</div>,
 }));
 
 describe('LoginForm', () => {
