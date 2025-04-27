@@ -63,7 +63,7 @@ export function DbTester() {
       // Update the first student
       const student = students[0];
       await update(student.id, {
-        firstName: `Updated ${new Date().toLocaleTimeString()}`,
+        first_name: `Updated ${new Date().toLocaleTimeString()}`,
       });
       await fetchAll(); // Refresh the list
       handleSuccess('Student updated successfully');
