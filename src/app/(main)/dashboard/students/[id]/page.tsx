@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Edit, Mail, Phone, Calendar, MessageSquare } from 'lucide-react';
-import { useStudents } from '@/lib/db/hooks';
-import { StudentStatus, Student } from '@/lib/db/types';
+import { useStudents } from '@/lib/hooks';
+import { StudentStatus, Student } from '@/lib/supabase/db/types';
 
 type StudentPageProps = {
   params: {

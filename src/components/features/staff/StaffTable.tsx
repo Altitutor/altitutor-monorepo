@@ -26,9 +26,9 @@ import {
   ArrowUpDown,
   Filter
 } from 'lucide-react';
-import { useStaff } from '@/lib/db/hooks';
-import { Staff, StaffRole, StaffStatus } from '@/lib/db/types';
-import { cn } from '@/lib/utils';
+import { useStaff } from '@/lib/hooks';
+import { Staff, StaffRole, StaffStatus } from '@/lib/supabase/db/types';
+import { cn } from '@/lib/utils/index';
 
 export function StaffTable() {
   const router = useRouter();

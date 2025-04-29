@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore } from '@/lib/auth/store';
+import { useAuthStore } from '@/lib/supabase/auth';
 
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 

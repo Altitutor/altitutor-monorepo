@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useStudents } from '@/lib/db/hooks';
-import { StudentStatus } from '@/lib/db/types';
+import { useStudents } from '@/lib/hooks';
+import { StudentStatus } from '@/lib/supabase/db/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 

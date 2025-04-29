@@ -26,9 +26,9 @@ import {
   ArrowUpDown,
   Filter
 } from 'lucide-react';
-import { useStudents } from '@/lib/db/hooks';
-import { Student, StudentStatus } from '@/lib/db/types';
-import { cn } from '@/lib/utils';
+import { useStudents } from '@/lib/hooks';
+import { Student, StudentStatus } from '@/lib/supabase/db/types';
+import { cn } from '@/lib/utils/index';
 
 export function StudentsTable() {
   const router = useRouter();

@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useDb } from '@/lib/db/context';
+import { useDb } from '@/lib/supabase/db/context';
 import { CheckCircle } from 'lucide-react';
 
 export function DbStatusPanel() {

@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuthStore } from '../../lib/auth/store';
-import { AuthStore } from '../../lib/auth/types';
+import { useAuthStore } from '../../lib/supabase/auth';
+import { AuthState as AuthStore } from '../../lib/supabase/auth';
 import { Button } from '@/components/ui/button';
 import {
   Form,

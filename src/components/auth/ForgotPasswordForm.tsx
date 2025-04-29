@@ -19,7 +19,7 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { authApi } from '@/lib/api/auth';
+import { authApi } from '@/lib/supabase/api/auth';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),

@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { authApi } from '@/lib/api/auth';
-import { useAuthStore } from '@/lib/auth/store';
+import { authApi } from '@/lib/supabase/api/auth';
+import { useAuthStore } from '@/lib/supabase/auth';
 import { ThemeToggle } from '@/components/theme-toggle';
 import Image from 'next/image';
-import { AuthStore } from '@/lib/auth/types';
+import { AuthState as AuthStore } from '@/lib/supabase/auth';
 import { useTheme } from 'next-themes';
 
 export function Navbar() {

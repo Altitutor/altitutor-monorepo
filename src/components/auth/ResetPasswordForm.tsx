@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { authApi } from '@/lib/api/auth';
+import { authApi } from '@/lib/supabase/api/auth';
 
 const resetPasswordSchema = z.object({
   password: z.string()

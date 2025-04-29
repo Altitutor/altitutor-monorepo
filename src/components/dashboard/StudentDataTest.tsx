@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useStudents } from '@/lib/db/hooks';
+import { useStudents } from '@/lib/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Student, StudentStatus } from '@/lib/db/types';
+import { Student, StudentStatus } from '@/lib/supabase/db/types';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, UserPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';

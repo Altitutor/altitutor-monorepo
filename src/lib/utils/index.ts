@@ -34,4 +34,9 @@ export function formatDateTime(date: Date | string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-} 
+}
+
+/**
+ * Navigation hover styles for consistent UI
+ */
+export const navHoverStyles = "hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white" 

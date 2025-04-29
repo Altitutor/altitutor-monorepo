@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { StudentForm, StudentFormData } from '@/components/features/students';
-import { useStudents } from '@/lib/db/hooks';
-import { Student, StudentStatus } from '@/lib/db/types';
+import { useStudents } from '@/lib/hooks';
+import { Student, StudentStatus } from '@/lib/supabase/db/types';
 import { toast } from 'sonner';
 
 export default function NewStudentPage() {

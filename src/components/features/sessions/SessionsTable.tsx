@@ -27,9 +27,9 @@ import {
   Filter,
   CalendarIcon
 } from 'lucide-react';
-import { useSessions, useStudents, useStaff, useClasses } from '@/lib/db/hooks';
-import { Session, SessionType, Student, Staff, Class } from '@/lib/db/types';
-import { cn } from '@/lib/utils';
+import { useSessions, useStudents, useStaff, useClasses } from '@/lib/hooks';
+import { Session, SessionType, Student, Staff, Class } from '@/lib/supabase/db/types';
+import { cn } from '@/lib/utils/index';
 
 type SessionsTableProps = {
   studentId?: string;

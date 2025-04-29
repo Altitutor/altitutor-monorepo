@@ -26,9 +26,9 @@ import {
   ArrowUpDown,
   Filter
 } from 'lucide-react';
-import { useClasses } from '@/lib/db/hooks';
-import { Class, ClassStatus } from '@/lib/db/types';
-import { cn } from '@/lib/utils';
+import { useClasses } from '@/lib/hooks';
+import { Class, ClassStatus } from '@/lib/supabase/db/types';
+import { cn } from '@/lib/utils/index';
 
 export function ClassesTable() {
   const router = useRouter();

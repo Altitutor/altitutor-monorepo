@@ -1,5 +1,5 @@
 // Re-export all types from various modules
-export * from '@/lib/db/types';
+export * from '@/lib/supabase/db/types';
 
 // Define shared types here
 export interface PaginationParams {
