@@ -156,6 +156,16 @@ export default function DashboardPage() {
                 <ChevronRight className="h-4 w-4" />
               </Link>
               <Link 
+                href="/dashboard/topics"
+                className="flex items-center justify-between p-3 text-sm rounded-lg border hover:bg-accent transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Newspaper className="h-4 w-4" />
+                  <span>Topics & Resources</span>
+                </div>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+              <Link 
                 href="/dashboard/subjects"
                 className="flex items-center justify-between p-3 text-sm rounded-lg border hover:bg-accent transition-colors"
               >

@@ -127,6 +127,7 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
                   <SelectItem value={SubjectCurriculum.IB}>IB</SelectItem>
                   <SelectItem value={SubjectCurriculum.PRESACE}>Pre-SACE</SelectItem>
                   <SelectItem value={SubjectCurriculum.PRIMARY}>Primary</SelectItem>
+                  <SelectItem value={SubjectCurriculum.MEDICINE}>Medicine</SelectItem>
                 </SelectContent>
               </Select>
             </div>

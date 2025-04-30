@@ -66,6 +66,8 @@ export class AdminRepository {
       // Ensure user is an admin first
       await this.ensureAdminUser();
       const supabase = this.getClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
       const studentId = uuidv4();
       const { data, error } = await supabase
@@ -82,6 +84,7 @@ export class AdminRepository {
             parent_phone: '0987654321',
             status: 'TRIAL',
             notes: 'Test student for development',
+            user_id: user.id, // Required now per migrations
           }
         ])
         .select()

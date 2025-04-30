@@ -86,6 +86,7 @@ export enum StudentStatus {
 export enum StaffRole {
   ADMIN = 'ADMIN',
   TUTOR = 'TUTOR',
+  ADMINSTAFF = 'ADMINSTAFF',
 }
 
 export enum StaffStatus {
@@ -147,6 +148,7 @@ export enum SessionType {
   SUBSIDY_INTERVIEW = 'SUBSIDY_INTERVIEW',
   TRIAL_SESSION = 'TRIAL_SESSION',
   TRIAL_SHIFT = 'TRIAL_SHIFT',
+  STAFF_INTERVIEW = 'STAFF_INTERVIEW',
 }
 
 export enum AuditAction {
@@ -164,6 +166,7 @@ export enum SubjectCurriculum {
   IB = 'IB',
   PRESACE = 'PRESACE',
   PRIMARY = 'PRIMARY',
+  MEDICINE = 'MEDICINE',
 }
 
 export enum SubjectDiscipline {
@@ -173,6 +176,25 @@ export enum SubjectDiscipline {
   ENGLISH = 'ENGLISH',
   ART = 'ART',
   LANGUAGE = 'LANGUAGE',
+  MEDICINE = 'MEDICINE',
+}
+
+// Added per migration - for resource_files table
+export enum ResourceType {
+  NOTES = 'NOTES',
+  TEST = 'TEST',
+  PRACTICE_QUESTIONS = 'PRACTICE_QUESTIONS',
+  VIDEO = 'VIDEO',
+  EXAM = 'EXAM',
+  FLASHCARDS = 'FLASHCARDS',
+  REVISION_SHEET = 'REVISION_SHEET',
+  CHEAT_SHEET = 'CHEAT_SHEET',
+}
+
+// Added per migration - for resource_files table
+export enum ResourceAnswers {
+  BLANK = 'BLANK',
+  ANSWERS = 'ANSWERS',
 }
 
 // Base entity interface with common fields
@@ -228,21 +250,25 @@ export interface Subject extends BaseEntity {
 
 export interface Class extends BaseEntity {
   subject: string;
-  dayOfWeek: number; // 0-6 for Sunday-Saturday
-  startTime: string;
-  endTime: string;
-  maxCapacity: number;
+  dayOfWeek: number; // Maps to day_of_week in database
+  startTime: string; // Maps to start_time in database
+  endTime: string; // Maps to end_time in database
+  maxCapacity: number; // Maps to max_capacity in database
   status: ClassStatus;
   notes?: string | null;
+  subjectId?: string | null; // Maps to subject_id in database
+  room?: string | null;
+  createdBy?: string | null; // Maps to created_by in database
 }
 
 // Relationship interfaces
 export interface ClassEnrollment extends BaseEntity {
-  startDate: string;
-  endDate?: string | null;
+  startDate: string; // Maps to start_date in database
+  endDate?: string | null; // Maps to end_date in database
   status: EnrollmentStatus;
-  studentId: string;
-  classId: string;
+  studentId: string; // Maps to student_id in database
+  classId: string; // Maps to class_id in database
+  createdBy?: string | null; // Maps to created_by in database
   
   // Loaded relations
   student?: Student;
@@ -250,11 +276,13 @@ export interface ClassEnrollment extends BaseEntity {
 }
 
 export interface ClassAssignment extends BaseEntity {
-  startDate: string;
-  endDate?: string | null;
-  isSubstitute: boolean;
-  staffId: string;
-  classId: string;
+  startDate: string; // Maps to start_date in database
+  endDate?: string | null; // Maps to end_date in database
+  isSubstitute: boolean; // Maps to is_substitute in database (deprecated, now using status)
+  staffId: string; // Maps to staff_id in database
+  classId: string; // Maps to class_id in database
+  status?: string; // Added per migration: ACTIVE/INACTIVE
+  createdBy?: string | null; // Maps to created_by in database
   
   // Loaded relations
   staff?: Staff;
@@ -265,12 +293,17 @@ export interface Absence extends BaseEntity {
   date: string;
   type: AbsenceType;
   reason?: string | null;
-  isRescheduled: boolean;
-  rescheduledDate?: string | null;
-  studentId: string;
+  isRescheduled: boolean; // Maps to is_rescheduled in database
+  rescheduledDate?: string | null; // Maps to rescheduled_date in database (deprecated per migration)
+  studentId: string; // Maps to student_id in database
+  missedSessionId?: string | null; // Maps to missed_session_id in database
+  rescheduledSessionId?: string | null; // Maps to rescheduled_session_id in database
+  createdBy?: string | null; // Maps to created_by in database
   
   // Loaded relations
   student?: Student;
+  missedSession?: Session;
+  rescheduledSession?: Session;
 }
 
 export interface Meeting extends BaseEntity {
@@ -278,7 +311,7 @@ export interface Meeting extends BaseEntity {
   type: MeetingType;
   notes?: string | null;
   outcome?: string | null;
-  studentId: string;
+  studentId: string; // Maps to student_id in database
   
   // Loaded relations
   student?: Student;
@@ -288,7 +321,7 @@ export interface DraftingSession extends BaseEntity {
   date: string;
   type: DraftingType;
   notes?: string | null;
-  studentId: string;
+  studentId: string; // Maps to student_id in database
   
   // Loaded relations
   student?: Student;
@@ -297,8 +330,8 @@ export interface DraftingSession extends BaseEntity {
 export interface ShiftSwap extends BaseEntity {
   date: string;
   reason?: string | null;
-  assignmentId: string;
-  substituteStaffId: string;
+  assignmentId: string; // Maps to assignment_id in database
+  substituteStaffId: string; // Maps to substitute_staff_id in database
   
   // Loaded relations
   originalAssignment?: ClassAssignment;
@@ -309,10 +342,13 @@ export interface Session extends BaseEntity {
   date: string;
   type: SessionType;
   subject: string;
-  classId?: string | null;
-  staffId: string;
-  teachingContent?: string | null;
+  classId?: string | null; // Maps to class_id in database
+  staffId?: string | null; // Maps to staff_id in database (deprecated per migration)
+  teachingContent?: string | null; // Maps to teaching_content in database (deprecated per migration)
   notes?: string | null;
+  subjectId?: string | null; // Maps to subject_id in database
+  startTime?: string | null; // Maps to start_time in database
+  endTime?: string | null; // Maps to end_time in database
   
   // Loaded relations
   class?: Class;
@@ -321,8 +357,8 @@ export interface Session extends BaseEntity {
 }
 
 export interface SessionAttendance extends BaseEntity {
-  sessionId: string;
-  studentId: string;
+  sessionId: string; // Maps to session_id in database
+  studentId: string; // Maps to student_id in database
   attended: boolean;
   notes?: string | null;
   
@@ -335,7 +371,7 @@ export interface Message extends BaseEntity {
   type: MessageType;
   content: string;
   status: MessageStatus;
-  studentId: string;
+  studentId: string; // Maps to student_id in database
   
   // Loaded relations
   student?: Student;
@@ -345,7 +381,7 @@ export interface File extends BaseEntity {
   filename: string;
   path: string;
   type: FileType;
-  studentId: string;
+  studentId: string; // Maps to student_id in database
   
   // Loaded relations
   student?: Student;
@@ -354,7 +390,7 @@ export interface File extends BaseEntity {
 export interface StudentAuditLog extends BaseEntity {
   action: AuditAction;
   details: Record<string, unknown>;
-  studentId: string;
+  studentId: string; // Maps to student_id in database
   
   // Loaded relations
   student?: Student;
@@ -363,7 +399,7 @@ export interface StudentAuditLog extends BaseEntity {
 export interface StaffAuditLog extends BaseEntity {
   action: AuditAction;
   details: Record<string, unknown>;
-  staffId: string;
+  staffId: string; // Maps to staff_id in database
   
   // Loaded relations
   staff?: Staff;
@@ -372,10 +408,73 @@ export interface StaffAuditLog extends BaseEntity {
 export interface ClassAuditLog extends BaseEntity {
   action: AuditAction;
   details: Record<string, unknown>;
-  classId: string;
+  classId: string; // Maps to class_id in database
   
   // Loaded relations
   class?: Class;
+}
+
+// Added interfaces for tables in migrations
+
+export interface SessionsStaff extends BaseEntity {
+  sessionId: string; // Maps to session_id in database
+  staffId: string; // Maps to staff_id in database
+  type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
+  
+  // Loaded relations
+  session?: Session;
+  staff?: Staff;
+}
+
+export interface StudentsSubjects extends BaseEntity {
+  studentId: string; // Maps to student_id in database
+  subjectId: string; // Maps to subject_id in database
+  createdBy?: string | null; // Maps to created_by in database
+  
+  // Loaded relations
+  student?: Student;
+  subject?: Subject;
+}
+
+export interface StaffSubjects extends BaseEntity {
+  staffId: string; // Maps to staff_id in database
+  subjectId: string; // Maps to subject_id in database
+  
+  // Loaded relations
+  staff?: Staff;
+  subject?: Subject;
+}
+
+export interface ResourceFile extends BaseEntity {
+  topicId?: string | null; // Maps to topic_id in database
+  subtopicId?: string | null; // Maps to subtopic_id in database
+  type: ResourceType;
+  answers: ResourceAnswers;
+  number?: number | null;
+  fileUrl: string; // Maps to file_url in database
+  
+  // Loaded relations
+  topic?: Topic;
+  subtopic?: Subtopic;
+}
+
+export interface SessionsResourceFiles extends BaseEntity {
+  sessionId: string; // Maps to session_id in database
+  resourceFileId: string; // Maps to resource_file_id in database
+  createdBy?: string | null; // Maps to created_by in database
+  
+  // Loaded relations
+  session?: Session;
+  resourceFile?: ResourceFile;
+}
+
+export interface SessionAuditLog extends BaseEntity {
+  sessionId: string; // Maps to session_id in database
+  action: AuditAction;
+  details: Record<string, unknown>;
+  
+  // Loaded relations
+  session?: Session;
 }
 
 export interface SyncState {
@@ -399,4 +498,24 @@ export interface SyncQueueItem {
   status: 'PENDING' | 'PROCESSING' | 'FAILED' | 'COMPLETED';
   timestamp?: string; // Added for sync operations
   clientId?: string; // Added for device identification
+}
+
+// Properly expose these types for the subject detail interfaces
+export interface Topic extends BaseEntity {
+  subjectId: string; // Maps to subject_id in database
+  name: string;
+  number: number;
+  area?: string | null;
+  
+  // Loaded relations
+  subject?: Subject;
+}
+
+export interface Subtopic extends BaseEntity {
+  topicId: string; // Maps to topic_id in database
+  name: string;
+  number: number;
+  
+  // Loaded relations
+  topic?: Topic;
 } 

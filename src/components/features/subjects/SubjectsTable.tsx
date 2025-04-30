@@ -22,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { 
   ChevronDown, 
   Search, 
-  MoreHorizontal,
   ArrowUpDown,
   Filter,
   RefreshCw
@@ -31,6 +30,8 @@ import { useSubjects } from '@/lib/hooks';
 import { Subject, SubjectCurriculum, SubjectDiscipline } from '@/lib/supabase/db/types';
 import { cn } from '@/lib/utils/index';
 import { subjectsApi } from '@/lib/supabase/api';
+import { ViewSubjectModal } from './ViewSubjectModal';
+import { EditSubjectModal } from './EditSubjectModal';
 
 export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
   const router = useRouter();
@@ -43,6 +44,9 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
   const [disciplineFilter, setDisciplineFilter] = useState<SubjectDiscipline | 'ALL'>('ALL');
   const [sortField, setSortField] = useState<keyof Subject>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const loadSubjects = async () => {
     try {
@@ -122,7 +126,8 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
   };
   
   const handleSubjectClick = (id: string) => {
-    router.push(`/dashboard/subjects/${id}`);
+    setSelectedSubjectId(id);
+    setIsViewModalOpen(true);
   };
   
   const getCurriculumBadge = (curriculum: SubjectCurriculum | null | undefined) => {
@@ -133,6 +138,7 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
       [SubjectCurriculum.IB]: 'bg-purple-100 text-purple-800',
       [SubjectCurriculum.PRESACE]: 'bg-green-100 text-green-800',
       [SubjectCurriculum.PRIMARY]: 'bg-yellow-100 text-yellow-800',
+      [SubjectCurriculum.MEDICINE]: 'bg-red-100 text-red-800',
     };
     
     return (
@@ -140,6 +146,22 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
         {curriculum}
       </Badge>
     );
+  };
+
+  const handleViewSubject = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedSubjectId(id);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditSubject = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedSubjectId(id);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSubjectUpdated = () => {
+    loadSubjects();
   };
 
   if (loading) {
@@ -196,6 +218,9 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
               <DropdownMenuItem onClick={() => setCurriculumFilter(SubjectCurriculum.PRIMARY)}>
                 Primary
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCurriculumFilter(SubjectCurriculum.MEDICINE)}>
+                Medicine
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -232,6 +257,9 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.LANGUAGE)}>
                 Languages
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.MEDICINE)}>
+                Medicine
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -270,13 +298,12 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
                   sortField === 'level' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSubjects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
+                <TableCell colSpan={4} className="text-center h-24">
                   {searchTerm || curriculumFilter !== 'ALL' || disciplineFilter !== 'ALL'
                     ? "No subjects match your filters" 
                     : "No subjects found"}
@@ -295,36 +322,26 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
                   <TableCell>{subject.year_level || '-'}</TableCell>
                   <TableCell className="font-medium">{subject.name}</TableCell>
                   <TableCell>{subject.level || '-'}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/dashboard/subjects/${subject.id}`);
-                        }}>
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/dashboard/subjects/${subject.id}/edit`);
-                        }}>
-                          Edit
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      <ViewSubjectModal 
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        subjectId={selectedSubjectId}
+        onSubjectUpdated={handleSubjectUpdated}
+      />
+
+      <EditSubjectModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        subjectId={selectedSubjectId}
+        onSubjectUpdated={handleSubjectUpdated}
+      />
     </div>
   );
 } 

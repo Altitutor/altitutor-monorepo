@@ -16,7 +16,7 @@ export {
 } from './auth';
 
 // Export API modules
-export { authApi, studentsApi } from './api';
+export { authApi, studentsApi, subjectsApi } from './api';
 
 // Export repositories
 export { adminRepository } from './db/admin';
@@ -54,12 +54,28 @@ export {
   type Class,
   type ClassEnrollment,
   type ClassAssignment,
+  type SessionAttendance,
+  type SessionsStaff,
+  type StudentsSubjects,
+  type StaffSubjects,
+  type Topic,
+  type Subtopic,
+  type ResourceFile,
+  type SessionsResourceFiles,
+  type Session,
+  type SessionAuditLog,
   // Enums
   StudentStatus,
   StaffRole,
   StaffStatus,
   ClassStatus,
-  EnrollmentStatus
+  EnrollmentStatus,
+  SubjectCurriculum,
+  SubjectDiscipline,
+  ResourceType,
+  ResourceAnswers,
+  SessionType,
+  AuditAction
 } from './db/types';
 
 // Export repository base class
