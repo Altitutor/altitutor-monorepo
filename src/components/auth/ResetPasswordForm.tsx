@@ -35,11 +35,8 @@ const resetPasswordSchema = z.object({
 
 type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
 
-interface ResetPasswordFormProps {
-  token: string;
-}
-
-export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
+// We no longer need the token from props - Supabase will use the hash in the URL
+export function ResetPasswordForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,13 +54,21 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
     setLoading(true);
     setError(null);
     try {
+      // Just pass an empty token - Supabase will use the one from the URL hash
       await authApi.confirmPasswordReset({
-        token,
+        token: '',
         password: data.password,
       });
+      
+      // On success, redirect to login page with success indicator
       router.push('/login?reset=success');
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      console.error('Password reset error:', error);
+      setError(
+        error instanceof Error 
+          ? error.message 
+          : 'An error occurred while resetting your password. Please try again or request a new reset link.'
+      );
     } finally {
       setLoading(false);
     }

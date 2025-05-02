@@ -1,0 +1,545 @@
+import { useState } from 'react';
+import { Staff, StaffRole, StaffStatus } from "@/lib/supabase/db/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Pencil } from "lucide-react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+// Form schema for staff details
+const formSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email address'),
+  phoneNumber: z
+    .string()
+    .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
+    .optional()
+    .nullish(),
+  role: z.nativeEnum(StaffRole),
+  status: z.nativeEnum(StaffStatus),
+  officeKeyNumber: z.number().nullable().optional(),
+  hasParkingRemote: z.enum(['VIRTUAL', 'PHYSICAL', 'NONE']).nullable().optional(),
+  
+  // Availability checkboxes
+  availability_monday: z.boolean(),
+  availability_tuesday: z.boolean(),
+  availability_wednesday: z.boolean(),
+  availability_thursday: z.boolean(),
+  availability_friday: z.boolean(),
+  availability_saturday_am: z.boolean(),
+  availability_saturday_pm: z.boolean(),
+  availability_sunday_am: z.boolean(),
+  availability_sunday_pm: z.boolean(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+const getRoleBadgeColor = (role: StaffRole) => {
+  switch (role) {
+    case StaffRole.ADMIN:
+      return 'bg-purple-100 text-purple-800';
+    case StaffRole.TUTOR:
+      return 'bg-blue-100 text-blue-800';
+    case StaffRole.ADMINSTAFF:
+      return 'bg-indigo-100 text-indigo-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getStatusBadgeColor = (status: StaffStatus) => {
+  switch (status) {
+    case StaffStatus.ACTIVE:
+      return 'bg-green-100 text-green-800';
+    case StaffStatus.INACTIVE:
+      return 'bg-gray-100 text-gray-800';
+    case StaffStatus.TRIAL:
+      return 'bg-orange-100 text-orange-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+interface StaffDetailsTabProps {
+  staffMember: Staff;
+  isEditing: boolean;
+  isLoading: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSubmit: (data: FormData) => Promise<void>;
+}
+
+export function StaffDetailsTab({
+  staffMember,
+  isEditing,
+  isLoading,
+  onEdit,
+  onCancelEdit,
+  onSubmit
+}: StaffDetailsTabProps) {
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      firstName: staffMember.firstName || '',
+      lastName: staffMember.lastName || '',
+      email: staffMember.email || '',
+      phoneNumber: staffMember.phoneNumber || '',
+      role: staffMember.role,
+      status: staffMember.status,
+      officeKeyNumber: staffMember.officeKeyNumber || null,
+      hasParkingRemote: staffMember.hasParkingRemote || 'NONE',
+      availability_monday: staffMember.availabilityMonday || false,
+      availability_tuesday: staffMember.availabilityTuesday || false,
+      availability_wednesday: staffMember.availabilityWednesday || false,
+      availability_thursday: staffMember.availabilityThursday || false,
+      availability_friday: staffMember.availabilityFriday || false,
+      availability_saturday_am: staffMember.availabilitySaturdayAm || false,
+      availability_saturday_pm: staffMember.availabilitySaturdayPm || false,
+      availability_sunday_am: staffMember.availabilitySundayAm || false,
+      availability_sunday_pm: staffMember.availabilitySundayPm || false,
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">Staff details</h3>
+        {!isEditing && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="flex items-center gap-2" 
+            onClick={onEdit}
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
+        )}
+      </div>
+
+      {isEditing ? (
+        // Edit Mode
+        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input 
+                id="firstName" 
+                {...form.register('firstName')} 
+                disabled={isLoading} 
+              />
+              {form.formState.errors.firstName && (
+                <p className="text-sm text-red-500">{form.formState.errors.firstName.message}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input 
+                id="lastName" 
+                {...form.register('lastName')} 
+                disabled={isLoading} 
+              />
+              {form.formState.errors.lastName && (
+                <p className="text-sm text-red-500">{form.formState.errors.lastName.message}</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input 
+              id="email" 
+              type="email" 
+              {...form.register('email')} 
+              disabled={isLoading} 
+            />
+            {form.formState.errors.email && (
+              <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
+            )}
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="phoneNumber">Phone Number</Label>
+            <Input 
+              id="phoneNumber" 
+              {...form.register('phoneNumber')} 
+              disabled={isLoading} 
+              placeholder="e.g. +12345678901"
+            />
+            {form.formState.errors.phoneNumber && (
+              <p className="text-sm text-red-500">{form.formState.errors.phoneNumber.message}</p>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="officeKeyNumber">Office Key Number</Label>
+              <Input
+                id="officeKeyNumber"
+                type="number"
+                {...form.register('officeKeyNumber', { 
+                  setValueAs: (v) => v === '' ? null : parseInt(v, 10) 
+                })}
+                disabled={isLoading}
+                placeholder="Enter key number"
+              />
+              {form.formState.errors.officeKeyNumber && (
+                <p className="text-sm text-red-500">{form.formState.errors.officeKeyNumber.message}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="hasParkingRemote">Parking Remote</Label>
+              <Controller
+                control={form.control}
+                name="hasParkingRemote"
+                render={({ field }) => (
+                  <Select
+                    disabled={isLoading}
+                    value={field.value || 'NONE'}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger id="hasParkingRemote">
+                      <SelectValue placeholder="Select option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="VIRTUAL">Virtual</SelectItem>
+                      <SelectItem value="PHYSICAL">Physical</SelectItem>
+                      <SelectItem value="NONE">None</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.hasParkingRemote && (
+                <p className="text-sm text-red-500">{form.formState.errors.hasParkingRemote.message}</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Controller
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <Select 
+                    disabled={isLoading}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={StaffRole.TUTOR}>Tutor</SelectItem>
+                      <SelectItem value={StaffRole.ADMINSTAFF}>Admin Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.role && (
+                <p className="text-sm text-red-500">{form.formState.errors.role.message}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Controller
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <Select 
+                    disabled={isLoading}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={StaffStatus.ACTIVE}>Active</SelectItem>
+                      <SelectItem value={StaffStatus.INACTIVE}>Inactive</SelectItem>
+                      <SelectItem value={StaffStatus.TRIAL}>Trial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.status && (
+                <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Availability</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_monday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_monday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_monday">Monday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_tuesday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_tuesday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_tuesday">Tuesday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_wednesday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_wednesday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_wednesday">Wednesday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_thursday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_thursday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_thursday">Thursday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_friday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_friday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_friday">Friday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_saturday_am"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_saturday_am" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_saturday_am">Saturday AM</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_saturday_pm"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_saturday_pm" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_saturday_pm">Saturday PM</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_sunday_am"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_sunday_am" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_sunday_am">Sunday AM</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={form.control}
+                  name="availability_sunday_pm"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_sunday_pm" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_sunday_pm">Sunday PM</Label>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancelEdit}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      ) : (
+        // View Mode
+        <>
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
+            <div className="text-sm font-medium">First Name:</div>
+            <div className="min-w-0">{staffMember.firstName || '-'}</div>
+            
+            <div className="text-sm font-medium">Last Name:</div>
+            <div className="min-w-0">{staffMember.lastName || '-'}</div>
+            
+            <div className="text-sm font-medium">Email:</div>
+            <div className="min-w-0 truncate" title={staffMember.email || ''}>
+              {staffMember.email || '-'}
+            </div>
+            
+            <div className="text-sm font-medium">Phone Number:</div>
+            <div className="min-w-0">{staffMember.phoneNumber || '-'}</div>
+            
+            <div className="text-sm font-medium">Office Key Number:</div>
+            <div className="min-w-0">{staffMember.officeKeyNumber || '-'}</div>
+            
+            <div className="text-sm font-medium">Parking Remote:</div>
+            <div className="min-w-0">{staffMember.hasParkingRemote || 'None'}</div>
+            
+            <div className="text-sm font-medium">Role:</div>
+            <div className="min-w-0">
+              <Badge className={getRoleBadgeColor(staffMember.role)}>
+                {staffMember.role}
+              </Badge>
+            </div>
+            
+            <div className="text-sm font-medium">Status:</div>
+            <div className="min-w-0">
+              <Badge className={getStatusBadgeColor(staffMember.status)}>
+                {staffMember.status}
+              </Badge>
+            </div>
+            
+            <div className="text-sm font-medium">Created:</div>
+            <div className="min-w-0">{new Date(staffMember.created_at).toLocaleDateString()}</div>
+          </div>
+          
+          <Separator className="my-4" />
+          
+          <div>
+            <h3 className="text-sm font-medium mb-3">Availability</h3>
+            <div className="grid grid-cols-3 gap-y-2">
+              {staffMember.availabilityMonday && (
+                <span className="text-sm">Monday</span>
+              )}
+              {staffMember.availabilityTuesday && (
+                <span className="text-sm">Tuesday</span>
+              )}
+              {staffMember.availabilityWednesday && (
+                <span className="text-sm">Wednesday</span>
+              )}
+              {staffMember.availabilityThursday && (
+                <span className="text-sm">Thursday</span>
+              )}
+              {staffMember.availabilityFriday && (
+                <span className="text-sm">Friday</span>
+              )}
+              {staffMember.availabilitySaturdayAm && (
+                <span className="text-sm">Saturday AM</span>
+              )}
+              {staffMember.availabilitySaturdayPm && (
+                <span className="text-sm">Saturday PM</span>
+              )}
+              {staffMember.availabilitySundayAm && (
+                <span className="text-sm">Sunday AM</span>
+              )}
+              {staffMember.availabilitySundayPm && (
+                <span className="text-sm">Sunday PM</span>
+              )}
+              {![
+                staffMember.availabilityMonday,
+                staffMember.availabilityTuesday,
+                staffMember.availabilityWednesday,
+                staffMember.availabilityThursday,
+                staffMember.availabilityFriday,
+                staffMember.availabilitySaturdayAm,
+                staffMember.availabilitySaturdayPm,
+                staffMember.availabilitySundayAm,
+                staffMember.availabilitySundayPm
+              ].some(Boolean) && (
+                <span className="text-sm text-muted-foreground">No availability set</span>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export { formSchema };
+export type { FormData as StaffDetailsFormData }; 

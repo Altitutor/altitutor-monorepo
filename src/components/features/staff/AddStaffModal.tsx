@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { staffApi } from '@/lib/supabase/api';
-import { Staff, StaffRole } from '@/lib/supabase/db/types';
+import { Staff, StaffRole, StaffStatus } from '@/lib/supabase/db/types';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 interface AddStaffModalProps {
   isOpen: boolean;
@@ -50,6 +50,7 @@ type FormData = z.infer<typeof formSchema>;
 export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const { 
     control, 
@@ -79,6 +80,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
 
   const onSubmit: SubmitHandler<FormData> = async (formData) => {
     setIsSubmitting(true);
+    setErrorMessage(null);
     
     try {
       // Convert form data to staff object
@@ -106,7 +108,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       
       toast({
         title: 'Staff added successfully',
-        description: 'An invitation email has been sent to the staff member.',
+        description: 'An invitation email has been sent with instructions to set up their account.',
       });
       
       // Reset form and close modal
@@ -115,9 +117,24 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       onClose();
     } catch (error) {
       console.error('Error adding staff:', error);
+      
+      let errorMsg = 'An unknown error occurred';
+      if (error instanceof Error) {
+        errorMsg = error.message;
+        
+        // Check for specific Supabase errors
+        if (errorMsg.includes('User already registered')) {
+          errorMsg = 'A user with this email already exists';
+        } else if (errorMsg.includes('not allowed')) {
+          errorMsg = 'You do not have permission to add staff members';
+        }
+      }
+      
+      setErrorMessage(errorMsg);
+      
       toast({
         title: 'Error adding staff',
-        description: error instanceof Error ? error.message : 'An unknown error occurred',
+        description: errorMsg,
         variant: 'destructive',
       });
     } finally {
@@ -127,6 +144,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
 
   const handleCloseModal = () => {
     reset();
+    setErrorMessage(null);
     onClose();
   };
 
@@ -136,6 +154,13 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         <SheetHeader className="mb-6">
           <SheetTitle className="text-xl">Add New Staff Member</SheetTitle>
         </SheetHeader>
+        
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+            <div className="text-sm text-red-600">{errorMessage}</div>
+          </div>
+        )}
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-20">
           <div className="grid grid-cols-2 gap-4">

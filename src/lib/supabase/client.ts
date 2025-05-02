@@ -28,6 +28,21 @@ export const supabaseServer = createClient<Database>(
   }
 );
 
+// Admin client with service role for admin operations
+// This should only be used server-side in secure API routes
+export const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+  : null;
+
 // Function to get client-side instance with consistent config
 export function getSupabaseClient() {
   // In browser environments, prefer the client component client which handles cookies correctly

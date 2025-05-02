@@ -24,7 +24,7 @@ import { Staff, StaffRole, StaffStatus } from '@/lib/supabase/db/types';
 import { staffApi } from '@/lib/supabase/api';
 import { cn } from '@/lib/utils/index';
 import { AddStaffModal } from './AddStaffModal';
-import { ViewStaffModal } from './ViewStaffModal';
+import { ViewStaffModal } from './modal';
 import {
   DropdownMenu,
   DropdownMenuContent,

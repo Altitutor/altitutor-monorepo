@@ -246,6 +246,7 @@ export interface Subject extends BaseEntity {
   curriculum?: SubjectCurriculum | null;
   discipline?: SubjectDiscipline | null;
   level?: string | null; // 'HL'/'SL' for IB, 'ADVANCED'/'STANDARD' for PRESACE
+  color?: string | null; // Color code for visual representation in UI
 }
 
 export interface Class extends BaseEntity {
@@ -342,7 +343,7 @@ export interface Session extends BaseEntity {
   date: string;
   type: SessionType;
   subject: string;
-  classId?: string | null; // Maps to class_id in database
+  classId?: string | null; // Maps to class_id in database, links session to a class
   staffId?: string | null; // Maps to staff_id in database (deprecated per migration)
   teachingContent?: string | null; // Maps to teaching_content in database (deprecated per migration)
   notes?: string | null;
@@ -405,7 +406,7 @@ export interface StaffAuditLog extends BaseEntity {
   staff?: Staff;
 }
 
-export interface ClassAuditLog extends BaseEntity {
+export interface ClassesAuditLog extends BaseEntity {
   action: AuditAction;
   details: Record<string, unknown>;
   classId: string; // Maps to class_id in database

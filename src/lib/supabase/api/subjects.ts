@@ -20,15 +20,7 @@ export const subjectsApi = {
    * Get all subjects
    */
   getAllSubjects: async (): Promise<Subject[]> => {
-    try {
-      console.log('Getting all subjects from repository');
-      const subjects = await subjectRepository.getAll();
-      console.log(`Retrieved ${subjects?.length || 0} subjects`);
-      return subjects;
-    } catch (error) {
-      console.error('Error getting subjects:', error);
-      throw error;
-    }
+    return subjectRepository.getAll();
   },
   
   /**
@@ -36,6 +28,29 @@ export const subjectsApi = {
    */
   getSubject: async (id: string): Promise<Subject | undefined> => {
     return subjectRepository.getById(id);
+  },
+  
+  /**
+   * Search subjects by name, curriculum, or year level
+   */
+  searchSubjects: async (query: string): Promise<Subject[]> => {
+    try {
+      // Get all subjects first
+      const allSubjects = await subjectRepository.getAll();
+      
+      // Filter subjects based on the search query
+      const lowerQuery = query.toLowerCase();
+      return allSubjects.filter(subject => {
+        return (
+          (subject.name?.toLowerCase().includes(lowerQuery)) ||
+          (subject.curriculum?.toLowerCase().includes(lowerQuery)) ||
+          (subject.yearLevel?.toString().includes(lowerQuery))
+        );
+      });
+    } catch (error) {
+      console.error('Error searching subjects:', error);
+      throw error;
+    }
   },
   
   /**

@@ -137,7 +137,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               <Link 
                 href="/dashboard/students"
-                className="flex items-center justify-between p-3 text-sm rounded-lg border hover:bg-accent transition-colors"
+                className="flex items-center justify-between p-3 text-sm rounded-lg border hover:bg-accent/10 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <GraduationCap className="h-4 w-4" />

@@ -1,6 +1,6 @@
 # Table View and Edit Implementation Guide
 
-This guide provides instructions for implementing consistent table view and edit functionality across different entities in the admin application. This implementation follows the pattern established in the subjects module.
+This guide provides instructions for implementing consistent table view and edit functionality across different entities in the admin application. This implementation follows the patterns established in the subjects, topics, and staff modules.
 
 ## Table of Contents
 
@@ -10,16 +10,26 @@ This guide provides instructions for implementing consistent table view and edit
 4. [Key Components](#key-components)
 5. [API Patterns](#api-patterns)
 6. [Example Implementation](#example-implementation)
+7. [Modal Design Principles](#modal-design-principles)
+8. [Common UI Patterns](#common-ui-patterns)
 
 ## Overview
 
-Our admin app follows a consistent pattern for displaying, filtering, and editing data entities. Each entity (Subjects, Staff, Classes, etc.) has a table view that supports:
+Our admin app follows a consistent pattern for displaying, filtering, and editing data entities. Each entity (Subjects, Staff, Topics, etc.) has a table view that supports:
 
 - Displaying data in a sortable, filterable table
 - Clicking a row to view detailed information in a modal
-- Editing entity details within the same modal
+- Combined view/edit functionality in a single modal
 - Deleting entities with confirmation
 - Quick navigation buttons to related entities
+- Consistent UI patterns for dropdowns, badges, and filters
+
+The admin UI follows these key principles:
+1. Consistency in modal behavior and animation
+2. Combined view/edit functionality in one component
+3. Full-height modals when appropriate
+4. Standardized table layouts and filter controls
+5. Clear visual hierarchy with cards and sections
 
 ## File Structure
 
@@ -27,18 +37,16 @@ For each entity, create the following files in the `src/components/features/[ent
 
 1. `[Entity]Table.tsx` - The main table component
 2. `View[Entity]Modal.tsx` - Modal for viewing entity details and providing edit functionality
-3. `Add[Entity]Modal.tsx` - Modal for creating new entities (optional)
-4. `Edit[Entity]Modal.tsx` - Modal for editing entities (optional, can be combined with View modal)
-5. `index.ts` - Barrel file to export all components
+3. `Add[Entity]Modal.tsx` - Modal for creating new entities
+4. `index.ts` - Barrel file to export all components
 
-Looking at the subjects implementation, you'll see:
+The current pattern combines view and edit functionality in a single modal component rather than using separate components, which provides a more streamlined user experience.
 
 ```
 src/components/features/subjects/
 ├── SubjectsTable.tsx       # Main table component 
-├── ViewSubjectModal.tsx    # View/edit/delete modal
+├── ViewSubjectModal.tsx    # Combined view/edit/delete modal
 ├── AddSubjectModal.tsx     # Modal for adding new subjects
-├── EditSubjectModal.tsx    # Edit-specific modal
 └── index.ts                # Exports all components
 ```
 
@@ -48,11 +56,13 @@ Additionally, ensure you have:
 - Repository in `src/lib/supabase/db/repositories.ts`
 - Entity types in `src/lib/supabase/db/types.ts`
 
+This structure has been implemented consistently across the Subjects, Staff, and Topics modules.
+
 ## Implementation Steps
 
 ### 1. Table Component
 
-Start by implementing the table component based on the `SubjectsTable.tsx` pattern:
+Start by implementing the table component based on the patterns in `SubjectsTable.tsx` and `StaffTable.tsx`:
 
 ```tsx
 'use client';
@@ -62,11 +72,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, Search, ArrowUpDown, Filter, RefreshCw } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, Search, ArrowUpDown, Filter, RefreshCw, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { [EntityName] } from '@/lib/supabase/db/types';
 import { [entityName]Api } from '@/lib/supabase/api';
 import { View[EntityName]Modal } from './View[EntityName]Modal';
+import { Add[EntityName]Modal } from './Add[EntityName]Modal';
 import { cn } from '@/lib/utils/index';
 
 export function [EntityName]Table({ onRefresh }: { onRefresh?: number }) {
@@ -80,6 +97,7 @@ export function [EntityName]Table({ onRefresh }: { onRefresh?: number }) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selected[EntityName]Id, setSelected[EntityName]Id] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Load data
   const loadItems = async () => {
@@ -157,12 +175,22 @@ export function [EntityName]Table({ onRefresh }: { onRefresh?: number }) {
     setIsViewModalOpen(true);
   };
 
+  // Handle item updated (reloads the data)
+  const handleItemUpdated = () => {
+    loadItems();
+  };
+
+  // Handle add button click
+  const handleAddItemClick = () => {
+    setIsAddModalOpen(true);
+  };
+
   // UI States
-  if (loading) {
+  if (loading && items.length === 0) {
     return <div className="flex justify-center p-4">Loading [entityName]s...</div>;
   }
 
-  if (error) {
+  if (error && items.length === 0) {
     return <div className="text-red-500 p-4">{error}</div>;
   }
 
@@ -180,12 +208,16 @@ export function [EntityName]Table({ onRefresh }: { onRefresh?: number }) {
           />
         </div>
         <div className="flex space-x-2 items-center">
+          {/* Add dropdown filters as needed */}
           <Button variant="outline" size="sm" onClick={loadItems} className="flex items-center">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           
-          {/* Add more filters here as needed */}
+          <Button size="sm" onClick={handleAddItemClick} className="flex items-center">
+            <Plus className="h-4 w-4 mr-2" />
+            Add [EntityName]
+          </Button>
         </div>
       </div>
 
@@ -229,29 +261,40 @@ export function [EntityName]Table({ onRefresh }: { onRefresh?: number }) {
           </TableBody>
         </Table>
       </div>
+      
+      <div className="text-sm text-muted-foreground">
+        {filteredItems.length} items displayed
+      </div>
 
       {/* View/Edit Modal */}
       <View[EntityName]Modal 
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         [entityName]Id={selected[EntityName]Id}
-        on[EntityName]Updated={loadItems}
+        on[EntityName]Updated={handleItemUpdated}
+      />
+      
+      {/* Add Modal */}
+      <Add[EntityName]Modal 
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        on[EntityName]Added={handleItemUpdated}
       />
     </div>
   );
 }
 ```
 
-### 2. View Modal Component
+### 2. View/Edit Modal Component
 
-Next, implement the view/edit modal based on the `ViewSubjectModal.tsx` pattern:
+Next, implement the combined view/edit modal based on the patterns in `ViewSubjectModal.tsx` and `ViewStaffModal.tsx`:
 
 ```tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -304,6 +347,7 @@ export function View[EntityName]Modal({ isOpen, onClose, [entityName]Id, on[Enti
     } else {
       setItem(null);
       setError(null);
+      setIsEditing(false);
     }
   }, [isOpen, [entityName]Id]);
 
@@ -423,17 +467,11 @@ export function View[EntityName]Modal({ isOpen, onClose, [entityName]Id, on[Enti
     }
   };
 
-  // Navigation helper
-  const navigateTo = (path: string) => {
-    router.push(path);
-    onClose();
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={(isOpen) => {
       if (!isOpen) onClose();
     }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
+      <DialogContent className="max-w-4xl max-h-[100vh] h-full overflow-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">
             {loading ? 'Loading [EntityName]...' : item?.name || '[EntityName] Details'}
@@ -578,13 +616,8 @@ export function View[EntityName]Modal({ isOpen, onClose, [entityName]Id, on[Enti
                   </CardContent>
                 </Card>
 
-                {/* Related entity navigation buttons */}
-                <div className="flex flex-wrap gap-2">
-                  {/* Add navigation buttons to related entities */}
-                  <Button variant="outline" className="flex items-center" onClick={() => navigateTo('[path-to-related-entity]')}>
-                    Related Entity
-                  </Button>
-                </div>
+                {/* Related entity navigation buttons or additional sections */}
+                {/* Add these based on entity relationships */}
               </>
             )}
           </div>
@@ -595,97 +628,38 @@ export function View[EntityName]Modal({ isOpen, onClose, [entityName]Id, on[Enti
 }
 ```
 
-### 3. API Implementation
-
-Create an API module for the entity based on the `subjects.ts` pattern:
-
-```typescript
-// src/lib/supabase/api/[entity-name].ts
-import { [entityName]Repository } from '../db/repositories';
-import { [EntityName] } from '../db/types';
-import { adminRepository } from '../db/admin';
-
-export const [entityName]Api = {
-  /**
-   * Get all [entityName]s
-   */
-  getAll[EntityName]s: async (): Promise<[EntityName][]> => {
-    try {
-      const items = await [entityName]Repository.getAll();
-      return items;
-    } catch (error) {
-      console.error('Error getting [entityName]s:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Get a [entityName] by ID
-   */
-  get[EntityName]: async (id: string): Promise<[EntityName] | undefined> => {
-    return [entityName]Repository.getById(id);
-  },
-  
-  /**
-   * Create a new [entityName]
-   */
-  create[EntityName]: async (data: Partial<[EntityName]>): Promise<[EntityName]> => {
-    // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
-    return [entityName]Repository.create(data);
-  },
-  
-  /**
-   * Update a [entityName]
-   */
-  update[EntityName]: async (id: string, data: Partial<[EntityName]>): Promise<[EntityName]> => {
-    // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
-    return [entityName]Repository.update(id, data);
-  },
-  
-  /**
-   * Delete a [entityName]
-   */
-  delete[EntityName]: async (id: string): Promise<void> => {
-    // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
-    return [entityName]Repository.delete(id);
-  },
-
-  // Add methods for related entities as needed
-};
-```
-
 ## Key Components
 
 ### Styling Enums with Badges
 
-For enum values, create a badge helper like the one used in `SubjectsTable.tsx`:
+For enum values, create a badge helper like those used in the implemented tables:
 
 ```tsx
-// Example from SubjectsTable.tsx
-const getCurriculumBadge = (curriculum: SubjectCurriculum | null | undefined) => {
-  if (!curriculum) return null;
-  
-  const colorMap: Record<SubjectCurriculum, string> = {
-    [SubjectCurriculum.SACE]: 'bg-blue-100 text-blue-800',
-    [SubjectCurriculum.IB]: 'bg-purple-100 text-purple-800',
-    [SubjectCurriculum.PRESACE]: 'bg-green-100 text-green-800',
-    [SubjectCurriculum.PRIMARY]: 'bg-yellow-100 text-yellow-800',
-  };
-  
-  return (
-    <Badge className={colorMap[curriculum]}>
-      {curriculum}
-    </Badge>
-  );
+// Example from StaffTable.tsx
+const getRoleBadgeColor = (role: StaffRole) => {
+  switch (role) {
+    case StaffRole.ADMIN:
+      return 'bg-purple-100 text-purple-800';
+    case StaffRole.TUTOR:
+      return 'bg-blue-100 text-blue-800';
+    case StaffRole.ADMINSTAFF:
+      return 'bg-indigo-100 text-indigo-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
 };
+
+// Then use it in your table cells:
+<TableCell>
+  <Badge className={getRoleBadgeColor(staff.role)}>
+    {staff.role}
+  </Badge>
+</TableCell>
 ```
 
 ### Delete Confirmation Dialog
 
-The delete confirmation dialog in `ViewSubjectModal.tsx` uses the AlertDialog component:
+Implement consistent delete confirmation using the AlertDialog component:
 
 ```tsx
 <AlertDialog>
@@ -724,42 +698,424 @@ The delete confirmation dialog in `ViewSubjectModal.tsx` uses the AlertDialog co
 </AlertDialog>
 ```
 
+### Dropdown Filters
+
+Use dropdown menus for filters in your tables:
+
+```tsx
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button 
+      variant={filterValue !== 'ALL' ? "secondary" : "outline"} 
+      size="sm"
+      className="flex items-center"
+    >
+      <Filter className="h-4 w-4 mr-2" />
+      {filterValue === 'ALL' ? 'Filter Name' : filterValue}
+      <ChevronDown className="h-4 w-4 ml-1" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end">
+    <DropdownMenuItem onClick={() => setFilterValue('ALL')}>
+      All Values
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => setFilterValue('OPTION_1')}>
+      Option 1
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => setFilterValue('OPTION_2')}>
+      Option 2
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+## Modal Design Principles
+
+Following the implemented patterns, we have established these consistent modal design principles:
+
+### 1. Animation and Background
+
+- Modals should have a consistent animation speed (250ms)
+- The background should be darkened but not blurred
+- Use `max-h-[100vh]` and `h-full` for modals that need full height
+- Standard modal width should be 425px or wider (max-w-3xl or max-w-4xl) depending on content
+
+```tsx
+// DialogContent common settings for consistency
+<DialogContent className="max-w-4xl max-h-[100vh] h-full overflow-auto">
+  {/* Modal content */}
+</DialogContent>
+```
+
+### 2. Combined View/Edit Approach
+
+All entity modals should use a combined view/edit approach rather than separate modal components:
+
+1. Default view shows read-only content with an Edit button
+2. When Edit is clicked, the same modal switches to a form interface
+3. After saving, the view reverts to read-only mode with updated data
+4. Delete functionality is available in both view and edit modes
+
+This approach improves user experience by:
+- Reducing the number of different components
+- Providing seamless transitions between viewing and editing
+- Maintaining context when editing
+- Creating a consistent pattern across the application
+
+### 3. Loading States
+
+Implement consistent loading states for all async operations:
+
+```tsx
+{loading ? (
+  <div className="flex justify-center items-center py-12">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <span className="ml-2">Loading {entityName} details...</span>
+  </div>
+) : error ? (
+  <div className="flex flex-col items-center py-8 text-center">
+    <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+    <h3 className="text-lg font-semibold">Error Loading {EntityName}</h3>
+    <p className="text-muted-foreground">{error}</p>
+    <Button 
+      variant="outline" 
+      className="mt-4"
+      onClick={() => entityNameId && loadItem(entityNameId)}
+    >
+      Try Again
+    </Button>
+  </div>
+) : item ? (
+  // Main content
+) : null}
+```
+
+### 4. Card-Based Content Structure
+
+Organize modal content using Card components for visual hierarchy:
+
+```tsx
+<Card>
+  <CardHeader>
+    <CardTitle className="flex justify-between items-center">
+      <span>Section Title</span>
+      <Button 
+        variant="outline" 
+        size="sm" 
+        className="flex items-center" 
+        onClick={handleActionClick}
+      >
+        <Icon className="mr-2 h-4 w-4" />
+        Action
+      </Button>
+    </CardTitle>
+    <CardDescription>
+      Section description text
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    {/* Section content */}
+  </CardContent>
+</Card>
+```
+
 ## API Patterns
 
-Follow these patterns for API design as shown in the `subjects.ts` API file:
+Follow these patterns for API design as shown in the implemented API files:
 
-1. **Repository-based operations**: Use the repository pattern for basic CRUD operations
-2. **Admin checks**: Always include admin verification before mutating operations (see `adminRepository.ensureAdminUser()`)
-3. **Error handling**: Use consistent error handling patterns with try/catch blocks
-4. **Data formatting**: Return properly formatted data for the frontend
+### 1. Repository-Based Operations
+
+Use the repository pattern for basic CRUD operations. The base Repository class handles standard database operations and field conversions.
+
+```typescript
+// Example API method structure
+export const entityNameApi = {
+  getAllEntityNames: async (): Promise<EntityName[]> => {
+    try {
+      const items = await entityNameRepository.getAll();
+      return items;
+    } catch (error) {
+      console.error('Error getting entity names:', error);
+      throw error;
+    }
+  },
+  
+  getEntityName: async (id: string): Promise<EntityName | undefined> => {
+    return entityNameRepository.getById(id);
+  }
+};
+```
+
+### 2. Admin Authorization Checks
+
+Always include admin verification before mutating operations:
+
+```typescript
+createEntityName: async (data: Partial<EntityName>): Promise<EntityName> => {
+  // Ensure the user is an admin first
+  await adminRepository.ensureAdminUser();
+  return entityNameRepository.create(data);
+}
+```
+
+### 3. Consistent Error Handling
+
+Implement consistent error handling in API methods:
+
+```typescript
+try {
+  // Operation code
+} catch (error) {
+  console.error('Descriptive error message:', error);
+  throw error;  // Re-throw to allow UI to handle it
+} finally {
+  // Cleanup code if needed
+}
+```
+
+### 4. Related Entity Methods
+
+Include methods for fetching related entities in the appropriate API file:
+
+```typescript
+// Example from subjects API
+getSubjectTopics: async (subjectId: string): Promise<Topic[]> => {
+  try {
+    const topics = await topicRepository.getBy('subject_id', subjectId);
+    return topics.sort((a, b) => a.number - b.number);
+  } catch (error) {
+    console.error('Error getting subject topics:', error);
+    throw error;
+  }
+}
+```
+
+### 5. Type Handling
+
+Ensure proper TypeScript typing throughout the API implementation:
+
+```typescript
+// Example with explicit typing
+updateEntityName: async (id: string, data: Partial<EntityName>): Promise<EntityName> => {
+  await adminRepository.ensureAdminUser();
+  return entityNameRepository.update(id, data);
+}
+```
+
+## Common UI Patterns
+
+### 1. Table Structure
+
+Follow this consistent table structure for all entity tables:
+
+1. Top controls section with search, filters, and action buttons
+2. Main table section with sortable columns
+3. Empty state handling for when no items exist or match filters
+4. Item count display at the bottom
+5. Row click handler to view item details
+
+```tsx
+<div className="space-y-4">
+  {/* Controls section */}
+  <div className="flex justify-between items-center">
+    {/* Search input */}
+    {/* Filter and action buttons */}
+  </div>
+
+  {/* Table */}
+  <div className="rounded-md border">
+    <Table>
+      <TableHeader>
+        {/* Sortable column headers */}
+      </TableHeader>
+      <TableBody>
+        {/* Conditional rendering for empty state */}
+        {/* Row mapping with click handlers */}
+      </TableBody>
+    </Table>
+  </div>
+  
+  {/* Item count */}
+  <div className="text-sm text-muted-foreground">
+    {filteredItems.length} items displayed
+  </div>
+</div>
+```
+
+### 2. Consistent Controls
+
+Use these consistent UI controls across tables:
+
+1. **Search input** with icon in the left section
+2. **Filter dropdowns** in the right section
+3. **Refresh button** with the RefreshCw icon
+4. **Add button** with the Plus icon
+
+```tsx
+{/* Search with icon */}
+<div className="relative w-64">
+  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  <Input
+    placeholder="Search items..."
+    className="pl-8"
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+  />
+</div>
+
+{/* Filter dropdown */}
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="outline" size="sm">
+      <Filter className="h-4 w-4 mr-2" />
+      Filter: {currentFilter}
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    {/* Filter options */}
+  </DropdownMenuContent>
+</DropdownMenu>
+
+{/* Refresh button */}
+<Button variant="outline" size="sm" onClick={loadItems} className="flex items-center">
+  <RefreshCw className="h-4 w-4 mr-2" />
+  Refresh
+</Button>
+
+{/* Add button */}
+<Button size="sm" onClick={handleAddItemClick} className="flex items-center">
+  <Plus className="h-4 w-4 mr-2" />
+  Add Item
+</Button>
+```
+
+### 3. Form Fields
+
+Use consistent form field components with comprehensive validation:
+
+```tsx
+<FormField
+  control={form.control}
+  name="fieldName"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Field Label</FormLabel>
+      <FormControl>
+        <Input placeholder="Enter value" {...field} />
+      </FormControl>
+      <FormDescription>
+        Optional helper text for this field
+      </FormDescription>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### 4. Toast Notifications
+
+Use toast notifications for action feedback:
+
+```tsx
+toast({
+  title: "Action completed",
+  description: "The operation was successful.",
+  // Optional variant for different styles: default, destructive, etc.
+});
+
+// For errors
+toast({
+  title: "Action failed",
+  description: "There was an error. Please try again.",
+  variant: "destructive",
+});
+```
 
 ## Example Implementation
 
-The subjects module provides a complete reference implementation:
+The admin application provides several reference implementations that demonstrate these patterns:
 
-- `src/components/features/subjects/SubjectsTable.tsx` - Table implementation showing filter, sort, and row click handling
-- `src/components/features/subjects/ViewSubjectModal.tsx` - View/edit modal with form handling, validation, and delete functionality
-- `src/components/features/subjects/EditSubjectModal.tsx` - Separate edit modal (you may prefer to combine this with the view modal)
-- `src/components/features/subjects/AddSubjectModal.tsx` - Modal for adding new subjects
-- `src/lib/supabase/api/subjects.ts` - API methods for CRUD operations and related data
-- `src/lib/supabase/db/repositories.ts` - Repository implementation
+### Staff Module
 
-To adapt this for other entities:
+`src/components/features/staff/` contains a complete implementation:
 
-1. Start by copying the subjects implementation
-2. Replace all instances of "subject" with your entity name
-3. Update the form fields, table columns, and other entity-specific elements
-4. Add custom logic specific to your entity
+- `StaffTable.tsx` - Table with filtering by role and status
+- `ViewStaffModal.tsx` - Combined view/edit modal with form validation
+- `AddStaffModal.tsx` - Form for adding new staff members
+- `index.ts` - Barrel file that exports all components
 
-## Additional Tips
+Key features:
+- Role and status badges with color coding
+- Form validation for staff fields
+- Combined view/edit approach
+- Responsive grid layout for staff details
 
-1. Use the form schema validation for proper error handling
-2. Keep modals as focused and simple as possible
-3. Use badges for status and type fields to improve visual clarity
-4. Implement loading states for all async operations
-5. Use consistent styling across all entity tables
-6. Consider splitting create, read, update, delete functionality into separate components if they become complex
+### Subjects Module
+
+`src/components/features/subjects/` provides another implementation:
+
+- `SubjectsTable.tsx` - Table with curriculum and discipline filters
+- `ViewSubjectModal.tsx` - Combined view/edit modal
+- `AddSubjectModal.tsx` - Form for creating new subjects
+- `index.ts` - Barrel file for exports
+
+Key features:
+- Advanced filters for curriculum and discipline
+- Color-coded badges for curriculum types
+- Consistent modal behavior
+- Year level and other subject-specific fields
+
+### Topics and Subtopics Module
+
+`src/components/features/topics/` demonstrates a more complex nested data structure:
+
+- `TopicsTable.tsx` - Expandable table showing topics and related subtopics
+- `ViewTopicModal.tsx` - View/edit for topics with related subtopics
+- `ViewSubtopicModal.tsx` - View/edit for subtopics
+- `AddTopicModal.tsx` and `AddSubtopicModal.tsx` - Forms for creation
+- `index.ts` - Exports all components
+
+Key features:
+- Expandable rows to show subtopics under their parent topics
+- Complex relationship handling between topics and subtopics
+- Full-height modal design
+- Subject relationship management
+
+## Adaptation Steps
+
+To implement this pattern for a new entity:
+
+1. **Create the basic file structure** in `src/components/features/[entity-name]/`
+2. **Start with the table component** by adapting one of the reference implementations
+3. **Implement the view/edit modal** with the combined approach
+4. **Add the creation modal** for adding new items
+5. **Update the API and repositories** to support the new entity
+6. **Export all components** through the barrel file
+
+Example adaptation process:
+
+1. Choose the closest existing implementation (e.g., Staff for people-based entities, Subjects for course-related entities)
+2. Copy the components to your new entity folder
+3. Replace all references to the old entity with your new entity name
+4. Update the form fields, table columns, and API calls for your specific entity
+5. Add entity-specific features and filters
+6. Ensure consistent styling and behavior with other entity modules
+
+## Best Practices for New Implementations
+
+When implementing new entity tables:
+
+1. **Maintain consistency** with existing implementations for UI and UX
+2. **Use combined view/edit modals** rather than separate components
+3. **Apply full-height modals** for complex content or when appropriate
+4. **Use responsive grid layouts** in modals for better information organization
+5. **Implement badge patterns** for status and type fields
+6. **Include detailed form validation** using Zod schemas
+7. **Create helper methods** for repetitive tasks like status badge coloring
+8. **Add comprehensive loading states** and error handling
+9. **Include empty state handling** in tables
+10. **Implement a refresh pattern** to update data after changes
 
 ---
 
-By following this guide, you'll create a consistent user experience across all entities in the admin application. 
+By following this guide and the established patterns, you'll create a consistent and maintainable admin interface across all entities in the application. The standardized approach ensures that users have a familiar experience regardless of which section of the admin app they're using, while developers can quickly implement new features by following these reusable patterns.

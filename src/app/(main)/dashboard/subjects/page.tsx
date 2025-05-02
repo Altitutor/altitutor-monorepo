@@ -1,18 +1,37 @@
 'use client';
 
-import { useState } from 'react';
-import { SubjectsTable, AddSubjectModal } from '@/components/features/subjects';
+import { useState, useEffect } from 'react';
+import { SubjectsTable, AddSubjectModal, ViewSubjectModal } from '@/components/features/subjects';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function SubjectsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const [viewSubjectId, setViewSubjectId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check for view parameter in URL
+    const viewParam = searchParams.get('view');
+    if (viewParam) {
+      setViewSubjectId(viewParam);
+    }
+  }, [searchParams]);
 
   const handleSubjectAdded = () => {
     // Increment the counter to trigger a refresh in the table
     setRefreshCounter(prev => prev + 1);
+  };
+
+  const handleViewModalClose = () => {
+    setViewSubjectId(null);
+    // Remove the view parameter from the URL without a full page reload
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    window.history.pushState({}, '', url);
   };
 
   return (
@@ -32,12 +51,22 @@ export default function SubjectsPage() {
         </Button>
       </div>
       
-      <SubjectsTable onRefresh={refreshCounter} />
+      <SubjectsTable 
+        onRefresh={refreshCounter} 
+        onViewSubject={setViewSubjectId}
+      />
       
       <AddSubjectModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)}
         onSubjectAdded={handleSubjectAdded}
+      />
+
+      <ViewSubjectModal
+        isOpen={!!viewSubjectId}
+        subjectId={viewSubjectId}
+        onClose={handleViewModalClose}
+        onSubjectUpdated={handleSubjectAdded}
       />
     </div>
   );

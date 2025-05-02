@@ -32,7 +32,12 @@ import { cn } from '@/lib/utils/index';
 import { subjectsApi } from '@/lib/supabase/api';
 import { ViewSubjectModal } from './ViewSubjectModal';
 
-export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
+interface SubjectsTableProps {
+  onRefresh?: number;
+  onViewSubject?: (subjectId: string) => void;
+}
+
+export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) {
   const router = useRouter();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,8 +130,12 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
   };
   
   const handleSubjectClick = (id: string) => {
-    setSelectedSubjectId(id);
-    setIsViewModalOpen(true);
+    if (onViewSubject) {
+      onViewSubject(id);
+    } else {
+      setSelectedSubjectId(id);
+      setIsViewModalOpen(true);
+    }
   };
   
   const getCurriculumBadge = (curriculum: SubjectCurriculum | null | undefined) => {

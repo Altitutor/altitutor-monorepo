@@ -18,6 +18,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       if (isAuthenticated && pathname === '/login') {
         router.push('/dashboard');
       }
+      // We don't redirect from reset-password even if authenticated
       return;
     }
 

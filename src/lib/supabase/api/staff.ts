@@ -1,9 +1,10 @@
 import { staffRepository } from '../db/repositories';
-import { Staff, StaffRole, StaffStatus } from '../db/types';
+import { Staff, StaffRole, StaffStatus, Subject, StaffSubjects } from '../db/types';
 import { adminRepository } from '../db/admin';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { supabaseServer } from '../client';
 import { Database } from '../db/types';
+import { staffSubjectsRepository, subjectRepository } from '../db/repositories';
 
 /**
  * Staff API client for working with staff data
@@ -112,7 +113,7 @@ export const staffApi = {
   },
   
   /**
-   * Invite staff member by email (no password required)
+   * Invite staff member by email (using a temporary password)
    */
   inviteStaff: async (data: Partial<Staff>): Promise<{ staff: Staff; userId: string }> => {
     // Ensure the user is an admin first
@@ -122,34 +123,55 @@ export const staffApi = {
       throw new Error('Email is required for staff invitation');
     }
     
-    // Create user account first
-    const { data: userData, error: userError } = await supabaseServer.auth.admin.inviteUserByEmail(data.email, {
-      data: {
-        user_role: data.role || StaffRole.TUTOR,
-        first_name: data.firstName,
-        last_name: data.lastName,
-      },
-    });
-    
-    if (userError) {
-      console.error('Error inviting staff user:', userError);
-      throw userError;
-    }
+    try {
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).toUpperCase().slice(-2);
+      
+      // Get the base URL (works in both browser and server environments)
+      const baseUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      
+      // Create the user with the temporary password and auto-confirm the email
+      const { data: userData, error: userError } = await supabaseServer.auth.signUp({
+        email: data.email,
+        password: tempPassword,
+        options: {
+          data: {
+            user_role: data.role || StaffRole.TUTOR,
+            first_name: data.firstName,
+            last_name: data.lastName,
+          },
+          emailRedirectTo: `${baseUrl}/auth/reset-password`
+        }
+      });
+      
+      if (userError) {
+        console.error('Error creating staff user:', userError);
+        throw userError;
+      }
 
-    if (!userData.user) {
-      throw new Error('Failed to create user account');
+      if (!userData.user) {
+        throw new Error('Failed to create user account');
+      }
+      
+      // Create staff record with newly created user ID
+      const staffData: Partial<Staff> = {
+        ...data,
+        userId: userData.user.id,
+        status: StaffStatus.ACTIVE,
+      };
+      
+      const staff = await staffRepository.create(staffData);
+      
+      // Instead of sending a separate reset password email, we'll use Supabase's built-in
+      // email verification flow, which will include a link that redirects to our reset-password page
+      
+      return { staff, userId: userData.user.id };
+    } catch (error) {
+      console.error('Error inviting staff:', error);
+      throw error;
     }
-    
-    // Create staff record with newly created user ID
-    const staffData: Partial<Staff> = {
-      ...data,
-      userId: userData.user.id,
-      status: StaffStatus.ACTIVE,
-    };
-    
-    const staff = await staffRepository.create(staffData);
-    
-    return { staff, userId: userData.user.id };
   },
   
   /**
@@ -157,5 +179,81 @@ export const staffApi = {
    */
   getCurrentStaff: async (): Promise<Staff | null> => {
     return adminRepository.getCurrentStaff();
+  },
+
+  /**
+   * Get all subjects assigned to a staff member
+   */
+  getStaffSubjects: async (staffId: string): Promise<Subject[]> => {
+    try {
+      // Get all staff_subjects entries for this staff member
+      const staffSubjects = await staffSubjectsRepository.getBy('staff_id', staffId);
+      
+      if (!staffSubjects.length) {
+        return [];
+      }
+      
+      // Get subject details for each subject_id
+      const subjectPromises = staffSubjects.map(async (staffSubject) => {
+        return subjectRepository.getById(staffSubject.subjectId);
+      });
+      
+      const subjectResults = await Promise.all(subjectPromises);
+      // Filter out undefined results (in case a subject doesn't exist anymore)
+      return subjectResults.filter(subject => subject !== undefined) as Subject[];
+    } catch (error) {
+      console.error('Error getting staff subjects:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Assign a subject to a staff member
+   */
+  assignSubjectToStaff: async (staffId: string, subjectId: string): Promise<StaffSubjects> => {
+    try {
+      // Ensure the user is an admin first
+      await adminRepository.ensureAdminUser();
+      
+      // Check if the assignment already exists
+      const existing = await staffSubjectsRepository.findByField('staff_id', staffId);
+      if (existing && existing.subjectId === subjectId) {
+        return existing; // Already assigned, return existing record
+      }
+      
+      // Create the staff-subject assignment
+      const staffSubject: Partial<StaffSubjects> = {
+        staffId,
+        subjectId,
+      };
+      
+      return staffSubjectsRepository.create(staffSubject);
+    } catch (error) {
+      console.error('Error assigning subject to staff:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Remove a subject from a staff member
+   */
+  removeSubjectFromStaff: async (staffId: string, subjectId: string): Promise<void> => {
+    try {
+      // Ensure the user is an admin first
+      await adminRepository.ensureAdminUser();
+      
+      // Get all staff-subject records for this staff member and subject
+      const staffSubjects = await staffSubjectsRepository.getBy('staff_id', staffId);
+      
+      // Find the specific record for this subject
+      const recordToDelete = staffSubjects.find(record => record.subjectId === subjectId);
+      
+      if (recordToDelete) {
+        await staffSubjectsRepository.delete(recordToDelete.id);
+      }
+    } catch (error) {
+      console.error('Error removing subject from staff:', error);
+      throw error;
+    }
   },
 }; 

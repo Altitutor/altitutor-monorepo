@@ -208,21 +208,21 @@ export class Repository<T extends BaseEntity> {
       result.status = data.status;
       result.notes = data.notes;
       result.userId = data.user_id;
-      result.office_key_number = data.office_key_number;
-      result.has_parking_remote = data.has_parking_remote;
+      result.officeKeyNumber = data.office_key_number;
+      result.hasParkingRemote = data.has_parking_remote;
       result.created_at = data.created_at;
       result.updated_at = data.updated_at;
       
-      // Add availability fields
-      result.availability_monday = data.availability_monday;
-      result.availability_tuesday = data.availability_tuesday;
-      result.availability_wednesday = data.availability_wednesday;
-      result.availability_thursday = data.availability_thursday;
-      result.availability_friday = data.availability_friday;
-      result.availability_saturday_am = data.availability_saturday_am;
-      result.availability_saturday_pm = data.availability_saturday_pm;
-      result.availability_sunday_am = data.availability_sunday_am;
-      result.availability_sunday_pm = data.availability_sunday_pm;
+      // Add availability fields - fix to use proper camelCase property names
+      result.availabilityMonday = data.availability_monday;
+      result.availabilityTuesday = data.availability_tuesday;
+      result.availabilityWednesday = data.availability_wednesday;
+      result.availabilityThursday = data.availability_thursday;
+      result.availabilityFriday = data.availability_friday;
+      result.availabilitySaturdayAm = data.availability_saturday_am;
+      result.availabilitySaturdayPm = data.availability_saturday_pm;
+      result.availabilitySundayAm = data.availability_sunday_am;
+      result.availabilitySundayPm = data.availability_sunday_pm;
       
       return result;
     }
