@@ -31,7 +31,6 @@ import { Subject, SubjectCurriculum, SubjectDiscipline } from '@/lib/supabase/db
 import { cn } from '@/lib/utils/index';
 import { subjectsApi } from '@/lib/supabase/api';
 import { ViewSubjectModal } from './ViewSubjectModal';
-import { EditSubjectModal } from './EditSubjectModal';
 
 export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
   const router = useRouter();
@@ -75,7 +74,7 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(subject => 
         subject.name.toLowerCase().includes(searchLower) ||
-        String(subject.year_level).includes(searchLower) ||
+        String(subject.yearLevel).includes(searchLower) ||
         (subject.level && subject.level.toLowerCase().includes(searchLower))
       );
     }
@@ -277,11 +276,11 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
                   sortField === 'curriculum' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('year_level')}>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('yearLevel')}>
                 Year Level
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
-                  sortField === 'year_level' ? "opacity-100" : "opacity-40"
+                  sortField === 'yearLevel' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
@@ -313,13 +312,13 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
               filteredSubjects.map((subject) => (
                 <TableRow 
                   key={subject.id} 
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="cursor-pointer"
                   onClick={() => handleSubjectClick(subject.id)}
                 >
                   <TableCell>
                     {getCurriculumBadge(subject.curriculum)}
                   </TableCell>
-                  <TableCell>{subject.year_level || '-'}</TableCell>
+                  <TableCell>{subject.yearLevel || '-'}</TableCell>
                   <TableCell className="font-medium">{subject.name}</TableCell>
                   <TableCell>{subject.level || '-'}</TableCell>
                 </TableRow>
@@ -336,12 +335,6 @@ export function SubjectsTable({ onRefresh }: { onRefresh?: number }) {
         onSubjectUpdated={handleSubjectUpdated}
       />
 
-      <EditSubjectModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        subjectId={selectedSubjectId}
-        onSubjectUpdated={handleSubjectUpdated}
-      />
     </div>
   );
 } 

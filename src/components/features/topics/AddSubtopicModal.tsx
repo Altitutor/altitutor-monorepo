@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { topicsApi } from '@/lib/supabase/api';
 import { Topic, Subtopic } from '@/lib/supabase/db/types';
+import { Loader2 } from 'lucide-react';
 
 interface AddSubtopicModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [topic, setTopic] = useState<Topic | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -41,6 +43,7 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
   const loadTopic = async () => {
     if (!topicId) return;
     
+    setLoading(true);
     try {
       const topicData = await topicsApi.getTopic(topicId);
       setTopic(topicData || null);
@@ -60,6 +63,8 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
         description: 'Failed to load topic data',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,56 +123,76 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
-            Add Subtopic
-            {topic && <span className="text-muted-foreground ml-2 font-normal">to {topic.name}</span>}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="number" className="text-right">
-                Number
-              </Label>
-              <Input
-                id="number"
-                name="number"
-                type="number"
-                value={formData.number}
-                onChange={handleNumberChange}
-                className="col-span-3"
-                min="1"
-                required
-              />
-            </div>
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent className="h-full max-h-[100vh] overflow-y-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle className="text-xl">Add Subtopic</SheetTitle>
+          {topic && (
+            <SheetDescription className="text-lg font-medium">
+              to {topic.name}
+            </SheetDescription>
+          )}
+        </SheetHeader>
+        
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Loading topic data...</span>
           </div>
-          <DialogFooter>
-            <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
+        ) : (
+          <form onSubmit={handleSubmit} className="pb-20">
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="number" className="text-right">
+                  Number
+                </Label>
+                <Input
+                  id="number"
+                  name="number"
+                  type="number"
+                  value={formData.number}
+                  onChange={handleNumberChange}
+                  className="col-span-3"
+                  min="1"
+                  required
+                />
+              </div>
+            </div>
+          </form>
+        )}
+        
+        {/* Action buttons at the bottom */}
+        <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting || loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !topicId}>
-              {isSubmitting ? 'Adding...' : 'Add Subtopic'}
+            <Button 
+              type="button" 
+              disabled={isSubmitting || loading || !topicId}
+              onClick={handleSubmit}
+            >
+              {isSubmitting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Adding...</>
+              ) : 'Add Subtopic'}
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 } 

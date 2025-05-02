@@ -163,7 +163,10 @@ export const topicsApi = {
       const topics = data.map(topic => ({
         ...topic,
         subjectId: topic.subject_id,
-        subject: topic.subjects
+        subject: topic.subjects ? {
+          ...topic.subjects,
+          yearLevel: topic.subjects.year_level,
+        } : undefined
       }));
       
       return topics as Topic[];

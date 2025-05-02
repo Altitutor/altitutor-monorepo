@@ -44,7 +44,7 @@ export function formatDateTime(date: Date | string): string {
 export function formatSubjectDisplay(subject: Subject): string {
   return [
     subject.curriculum || '',
-    subject.year_level ? subject.year_level : '',
+    subject.yearLevel ? subject.yearLevel : '',
     subject.name || '',
     subject.level || ''
   ].filter(Boolean).join(' ').trim();

@@ -29,13 +29,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ArrowUpDown, ChevronDown, ChevronRight, MoreHorizontal, Plus, Search, X } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react';
 import { topicsApi, subjectsApi } from '@/lib/supabase/api';
 import { Subject, SubjectCurriculum, Topic, Subtopic } from '@/lib/supabase/db/types';
 import { ViewTopicModal } from './ViewTopicModal';
-import { EditTopicModal } from './EditTopicModal';
 import { AddSubtopicModal } from './AddSubtopicModal';
-import { EditSubtopicModal } from './EditSubtopicModal';
+import { ViewSubtopicModal } from './ViewSubtopicModal';
 import {
   Popover,
   PopoverContent,
@@ -46,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatSubjectDisplay } from "@/lib/utils";
 import React from 'react';
+import { AddTopicModal } from './AddTopicModal';
 
 interface TopicsTableProps {
   onRefresh?: number;
@@ -87,10 +87,11 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editTopicId, setEditTopicId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
   const [isAddSubtopicModalOpen, setIsAddSubtopicModalOpen] = useState(false);
   const [addSubtopicToTopicId, setAddSubtopicToTopicId] = useState<string | null>(null);
-  const [editSubtopicId, setEditSubtopicId] = useState<string | null>(null);
-  const [isEditSubtopicModalOpen, setIsEditSubtopicModalOpen] = useState(false);
+  const [viewSubtopicId, setViewSubtopicId] = useState<string | null>(null);
+  const [isViewSubtopicModalOpen, setIsViewSubtopicModalOpen] = useState(false);
 
   // Define columns for the table
   const columns: ColumnDef<TableRow>[] = [
@@ -112,7 +113,8 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
               variant="ghost"
               size="sm"
               className="p-0 h-6 w-6"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent row click when clicking expander
                 row.toggleExpanded();
               }}
             >
@@ -144,6 +146,9 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
         
         const topic = row.original as TopicRow;
         if (!topic.subject) return null;
+        
+        // For debugging
+        console.log('Topic subject in cell:', topic.subject);
         
         const subjectText = formatSubjectDisplay(topic.subject);
         
@@ -185,58 +190,6 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
             {row.getValue('name')}
           </div>
         );
-      },
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const isSubtopic = row.original.isSubtopic;
-        
-        if (isSubtopic) {
-          const subtopic = row.original as SubtopicRow;
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  onClick={() => handleEditSubtopic(subtopic.id)}
-                >
-                  Edit Subtopic
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        } else {
-          // Topic actions
-          const topic = row.original as TopicRow;
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleViewTopic(topic.id)}>
-                  View Details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleEditTopic(topic.id)}>
-                  Edit Topic
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddSubtopic(topic.id)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Subtopic
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        }
       },
     },
   ];
@@ -287,8 +240,8 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
       const matchesText = !textFilter || 
         topic.name.toLowerCase().includes(textFilter.toLowerCase()) ||
         (topic.subject?.name.toLowerCase().includes(textFilter.toLowerCase())) ||
-        (topic.subject?.year_level && 
-         topic.subject.year_level.toString().includes(textFilter.toLowerCase()));
+        (topic.subject?.yearLevel && 
+         topic.subject.yearLevel.toString().includes(textFilter.toLowerCase()));
       
       // Subject filter
       const matchesSubject = !selectedSubject || topic.subject?.id === selectedSubject;
@@ -346,8 +299,8 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
 
   // Handler for editing a subtopic
   const handleEditSubtopic = (id: string) => {
-    setEditSubtopicId(id);
-    setIsEditSubtopicModalOpen(true);
+    setViewSubtopicId(id);
+    setIsViewSubtopicModalOpen(true);
   };
 
   // Handler for deleting a topic
@@ -401,8 +354,19 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
           />
         </div>
         
-        {/* Subject filter */}
-        <div className="flex flex-wrap gap-2 items-center">
+        {/* Action buttons */}
+        <div className="flex items-center gap-2">
+          {/* Add Topic Button */}
+          <Button 
+            size="sm" 
+            onClick={() => setIsAddTopicModalOpen(true)}
+            className="flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Topic
+          </Button>
+          
+          {/* Subject filter */}
           <Popover open={subjectFilterOpen} onOpenChange={setSubjectFilterOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className="justify-start">
@@ -513,6 +477,12 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
                     <React.Fragment key={row.id}>
                       <TableRow
                         data-state={row.getIsSelected() && "selected"}
+                        className={!isSubtopic ? "cursor-pointer" : ""}
+                        onClick={() => {
+                          if (!isSubtopic) {
+                            handleViewTopic(topic.id);
+                          }
+                        }}
                       >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id}>
@@ -525,29 +495,13 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
                       {isExpanded && hasSubtopics && topic.subtopics!.map((subtopic) => (
                         <TableRow 
                           key={`subtopic-${subtopic.id}`} 
-                          className="bg-muted/30"
+                          className="bg-muted/30 cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleEditSubtopic(subtopic.id)}
                         >
                           <TableCell><div className="w-6 pl-6"></div></TableCell>
                           <TableCell></TableCell>
                           <TableCell>{subtopic.number}</TableCell>
                           <TableCell className="pl-10">{subtopic.name}</TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem 
-                                  onClick={() => handleEditSubtopic(subtopic.id)}
-                                >
-                                  Edit Subtopic
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>
@@ -572,13 +526,14 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
         topicId={viewTopicId}
         onTopicUpdated={handleTopicUpdated}
       />
-
-      <EditTopicModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        topicId={editTopicId}
-        onTopicUpdated={handleTopicUpdated}
-      />
+      
+      {isAddTopicModalOpen && (
+        <AddTopicModal
+          isOpen={isAddTopicModalOpen}
+          onClose={() => setIsAddTopicModalOpen(false)}
+          onTopicAdded={handleTopicUpdated}
+        />
+      )}
 
       <AddSubtopicModal
         isOpen={isAddSubtopicModalOpen}
@@ -587,10 +542,10 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
         onSubtopicAdded={handleTopicUpdated}
       />
 
-      <EditSubtopicModal
-        isOpen={isEditSubtopicModalOpen}
-        onClose={() => setIsEditSubtopicModalOpen(false)}
-        subtopicId={editSubtopicId}
+      <ViewSubtopicModal
+        isOpen={isViewSubtopicModalOpen}
+        onClose={() => setIsViewSubtopicModalOpen(false)}
+        subtopicId={viewSubtopicId}
         onSubtopicUpdated={handleTopicUpdated}
       />
     </div>

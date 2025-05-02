@@ -1,18 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { topicsApi, subjectsApi } from '@/lib/supabase/api';
 import { Topic, Subtopic, Subject } from '@/lib/supabase/db/types';
-import { EditTopicModal } from './EditTopicModal';
 import { AddSubtopicModal } from './AddSubtopicModal';
-import { EditSubtopicModal } from './EditSubtopicModal';
-import { PencilIcon, PlusIcon, TrashIcon } from 'lucide-react';
+import { ViewSubtopicModal } from './ViewSubtopicModal';
+import { PencilIcon, PlusIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { formatSubjectDisplay } from '@/lib/utils';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useRouter } from 'next/navigation';
 
 export interface ViewTopicModalProps {
   isOpen: boolean;
@@ -20,6 +36,16 @@ export interface ViewTopicModalProps {
   topicId: string | null;
   onTopicUpdated?: () => void;
 }
+
+// Form schema for validation
+const formSchema = z.object({
+  name: z.string().min(1, "Topic name is required"),
+  number: z.coerce.number().int().min(1, "Number must be at least 1"),
+  subject_id: z.string().min(1, "Subject is required"),
+  area: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 // Function to get a color for a subject based on curriculum
 const getSubjectColor = (subject?: Subject): string => {
@@ -43,25 +69,73 @@ const getSubjectColor = (subject?: Subject): string => {
 
 export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: ViewTopicModalProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [topic, setTopic] = useState<Topic | null>(null);
   const [subject, setSubject] = useState<Subject | null>(null);
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Modals
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Modals for subtopics
   const [isAddSubtopicModalOpen, setIsAddSubtopicModalOpen] = useState(false);
-  const [editSubtopicId, setEditSubtopicId] = useState<string | null>(null);
-  const [isEditSubtopicModalOpen, setIsEditSubtopicModalOpen] = useState(false);
+  const [viewSubtopicId, setViewSubtopicId] = useState<string | null>(null);
+  const [isViewSubtopicModalOpen, setIsViewSubtopicModalOpen] = useState(false);
+
+  // Initialize form
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      number: 1,
+      subject_id: "",
+      area: "",
+    }
+  });
 
   useEffect(() => {
-    if (isOpen && topicId) {
-      loadTopic(topicId);
+    if (isOpen) {
+      loadSubjects();
+      if (topicId) {
+        loadTopic(topicId);
+      }
+    } else {
+      setIsEditing(false);
     }
   }, [isOpen, topicId]);
 
+  // Update form when topic is loaded
+  useEffect(() => {
+    if (topic) {
+      form.reset({
+        name: topic.name,
+        number: topic.number,
+        subject_id: topic.subjectId,
+        area: topic.area || "",
+      });
+    }
+  }, [topic, form]);
+
+  const loadSubjects = async () => {
+    try {
+      const subjectsData = await subjectsApi.getAllSubjects();
+      setSubjects(subjectsData);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load subjects',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const loadTopic = async (id: string) => {
     setLoading(true);
+    setError(null);
     try {
       // Load topic with subject data included
       const topicsWithSubjects = await topicsApi.getTopicsWithSubjects();
@@ -71,41 +145,131 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
         throw new Error('Topic not found');
       }
       
-      console.log('Loaded topic data:', topicData);
-      console.log('Topic subjects field:', (topicData as any).subjects);
-      console.log('Topic subject field:', topicData.subject);
       setTopic(topicData);
       
-      // Set subject from the topic's subject property (already included in getTopicsWithSubjects)
+      // Set subject from the topic's subject property
       if (topicData.subject) {
         setSubject(topicData.subject);
-        console.log('Subject set from topic:', topicData.subject);
       } else if (topicData.subjectId) {
         // Fallback to loading subject directly if not included
-        console.log('Topic has subjectId but no subject property, loading manually:', topicData.subjectId);
         const subjectData = await subjectsApi.getSubject(topicData.subjectId);
         setSubject(subjectData || null);
-        console.log('Subject loaded manually:', subjectData);
       }
 
       // Load subtopics
       const subtopicsData = await topicsApi.getSubtopicsByTopic(id);
       setSubtopics(subtopicsData);
-      console.log('Loaded subtopics:', subtopicsData);
     } catch (error) {
       console.error('Error loading topic:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load topic data',
-        variant: 'destructive',
-      });
+      setError('Failed to load topic data');
     } finally {
       setLoading(false);
     }
   };
 
   const handleEdit = () => {
-    setIsEditModalOpen(true);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    if (topic) {
+      form.reset({
+        name: topic.name,
+        number: topic.number,
+        subject_id: topic.subjectId,
+        area: topic.area || "",
+      });
+    }
+    setIsEditing(false);
+  };
+
+  const onSubmit = async (values: FormData) => {
+    if (!topicId) return;
+    
+    setSubmitting(true);
+    
+    try {
+      const topicData: Partial<Topic> = {
+        name: values.name,
+        number: values.number,
+        subjectId: values.subject_id,
+        area: values.area || null,
+      };
+      
+      await topicsApi.updateTopic(topicId, topicData);
+      
+      // Update local topic data
+      const updatedTopic = {
+        ...topic!,
+        ...topicData,
+      };
+      
+      setTopic(updatedTopic as Topic);
+      
+      // Reload subject data if it changed
+      if (topic?.subjectId !== values.subject_id) {
+        try {
+          const subjectData = await subjectsApi.getSubject(values.subject_id);
+          setSubject(subjectData || null);
+        } catch (error) {
+          console.error('Error loading updated subject:', error);
+          setSubject(null);
+        }
+      }
+      
+      toast({
+        title: 'Success',
+        description: 'Topic updated successfully',
+      });
+      
+      setIsEditing(false);
+      
+      if (onTopicUpdated) {
+        onTopicUpdated();
+      }
+      
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to update topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update topic. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!topicId) return;
+    setSubmitting(true);
+    
+    try {
+      await topicsApi.deleteTopic(topicId);
+      
+      toast({
+        title: 'Success',
+        description: 'Topic deleted successfully',
+      });
+      
+      if (onTopicUpdated) {
+        onTopicUpdated();
+      }
+      
+      setShowDeleteDialog(false);
+      onClose();
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to delete topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete topic. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAddSubtopic = () => {
@@ -113,39 +277,8 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
   };
 
   const handleEditSubtopic = (subtopicId: string) => {
-    setEditSubtopicId(subtopicId);
-    setIsEditSubtopicModalOpen(true);
-  };
-
-  const handleDeleteSubtopic = async (subtopicId: string) => {
-    if (confirm('Are you sure you want to delete this subtopic?')) {
-      try {
-        await topicsApi.deleteSubtopic(subtopicId);
-        
-        toast({
-          title: 'Success',
-          description: 'Subtopic deleted successfully',
-        });
-        
-        // Refresh the subtopics list
-        if (topicId) {
-          const subtopicsData = await topicsApi.getSubtopicsByTopic(topicId);
-          setSubtopics(subtopicsData);
-        }
-        
-        // Notify parent component
-        if (onTopicUpdated) {
-          onTopicUpdated();
-        }
-      } catch (error) {
-        console.error('Error deleting subtopic:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete subtopic',
-          variant: 'destructive',
-        });
-      }
-    }
+    setViewSubtopicId(subtopicId);
+    setIsViewSubtopicModalOpen(true);
   };
 
   const handleChange = () => {
@@ -159,44 +292,128 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[550px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Topic Details</DialogTitle>
-          </DialogHeader>
+      <Sheet open={isOpen} onOpenChange={onClose}>
+        <SheetContent className="h-full max-h-[100vh] overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="text-xl">
+              {loading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic'}
+            </SheetTitle>
+            {!loading && topic && (
+              <SheetDescription className="text-lg font-medium">
+                {topic.name}
+              </SheetDescription>
+            )}
+          </SheetHeader>
           
           {loading ? (
-            <div className="py-6 text-center">Loading topic data...</div>
+            <div className="py-6 text-center">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              <p>Loading topic data...</p>
+            </div>
+          ) : error ? (
+            <div className="py-6 text-center text-destructive">
+              <AlertTriangle className="h-6 w-6 mx-auto mb-2" />
+              <p>{error}</p>
+            </div>
           ) : topic ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="font-semibold">Name:</div>
-                <div className="col-span-2">{topic.name}</div>
-                
-                <div className="font-semibold">Number:</div>
-                <div className="col-span-2">{topic.number}</div>
-                
-                <div className="font-semibold">Subject:</div>
-                <div className="col-span-2">
-                  {subject ? (
-                    <Badge 
-                      variant="outline" 
-                      className={`${getSubjectColor(subject)}`}
-                    >
-                      {formatSubjectDisplay(subject)}
-                    </Badge>
-                  ) : 'N/A'}
+            <div className="space-y-8 pb-20">
+              {isEditing ? (
+                // Edit Mode
+                <form onSubmit={form.handleSubmit(onSubmit)}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">
+                        Name
+                      </Label>
+                      <Input
+                        id="name"
+                        {...form.register('name')}
+                        className="col-span-3"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="number" className="text-right">
+                        Number
+                      </Label>
+                      <Input
+                        id="number"
+                        type="number"
+                        {...form.register('number', { valueAsNumber: true })}
+                        className="col-span-3"
+                        min="1"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="subject_id" className="text-right">
+                        Subject
+                      </Label>
+                      <Select
+                        value={form.watch('subject_id')}
+                        onValueChange={(value) => form.setValue('subject_id', value)}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subjects.map((subject) => (
+                            <SelectItem key={subject.id} value={subject.id}>
+                              {formatSubjectDisplay(subject)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="area" className="text-right">
+                        Area
+                      </Label>
+                      <Input
+                        id="area"
+                        {...form.register('area')}
+                        className="col-span-3"
+                        placeholder="Optional area or category"
+                      />
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                // View Mode
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div className="text-sm font-medium">Name:</div>
+                    <div>{topic.name}</div>
+                    
+                    <div className="text-sm font-medium">Number:</div>
+                    <div>{topic.number}</div>
+                    
+                    <div className="text-sm font-medium">Subject:</div>
+                    <div>
+                      {subject ? (
+                        <Badge 
+                          variant="outline" 
+                          className={`${getSubjectColor(subject)}`}
+                        >
+                          {formatSubjectDisplay(subject)}
+                        </Badge>
+                      ) : 'N/A'}
+                    </div>
+                    
+                    {topic.area && (
+                      <>
+                        <div className="text-sm font-medium">Area:</div>
+                        <div>{topic.area}</div>
+                      </>
+                    )}
+                  </div>
                 </div>
-                
-                {topic.area && (
-                  <>
-                    <div className="font-semibold">Area:</div>
-                    <div className="col-span-2">{topic.area}</div>
-                  </>
-                )}
-              </div>
+              )}
               
-              <Separator />
+              <Separator className="my-4" />
               
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -241,35 +458,81 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
             </div>
           )}
           
-          <DialogFooter>
-            <div className="flex space-x-2 justify-between w-full">
-              <Button
-                variant="outline"
-                onClick={handleEdit}
-                disabled={!topic}
-              >
-                <PencilIcon className="h-4 w-4 mr-2" />
-                Edit Topic
-              </Button>
-              <Button onClick={onClose}>
-                Close
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* Action buttons at the bottom */}
+          {!loading && topic && (
+            <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
+              <div className="flex w-full justify-between">
+                {isEditing ? (
+                  <>
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      onClick={() => setShowDeleteDialog(true)}
+                      disabled={submitting}
+                    >
+                      <TrashIcon className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                    
+                    <div className="flex space-x-2">
+                      <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={submitting}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="button" 
+                        disabled={submitting}
+                        onClick={form.handleSubmit(onSubmit)}
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : 'Save Changes'}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={handleEdit}
+                    disabled={!topic}
+                    className="flex items-center"
+                  >
+                    <PencilIcon className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </SheetFooter>
+          )}
+        </SheetContent>
+      </Sheet>
       
-      {/* Edit Topic Modal */}
-      {topic && (
-        <EditTopicModal 
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          topicId={topicId}
-          onTopicUpdated={handleChange}
-        />
-      )}
+      {/* Confirmation dialog for delete */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the topic
+              and all its subtopics.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete} 
+              disabled={submitting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {submitting ? 'Deleting...' : 'Delete Topic'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
-      {/* Add Subtopic Modal */}
+      {/* Subtopic Modals */}
       <AddSubtopicModal
         isOpen={isAddSubtopicModalOpen}
         onClose={() => setIsAddSubtopicModalOpen(false)}
@@ -277,11 +540,10 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
         onSubtopicAdded={handleChange}
       />
       
-      {/* Edit Subtopic Modal */}
-      <EditSubtopicModal
-        isOpen={isEditSubtopicModalOpen}
-        onClose={() => setIsEditSubtopicModalOpen(false)}
-        subtopicId={editSubtopicId}
+      <ViewSubtopicModal
+        isOpen={isViewSubtopicModalOpen}
+        onClose={() => setIsViewSubtopicModalOpen(false)}
+        subtopicId={viewSubtopicId}
         onSubtopicUpdated={handleChange}
       />
     </>

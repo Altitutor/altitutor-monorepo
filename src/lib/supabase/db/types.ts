@@ -206,16 +206,16 @@ export interface BaseEntity {
 
 // Core entity interfaces
 export interface Student extends BaseEntity {
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   email?: string | null;
-  phone_number?: string | null;
-  parent_name?: string | null;
-  parent_email?: string | null;
-  parent_phone?: string | null;
+  phoneNumber?: string | null;
+  parentName?: string | null;
+  parentEmail?: string | null;
+  parentPhone?: string | null;
   status: StudentStatus;
   notes?: string | null;
-  user_id?: string | null; // Link to auth user
+  userId?: string | null; // Link to auth user
 }
 
 export interface Staff extends BaseEntity {
@@ -227,22 +227,22 @@ export interface Staff extends BaseEntity {
   status: StaffStatus;
   notes?: string | null;
   userId: string; // Link to auth user
-  office_key_number?: number | null;
-  has_parking_remote?: 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null;
-  availability_monday?: boolean;
-  availability_tuesday?: boolean;
-  availability_wednesday?: boolean;
-  availability_thursday?: boolean;
-  availability_friday?: boolean;
-  availability_saturday_am?: boolean;
-  availability_saturday_pm?: boolean;
-  availability_sunday_am?: boolean;
-  availability_sunday_pm?: boolean;
+  officeKeyNumber?: number | null;
+  hasParkingRemote?: 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null;
+  availabilityMonday?: boolean;
+  availabilityTuesday?: boolean;
+  availabilityWednesday?: boolean;
+  availabilityThursday?: boolean;
+  availabilityFriday?: boolean;
+  availabilitySaturdayAm?: boolean;
+  availabilitySaturdayPm?: boolean;
+  availabilitySundayAm?: boolean;
+  availabilitySundayPm?: boolean;
 }
 
 export interface Subject extends BaseEntity {
   name: string;
-  year_level?: number | null;
+  yearLevel?: number | null;
   curriculum?: SubjectCurriculum | null;
   discipline?: SubjectDiscipline | null;
   level?: string | null; // 'HL'/'SL' for IB, 'ADVANCED'/'STANDARD' for PRESACE

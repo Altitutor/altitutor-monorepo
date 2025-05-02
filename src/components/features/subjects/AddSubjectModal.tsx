@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { subjectsApi } from '@/lib/supabase/api';
 import { Subject, SubjectCurriculum, SubjectDiscipline } from '@/lib/supabase/db/types';
+import { Loader2 } from 'lucide-react';
 
 interface AddSubjectModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
     try {
       const subjectData: Partial<Subject> = {
         name: formData.name,
-        year_level: formData.year_level ? parseInt(formData.year_level, 10) : null,
+        yearLevel: formData.year_level ? parseInt(formData.year_level, 10) : null,
         curriculum: formData.curriculum ? (formData.curriculum as SubjectCurriculum) : null,
         discipline: formData.discipline ? (formData.discipline as SubjectDiscipline) : null,
         level: formData.level || null,
@@ -74,12 +75,13 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Add New Subject</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent className="h-full max-h-[100vh] overflow-y-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle className="text-xl">Add New Subject</SheetTitle>
+        </SheetHeader>
+        
+        <form onSubmit={handleSubmit} className="pb-20">
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
@@ -168,16 +170,26 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" type="button" onClick={onClose}>
+        </form>
+        
+        {/* Action buttons at the bottom */}
+        <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Adding...' : 'Add Subject'}
+            <Button 
+              type="button" 
+              disabled={isSubmitting}
+              onClick={handleSubmit}
+            >
+              {isSubmitting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Adding...</>
+              ) : 'Add Subject'}
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 } 

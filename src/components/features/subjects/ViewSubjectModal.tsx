@@ -2,19 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle, 
-  CardFooter
-} from "@/components/ui/card";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { 
   AlertTriangle,
@@ -63,6 +57,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
+import { Separator } from "@/components/ui/separator";
 
 export interface ViewSubjectModalProps {
   isOpen: boolean;
@@ -112,7 +107,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     if (subject) {
       form.reset({
         name: subject.name,
-        year_level: subject.year_level,
+        year_level: subject.yearLevel,
         curriculum: subject.curriculum,
         discipline: subject.discipline,
         level: subject.level,
@@ -146,7 +141,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     if (subject) {
       form.reset({
         name: subject.name,
-        year_level: subject.year_level,
+        year_level: subject.yearLevel,
         curriculum: subject.curriculum,
         discipline: subject.discipline,
         level: subject.level,
@@ -162,7 +157,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       setLoading(true);
       const updatedData: Partial<Subject> = {
         name: values.name,
-        year_level: values.year_level,
+        yearLevel: values.year_level,
         curriculum: values.curriculum,
         discipline: values.discipline,
         level: values.level,
@@ -271,15 +266,20 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(isOpen) => {
+    <Sheet open={isOpen} onOpenChange={(isOpen) => {
       if (!isOpen) onClose();
     }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl">
-            {loading ? 'Loading Subject...' : subject?.name || 'Subject Details'}
-          </DialogTitle>
-        </DialogHeader>
+      <SheetContent className="h-full max-h-[100vh] overflow-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle className="text-xl">
+            {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
+          </SheetTitle>
+          {!loading && subject && (
+            <SheetDescription className="text-lg font-medium">
+              {subject.name}
+            </SheetDescription>
+          )}
+        </SheetHeader>
 
         {loading ? (
           <div className="flex justify-center items-center py-12">
@@ -300,247 +300,151 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
             </Button>
           </div>
         ) : subject ? (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {isEditing ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    <span>Edit Subject Details</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Update subject information below
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Subject Name</FormLabel>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subject Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter subject name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="year_level"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Year Level</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              placeholder="Enter year level" 
+                              {...field} 
+                              onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value))}
+                              value={field.value === null ? '' : field.value}
+                            />
+                          </FormControl>
+                          <FormDescription>Year level from 1-12</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="level"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Level</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. HL, SL, ADVANCED" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>For IB or PRESACE subjects</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="curriculum"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Curriculum</FormLabel>
+                          <Select 
+                            onValueChange={value => field.onChange(value || null)} 
+                            value={field.value || ""} 
+                          >
                             <FormControl>
-                              <Input placeholder="Enter subject name" {...field} />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select curriculum" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                            <SelectContent>
+                              <SelectItem value={SubjectCurriculum.SACE}>{SubjectCurriculum.SACE}</SelectItem>
+                              <SelectItem value={SubjectCurriculum.IB}>{SubjectCurriculum.IB}</SelectItem>
+                              <SelectItem value={SubjectCurriculum.PRESACE}>{SubjectCurriculum.PRESACE}</SelectItem>
+                              <SelectItem value={SubjectCurriculum.PRIMARY}>{SubjectCurriculum.PRIMARY}</SelectItem>
+                              <SelectItem value={SubjectCurriculum.MEDICINE}>{SubjectCurriculum.MEDICINE}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="year_level"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Year Level</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number" 
-                                  placeholder="Enter year level" 
-                                  {...field} 
-                                  onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value))}
-                                  value={field.value === null ? '' : field.value}
-                                />
-                              </FormControl>
-                              <FormDescription>Year level from 1-12</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="level"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Level</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g. HL, SL, ADVANCED" {...field} value={field.value || ''} />
-                              </FormControl>
-                              <FormDescription>For IB or PRESACE subjects</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="curriculum"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Curriculum</FormLabel>
-                              <Select 
-                                onValueChange={value => field.onChange(value || null)} 
-                                value={field.value || ""} 
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select curriculum" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value={SubjectCurriculum.SACE}>{SubjectCurriculum.SACE}</SelectItem>
-                                  <SelectItem value={SubjectCurriculum.IB}>{SubjectCurriculum.IB}</SelectItem>
-                                  <SelectItem value={SubjectCurriculum.PRESACE}>{SubjectCurriculum.PRESACE}</SelectItem>
-                                  <SelectItem value={SubjectCurriculum.PRIMARY}>{SubjectCurriculum.PRIMARY}</SelectItem>
-                                  <SelectItem value={SubjectCurriculum.MEDICINE}>{SubjectCurriculum.MEDICINE}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="discipline"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Discipline</FormLabel>
-                              <Select 
-                                onValueChange={value => field.onChange(value || null)} 
-                                value={field.value || ""} 
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select discipline" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value={SubjectDiscipline.MATHEMATICS}>{SubjectDiscipline.MATHEMATICS}</SelectItem>
-                                  <SelectItem value={SubjectDiscipline.SCIENCE}>{SubjectDiscipline.SCIENCE}</SelectItem>
-                                  <SelectItem value={SubjectDiscipline.HUMANITIES}>{SubjectDiscipline.HUMANITIES}</SelectItem>
-                                  <SelectItem value={SubjectDiscipline.ENGLISH}>{SubjectDiscipline.ENGLISH}</SelectItem>
-                                  <SelectItem value={SubjectDiscipline.ART}>{SubjectDiscipline.ART}</SelectItem>
-                                  <SelectItem value={SubjectDiscipline.LANGUAGE}>{SubjectDiscipline.LANGUAGE}</SelectItem>
-                                  <SelectItem value={SubjectDiscipline.MEDICINE}>{SubjectDiscipline.MEDICINE}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <div className="flex justify-between items-center mt-6">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive" type="button" className="flex items-center">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete Subject
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the subject
-                                "{subject.name}" and all associated data from the database.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={handleDeleteSubject}
-                                disabled={isDeleting}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                {isDeleting ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  'Delete'
-                                )}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-
-                        <div className="flex space-x-2">
-                          <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                            Cancel
-                          </Button>
-                          <Button type="submit" disabled={loading}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save Changes
-                          </Button>
-                        </div>
-                      </div>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
+                    <FormField
+                      control={form.control}
+                      name="discipline"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discipline</FormLabel>
+                          <Select 
+                            onValueChange={value => field.onChange(value || null)} 
+                            value={field.value || ""} 
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select discipline" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value={SubjectDiscipline.MATHEMATICS}>{SubjectDiscipline.MATHEMATICS}</SelectItem>
+                              <SelectItem value={SubjectDiscipline.SCIENCE}>{SubjectDiscipline.SCIENCE}</SelectItem>
+                              <SelectItem value={SubjectDiscipline.HUMANITIES}>{SubjectDiscipline.HUMANITIES}</SelectItem>
+                              <SelectItem value={SubjectDiscipline.ENGLISH}>{SubjectDiscipline.ENGLISH}</SelectItem>
+                              <SelectItem value={SubjectDiscipline.ART}>{SubjectDiscipline.ART}</SelectItem>
+                              <SelectItem value={SubjectDiscipline.LANGUAGE}>{SubjectDiscipline.LANGUAGE}</SelectItem>
+                              <SelectItem value={SubjectDiscipline.MEDICINE}>{SubjectDiscipline.MEDICINE}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </form>
+              </Form>
             ) : (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                      <span>Subject Details</span>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex items-center" 
-                        onClick={handleEditClick}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
-                      </Button>
-                    </CardTitle>
-                    <CardDescription>
-                      Key information about this subject
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Subject Name</h4>
-                        <p className="text-base">{subject.name}</p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Year Level</h4>
-                        <p className="text-base">{subject.year_level || '-'}</p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Curriculum</h4>
-                        {subject.curriculum ? (
-                          getCurriculumBadge(subject.curriculum)
-                        ) : (
-                          <p className="text-base">-</p>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Discipline</h4>
-                        {subject.discipline ? (
-                          getDisciplineBadge(subject.discipline)
-                        ) : (
-                          <p className="text-base">-</p>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Level</h4>
-                        <p className="text-base">{subject.level || '-'}</p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Created At</h4>
-                        <p className="text-base">
-                          {new Date(subject.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="text-sm font-medium">Name:</div>
+                  <div>{subject.name}</div>
+                  
+                  <div className="text-sm font-medium">Year Level:</div>
+                  <div>{subject.yearLevel || '-'}</div>
+                  
+                  <div className="text-sm font-medium">Curriculum:</div>
+                  <div>
+                    {subject.curriculum ? getCurriculumBadge(subject.curriculum) : '-'}
+                  </div>
+                  
+                  <div className="text-sm font-medium">Discipline:</div>
+                  <div>
+                    {subject.discipline ? getDisciplineBadge(subject.discipline) : '-'}
+                  </div>
+                  
+                  <div className="text-sm font-medium">Level:</div>
+                  <div>{subject.level || '-'}</div>
+                  
+                  <div className="text-sm font-medium">Created:</div>
+                  <div>{new Date(subject.created_at).toLocaleDateString()}</div>
+                </div>
+                
+                <Separator className="my-4" />
+                
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" className="flex items-center" onClick={() => navigateTo('/dashboard/topics')}>
                     <BookOpen className="mr-2 h-4 w-4" />
@@ -555,11 +459,82 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                     Staff
                   </Button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         ) : null}
-      </DialogContent>
-    </Dialog>
+        
+        {/* Action buttons at the bottom */}
+        {!loading && subject && (
+          <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
+            <div className="flex w-full justify-between">
+              {isEditing ? (
+                <>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" type="button" className="flex items-center">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the subject
+                          "{subject.name}" and all associated data from the database.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={handleDeleteSubject}
+                          disabled={isDeleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            'Delete'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <div className="flex space-x-2">
+                    <Button variant="outline" type="button" onClick={handleCancelEdit}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="button"
+                      disabled={loading}
+                      onClick={form.handleSubmit(onSubmit)}
+                    >
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center" 
+                    onClick={handleEditClick}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                </>
+              )}
+            </div>
+          </SheetFooter>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 } 

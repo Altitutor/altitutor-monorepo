@@ -43,7 +43,8 @@ export class Repository<T extends BaseEntity> {
       .select('*');
     
     if (error) throw error;
-    return data as T[];
+    // Transform snake_case DB fields to camelCase for TypeScript
+    return data?.map(item => this.transformToCamelCase(item)) as T[] || [];
   }
 
   /**
@@ -57,7 +58,8 @@ export class Repository<T extends BaseEntity> {
       .single();
     
     if (error) throw error;
-    return data as T;
+    // Transform snake_case DB fields to camelCase for TypeScript
+    return data ? this.transformToCamelCase(data) as T : undefined;
   }
 
   /**
@@ -76,7 +78,8 @@ export class Repository<T extends BaseEntity> {
       .eq(field, value);
     
     if (error) throw error;
-    return data as T[];
+    // Transform snake_case DB fields to camelCase for TypeScript
+    return data?.map(item => this.transformToCamelCase(item)) as T[] || [];
   }
 
   /**
@@ -105,7 +108,8 @@ export class Repository<T extends BaseEntity> {
       .single();
     
     if (error) throw error;
-    return newEntity as T;
+    // Transform snake_case DB fields to camelCase for TypeScript
+    return this.transformToCamelCase(newEntity) as T;
   }
 
   /**
@@ -123,7 +127,8 @@ export class Repository<T extends BaseEntity> {
       .single();
     
     if (error) throw error;
-    return updatedEntity as T;
+    // Transform snake_case DB fields to camelCase for TypeScript
+    return this.transformToCamelCase(updatedEntity) as T;
   }
 
   /**
@@ -156,7 +161,8 @@ export class Repository<T extends BaseEntity> {
       throw error;
     }
     
-    return data as T;
+    // Transform snake_case DB fields to camelCase for TypeScript
+    return data ? this.transformToCamelCase(data) as T : null;
   }
 
   /**
@@ -177,6 +183,60 @@ export class Repository<T extends BaseEntity> {
       // Convert camelCase to snake_case
       const dbKey = toSnakeCase(key);
       result[dbKey] = data[key];
+    }
+    
+    return result;
+  }
+
+  /**
+   * Transform database record with snake_case fields to camelCase for TypeScript
+   */
+  private transformToCamelCase(data: Record<string, any>): Record<string, any> {
+    if (!data) return data;
+    
+    const result: Record<string, any> = {};
+    
+    // Special case handling for staff fields
+    if (this.tableName === 'staff') {
+      // Map snake_case field names to camelCase for staff
+      result.id = data.id;
+      result.firstName = data.first_name;
+      result.lastName = data.last_name;
+      result.email = data.email;
+      result.phoneNumber = data.phone_number;
+      result.role = data.role;
+      result.status = data.status;
+      result.notes = data.notes;
+      result.userId = data.user_id;
+      result.office_key_number = data.office_key_number;
+      result.has_parking_remote = data.has_parking_remote;
+      result.created_at = data.created_at;
+      result.updated_at = data.updated_at;
+      
+      // Add availability fields
+      result.availability_monday = data.availability_monday;
+      result.availability_tuesday = data.availability_tuesday;
+      result.availability_wednesday = data.availability_wednesday;
+      result.availability_thursday = data.availability_thursday;
+      result.availability_friday = data.availability_friday;
+      result.availability_saturday_am = data.availability_saturday_am;
+      result.availability_saturday_pm = data.availability_saturday_pm;
+      result.availability_sunday_am = data.availability_sunday_am;
+      result.availability_sunday_pm = data.availability_sunday_pm;
+      
+      return result;
+    }
+    
+    // For other tables, use general transformation
+    for (const key in data) {
+      if (key.includes('_')) {
+        // Convert snake_case to camelCase
+        const camelKey = toCamelCase(key);
+        result[camelKey] = data[key];
+      } else {
+        // Keep as is if not snake_case
+        result[key] = data[key];
+      }
     }
     
     return result;
