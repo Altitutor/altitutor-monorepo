@@ -235,7 +235,7 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
 
   const createTableData = () => {
     // Filter topics based on text input and selected subject
-    let filteredTopics = topics.filter(topic => {
+    const filteredTopics = topics.filter(topic => {
       // Text filter
       const matchesText = !textFilter || 
         topic.name.toLowerCase().includes(textFilter.toLowerCase()) ||

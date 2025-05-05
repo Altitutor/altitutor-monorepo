@@ -156,7 +156,8 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
     }
   };
   
-  const getStaffName = (staffId: string) => {
+  const getStaffName = (staffId: string | null | undefined) => {
+    if (!staffId) return 'Unassigned';
     const staff = staffMembers?.find(s => s.id === staffId);
     return staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown Staff';
   };

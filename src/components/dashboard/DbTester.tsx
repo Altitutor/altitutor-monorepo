@@ -37,8 +37,8 @@ export function DbTester() {
     try {
       // Create a test student
       const testStudent = {
-        first_name: 'Test',
-        last_name: `Student ${new Date().toISOString().slice(0, 19)}`,
+        firstName: 'Test',
+        lastName: `Student ${new Date().toISOString().slice(0, 19)}`,
         email: `test.${Date.now()}@example.com`,
         status: StudentStatus.TRIAL
       };
@@ -63,7 +63,7 @@ export function DbTester() {
       // Update the first student
       const student = students[0];
       await update(student.id, {
-        first_name: `Updated ${new Date().toLocaleTimeString()}`,
+        firstName: `Updated ${new Date().toLocaleTimeString()}`,
       });
       await fetchAll(); // Refresh the list
       handleSuccess('Student updated successfully');

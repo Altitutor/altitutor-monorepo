@@ -213,26 +213,26 @@ export default function MyAccountPage() {
                       </Badge>
                     </div>
 
-                    {staffRecord.office_key_number !== null && staffRecord.office_key_number !== undefined && (
+                    {staffRecord.officeKeyNumber !== null && staffRecord.officeKeyNumber !== undefined && (
                       <div>
                         <h3 className="text-sm font-medium text-muted-foreground mb-1">Office Key Number</h3>
-                        <p className="text-sm">#{staffRecord.office_key_number}</p>
+                        <p className="text-sm">#{staffRecord.officeKeyNumber}</p>
                       </div>
                     )}
 
-                    {staffRecord.has_parking_remote && (
+                    {staffRecord.hasParkingRemote && (
                       <div>
                         <h3 className="text-sm font-medium text-muted-foreground mb-1">Parking Remote</h3>
                         <Badge 
                           className={
-                            staffRecord.has_parking_remote === 'PHYSICAL' 
+                            staffRecord.hasParkingRemote === 'PHYSICAL' 
                               ? 'bg-blue-100 text-blue-800' 
-                              : staffRecord.has_parking_remote === 'VIRTUAL'
+                              : staffRecord.hasParkingRemote === 'VIRTUAL'
                                 ? 'bg-purple-100 text-purple-800'
                                 : 'bg-gray-100 text-gray-800'
                           }
                         >
-                          {staffRecord.has_parking_remote}
+                          {staffRecord.hasParkingRemote}
                         </Badge>
                       </div>
                     )}
@@ -276,86 +276,86 @@ export default function MyAccountPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      <tr className={staffRecord.availability_monday ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilityMonday ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Monday</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_monday ? 
+                          {staffRecord.availabilityMonday ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_monday ? "4:00pm - 7:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilityMonday ? "4:00pm - 7:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_tuesday ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilityTuesday ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Tuesday</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_tuesday ? 
+                          {staffRecord.availabilityTuesday ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_tuesday ? "4:00pm - 7:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilityTuesday ? "4:00pm - 7:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_wednesday ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilityWednesday ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Wednesday</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_wednesday ? 
+                          {staffRecord.availabilityWednesday ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_wednesday ? "4:00pm - 7:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilityWednesday ? "4:00pm - 7:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_thursday ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilityThursday ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Thursday</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_thursday ? 
+                          {staffRecord.availabilityThursday ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_thursday ? "4:00pm - 7:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilityThursday ? "4:00pm - 7:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_friday ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilityFriday ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Friday</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_friday ? 
+                          {staffRecord.availabilityFriday ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_friday ? "4:00pm - 7:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilityFriday ? "4:00pm - 7:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_saturday_am ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilitySaturdayAm ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Saturday AM</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_saturday_am ? 
+                          {staffRecord.availabilitySaturdayAm ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_saturday_am ? "9:00am - 12:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilitySaturdayAm ? "9:00am - 12:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_saturday_pm ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilitySaturdayPm ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Saturday PM</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_saturday_pm ? 
+                          {staffRecord.availabilitySaturdayPm ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_saturday_pm ? "1:00pm - 4:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilitySaturdayPm ? "1:00pm - 4:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_sunday_am ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilitySundayAm ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Sunday AM</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_sunday_am ? 
+                          {staffRecord.availabilitySundayAm ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_sunday_am ? "9:00am - 12:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilitySundayAm ? "9:00am - 12:30pm" : "-"}</td>
                       </tr>
-                      <tr className={staffRecord.availability_sunday_pm ? "bg-green-50/50" : ""}>
+                      <tr className={staffRecord.availabilitySundayPm ? "bg-green-50/50" : ""}>
                         <td className="py-2 px-3">Sunday PM</td>
                         <td className="py-2 px-3 text-center">
-                          {staffRecord.availability_sunday_pm ? 
+                          {staffRecord.availabilitySundayPm ? 
                             <Badge variant="outline" className="bg-green-100 text-green-800">Yes</Badge> : 
                             <Badge variant="outline" className="bg-gray-100 text-gray-800">No</Badge>}
                         </td>
-                        <td className="py-2 px-3">{staffRecord.availability_sunday_pm ? "1:00pm - 4:30pm" : "-"}</td>
+                        <td className="py-2 px-3">{staffRecord.availabilitySundayPm ? "1:00pm - 4:30pm" : "-"}</td>
                       </tr>
                     </tbody>
                   </table>

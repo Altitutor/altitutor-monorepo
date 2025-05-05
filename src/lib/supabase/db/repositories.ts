@@ -2,7 +2,7 @@ import { Repository } from './repository';
 import { 
   Student, Staff, Class, 
   Absence, Session, 
-  StudentAuditLog, StaffAuditLog, ClassAuditLog, Subject,
+  StudentAuditLog, StaffAuditLog, ClassesAuditLog, Subject,
   ClassEnrollment, ClassAssignment, SessionAttendance, Topic, Subtopic,
   SessionsStaff, StudentsSubjects, StaffSubjects,
   ResourceFile, SessionsResourceFiles, SessionAuditLog
@@ -27,7 +27,7 @@ export const resourceFileRepository = new Repository<ResourceFile>('resource_fil
 export const sessionsResourceFilesRepository = new Repository<SessionsResourceFiles>('sessions_resource_files');
 export const studentAuditLogRepository = new Repository<StudentAuditLog>('student_audit_logs');
 export const staffAuditLogRepository = new Repository<StaffAuditLog>('staff_audit_logs');
-export const classAuditLogRepository = new Repository<ClassAuditLog>('class_audit_logs');
+export const classAuditLogRepository = new Repository<ClassesAuditLog>('class_audit_logs');
 export const sessionAuditLogRepository = new Repository<SessionAuditLog>('session_audit_logs');
 
 // Export all repositories

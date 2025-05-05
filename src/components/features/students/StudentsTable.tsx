@@ -36,7 +36,7 @@ export function StudentsTable() {
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StudentStatus | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Student>('last_name');
+  const [sortField, setSortField] = useState<keyof Student>('lastName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
@@ -52,11 +52,11 @@ export function StudentsTable() {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(student => 
-        student.first_name.toLowerCase().includes(searchLower) ||
-        student.last_name.toLowerCase().includes(searchLower) ||
+        student.firstName.toLowerCase().includes(searchLower) ||
+        student.lastName.toLowerCase().includes(searchLower) ||
         student.email?.toLowerCase().includes(searchLower) ||
-        student.parent_name?.toLowerCase().includes(searchLower) ||
-        student.parent_email?.toLowerCase().includes(searchLower)
+        student.parentName?.toLowerCase().includes(searchLower) ||
+        student.parentEmail?.toLowerCase().includes(searchLower)
       );
     }
     
@@ -169,11 +169,11 @@ export function StudentsTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('last_name')}>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('lastName')}>
                 Name
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
-                  sortField === 'last_name' ? "opacity-100" : "opacity-40"
+                  sortField === 'lastName' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('email')}>
@@ -218,14 +218,14 @@ export function StudentsTable() {
                   onClick={() => handleStudentClick(student.id)}
                 >
                   <TableCell className="font-medium">
-                    {student.first_name} {student.last_name}
+                    {student.firstName} {student.lastName}
                   </TableCell>
                   <TableCell>{student.email || '-'}</TableCell>
                   <TableCell>
-                    {student.parent_name ? (
+                    {student.parentName ? (
                       <div>
-                        <div>{student.parent_name}</div>
-                        <div className="text-xs text-muted-foreground">{student.parent_email || '-'}</div>
+                        <div>{student.parentName}</div>
+                        <div className="text-xs text-muted-foreground">{student.parentEmail || '-'}</div>
                       </div>
                     ) : (
                       '-'
