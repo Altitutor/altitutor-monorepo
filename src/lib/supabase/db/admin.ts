@@ -40,9 +40,9 @@ export class AdminRepository {
         .insert([
           {
             id: uuidv4(),
-            first_name: user.email?.split('@')[0] || 'Admin',
+            first_name: user.email ? user.email.split('@')[0] : 'Admin',
             last_name: 'User',
-            email: user.email!,
+            email: user.email || null,
             role: 'ADMINSTAFF',
             status: 'ACTIVE',
             user_id: user.id,

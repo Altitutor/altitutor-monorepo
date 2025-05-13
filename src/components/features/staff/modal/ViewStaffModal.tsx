@@ -129,11 +129,13 @@ export function ViewStaffModal({
       await staffApi.updateStaff(staffMember.id, {
         firstName: data.firstName,
         lastName: data.lastName,
-        email: data.email,
+        // Email can be null or empty string
+        email: data.email === '' ? null : data.email,
         phoneNumber: data.phoneNumber || null,
         role: data.role,
         status: data.status,
-        officeKeyNumber: data.officeKeyNumber,
+        // Handle office key properly
+        officeKeyNumber: data.officeKeyNumber === '' || data.officeKeyNumber === undefined ? null : data.officeKeyNumber,
         hasParkingRemote: data.hasParkingRemote,
         availabilityMonday: data.availability_monday,
         availabilityTuesday: data.availability_tuesday,

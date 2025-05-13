@@ -16,7 +16,7 @@ import * as z from "zod";
 const formSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phoneNumber: z
     .string()
     .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
@@ -24,7 +24,10 @@ const formSchema = z.object({
     .nullish(),
   role: z.nativeEnum(StaffRole),
   status: z.nativeEnum(StaffStatus),
-  officeKeyNumber: z.number().nullable().optional(),
+  officeKeyNumber: z.union([
+    z.number().nullable(),
+    z.literal('').transform(() => null)
+  ]).optional(),
   hasParkingRemote: z.enum(['VIRTUAL', 'PHYSICAL', 'NONE']).nullable().optional(),
   
   // Availability checkboxes
@@ -186,7 +189,11 @@ export function StaffDetailsTab({
                 id="officeKeyNumber"
                 type="number"
                 {...form.register('officeKeyNumber', { 
-                  setValueAs: (v) => v === '' ? null : parseInt(v, 10) 
+                  setValueAs: (v) => {
+                    if (v === '' || v === null || v === undefined) return null;
+                    const parsed = parseInt(v, 10);
+                    return isNaN(parsed) ? null : parsed;
+                  }
                 })}
                 disabled={isLoading}
                 placeholder="Enter key number"

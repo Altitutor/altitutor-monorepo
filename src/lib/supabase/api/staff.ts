@@ -119,55 +119,58 @@ export const staffApi = {
     // Ensure the user is an admin first
     await adminRepository.ensureAdminUser();
     
-    if (!data.email) {
-      throw new Error('Email is required for staff invitation');
-    }
-    
     try {
-      // Generate a temporary password
-      const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).toUpperCase().slice(-2);
+      let userId = '';
       
-      // Get the base URL (works in both browser and server environments)
-      const baseUrl = typeof window !== 'undefined' 
-        ? window.location.origin 
-        : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      
-      // Create the user with the temporary password and auto-confirm the email
-      const { data: userData, error: userError } = await supabaseServer.auth.signUp({
-        email: data.email,
-        password: tempPassword,
-        options: {
-          data: {
-            user_role: data.role || StaffRole.TUTOR,
-            first_name: data.firstName,
-            last_name: data.lastName,
-          },
-          emailRedirectTo: `${baseUrl}/auth/reset-password`
+      // If email is provided, create a user account
+      if (data.email) {
+        // Generate a temporary password
+        const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).toUpperCase().slice(-2);
+        
+        // Get the base URL (works in both browser and server environments)
+        const baseUrl = typeof window !== 'undefined' 
+          ? window.location.origin 
+          : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        
+        // Create the user with the temporary password and auto-confirm the email
+        const { data: userData, error: userError } = await supabaseServer.auth.signUp({
+          email: data.email,
+          password: tempPassword,
+          options: {
+            data: {
+              user_role: data.role || StaffRole.TUTOR,
+              first_name: data.firstName,
+              last_name: data.lastName,
+            },
+            emailRedirectTo: `${baseUrl}/auth/reset-password`
+          }
+        });
+        
+        if (userError) {
+          console.error('Error creating staff user:', userError);
+          throw userError;
         }
-      });
-      
-      if (userError) {
-        console.error('Error creating staff user:', userError);
-        throw userError;
-      }
 
-      if (!userData.user) {
-        throw new Error('Failed to create user account');
+        if (!userData.user) {
+          throw new Error('Failed to create user account');
+        }
+        
+        userId = userData.user.id;
+      } else {
+        // If no email, generate a UUID for userId
+        userId = crypto.randomUUID();
       }
       
-      // Create staff record with newly created user ID
+      // Create staff record with user ID
       const staffData: Partial<Staff> = {
         ...data,
-        userId: userData.user.id,
+        userId,
         status: StaffStatus.ACTIVE,
       };
       
       const staff = await staffRepository.create(staffData);
       
-      // Instead of sending a separate reset password email, we'll use Supabase's built-in
-      // email verification flow, which will include a link that redirects to our reset-password page
-      
-      return { staff, userId: userData.user.id };
+      return { staff, userId };
     } catch (error) {
       console.error('Error inviting staff:', error);
       throw error;

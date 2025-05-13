@@ -25,7 +25,7 @@ interface AddStaffModalProps {
 const formSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phoneNumber: z
     .string()
     .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
@@ -87,8 +87,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       const staffData: Partial<Staff> = {
         firstName: formData.firstName,
         lastName: formData.lastName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
+        email: formData.email === '' ? null : formData.email,
+        phoneNumber: formData.phoneNumber || null,
         role: formData.role,
         
         // Set availability fields

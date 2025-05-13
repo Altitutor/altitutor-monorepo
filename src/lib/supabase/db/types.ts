@@ -221,12 +221,12 @@ export interface Student extends BaseEntity {
 export interface Staff extends BaseEntity {
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string | null;
   phoneNumber?: string | null;
   role: StaffRole;
   status: StaffStatus;
   notes?: string | null;
-  userId: string; // Link to auth user
+  userId?: string; // Link to auth user (optional)
   officeKeyNumber?: number | null;
   hasParkingRemote?: 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null;
   availabilityMonday?: boolean;
