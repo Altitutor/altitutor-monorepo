@@ -1,10 +1,10 @@
 import { useRepository } from './useRepository';
+import { useClassesStaff } from './useClassesStaff';
 import {
   studentRepository,
   staffRepository,
   classRepository,
   classesStudentsRepository,
-  classesStaffRepository,
   absenceRepository,
   sessionRepository,
   sessionsStudentsRepository,
@@ -27,7 +27,7 @@ export const useStudents = () => useRepository(studentRepository);
 export const useStaff = () => useRepository(staffRepository);
 export const useClasses = () => useRepository(classRepository);
 export const useClassesStudents = () => useRepository(classesStudentsRepository);
-export const useClassesStaff = () => useRepository(classesStaffRepository);
+export { useClassesStaff };
 export const useAbsences = () => useRepository(absenceRepository);
 export const useSessions = () => useRepository(sessionRepository);
 export const useSessionsStudents = () => useRepository(sessionsStudentsRepository);
