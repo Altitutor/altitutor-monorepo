@@ -2,9 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Database, Newspaper, GraduationCap, Beaker, Users, CalendarDays, ChevronRight } from 'lucide-react';
-import { DbStatusPanel } from '@/components/dashboard/DbStatusPanel';
-import { StudentDataTest } from '@/components/dashboard/StudentDataTest';
-import { DbTester } from '@/components/dashboard/DbTester';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
 
@@ -64,19 +61,6 @@ export default function DashboardPage() {
       </div>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Database Status */}
-        <Card className="md:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1">
-              <CardTitle>Database Status</CardTitle>
-              <CardDescription>Local database health information</CardDescription>
-            </div>
-            <Database className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <DbStatusPanel />
-          </CardContent>
-        </Card>
 
         {/* Recent Activity */}
         <Card className="md:col-span-1">
@@ -95,37 +79,11 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Student Quick View */}
-        <Card className="md:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1">
-              <CardTitle>Student Management</CardTitle>
-              <CardDescription>Student quick view</CardDescription>
-            </div>
-            <GraduationCap className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <StudentDataTest />
-          </CardContent>
-        </Card>
       </div>
       
       {/* Additional Widgets */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Database Tester */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1">
-              <CardTitle>Database Tester</CardTitle>
-              <CardDescription>Test database operations</CardDescription>
-            </div>
-            <Beaker className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <DbTester />
-          </CardContent>
-        </Card>
+
         
         {/* Quick Links */}
         <Card>

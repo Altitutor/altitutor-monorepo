@@ -112,3 +112,40 @@ chmod +x deploy-migrations.sh
    - Ask if you want to deploy to the remote environment
    - If yes, authenticate with Supabase if needed and push the changes
  
+
+
+┌─────────────────────────────────────────────────┐
+│                 Frontend (React)                │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
+│  │   Hooks     │ │ Components  │ │   Stores    ││
+│  │ useStudents │ │ StudentsPage│ │ useAuthStore││
+│  └─────────────┘ └─────────────┘ └─────────────┘│
+└─────────────────────┬───────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────┐
+│              API Layer (Business Logic)         │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
+│  │ studentsApi │ │  staffApi   │ │ subjectsApi ││
+│  │ - create    │ │ - create    │ │ - create    ││
+│  │ - update    │ │ - invite    │ │ - search    ││
+│  │ - search    │ │ - subjects  │ │ - topics    ││
+│  └─────────────┘ └─────────────┘ └─────────────┘│
+└─────────────────────┬───────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────┐
+│            Repository Layer (Data Access)       │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
+│  │Repository<T>│ │ Transform   │ │ Validation  ││
+│  │ - getAll()  │ │ camelCase   │ │ Auth Check  ││
+│  │ - create()  │ │ snake_case  │ │ Error Handle││
+│  │ - update()  │ │ Type Safety │ │ Permissions ││
+│  └─────────────┘ └─────────────┘ └─────────────┘│
+└─────────────────────┬───────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────┐
+│               Database (Supabase)               │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
+│  │   students  │ │    staff    │ │  subjects   ││
+│  │   topics    │ │   classes   │ │  sessions   ││
+│  └─────────────┘ └─────────────┘ └─────────────┘│
+└─────────────────────────────────────────────────┘

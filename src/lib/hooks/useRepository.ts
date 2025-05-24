@@ -15,8 +15,14 @@ export function useRepository<T extends BaseEntity>(repository: Repository<T>) {
       const data = await repository.getAll();
       setItems(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
       console.error('Repository fetch error:', err);
+      console.error('Error details:', { 
+        name: err instanceof Error ? err.name : 'Unknown',
+        message: errorMessage,
+        stack: err instanceof Error ? err.stack : undefined
+      });
     } finally {
       setLoading(false);
     }

@@ -42,7 +42,11 @@ export class Repository<T extends BaseEntity> {
       .from(this.tableName)
       .select('*');
     
-    if (error) throw error;
+    if (error) {
+      console.error(`Repository error for ${this.tableName}:`, error);
+      throw error;
+    }
+    
     // Transform snake_case DB fields to camelCase for TypeScript
     return data?.map(item => this.transformToCamelCase(item)) as T[] || [];
   }
@@ -57,8 +61,14 @@ export class Repository<T extends BaseEntity> {
       .eq('id', id)
       .single();
     
-    if (error) throw error;
-    // Transform snake_case DB fields to camelCase for TypeScript
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return undefined; // No rows found
+      }
+      console.error(`Repository error getting ${this.tableName} by ID ${id}:`, error);
+      throw error;
+    }
+    
     return data ? this.transformToCamelCase(data) as T : undefined;
   }
 
@@ -195,39 +205,8 @@ export class Repository<T extends BaseEntity> {
     if (!data) return data;
     
     const result: Record<string, any> = {};
-    
-    // Special case handling for staff fields
-    if (this.tableName === 'staff') {
-      // Map snake_case field names to camelCase for staff
-      result.id = data.id;
-      result.firstName = data.first_name;
-      result.lastName = data.last_name;
-      result.email = data.email;
-      result.phoneNumber = data.phone_number;
-      result.role = data.role;
-      result.status = data.status;
-      result.notes = data.notes;
-      result.userId = data.user_id;
-      result.officeKeyNumber = data.office_key_number;
-      result.hasParkingRemote = data.has_parking_remote;
-      result.created_at = data.created_at;
-      result.updated_at = data.updated_at;
-      
-      // Add availability fields - fix to use proper camelCase property names
-      result.availabilityMonday = data.availability_monday;
-      result.availabilityTuesday = data.availability_tuesday;
-      result.availabilityWednesday = data.availability_wednesday;
-      result.availabilityThursday = data.availability_thursday;
-      result.availabilityFriday = data.availability_friday;
-      result.availabilitySaturdayAm = data.availability_saturday_am;
-      result.availabilitySaturdayPm = data.availability_saturday_pm;
-      result.availabilitySundayAm = data.availability_sunday_am;
-      result.availabilitySundayPm = data.availability_sunday_pm;
-      
-      return result;
-    }
-    
-    // For other tables, use general transformation
+
+
     for (const key in data) {
       if (key.includes('_')) {
         // Convert snake_case to camelCase

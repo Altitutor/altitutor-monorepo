@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,10 +16,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { authApi } from '@/lib/supabase/api/auth';
+import { useSupabaseClient } from '@/lib/supabase/client';
 
 const resetPasswordSchema = z.object({
   password: z.string()
@@ -35,12 +36,14 @@ const resetPasswordSchema = z.object({
 
 type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
 
-// We no longer need the token from props - Supabase will use the hash in the URL
 export function ResetPasswordForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [sessionValid, setSessionValid] = useState<boolean | null>(null);
   const { resolvedTheme } = useTheme();
+  const supabase = useSupabaseClient();
 
   const form = useForm<ResetPasswordData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -50,18 +53,51 @@ export function ResetPasswordForm() {
     },
   });
 
+  // Verify session is valid for password reset on component mount
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) {
+          console.error('Session verification failed:', error);
+          setSessionValid(false);
+          setError('Invalid or expired reset session. Please request a new password reset.');
+        } else {
+          setSessionValid(true);
+        }
+      } catch (err) {
+        console.error('Session check error:', err);
+        setSessionValid(false);
+        setError('Unable to verify reset session. Please try again.');
+      }
+    };
+
+    verifySession();
+  }, [supabase]);
+
   const onSubmit = async (data: ResetPasswordData) => {
+    if (sessionValid !== true) {
+      setError('Session not valid. Please request a new password reset.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setSuccess(false);
+
     try {
-      // Just pass an empty token - Supabase will use the one from the URL hash
       await authApi.confirmPasswordReset({
-        token: '',
+        token: '', // Token is handled automatically by Supabase
         password: data.password,
       });
       
-      // On success, redirect to login page with success indicator
+      setSuccess(true);
+      
+      // Redirect after a brief delay to show success message
+      setTimeout(() => {
       router.push('/login?reset=success');
+      }, 2000);
+      
     } catch (error) {
       console.error('Password reset error:', error);
       setError(
@@ -73,6 +109,77 @@ export function ResetPasswordForm() {
       setLoading(false);
     }
   };
+
+  // Show loading state while verifying session
+  if (sessionValid === null) {
+    return (
+      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
+        <div className="flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-darkBlue dark:text-brand-lightBlue" />
+        </div>
+        <div className="text-center">
+          <p className="text-muted-foreground">Verifying reset session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if session is invalid
+  if (sessionValid === false) {
+    return (
+      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
+        <div className="space-y-2 text-center">
+          <div className="flex justify-center">
+            <Image 
+              src={resolvedTheme === 'dark' ? "/images/logo-icon-dark.svg" : "/images/logo-icon-light.svg"}
+              alt="Altitutor Logo" 
+              width={120} 
+              height={120} 
+              className="mb-4"
+            />
+          </div>
+          <h1 className="text-2xl font-bold">Session Expired</h1>
+        </div>
+
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+
+        <div className="flex flex-col gap-2">
+          <Button 
+            onClick={() => router.push('/forgot-password')}
+            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+          >
+            Request New Reset
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/login')}
+            className="w-full"
+          >
+            Back to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show success state
+  if (success) {
+    return (
+      <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
+        <div className="space-y-2 text-center">
+          <div className="flex justify-center">
+            <CheckCircle2 className="h-16 w-16 text-green-600 mb-4" />
+          </div>
+          <h1 className="text-2xl font-bold">Password Reset Successful</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Your password has been updated successfully. Redirecting to login...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
@@ -110,10 +217,14 @@ export function ResetPasswordForm() {
                   <Input
                     type="password"
                     placeholder="Enter your new password"
+                    disabled={loading}
                     {...field}
                   />
                 </FormControl>
                 <FormMessage />
+                <div className="text-xs text-muted-foreground">
+                  Password must be at least 8 characters with uppercase, lowercase, and a number
+                </div>
               </FormItem>
             )}
           />
@@ -128,6 +239,7 @@ export function ResetPasswordForm() {
                   <Input
                     type="password"
                     placeholder="Confirm your new password"
+                    disabled={loading}
                     {...field}
                   />
                 </FormControl>
@@ -152,6 +264,17 @@ export function ResetPasswordForm() {
           </Button>
         </form>
       </Form>
+
+      <div className="text-center">
+        <Button 
+          variant="link" 
+          onClick={() => router.push('/login')}
+          className="text-brand-mediumBlue dark:text-brand-lightBlue"
+          disabled={loading}
+        >
+          Back to Login
+        </Button>
+      </div>
     </div>
   );
 } 

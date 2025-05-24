@@ -262,7 +262,7 @@ export function ViewStaffModal({
       const { error } = await supabaseServer.auth.resetPasswordForEmail(
         staffMember.email,
         {
-          redirectTo: `${baseUrl}/reset-password`,
+          redirectTo: `${baseUrl}/auth/callback`,
         }
       );
       

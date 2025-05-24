@@ -10,58 +10,26 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+/**
+ * Flexible Database interface for Supabase TypeScript integration
+ * 
+ * This uses a flexible structure that allows any table names while maintaining
+ * type safety through our Repository pattern and domain models below.
+ * 
+ * Benefits of this approach:
+ * - No need to maintain complex database schema types
+ * - Works with our Repository pattern's automatic snake_case ↔ camelCase conversion
+ * - Avoids TypeScript conflicts when adding/removing tables
+ * - Keeps focus on domain models rather than database implementation details
+ */
 export interface Database {
   public: {
     Tables: {
-      students: {
-        Row: {
-          id: string
-          first_name: string
-          last_name: string
-          email: string | null
-          phone_number: string | null
-          parent_name: string | null
-          parent_email: string | null
-          parent_phone: string | null
-          status: 'CURRENT' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'
-          notes: string | null
-          user_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          first_name: string
-          last_name: string
-          email?: string | null
-          phone_number?: string | null
-          parent_name?: string | null
-          parent_email?: string | null
-          parent_phone?: string | null
-          status: 'CURRENT' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'
-          notes?: string | null
-          user_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          first_name?: string
-          last_name?: string
-          email?: string | null
-          phone_number?: string | null
-          parent_name?: string | null
-          parent_email?: string | null
-          parent_phone?: string | null
-          status?: 'CURRENT' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'
-          notes?: string | null
-          user_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      // Add other tables as needed - for now just adding a simplified version to make it work
-      // To complete this, copy the entire Database type from supabase/types.ts
+      [key: string]: {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
     }
     Views: {
       [_ in never]: never
@@ -77,7 +45,7 @@ export interface Database {
 
 // Enums
 export enum StudentStatus {
-  CURRENT = 'CURRENT',
+  ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
   TRIAL = 'TRIAL',
   DISCONTINUED = 'DISCONTINUED',
@@ -208,14 +176,28 @@ export interface BaseEntity {
 export interface Student extends BaseEntity {
   firstName: string;
   lastName: string;
-  email?: string | null;
-  phoneNumber?: string | null;
-  parentName?: string | null;
+  studentEmail?: string | null;
+  studentPhone?: string | null;
+  parentFirstName?: string | null;
+  parentLastName?: string | null;
   parentEmail?: string | null;
   parentPhone?: string | null;
   status: StudentStatus;
   notes?: string | null;
   userId?: string | null; // Link to auth user
+  school?: string | null;
+  curriculum?: string | null;
+  yearLevel?: number | null;
+  availabilityMonday?: boolean | null;
+  availabilityTuesday?: boolean | null;
+  availabilityWednesday?: boolean | null;
+  availabilityThursday?: boolean | null;
+  availabilityFriday?: boolean | null;
+  availabilitySaturdayAm?: boolean | null;
+  availabilitySaturdayPm?: boolean | null;
+  availabilitySundayAm?: boolean | null;
+  availabilitySundayPm?: boolean | null;
+  createdBy?: string | null;
 }
 
 export interface Staff extends BaseEntity {

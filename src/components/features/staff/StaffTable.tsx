@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+
 interface StaffTableProps {
   onRefresh?: number;
 }
@@ -50,6 +51,8 @@ export function StaffTable({ onRefresh }: StaffTableProps = {}) {
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+
 
   // Load data
   const loadStaff = async () => {
@@ -163,6 +166,8 @@ export function StaffTable({ onRefresh }: StaffTableProps = {}) {
     setIsAddModalOpen(true);
   };
 
+
+
   if (loading && staffMembers.length === 0) {
     return <div className="flex justify-center p-4">Loading staff...</div>;
   }
@@ -232,6 +237,8 @@ export function StaffTable({ onRefresh }: StaffTableProps = {}) {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+
+
 
         </div>
       </div>

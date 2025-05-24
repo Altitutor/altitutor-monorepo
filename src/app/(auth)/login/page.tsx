@@ -8,6 +8,7 @@ import { CheckCircle2 } from 'lucide-react';
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get('reset') === 'success';
+  const error = searchParams.get('error');
 
   return (
     <div className="h-[calc(100vh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">
@@ -18,6 +19,13 @@ export default function LoginPage() {
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertDescription className="text-green-700 dark:text-green-400">
               Your password has been successfully reset. You can now log in with your new password.
+            </AlertDescription>
+          </Alert>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {decodeURIComponent(error)}
             </AlertDescription>
           </Alert>
         )}

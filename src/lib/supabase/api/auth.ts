@@ -1,5 +1,6 @@
 import { supabaseServer } from '../client';
-import { createClient } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { Database } from '../db/types';
 
 interface LoginRequest {
   email: string;
@@ -54,73 +55,133 @@ export const authApi = {
       throw new Error('This method must be called from the browser');
     }
     
-    const { error } = await supabaseServer.auth.resetPasswordForEmail(
+    // Use client component client for better auth handling
+    const supabase = createClientComponentClient<Database>();
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(
       data.email,
       {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       }
     );
-    if (error) throw error;
-    return { message: 'Password reset email sent' };
+    
+    if (error) {
+      console.error('Password reset request error:', error);
+      throw new Error(error.message || 'Failed to send password reset email');
+    }
+    
+    return { message: 'Password reset email sent successfully' };
   },
   
   /**
-   * Confirm password reset with token and new password
+   * Confirm password reset with new password
+   * This works with both modern (query params) and legacy (hash) Supabase flows
    */
   confirmPasswordReset: async (data: PasswordResetConfirmRequest) => {
     try {
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        throw new Error('Missing Supabase environment variables');
+      // Use client component client for proper auth context
+      const supabase = createClientComponentClient<Database>();
+
+      // First, check if we have a valid session from the reset token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error during password reset:', sessionError);
+        throw new Error('Invalid or expired reset token. Please request a new password reset.');
       }
 
-      // When the user arrives via the recovery email, the hash fragment contains tokens
-      // Supabase client will automatically handle the recovery token when updateUser is called
+      if (!session) {
+        throw new Error('No active session found. Please click the reset link again.');
+      }
 
-      // Create a temporary client
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      );
-
-      // Just call updateUser - Supabase will automatically use the token from the URL hash
-      const { error } = await supabase.auth.updateUser({
+      // Update the user's password
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
         password: data.password
       });
       
-      if (error) throw error;
-      return { message: 'Password updated successfully' };
+      if (updateError) {
+        console.error('Password update error:', updateError);
+        
+        // Provide more specific error messages
+        if (updateError.message.includes('same as the old password')) {
+          throw new Error('New password must be different from your current password.');
+        } else if (updateError.message.includes('password')) {
+          throw new Error('Password does not meet security requirements. Please choose a stronger password.');
+        } else {
+          throw new Error(updateError.message || 'Failed to update password. Please try again.');
+        }
+      }
+
+      if (!updateData.user) {
+        throw new Error('Failed to update password. Please try again.');
+      }
+
+      return { 
+        message: 'Password updated successfully',
+        user: updateData.user 
+      };
     } catch (error) {
-      console.error('Password reset error:', error);
-      throw error;
+      console.error('Password reset confirmation error:', error);
+      
+      if (error instanceof Error) {
+        throw error; // Re-throw custom errors
+      }
+      
+      throw new Error('An unexpected error occurred. Please try again or request a new reset link.');
     }
   },
   
   /**
-   * Verify if a token is valid
+   * Verify if current session is valid
    */
   verifyToken: async () => {
-    const { data: { session }, error } = await supabaseServer.auth.getSession();
-    if (error) throw error;
-    
-    return {
-      valid: !!session,
-      user: session?.user || undefined,
-    };
+    try {
+      const { data: { session }, error } = await supabaseServer.auth.getSession();
+      if (error) {
+        console.error('Token verification error:', error);
+        return { valid: false, error: error.message };
+      }
+      
+      return {
+        valid: !!session,
+        user: session?.user || undefined,
+        session: session || undefined,
+      };
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return { valid: false, error: 'Failed to verify token' };
+    }
   },
 
+  /**
+   * Get current authenticated user
+   */
   async getCurrentUser() {
-    const { data: { user }, error } = await supabaseServer.auth.getUser();
-    if (error) {
+    try {
+      const { data: { user }, error } = await supabaseServer.auth.getUser();
+      if (error) {
+        throw new Error(error.message || 'Failed to get current user');
+      }
+      return user;
+    } catch (error) {
+      console.error('Get current user error:', error);
       throw error;
     }
-    return user;
   },
 
+  /**
+   * Get current session
+   */
   async getSession() {
-    const { data: { session }, error } = await supabaseServer.auth.getSession();
-    if (error) {
+    try {
+      const { data: { session }, error } = await supabaseServer.auth.getSession();
+      if (error) {
+        throw new Error(error.message || 'Failed to get session');
+      }
+      return session;
+    } catch (error) {
+      console.error('Get session error:', error);
       throw error;
     }
-    return session;
   },
 }; 

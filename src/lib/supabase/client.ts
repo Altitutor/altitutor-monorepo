@@ -11,19 +11,15 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-// Debug log - remove in production
-console.log('Supabase URL configured:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log('Supabase Key available:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-
 // Server-side client for server components and API routes
 export const supabaseServer = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   {
     auth: {
-      persistSession: true, // Enable session persistence
-      autoRefreshToken: true, // Automatically refresh the token
-      detectSessionInUrl: true // Detect token in URL for OAuth flows
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
     }
   }
 );
@@ -43,16 +39,27 @@ export const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
     )
   : null;
 
-// Function to get client-side instance with consistent config
+/**
+ * Get the appropriate Supabase client based on environment
+ * - Browser: Returns client component client with cookie handling
+ * - Server: Returns server client
+ */
 export function getSupabaseClient() {
-  // In browser environments, prefer the client component client which handles cookies correctly
   if (typeof window !== 'undefined') {
     return createClientComponentClient<Database>();
   }
   return supabaseServer;
 }
 
-// Hook for client components to use in React components
+/**
+ * Hook for React components to get a properly configured client
+ * This function can be called during SSR but will return the appropriate client
+ */
 export function useSupabaseClient() {
+  // During SSR or server context, return the server client
+  // During client hydration/runtime, return the client component client
+  if (typeof window === 'undefined') {
+    return supabaseServer;
+  }
   return createClientComponentClient<Database>();
 } 

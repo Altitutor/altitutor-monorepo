@@ -72,7 +72,7 @@ const initialState: Omit<AuthState, 'login' | 'logout' | 'refreshSession' | 'cle
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, _get) => ({
+    (set, get) => ({
       ...initialState,
 
       login: async (email: string, password: string) => {
@@ -158,18 +158,34 @@ export const useAuthStore = create<AuthState>()(
 
       setAuth: (user: User) => set({ isAuthenticated: true, user }),
       clearAuth: () => set({ isAuthenticated: false, user: null }),
+      
       initializeAuth: async () => {
+        set({ loading: true });
         try {
           const supabase = createClientComponentClient<Database>();
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            set({ isAuthenticated: true, user });
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Auth initialization error:', error);
+            set({ isAuthenticated: false, user: null, loading: false });
+            return;
+          }
+          
+          if (session?.user) {
+            console.log('Session restored:', { user: session.user.email });
+            set({ 
+              isAuthenticated: true, 
+              user: session.user,
+              token: session.access_token,
+              loading: false 
+            });
           } else {
-            set({ isAuthenticated: false, user: null });
+            console.log('No existing session found');
+            set({ isAuthenticated: false, user: null, loading: false });
           }
         } catch (error) {
           console.error('Auth initialization error:', error);
-          set({ isAuthenticated: false, user: null });
+          set({ isAuthenticated: false, user: null, loading: false });
         }
       },
     }),
@@ -180,6 +196,15 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      // Add hydration handling to initialize auth on app start
+      onRehydrateStorage: () => (state) => {
+        if (state && typeof window !== 'undefined') {
+          // Only initialize on client side
+          setTimeout(() => {
+            state.initializeAuth();
+          }, 0);
+        }
+      },
     }
   )
 ); 

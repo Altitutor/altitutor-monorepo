@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useSupabaseClient } from '../supabase/client';
+import { useAuthStore } from '../supabase/auth';
 import { Database } from '../supabase/db/types';
 
 // Create context
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabaseClient();
+  const { setAuth, clearAuth, initializeAuth } = useAuthStore();
 
   useEffect(() => {
     async function getSession() {
@@ -32,12 +34,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setSession(session);
+      
+      // Sync with Zustand store
+      if (session?.user) {
+        setAuth(session.user);
+      } else {
+        clearAuth();
+      }
+      
       setIsLoading(false);
 
       // Listen for auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         (_event, session) => {
+          console.log('Auth state changed:', { event: _event, hasSession: !!session });
           setSession(session);
+          
+          // Sync with Zustand store
+          if (session?.user) {
+            setAuth(session.user);
+          } else {
+            clearAuth();
+          }
         }
       );
 
@@ -47,8 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
+    // Initialize auth store first, then get session
+    initializeAuth().then(() => {
     getSession();
-  }, [supabase.auth]);
+    });
+  }, [supabase.auth, setAuth, clearAuth, initializeAuth]);
 
   return (
     <AuthContext.Provider value={{ session, isLoading, supabase }}>

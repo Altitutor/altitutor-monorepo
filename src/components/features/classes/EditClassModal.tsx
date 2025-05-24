@@ -46,7 +46,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   useEffect(() => {
     if (isOpen) {
       // Handle special cases based on class subject
-      let updatedClassData = { ...classData };
+      const updatedClassData = { ...classData };
       
       // Set correct day for known classes
       if (updatedClassData.subject === 'UCAT A' && updatedClassData.dayOfWeek !== 0) {

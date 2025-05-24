@@ -309,7 +309,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const handleStatusChange = async (e: React.MouseEvent, cls: Class, newStatus: ClassStatus) => {
     e.stopPropagation();
     try {
-      await update(cls.id, { status: newStatus });
+      const updatedClass = {
+        ...cls,
+        status: newStatus as ClassStatus,
+      };
+      await update(cls.id, updatedClass);
       await fetchAll();
     } catch (error) {
       console.error('Error updating class status:', error);
