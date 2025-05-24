@@ -8,8 +8,17 @@ import { useToast } from "@/components/ui/use-toast";
 import { studentsApi } from '@/lib/supabase/api';
 import { subjectsApi } from '@/lib/supabase/api/subjects';
 import { Student, Subject } from '@/lib/supabase/db/types';
-import { StudentDetailsTab, StudentDetailsFormData } from './tabs/StudentDetailsTab';
-import { StudentSubjectsTab } from './tabs/StudentSubjectsTab';
+import { 
+  StudentDetailsTab, 
+  ParentDetailsTab, 
+  StudentSubjectsTab, 
+  AvailabilityTab,
+  StudentAccountTab,
+  StudentDetailsFormData,
+  ParentDetailsFormData,
+  AvailabilityFormData,
+  StudentAccountFormData
+} from './tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,9 +28,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2 } from 'lucide-react';
+
 import { useRouter } from "next/navigation";
 
 interface ViewStudentModalProps {
@@ -31,117 +39,180 @@ interface ViewStudentModalProps {
   onStudentUpdated: () => void;
 }
 
-export function ViewStudentModal({ 
-  isOpen, 
-  studentId, 
-  onClose, 
-  onStudentUpdated 
+export function ViewStudentModal({
+  isOpen,
+  onClose,
+  studentId,
+  onStudentUpdated
 }: ViewStudentModalProps) {
-  // State
+  const { toast } = useToast();
   const [student, setStudent] = useState<Student | null>(null);
   const [studentSubjects, setStudentSubjects] = useState<Subject[]>([]);
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [loadingStudent, setLoadingStudent] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('details');
   
-  const { toast } = useToast();
+  // Edit states for each tab
+  const [isEditingStudentDetails, setIsEditingStudentDetails] = useState(false);
+  const [isEditingParentDetails, setIsEditingParentDetails] = useState(false);
+  const [isEditingAvailability, setIsEditingAvailability] = useState(false);
+  const [isEditingAccount, setIsEditingAccount] = useState(false);
+  
+  // Loading states for each tab
+  const [loadingStudentDetailsUpdate, setLoadingStudentDetailsUpdate] = useState(false);
+  const [loadingParentDetailsUpdate, setLoadingParentDetailsUpdate] = useState(false);
+  const [loadingAvailabilityUpdate, setLoadingAvailabilityUpdate] = useState(false);
+  const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
+
+  // Delete confirmation state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
+
+  // Password reset state
+  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+
   const router = useRouter();
 
-  // Fetch student data
-  useEffect(() => {
-    if (isOpen && studentId) {
-      fetchStudent();
-      fetchAllSubjects();
-    } else {
-      // Reset state when closing
-      setStudent(null);
-      setStudentSubjects([]);
-      setAllSubjects([]);
-      setIsEditing(false);
-      setActiveTab('details');
-    }
-  }, [isOpen, studentId]);
-
-  // Fetch student data
-  const fetchStudent = async () => {
+  // Load student data
+  const loadStudent = async () => {
     if (!studentId) return;
     
     try {
-      setIsLoading(true);
-      
-      // Fetch student details
-      const studentData = await studentsApi.getStudent(studentId);
-      setStudent(studentData || null);
-      
-      // Fetch student subjects
-      if (studentData) {
-        await fetchStudentSubjects(studentId);
-      }
-    } catch (err) {
-      console.error('Failed to fetch student:', err);
+      setLoadingStudent(true);
+                    const data = await studentsApi.getStudent(studentId);
+       setStudent(data || null);
+    } catch (error) {
+      console.error('Failed to load student:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load student details.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to load student details. Please try again.",
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setLoadingStudent(false);
     }
   };
 
-  // Fetch student subjects
-  const fetchStudentSubjects = async (id: string) => {
+  // Load subjects
+  const loadSubjects = async () => {
+    if (!studentId) return;
+    
     try {
       setLoadingSubjects(true);
-      const subjects = await studentsApi.getStudentSubjects(id);
-      setStudentSubjects(subjects);
-    } catch (err) {
-      console.error('Failed to fetch student subjects:', err);
+      const [studentSubjectsData, allSubjectsData] = await Promise.all([
+        studentsApi.getStudentSubjects(studentId),
+        subjectsApi.getAllSubjects()
+      ]);
+      setStudentSubjects(studentSubjectsData);
+      setAllSubjects(allSubjectsData);
+    } catch (error) {
+      console.error('Failed to load subjects:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load student subjects.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to load subjects. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setLoadingSubjects(false);
     }
   };
 
-  // Fetch all subjects for assignment
-  const fetchAllSubjects = async () => {
-    try {
-      const subjects = await subjectsApi.getAllSubjects();
-      setAllSubjects(subjects);
-    } catch (err) {
-      console.error('Failed to fetch subjects:', err);
+  // Initialize data when modal opens
+  useEffect(() => {
+    if (isOpen && studentId) {
+      loadStudent();
+      loadSubjects();
     }
-  };
+  }, [isOpen, studentId]);
 
-  // Update student handler
-  const handleStudentUpdate = async (data: StudentDetailsFormData) => {
+  // Reset edit states when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsEditingStudentDetails(false);
+      setIsEditingParentDetails(false);
+      setIsEditingAvailability(false);
+      setIsEditingAccount(false);
+    }
+  }, [isOpen]);
+
+  // Handle student details update
+  const handleStudentDetailsSubmit = async (data: StudentDetailsFormData) => {
     if (!student) return;
     
     try {
-      setIsLoading(true);
-      
-      // Map form data to student update
-      await studentsApi.updateStudent(student.id, {
+      setLoadingStudentDetailsUpdate(true);
+      const updatedStudent = await studentsApi.updateStudent(student.id, {
         firstName: data.firstName,
         lastName: data.lastName,
-        studentEmail: data.studentEmail === '' ? null : data.studentEmail,
+        studentEmail: data.studentEmail || null,
         studentPhone: data.studentPhone || null,
-        parentFirstName: data.parentFirstName || null,
-        parentLastName: data.parentLastName || null,
-        parentEmail: data.parentEmail === '' ? null : data.parentEmail,
-        parentPhone: data.parentPhone || null,
         school: data.school || null,
         curriculum: data.curriculum || null,
-                 yearLevel: data.yearLevel,
+        yearLevel: data.yearLevel,
         status: data.status,
         notes: data.notes || null,
+      });
+      
+      setStudent(updatedStudent);
+      setIsEditingStudentDetails(false);
+      onStudentUpdated();
+      
+      toast({
+        title: "Success",
+        description: "Student details updated successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to update student details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update student details. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingStudentDetailsUpdate(false);
+    }
+  };
+
+  // Handle parent details update
+  const handleParentDetailsSubmit = async (data: ParentDetailsFormData) => {
+    if (!student) return;
+    
+    try {
+      setLoadingParentDetailsUpdate(true);
+      const updatedStudent = await studentsApi.updateStudent(student.id, {
+        parentFirstName: data.parentFirstName || null,
+        parentLastName: data.parentLastName || null,
+        parentEmail: data.parentEmail || null,
+        parentPhone: data.parentPhone || null,
+      });
+      
+      setStudent(updatedStudent);
+      setIsEditingParentDetails(false);
+      onStudentUpdated();
+      
+      toast({
+        title: "Success",
+        description: "Parent details updated successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to update parent details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update parent details. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingParentDetailsUpdate(false);
+    }
+  };
+
+  // Handle availability update
+  const handleAvailabilitySubmit = async (data: AvailabilityFormData) => {
+    if (!student) return;
+    
+    try {
+      setLoadingAvailabilityUpdate(true);
+      const updatedStudent = await studentsApi.updateStudent(student.id, {
         availabilityMonday: data.availability_monday,
         availabilityTuesday: data.availability_tuesday,
         availabilityWednesday: data.availability_wednesday,
@@ -153,200 +224,223 @@ export function ViewStudentModal({
         availabilitySundayPm: data.availability_sunday_pm,
       });
       
-      // Refetch student
-      await fetchStudent();
-      
-      // Reset edit mode
-      setIsEditing(false);
-      
-      // Notify parent of update
+      setStudent(updatedStudent);
+      setIsEditingAvailability(false);
       onStudentUpdated();
       
       toast({
-        title: 'Student updated',
-        description: 'Student has been updated successfully.',
+        title: "Success",
+        description: "Availability updated successfully.",
       });
-    } catch (err) {
-      console.error('Failed to update student:', err);
+    } catch (error) {
+      console.error('Failed to update availability:', error);
       toast({
-        title: 'Update failed',
-        description: 'There was an error updating the student. Please try again.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to update availability. Please try again.",
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setLoadingAvailabilityUpdate(false);
     }
   };
 
-  // Delete student handler
-  const handleDelete = async () => {
+  // Handle account update
+  const handleAccountSubmit = async (data: StudentAccountFormData) => {
     if (!student) return;
     
     try {
-      setIsDeleting(true);
-      await studentsApi.deleteStudent(student.id);
-      
-      toast({
-        title: 'Student deleted',
-        description: 'Student has been deleted successfully.',
+      setLoadingAccountUpdate(true);
+      const updatedStudent = await studentsApi.updateStudent(student.id, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        studentEmail: data.studentEmail || null,
       });
       
-      // Close the modal and refresh the list
-      onClose();
+      setStudent(updatedStudent);
+      setIsEditingAccount(false);
       onStudentUpdated();
-    } catch (err) {
-      console.error('Failed to delete student:', err);
+      
       toast({
-        title: 'Delete failed',
-        description: 'There was an error deleting the student. Please try again.',
-        variant: 'destructive',
+        title: "Success",
+        description: "Account information updated successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to update account:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update account information. Please try again.",
+        variant: "destructive",
       });
     } finally {
-      setIsDeleting(false);
+      setLoadingAccountUpdate(false);
     }
   };
 
-  // Subject handlers
+  // Handle password reset request
+  const handlePasswordResetRequest = async () => {
+    if (!student || !student.studentEmail) {
+      toast({
+        title: "Error",
+        description: "No email address found for this student.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoadingAccountUpdate(true);
+      // TODO: Implement password reset API call
+      // await authApi.requestPasswordReset(student.studentEmail);
+      
+      setHasPasswordResetLinkSent(true);
+      
+      toast({
+        title: "Success",
+        description: "Password reset link sent successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to send password reset:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send password reset link. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAccountUpdate(false);
+    }
+  };
+
+  // Handle subject assignment
   const handleAssignSubject = async (subjectId: string) => {
     if (!student) return;
     
     try {
-      setLoadingSubjects(true);
       await studentsApi.assignSubjectToStudent(student.id, subjectId);
-      
-      // Refetch subjects
-      await fetchStudentSubjects(student.id);
-      
+      await loadSubjects(); // Reload subjects
       toast({
-        title: 'Subject assigned',
-        description: 'Subject has been assigned to student.',
+        title: "Success",
+        description: "Subject assigned successfully.",
       });
-    } catch (err) {
-      console.error('Failed to assign subject:', err);
+    } catch (error) {
+      console.error('Failed to assign subject:', error);
       toast({
-        title: 'Assignment failed',
-        description: 'There was an error assigning the subject. Please try again.',
-        variant: 'destructive',
+        title: "Assignment failed",
+        description: "There was an error assigning the subject. Please try again.",
+        variant: "destructive",
       });
-    } finally {
-      setLoadingSubjects(false);
     }
   };
 
+  // Handle subject removal
   const handleRemoveSubject = async (subjectId: string) => {
     if (!student) return;
     
     try {
-      setLoadingSubjects(true);
-      await studentsApi.removeSubjectFromStudent(student.id, subjectId);
-      
-      // Refetch subjects
-      await fetchStudentSubjects(student.id);
-      
+             await studentsApi.removeSubjectFromStudent(student.id, subjectId);
+      await loadSubjects(); // Reload subjects
       toast({
-        title: 'Subject removed',
-        description: 'Subject has been removed from student.',
+        title: "Success",
+        description: "Subject removed successfully.",
       });
-    } catch (err) {
-      console.error('Failed to remove subject:', err);
+    } catch (error) {
+      console.error('Failed to remove subject:', error);
       toast({
-        title: 'Removal failed',
-        description: 'There was an error removing the subject. Please try again.',
-        variant: 'destructive',
+        title: "Removal failed",
+        description: "There was an error removing the subject. Please try again.",
+        variant: "destructive",
       });
-    } finally {
-      setLoadingSubjects(false);
     }
   };
 
+  // Handle view subject (placeholder for now)
   const handleViewSubject = (subjectId: string) => {
-    // Close the current student modal
-    onClose();
-    // Navigate to the subjects page with the subject ID as a view parameter
-    router.push(`/dashboard/subjects?view=${subjectId}`);
+    console.log('View subject:', subjectId);
+    // TODO: Implement subject detail view
   };
 
-  // Early return if no student loaded
-  if (!student) {
+  // Handle student deletion
+  const handleDeleteStudent = async () => {
+    if (!student) return;
+    
+    try {
+      setLoadingDelete(true);
+      await studentsApi.deleteStudent(student.id);
+      setShowDeleteDialog(false);
+      onClose();
+      onStudentUpdated();
+      
+      toast({
+        title: "Success",
+        description: "Student deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to delete student:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingDelete(false);
+    }
+  };
+
+  if (!student && loadingStudent) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Loading student...</SheetTitle>
-          </SheetHeader>
+        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none">
+          <div className="flex justify-center items-center h-32">
+            Loading...
+          </div>
         </SheetContent>
       </Sheet>
     );
   }
 
+  if (!student) return null;
+
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="overflow-y-auto max-w-md">
-        <SheetHeader>
-          <SheetTitle>
-            {student.firstName} {student.lastName}
-          </SheetTitle>
-        </SheetHeader>
-        
-        <div className="mt-6">
-          <Tabs 
-            defaultValue="details" 
-            value={activeTab} 
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="w-full">
-              <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-              <TabsTrigger value="subjects" className="flex-1">Subjects</TabsTrigger>
+    <>
+      <Sheet open={isOpen} onOpenChange={onClose}>
+        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none">
+          <SheetHeader>
+            <SheetTitle>
+              {student.firstName} {student.lastName}
+            </SheetTitle>
+          </SheetHeader>
+          
+          <Tabs defaultValue="student-details" className="mt-6">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="student-details">Student Details</TabsTrigger>
+              <TabsTrigger value="parent-details">Parent Details</TabsTrigger>
+              <TabsTrigger value="subjects">Subjects</TabsTrigger>
+              <TabsTrigger value="availability">Availability</TabsTrigger>
+              <TabsTrigger value="account">Account</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="details" className="mt-4">
+            <TabsContent value="student-details" className="mt-6">
               <StudentDetailsTab
                 student={student}
-                isEditing={isEditing}
-                isLoading={isLoading}
-                onEdit={() => setIsEditing(true)}
-                onCancelEdit={() => setIsEditing(false)}
-                onSubmit={handleStudentUpdate}
+                isEditing={isEditingStudentDetails}
+                isLoading={loadingStudentDetailsUpdate}
+                onEdit={() => setIsEditingStudentDetails(true)}
+                onCancelEdit={() => setIsEditingStudentDetails(false)}
+                onSubmit={handleStudentDetailsSubmit}
               />
-              
-              {/* Delete button in details tab */}
-              <div className="mt-6 pt-6 border-t">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      disabled={isLoading || isDeleting}
-                      className="flex items-center gap-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete Student
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the student
-                        "{student.firstName} {student.lastName}" and remove all their data from the system.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={handleDelete}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        {isDeleting ? 'Deleting...' : 'Delete Student'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
             </TabsContent>
             
-            <TabsContent value="subjects" className="mt-4">
+            <TabsContent value="parent-details" className="mt-6">
+              <ParentDetailsTab
+                student={student}
+                isEditing={isEditingParentDetails}
+                isLoading={loadingParentDetailsUpdate}
+                onEdit={() => setIsEditingParentDetails(true)}
+                onCancelEdit={() => setIsEditingParentDetails(false)}
+                onSubmit={handleParentDetailsSubmit}
+              />
+            </TabsContent>
+            
+            <TabsContent value="subjects" className="mt-6">
               <StudentSubjectsTab
                 student={student}
                 studentSubjects={studentSubjects}
@@ -357,9 +451,59 @@ export function ViewStudentModal({
                 onRemoveSubject={handleRemoveSubject}
               />
             </TabsContent>
+            
+            <TabsContent value="availability" className="mt-6">
+              <AvailabilityTab
+                student={student}
+                isEditing={isEditingAvailability}
+                isLoading={loadingAvailabilityUpdate}
+                onEdit={() => setIsEditingAvailability(true)}
+                onCancelEdit={() => setIsEditingAvailability(false)}
+                onSubmit={handleAvailabilitySubmit}
+              />
+            </TabsContent>
+            
+            <TabsContent value="account" className="mt-6">
+              <StudentAccountTab
+                student={student}
+                isLoading={loadingAccountUpdate}
+                isEditingAccount={isEditingAccount}
+                hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+                isDeleting={loadingDelete}
+                onEditAccount={() => setIsEditingAccount(true)}
+                onCancelEditAccount={() => setIsEditingAccount(false)}
+                onAccountUpdate={handleAccountSubmit}
+                onPasswordResetRequest={handlePasswordResetRequest}
+                onDelete={handleDeleteStudent}
+              />
+            </TabsContent>
           </Tabs>
-        </div>
-      </SheetContent>
-    </Sheet>
+          
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Student</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {student.firstName} {student.lastName}? 
+              This action cannot be undone and will remove all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loadingDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteStudent}
+              disabled={loadingDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {loadingDelete ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 } 

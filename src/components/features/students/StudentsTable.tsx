@@ -20,9 +20,10 @@ import {
   Plus,
   RefreshCw
 } from 'lucide-react';
-import { Student, StudentStatus } from '@/lib/supabase/db/types';
+import { Student, StudentStatus, Subject } from '@/lib/supabase/db/types';
 import { studentsApi } from '@/lib/supabase/api';
-import { cn } from '@/lib/utils/index';
+import { cn, formatSubjectDisplay } from '@/lib/utils/index';
+import { StudentStatusBadge } from '@/components/ui/enum-badge';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
 import {
@@ -39,6 +40,7 @@ interface StudentsTableProps {
 export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
+  const [studentSubjects, setStudentSubjects] = useState<Record<string, Subject[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
@@ -57,6 +59,21 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
       const data = await studentsApi.getAllStudents();
       console.log("Student data loaded:", data); // Debug log to check data structure
       setStudents(data);
+      
+      // Load subjects for each student
+      const subjectsMap: Record<string, Subject[]> = {};
+      await Promise.all(
+        data.map(async (student) => {
+          try {
+            const subjects = await studentsApi.getStudentSubjects(student.id);
+            subjectsMap[student.id] = subjects;
+          } catch (err) {
+            console.error(`Failed to load subjects for student ${student.id}:`, err);
+            subjectsMap[student.id] = [];
+          }
+        })
+      );
+      setStudentSubjects(subjectsMap);
     } catch (err) {
       console.error('Failed to load students:', err);
       setError('Failed to load students. Please try again.');
@@ -120,21 +137,6 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
     } else {
       setSortField(field);
       setSortDirection('asc');
-    }
-  };
-  
-  const getStatusBadgeColor = (status: StudentStatus) => {
-    switch (status) {
-      case StudentStatus.ACTIVE:
-        return 'bg-green-100 text-green-800';
-      case StudentStatus.INACTIVE:
-        return 'bg-gray-100 text-gray-800';
-      case StudentStatus.TRIAL:
-        return 'bg-orange-100 text-orange-800';
-      case StudentStatus.DISCONTINUED:
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
     }
   };
   
@@ -210,6 +212,27 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
+                Status
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  sortField === 'status' ? "opacity-100" : "opacity-40"
+                )} />
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('curriculum')}>
+                Curriculum
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  sortField === 'curriculum' ? "opacity-100" : "opacity-40"
+                )} />
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('yearLevel')}>
+                Year Level
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  sortField === 'yearLevel' ? "opacity-100" : "opacity-40"
+                )} />
+              </TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('firstName')}>
                 First Name
                 <ArrowUpDown className={cn(
@@ -224,35 +247,8 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
                   sortField === 'lastName' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('studentEmail')}>
-                Student Email
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'studentEmail' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead>Parent Email</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('school')}>
-                School
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'school' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('yearLevel')}>
-                Year Level
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'yearLevel' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
-                Status
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'status' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
+              <TableHead>Subjects</TableHead>
+              <TableHead>Classes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -265,29 +261,62 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredStudents.map((student) => (
-                <TableRow 
-                  key={student.id} 
-                  className="cursor-pointer"
-                  onClick={() => handleStudentClick(student.id)}
-                >
-                  <TableCell className="font-medium">
-                    {student.firstName || '-'}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {student.lastName || '-'}
-                  </TableCell>
-                  <TableCell>{student.studentEmail || '-'}</TableCell>
-                  <TableCell>{student.parentEmail || '-'}</TableCell>
-                  <TableCell>{student.school || '-'}</TableCell>
-                  <TableCell>{student.yearLevel || '-'}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusBadgeColor(student.status)}>
-                      {student.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
+              filteredStudents.map((student) => {
+                const subjects = studentSubjects[student.id] || [];
+                return (
+                  <TableRow 
+                    key={student.id} 
+                    className="cursor-pointer"
+                    onClick={() => handleStudentClick(student.id)}
+                  >
+                    <TableCell>
+                      <StudentStatusBadge value={student.status} />
+                    </TableCell>
+                    <TableCell>
+                      {student.curriculum ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {student.curriculum}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {student.yearLevel ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Year {student.yearLevel}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {student.firstName || '-'}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {student.lastName || '-'}
+                    </TableCell>
+                    <TableCell>
+                      {subjects.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {subjects
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((subject) => (
+                              <Badge key={subject.id} variant="outline" className="text-xs w-fit">
+                                {formatSubjectDisplay(subject)}
+                              </Badge>
+                            ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No subjects</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-muted-foreground text-sm">No classes</span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

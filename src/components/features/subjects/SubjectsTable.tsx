@@ -29,6 +29,7 @@ import {
 import { useSubjects } from '@/lib/hooks';
 import { Subject, SubjectCurriculum, SubjectDiscipline } from '@/lib/supabase/db/types';
 import { cn } from '@/lib/utils/index';
+import { SubjectCurriculumBadge } from '@/components/ui/enum-badge';
 import { subjectsApi } from '@/lib/supabase/api';
 import { ViewSubjectModal } from './ViewSubjectModal';
 
@@ -138,24 +139,6 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     }
   };
   
-  const getCurriculumBadge = (curriculum: SubjectCurriculum | null | undefined) => {
-    if (!curriculum) return null;
-    
-    const colorMap: Record<SubjectCurriculum, string> = {
-      [SubjectCurriculum.SACE]: 'bg-blue-100 text-blue-800',
-      [SubjectCurriculum.IB]: 'bg-purple-100 text-purple-800',
-      [SubjectCurriculum.PRESACE]: 'bg-green-100 text-green-800',
-      [SubjectCurriculum.PRIMARY]: 'bg-yellow-100 text-yellow-800',
-      [SubjectCurriculum.MEDICINE]: 'bg-red-100 text-red-800',
-    };
-    
-    return (
-      <Badge className={colorMap[curriculum]}>
-        {curriculum}
-      </Badge>
-    );
-  };
-
   const handleViewSubject = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedSubjectId(id);
@@ -325,7 +308,7 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
                   onClick={() => handleSubjectClick(subject.id)}
                 >
                   <TableCell>
-                    {getCurriculumBadge(subject.curriculum)}
+                    <SubjectCurriculumBadge value={subject.curriculum} />
                   </TableCell>
                   <TableCell>{subject.yearLevel || '-'}</TableCell>
                   <TableCell className="font-medium">{subject.name}</TableCell>

@@ -31,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { StaffRoleBadge, StaffStatusBadge } from '@/components/ui/enum-badge';
 
 
 interface StaffTableProps {
@@ -124,32 +125,6 @@ export function StaffTable({ onRefresh }: StaffTableProps = {}) {
     } else {
       setSortField(field);
       setSortDirection('asc');
-    }
-  };
-  
-  const getRoleBadgeColor = (role: StaffRole) => {
-    switch (role) {
-      case StaffRole.ADMIN:
-        return 'bg-purple-100 text-purple-800';
-      case StaffRole.TUTOR:
-        return 'bg-blue-100 text-blue-800';
-      case StaffRole.ADMINSTAFF:
-        return 'bg-indigo-100 text-indigo-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-  
-  const getStatusBadgeColor = (status: StaffStatus) => {
-    switch (status) {
-      case StaffStatus.ACTIVE:
-        return 'bg-green-100 text-green-800';
-      case StaffStatus.INACTIVE:
-        return 'bg-gray-100 text-gray-800';
-      case StaffStatus.TRIAL:
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
     }
   };
   
@@ -310,14 +285,10 @@ export function StaffTable({ onRefresh }: StaffTableProps = {}) {
                   <TableCell>{staff.email || '-'}</TableCell>
                   <TableCell>{staff.phoneNumber || '-'}</TableCell>
                   <TableCell>
-                    <Badge className={getRoleBadgeColor(staff.role)}>
-                      {staff.role}
-                    </Badge>
+                    <StaffRoleBadge value={staff.role} />
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusBadgeColor(staff.status)}>
-                      {staff.status}
-                    </Badge>
+                    <StaffStatusBadge value={staff.status} />
                   </TableCell>
                 </TableRow>
               ))

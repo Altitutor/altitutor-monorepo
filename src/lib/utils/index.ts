@@ -54,3 +54,6 @@ export function formatSubjectDisplay(subject: Subject): string {
  * Navigation hover styles for consistent UI
  */
 export const navHoverStyles = "hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white" 
+
+// Re-export enum color utilities
+export * from './enum-colors'; 

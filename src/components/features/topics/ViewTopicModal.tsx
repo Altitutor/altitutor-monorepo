@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SubjectCurriculumBadge } from '@/components/ui/enum-badge';
 import { Separator } from '@/components/ui/separator';
 import { topicsApi, subjectsApi } from '@/lib/supabase/api';
 import { Topic, Subtopic, Subject } from '@/lib/supabase/db/types';
@@ -394,12 +395,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
                     <div className="text-sm font-medium">Subject:</div>
                     <div>
                       {subject ? (
-                        <Badge 
-                          variant="outline" 
-                          className={`${getSubjectColor(subject)}`}
-                        >
-                          {formatSubjectDisplay(subject)}
-                        </Badge>
+                        <SubjectCurriculumBadge value={subject.curriculum} />
                       ) : 'N/A'}
                     </div>
                     

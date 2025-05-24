@@ -52,6 +52,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { SubjectCurriculumBadge, SubjectDisciplineBadge } from "@/components/ui/enum-badge";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -227,44 +228,6 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     onClose();
   };
 
-  const getCurriculumBadge = (curriculum: SubjectCurriculum | null | undefined) => {
-    if (!curriculum) return null;
-    
-    const colorMap: Record<SubjectCurriculum, string> = {
-      [SubjectCurriculum.SACE]: 'bg-blue-100 text-blue-800',
-      [SubjectCurriculum.IB]: 'bg-purple-100 text-purple-800',
-      [SubjectCurriculum.PRESACE]: 'bg-green-100 text-green-800',
-      [SubjectCurriculum.PRIMARY]: 'bg-yellow-100 text-yellow-800',
-      [SubjectCurriculum.MEDICINE]: 'bg-red-100 text-red-800',
-    };
-    
-    return (
-      <Badge className={colorMap[curriculum]}>
-        {curriculum}
-      </Badge>
-    );
-  };
-
-  const getDisciplineBadge = (discipline: SubjectDiscipline | null | undefined) => {
-    if (!discipline) return null;
-    
-    const colorMap: Record<SubjectDiscipline, string> = {
-      [SubjectDiscipline.MATHEMATICS]: 'bg-indigo-100 text-indigo-800',
-      [SubjectDiscipline.SCIENCE]: 'bg-emerald-100 text-emerald-800',
-      [SubjectDiscipline.HUMANITIES]: 'bg-amber-100 text-amber-800',
-      [SubjectDiscipline.ENGLISH]: 'bg-rose-100 text-rose-800',
-      [SubjectDiscipline.ART]: 'bg-pink-100 text-pink-800',
-      [SubjectDiscipline.LANGUAGE]: 'bg-cyan-100 text-cyan-800',
-      [SubjectDiscipline.MEDICINE]: 'bg-red-100 text-red-800',
-    };
-    
-    return (
-      <Badge className={colorMap[discipline]}>
-        {discipline}
-      </Badge>
-    );
-  };
-
   return (
     <Sheet open={isOpen} onOpenChange={(isOpen) => {
       if (!isOpen) onClose();
@@ -428,12 +391,12 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                   
                   <div className="text-sm font-medium">Curriculum:</div>
                   <div>
-                    {subject.curriculum ? getCurriculumBadge(subject.curriculum) : '-'}
+                    {subject.curriculum ? <SubjectCurriculumBadge value={subject.curriculum} /> : '-'}
                   </div>
                   
                   <div className="text-sm font-medium">Discipline:</div>
                   <div>
-                    {subject.discipline ? getDisciplineBadge(subject.discipline) : '-'}
+                    {subject.discipline ? <SubjectDisciplineBadge value={subject.discipline} /> : '-'}
                   </div>
                   
                   <div className="text-sm font-medium">Level:</div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Staff, StaffRole, StaffStatus } from "@/lib/supabase/db/types";
 import { Badge } from "@/components/ui/badge";
+import { StaffRoleBadge, StaffStatusBadge, BooleanBadge } from "@/components/ui/enum-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -479,16 +480,12 @@ export function StaffDetailsTab({
             
             <div className="text-sm font-medium">Role:</div>
             <div className="min-w-0">
-              <Badge className={getRoleBadgeColor(staffMember.role)}>
-                {staffMember.role}
-              </Badge>
+              <StaffRoleBadge value={staffMember.role} />
             </div>
             
             <div className="text-sm font-medium">Status:</div>
             <div className="min-w-0">
-              <Badge className={getStatusBadgeColor(staffMember.status)}>
-                {staffMember.status}
-              </Badge>
+              <StaffStatusBadge value={staffMember.status} />
             </div>
             
             <div className="text-sm font-medium">Created:</div>
