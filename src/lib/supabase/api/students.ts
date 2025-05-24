@@ -1,6 +1,8 @@
 import { studentRepository, studentsSubjectsRepository, subjectRepository } from '../db/repositories';
-import { Student, StudentStatus, Subject, StudentsSubjects } from '../db/types';
+import { Student, StudentStatus, Subject, StudentsSubjects, Class } from '../db/types';
 import { adminRepository } from '../db/admin';
+import { getSupabaseClient } from '../client';
+import { transformToCamelCase } from '../db/utils';
 
 /**
  * Students API client for working with student data
@@ -11,6 +13,134 @@ export const studentsApi = {
    */
   getAllStudents: async (): Promise<Student[]> => {
     return studentRepository.getAll();
+  },
+  
+  /**
+   * Get all students with their subjects in an optimized single query
+   * This solves the N+1 query problem for the students table
+   */
+  getAllStudentsWithSubjects: async (): Promise<{ students: Student[]; studentSubjects: Record<string, Subject[]> }> => {
+    const supabase = getSupabaseClient();
+    
+    try {
+      // Single query to get all data with joins
+      const { data, error } = await supabase
+        .from('students')
+        .select(`
+          *,
+          students_subjects!inner(
+            subject:subjects(*)
+          )
+        `);
+      
+      if (error) throw error;
+      
+      // Transform the data structure
+      const studentsMap = new Map<string, Student>();
+      const studentSubjectsMap: Record<string, Subject[]> = {};
+      
+      // Process the joined data
+      data?.forEach((row: any) => {
+        // Transform student data to camelCase using repository function
+        const student = transformToCamelCase(row) as Student;
+        
+        studentsMap.set(student.id, student);
+        
+        // Initialize subjects array for this student if not exists
+        if (!studentSubjectsMap[student.id]) {
+          studentSubjectsMap[student.id] = [];
+        }
+        
+        // Process subjects for this student
+        if (row.students_subjects && Array.isArray(row.students_subjects)) {
+          row.students_subjects.forEach((studentSubject: any) => {
+            if (studentSubject.subject) {
+              const subject = transformToCamelCase(studentSubject.subject) as Subject;
+              
+              // Add subject if not already in the array (avoid duplicates)
+              if (!studentSubjectsMap[student.id].some(s => s.id === subject.id)) {
+                studentSubjectsMap[student.id].push(subject);
+              }
+            }
+          });
+        }
+      });
+      
+      // Also get students with no subjects
+      const { data: allStudents, error: allStudentsError } = await supabase
+        .from('students')
+        .select('*');
+      
+      if (allStudentsError) throw allStudentsError;
+      
+      // Add students with no subjects to the result
+      allStudents?.forEach((row: any) => {
+        if (!studentsMap.has(row.id)) {
+          const student = transformToCamelCase(row) as Student;
+          
+          studentsMap.set(student.id, student);
+          studentSubjectsMap[student.id] = [];
+        }
+      });
+      
+      return {
+        students: Array.from(studentsMap.values()),
+        studentSubjects: studentSubjectsMap
+      };
+      
+    } catch (error) {
+      console.error('Error getting students with subjects:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Get a single student with their subjects in an optimized query
+   * This solves the N+1 query problem for the student modal
+   */
+  getStudentWithSubjects: async (studentId: string): Promise<{ student: Student | null; subjects: Subject[] }> => {
+    const supabase = getSupabaseClient();
+    
+    try {
+      // Get student data
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .select('*')
+        .eq('id', studentId)
+        .single();
+      
+      if (studentError) {
+        if (studentError.code === 'PGRST116') {
+          return { student: null, subjects: [] };
+        }
+        throw studentError;
+      }
+      
+      // Get student's subjects in a single query
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('students_subjects')
+        .select(`
+          subject:subjects(*)
+        `)
+        .eq('student_id', studentId);
+      
+      if (subjectsError) throw subjectsError;
+      
+      // Transform student data
+      const student = transformToCamelCase(studentData) as Student;
+      
+      // Transform subjects data
+      const subjects = subjectsData
+        ?.map((row: any) => row.subject)
+        .filter(Boolean)
+        .map((subject: any) => transformToCamelCase(subject) as Subject) || [];
+      
+      return { student, subjects };
+      
+    } catch (error) {
+      console.error('Error getting student with subjects:', error);
+      throw error;
+    }
   },
   
   /**
@@ -165,6 +295,92 @@ export const studentsApi = {
       return studentRepository.findByModelField('status', status);
     } catch (error) {
       console.error('Error getting students by status:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all students with their subjects and classes in optimized single queries
+   * This solves the N+1 query problem for the students table with class information
+   */
+  getAllStudentsWithDetails: async (): Promise<{ 
+    students: Student[]; 
+    studentSubjects: Record<string, Subject[]>;
+    studentClasses: Record<string, Class[]>;
+  }> => {
+    const supabase = getSupabaseClient();
+    
+    try {
+      // Get all students
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*');
+      
+      if (studentsError) throw studentsError;
+      
+      // Get all student-subject relationships
+      const { data: studentSubjectsData, error: studentSubjectsError } = await supabase
+        .from('students_subjects')
+        .select(`
+          student_id,
+          subject:subjects(*)
+        `);
+      
+      if (studentSubjectsError) throw studentSubjectsError;
+      
+      // Get all student-class enrollments with class and subject details
+      const { data: enrollmentsData, error: enrollmentsError } = await supabase
+        .from('classes_students')
+        .select(`
+          student_id,
+          class:classes(
+            *,
+            subject:subjects(*)
+          )
+        `)
+        .eq('status', 'ACTIVE');
+      
+      if (enrollmentsError) throw enrollmentsError;
+      
+      // Transform and organize the data
+      const students = studentsData?.map((row: any) => transformToCamelCase(row) as Student) || [];
+      const studentSubjects: Record<string, Subject[]> = {};
+      const studentClasses: Record<string, Class[]> = {};
+      
+      // Initialize arrays for all students
+      students.forEach(student => {
+        studentSubjects[student.id] = [];
+        studentClasses[student.id] = [];
+      });
+      
+      // Process student subjects
+      studentSubjectsData?.forEach((row: any) => {
+        if (row.subject && row.student_id) {
+          const subject = transformToCamelCase(row.subject) as Subject;
+          if (studentSubjects[row.student_id]) {
+            studentSubjects[row.student_id].push(subject);
+          }
+        }
+      });
+      
+      // Process student classes
+      enrollmentsData?.forEach((row: any) => {
+        if (row.class && row.student_id) {
+          const cls = transformToCamelCase(row.class) as Class;
+          if (studentClasses[row.student_id]) {
+            studentClasses[row.student_id].push(cls);
+          }
+        }
+      });
+      
+      return {
+        students,
+        studentSubjects,
+        studentClasses
+      };
+      
+    } catch (error) {
+      console.error('Error getting students with details:', error);
       throw error;
     }
   },

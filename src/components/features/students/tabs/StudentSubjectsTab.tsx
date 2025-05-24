@@ -1,18 +1,12 @@
 import { useState } from 'react';
 import { Student, Subject } from "@/lib/supabase/db/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
 import { formatSubjectDisplay } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface StudentSubjectsTabProps {
   student: Student;
@@ -33,6 +27,50 @@ export function StudentSubjectsTab({
   onAssignSubject,
   onRemoveSubject
 }: StudentSubjectsTabProps) {
+  const [assigningSubjects, setAssigningSubjects] = useState<Set<string>>(new Set());
+  const [removingSubjects, setRemovingSubjects] = useState<Set<string>>(new Set());
+  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleAssignSubject = async (subjectId: string) => {
+    setAssigningSubjects(prev => new Set(prev).add(subjectId));
+    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
+    
+    try {
+      await onAssignSubject(subjectId);
+    } finally {
+      setAssigningSubjects(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(subjectId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleRemoveSubject = async (subjectId: string) => {
+    setRemovingSubjects(prev => new Set(prev).add(subjectId));
+    
+    try {
+      await onRemoveSubject(subjectId);
+    } finally {
+      setRemovingSubjects(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(subjectId);
+        return newSet;
+      });
+    }
+  };
+
+  const availableSubjects = allSubjects.filter(subject => 
+    !studentSubjects.some(studentSubject => studentSubject.id === subject.id)
+  );
+
+  const filteredAvailableSubjects = availableSubjects.filter(subject => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return formatSubjectDisplay(subject).toLowerCase().includes(query);
+  });
+
   return (
     <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-6">
       {/* Student Academic Info */}
@@ -56,9 +94,17 @@ export function StudentSubjectsTab({
       {/* Subjects Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-medium">Subjects</h3>
+          <h3 className="text-base font-medium">Subjects ({studentSubjects.length})</h3>
+          
+          {/* Show currently assigning subjects */}
+          {assigningSubjects.size > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Adding {assigningSubjects.size} subject{assigningSubjects.size > 1 ? 's' : ''}...</span>
+            </div>
+          )}
         
-        <Popover>
+        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
               <Plus className="h-4 w-4" />
@@ -66,30 +112,42 @@ export function StudentSubjectsTab({
             </Button>
           </PopoverTrigger>
           <PopoverContent className="p-0 w-[300px]" align="end">
-            <Command>
-              <CommandInput placeholder="Search subjects..." />
-              <CommandList className="max-h-[300px]">
-                <CommandEmpty>No subjects found.</CommandEmpty>
-                <CommandGroup>
-                  {allSubjects
-                    .filter(subject => 
-                      !studentSubjects.some(
-                        studentSubject => studentSubject.id === subject.id
-                      )
-                    )
-                    .map(subject => (
-                      <CommandItem
+            <div className="p-3">
+              <Input
+                placeholder="Search subjects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="mb-3"
+              />
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {filteredAvailableSubjects.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {searchQuery ? 'No subjects match your search' : 'No available subjects found'}
+                    </div>
+                  ) : (
+                    filteredAvailableSubjects.map(subject => (
+                      <Button
                         key={subject.id}
-                        value={formatSubjectDisplay(subject)}
-                        onSelect={() => onAssignSubject(subject.id)}
-                        className="cursor-pointer"
+                        variant="ghost"
+                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => handleAssignSubject(subject.id)}
+                        disabled={assigningSubjects.has(subject.id)}
                       >
-                        {formatSubjectDisplay(subject)}
-                      </CommandItem>
-                    ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                          </div>
+                          {assigningSubjects.has(subject.id) && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        </div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </PopoverContent>
         </Popover>
       </div>
@@ -98,7 +156,7 @@ export function StudentSubjectsTab({
         <div className="flex-1 flex justify-center items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : studentSubjects.length === 0 ? (
+      ) : studentSubjects.length === 0 && assigningSubjects.size === 0 ? (
         <div className="flex-1 flex flex-col justify-center items-center">
           <BookOpen className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No subjects assigned</p>
@@ -110,36 +168,82 @@ export function StudentSubjectsTab({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0 w-[300px]" align="center">
-              <Command>
-                <CommandInput placeholder="Search subjects..." />
-                <CommandList className="max-h-[300px]">
-                  <CommandEmpty>No subjects found.</CommandEmpty>
-                  <CommandGroup>
-                    {allSubjects.map(subject => (
-                      <CommandItem
-                        key={subject.id}
-                        value={formatSubjectDisplay(subject)}
-                        onSelect={() => onAssignSubject(subject.id)}
-                        className="cursor-pointer"
-                      >
-                        {formatSubjectDisplay(subject)}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+              <div className="p-3">
+                <Input
+                  placeholder="Search subjects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="mb-3"
+                />
+                <ScrollArea className="max-h-[300px]">
+                  <div className="space-y-1">
+                    {filteredAvailableSubjects.length === 0 ? (
+                      <div className="p-3 text-center text-sm text-muted-foreground">
+                        No subjects found
+                      </div>
+                    ) : (
+                      filteredAvailableSubjects.map(subject => (
+                        <Button
+                          key={subject.id}
+                          variant="ghost"
+                          className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                          onClick={() => handleAssignSubject(subject.id)}
+                          disabled={assigningSubjects.has(subject.id)}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex flex-col items-start">
+                              <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                            </div>
+                            {assigningSubjects.has(subject.id) && (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                          </div>
+                        </Button>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
       ) : (
         <ScrollArea className="flex-1">
           <div className="space-y-2">
+            {/* Show currently assigning subjects at the top */}
+            {Array.from(assigningSubjects).map(subjectId => {
+              const subject = allSubjects.find(s => s.id === subjectId);
+              if (!subject) return null;
+              
+              return (
+                <div 
+                  key={`assigning-${subject.id}`}
+                  className="flex items-center justify-between p-2 rounded-md border border-dashed bg-muted/50"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium text-muted-foreground">
+                      {formatSubjectDisplay(subject)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Adding...</div>
+                  </div>
+                  
+                  <div className="flex space-x-1">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* Show assigned subjects */}
             {studentSubjects
               .sort((a, b) => formatSubjectDisplay(a).localeCompare(formatSubjectDisplay(b)))
               .map((subject) => (
               <div 
                 key={subject.id} 
-                className="flex items-center justify-between p-2 rounded-md"
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-md",
+                  removingSubjects.has(subject.id) && "opacity-50"
+                )}
               >
                 <div className="flex-1">
                   <div className="font-medium">{formatSubjectDisplay(subject)}</div>
@@ -151,16 +255,22 @@ export function StudentSubjectsTab({
                     size="icon"
                     onClick={() => onViewSubject(subject.id)}
                     title="View Subject"
+                    disabled={removingSubjects.has(subject.id)}
                   >
                     <Search className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => onRemoveSubject(subject.id)}
+                    onClick={() => handleRemoveSubject(subject.id)}
                     title="Remove Subject"
+                    disabled={removingSubjects.has(subject.id)}
                   >
-                    <X className="h-4 w-4" />
+                    {removingSubjects.has(subject.id) ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <X className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               </div>

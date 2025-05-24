@@ -26,8 +26,10 @@ const formSchema = z.object({
   role: z.nativeEnum(StaffRole),
   status: z.nativeEnum(StaffStatus),
   officeKeyNumber: z.union([
-    z.number().nullable(),
-    z.literal('').transform(() => null)
+    z.number().int().positive(),
+    z.string().regex(/^\d+$/).transform(Number),
+    z.literal('').transform(() => null),
+    z.null()
   ]).optional(),
   hasParkingRemote: z.enum(['VIRTUAL', 'PHYSICAL', 'NONE']).nullable().optional(),
   
@@ -89,7 +91,7 @@ export function StaffDetailsTab({
   onSubmit
 }: StaffDetailsTabProps) {
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       firstName: staffMember.firstName || '',
       lastName: staffMember.lastName || '',
@@ -130,7 +132,7 @@ export function StaffDetailsTab({
 
       {isEditing ? (
         // Edit Mode
-        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
@@ -488,8 +490,6 @@ export function StaffDetailsTab({
               <StaffStatusBadge value={staffMember.status} />
             </div>
             
-            <div className="text-sm font-medium">Created:</div>
-            <div className="min-w-0">{new Date(staffMember.created_at).toLocaleDateString()}</div>
           </div>
           
           <Separator className="my-4" />

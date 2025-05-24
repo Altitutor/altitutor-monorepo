@@ -403,7 +403,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                   <div>{subject.level || '-'}</div>
                   
                   <div className="text-sm font-medium">Created:</div>
-                  <div>{new Date(subject.created_at).toLocaleDateString()}</div>
+                  <div>{new Date(subject.createdAt).toLocaleDateString()}</div>
                 </div>
                 
                 <Separator className="my-4" />

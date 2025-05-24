@@ -222,7 +222,7 @@ export function AccountTab({
             </div>
 
             <div className="text-sm font-medium">Email:</div>
-            <div className="min-w-0 truncate" title={staffMember.email}>
+            <div className="min-w-0 truncate" title={staffMember.email ?? ''}>
               {staffMember.email}
             </div>
 

@@ -1,19 +1,6 @@
 import { BaseEntity } from './types';
 import { supabaseServer, getSupabaseClient } from '../client';
-
-/**
- * Utility function to convert camelCase to snake_case
- */
-export function toSnakeCase(str: string): string {
-  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-}
-
-/**
- * Utility function to convert snake_case to camelCase
- */
-export function toCamelCase(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
+import { toSnakeCase, toCamelCase, transformToCamelCase, convertToDbFormat } from './utils';
 
 /**
  * Generic repository class for Supabase database entities
@@ -48,7 +35,7 @@ export class Repository<T extends BaseEntity> {
     }
     
     // Transform snake_case DB fields to camelCase for TypeScript
-    return data?.map(item => this.transformToCamelCase(item)) as T[] || [];
+    return data?.map(item => transformToCamelCase(item)) as T[] || [];
   }
 
   /**
@@ -69,7 +56,7 @@ export class Repository<T extends BaseEntity> {
       throw error;
     }
     
-    return data ? this.transformToCamelCase(data) as T : undefined;
+    return data ? transformToCamelCase(data) as T : undefined;
   }
 
   /**
@@ -89,7 +76,7 @@ export class Repository<T extends BaseEntity> {
     
     if (error) throw error;
     // Transform snake_case DB fields to camelCase for TypeScript
-    return data?.map(item => this.transformToCamelCase(item)) as T[] || [];
+    return data?.map(item => transformToCamelCase(item)) as T[] || [];
   }
 
   /**
@@ -106,7 +93,7 @@ export class Repository<T extends BaseEntity> {
    */
   async create(data: Partial<T>): Promise<T> {
     // Convert data to database format (snake_case) for database operations
-    const dbData = this.convertToDbFormat(data);
+    const dbData = convertToDbFormat(data);
     
     const { data: newEntity, error } = await this.getClient()
       .from(this.tableName)
@@ -119,7 +106,7 @@ export class Repository<T extends BaseEntity> {
     
     if (error) throw error;
     // Transform snake_case DB fields to camelCase for TypeScript
-    return this.transformToCamelCase(newEntity) as T;
+    return transformToCamelCase(newEntity) as T;
   }
 
   /**
@@ -127,7 +114,7 @@ export class Repository<T extends BaseEntity> {
    */
   async update(id: string, data: Partial<T>): Promise<T> {
     // Convert data to database format (snake_case) for database operations
-    const dbData = this.convertToDbFormat(data);
+    const dbData = convertToDbFormat(data);
     
     const { data: updatedEntity, error } = await this.getClient()
       .from(this.tableName)
@@ -138,7 +125,7 @@ export class Repository<T extends BaseEntity> {
     
     if (error) throw error;
     // Transform snake_case DB fields to camelCase for TypeScript
-    return this.transformToCamelCase(updatedEntity) as T;
+    return transformToCamelCase(updatedEntity) as T;
   }
 
   /**
@@ -172,52 +159,6 @@ export class Repository<T extends BaseEntity> {
     }
     
     // Transform snake_case DB fields to camelCase for TypeScript
-    return data ? this.transformToCamelCase(data) as T : null;
-  }
-
-  /**
-   * Convert TypeScript object with camelCase properties to database format with snake_case columns
-   */
-  private convertToDbFormat(data: Record<string, any>): Record<string, any> {
-    const result: Record<string, any> = {};
-    
-    for (const key in data) {
-      // Skip properties that start with underscore or are undefined
-      if (key.startsWith('_') || data[key] === undefined) continue;
-      
-      // Skip relation properties (usually objects or arrays)
-      if (typeof data[key] === 'object' && data[key] !== null && !Array.isArray(data[key]) && !(data[key] instanceof Date)) {
-        continue;
-      }
-      
-      // Convert camelCase to snake_case
-      const dbKey = toSnakeCase(key);
-      result[dbKey] = data[key];
-    }
-    
-    return result;
-  }
-
-  /**
-   * Transform database record with snake_case fields to camelCase for TypeScript
-   */
-  private transformToCamelCase(data: Record<string, any>): Record<string, any> {
-    if (!data) return data;
-    
-    const result: Record<string, any> = {};
-
-
-    for (const key in data) {
-      if (key.includes('_')) {
-        // Convert snake_case to camelCase
-        const camelKey = toCamelCase(key);
-        result[camelKey] = data[key];
-      } else {
-        // Keep as is if not snake_case
-        result[key] = data[key];
-      }
-    }
-    
-    return result;
+    return data ? transformToCamelCase(data) as T : null;
   }
 } 

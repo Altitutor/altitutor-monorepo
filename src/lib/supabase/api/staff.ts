@@ -1,10 +1,11 @@
-import { staffRepository } from '../db/repositories';
+import { staffRepository, staffSubjectsRepository, subjectRepository } from '../db/repositories';
 import { Staff, StaffRole, StaffStatus, Subject, StaffSubjects } from '../db/types';
 import { adminRepository } from '../db/admin';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { supabaseServer } from '../client';
 import { Database } from '../db/types';
-import { staffSubjectsRepository, subjectRepository } from '../db/repositories';
+import { getSupabaseClient } from '../client';
+import { transformToCamelCase } from '../db/utils';
 
 /**
  * Staff API client for working with staff data
@@ -15,6 +16,85 @@ export const staffApi = {
    */
   getAllStaff: async (): Promise<Staff[]> => {
     return staffRepository.getAll();
+  },
+  
+  /**
+   * Get all staff with their subjects in an optimized single query
+   * This solves the N+1 query problem for the staff table
+   */
+  getAllStaffWithSubjects: async (): Promise<{ staff: Staff[]; staffSubjects: Record<string, Subject[]> }> => {
+    const supabase = getSupabaseClient();
+    
+    try {
+      // Single query to get all data with joins
+      const { data, error } = await supabase
+        .from('staff')
+        .select(`
+          *,
+          staff_subjects!inner(
+            subject:subjects(*)
+          )
+        `);
+      
+      if (error) throw error;
+      
+      // Transform the data structure
+      const staffMap = new Map<string, Staff>();
+      const staffSubjectsMap: Record<string, Subject[]> = {};
+      
+      // Process the joined data
+      data?.forEach((row: any) => {
+        // Transform staff data to camelCase using repository function
+        const staffMember = transformToCamelCase(row) as Staff;
+        
+        staffMap.set(staffMember.id, staffMember);
+        
+        // Initialize subjects array for this staff member if not exists
+        if (!staffSubjectsMap[staffMember.id]) {
+          staffSubjectsMap[staffMember.id] = [];
+        }
+        
+        // Process subjects for this staff member
+        if (row.staff_subjects && Array.isArray(row.staff_subjects)) {
+          row.staff_subjects.forEach((staffSubject: any) => {
+            if (staffSubject.subject) {
+              const subject = transformToCamelCase(staffSubject.subject) as Subject;
+              
+              // Add subject if not already in the array (avoid duplicates)
+              if (!staffSubjectsMap[staffMember.id].some(s => s.id === subject.id)) {
+                staffSubjectsMap[staffMember.id].push(subject);
+              }
+            }
+          });
+        }
+      });
+      
+      // Also get staff with no subjects
+      const { data: allStaff, error: allStaffError } = await supabase
+        .from('staff')
+        .select('*');
+      
+      if (allStaffError) throw allStaffError;
+      
+      // Add staff with no subjects to the result
+      allStaff?.forEach((row: any) => {
+        if (!staffMap.has(row.id)) {
+          const staffMember = transformToCamelCase(row) as Staff;
+          
+          staffMap.set(staffMember.id, staffMember);
+          staffSubjectsMap[staffMember.id] = [];
+        }
+      });
+      
+      return {
+        staff: Array.from(staffMap.values()),
+        staffSubjects: staffSubjectsMap
+      };
+      
+    } catch (error) {
+      console.error('Error getting staff with subjects:', error);
+      throw error;
+    }
   },
   
   /**
@@ -30,6 +110,11 @@ export const staffApi = {
   createStaff: async (data: Partial<Staff>, password: string): Promise<{ staff: Staff; userId: string }> => {
     // Ensure the user is an admin first
     await adminRepository.ensureAdminUser();
+    
+    // Validate email is provided and not null
+    if (!data.email) {
+      throw new Error('Email is required to create a staff member');
+    }
     
     // Create user account first
     const { data: userData, error: userError } = await supabaseServer.auth.admin.createUser({
@@ -256,6 +341,55 @@ export const staffApi = {
       }
     } catch (error) {
       console.error('Error removing subject from staff:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Get a single staff member with their subjects in an optimized query
+   * This solves the N+1 query problem for the staff modal
+   */
+  getStaffWithSubjects: async (staffId: string): Promise<{ staff: Staff | null; subjects: Subject[] }> => {
+    const supabase = getSupabaseClient();
+    
+    try {
+      // Get staff data
+      const { data: staffData, error: staffError } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('id', staffId)
+        .single();
+      
+      if (staffError) {
+        if (staffError.code === 'PGRST116') {
+          return { staff: null, subjects: [] };
+        }
+        throw staffError;
+      }
+      
+      // Get staff's subjects in a single query
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('staff_subjects')
+        .select(`
+          subject:subjects(*)
+        `)
+        .eq('staff_id', staffId);
+      
+      if (subjectsError) throw subjectsError;
+      
+      // Transform staff data
+      const staff = transformToCamelCase(staffData) as Staff;
+      
+      // Transform subjects data
+      const subjects = subjectsData
+        ?.map((row: any) => row.subject)
+        .filter(Boolean)
+        .map((subject: any) => transformToCamelCase(subject) as Subject) || [];
+      
+      return { staff, subjects };
+      
+    } catch (error) {
+      console.error('Error getting staff with subjects:', error);
       throw error;
     }
   },

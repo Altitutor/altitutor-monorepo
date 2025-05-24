@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,12 +31,11 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   const [error, setError] = useState<string | null>(null);
   
   // Form state
-  const [subject, setSubject] = useState(classData.subject);
+  const [level, setLevel] = useState(classData.level);
   const [dayOfWeek, setDayOfWeek] = useState<string>(classData.dayOfWeek.toString());
   const [startTime, setStartTime] = useState(classData.startTime);
   const [endTime, setEndTime] = useState(classData.endTime);
   const [endTimeManuallyEdited, setEndTimeManuallyEdited] = useState(false);
-  const [maxCapacity, setMaxCapacity] = useState(classData.maxCapacity?.toString() || '');
   const [subjectId, setSubjectId] = useState(classData.subjectId || '');
   const [notes, setNotes] = useState(classData.notes || '');
   const [room, setRoom] = useState(classData.room || '');
@@ -49,9 +48,9 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       const updatedClassData = { ...classData };
       
       // Set correct day for known classes
-      if (updatedClassData.subject === 'UCAT A' && updatedClassData.dayOfWeek !== 0) {
+      if (updatedClassData.level === 'UCAT A' && updatedClassData.dayOfWeek !== 0) {
         updatedClassData.dayOfWeek = 0;
-      } else if (updatedClassData.subject === '12IBBIO A1' && updatedClassData.dayOfWeek !== 6) {
+      } else if (updatedClassData.level === '12IBBIO A1' && updatedClassData.dayOfWeek !== 6) {
         updatedClassData.dayOfWeek = 6;
       }
       
@@ -74,11 +73,10 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
         updatedClassData.endTime = `${formattedEndHours}:${formattedEndMinutes}`;
       }
       
-      setSubject(updatedClassData.subject);
+      setLevel(updatedClassData.level);
       setDayOfWeek(updatedClassData.dayOfWeek.toString());
       setStartTime(formatTimeForInput(updatedClassData.startTime));
       setEndTime(formatTimeForInput(updatedClassData.endTime));
-      setMaxCapacity(updatedClassData.maxCapacity?.toString() || '');
       setSubjectId(updatedClassData.subjectId || '');
       setNotes(updatedClassData.notes || '');
       setRoom(updatedClassData.room || '');
@@ -143,7 +141,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
     
     try {
       // Basic validation
-      if (!subject) {
+      if (!level) {
         throw new Error('Class name/code is required');
       }
       
@@ -164,44 +162,12 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
         throw new Error('Invalid day of week');
       }
       
-      // Parse capacity
-      let capacityNum: number | undefined = undefined;
-      if (maxCapacity) {
-        capacityNum = parseInt(maxCapacity, 10);
-        if (isNaN(capacityNum) || capacityNum < 1) {
-          throw new Error('Capacity must be a positive number');
-        }
-      }
-      
-      // Get the end time from input or calculate it
-      let finalEndTime = endTime;
-      
-      // Only auto-calculate if not manually edited and we need to maintain 1.5 hour duration
-      if (!endTimeManuallyEdited && startTime && startTime.includes(':')) {
-        const [hours, minutes] = startTime.split(':').map(Number);
-        let endHours = hours;
-        let endMinutes = minutes + 30;
-        
-        if (endMinutes >= 60) {
-          endHours += 1;
-          endMinutes -= 60;
-        }
-        
-        endHours += 1; // Add 1 hour to make total duration 1.5 hours
-        
-        // Format back to HH:MM format
-        const formattedEndHours = String(endHours % 24).padStart(2, '0');
-        const formattedEndMinutes = String(endMinutes).padStart(2, '0');
-        finalEndTime = `${formattedEndHours}:${formattedEndMinutes}`;
-      }
-      
       // Save the changes to the database
       const updatedClass = await update(classData.id, {
-        subject,
+        level,
         dayOfWeek: finalDayOfWeek,
         startTime,
-        endTime: finalEndTime,
-        maxCapacity: capacityNum,
+        endTime,
         status,
         subjectId: subjectId === 'none' ? undefined : subjectId || undefined,
         notes: notes || undefined,
@@ -220,11 +186,11 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Class: {classData.subject}</DialogTitle>
-        </DialogHeader>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Edit Class: {classData.level}</SheetTitle>
+        </SheetHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           {error && (
@@ -235,11 +201,11 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="subject">Class Name/Code *</Label>
+              <Label htmlFor="level">Class Name/Code *</Label>
               <Input
-                id="subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
+                id="level"
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
                 placeholder="e.g., 10MATH C2"
                 required
               />
@@ -338,18 +304,6 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="max-capacity">Maximum Capacity</Label>
-              <Input
-                id="max-capacity"
-                type="number"
-                min="1"
-                value={maxCapacity}
-                onChange={(e) => setMaxCapacity(e.target.value)}
-                placeholder="Maximum number of students"
-              />
-            </div>
-            
-            <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
               <Select 
                 defaultValue={ClassStatus.ACTIVE}
@@ -401,7 +355,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 } 

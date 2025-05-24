@@ -1,4 +1,5 @@
-export * from './ClassesTable';
-export * from './AddClassModal';
-export * from './EditClassModal';
-export * from './ClassDetailModal'; 
+export { ClassesTable } from './ClassesTable';
+export { AddClassModal } from './AddClassModal';
+export { EditClassModal } from './EditClassModal';
+export { ViewClassModal } from './modal';
+export { TimetableView } from './TimetableView'; 

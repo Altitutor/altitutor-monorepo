@@ -1,10 +1,10 @@
-export { StudentDetailsTab } from './StudentDetailsTab';
-export { ParentDetailsTab } from './ParentDetailsTab';
-export { StudentSubjectsTab } from './StudentSubjectsTab';
-export { AvailabilityTab } from './AvailabilityTab';
-export { StudentAccountTab } from './StudentAccountTab';
 
-export type { StudentDetailsFormData } from './StudentDetailsTab';
-export type { ParentDetailsFormData } from './ParentDetailsTab';
-export type { AvailabilityFormData } from './AvailabilityTab';
-export type { StudentAccountFormData } from './StudentAccountTab'; 
+export { StudentSubjectsTab } from './StudentSubjectsTab';
+
+export { StudentAccountTab } from './StudentAccountTab';
+export { DetailsTab } from './DetailsTab';
+export { ClassesTab } from './ClassesTab';
+
+
+export type { StudentAccountFormData } from './StudentAccountTab';
+export type { DetailsFormData } from './DetailsTab'; 

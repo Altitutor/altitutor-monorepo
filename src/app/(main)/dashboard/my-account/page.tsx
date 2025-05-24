@@ -251,7 +251,7 @@ export default function MyAccountPage() {
                     <h3 className="text-sm font-medium text-muted-foreground mb-1">Record Created</h3>
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <p className="text-sm">{new Date(staffRecord.created_at).toLocaleDateString()}</p>
+                      <p className="text-sm">{new Date(staffRecord.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                 </div>

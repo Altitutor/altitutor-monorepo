@@ -29,11 +29,10 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const [error, setError] = useState<string | null>(null);
   
   // Form state
-  const [subject, setSubject] = useState('');
+  const [level, setLevel] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState<string>('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [maxCapacity, setMaxCapacity] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [notes, setNotes] = useState('');
   const [room, setRoom] = useState('');
@@ -44,14 +43,11 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setError(null);
     
     try {
-      const capacityNum = maxCapacity ? parseInt(maxCapacity, 10) : undefined;
-      
       await create({
-        subject,
+        level,
         dayOfWeek: parseInt(dayOfWeek, 10),
         startTime,
         endTime,
-        maxCapacity: capacityNum,
         status: ClassStatus.ACTIVE,
         subjectId: subjectId || undefined,
         notes: notes || undefined,
@@ -70,11 +66,10 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   };
   
   const resetForm = () => {
-    setSubject('');
+    setLevel('');
     setDayOfWeek('');
     setStartTime('');
     setEndTime('');
-    setMaxCapacity('');
     setSubjectId('');
     setNotes('');
     setRoom('');
@@ -96,11 +91,11 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="subject">Class Name/Code *</Label>
+              <Label htmlFor="level">Class Level *</Label>
               <Input
-                id="subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
+                id="level"
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
                 placeholder="e.g., 10MATH C2"
                 required
               />
@@ -183,18 +178,6 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                 required
               />
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="max-capacity">Maximum Capacity</Label>
-            <Input
-              id="max-capacity"
-              type="number"
-              min="1"
-              value={maxCapacity}
-              onChange={(e) => setMaxCapacity(e.target.value)}
-              placeholder="Maximum number of students"
-            />
           </div>
           
           <div className="space-y-2">

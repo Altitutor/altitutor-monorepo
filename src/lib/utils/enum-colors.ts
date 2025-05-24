@@ -74,10 +74,11 @@ export const CLASS_STATUS_COLORS: Record<ClassStatus, BadgeColorClass> = {
 };
 
 // Enrollment Status Colors
-export const ENROLLMENT_STATUS_COLORS: Record<EnrollmentStatus, BadgeColorClass> = {
+const enrollmentStatusColors: Record<EnrollmentStatus, string> = {
   [EnrollmentStatus.ACTIVE]: 'bg-green-100 text-green-800',
+  [EnrollmentStatus.INACTIVE]: 'bg-gray-100 text-gray-800',
   [EnrollmentStatus.DISCONTINUED]: 'bg-red-100 text-red-800',
-  [EnrollmentStatus.TRIAL]: 'bg-orange-100 text-orange-800',
+  [EnrollmentStatus.TRIAL]: 'bg-blue-100 text-blue-800',
 };
 
 // Absence Type Colors
@@ -161,7 +162,7 @@ export function getClassStatusColor(status: ClassStatus | null | undefined): Bad
 
 export function getEnrollmentStatusColor(status: EnrollmentStatus | null | undefined): BadgeColorClass {
   if (!status) return 'bg-gray-100 text-gray-800';
-  return ENROLLMENT_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-800';
+  return enrollmentStatusColors[status] ?? 'bg-gray-100 text-gray-800';
 }
 
 export function getAbsenceTypeColor(type: AbsenceType | null | undefined): BadgeColorClass {

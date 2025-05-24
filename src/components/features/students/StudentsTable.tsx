@@ -20,10 +20,10 @@ import {
   Plus,
   RefreshCw
 } from 'lucide-react';
-import { Student, StudentStatus, Subject } from '@/lib/supabase/db/types';
+import { Student, StudentStatus, Subject, Class } from '@/lib/supabase/db/types';
 import { studentsApi } from '@/lib/supabase/api';
 import { cn, formatSubjectDisplay } from '@/lib/utils/index';
-import { StudentStatusBadge } from '@/components/ui/enum-badge';
+import { getStudentStatusColor, getSubjectCurriculumColor } from '@/lib/utils/enum-colors';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
 import {
@@ -41,6 +41,7 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [studentSubjects, setStudentSubjects] = useState<Record<string, Subject[]>>({});
+  const [studentClasses, setStudentClasses] = useState<Record<string, Class[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
@@ -56,24 +57,12 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
   const loadStudents = async () => {
     try {
       setLoading(true);
-      const data = await studentsApi.getAllStudents();
-      console.log("Student data loaded:", data); // Debug log to check data structure
-      setStudents(data);
-      
-      // Load subjects for each student
-      const subjectsMap: Record<string, Subject[]> = {};
-      await Promise.all(
-        data.map(async (student) => {
-          try {
-            const subjects = await studentsApi.getStudentSubjects(student.id);
-            subjectsMap[student.id] = subjects;
-          } catch (err) {
-            console.error(`Failed to load subjects for student ${student.id}:`, err);
-            subjectsMap[student.id] = [];
-          }
-        })
-      );
-      setStudentSubjects(subjectsMap);
+      // Use the new optimized method that gets students, subjects, and classes
+      const { students: studentsData, studentSubjects: subjectsData, studentClasses: classesData } = await studentsApi.getAllStudentsWithDetails();
+      console.log("Student data loaded:", studentsData); // Debug log to check data structure
+      setStudents(studentsData);
+      setStudentSubjects(subjectsData);
+      setStudentClasses(classesData);
     } catch (err) {
       console.error('Failed to load students:', err);
       setError('Failed to load students. Please try again.');
@@ -141,8 +130,15 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
   };
   
   const handleStudentClick = (id: string) => {
-    setSelectedStudentId(id);
-    setIsViewModalOpen(true);
+    // Clear any previous student data to prevent showing old data
+    setSelectedStudentId(null);
+    setIsViewModalOpen(false);
+    
+    // Set new student after a brief delay to ensure clean state
+    setTimeout(() => {
+      setSelectedStudentId(id);
+      setIsViewModalOpen(true);
+    }, 50);
   };
 
   const handleStudentUpdated = () => {
@@ -151,6 +147,29 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
 
   const handleAddStudentClick = () => {
     setIsAddModalOpen(true);
+  };
+
+  const handleClassClick = (classId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the student row click
+    router.push(`/dashboard/classes?view=${classId}`);
+  };
+
+  const getDayOfWeek = (dayOfWeek: number) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dayOfWeek] || '';
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '';
+    
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeString)) {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12;
+      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    }
+    
+    return timeString;
   };
 
   if (loading && students.length === 0) {
@@ -263,6 +282,7 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
             ) : (
               filteredStudents.map((student) => {
                 const subjects = studentSubjects[student.id] || [];
+                const classes = studentClasses[student.id] || [];
                 return (
                   <TableRow 
                     key={student.id} 
@@ -270,11 +290,13 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
                     onClick={() => handleStudentClick(student.id)}
                   >
                     <TableCell>
-                      <StudentStatusBadge value={student.status} />
+                      <Badge className={cn("text-xs", getStudentStatusColor(student.status))}>
+                        {student.status}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {student.curriculum ? (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as any))}>
                           {student.curriculum}
                         </Badge>
                       ) : (
@@ -312,7 +334,25 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className="text-muted-foreground text-sm">No classes</span>
+                      {classes.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {classes
+                            .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
+                            .map((cls) => (
+                              <Button
+                                key={cls.id}
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs justify-start"
+                                onClick={(e) => handleClassClick(cls.id, e)}
+                              >
+                                {cls.level} - {getDayOfWeek(cls.dayOfWeek)} {formatTime(cls.startTime)}
+                              </Button>
+                            ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No classes</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -333,13 +373,18 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
         onStudentAdded={handleStudentUpdated}
       />
 
-      {/* View/Edit Student Modal */}
-      <ViewStudentModal 
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        studentId={selectedStudentId}
-        onStudentUpdated={handleStudentUpdated}
-      />
+      {/* View/Edit Student Modal - only render when we have a selected student ID */}
+      {selectedStudentId && (
+        <ViewStudentModal 
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setSelectedStudentId(null);
+          }}
+          studentId={selectedStudentId}
+          onStudentUpdated={handleStudentUpdated}
+        />
+      )}
     </div>
   );
 } 

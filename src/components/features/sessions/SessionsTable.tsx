@@ -162,10 +162,10 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
     return staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown Staff';
   };
   
-  const getClassName = (classId: string | null | undefined) => {
+  const getClassSubject = (classId: string | null | undefined) => {
     if (!classId) return '-';
     const cls = classes?.find(c => c.id === classId);
-    return cls ? cls.subject : 'Unknown Class';
+    return cls ? cls.level : 'Unknown Class';
   };
   
   const handleSessionClick = (id: string) => {
@@ -293,7 +293,7 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
                     {session.subject}
                   </TableCell>
                   {!classId && (
-                    <TableCell>{getClassName(session.classId)}</TableCell>
+                    <TableCell>{getClassSubject(session.classId)}</TableCell>
                   )}
                   {!staffId && (
                     <TableCell>{getStaffName(session.staffId)}</TableCell>

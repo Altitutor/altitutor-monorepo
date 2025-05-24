@@ -16,7 +16,7 @@ export {
 } from './auth';
 
 // Export API modules
-export { authApi, subjectsApi, staffApi, studentsApi } from './api';
+export { authApi, subjectsApi, staffApi, studentsApi, classesApi } from './api';
 
 // Export repositories
 export { adminRepository } from './db/admin';

@@ -9,14 +9,11 @@ import { studentsApi } from '@/lib/supabase/api';
 import { subjectsApi } from '@/lib/supabase/api/subjects';
 import { Student, Subject } from '@/lib/supabase/db/types';
 import { 
-  StudentDetailsTab, 
-  ParentDetailsTab, 
+  DetailsTab,
   StudentSubjectsTab, 
-  AvailabilityTab,
+  ClassesTab,
   StudentAccountTab,
-  StudentDetailsFormData,
-  ParentDetailsFormData,
-  AvailabilityFormData,
+  DetailsFormData,
   StudentAccountFormData
 } from './tabs';
 import {
@@ -53,15 +50,11 @@ export function ViewStudentModal({
   const [loadingSubjects, setLoadingSubjects] = useState(false);
   
   // Edit states for each tab
-  const [isEditingStudentDetails, setIsEditingStudentDetails] = useState(false);
-  const [isEditingParentDetails, setIsEditingParentDetails] = useState(false);
-  const [isEditingAvailability, setIsEditingAvailability] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   
   // Loading states for each tab
-  const [loadingStudentDetailsUpdate, setLoadingStudentDetailsUpdate] = useState(false);
-  const [loadingParentDetailsUpdate, setLoadingParentDetailsUpdate] = useState(false);
-  const [loadingAvailabilityUpdate, setLoadingAvailabilityUpdate] = useState(false);
+  const [loadingDetailsUpdate, setLoadingDetailsUpdate] = useState(false);
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
 
   // Delete confirmation state
@@ -79,8 +72,10 @@ export function ViewStudentModal({
     
     try {
       setLoadingStudent(true);
-                    const data = await studentsApi.getStudent(studentId);
-       setStudent(data || null);
+      // Use the optimized method that gets both student and subjects efficiently
+      const { student: studentData, subjects: subjectsData } = await studentsApi.getStudentWithSubjects(studentId);
+      setStudent(studentData || null);
+      setStudentSubjects(subjectsData);
     } catch (error) {
       console.error('Failed to load student:', error);
       toast({
@@ -99,11 +94,8 @@ export function ViewStudentModal({
     
     try {
       setLoadingSubjects(true);
-      const [studentSubjectsData, allSubjectsData] = await Promise.all([
-        studentsApi.getStudentSubjects(studentId),
-        subjectsApi.getAllSubjects()
-      ]);
-      setStudentSubjects(studentSubjectsData);
+      // Just load all subjects for assignment dropdown
+      const allSubjectsData = await subjectsApi.getAllSubjects();
       setAllSubjects(allSubjectsData);
     } catch (error) {
       console.error('Failed to load subjects:', error);
@@ -120,28 +112,27 @@ export function ViewStudentModal({
   // Initialize data when modal opens
   useEffect(() => {
     if (isOpen && studentId) {
-      loadStudent();
-      loadSubjects();
+      loadStudent(); // This now loads both student and subjects
+      loadSubjects(); // This loads all subjects for dropdown
     }
   }, [isOpen, studentId]);
 
   // Reset edit states when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setIsEditingStudentDetails(false);
-      setIsEditingParentDetails(false);
-      setIsEditingAvailability(false);
+      setIsEditingDetails(false);
       setIsEditingAccount(false);
     }
   }, [isOpen]);
 
-  // Handle student details update
-  const handleStudentDetailsSubmit = async (data: StudentDetailsFormData) => {
+  // Handle details update (merged student, parent, and availability)
+  const handleDetailsSubmit = async (data: DetailsFormData) => {
     if (!student) return;
     
     try {
-      setLoadingStudentDetailsUpdate(true);
+      setLoadingDetailsUpdate(true);
       const updatedStudent = await studentsApi.updateStudent(student.id, {
+        // Student details
         firstName: data.firstName,
         lastName: data.lastName,
         studentEmail: data.studentEmail || null,
@@ -151,68 +142,12 @@ export function ViewStudentModal({
         yearLevel: data.yearLevel,
         status: data.status,
         notes: data.notes || null,
-      });
-      
-      setStudent(updatedStudent);
-      setIsEditingStudentDetails(false);
-      onStudentUpdated();
-      
-      toast({
-        title: "Success",
-        description: "Student details updated successfully.",
-      });
-    } catch (error) {
-      console.error('Failed to update student details:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update student details. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingStudentDetailsUpdate(false);
-    }
-  };
-
-  // Handle parent details update
-  const handleParentDetailsSubmit = async (data: ParentDetailsFormData) => {
-    if (!student) return;
-    
-    try {
-      setLoadingParentDetailsUpdate(true);
-      const updatedStudent = await studentsApi.updateStudent(student.id, {
+        // Parent details
         parentFirstName: data.parentFirstName || null,
         parentLastName: data.parentLastName || null,
         parentEmail: data.parentEmail || null,
         parentPhone: data.parentPhone || null,
-      });
-      
-      setStudent(updatedStudent);
-      setIsEditingParentDetails(false);
-      onStudentUpdated();
-      
-      toast({
-        title: "Success",
-        description: "Parent details updated successfully.",
-      });
-    } catch (error) {
-      console.error('Failed to update parent details:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update parent details. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingParentDetailsUpdate(false);
-    }
-  };
-
-  // Handle availability update
-  const handleAvailabilitySubmit = async (data: AvailabilityFormData) => {
-    if (!student) return;
-    
-    try {
-      setLoadingAvailabilityUpdate(true);
-      const updatedStudent = await studentsApi.updateStudent(student.id, {
+        // Availability
         availabilityMonday: data.availability_monday,
         availabilityTuesday: data.availability_tuesday,
         availabilityWednesday: data.availability_wednesday,
@@ -225,22 +160,22 @@ export function ViewStudentModal({
       });
       
       setStudent(updatedStudent);
-      setIsEditingAvailability(false);
+      setIsEditingDetails(false);
       onStudentUpdated();
       
       toast({
         title: "Success",
-        description: "Availability updated successfully.",
+        description: "Details updated successfully.",
       });
     } catch (error) {
-      console.error('Failed to update availability:', error);
+      console.error('Failed to update details:', error);
       toast({
         title: "Error",
-        description: "Failed to update availability. Please try again.",
+        description: "Failed to update details. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoadingAvailabilityUpdate(false);
+      setLoadingDetailsUpdate(false);
     }
   };
 
@@ -316,7 +251,7 @@ export function ViewStudentModal({
     
     try {
       await studentsApi.assignSubjectToStudent(student.id, subjectId);
-      await loadSubjects(); // Reload subjects
+      await loadStudent(); // Reload student with updated subjects
       toast({
         title: "Success",
         description: "Subject assigned successfully.",
@@ -336,8 +271,8 @@ export function ViewStudentModal({
     if (!student) return;
     
     try {
-             await studentsApi.removeSubjectFromStudent(student.id, subjectId);
-      await loadSubjects(); // Reload subjects
+      await studentsApi.removeSubjectFromStudent(student.id, subjectId);
+      await loadStudent(); // Reload student with updated subjects
       toast({
         title: "Success",
         description: "Subject removed successfully.",
@@ -409,74 +344,64 @@ export function ViewStudentModal({
             </SheetTitle>
           </SheetHeader>
           
-          <Tabs defaultValue="student-details" className="mt-6">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="student-details">Student Details</TabsTrigger>
-              <TabsTrigger value="parent-details">Parent Details</TabsTrigger>
+          <Tabs defaultValue="details" className="mt-6 flex flex-col h-[calc(100vh-200px)]">
+            <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
+              <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="subjects">Subjects</TabsTrigger>
-              <TabsTrigger value="availability">Availability</TabsTrigger>
+              <TabsTrigger value="classes">Classes</TabsTrigger>
               <TabsTrigger value="account">Account</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="student-details" className="mt-6">
-              <StudentDetailsTab
-                student={student}
-                isEditing={isEditingStudentDetails}
-                isLoading={loadingStudentDetailsUpdate}
-                onEdit={() => setIsEditingStudentDetails(true)}
-                onCancelEdit={() => setIsEditingStudentDetails(false)}
-                onSubmit={handleStudentDetailsSubmit}
-              />
-            </TabsContent>
-            
-            <TabsContent value="parent-details" className="mt-6">
-              <ParentDetailsTab
-                student={student}
-                isEditing={isEditingParentDetails}
-                isLoading={loadingParentDetailsUpdate}
-                onEdit={() => setIsEditingParentDetails(true)}
-                onCancelEdit={() => setIsEditingParentDetails(false)}
-                onSubmit={handleParentDetailsSubmit}
-              />
-            </TabsContent>
-            
-            <TabsContent value="subjects" className="mt-6">
-              <StudentSubjectsTab
-                student={student}
-                studentSubjects={studentSubjects}
-                allSubjects={allSubjects}
-                loadingSubjects={loadingSubjects}
-                onViewSubject={handleViewSubject}
-                onAssignSubject={handleAssignSubject}
-                onRemoveSubject={handleRemoveSubject}
-              />
-            </TabsContent>
-            
-            <TabsContent value="availability" className="mt-6">
-              <AvailabilityTab
-                student={student}
-                isEditing={isEditingAvailability}
-                isLoading={loadingAvailabilityUpdate}
-                onEdit={() => setIsEditingAvailability(true)}
-                onCancelEdit={() => setIsEditingAvailability(false)}
-                onSubmit={handleAvailabilitySubmit}
-              />
-            </TabsContent>
-            
-            <TabsContent value="account" className="mt-6">
-              <StudentAccountTab
-                student={student}
-                isLoading={loadingAccountUpdate}
-                isEditingAccount={isEditingAccount}
-                hasPasswordResetLinkSent={hasPasswordResetLinkSent}
-                isDeleting={loadingDelete}
-                onEditAccount={() => setIsEditingAccount(true)}
-                onCancelEditAccount={() => setIsEditingAccount(false)}
-                onAccountUpdate={handleAccountSubmit}
-                onPasswordResetRequest={handlePasswordResetRequest}
-                onDelete={handleDeleteStudent}
-              />
-            </TabsContent>
+            <div className="flex-1 overflow-hidden">
+              <TabsContent value="details" className="mt-6 h-full overflow-y-auto">
+                <DetailsTab
+                  student={student}
+                  isEditing={isEditingDetails}
+                  isLoading={loadingDetailsUpdate}
+                  onEdit={() => setIsEditingDetails(true)}
+                  onCancelEdit={() => setIsEditingDetails(false)}
+                  onSubmit={handleDetailsSubmit}
+                />
+              </TabsContent>
+              
+              <TabsContent value="subjects" className="mt-6 h-full overflow-y-auto">
+                <StudentSubjectsTab
+                  student={student}
+                  studentSubjects={studentSubjects}
+                  allSubjects={allSubjects}
+                  loadingSubjects={loadingSubjects}
+                  onViewSubject={handleViewSubject}
+                  onAssignSubject={handleAssignSubject}
+                  onRemoveSubject={handleRemoveSubject}
+                />
+              </TabsContent>
+              
+              <TabsContent value="classes" className="mt-6 h-full overflow-y-auto">
+                <ClassesTab
+                  student={student}
+                  onViewClass={(classId) => {
+                    // Close student modal and navigate to classes page with class view
+                    onClose();
+                    router.push(`/dashboard/classes?view=${classId}`);
+                  }}
+                />
+              </TabsContent>
+              
+              <TabsContent value="account" className="mt-6 h-full overflow-y-auto">
+                <StudentAccountTab
+                  student={student}
+                  isLoading={loadingAccountUpdate}
+                  isEditingAccount={isEditingAccount}
+                  hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+                  isDeleting={loadingDelete}
+                  onEditAccount={() => setIsEditingAccount(true)}
+                  onCancelEditAccount={() => setIsEditingAccount(false)}
+                  onAccountUpdate={handleAccountSubmit}
+                  onPasswordResetRequest={handlePasswordResetRequest}
+                  onDelete={handleDeleteStudent}
+                />
+              </TabsContent>
+            </div>
           </Tabs>
           
         </SheetContent>

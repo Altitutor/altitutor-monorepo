@@ -8,6 +8,7 @@ import { Staff, Subject } from "@/lib/supabase/db/types";
 import { supabaseServer } from "@/lib/supabase/client";
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { SubjectsTab } from './tabs/SubjectsTab';
+import { ClassesTab } from './tabs/ClassesTab';
 import { AccountTab, AccountFormData } from './tabs/AccountTab';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { useRouter } from "next/navigation";
@@ -70,14 +71,10 @@ export function ViewStaffModal({
     try {
       setIsLoading(true);
       
-      // Fetch staff details - fix method name from getStaffById to getStaff
-      const staff = await staffApi.getStaff(staffId);
-      setStaffMember(staff || null);
-      
-      // Fetch staff subjects
-      if (staff) {
-        await fetchStaffSubjects(staffId);
-      }
+      // Use the optimized method that gets both staff and subjects efficiently
+      const { staff: staffData, subjects: subjectsData } = await staffApi.getStaffWithSubjects(staffId);
+      setStaffMember(staffData || null);
+      setStaffSubjects(subjectsData);
     } catch (err) {
       console.error('Failed to fetch staff:', err);
       toast({
@@ -135,7 +132,7 @@ export function ViewStaffModal({
         role: data.role,
         status: data.status,
         // Handle office key properly
-        officeKeyNumber: data.officeKeyNumber === '' || data.officeKeyNumber === undefined ? null : data.officeKeyNumber,
+        officeKeyNumber: data.officeKeyNumber,
         hasParkingRemote: data.hasParkingRemote,
         availabilityMonday: data.availability_monday,
         availabilityTuesday: data.availability_tuesday,
@@ -254,7 +251,14 @@ export function ViewStaffModal({
 
   // Password reset handler
   const handlePasswordResetRequest = async () => {
-    if (!staffMember) return;
+    if (!staffMember || !staffMember.email) {
+      toast({
+        title: 'Error',
+        description: 'No email address found for this staff member.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     try {
       setIsLoading(true);
@@ -286,20 +290,16 @@ export function ViewStaffModal({
     }
   };
 
-  // Subject handlers
+  // Handle subject assignment
   const handleAssignSubject = async (subjectId: string) => {
     if (!staffMember) return;
     
     try {
-      setLoadingSubjects(true);
       await staffApi.assignSubjectToStaff(staffMember.id, subjectId);
-      
-      // Refetch subjects
-      await fetchStaffSubjects(staffMember.id);
-      
+      await fetchStaffMember(); // Reload staff with updated subjects
       toast({
-        title: 'Subject assigned',
-        description: 'Subject has been assigned to staff member.',
+        title: 'Success',
+        description: 'Subject assigned successfully.',
       });
     } catch (err) {
       console.error('Failed to assign subject:', err);
@@ -308,24 +308,19 @@ export function ViewStaffModal({
         description: 'There was an error assigning the subject. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setLoadingSubjects(false);
     }
   };
 
+  // Handle subject removal
   const handleRemoveSubject = async (subjectId: string) => {
     if (!staffMember) return;
     
     try {
-      setLoadingSubjects(true);
       await staffApi.removeSubjectFromStaff(staffMember.id, subjectId);
-      
-      // Refetch subjects
-      await fetchStaffSubjects(staffMember.id);
-      
+      await fetchStaffMember(); // Reload staff with updated subjects
       toast({
-        title: 'Subject removed',
-        description: 'Subject has been removed from staff member.',
+        title: 'Success',
+        description: 'Subject removed successfully.',
       });
     } catch (err) {
       console.error('Failed to remove subject:', err);
@@ -334,8 +329,6 @@ export function ViewStaffModal({
         description: 'There was an error removing the subject. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setLoadingSubjects(false);
     }
   };
 
@@ -378,6 +371,7 @@ export function ViewStaffModal({
             <TabsList className="w-full">
               <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
               <TabsTrigger value="subjects" className="flex-1">Subjects</TabsTrigger>
+              <TabsTrigger value="classes" className="flex-1">Classes</TabsTrigger>
               <TabsTrigger value="account" className="flex-1">Account</TabsTrigger>
             </TabsList>
             
@@ -401,6 +395,17 @@ export function ViewStaffModal({
                 onViewSubject={handleViewSubject}
                 onAssignSubject={handleAssignSubject}
                 onRemoveSubject={handleRemoveSubject}
+              />
+            </TabsContent>
+            
+            <TabsContent value="classes" className="mt-4">
+              <ClassesTab
+                staff={staffMember}
+                onViewClass={(classId) => {
+                  // Close staff modal and navigate to classes page with class view
+                  onClose();
+                  router.push(`/dashboard/classes?view=${classId}`);
+                }}
               />
             </TabsContent>
             

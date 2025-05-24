@@ -71,6 +71,7 @@ export enum ClassStatus {
 
 export enum EnrollmentStatus {
   ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
   DISCONTINUED = 'DISCONTINUED',
   TRIAL = 'TRIAL',
 }
@@ -168,8 +169,8 @@ export enum ResourceAnswers {
 // Base entity interface with common fields
 export interface BaseEntity {
   id: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Core entity interfaces
@@ -232,7 +233,7 @@ export interface Subject extends BaseEntity {
 }
 
 export interface Class extends BaseEntity {
-  subject: string;
+  level: string; // Renamed from 'subject' - represents the class level/name
   dayOfWeek: number; // Maps to day_of_week in database
   startTime: string; // Maps to start_time in database
   endTime: string; // Maps to end_time in database
