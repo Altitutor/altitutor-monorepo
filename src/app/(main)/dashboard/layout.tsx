@@ -16,7 +16,9 @@ import {
   Settings, 
   Menu, 
   X,
-  ClipboardList
+  ClipboardList,
+  Beaker,
+  Newspaper
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/supabase/auth';
 import { AuthState as AuthStore } from '@/lib/supabase/auth';
@@ -47,6 +49,16 @@ const navItems = [
     title: 'Classes',
     href: '/dashboard/classes',
     icon: CalendarDays,
+  },
+  {
+    title: 'Subjects',
+    href: '/dashboard/subjects',
+    icon: Beaker,
+  },
+  {
+    title: 'Topics & Resources',
+    href: '/dashboard/topics',
+    icon: Newspaper,
   },
   {
     title: 'Sessions',

@@ -11,7 +11,6 @@ import { SubjectsTab } from './tabs/SubjectsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { AccountTab, AccountFormData } from './tabs/AccountTab';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
-import { useRouter } from "next/navigation";
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -40,7 +39,6 @@ export function ViewStaffModal({
   const [baseUrl, setBaseUrl] = useState('');
   
   const { toast } = useToast();
-  const router = useRouter();
 
   // Set base URL for password reset
   useEffect(() => {
@@ -332,13 +330,6 @@ export function ViewStaffModal({
     }
   };
 
-  const handleViewSubject = (subjectId: string) => {
-    // Close the current staff modal
-    onClose();
-    // Navigate to the subjects page with the subject ID as a view parameter
-    router.push(`/dashboard/subjects?view=${subjectId}`);
-  };
-
   // Early return if no staff member loaded
   if (!staffMember) {
     return (
@@ -392,7 +383,6 @@ export function ViewStaffModal({
                 staffSubjects={staffSubjects}
                 allSubjects={allSubjects}
                 loadingSubjects={loadingSubjects}
-                onViewSubject={handleViewSubject}
                 onAssignSubject={handleAssignSubject}
                 onRemoveSubject={handleRemoveSubject}
               />
@@ -401,11 +391,6 @@ export function ViewStaffModal({
             <TabsContent value="classes" className="mt-4">
               <ClassesTab
                 staff={staffMember}
-                onViewClass={(classId) => {
-                  // Close staff modal and navigate to classes page with class view
-                  onClose();
-                  router.push(`/dashboard/classes?view=${classId}`);
-                }}
               />
             </TabsContent>
             

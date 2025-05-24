@@ -27,8 +27,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { useRouter } from "next/navigation";
-
 interface ViewStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -63,8 +61,6 @@ export function ViewStudentModal({
 
   // Password reset state
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
-
-  const router = useRouter();
 
   // Load student data
   const loadStudent = async () => {
@@ -370,7 +366,6 @@ export function ViewStudentModal({
                   studentSubjects={studentSubjects}
                   allSubjects={allSubjects}
                   loadingSubjects={loadingSubjects}
-                  onViewSubject={handleViewSubject}
                   onAssignSubject={handleAssignSubject}
                   onRemoveSubject={handleRemoveSubject}
                 />
@@ -379,11 +374,6 @@ export function ViewStudentModal({
               <TabsContent value="classes" className="mt-6 h-full overflow-y-auto">
                 <ClassesTab
                   student={student}
-                  onViewClass={(classId) => {
-                    // Close student modal and navigate to classes page with class view
-                    onClose();
-                    router.push(`/dashboard/classes?view=${classId}`);
-                  }}
                 />
               </TabsContent>
               

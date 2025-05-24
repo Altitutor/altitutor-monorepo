@@ -5,16 +5,16 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, UserCheck, Plus, X, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { StaffRoleBadge, StaffStatusBadge } from "@/components/ui/enum-badge";
 import { cn } from "@/lib/utils";
+import { ViewStaffModal } from '@/components/features/staff/modal';
 
 interface ClassStaffTabProps {
   classData: Class;
   classStaff: Staff[];
   allStaff: Staff[];
   loadingStaff: boolean;
-  onViewStaff: (staffId: string) => void;
+  onViewStaff?: (staffId: string) => void;
   onAssignStaff: (staffId: string) => void;
   onRemoveStaff: (staffId: string) => void;
 }
@@ -28,15 +28,18 @@ export function ClassStaffTab({
   onAssignStaff,
   onRemoveStaff
 }: ClassStaffTabProps) {
-  const router = useRouter();
   const [assigningStaff, setAssigningStaff] = useState<Set<string>>(new Set());
   const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Modal state for staff viewing
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
   const handleViewStaff = (staffId: string) => {
-    // Close current modal and navigate to staff page with staff ID
-    router.push(`/dashboard/staff?view=${staffId}`);
+    setSelectedStaffId(staffId);
+    setIsStaffModalOpen(true);
   };
 
   const handleAssignStaff = async (staffId: string) => {
@@ -291,6 +294,22 @@ export function ClassStaffTab({
             ))}
           </div>
         </ScrollArea>
+      )}
+      
+      {/* Staff Modal */}
+      {selectedStaffId && (
+        <ViewStaffModal
+          staffId={selectedStaffId}
+          isOpen={isStaffModalOpen}
+          onClose={() => {
+            setIsStaffModalOpen(false);
+            setSelectedStaffId(null);
+          }}
+          onStaffUpdated={() => {
+            // Refresh would be handled by parent component
+            // since we don't have direct access to refresh function here
+          }}
+        />
       )}
     </div>
   );

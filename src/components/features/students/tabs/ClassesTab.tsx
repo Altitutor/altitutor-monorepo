@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Calendar, Clock, Users, MapPin } from "lucide-react";
 import { classesApi } from '@/lib/supabase/api';
 import { formatSubjectDisplay } from '@/lib/utils';
+import { ViewClassModal } from '@/components/features/classes/modal';
 
 interface ClassesTabProps {
   student: Student;
-  onViewClass?: (classId: string) => void;
 }
 
 interface StudentClass {
@@ -21,12 +21,15 @@ interface StudentClass {
 }
 
 export function ClassesTab({
-  student,
-  onViewClass
+  student
 }: ClassesTabProps) {
   const [classes, setClasses] = useState<StudentClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Modal state for class viewing
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
   useEffect(() => {
     loadStudentClasses();
@@ -81,6 +84,11 @@ export function ClassesTab({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClassClick = (classId: string) => {
+    setSelectedClassId(classId);
+    setIsClassModalOpen(true);
   };
 
   const getDayOfWeek = (day: number) => {
@@ -153,7 +161,7 @@ export function ClassesTab({
             <Card 
               key={studentClass.class.id} 
               className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => onViewClass?.(studentClass.class.id)}
+              onClick={() => handleClassClick(studentClass.class.id)}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -217,6 +225,22 @@ export function ClassesTab({
           ))}
         </div>
       </ScrollArea>
+      
+      {/* Class Modal */}
+      {selectedClassId && (
+        <ViewClassModal
+          classId={selectedClassId}
+          isOpen={isClassModalOpen}
+          onClose={() => {
+            setIsClassModalOpen(false);
+            setSelectedClassId(null);
+          }}
+          onClassUpdated={() => {
+            // Refresh student classes when class is updated
+            loadStudentClasses();
+          }}
+        />
+      )}
     </div>
   );
 } 

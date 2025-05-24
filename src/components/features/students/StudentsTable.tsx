@@ -32,12 +32,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ViewClassModal } from '@/components/features/classes/modal';
 
 interface StudentsTableProps {
   onRefresh?: number;
+  onStudentSelect?: (studentId: string) => void;
+  addModalState?: [boolean, (open: boolean) => void];
 }
 
-export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
+export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: StudentsTableProps = {}) {
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [studentSubjects, setStudentSubjects] = useState<Record<string, Subject[]>>({});
@@ -52,6 +55,8 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
   // Load data
   const loadStudents = async () => {
@@ -149,9 +154,9 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
     setIsAddModalOpen(true);
   };
 
-  const handleClassClick = (classId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering the student row click
-    router.push(`/dashboard/classes?view=${classId}`);
+  const handleClassClick = (classId: string) => {
+    setSelectedClassId(classId);
+    setIsClassModalOpen(true);
   };
 
   const getDayOfWeek = (dayOfWeek: number) => {
@@ -344,7 +349,10 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
                                 variant="link"
                                 size="sm"
                                 className="h-auto p-0 text-xs justify-start"
-                                onClick={(e) => handleClassClick(cls.id, e)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleClassClick(cls.id);
+                                }}
                               >
                                 {cls.level} - {getDayOfWeek(cls.dayOfWeek)} {formatTime(cls.startTime)}
                               </Button>
@@ -383,6 +391,22 @@ export function StudentsTable({ onRefresh }: StudentsTableProps = {}) {
           }}
           studentId={selectedStudentId}
           onStudentUpdated={handleStudentUpdated}
+        />
+      )}
+
+      {/* Class Modal */}
+      {selectedClassId && (
+        <ViewClassModal
+          classId={selectedClassId}
+          isOpen={isClassModalOpen}
+          onClose={() => {
+            setIsClassModalOpen(false);
+            setSelectedClassId(null);
+          }}
+          onClassUpdated={() => {
+            // Refresh student data to show updated class information
+            loadStudents();
+          }}
         />
       )}
     </div>

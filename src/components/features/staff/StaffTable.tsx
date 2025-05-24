@@ -1,320 +1,160 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, memo } from 'react';
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
-  ArrowUpDown,
-  Filter,
-  Plus,
-  RefreshCw
-} from 'lucide-react';
-import { Staff, StaffRole, StaffStatus } from '@/lib/supabase/db/types';
-import { staffApi } from '@/lib/supabase/api';
-import { cn } from '@/lib/utils/index';
+import { Staff } from '@/lib/supabase/db/types';
+import { useStaffData } from '@/hooks/useStaffData';
+import { useStaffFilters } from '@/hooks/useStaffFilters';
 import { AddStaffModal } from './AddStaffModal';
 import { ViewStaffModal } from './modal';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { StaffRoleBadge, StaffStatusBadge } from '@/components/ui/enum-badge';
-
+import { ViewClassModal } from '@/components/features/classes/modal';
+import { StaffTableFilters } from './StaffTableFilters';
+import { StaffTableHeader } from './StaffTableHeader';
+import { StaffTableRow } from './StaffTableRow';
 
 interface StaffTableProps {
   onRefresh?: number;
 }
 
-export function StaffTable({ onRefresh }: StaffTableProps = {}) {
-  const router = useRouter();
-  const [staffMembers, setStaffMembers] = useState<Staff[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filteredStaff, setFilteredStaff] = useState<Staff[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<StaffRole | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<StaffStatus | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Staff>('lastName');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProps = {}) {
+  // Data management
+  const { staffMembers, staffClasses, loading, error, refreshData } = useStaffData(onRefresh);
+  
+  // Filtering and sorting
+  const {
+    filteredStaff,
+    filters,
+    setSearchTerm,
+    setRoleFilter,
+    setStatusFilter,
+    handleSort,
+    resetFilters,
+  } = useStaffFilters(staffMembers);
+
+  // Modal state
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-
-  // Load data
-  const loadStaff = async () => {
-    try {
-      setLoading(true);
-      const data = await staffApi.getAllStaff();
-      console.log("Staff data loaded:", data); // Debug log to check data structure
-      setStaffMembers(data);
-    } catch (err) {
-      console.error('Failed to load staff:', err);
-      setError('Failed to load staff. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initialize and refresh data
-  useEffect(() => {
-    loadStaff();
-  }, [onRefresh]);
-
-  // Apply filters and sorting
-  useEffect(() => {
-    if (!staffMembers) return;
-    
-    let result = [...staffMembers];
-    
-    // Apply search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(staff => 
-        (staff.firstName?.toLowerCase() || '').includes(searchLower) ||
-        (staff.lastName?.toLowerCase() || '').includes(searchLower) ||
-        (staff.email?.toLowerCase() || '').includes(searchLower) ||
-        (staff.phoneNumber?.toLowerCase() || '').includes(searchLower)
-      );
-    }
-    
-    // Apply role filter
-    if (roleFilter !== 'ALL') {
-      result = result.filter(staff => staff.role === roleFilter);
-    }
-    
-    // Apply status filter
-    if (statusFilter !== 'ALL') {
-      result = result.filter(staff => staff.status === statusFilter);
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      const valueA = a[sortField] || '';
-      const valueB = b[sortField] || '';
-      
-      if (typeof valueA === 'string' && typeof valueB === 'string') {
-        return sortDirection === 'asc' 
-          ? valueA.localeCompare(valueB) 
-          : valueB.localeCompare(valueA);
-      }
-      
-      return 0;
-    });
-    
-    setFilteredStaff(result);
-  }, [staffMembers, searchTerm, roleFilter, statusFilter, sortField, sortDirection]);
-
-  const handleSort = (field: keyof Staff) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-  
-  const handleStaffClick = (id: string) => {
+  // Event handlers
+  const handleStaffClick = useCallback((id: string) => {
     setSelectedStaffId(id);
     setIsViewModalOpen(true);
-  };
+  }, []);
 
-  const handleStaffUpdated = () => {
-    loadStaff();
-  };
+  const handleStaffUpdated = useCallback(() => {
+    refreshData();
+  }, [refreshData]);
 
-  const handleAddStaffClick = () => {
+  const handleAddStaffClick = useCallback(() => {
     setIsAddModalOpen(true);
-  };
+  }, []);
 
+  const handleClassClick = useCallback((classId: string) => {
+    setSelectedClassId(classId);
+    setIsClassModalOpen(true);
+  }, []);
 
+  const handleRefresh = useCallback(() => {
+    refreshData();
+  }, [refreshData]);
 
+  // Loading state
   if (loading && staffMembers.length === 0) {
-    return <div className="flex justify-center p-4">Loading staff...</div>;
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="text-muted-foreground">Loading staff...</div>
+      </div>
+    );
   }
 
+  // Error state
   if (error && staffMembers.length === 0) {
-    return <div className="text-red-500 p-4">{error}</div>;
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="text-destructive">{error}</div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="relative w-64">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search staff..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Role: {roleFilter}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setRoleFilter('ALL')}>
-                All Roles
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRoleFilter(StaffRole.ADMINSTAFF)}>
-                Admin Staff
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRoleFilter(StaffRole.TUTOR)}>
-                Tutor
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Status: {statusFilter}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setStatusFilter('ALL')}>
-                All
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter(StaffStatus.ACTIVE)}>
-                Active
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter(StaffStatus.INACTIVE)}>
-                Inactive
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter(StaffStatus.TRIAL)}>
-                Trial
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      {/* Filters */}
+      <StaffTableFilters
+        searchTerm={filters.searchTerm}
+        roleFilter={filters.roleFilter}
+        statusFilter={filters.statusFilter}
+        onSearchChange={setSearchTerm}
+        onRoleFilterChange={setRoleFilter}
+        onStatusFilterChange={setStatusFilter}
+        onRefresh={handleRefresh}
+        onResetFilters={resetFilters}
+        isLoading={loading}
+      />
 
-          <Button variant="outline" size="sm" onClick={loadStaff} className="flex items-center">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-
-
-
-        </div>
-      </div>
-
+      {/* Table */}
       <div className="rounded-md border">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('firstName')}>
-                First Name
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'firstName' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('lastName')}>
-                Last Name
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'lastName' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('email')}>
-                Email
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'email' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('role')}>
-                Role
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'role' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
-                Status
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'status' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
+          <StaffTableHeader
+            sortField={filters.sortField}
+            sortDirection={filters.sortDirection}
+            onSort={handleSort}
+          />
           <TableBody>
             {filteredStaff.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center h-24">
-                  {searchTerm || roleFilter !== 'ALL' || statusFilter !== 'ALL' 
+                  {filters.searchTerm || filters.roleFilter !== 'ALL' || filters.statusFilter !== 'ALL' 
                     ? "No staff match your filters" 
                     : "No staff found"}
                 </TableCell>
               </TableRow>
             ) : (
               filteredStaff.map((staff) => (
-                <TableRow 
-                  key={staff.id} 
-                  className="cursor-pointer"
-                  onClick={() => handleStaffClick(staff.id)}
-                >
-                  <TableCell className="font-medium">
-                    {staff.firstName || '-'}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {staff.lastName || '-'}
-                  </TableCell>
-                  <TableCell>{staff.email || '-'}</TableCell>
-                  <TableCell>{staff.phoneNumber || '-'}</TableCell>
-                  <TableCell>
-                    <StaffRoleBadge value={staff.role} />
-                  </TableCell>
-                  <TableCell>
-                    <StaffStatusBadge value={staff.status} />
-                  </TableCell>
-                </TableRow>
+                <StaffTableRow
+                  key={staff.id}
+                  staff={staff}
+                  onStaffClick={handleStaffClick}
+                />
               ))
             )}
           </TableBody>
         </Table>
       </div>
       
+      {/* Results count */}
       <div className="text-sm text-muted-foreground">
         {filteredStaff.length} staff displayed
+        {filteredStaff.length !== staffMembers.length && ` of ${staffMembers.length} total`}
       </div>
 
-      {/* Add Staff Modal */}
+      {/* Modals */}
       <AddStaffModal 
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onStaffAdded={handleStaffUpdated}
       />
 
-      {/* View/Edit Staff Modal */}
       <ViewStaffModal 
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         staffId={selectedStaffId}
         onStaffUpdated={handleStaffUpdated}
       />
+
+      <ViewClassModal
+        isOpen={isClassModalOpen}
+        onClose={() => setIsClassModalOpen(false)}
+        classId={selectedClassId}
+        onClassUpdated={handleStaffUpdated}
+      />
     </div>
   );
-} 
+}); 

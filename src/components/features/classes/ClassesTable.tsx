@@ -24,7 +24,9 @@ import { Class, ClassStatus, Subject, Student, Staff } from '@/lib/supabase/db/t
 import { cn, formatSubjectDisplay } from '@/lib/utils/index';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
-import { ViewClassModal } from './modal/ViewClassModal';
+import { ViewClassModal } from './modal';
+import { ViewStaffModal } from '@/components/features/staff/modal';
+import { ViewStudentModal } from '@/components/features/students';
 import { TimetableView } from './TimetableView';
 
 interface ClassesTableProps {
@@ -67,6 +69,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   // Use external modal state if provided, otherwise use internal state
   const isAddModalOpen = addModalState ? addModalState[0] : internalAddModalOpen;
   const setIsAddModalOpen = addModalState ? addModalState[1] : setInternalAddModalOpen;
+
+  // Cross-feature modal states
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
   // Function to fetch detailed data
   const fetchAllWithDetails = useCallback(async () => {
@@ -192,12 +200,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   const handleStaffClick = (staffId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent class modal from opening
-    router.push(`/dashboard/staff?view=${staffId}`);
+    setSelectedStaffId(staffId);
+    setIsStaffModalOpen(true);
   };
 
   const handleStudentClick = (studentId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent class modal from opening
-    router.push(`/dashboard/students?view=${studentId}`);
+    setSelectedStudentId(studentId);
+    setIsStudentModalOpen(true);
   };
 
   const handleClassUpdated = useCallback(() => {
@@ -458,6 +468,40 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           onClose={() => setIsDetailModalOpen(false)}
           classId={selectedClass.id}
           onClassUpdated={handleClassUpdated}
+        />
+      )}
+      
+      {/* Staff Modal */}
+      {selectedStaffId && (
+        <ViewStaffModal
+          staffId={selectedStaffId}
+          isOpen={isStaffModalOpen}
+          onClose={() => {
+            setIsStaffModalOpen(false);
+            setSelectedStaffId(null);
+          }}
+          onStaffUpdated={() => {
+            // Refresh class data to show updated staff information
+            fetchAll();
+            fetchAllWithDetails();
+          }}
+        />
+      )}
+      
+      {/* Student Modal */}
+      {selectedStudentId && (
+        <ViewStudentModal
+          studentId={selectedStudentId}
+          isOpen={isStudentModalOpen}
+          onClose={() => {
+            setIsStudentModalOpen(false);
+            setSelectedStudentId(null);
+          }}
+          onStudentUpdated={() => {
+            // Refresh class data to show updated student information
+            fetchAll();
+            fetchAllWithDetails();
+          }}
         />
       )}
     </div>

@@ -7,13 +7,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
 import { formatSubjectDisplay } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { ViewSubjectModal } from '@/components/features/subjects';
 
 interface SubjectsTabProps {
   staffMember: Staff;
   staffSubjects: Subject[];
   allSubjects: Subject[];
   loadingSubjects: boolean;
-  onViewSubject: (subjectId: string) => void;
+  onViewSubject?: (subjectId: string) => void;
   onAssignSubject: (subjectId: string) => void;
   onRemoveSubject: (subjectId: string) => void;
 }
@@ -31,6 +32,10 @@ export function SubjectsTab({
   const [removingSubjects, setRemovingSubjects] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Modal state for subject viewing
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
 
   const handleAssignSubject = async (subjectId: string) => {
     setAssigningSubjects(prev => new Set(prev).add(subjectId));
@@ -59,6 +64,11 @@ export function SubjectsTab({
         return newSet;
       });
     }
+  };
+
+  const handleViewSubject = (subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    setIsSubjectModalOpen(true);
   };
 
   const availableSubjects = allSubjects.filter(subject => 
@@ -233,7 +243,7 @@ export function SubjectsTab({
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => onViewSubject(subject.id)}
+                    onClick={() => handleViewSubject(subject.id)}
                     title="View Subject"
                     disabled={removingSubjects.has(subject.id)}
                   >
@@ -257,6 +267,22 @@ export function SubjectsTab({
             ))}
           </div>
         </ScrollArea>
+      )}
+      
+      {/* Subject Modal */}
+      {selectedSubjectId && (
+        <ViewSubjectModal
+          subjectId={selectedSubjectId}
+          isOpen={isSubjectModalOpen}
+          onClose={() => {
+            setIsSubjectModalOpen(false);
+            setSelectedSubjectId(null);
+          }}
+          onSubjectUpdated={() => {
+            // Refresh would be handled by parent component
+            // since we don't have direct access to refresh function here
+          }}
+        />
       )}
     </div>
   );

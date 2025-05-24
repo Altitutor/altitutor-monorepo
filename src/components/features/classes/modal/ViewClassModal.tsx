@@ -3,12 +3,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { classesApi } from "@/lib/supabase/api/classes";
+import { subjectsApi } from "@/lib/supabase/api/subjects";
 import { studentsApi } from "@/lib/supabase/api/students";
 import { staffApi } from "@/lib/supabase/api/staff";
-import { subjectsApi } from "@/lib/supabase/api/subjects";
 import { Class, Subject, Student, Staff } from "@/lib/supabase/db/types";
-import { ClassInfoTab, ClassStudentsTab, ClassStaffTab, ClassInfoFormData } from './tabs';
-import { useRouter } from "next/navigation";
+import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
+import { ClassStudentsTab } from './tabs/ClassStudentsTab';
+import { ClassStaffTab } from './tabs/ClassStaffTab';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -38,7 +39,6 @@ export function ViewClassModal({
   const [activeTab, setActiveTab] = useState('info');
   
   const { toast } = useToast();
-  const router = useRouter();
 
   // Fetch class data using the optimized method
   useEffect(() => {
@@ -235,20 +235,6 @@ export function ViewClassModal({
     }
   };
 
-  const handleViewStudent = (studentId: string) => {
-    // Close the current class modal
-    onClose();
-    // Navigate to the students page with the student ID as a view parameter
-    router.push(`/dashboard/students?view=${studentId}`);
-  };
-
-  const handleViewStaff = (staffId: string) => {
-    // Close the current class modal
-    onClose();
-    // Navigate to the staff page with the staff ID as a view parameter
-    router.push(`/dashboard/staff?view=${staffId}`);
-  };
-
   // Fast refresh for just students after enrollment/removal
   const refreshClassStudents = async () => {
     if (!classId) return;
@@ -327,7 +313,6 @@ export function ViewClassModal({
                 classStudents={classStudents}
                 allStudents={allStudents}
                 loadingStudents={loadingStudents}
-                onViewStudent={handleViewStudent}
                 onEnrollStudent={handleEnrollStudent}
                 onRemoveStudent={handleRemoveStudent}
               />
@@ -339,7 +324,6 @@ export function ViewClassModal({
                 classStaff={classStaff}
                 allStaff={allStaff}
                 loadingStaff={loadingStaff}
-                onViewStaff={handleViewStaff}
                 onAssignStaff={handleAssignStaff}
                 onRemoveStaff={handleRemoveStaff}
               />

@@ -5,15 +5,15 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Users, Plus, X, Search, Check } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { ViewStudentModal } from '@/components/features/students';
 
 interface ClassStudentsTabProps {
   classData: Class;
   classStudents: Student[];
   allStudents: Student[];
   loadingStudents: boolean;
-  onViewStudent: (studentId: string) => void;
+  onViewStudent?: (studentId: string) => void;
   onEnrollStudent: (studentId: string) => void;
   onRemoveStudent: (studentId: string) => void;
 }
@@ -27,15 +27,18 @@ export function ClassStudentsTab({
   onEnrollStudent,
   onRemoveStudent
 }: ClassStudentsTabProps) {
-  const router = useRouter();
   const [enrollingStudents, setEnrollingStudents] = useState<Set<string>>(new Set());
   const [removingStudents, setRemovingStudents] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Modal state for student viewing
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
   const handleViewStudent = (studentId: string) => {
-    // Close current modal and navigate to students page with student ID
-    router.push(`/dashboard/students?view=${studentId}`);
+    setSelectedStudentId(studentId);
+    setIsStudentModalOpen(true);
   };
 
   const handleEnrollStudent = async (studentId: string) => {
@@ -278,6 +281,22 @@ export function ClassStudentsTab({
             ))}
           </div>
         </ScrollArea>
+      )}
+      
+      {/* Student Modal */}
+      {selectedStudentId && (
+        <ViewStudentModal
+          studentId={selectedStudentId}
+          isOpen={isStudentModalOpen}
+          onClose={() => {
+            setIsStudentModalOpen(false);
+            setSelectedStudentId(null);
+          }}
+          onStudentUpdated={() => {
+            // Refresh would be handled by parent component
+            // since we don't have direct access to refresh function here
+          }}
+        />
       )}
     </div>
   );
