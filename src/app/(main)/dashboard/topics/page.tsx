@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { TopicsTable, AddTopicModal } from '@/components/features/topics';
+import { TopicsTable, AddTopicModal } from '@/features/topics';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Link from 'next/link';

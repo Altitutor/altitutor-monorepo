@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { StudentsTable, AddStudentModal, ViewStudentModal } from '@/components/features/students';
+import { StudentsTable, AddStudentModal, ViewStudentModal } from '@/features/students';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Link from 'next/link';

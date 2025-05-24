@@ -5,6 +5,4 @@ export * from './useLocalStorage';
 export * from '@/lib/hooks';
 
 // Custom hooks for data management and UI state
-export { useStaffData } from './useStaffData';
-export { useStaffFilters } from './useStaffFilters';
 export { useDebounce } from './useDebounce'; 

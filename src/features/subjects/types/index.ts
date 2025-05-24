@@ -1,0 +1,9 @@
+export type { 
+  Subject,
+  Topic,
+  Subtopic,
+  SubjectCurriculum,
+  SubjectDiscipline,
+  StudentsSubjects,
+  StaffSubjects
+} from '@/lib/supabase/db/types'; 

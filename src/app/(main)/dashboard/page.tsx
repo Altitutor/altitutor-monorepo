@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GraduationCap, CalendarDays, Users, Clock, CheckSquare, Zap } from 'lucide-react';
 import { Class, ClassStatus, Subject, Student, Staff } from '@/lib/supabase/db/types';
-import { classesApi } from '@/lib/supabase/api/classes';
-import { studentsApi } from '@/lib/supabase/api/students';
+import { classesApi } from '@/lib/supabase/api';
+import { studentsApi } from '@/features/students/api';
 import { cn, formatSubjectDisplay } from '@/lib/utils/index';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/lib/utils/enum-colors';
-import { ViewClassModal } from '@/components/features/classes/modal/ViewClassModal';
+import { ViewClassModal } from '@/features/classes';
 
 interface TodayClassesProps {
   classes: Class[];

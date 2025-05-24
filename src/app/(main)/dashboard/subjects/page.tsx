@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SubjectsTable, AddSubjectModal, ViewSubjectModal } from '@/components/features/subjects';
+import { SubjectsTable, AddSubjectModal, ViewSubjectModal } from '@/features/subjects';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Link from 'next/link';

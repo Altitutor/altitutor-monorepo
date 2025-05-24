@@ -1,7 +1,7 @@
 // Export all API modules
 export { authApi } from './auth';
-export { subjectsApi } from './subjects';
-export { topicsApi } from './topics'; 
-export { staffApi } from './staff'; 
-export { studentsApi } from './students'; 
-export { classesApi } from './classes'; 
+export { subjectsApi } from '@/features/subjects/api';
+export { topicsApi } from '@/features/topics/api'; 
+export { studentsApi } from '@/features/students/api';
+export { staffApi } from '@/features/staff/api'; 
+export { classesApi } from '@/features/classes/api'; 

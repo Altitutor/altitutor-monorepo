@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { StaffTable, AddStaffModal, ViewStaffModal } from '@/components/features/staff';
+import { StaffTable, AddStaffModal, ViewStaffModal } from '@/features/staff';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Link from 'next/link';

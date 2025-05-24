@@ -23,19 +23,17 @@ import {
 } from '../supabase/db/repositories';
 
 // Export hooks for each entity type
-export const useStudents = () => useRepository(studentRepository);
-export const useStaff = () => useRepository(staffRepository);
-export const useClasses = () => useRepository(classRepository);
-export const useClassesStudents = () => useRepository(classesStudentsRepository);
-export const useClassesStaff = () => useRepository(classesStaffRepository);
+export { useStudents } from '@/features/students/hooks';
+export { useStaff } from '@/features/staff/hooks';
+export { useClasses, useClassesStudents, useClassesStaff } from '@/features/classes/hooks';
 export const useAbsences = () => useRepository(absenceRepository);
 export const useSessions = () => useRepository(sessionRepository);
 export const useSessionsStudents = () => useRepository(sessionsStudentsRepository);
 export const useSessionsStaff = () => useRepository(sessionsStaffRepository);
-export const useSubjects = () => useRepository(subjectRepository);
+export { useSubjects } from '@/features/subjects/hooks';
 export const useStudentsSubjects = () => useRepository(studentsSubjectsRepository);
 export const useStaffSubjects = () => useRepository(staffSubjectsRepository);
-export const useTopics = () => useRepository(topicRepository);
+export { useTopics } from '@/features/topics/hooks';
 export const useSubtopics = () => useRepository(subtopicRepository);
 export const useResourceFiles = () => useRepository(resourceFileRepository);
 export const useSessionsResourceFiles = () => useRepository(sessionsResourceFilesRepository);
