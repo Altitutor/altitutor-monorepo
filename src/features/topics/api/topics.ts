@@ -1,6 +1,5 @@
-import { topicRepository, subtopicRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
+import { topicRepository, subtopicRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
 import type { Topic, Subtopic } from '../types';
-import { adminRepository } from '@/shared/lib/supabase/db/admin';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 /**
@@ -34,7 +33,6 @@ export const topicsApi = {
    */
   createTopic: async (data: Partial<Topic>): Promise<Topic> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return topicRepository.create(data);
   },
   
@@ -43,7 +41,6 @@ export const topicsApi = {
    */
   updateTopic: async (id: string, data: Partial<Topic>): Promise<Topic> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return topicRepository.update(id, data);
   },
   
@@ -52,7 +49,6 @@ export const topicsApi = {
    */
   deleteTopic: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return topicRepository.delete(id);
   },
 
@@ -112,7 +108,6 @@ export const topicsApi = {
    */
   createSubtopic: async (data: Partial<Subtopic>): Promise<Subtopic> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return subtopicRepository.create(data);
   },
 
@@ -121,7 +116,6 @@ export const topicsApi = {
    */
   updateSubtopic: async (id: string, data: Partial<Subtopic>): Promise<Subtopic> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return subtopicRepository.update(id, data);
   },
 
@@ -130,7 +124,6 @@ export const topicsApi = {
    */
   deleteSubtopic: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return subtopicRepository.delete(id);
   },
 

@@ -1,6 +1,6 @@
 import { supabaseServer } from '@/shared/lib/supabase/client';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Database } from '@/shared/lib/supabase/db/types';
+import { Database } from '@/shared/lib/supabase/database/types';
 import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest } from '../types';
 
 export const authApi = {

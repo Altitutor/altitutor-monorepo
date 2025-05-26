@@ -33,7 +33,7 @@ import { ArrowUpDown, ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-
 import { topicsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
 import type { Topic, Subtopic } from '../types';
-import type { Subject, SubjectCurriculum } from '@/shared/lib/supabase/db/types';
+import type { Subject, SubjectCurriculum } from '@/shared/lib/supabase/database/types';
 import { ViewTopicModal } from './ViewTopicModal';
 import { AddSubtopicModal } from './AddSubtopicModal';
 import { ViewSubtopicModal } from './ViewSubtopicModal';

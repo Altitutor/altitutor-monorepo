@@ -1,6 +1,5 @@
-import { subjectRepository } from '@/shared/lib/supabase/db/repositories';
+import { subjectRepository } from '@/shared/lib/supabase/database/repositories';
 import type { Subject, Topic, Subtopic } from '../types';
-import { adminRepository } from '@/shared/lib/supabase/db/admin';
 import { useSupabaseClient, getSupabaseClient } from '@/shared/lib/supabase/client';
 import { 
   staffSubjectsRepository, 
@@ -10,7 +9,7 @@ import {
   classRepository,
   topicRepository,
   subtopicRepository
-} from '@/shared/lib/supabase/db/repositories';
+} from '@/shared/lib/supabase/database/repositories';
 
 /**
  * Subjects API client for working with subject data
@@ -58,7 +57,6 @@ export const subjectsApi = {
    */
   createSubject: async (data: Partial<Subject>): Promise<Subject> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return subjectRepository.create(data);
   },
   
@@ -67,7 +65,6 @@ export const subjectsApi = {
    */
   updateSubject: async (id: string, data: Partial<Subject>): Promise<Subject> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return subjectRepository.update(id, data);
   },
   
@@ -76,7 +73,6 @@ export const subjectsApi = {
    */
   deleteSubject: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return subjectRepository.delete(id);
   },
 

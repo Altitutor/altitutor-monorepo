@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Subject } from '@/shared/lib/supabase/db/types'
+import { Subject } from '@/shared/lib/supabase/database/types'
 
 /**
  * Combines class names with Tailwind's merge utility

@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { subjectsApi } from '../api';
 import type { Subject } from '../types';
-import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/db/types';
+import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/database/types';
 import {
   Form,
   FormControl,

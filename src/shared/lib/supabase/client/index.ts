@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Database } from './db/types';
+import { Database } from '../database/types';
 
 // Environment variable validation
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {

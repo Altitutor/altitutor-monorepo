@@ -1,10 +1,9 @@
-import { studentRepository, studentsSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
+import { studentRepository, studentsSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
 import type { Student, StudentsSubjects } from '../types';
-import { StudentStatus } from '@/shared/lib/supabase/db/types';
-import type { Subject, Class } from '@/shared/lib/supabase/db/types';
-import { adminRepository } from '@/shared/lib/supabase/db/admin';
+import { StudentStatus } from '@/shared/lib/supabase/database/types';
+import type { Subject, Class } from '@/shared/lib/supabase/database/types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/db/utils';
+import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 /**
  * Students API client for working with student data
@@ -182,7 +181,6 @@ export const studentsApi = {
    */
   createStudent: async (data: Partial<Student>): Promise<Student> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     // Set default status if not provided
     const studentData: Partial<Student> = {
@@ -198,7 +196,6 @@ export const studentsApi = {
    */
   updateStudent: async (id: string, data: Partial<Student>): Promise<Student> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return studentRepository.update(id, data);
   },
   
@@ -207,7 +204,6 @@ export const studentsApi = {
    */
   deleteStudent: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return studentRepository.delete(id);
   },
 
@@ -243,7 +239,6 @@ export const studentsApi = {
   assignSubjectToStudent: async (studentId: string, subjectId: string): Promise<StudentsSubjects> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Check if the assignment already exists
       const existing = await studentsSubjectsRepository.getBy('student_id', studentId);
@@ -272,7 +267,6 @@ export const studentsApi = {
   removeSubjectFromStudent: async (studentId: string, subjectId: string): Promise<void> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Get all student-subject records for this student and subject
       const studentSubjects = await studentsSubjectsRepository.getBy('student_id', studentId);

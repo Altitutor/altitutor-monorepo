@@ -2,8 +2,8 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabaseServer } from './client';
-import { Database } from './db/types';
+import { supabaseServer } from '../client';
+import { Database } from '../database/types';
 
 // Auth types
 export type UserRole = 'ADMINSTAFF' | 'TUTOR' | 'STUDENT';

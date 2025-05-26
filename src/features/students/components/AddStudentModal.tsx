@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Student } from '@/shared/lib/supabase/db/types';
-import { StudentStatus } from '@/shared/lib/supabase/db/types';
+import type { Student } from '@/shared/lib/supabase/database/types';
+import { StudentStatus } from '@/shared/lib/supabase/database/types';
 import { studentsApi } from '../api';
 import { useToast } from "@/components/ui/use-toast";
 import { Controller, useForm } from "react-hook-form";

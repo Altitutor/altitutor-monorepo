@@ -1,23 +1,12 @@
-// Components
+// Export all shared modules
 export * from './components';
-
-// Hooks
 export * from './hooks';
-
-// Types
-export type * from './types';
-
-// Utils
+export * from './lib';
+export * from './types';
 export * from './utils';
-
-// Constants
 export * from './constants';
-
-// Validations
 export * from './validations';
 
-// API utilities
-export * from './api';
-
+// Note: APIs are exported through ./lib/supabase and individual features
 // Note: Utils, types, and constants directories exist but contain only placeholder files
 // They will be populated as shared utilities are identified during refactoring 

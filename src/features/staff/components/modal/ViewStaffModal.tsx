@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { staffApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
 import type { Staff } from "../../types";
-import type { Subject } from "@/shared/lib/supabase/db/types";
+import type { Subject } from "@/shared/lib/supabase/database/types";
 import { supabaseServer } from "@/shared/lib/supabase/client";
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { SubjectsTab } from './tabs/SubjectsTab';

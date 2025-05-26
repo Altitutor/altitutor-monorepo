@@ -1,82 +1,13 @@
-// Export client
-export { supabaseServer, getSupabaseClient, useSupabaseClient } from './client';
+// Supabase client exports
+export * from './client';
 
-// Export auth functionality
-export {
-  useAuthStore,
-  getUserRole,
-  isAdminStaff,
-  isTutor,
-  isStudent,
-  isStaff,
-  setUserRole,
-  type User,
-  type UserRole,
-  type AuthState
-} from './auth';
+// Authentication exports  
+export * from './auth';
 
-// Export API modules
-export { authApi, subjectsApi, staffApi, studentsApi, classesApi } from './api';
-
-// Export repositories
-export { adminRepository } from './db/admin';
-export {
-  studentRepository,
-  staffRepository,
-  classRepository,
-  classesStudentsRepository,
-  classesStaffRepository,
-  absenceRepository,
-  sessionRepository,
-  sessionsStudentsRepository,
-  sessionsStaffRepository,
-  subjectRepository,
-  studentsSubjectsRepository,
-  staffSubjectsRepository,
-  topicRepository,
-  subtopicRepository,
-  resourceFileRepository,
-  sessionsResourceFilesRepository,
-  studentAuditLogRepository,
-  staffAuditLogRepository,
-  classAuditLogRepository,
-  sessionAuditLogRepository,
-  repositories
-} from './db/repositories';
-
-// Export types
-export {
-  type BaseEntity,
-  type Database,
-  type Student,
-  type Staff,
-  type Subject,
-  type Class,
-  type ClassEnrollment,
-  type ClassAssignment,
-  type SessionAttendance,
-  type SessionsStaff,
-  type StudentsSubjects,
-  type StaffSubjects,
-  type Topic,
-  type Subtopic,
-  type ResourceFile,
-  type SessionsResourceFiles,
-  type Session,
-  type SessionAuditLog,
-  // Enums
-  StudentStatus,
-  StaffRole,
-  StaffStatus,
-  ClassStatus,
-  EnrollmentStatus,
-  SubjectCurriculum,
-  SubjectDiscipline,
-  ResourceType,
-  ResourceAnswers,
-  SessionType,
-  AuditAction
-} from './db/types';
-
-// Export repository base class
-export { Repository } from './db/repository'; 
+// Database exports
+export * from './database/types';
+export * from './database/repositories';
+export * from './database/repository';
+export * from './database/utils';
+export * from './database/admin';
+export * from './database/context'; 

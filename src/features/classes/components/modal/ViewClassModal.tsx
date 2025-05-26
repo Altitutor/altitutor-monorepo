@@ -6,7 +6,7 @@ import { classesApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
 import { studentsApi } from '@/features/students/api';
 import { staffApi } from "@/features/staff/api";
-import { Class, Subject, Student, Staff } from "@/shared/lib/supabase/db/types";
+import { Class, Subject, Student, Staff } from "@/shared/lib/supabase/database/types";
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';

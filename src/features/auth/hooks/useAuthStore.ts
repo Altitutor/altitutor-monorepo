@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Database } from '@/shared/lib/supabase/db/types';
+import { Database } from '@/shared/lib/supabase/database/types';
 import { AuthState, User } from '../types';
 
 const initialState: Omit<AuthState, 'login' | 'logout' | 'refreshSession' | 'clearError' | 'setLoading' | 'setAuth' | 'clearAuth' | 'initializeAuth'> = {

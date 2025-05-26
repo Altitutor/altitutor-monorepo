@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GraduationCap, CalendarDays, Users, Clock, CheckSquare, Zap } from 'lucide-react';
-import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/db/types';
-import { classesApi } from '@/shared/lib/supabase/api';
+import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/database/types';
+import { classesApi } from '@/shared/api';
 import { studentsApi } from '@/features/students/api';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';

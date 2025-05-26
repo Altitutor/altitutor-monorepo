@@ -1,4 +1,4 @@
 export type { 
   Topic,
   Subtopic
-} from '@/shared/lib/supabase/db/types'; 
+} from '@/shared/lib/supabase/database/types'; 

@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/hooks';
 import { AuthState as AuthStore } from '@/features/auth/types';
 import { useStaff } from '@/shared/hooks';
-import { Staff } from '@/shared/lib/supabase/db/types';
+import { Staff } from '@/shared/lib/supabase/database/types';
 
 export default function MyAccountPage() {
   const router = useRouter();

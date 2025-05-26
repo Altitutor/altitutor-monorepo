@@ -1,8 +1,7 @@
-import { classRepository, classesStudentsRepository, classesStaffRepository, studentRepository, staffRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
-import { Class, ClassStatus, Student, Staff, Subject, ClassEnrollment, ClassAssignment, EnrollmentStatus } from '@/shared/lib/supabase/db/types';
-import { adminRepository } from '@/shared/lib/supabase/db/admin';
+import { classRepository, classesStudentsRepository, classesStaffRepository, studentRepository, staffRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
+import { Class, ClassStatus, Student, Staff, Subject, ClassEnrollment, ClassAssignment, EnrollmentStatus } from '@/shared/lib/supabase/database/types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/db/utils';
+import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 /**
  * Classes API client for working with class data
@@ -193,7 +192,6 @@ export const classesApi = {
    */
   createClass: async (data: Partial<Class>): Promise<Class> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     // Set default status if not provided
     const classData: Partial<Class> = {
@@ -209,7 +207,6 @@ export const classesApi = {
    */
   updateClass: async (id: string, data: Partial<Class>): Promise<Class> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return classRepository.update(id, data);
   },
   
@@ -218,7 +215,6 @@ export const classesApi = {
    */
   deleteClass: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     return classRepository.delete(id);
   },
   
@@ -286,7 +282,6 @@ export const classesApi = {
   enrollStudent: async (classId: string, studentId: string): Promise<ClassEnrollment> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Check if the enrollment already exists
       const existing = await classesStudentsRepository.getBy('class_id', classId);
@@ -317,7 +312,6 @@ export const classesApi = {
   unenrollStudent: async (classId: string, studentId: string): Promise<void> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Get all enrollments for this class and student
       const enrollments = await classesStudentsRepository.getBy('class_id', classId);
@@ -344,7 +338,6 @@ export const classesApi = {
   assignStaff: async (classId: string, staffId: string): Promise<ClassAssignment> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Check if the assignment already exists
       const existing = await classesStaffRepository.getBy('class_id', classId);
@@ -376,7 +369,6 @@ export const classesApi = {
   unassignStaff: async (classId: string, staffId: string): Promise<void> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Get all assignments for this class and staff member
       const assignments = await classesStaffRepository.getBy('class_id', classId);

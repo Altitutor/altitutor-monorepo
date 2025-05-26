@@ -4,8 +4,8 @@ export type {
   SessionsStaff,
   SessionsResourceFiles,
   SessionAuditLog
-} from '@/shared/lib/supabase/db/types'; 
+} from '@/shared/lib/supabase/database/types'; 
 
 export { 
   SessionType
-} from '@/shared/lib/supabase/db/types'; 
+} from '@/shared/lib/supabase/database/types'; 

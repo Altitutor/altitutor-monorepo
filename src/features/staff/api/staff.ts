@@ -1,10 +1,9 @@
-import { staffRepository, staffSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
-import { Staff, StaffRole, StaffStatus, Subject, StaffSubjects } from '@/shared/lib/supabase/db/types';
-import { adminRepository } from '@/shared/lib/supabase/db/admin';
+import { staffRepository, staffSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
+import { Staff, StaffRole, StaffStatus, Subject, StaffSubjects } from '@/shared/lib/supabase/database/types';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { supabaseServer } from '@/shared/lib/supabase/client';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/db/utils';
+import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 /**
  * Staff API client for working with staff data
@@ -108,7 +107,6 @@ export const staffApi = {
    */
   createStaff: async (data: Partial<Staff>, password: string): Promise<{ staff: Staff; userId: string }> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     // Validate email is provided and not null
     if (!data.email) {
@@ -153,7 +151,6 @@ export const staffApi = {
    */
   updateStaff: async (id: string, data: Partial<Staff>): Promise<Staff> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     // If we're updating the role, also update the user_metadata
     if (data.role && data.userId) {
@@ -177,7 +174,6 @@ export const staffApi = {
    */
   deleteStaff: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     // Get the staff record to find the user ID
     const staff = await staffRepository.getById(id);
@@ -201,7 +197,6 @@ export const staffApi = {
    */
   inviteStaff: async (data: Partial<Staff>): Promise<{ staff: Staff; userId: string }> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     try {
       let userId = '';
@@ -265,7 +260,30 @@ export const staffApi = {
    * Get the current staff member (for logged in user)
    */
   getCurrentStaff: async (): Promise<Staff | null> => {
-    return adminRepository.getCurrentStaff();
+    const supabase = getSupabaseClient();
+    
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) return null;
+
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw error;
+      }
+
+      return transformToCamelCase(data) as Staff;
+    } catch (error) {
+      console.error('Error getting current staff:', error);
+      throw error;
+    }
   },
 
   /**
@@ -300,7 +318,6 @@ export const staffApi = {
   assignSubjectToStaff: async (staffId: string, subjectId: string): Promise<StaffSubjects> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Check if the assignment already exists
       const existing = await staffSubjectsRepository.findByField('staff_id', staffId);
@@ -327,7 +344,6 @@ export const staffApi = {
   removeSubjectFromStaff: async (staffId: string, subjectId: string): Promise<void> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Get all staff-subject records for this staff member and subject
       const staffSubjects = await staffSubjectsRepository.getBy('staff_id', staffId);

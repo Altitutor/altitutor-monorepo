@@ -20,8 +20,8 @@ import {
   Plus,
   RefreshCw
 } from 'lucide-react';
-import type { Student, Subject, Class } from '@/shared/lib/supabase/db/types';
-import { StudentStatus } from '@/shared/lib/supabase/db/types';
+import type { Student, Subject, Class } from '@/shared/lib/supabase/database/types';
+import { StudentStatus } from '@/shared/lib/supabase/database/types';
 import { studentsApi } from '../api';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';

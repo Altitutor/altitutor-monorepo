@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { BaseEntity } from '@/shared/lib/supabase/db/types';
-import { Repository } from '@/shared/lib/supabase/db/repository';
+import { BaseEntity } from '@/shared/lib/supabase/database/types';
+import { Repository } from '@/shared/lib/supabase/database/repository';
 
 export function useRepository<T extends BaseEntity>(repository: Repository<T>) {
   const [items, setItems] = useState<T[]>([]);

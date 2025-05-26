@@ -3,7 +3,7 @@
 import { memo, useCallback } from 'react';
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowUpDown } from 'lucide-react';
-import { Staff } from '@/shared/lib/supabase/db/types';
+import { Staff } from '@/shared/lib/supabase/database/types';
 import { cn } from '@/shared/utils/index';
 
 interface StaffTableHeaderProps {

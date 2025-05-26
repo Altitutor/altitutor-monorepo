@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { studentsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
-import type { Student, Subject } from '@/shared/lib/supabase/db/types';
+import type { Student, Subject } from '@/shared/lib/supabase/database/types';
 import { 
   DetailsTab,
   StudentSubjectsTab, 

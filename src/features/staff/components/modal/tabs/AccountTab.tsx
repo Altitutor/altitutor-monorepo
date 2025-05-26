@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Staff, StaffRole } from "@/shared/lib/supabase/db/types";
+import { Staff, StaffRole } from "@/shared/lib/supabase/database/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

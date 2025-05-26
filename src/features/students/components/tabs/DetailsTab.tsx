@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Student, StudentStatus, SubjectCurriculum } from "@/shared/lib/supabase/db/types";
+import { Student, StudentStatus, SubjectCurriculum } from "@/shared/lib/supabase/database/types";
 import { StudentStatusBadge } from "@/components/ui/enum-badge";
 import { Pencil, X, Check, Loader2 } from 'lucide-react';
 

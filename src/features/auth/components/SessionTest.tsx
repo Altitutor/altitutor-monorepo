@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/features/auth/hooks';
-import { useAuth } from '@/shared/lib/providers/AuthProvider';
+import { useAuth } from '@/features/auth/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 

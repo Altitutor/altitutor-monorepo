@@ -1,4 +1,4 @@
-import { Staff } from "@/shared/lib/supabase/db/types";
+import { Staff } from "@/shared/lib/supabase/database/types";
 import {
   AlertDialog,
   AlertDialogAction,

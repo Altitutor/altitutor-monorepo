@@ -4,4 +4,4 @@ export type {
   ClassEnrollment,
   ClassAssignment,
   EnrollmentStatus
-} from '@/shared/lib/supabase/db/types'; 
+} from '@/shared/lib/supabase/database/types'; 

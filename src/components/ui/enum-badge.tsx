@@ -28,7 +28,7 @@ import {
   MeetingType,
   SessionType,
   MessageStatus,
-} from '@/shared/lib/supabase/db/types';
+} from '@/shared/lib/supabase/database/types';
 
 // Union type of all supported enum values
 type EnumValue = 

@@ -14,7 +14,7 @@ import {
   FileType,
   SessionType,
   AuditAction,
-} from '@/shared/lib/supabase/db/types';
+} from '@/shared/lib/supabase/database/types';
 
 // Color mapping types
 export type BadgeColorClass = string;

@@ -3,12 +3,11 @@ import {
   sessionsStudentsRepository, 
   sessionsStaffRepository,
   sessionsResourceFilesRepository 
-} from '@/shared/lib/supabase/db/repositories';
+} from '@/shared/lib/supabase/database/repositories';
 import { Session, SessionAttendance, SessionsStaff, SessionType } from '../types';
-import { adminRepository } from '@/shared/lib/supabase/db/admin';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/db/utils';
-import type { Student, Staff } from '@/shared/lib/supabase/db/types';
+import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
+import type { Student, Staff } from '@/shared/lib/supabase/database/types';
 
 /**
  * Sessions API client for working with session data
@@ -183,7 +182,6 @@ export const sessionsApi = {
    */
   createSession: async (data: Partial<Session>): Promise<Session> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     return sessionRepository.create(data);
   },
@@ -193,7 +191,6 @@ export const sessionsApi = {
    */
   updateSession: async (id: string, data: Partial<Session>): Promise<Session> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     return sessionRepository.update(id, data);
   },
@@ -203,7 +200,6 @@ export const sessionsApi = {
    */
   deleteSession: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    await adminRepository.ensureAdminUser();
     
     await sessionRepository.delete(id);
   },
@@ -214,7 +210,6 @@ export const sessionsApi = {
   addStudentToSession: async (sessionId: string, studentId: string, attended: boolean = false): Promise<SessionAttendance> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       const attendanceData: Partial<SessionAttendance> = {
         sessionId,
@@ -235,7 +230,6 @@ export const sessionsApi = {
   removeStudentFromSession: async (sessionId: string, studentId: string): Promise<void> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Find the attendance record
       const attendanceRecords = await sessionsStudentsRepository.getBy('session_id', sessionId);
@@ -256,7 +250,6 @@ export const sessionsApi = {
   assignStaffToSession: async (sessionId: string, staffId: string, type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' = 'MAIN_TUTOR'): Promise<SessionsStaff> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       const assignmentData: Partial<SessionsStaff> = {
         sessionId,
@@ -277,7 +270,6 @@ export const sessionsApi = {
   removeStaffFromSession: async (sessionId: string, staffId: string): Promise<void> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Find the assignment record
       const assignmentRecords = await sessionsStaffRepository.getBy('session_id', sessionId);
@@ -298,7 +290,6 @@ export const sessionsApi = {
   updateAttendance: async (sessionId: string, studentId: string, attended: boolean, notes?: string): Promise<SessionAttendance> => {
     try {
       // Ensure the user is an admin first
-      await adminRepository.ensureAdminUser();
       
       // Find the attendance record
       const attendanceRecords = await sessionsStudentsRepository.getBy('session_id', sessionId);

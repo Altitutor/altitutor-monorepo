@@ -1,4 +1,4 @@
 import { useRepository } from '@/shared/hooks/useRepository';
-import { subjectRepository } from '@/shared/lib/supabase/db/repositories';
+import { subjectRepository } from '@/shared/lib/supabase/database/repositories';
 
 export const useSubjects = () => useRepository(subjectRepository); 

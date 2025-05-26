@@ -32,7 +32,7 @@ import { useStudents } from '@/features/students/hooks';
 import { useStaff } from '@/features/staff/hooks';
 import { useClasses } from '@/features/classes/hooks';
 import { Session, SessionType } from '../types';
-import type { Student, Staff, Class } from '@/shared/lib/supabase/db/types';
+import type { Student, Staff, Class } from '@/shared/lib/supabase/database/types';
 import { cn } from '@/shared/utils/index';
 
 type SessionsTableProps = {

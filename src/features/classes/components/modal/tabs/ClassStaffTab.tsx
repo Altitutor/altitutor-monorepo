@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Class, Staff } from "@/shared/lib/supabase/db/types";
+import { Class, Staff } from "@/shared/lib/supabase/database/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";

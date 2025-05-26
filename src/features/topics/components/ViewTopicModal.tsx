@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { topicsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
 import type { Topic, Subtopic } from '../types';
-import type { Subject } from '@/shared/lib/supabase/db/types';
+import type { Subject } from '@/shared/lib/supabase/database/types';
 import { AddSubtopicModal } from './AddSubtopicModal';
 import { ViewSubtopicModal } from './ViewSubtopicModal';
 import { PencilIcon, PlusIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';

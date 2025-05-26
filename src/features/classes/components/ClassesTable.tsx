@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useClasses } from '../hooks';
 import { classesApi } from '../api';
-import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/db/types';
+import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/database/types';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
@@ -339,10 +339,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             </Button>
           </div>
           
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Class
-          </Button>
         </div>
       </div>
 
