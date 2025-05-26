@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Class, Student, EnrollmentStatus } from "@/lib/supabase/db/types";
+import { Class, Student, EnrollmentStatus } from "@/shared/lib/supabase/db/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Users, Plus, X, Search, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/utils";
 import { ViewStudentModal } from '@/features/students';
 
 interface ClassStudentsTabProps {

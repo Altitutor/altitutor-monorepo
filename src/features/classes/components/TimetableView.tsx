@@ -1,9 +1,9 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Class, ClassStatus, Subject, Student, Staff } from '@/lib/supabase/db/types';
-import { cn, formatSubjectDisplay } from '@/lib/utils/index';
-import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/lib/utils/enum-colors';
+import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/db/types';
+import { cn, formatSubjectDisplay } from '@/shared/utils/index';
+import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 
 interface TimetableViewProps {
   classes: Class[];

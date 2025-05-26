@@ -2,4 +2,4 @@ export type {
   Student,
   StudentStatus,
   StudentsSubjects
-} from '@/lib/supabase/db/types'; 
+} from '@/shared/lib/supabase/db/types'; 

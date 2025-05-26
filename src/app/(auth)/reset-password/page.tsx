@@ -2,12 +2,12 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
+import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useSupabaseClient } from '@/lib/supabase/client';
+import { useSupabaseClient } from '@/shared/lib/supabase/client';
 
 function ResetPasswordContent() {
   const [isLoading, setIsLoading] = useState(true);

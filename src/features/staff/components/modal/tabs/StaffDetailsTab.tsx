@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Staff, StaffRole, StaffStatus } from "@/lib/supabase/db/types";
+import { Staff, StaffRole, StaffStatus } from "@/shared/lib/supabase/db/types";
 import { Badge } from "@/components/ui/badge";
 import { StaffRoleBadge, StaffStatusBadge, BooleanBadge } from "@/components/ui/enum-badge";
 import { Button } from "@/components/ui/button";

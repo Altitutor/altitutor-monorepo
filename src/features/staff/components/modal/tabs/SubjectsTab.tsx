@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Staff, Subject } from "@/lib/supabase/db/types";
+import { Staff, Subject } from "@/shared/lib/supabase/db/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
-import { formatSubjectDisplay } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { formatSubjectDisplay } from "@/shared/utils";
+import { cn } from "@/shared/utils";
 import { ViewSubjectModal } from '@/features/subjects';
 
 interface SubjectsTabProps {

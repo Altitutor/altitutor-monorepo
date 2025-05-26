@@ -33,7 +33,7 @@ import { ArrowUpDown, ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-
 import { topicsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
 import type { Topic, Subtopic } from '../types';
-import type { Subject, SubjectCurriculum } from '@/lib/supabase/db/types';
+import type { Subject, SubjectCurriculum } from '@/shared/lib/supabase/db/types';
 import { ViewTopicModal } from './ViewTopicModal';
 import { AddSubtopicModal } from './AddSubtopicModal';
 import { ViewSubtopicModal } from './ViewSubtopicModal';
@@ -43,9 +43,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatSubjectDisplay } from "@/lib/utils";
+import { formatSubjectDisplay } from "@/shared/utils";
 import React from 'react';
 import { AddTopicModal } from './AddTopicModal';
 

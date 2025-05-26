@@ -15,7 +15,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useClasses } from '../hooks';
 import { useSubjects } from '@/features/subjects/hooks';
-import { ClassStatus } from '@/lib/supabase/db/types';
+import { ClassStatus } from '@/shared/lib/supabase/db/types';
 
 interface AddClassModalProps {
   isOpen: boolean;

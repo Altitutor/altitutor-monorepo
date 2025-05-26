@@ -6,4 +6,4 @@ export type {
   SubjectDiscipline,
   StudentsSubjects,
   StaffSubjects
-} from '@/lib/supabase/db/types'; 
+} from '@/shared/lib/supabase/db/types'; 

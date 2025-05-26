@@ -2,7 +2,7 @@
 
 import { memo, useCallback } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Staff } from '@/lib/supabase/db/types';
+import { Staff } from '@/shared/lib/supabase/db/types';
 import { StaffRoleBadge, StaffStatusBadge } from '@/components/ui/enum-badge';
 
 interface StaffTableRowProps {

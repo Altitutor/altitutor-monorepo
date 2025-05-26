@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Staff, Class } from '@/lib/supabase/db/types';
+import type { Staff, Class } from '@/shared/lib/supabase/db/types';
 import { staffApi } from '../api';
 import { classesApi } from '@/features/classes/api';
 

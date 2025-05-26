@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 import { useClasses } from '../hooks';
 import { classesApi } from '../api';
-import { Class, ClassStatus, Subject, Student, Staff } from '@/lib/supabase/db/types';
-import { cn, formatSubjectDisplay } from '@/lib/utils/index';
+import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/db/types';
+import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
 import { ViewClassModal } from './modal';

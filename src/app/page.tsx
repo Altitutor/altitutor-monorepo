@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/supabase/auth';
+import { useAuthStore } from '@/features/auth/hooks';
 
 export default function HomePage() {
   const router = useRouter();

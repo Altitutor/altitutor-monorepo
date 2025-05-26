@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { subjectsApi } from '../api';
 import type { Subject } from '../types';
-import { SubjectCurriculum, SubjectDiscipline } from '@/lib/supabase/db/types';
+import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/db/types';
 import { Loader2 } from 'lucide-react';
 
 interface AddSubjectModalProps {

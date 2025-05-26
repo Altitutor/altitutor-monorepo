@@ -1,6 +1,6 @@
 import React from 'react';
 import { Badge, BadgeProps } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 import {
   getStudentStatusColor,
   getStaffRoleColor,
@@ -15,7 +15,7 @@ import {
   getMessageStatusColor,
   getBooleanColor,
   getParkingRemoteColor,
-} from '@/lib/utils/enum-colors';
+} from '@/shared/utils/enum-colors';
 import {
   StudentStatus,
   StaffRole,
@@ -28,7 +28,7 @@ import {
   MeetingType,
   SessionType,
   MessageStatus,
-} from '@/lib/supabase/db/types';
+} from '@/shared/lib/supabase/db/types';
 
 // Union type of all supported enum values
 type EnumValue = 

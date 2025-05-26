@@ -20,11 +20,11 @@ import {
   Plus,
   RefreshCw
 } from 'lucide-react';
-import type { Student, Subject, Class } from '@/lib/supabase/db/types';
-import { StudentStatus } from '@/lib/supabase/db/types';
+import type { Student, Subject, Class } from '@/shared/lib/supabase/db/types';
+import { StudentStatus } from '@/shared/lib/supabase/db/types';
 import { studentsApi } from '../api';
-import { cn, formatSubjectDisplay } from '@/lib/utils/index';
-import { getStudentStatusColor, getSubjectCurriculumColor } from '@/lib/utils/enum-colors';
+import { cn, formatSubjectDisplay } from '@/shared/utils/index';
+import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
 import {

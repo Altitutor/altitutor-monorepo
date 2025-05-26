@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Class, Staff } from "@/lib/supabase/db/types";
+import { Class, Staff } from "@/shared/lib/supabase/db/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, UserCheck, Plus, X, Search } from "lucide-react";
 import { StaffRoleBadge, StaffStatusBadge } from "@/components/ui/enum-badge";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/utils";
 import { ViewStaffModal } from '@/features/staff';
 
 interface ClassStaffTabProps {

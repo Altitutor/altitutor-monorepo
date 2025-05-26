@@ -1,10 +1,10 @@
-import { staffRepository, staffSubjectsRepository, subjectRepository } from '@/lib/supabase/db/repositories';
-import { Staff, StaffRole, StaffStatus, Subject, StaffSubjects } from '@/lib/supabase/db/types';
-import { adminRepository } from '@/lib/supabase/db/admin';
+import { staffRepository, staffSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
+import { Staff, StaffRole, StaffStatus, Subject, StaffSubjects } from '@/shared/lib/supabase/db/types';
+import { adminRepository } from '@/shared/lib/supabase/db/admin';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { supabaseServer } from '@/lib/supabase/client';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import { transformToCamelCase } from '@/lib/supabase/db/utils';
+import { supabaseServer } from '@/shared/lib/supabase/client';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { transformToCamelCase } from '@/shared/lib/supabase/db/utils';
 
 /**
  * Staff API client for working with staff data

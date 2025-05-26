@@ -3,8 +3,8 @@
 import { memo, useCallback } from 'react';
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowUpDown } from 'lucide-react';
-import { Staff } from '@/lib/supabase/db/types';
-import { cn } from '@/lib/utils/index';
+import { Staff } from '@/shared/lib/supabase/db/types';
+import { cn } from '@/shared/utils/index';
 
 interface StaffTableHeaderProps {
   sortField: keyof Staff;

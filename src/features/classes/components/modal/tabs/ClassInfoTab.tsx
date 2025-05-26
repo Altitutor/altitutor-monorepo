@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Class, ClassStatus, Subject } from "@/lib/supabase/db/types";
+import { Class, ClassStatus, Subject } from "@/shared/lib/supabase/db/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,9 +10,9 @@ import { Loader2, Pencil } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getClassStatusColor } from "@/lib/utils";
+import { getClassStatusColor } from "@/shared/utils";
 import { ClassStatusBadge } from "@/components/ui/enum-badge";
-import { formatSubjectDisplay } from "@/lib/utils";
+import { formatSubjectDisplay } from "@/shared/utils";
 
 // Form schema for class details
 const classInfoSchema = z.object({

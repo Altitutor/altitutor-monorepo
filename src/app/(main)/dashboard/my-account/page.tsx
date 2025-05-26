@@ -8,10 +8,10 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Mail, Phone, Calendar, User, UserCircle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/supabase/auth';
-import { AuthState as AuthStore } from '@/lib/supabase/auth';
-import { useStaff } from '@/lib/hooks';
-import { Staff } from '@/lib/supabase/db/types';
+import { useAuthStore } from '@/features/auth/hooks';
+import { AuthState as AuthStore } from '@/features/auth/types';
+import { useStaff } from '@/shared/hooks';
+import { Staff } from '@/shared/lib/supabase/db/types';
 
 export default function MyAccountPage() {
   const router = useRouter();

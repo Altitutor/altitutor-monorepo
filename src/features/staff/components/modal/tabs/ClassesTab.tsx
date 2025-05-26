@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Staff, Class, Subject, Student } from "@/lib/supabase/db/types";
+import { Staff, Class, Subject, Student } from "@/shared/lib/supabase/db/types";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Calendar, Clock, Users, MapPin } from "lucide-react";
-import { classesApi } from '@/lib/supabase/api';
-import { formatSubjectDisplay } from '@/lib/utils';
+import { classesApi } from '@/shared/lib/supabase/api';
+import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal } from '@/features/classes';
 
 interface ClassesTabProps {

@@ -1,6 +1,6 @@
 'use client';
 
-import { SessionsTable } from '@/components/features/sessions';
+import { SessionsTable } from '@/features/sessions';
 
 export default function SessionsPage() {
   return (

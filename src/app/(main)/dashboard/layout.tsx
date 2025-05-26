@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils/index';
+import { cn } from '@/shared/utils/index';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -20,9 +20,9 @@ import {
   Beaker,
   Newspaper
 } from 'lucide-react';
-import { useAuthStore } from '@/lib/supabase/auth';
-import { AuthState as AuthStore } from '@/lib/supabase/auth';
-import { navHoverStyles } from '@/lib/utils/index';
+import { useAuthStore } from '@/features/auth/hooks';
+import { AuthState as AuthStore } from '@/features/auth/types';
+import { navHoverStyles } from '@/shared/utils/index';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Staff, StaffRole, StaffStatus } from '../types';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useDebounce } from '@/shared/hooks';
 
 interface StaffFilters {
   searchTerm: string;

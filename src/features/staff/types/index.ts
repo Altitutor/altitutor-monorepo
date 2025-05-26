@@ -1,9 +1,9 @@
 export type { 
   Staff,
   StaffSubjects
-} from '@/lib/supabase/db/types'; 
-
+} from '@/shared/lib/supabase/db/types'; 
+ 
 export { 
   StaffRole,
   StaffStatus
-} from '@/lib/supabase/db/types'; 
+} from '@/shared/lib/supabase/db/types'; 

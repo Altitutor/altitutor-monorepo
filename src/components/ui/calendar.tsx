@@ -4,7 +4,7 @@ import * as React from "react"
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from "react-big-calendar"
 import { format, parse, startOfWeek, getDay } from "date-fns"
 import { enUS } from "date-fns/locale"
-import { cn } from '@/lib/utils/index'
+import { cn } from '@/shared/utils/index'
 
 import "react-big-calendar/lib/css/react-big-calendar.css"
 

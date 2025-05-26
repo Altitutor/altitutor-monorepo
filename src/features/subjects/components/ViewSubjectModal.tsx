@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { subjectsApi } from '../api';
 import type { Subject } from '../types';
-import { SubjectCurriculum, SubjectDiscipline } from '@/lib/supabase/db/types';
+import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/db/types';
 import {
   Form,
   FormControl,
@@ -403,8 +403,6 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                   <div className="text-sm font-medium">Level:</div>
                   <div>{subject.level || '-'}</div>
                   
-                  <div className="text-sm font-medium">Created:</div>
-                  <div>{new Date(subject.createdAt).toLocaleDateString()}</div>
                 </div>
                 
                 <Separator className="my-4" />

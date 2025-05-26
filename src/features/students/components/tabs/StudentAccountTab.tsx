@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Student } from "@/lib/supabase/db/types";
+import { Student } from "@/shared/lib/supabase/db/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

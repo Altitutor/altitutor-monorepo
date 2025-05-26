@@ -1,7 +1,7 @@
-import { subjectRepository } from '@/lib/supabase/db/repositories';
+import { subjectRepository } from '@/shared/lib/supabase/db/repositories';
 import type { Subject, Topic, Subtopic } from '../types';
-import { adminRepository } from '@/lib/supabase/db/admin';
-import { useSupabaseClient, getSupabaseClient } from '@/lib/supabase/client';
+import { adminRepository } from '@/shared/lib/supabase/db/admin';
+import { useSupabaseClient, getSupabaseClient } from '@/shared/lib/supabase/client';
 import { 
   staffSubjectsRepository, 
   studentsSubjectsRepository, 
@@ -10,7 +10,7 @@ import {
   classRepository,
   topicRepository,
   subtopicRepository
-} from '@/lib/supabase/db/repositories';
+} from '@/shared/lib/supabase/db/repositories';
 
 /**
  * Subjects API client for working with subject data

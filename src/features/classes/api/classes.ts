@@ -1,8 +1,8 @@
-import { classRepository, classesStudentsRepository, classesStaffRepository, studentRepository, staffRepository, subjectRepository } from '@/lib/supabase/db/repositories';
-import { Class, ClassStatus, Student, Staff, Subject, ClassEnrollment, ClassAssignment, EnrollmentStatus } from '@/lib/supabase/db/types';
-import { adminRepository } from '@/lib/supabase/db/admin';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import { transformToCamelCase } from '@/lib/supabase/db/utils';
+import { classRepository, classesStudentsRepository, classesStaffRepository, studentRepository, staffRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
+import { Class, ClassStatus, Student, Staff, Subject, ClassEnrollment, ClassAssignment, EnrollmentStatus } from '@/shared/lib/supabase/db/types';
+import { adminRepository } from '@/shared/lib/supabase/db/admin';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { transformToCamelCase } from '@/shared/lib/supabase/db/utils';
 
 /**
  * Classes API client for working with class data

@@ -1,5 +1,5 @@
-import { useRepository } from '@/lib/hooks/useRepository';
-import { classRepository, classesStudentsRepository, classesStaffRepository } from '@/lib/supabase/db/repositories';
+import { useRepository } from '@/shared/hooks/useRepository';
+import { classRepository, classesStudentsRepository, classesStaffRepository } from '@/shared/lib/supabase/db/repositories';
 
 export const useClasses = () => useRepository(classRepository);
 export const useClassesStudents = () => useRepository(classesStudentsRepository);

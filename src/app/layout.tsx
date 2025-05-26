@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './styles/globals.css'
-import { ThemeProvider } from '@/components/theme-provider'
-import { AuthGuard } from '@/components/auth/AuthGuard'
-import { DbProvider } from '@/lib/supabase/db/context'
-import { AuthProvider } from '@/lib/providers'
-import { Navbar } from '@/components/layouts/Navbar'
+import { ThemeProvider } from '@/shared/components'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { DbProvider } from '@/shared/lib/supabase/db/context'
+import { AuthProvider } from '@/shared/lib/providers'
+import { Navbar } from '@/shared/components'
 
 const inter = Inter({ subsets: ['latin'] })
 

@@ -28,8 +28,8 @@ import {
 } from 'lucide-react';
 import { useSubjects } from '../hooks';
 import type { Subject } from '../types';
-import { SubjectCurriculum, SubjectDiscipline } from '@/lib/supabase/db/types';
-import { cn } from '@/lib/utils/index';
+import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/db/types';
+import { cn } from '@/shared/utils/index';
 import { SubjectCurriculumBadge } from '@/components/ui/enum-badge';
 import { subjectsApi } from '../api';
 import { ViewSubjectModal } from './ViewSubjectModal';

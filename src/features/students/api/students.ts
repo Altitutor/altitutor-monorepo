@@ -1,10 +1,10 @@
-import { studentRepository, studentsSubjectsRepository, subjectRepository } from '@/lib/supabase/db/repositories';
+import { studentRepository, studentsSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
 import type { Student, StudentsSubjects } from '../types';
-import { StudentStatus } from '@/lib/supabase/db/types';
-import type { Subject, Class } from '@/lib/supabase/db/types';
-import { adminRepository } from '@/lib/supabase/db/admin';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import { transformToCamelCase } from '@/lib/supabase/db/utils';
+import { StudentStatus } from '@/shared/lib/supabase/db/types';
+import type { Subject, Class } from '@/shared/lib/supabase/db/types';
+import { adminRepository } from '@/shared/lib/supabase/db/admin';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { transformToCamelCase } from '@/shared/lib/supabase/db/utils';
 
 /**
  * Students API client for working with student data

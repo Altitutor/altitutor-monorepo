@@ -1,7 +1,7 @@
-import { topicRepository, subtopicRepository, subjectRepository } from '@/lib/supabase/db/repositories';
+import { topicRepository, subtopicRepository, subjectRepository } from '@/shared/lib/supabase/db/repositories';
 import type { Topic, Subtopic } from '../types';
-import { adminRepository } from '@/lib/supabase/db/admin';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { adminRepository } from '@/shared/lib/supabase/db/admin';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 /**
  * Topics API client for working with topic and subtopic data

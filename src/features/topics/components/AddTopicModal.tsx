@@ -11,8 +11,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { topicsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
 import type { Topic } from '../types';
-import type { Subject, SubjectCurriculum } from '@/lib/supabase/db/types';
-import { formatSubjectDisplay } from '@/lib/utils';
+import type { Subject, SubjectCurriculum } from '@/shared/lib/supabase/db/types';
+import { formatSubjectDisplay } from '@/shared/utils';
 import { Loader2 } from 'lucide-react';
 
 interface AddTopicModalProps {

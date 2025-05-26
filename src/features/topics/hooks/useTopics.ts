@@ -1,4 +1,4 @@
-import { useRepository } from '@/lib/hooks/useRepository';
-import { topicRepository } from '@/lib/supabase/db/repositories';
+import { useRepository } from '@/shared/hooks/useRepository';
+import { topicRepository } from '@/shared/lib/supabase/db/repositories';
 
 export const useTopics = () => useRepository(topicRepository); 
