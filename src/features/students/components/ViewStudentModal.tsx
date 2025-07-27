@@ -374,6 +374,7 @@ export function ViewStudentModal({
               <TabsContent value="classes" className="mt-6 h-full overflow-y-auto">
                 <ClassesTab
                   student={student}
+                  onStudentUpdated={onStudentUpdated}
                 />
               </TabsContent>
               

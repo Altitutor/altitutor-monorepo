@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ColumnDef,
@@ -23,15 +23,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { SkeletonTable } from "@/components/ui/skeleton-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ArrowUpDown, ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react';
-import { topicsApi } from '../api';
-import { subjectsApi } from '@/features/subjects/api';
+import { ArrowUpDown, ChevronDown, ChevronRight, Plus, Search, X, RefreshCw } from 'lucide-react';
+import { useTopicsWithSubjects, useSubtopicsWithTopics, useDeleteTopic, useDeleteSubtopic } from '../hooks/useTopicsQuery';
+import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import type { Topic, Subtopic } from '../types';
 import type { Subject, SubjectCurriculum } from '@/shared/lib/supabase/database/types';
 import { ViewTopicModal } from './ViewTopicModal';
@@ -70,17 +71,39 @@ type TableRow = TopicRow | SubtopicRow;
 
 export function TopicsTable({ onRefresh }: TopicsTableProps) {
   const router = useRouter();
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // React Query hooks for data fetching
+  const { 
+    data: topicsData = [], 
+    isLoading: topicsLoading, 
+    error: topicsError,
+    refetch: refetchTopics 
+  } = useTopicsWithSubjects();
+  
+  const { 
+    data: subtopicsData = [], 
+    isLoading: subtopicsLoading, 
+    error: subtopicsError,
+    refetch: refetchSubtopics 
+  } = useSubtopicsWithTopics();
+  
+  const { 
+    data: subjects = [], 
+    isLoading: subjectsLoading, 
+    error: subjectsError,
+    refetch: refetchSubjects 
+  } = useSubjects();
+
+  // Mutation hooks
+  const deleteTopicMutation = useDeleteTopic();
+  const deleteSubtopicMutation = useDeleteSubtopic();
+
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'subject', desc: false },
     { id: 'number', desc: false }
   ]);
   const [expanded, setExpanded] = useState<ExpandedState>({});
-  const [data, setData] = useState<TableRow[]>([]);
   const [textFilter, setTextFilter] = useState('');
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [subjectFilterOpen, setSubjectFilterOpen] = useState(false);
   
@@ -94,6 +117,84 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
   const [addSubtopicToTopicId, setAddSubtopicToTopicId] = useState<string | null>(null);
   const [viewSubtopicId, setViewSubtopicId] = useState<string | null>(null);
   const [isViewSubtopicModalOpen, setIsViewSubtopicModalOpen] = useState(false);
+
+  // Memoized table data creation
+  const data = useMemo(() => {
+    const tableData: TableRow[] = [];
+    
+    // Create a map of subtopics by topic ID for efficient lookup
+    const subtopicsByTopic: Record<string, Subtopic[]> = {};
+    subtopicsData.forEach(subtopic => {
+      if (!subtopicsByTopic[subtopic.topicId]) {
+        subtopicsByTopic[subtopic.topicId] = [];
+      }
+      subtopicsByTopic[subtopic.topicId].push(subtopic);
+    });
+
+    // Process topics and add their subtopics
+    topicsData.forEach(topic => {
+      const topicSubtopics = subtopicsByTopic[topic.id] || [];
+      
+      // Add the topic row
+      const topicRow: TopicRow = {
+        ...topic,
+        isSubtopic: false,
+        subtopics: topicSubtopics,
+      };
+      tableData.push(topicRow);
+
+      // Add subtopic rows if expanded
+      if (Object.prototype.hasOwnProperty.call(expanded, topic.id) && expanded[topic.id as keyof typeof expanded]) {
+        topicSubtopics.forEach(subtopic => {
+          const subtopicRow: SubtopicRow = {
+            ...subtopic,
+            isSubtopic: true,
+            topicId: topic.id,
+            topicName: topic.name,
+          };
+          tableData.push(subtopicRow);
+        });
+      }
+    });
+
+    return tableData;
+  }, [topicsData, subtopicsData, expanded]);
+
+  // Filtered data based on text and subject filters
+  const filteredData = useMemo(() => {
+    let result = [...data];
+
+    // Apply text filter
+    if (textFilter) {
+      const searchLower = textFilter.toLowerCase();
+      result = result.filter(row => {
+        if (row.isSubtopic) {
+          return row.name.toLowerCase().includes(searchLower) ||
+                 String(row.number).includes(searchLower);
+        } else {
+          const topic = row as TopicRow;
+          return topic.name.toLowerCase().includes(searchLower) ||
+                 String(topic.number).includes(searchLower) ||
+                 topic.subject?.name.toLowerCase().includes(searchLower);
+        }
+      });
+    }
+
+    // Apply subject filter
+    if (selectedSubject) {
+      result = result.filter(row => {
+        if (row.isSubtopic) {
+          // For subtopics, find the parent topic and check its subject
+          const parentTopic = topicsData.find(t => t.id === row.topicId);
+          return parentTopic?.subjectId === selectedSubject;
+        } else {
+          return row.subjectId === selectedSubject;
+        }
+      });
+    }
+
+    return result;
+  }, [data, textFilter, selectedSubject, topicsData]);
 
   // Define columns for the table
   const columns: ColumnDef<TableRow>[] = [
@@ -149,9 +250,6 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
         const topic = row.original as TopicRow;
         if (!topic.subject) return null;
         
-        // For debugging
-        console.log('Topic subject in cell:', topic.subject);
-        
         const subjectText = formatSubjectDisplay(topic.subject);
         
         return (
@@ -196,121 +294,44 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
     },
   ];
 
-  // Load topics and subtopics
-  useEffect(() => {
-    loadTopics();
-    loadSubjects();
-  }, [onRefresh]);
-
-  // Process data for the table
-  useEffect(() => {
-    createTableData();
-  }, [topics, subtopics, textFilter, selectedSubject]);
-
-  const loadSubjects = async () => {
-    try {
-      const subjectsData = await subjectsApi.getAllSubjects();
-      setSubjects(subjectsData);
-    } catch (error) {
-      console.error('Error loading subjects:', error);
-    }
-  };
-
-  const loadTopics = async () => {
-    setLoading(true);
-    try {
-      // Get topics with related subject information
-      const topicsWithSubjects = await topicsApi.getTopicsWithSubjects();
-      console.log('Topics with subjects:', topicsWithSubjects);
-      console.log('First topic subject:', topicsWithSubjects[0]?.subject);
-      setTopics(topicsWithSubjects);
-
-      // Get all subtopics
-      const allSubtopics = await topicsApi.getAllSubtopicsWithTopics();
-      setSubtopics(allSubtopics);
-    } catch (error) {
-      console.error('Error loading topics and subtopics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createTableData = () => {
-    // Filter topics based on text input and selected subject
-    const filteredTopics = topics.filter(topic => {
-      // Text filter
-      const matchesText = !textFilter || 
-        topic.name.toLowerCase().includes(textFilter.toLowerCase()) ||
-        (topic.subject?.name.toLowerCase().includes(textFilter.toLowerCase())) ||
-        (topic.subject?.yearLevel && 
-         topic.subject.yearLevel.toString().includes(textFilter.toLowerCase()));
-      
-      // Subject filter
-      const matchesSubject = !selectedSubject || topic.subject?.id === selectedSubject;
-      
-      return matchesText && matchesSubject;
-    });
-
-    // Create table data with topics and their subtopics
-    const tableData: TableRow[] = filteredTopics.map(topic => ({
-      ...topic,
-      isSubtopic: false,
-      // Find all subtopics for this topic
-      subtopics: subtopics.filter(subtopic => subtopic.topicId === topic.id)
-    }));
-    
-    setData(tableData);
-  };
-
-  // Table instance with sorting and expanding
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    onSortingChange: setSorting,
+    onExpandedChange: setExpanded,
     state: {
       sorting,
       expanded,
     },
-    onSortingChange: setSorting,
-    onExpandedChange: setExpanded,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getRowCanExpand: row => {
-      const topic = row.original as TopicRow;
-      return !row.original.isSubtopic && Boolean(topic.subtopics && topic.subtopics.length > 0);
-    },
   });
 
-  // Handler for adding a new subtopic
   const handleAddSubtopic = (topicId: string) => {
     setAddSubtopicToTopicId(topicId);
     setIsAddSubtopicModalOpen(true);
   };
 
-  // Handler for viewing a topic
   const handleViewTopic = (id: string) => {
     setViewTopicId(id);
     setIsViewModalOpen(true);
   };
 
-  // Handler for editing a topic
   const handleEditTopic = (id: string) => {
     setEditTopicId(id);
     setIsEditModalOpen(true);
   };
 
-  // Handler for editing a subtopic
   const handleEditSubtopic = (id: string) => {
     setViewSubtopicId(id);
     setIsViewSubtopicModalOpen(true);
   };
 
-  // Handler for deleting a topic
   const handleDeleteTopic = async (id: string) => {
-    if (confirm('Are you sure you want to delete this topic? This will also delete all subtopics.')) {
+    if (confirm('Are you sure you want to delete this topic? This will also delete all its subtopics.')) {
       try {
-        await topicsApi.deleteTopic(id);
-        loadTopics();
+        await deleteTopicMutation.mutateAsync(id);
       } catch (error) {
         console.error('Error deleting topic:', error);
         alert('Failed to delete topic. Please try again.');
@@ -318,12 +339,10 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
     }
   };
 
-  // Handler for deleting a subtopic
   const handleDeleteSubtopic = async (id: string) => {
     if (confirm('Are you sure you want to delete this subtopic?')) {
       try {
-        await topicsApi.deleteSubtopic(id);
-        loadTopics();
+        await deleteSubtopicMutation.mutateAsync(id);
       } catch (error) {
         console.error('Error deleting subtopic:', error);
         alert('Failed to delete subtopic. Please try again.');
@@ -331,94 +350,130 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
     }
   };
 
-  // Handler for topic update (reloads topics)
   const handleTopicUpdated = () => {
-    loadTopics();
+    refetchTopics();
+    refetchSubtopics();
   };
 
-  // Clear all filters
+  const handleRefresh = () => {
+    refetchTopics();
+    refetchSubtopics();
+    refetchSubjects();
+  };
+
   const clearFilters = () => {
     setTextFilter('');
     setSelectedSubject(null);
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col space-y-2 md:flex-row md:items-center md:justify-between md:space-y-0">
-        {/* Text filter */}
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Filter topics..."
-            value={textFilter}
-            onChange={(e) => setTextFilter(e.target.value)}
-            className="pl-8 max-w-sm"
-          />
-        </div>
-        
-        {/* Action buttons */}
-        <div className="flex items-center gap-2">
-          {/* Add Topic Button */}
-          <Button 
-            size="sm" 
-            onClick={() => setIsAddTopicModalOpen(true)}
-            className="flex items-center"
-          >
+  const isLoading = topicsLoading || subtopicsLoading || subjectsLoading;
+  const hasError = topicsError || subtopicsError || subjectsError;
+
+  // Loading state
+  if (isLoading && topicsData.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search topics..."
+                className="pl-8"
+                disabled
+              />
+            </div>
+            <Button variant="outline" size="sm" disabled>
+              Subject Filter
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+          <Button disabled>
             <Plus className="h-4 w-4 mr-2" />
             Add Topic
           </Button>
+        </div>
+        
+        <SkeletonTable rows={8} columns={4} />
+        
+        <div className="text-sm text-muted-foreground">
+          Loading topics...
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (hasError && topicsData.length === 0) {
+    return (
+      <div className="text-red-500 p-4">
+        Failed to load topics. Please try again.
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh} 
+          className="ml-2"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search topics..."
+              className="pl-8"
+              value={textFilter}
+              onChange={(e) => setTextFilter(e.target.value)}
+            />
+          </div>
           
-          {/* Subject filter */}
           <Popover open={subjectFilterOpen} onOpenChange={setSubjectFilterOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="justify-start">
-                {selectedSubject ? (
-                  formatSubjectDisplay(subjects.find(s => s.id === selectedSubject)!)
-                ) : (
-                  "Filter by Subject"
-                )}
+              <Button
+                variant={selectedSubject ? "secondary" : "outline"}
+                size="sm"
+                className="justify-between min-w-[150px]"
+              >
+                {selectedSubject 
+                  ? subjects.find(s => s.id === selectedSubject)?.name || 'Unknown Subject'
+                  : 'Subject Filter'
+                }
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="p-0" align="start">
+            <PopoverContent className="w-[300px] p-0">
               <Command>
                 <CommandInput placeholder="Search subjects..." />
-                <CommandEmpty>No subject found.</CommandEmpty>
+                <CommandEmpty>No subjects found.</CommandEmpty>
                 <CommandGroup>
-                  <ScrollArea className="h-72">
+                  <ScrollArea className="h-[200px]">
+                    <CommandItem
+                      onSelect={() => {
+                        setSelectedSubject(null);
+                        setSubjectFilterOpen(false);
+                      }}
+                    >
+                      All Subjects
+                    </CommandItem>
                     {subjects.map((subject) => (
                       <CommandItem
                         key={subject.id}
                         onSelect={() => {
-                          setSelectedSubject(
-                            selectedSubject === subject.id ? null : subject.id
-                          );
+                          setSelectedSubject(subject.id);
                           setSubjectFilterOpen(false);
                         }}
                       >
-                        <div
-                          className={cn(
-                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                            selectedSubject === subject.id
-                              ? "bg-primary text-primary-foreground"
-                              : "opacity-50 [&_svg]:invisible"
-                          )}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="h-3 w-3"
-                          >
-                            <path d="M20 6 9 17l-5-5" />
-                          </svg>
-                        </div>
-                        <span>
-                          {formatSubjectDisplay(subject)}
-                        </span>
+                        {formatSubjectDisplay(subject)}
                       </CommandItem>
                     ))}
                   </ScrollArea>
@@ -426,20 +481,29 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
               </Command>
             </PopoverContent>
           </Popover>
-          
-          {/* Clear filters button - only show when filters are active */}
+
           {(textFilter || selectedSubject) && (
-            <Button 
-              variant="ghost" 
-              onClick={clearFilters}
-              size="sm"
-              className="h-8"
-            >
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X className="h-4 w-4 mr-1" />
-              Clear filters
+              Clear Filters
             </Button>
           )}
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+            Refresh
+          </Button>
         </div>
+        
+        <Button onClick={() => setIsAddTopicModalOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Topic
+        </Button>
       </div>
 
       <div className="rounded-md border">
@@ -457,63 +521,91 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
                         )}
                   </TableHead>
                 ))}
+                <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Loading topics and subtopics...
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows?.length ? (
-              <>
-                {table.getRowModel().rows.map((row) => {
-                  const isExpanded = row.getIsExpanded();
-                  const isSubtopic = row.original.isSubtopic;
-                  const topic = row.original as TopicRow;
-                  const hasSubtopics = !isSubtopic && topic.subtopics && topic.subtopics.length > 0;
-                  
-                  return (
-                    <React.Fragment key={row.id}>
-                      <TableRow
-                        data-state={row.getIsSelected() && "selected"}
-                        className={!isSubtopic ? "cursor-pointer" : ""}
-                        onClick={() => {
-                          if (!isSubtopic) {
-                            handleViewTopic(topic.id);
-                          }
-                        }}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                      
-                      {/* Render subtopics immediately after their parent if expanded */}
-                      {isExpanded && hasSubtopics && topic.subtopics!.map((subtopic) => (
-                        <TableRow 
-                          key={`subtopic-${subtopic.id}`} 
-                          className="bg-muted/30 cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleEditSubtopic(subtopic.id)}
-                        >
-                          <TableCell><div className="w-6 pl-6"></div></TableCell>
-                          <TableCell></TableCell>
-                          <TableCell>{subtopic.number}</TableCell>
-                          <TableCell className="pl-10">{subtopic.name}</TableCell>
-                        </TableRow>
-                      ))}
-                    </React.Fragment>
-                  );
-                })}
-              </>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    if (row.original.isSubtopic) {
+                      handleEditSubtopic(row.original.id);
+                    } else {
+                      handleViewTopic(row.original.id);
+                    }
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {row.original.isSubtopic ? (
+                          <>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditSubtopic(row.original.id);
+                            }}>
+                              Edit Subtopic
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSubtopic(row.original.id);
+                              }}
+                              className="text-red-600"
+                            >
+                              Delete Subtopic
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewTopic(row.original.id);
+                            }}>
+                              View Topic
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddSubtopic(row.original.id);
+                            }}>
+                              Add Subtopic
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTopic(row.original.id);
+                              }}
+                              className="text-red-600"
+                            >
+                              Delete Topic
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No topics found.
+                <TableCell colSpan={columns.length + 1} className="h-24 text-center">
+                  {textFilter || selectedSubject ? "No topics match your filters" : "No topics found"}
                 </TableCell>
               </TableRow>
             )}
@@ -521,21 +613,24 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
         </Table>
       </div>
 
+      <div className="text-sm text-muted-foreground">
+        {table.getRowModel().rows.length} items displayed
+        {isLoading && <span className="ml-2">(Refreshing...)</span>}
+      </div>
+
       {/* Modals */}
-      <ViewTopicModal 
+      <AddTopicModal
+        isOpen={isAddTopicModalOpen}
+        onClose={() => setIsAddTopicModalOpen(false)}
+        onTopicAdded={handleTopicUpdated}
+      />
+
+      <ViewTopicModal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         topicId={viewTopicId}
         onTopicUpdated={handleTopicUpdated}
       />
-      
-      {isAddTopicModalOpen && (
-        <AddTopicModal
-          isOpen={isAddTopicModalOpen}
-          onClose={() => setIsAddTopicModalOpen(false)}
-          onTopicAdded={handleTopicUpdated}
-        />
-      )}
 
       <AddSubtopicModal
         isOpen={isAddSubtopicModalOpen}

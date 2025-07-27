@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -19,20 +19,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
 import { 
   ChevronDown, 
   Search, 
   MoreHorizontal,
   ArrowUpDown,
   Filter,
-  CalendarIcon
+  CalendarIcon,
+  RefreshCw
 } from 'lucide-react';
-import { useSessions } from '../hooks';
-import { useStudents } from '@/features/students/hooks';
-import { useStaff } from '@/features/staff/hooks';
-import { useClasses } from '@/features/classes/hooks';
-import { Session, SessionType } from '../types';
-import type { Student, Staff, Class } from '@/shared/lib/supabase/database/types';
+import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
+import { Session, SessionType } from '@/shared/lib/supabase/database/types';
 import { cn } from '@/shared/utils/index';
 
 type SessionsTableProps = {
@@ -44,33 +42,44 @@ type SessionsTableProps = {
 
 export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTableProps) {
   const router = useRouter();
-  const { items: allSessions, loading, error, fetchAll } = useSessions();
-  const { items: students } = useStudents();
-  const { items: staffMembers } = useStaff();
-  const { items: classes } = useClasses();
   
-  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
+  // React Query hook for data fetching
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
+  } = useSessionsWithDetails();
+  
+  // Extract sessions array from the data structure
+  const allSessions = data?.sessions || [];
+  
+  // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<SessionType | 'ALL'>('ALL');
   const [sortField, setSortField] = useState<keyof Session>('date');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
-
-  useEffect(() => {
-    if (!allSessions) return;
+  // Memoized filtered and sorted sessions
+  const filteredSessions = useMemo(() => {
+    if (!allSessions.length) return [];
     
     let result = [...allSessions];
     
     // Apply entity filters if provided
-    if (studentId) {
-      // Logic to filter by student will be implemented when we have session attendances
+    if (studentId && data?.sessionStudents) {
+      // Filter by student attendance using the sessionStudents mapping
+      result = result.filter(session => 
+        data.sessionStudents[session.id]?.some((student: any) => student.id === studentId)
+      );
     }
     
-    if (staffId) {
-      result = result.filter(session => session.staffId === staffId);
+    if (staffId && data?.sessionStaff) {
+      // Filter by staff using the sessionStaff mapping
+      result = result.filter(session => 
+        data.sessionStaff[session.id]?.some((staff: any) => staff.id === staffId)
+      );
     }
     
     if (classId) {
@@ -117,8 +126,8 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
       result = result.slice(0, limit);
     }
     
-    setFilteredSessions(result);
-  }, [allSessions, searchTerm, typeFilter, sortField, sortDirection, studentId, staffId, classId, limit]);
+    return result;
+  }, [allSessions, data, searchTerm, typeFilter, sortField, sortDirection, studentId, staffId, classId, limit]);
 
   const handleSort = (field: keyof Session) => {
     if (sortField === field) {
@@ -127,6 +136,10 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
       setSortField(field);
       setSortDirection('desc');
     }
+  };
+  
+  const handleRefresh = () => {
+    refetch();
   };
   
   const getSessionTypeBadgeColor = (type: SessionType) => {
@@ -160,28 +173,63 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
     }
   };
   
-  const getStaffName = (staffId: string | null | undefined) => {
-    if (!staffId) return 'Unassigned';
-    const staff = staffMembers?.find(s => s.id === staffId);
-    return staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown Staff';
+  const getStaffName = (session: Session) => {
+    if (!session.staff) return 'Unassigned';
+    return `${session.staff.firstName} ${session.staff.lastName}`;
   };
   
-  const getClassSubject = (classId: string | null | undefined) => {
-    if (!classId) return '-';
-    const cls = classes?.find(c => c.id === classId);
-    return cls ? cls.level : 'Unknown Class';
+  const getClassSubject = (session: Session) => {
+    if (!session.class) return '-';
+    return session.class.level;
   };
   
   const handleSessionClick = (id: string) => {
     router.push(`/dashboard/sessions/${id}`);
   };
 
-  if (loading) {
-    return <div>Loading sessions...</div>;
+  // Loading state
+  if (isLoading && allSessions.length === 0) {
+    return (
+      <div className="space-y-4">
+        {!limit && (
+          <div className="flex justify-between items-center">
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search sessions..."
+                className="pl-8"
+                disabled
+              />
+            </div>
+            <Button variant="outline" size="sm" disabled className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        )}
+        
+        <SkeletonTable rows={limit || 8} columns={6} />
+        
+        <div className="text-sm text-muted-foreground">
+          Loading sessions...
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div className="text-red-500">Error loading sessions: {error}</div>;
+  // Error state
+  if (error && allSessions.length === 0) {
+    return (
+      <div className="text-red-500 p-4">
+        Failed to load sessions. Please try again.
+        <button 
+          onClick={() => refetch()} 
+          className="ml-2 text-blue-600 hover:text-blue-800 underline"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -198,39 +246,16 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
             />
           </div>
           
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Type: {typeFilter}
-                  <ChevronDown className="h-4 w-4 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTypeFilter('ALL')}>
-                  All Types
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTypeFilter(SessionType.CLASS)}>
-                  Class
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTypeFilter(SessionType.DRAFTING)}>
-                  Drafting
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTypeFilter(SessionType.SUBSIDY_INTERVIEW)}>
-                  Subsidy Interview
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTypeFilter(SessionType.TRIAL_SESSION)}>
-                  Trial Session
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTypeFilter(SessionType.TRIAL_SHIFT)}>
-                  Trial Shift
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button onClick={() => router.push('/dashboard/sessions/new')}>
-              Record Session
+          <div className="flex space-x-2 items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh} 
+              className="flex items-center"
+              disabled={isFetching}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
+              Refresh
             </Button>
           </div>
         </div>
@@ -297,10 +322,10 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
                     {session.subject}
                   </TableCell>
                   {!classId && (
-                    <TableCell>{getClassSubject(session.classId)}</TableCell>
+                    <TableCell>{getClassSubject(session)}</TableCell>
                   )}
                   {!staffId && (
-                    <TableCell>{getStaffName(session.staffId)}</TableCell>
+                    <TableCell>{getStaffName(session)}</TableCell>
                   )}
                   <TableCell>
                     <Badge className={getSessionTypeBadgeColor(session.type)}>

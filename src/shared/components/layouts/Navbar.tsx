@@ -1,23 +1,22 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { authApi } from '@/features/auth/api';
-import { useAuthStore } from '@/features/auth/hooks';
-import { ThemeToggle } from '@/shared/components';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
+import { ThemeToggle } from '../theme-toggle';
+import { useRouter } from 'next/navigation';
+import { LogOut, User } from 'lucide-react';
 import Image from 'next/image';
-import { AuthState as AuthStore } from '@/features/auth/types';
 import { useTheme } from 'next-themes';
 
 export function Navbar() {
   const router = useRouter();
-  const { logout } = useAuthStore() as AuthStore;
+  const { signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
 
   const handleLogout = async () => {
     try {
-      await authApi.logout();
-      logout();
+      await signOut();
       router.push('/login');
     } catch (error) {
       console.error('Logout failed:', error);

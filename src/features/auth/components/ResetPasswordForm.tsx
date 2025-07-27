@@ -87,7 +87,6 @@ export function ResetPasswordForm() {
 
     try {
       await authApi.confirmPasswordReset({
-        token: '', // Token is handled automatically by Supabase
         password: data.password,
       });
       

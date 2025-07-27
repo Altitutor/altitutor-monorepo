@@ -21,56 +21,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabaseClient();
-  const { setAuth, clearAuth, initializeAuth } = useAuthStore();
+  const { setUser, setLoading } = useAuthStore();
 
   useEffect(() => {
-    async function getSession() {
-      setIsLoading(true);
-
-      // Get initial session
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('Error getting session:', error);
       }
       
       setSession(session);
-      
-      // Sync with Zustand store
-      if (session?.user) {
-        setAuth(session.user);
-      } else {
-        clearAuth();
-      }
-      
+      setUser(session?.user || null);
       setIsLoading(false);
-
-      // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        (_event, session) => {
-          console.log('Auth state changed:', { event: _event, hasSession: !!session });
-          setSession(session);
-          
-          // Sync with Zustand store
-          if (session?.user) {
-            setAuth(session.user);
-          } else {
-            clearAuth();
-          }
-        }
-      );
-
-      // Cleanup subscription on unmount
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-
-    // Initialize auth store first, then get session
-    initializeAuth().then(() => {
-    getSession();
+      setLoading(false);
     });
-  }, [supabase.auth, setAuth, clearAuth, initializeAuth]);
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        console.log('Auth state changed:', { event: _event, hasSession: !!session });
+        setSession(session);
+        setUser(session?.user || null);
+        setIsLoading(false);
+        setLoading(false);
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase.auth, setUser, setLoading]);
 
   return (
     <AuthContext.Provider value={{ session, isLoading, supabase }}>

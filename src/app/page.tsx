@@ -2,19 +2,23 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/features/auth/hooks';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
+import Link from 'next/link';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!user) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [user, router]);
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null; // Don't render anything while redirecting
   }
 

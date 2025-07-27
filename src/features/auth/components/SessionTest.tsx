@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/features/auth/hooks';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useAuth } from '@/features/auth/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,14 +19,6 @@ export function SessionTest() {
     return <div>Loading session test...</div>;
   }
 
-  const handleRefreshSession = () => {
-    zustandAuth.refreshSession();
-  };
-
-  const handleInitializeAuth = () => {
-    zustandAuth.initializeAuth();
-  };
-
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
@@ -37,11 +29,9 @@ export function SessionTest() {
           <div>
             <h3 className="font-semibold mb-2">Zustand Store</h3>
             <div className="text-sm space-y-1">
-              <p><strong>Authenticated:</strong> {zustandAuth.isAuthenticated ? '✅' : '❌'}</p>
+              <p><strong>Has User:</strong> {zustandAuth.user ? '✅' : '❌'}</p>
               <p><strong>Loading:</strong> {zustandAuth.loading ? '⏳' : '✅'}</p>
               <p><strong>User Email:</strong> {zustandAuth.user?.email || 'None'}</p>
-              <p><strong>Has Token:</strong> {zustandAuth.token ? '✅' : '❌'}</p>
-              <p><strong>Error:</strong> {zustandAuth.error || 'None'}</p>
             </div>
           </div>
           
@@ -63,13 +53,14 @@ export function SessionTest() {
             <p><strong>Supabase Session:</strong> {typeof window !== 'undefined' && localStorage.getItem('sb-ysfslbdcacpbemodkwtl-auth-token') ? '✅ Found' : '❌ Not found'}</p>
           </div>
         </div>
-
-        <div className="flex gap-2 pt-4">
-          <Button onClick={handleRefreshSession} variant="outline" size="sm">
-            Refresh Session
-          </Button>
-          <Button onClick={handleInitializeAuth} variant="outline" size="sm">
-            Initialize Auth
+        
+        <div className="border-t pt-4 flex gap-2">
+          <Button 
+            onClick={() => window.location.reload()} 
+            variant="outline" 
+            size="sm"
+          >
+            Refresh Page
           </Button>
         </div>
       </CardContent>

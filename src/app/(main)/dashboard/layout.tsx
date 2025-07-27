@@ -1,28 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/shared/utils/index';
+import { usePathname, useRouter } from 'next/navigation';
+import { Users, Calendar, GraduationCap, BookOpen, BarChart3, Settings, Menu, X, FileText, Clock, MessageSquare, UserCircle, LogOut, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetDescription, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetTrigger,
+  SheetClose
+} from '@/components/ui/sheet';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
+import { cn } from '@/shared/utils/index';
+import { navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Home, 
-  Users, 
-  GraduationCap, 
-  CalendarDays, 
-  MessageCircle, 
-  FileText, 
-  Settings, 
-  Menu, 
-  X,
-  ClipboardList,
   Beaker,
-  Newspaper
+  Newspaper,
+  ClipboardList,
+  MessageCircle
 } from 'lucide-react';
-import { useAuthStore } from '@/features/auth/hooks';
-import { AuthState as AuthStore } from '@/features/auth/types';
-import { navHoverStyles } from '@/shared/utils/index';
+
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -48,7 +60,7 @@ const navItems = [
   {
     title: 'Classes',
     href: '/dashboard/classes',
-    icon: CalendarDays,
+    icon: Calendar,
   },
   {
     title: 'Subjects',
@@ -84,7 +96,7 @@ const navItems = [
 
 function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProps) {
   const pathname = usePathname();
-  const { user } = useAuthStore() as AuthStore;
+  const { user } = useAuthStore();
   
   return (
     <div 

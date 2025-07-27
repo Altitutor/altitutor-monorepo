@@ -1,1 +1,2 @@
-export { useSubjects } from './useSubjects'; 
+export { useSubjects } from './useSubjects';
+export * from './useSubjectsQuery'; 

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
-import { staffApi } from '../api';
+import { useInviteStaff } from '../hooks/useStaffQuery';
 import { Staff, StaffRole, StaffStatus } from '../types';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -49,6 +49,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalProps) {
   const { toast } = useToast();
+  const inviteStaffMutation = useInviteStaff();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
@@ -83,15 +84,13 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     setErrorMessage(null);
     
     try {
-      // Convert form data to staff object
-      const staffData: Partial<Staff> = {
+      const staffData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
-        email: formData.email === '' ? null : formData.email,
-        phoneNumber: formData.phoneNumber || null,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
         role: formData.role,
-        
-        // Set availability fields
+        status: StaffStatus.ACTIVE,
         availabilityMonday: formData.availability_monday,
         availabilityTuesday: formData.availability_tuesday,
         availabilityWednesday: formData.availability_wednesday,
@@ -104,7 +103,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       };
       
       // Create the staff member with user account using invitation
-      await staffApi.inviteStaff(staffData);
+      await inviteStaffMutation.mutateAsync(staffData);
       
       toast({
         title: 'Staff added successfully',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
 import { 
   ChevronDown, 
   Search, 
@@ -26,12 +27,11 @@ import {
   Filter,
   RefreshCw
 } from 'lucide-react';
-import { useSubjects } from '../hooks';
-import type { Subject } from '../types';
+import { useSubjects } from '../hooks/useSubjectsQuery';
+import type { Subject } from '@/shared/lib/supabase/database/types';
 import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/database/types';
 import { cn } from '@/shared/utils/index';
 import { SubjectCurriculumBadge } from '@/components/ui/enum-badge';
-import { subjectsApi } from '../api';
 import { ViewSubjectModal } from './ViewSubjectModal';
 
 interface SubjectsTableProps {
@@ -41,10 +41,17 @@ interface SubjectsTableProps {
 
 export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) {
   const router = useRouter();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
+  
+  // React Query hook for data fetching
+  const { 
+    data: subjects = [], 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
+  } = useSubjects();
+
+  // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [curriculumFilter, setCurriculumFilter] = useState<SubjectCurriculum | 'ALL'>('ALL');
   const [disciplineFilter, setDisciplineFilter] = useState<SubjectDiscipline | 'ALL'>('ALL');
@@ -54,25 +61,9 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const loadSubjects = async () => {
-    try {
-      setLoading(true);
-      const data = await subjectsApi.getAllSubjects();
-      setSubjects(data);
-    } catch (err) {
-      console.error('Failed to load subjects:', err);
-      setError('Failed to load subjects. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSubjects();
-  }, [onRefresh]);
-
-  useEffect(() => {
-    if (!subjects) return;
+  // Memoized filtered and sorted subjects
+  const filteredSubjects = useMemo(() => {
+    if (!subjects.length) return [];
     
     let result = [...subjects];
     
@@ -119,7 +110,7 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
       return 0;
     });
     
-    setFilteredSubjects(result);
+    return result;
   }, [subjects, searchTerm, curriculumFilter, disciplineFilter, sortField, sortDirection]);
 
   const handleSort = (field: keyof Subject) => {
@@ -153,15 +144,56 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
   };
 
   const handleSubjectUpdated = () => {
-    loadSubjects();
+    refetch();
   };
 
-  if (loading) {
-    return <div className="flex justify-center p-4">Loading subjects...</div>;
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  // Loading state
+  if (isLoading && subjects.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap justify-between gap-2 items-center">
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search subjects..."
+              className="pl-8"
+              disabled
+            />
+          </div>
+          <div className="flex space-x-2 items-center">
+            <Button variant="outline" size="sm" disabled className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+        
+        <SkeletonTable rows={8} columns={6} />
+        
+        <div className="text-sm text-muted-foreground">
+          Loading subjects...
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div className="text-red-500 p-4">{error}</div>;
+  // Error state
+  if (error && subjects.length === 0) {
+    return (
+      <div className="text-red-500 p-4">
+        Failed to load subjects. Please try again.
+        <button 
+          onClick={() => refetch()} 
+          className="ml-2 text-blue-600 hover:text-blue-800 underline"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -177,8 +209,14 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
           />
         </div>
         <div className="flex space-x-2 items-center">
-          <Button variant="outline" size="sm" onClick={loadSubjects} className="flex items-center">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            className="flex items-center"
+            disabled={isFetching}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
             Refresh
           </Button>
           
@@ -296,9 +334,13 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
             {filteredSubjects.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center h-24">
-                  {searchTerm || curriculumFilter !== 'ALL' || disciplineFilter !== 'ALL'
-                    ? "No subjects match your filters" 
-                    : "No subjects found"}
+                  {isLoading ? (
+                    "Loading subjects..."
+                  ) : searchTerm || curriculumFilter !== 'ALL' || disciplineFilter !== 'ALL' ? (
+                    "No subjects match your filters"
+                  ) : (
+                    "No subjects found"
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
@@ -319,6 +361,13 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Results count */}
+      <div className="text-sm text-muted-foreground">
+        {filteredSubjects.length} subjects displayed
+        {filteredSubjects.length !== subjects.length && ` of ${subjects.length} total`}
+        {isFetching && <span className="ml-2">(Refreshing...)</span>}
       </div>
 
       <ViewSubjectModal 

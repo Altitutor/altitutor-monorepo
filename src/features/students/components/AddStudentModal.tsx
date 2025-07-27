@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -20,13 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Student } from '@/shared/lib/supabase/database/types';
-import { StudentStatus } from '@/shared/lib/supabase/database/types';
-import { studentsApi } from '../api';
 import { useToast } from "@/components/ui/use-toast";
+import { useCreateStudent } from '../hooks/useStudentsQuery';
+import { StudentStatus, Student } from '@/shared/lib/supabase/database/types';
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 
 // Form schema for adding students
 const formSchema = z.object({
@@ -69,6 +69,7 @@ interface AddStudentModalProps {
 
 export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentModalProps) {
   const { toast } = useToast();
+  const createStudentMutation = useCreateStudent();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -142,7 +143,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         availabilitySundayPm: formData.availabilitySundayPm,
       };
 
-      await studentsApi.createStudent(studentData);
+      await createStudentMutation.mutateAsync(studentData);
       
       toast({
         title: "Success",

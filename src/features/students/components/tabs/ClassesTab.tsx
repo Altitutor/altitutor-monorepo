@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Student, Class, Staff, Subject } from "@/shared/lib/supabase/database/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Calendar, Clock, Users, MapPin, UserCog, BookOpen } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2, Calendar, Clock, Users, MapPin, UserCog, BookOpen, Plus, Search } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal } from '@/features/classes';
@@ -12,6 +15,7 @@ import { cn } from "@/shared/utils";
 
 interface ClassesTabProps {
   student: Student;
+  onStudentUpdated?: () => void;
 }
 
 interface StudentClass {
@@ -22,11 +26,17 @@ interface StudentClass {
 }
 
 export function ClassesTab({
-  student
+  student,
+  onStudentUpdated
 }: ClassesTabProps) {
+  const { toast } = useToast();
   const [classes, setClasses] = useState<StudentClass[]>([]);
+  const [allClasses, setAllClasses] = useState<StudentClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [enrollingClasses, setEnrollingClasses] = useState<Set<string>>(new Set());
+  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -42,43 +52,49 @@ export function ClassesTab({
       setError(null);
       
       // Get all classes with details
-      const { classes: allClasses, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
+      const { classes: allClassesData, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
       
-      // Filter classes that include this student
+      // Create StudentClass objects for all classes
+      const allClassesWithDetails: StudentClass[] = [];
       const studentClasses: StudentClass[] = [];
       
-      for (const cls of allClasses) {
-        // Check if student is enrolled in this class
+      for (const cls of allClassesData) {
+        const subject = classSubjects[cls.id];
+        const staff = classStaff[cls.id] || [];
         const enrolledStudents = classStudents[cls.id] || [];
+        const studentCount = enrolledStudents.length;
         const isEnrolled = enrolledStudents.some(enrolledStudent => enrolledStudent.id === student.id);
         
+        const classWithDetails = {
+          class: cls,
+          subject,
+          staff,
+          studentCount
+        };
+        
+        allClassesWithDetails.push(classWithDetails);
+        
         if (isEnrolled) {
-          const subject = classSubjects[cls.id];
-          const staff = classStaff[cls.id] || [];
-          const studentCount = enrolledStudents.length;
-          
-          studentClasses.push({
-            class: cls,
-            subject,
-            staff,
-            studentCount
-          });
+          studentClasses.push(classWithDetails);
         }
       }
       
       // Sort by day of week, then by start time
-      studentClasses.sort((a, b) => {
-        const dayA = a.class.dayOfWeek === 0 ? 7 : a.class.dayOfWeek;
-        const dayB = b.class.dayOfWeek === 0 ? 7 : b.class.dayOfWeek;
-        
-        if (dayA !== dayB) {
-          return dayA - dayB;
-        }
-        
-        return a.class.startTime.localeCompare(b.class.startTime);
-      });
+      const sortClasses = (classes: StudentClass[]) => {
+        return classes.sort((a, b) => {
+          const dayA = a.class.dayOfWeek === 0 ? 7 : a.class.dayOfWeek;
+          const dayB = b.class.dayOfWeek === 0 ? 7 : b.class.dayOfWeek;
+          
+          if (dayA !== dayB) {
+            return dayA - dayB;
+          }
+          
+          return a.class.startTime.localeCompare(b.class.startTime);
+        });
+      };
       
-      setClasses(studentClasses);
+      setClasses(sortClasses([...studentClasses]));
+      setAllClasses(sortClasses([...allClassesWithDetails]));
     } catch (err) {
       console.error('Error loading student classes:', err);
       setError('Failed to load classes');
@@ -87,10 +103,62 @@ export function ClassesTab({
     }
   };
 
+  // Handle class enrollment
+  const handleEnrollClass = async (classId: string) => {
+    setEnrollingClasses(prev => new Set(prev).add(classId));
+    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
+    
+    try {
+      await classesApi.enrollStudent(classId, student.id);
+      await loadStudentClasses(); // Reload classes
+      onStudentUpdated?.(); // Notify parent of changes
+      
+      toast({
+        title: "Success",
+        description: "Student enrolled in class successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to enroll in class:', error);
+      toast({
+        title: "Enrollment failed",
+        description: "There was an error enrolling the student in the class. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEnrollingClasses(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(classId);
+        return newSet;
+      });
+    }
+  };
+
   const handleClassClick = (classId: string) => {
     setSelectedClassId(classId);
     setIsClassModalOpen(true);
   };
+
+  // Get available classes for enrollment (not currently enrolled)
+  const availableClasses = allClasses.filter(classData => 
+    !classes.some(studentClass => studentClass.class.id === classData.class.id)
+  );
+
+  // Filter available classes based on search query
+  const filteredAvailableClasses = availableClasses.filter(classData => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const subject = classData.subject ? formatSubjectDisplay(classData.subject) : classData.class.level;
+    const level = classData.class.level;
+    const day = getDayOfWeek(classData.class.dayOfWeek);
+    const time = `${formatTime(classData.class.startTime)} - ${formatTime(classData.class.endTime)}`;
+    
+    return (
+      subject.toLowerCase().includes(query) ||
+      level.toLowerCase().includes(query) ||
+      day.toLowerCase().includes(query) ||
+      time.toLowerCase().includes(query)
+    );
+  });
 
   const getDayOfWeek = (day: number) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -138,14 +206,65 @@ export function ClassesTab({
     );
   }
 
-  if (classes.length === 0) {
+  if (classes.length === 0 && enrollingClasses.size === 0) {
     return (
       <div className="flex-1 flex flex-col justify-center items-center">
         <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground mb-4">No classes enrolled</p>
-        <p className="text-xs text-muted-foreground text-center max-w-sm">
+        <p className="text-xs text-muted-foreground text-center max-w-sm mb-4">
           This student is not currently enrolled in any classes.
         </p>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Enroll in a class
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[400px]" align="center">
+            <div className="p-3">
+              <Input
+                placeholder="Search classes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="mb-3"
+              />
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {filteredAvailableClasses.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {searchQuery ? 'No classes match your search' : 'No available classes found'}
+                    </div>
+                  ) : (
+                    filteredAvailableClasses.map(classData => (
+                      <Button
+                        key={classData.class.id}
+                        variant="ghost"
+                        className="w-full justify-start h-auto p-3 hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => handleEnrollClass(classData.class.id)}
+                        disabled={enrollingClasses.has(classData.class.id)}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium">
+                              {getSubjectDisplay(classData)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {getDayOfWeek(classData.class.dayOfWeek)} • {formatTime(classData.class.startTime)} - {formatTime(classData.class.endTime)}
+                            </div>
+                          </div>
+                          {enrollingClasses.has(classData.class.id) && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        </div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     );
   }
@@ -153,11 +272,120 @@ export function ClassesTab({
   return (
     <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-medium">Enrolled Classes ({classes.length})</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-medium">Enrolled Classes ({classes.length})</h3>
+          
+          {/* Show currently enrolling classes */}
+          {enrollingClasses.size > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Enrolling in {enrollingClasses.size} class{enrollingClasses.size > 1 ? 'es' : ''}...</span>
+            </div>
+          )}
+        </div>
+        
+        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              <span>Add Class</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[400px]" align="end">
+            <div className="p-3">
+              <Input
+                placeholder="Search classes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="mb-3"
+              />
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {filteredAvailableClasses.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {searchQuery ? 'No classes match your search' : 'No available classes found'}
+                    </div>
+                  ) : (
+                    filteredAvailableClasses.map(classData => (
+                      <Button
+                        key={classData.class.id}
+                        variant="ghost"
+                        className="w-full justify-start h-auto p-3 hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => handleEnrollClass(classData.class.id)}
+                        disabled={enrollingClasses.has(classData.class.id)}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium">
+                              {getSubjectDisplay(classData)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {getDayOfWeek(classData.class.dayOfWeek)} • {formatTime(classData.class.startTime)} - {formatTime(classData.class.endTime)}
+                            </div>
+                          </div>
+                          {enrollingClasses.has(classData.class.id) && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        </div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
       
       <ScrollArea className="flex-1">
         <div className="space-y-3">
+          {/* Show currently enrolling classes at the top */}
+          {Array.from(enrollingClasses).map(classId => {
+            const classData = allClasses.find(c => c.class.id === classId);
+            if (!classData) return null;
+            
+            return (
+              <Card 
+                key={`enrolling-${classData.class.id}`}
+                className="border-dashed bg-muted/50"
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-base font-semibold text-muted-foreground">
+                        {getSubjectDisplay(classData)}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {classData.class.level}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs text-muted-foreground">Enrolling...</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="pt-0 space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span>
+                        {formatTime(classData.class.startTime)} - {formatTime(classData.class.endTime)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>{getDayOfWeek(classData.class.dayOfWeek)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+          
+          {/* Show enrolled classes */}
           {classes.map((studentClass) => (
             <Card 
               key={studentClass.class.id} 

@@ -1,1 +1,2 @@
-export * from './useSessions'; 
+export { useSessions } from './useSessions';
+export * from './useSessionsQuery'; 

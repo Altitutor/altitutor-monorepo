@@ -2,20 +2,20 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore } from '@/features/auth/hooks';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, loading } = useAuthStore();
+  const { user, loading } = useAuthStore();
 
   useEffect(() => {
     // Skip auth check for public paths
     if (PUBLIC_PATHS.includes(pathname)) {
       // If user is authenticated and trying to access login page, redirect to dashboard
-      if (isAuthenticated && pathname === '/login') {
+      if (user && pathname === '/login') {
         router.push('/dashboard');
       }
       // We don't redirect from reset-password even if authenticated
@@ -23,10 +23,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // For protected routes
-    if (!isAuthenticated && !loading) {
+    if (!user && !loading) {
       router.push('/login');
     }
-  }, [isAuthenticated, loading, pathname, router]);
+  }, [user, loading, pathname, router]);
 
   // Show nothing while checking auth
   if (loading) {
@@ -39,5 +39,5 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // For protected routes, only render if authenticated
-  return isAuthenticated ? <>{children}</> : null;
+  return user ? <>{children}</> : null;
 } 

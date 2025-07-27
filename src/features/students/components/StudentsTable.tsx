@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
 import { 
   Search, 
   ArrowUpDown,
@@ -22,7 +23,6 @@ import {
 } from 'lucide-react';
 import type { Student, Subject, Class } from '@/shared/lib/supabase/database/types';
 import { StudentStatus } from '@/shared/lib/supabase/database/types';
-import { studentsApi } from '../api';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 import { AddStudentModal } from './AddStudentModal';
@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ViewClassModal } from '@/features/classes';
+import { useStudentsWithDetails } from '../hooks/useStudentsQuery';
 
 interface StudentsTableProps {
   onRefresh?: number;
@@ -43,12 +44,21 @@ interface StudentsTableProps {
 
 export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: StudentsTableProps = {}) {
   const router = useRouter();
-  const [students, setStudents] = useState<Student[]>([]);
-  const [studentSubjects, setStudentSubjects] = useState<Record<string, Subject[]>>({});
-  const [studentClasses, setStudentClasses] = useState<Record<string, Class[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  
+  // React Query hook for data fetching
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
+  } = useStudentsWithDetails();
+
+  const students = data?.students || [];
+  const studentSubjects = data?.studentSubjects || {};
+  const studentClasses = data?.studentClasses || {};
+
+  // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StudentStatus | 'ALL'>('ALL');
   const [sortField, setSortField] = useState<keyof Student>('lastName');
@@ -59,32 +69,9 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  // Load data
-  const loadStudents = async () => {
-    try {
-      setLoading(true);
-      // Use the new optimized method that gets students, subjects, and classes
-      const { students: studentsData, studentSubjects: subjectsData, studentClasses: classesData } = await studentsApi.getAllStudentsWithDetails();
-      console.log("Student data loaded:", studentsData); // Debug log to check data structure
-      setStudents(studentsData);
-      setStudentSubjects(subjectsData);
-      setStudentClasses(classesData);
-    } catch (err) {
-      console.error('Failed to load students:', err);
-      setError('Failed to load students. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initialize and refresh data
-  useEffect(() => {
-    loadStudents();
-  }, [onRefresh]);
-
-  // Apply filters and sorting
-  useEffect(() => {
-    if (!students) return;
+  // Memoized filtered and sorted students
+  const filteredStudents = useMemo(() => {
+    if (!students) return [];
     
     let result = [...students];
     
@@ -123,8 +110,15 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
       return 0;
     });
     
-    setFilteredStudents(result);
+    return result;
   }, [students, searchTerm, statusFilter, sortField, sortDirection]);
+
+  // Refetch when onRefresh prop changes
+  useEffect(() => {
+    if (onRefresh) {
+      refetch();
+    }
+  }, [onRefresh, refetch]);
 
   const handleSort = (field: keyof Student) => {
     if (sortField === field) {
@@ -148,7 +142,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
   };
 
   const handleStudentUpdated = () => {
-    loadStudents();
+    refetch();
   };
 
   const handleAddStudentClick = () => {
@@ -178,12 +172,56 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     return timeString;
   };
 
-  if (loading && students.length === 0) {
-    return <div className="flex justify-center p-4">Loading students...</div>;
+  // Loading state
+  if (isLoading && students.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search students..."
+              className="pl-8"
+              disabled
+            />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled>
+              <Filter className="h-4 w-4 mr-2" />
+              Status: ALL
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+        
+        <SkeletonTable rows={8} columns={7} />
+        
+        <div className="text-sm text-muted-foreground">
+          Loading students...
+        </div>
+      </div>
+    );
   }
 
+  // Error state
   if (error && students.length === 0) {
-    return <div className="text-red-500 p-4">{error}</div>;
+    return (
+      <div className="text-red-500 p-4">
+        Failed to load students. Please try again.
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => refetch()} 
+          className="ml-2"
+        >
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -226,8 +264,14 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" size="sm" onClick={loadStudents} className="flex items-center">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => refetch()} 
+            className="flex items-center"
+            disabled={isFetching}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
             Refresh
           </Button>
         </div>
@@ -280,9 +324,13 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
             {filteredStudents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-24">
-                  {searchTerm || statusFilter !== 'ALL' 
-                    ? "No students match your filters" 
-                    : "No students found"}
+                  {isLoading ? (
+                    "Loading students..."
+                  ) : searchTerm || statusFilter !== 'ALL' ? (
+                    "No students match your filters"
+                  ) : (
+                    "No students found"
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
@@ -373,6 +421,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
       
       <div className="text-sm text-muted-foreground">
         {filteredStudents.length} students displayed
+        {isFetching && <span className="ml-2">(Refreshing...)</span>}
       </div>
 
       {/* Add Student Modal */}
@@ -406,7 +455,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
           }}
           onClassUpdated={() => {
             // Refresh student data to show updated class information
-            loadStudents();
+            refetch();
           }}
         />
       )}

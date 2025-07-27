@@ -1,411 +1,384 @@
-import { staffRepository, staffSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
-import { Staff, StaffRole, StaffStatus, Subject, StaffSubjects } from '@/shared/lib/supabase/database/types';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { supabaseServer } from '@/shared/lib/supabase/client';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
+import { Staff, StaffRole, Database } from '@/shared/lib/supabase/database/types';
 
-/**
- * Staff API client for working with staff data
- */
+export interface StaffCreateData {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number?: string;
+  role: StaffRole;
+  notes?: string;
+  office_key_number?: number;
+  has_parking_remote?: 'VIRTUAL' | 'PHYSICAL' | 'NONE';
+  availability_monday?: boolean;
+  availability_tuesday?: boolean;
+  availability_wednesday?: boolean;
+  availability_thursday?: boolean;
+  availability_friday?: boolean;
+  availability_saturday_am?: boolean;
+  availability_saturday_pm?: boolean;
+  availability_sunday_am?: boolean;
+  availability_sunday_pm?: boolean;
+}
+
+export interface StaffUpdateData extends Partial<StaffCreateData> {
+  status?: 'ACTIVE' | 'INACTIVE' | 'TRIAL';
+}
+
+export interface CreateStaffRequest extends StaffCreateData {
+  password: string;
+}
+
 export const staffApi = {
-  /**
-   * Get all staff members
-   */
-  getAllStaff: async (): Promise<Staff[]> => {
-    return staffRepository.getAll();
+  // Get all staff
+  getAll: async (): Promise<Staff[]> => {
+    const { data, error } = await supabaseServer
+      .from('staff')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch staff: ${error.message}`);
+    }
+
+    return data || [];
   },
-  
-  /**
-   * Get all staff with their subjects in an optimized single query
-   * This solves the N+1 query problem for the staff table
-   */
-  getAllStaffWithSubjects: async (): Promise<{ staff: Staff[]; staffSubjects: Record<string, Subject[]> }> => {
-    const supabase = getSupabaseClient();
-    
+
+  // Get staff by ID
+  getById: async (id: string): Promise<Staff | null> => {
+    const { data, error } = await supabaseServer
+      .from('staff')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null; // Not found
+      }
+      throw new Error(`Failed to fetch staff: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  // Get staff by user_id
+  getByUserId: async (userId: string): Promise<Staff | null> => {
+    const { data, error } = await supabaseServer
+      .from('staff')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null; // Not found
+      }
+      throw new Error(`Failed to fetch staff: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  // Create new staff (creates auth user and staff record)
+  create: async (data: CreateStaffRequest): Promise<Staff> => {
     try {
-      // Single query to get all data with joins
-      const { data, error } = await supabase
-        .from('staff')
-        .select(`
-          *,
-          staff_subjects!inner(
-            subject:subjects(*)
-          )
-        `);
-      
-      if (error) throw error;
-      
-      // Transform the data structure
-      const staffMap = new Map<string, Staff>();
-      const staffSubjectsMap: Record<string, Subject[]> = {};
-      
-      // Process the joined data
-      data?.forEach((row: any) => {
-        // Transform staff data to camelCase using repository function
-        const staffMember = transformToCamelCase(row) as Staff;
-        
-        staffMap.set(staffMember.id, staffMember);
-        
-        // Initialize subjects array for this staff member if not exists
-        if (!staffSubjectsMap[staffMember.id]) {
-          staffSubjectsMap[staffMember.id] = [];
-        }
-        
-        // Process subjects for this staff member
-        if (row.staff_subjects && Array.isArray(row.staff_subjects)) {
-          row.staff_subjects.forEach((staffSubject: any) => {
-            if (staffSubject.subject) {
-              const subject = transformToCamelCase(staffSubject.subject) as Subject;
-              
-              // Add subject if not already in the array (avoid duplicates)
-              if (!staffSubjectsMap[staffMember.id].some(s => s.id === subject.id)) {
-                staffSubjectsMap[staffMember.id].push(subject);
-              }
-            }
-          });
+      // Create auth user
+      const { data: authData, error: authError } = await supabaseServer.auth.admin.createUser({
+        email: data.email,
+        password: data.password,
+        email_confirm: true,
+        // NOTE: No longer setting user_metadata.user_role since we use staff table roles
+        user_metadata: {
+          first_name: data.first_name,
+          last_name: data.last_name,
         }
       });
-      
-      // Also get staff with no subjects
-      const { data: allStaff, error: allStaffError } = await supabase
-        .from('staff')
-        .select('*');
-      
-      if (allStaffError) throw allStaffError;
-      
-      // Add staff with no subjects to the result
-      allStaff?.forEach((row: any) => {
-        if (!staffMap.has(row.id)) {
-          const staffMember = transformToCamelCase(row) as Staff;
-          
-          staffMap.set(staffMember.id, staffMember);
-          staffSubjectsMap[staffMember.id] = [];
-        }
-      });
-      
-      return {
-        staff: Array.from(staffMap.values()),
-        staffSubjects: staffSubjectsMap
+
+      if (authError) {
+        throw new Error(`Failed to create auth user: ${authError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error('Auth user creation succeeded but no user returned');
+      }
+
+      // Create staff record
+      const staffData = {
+        id: authData.user.id,
+        user_id: authData.user.id,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        email: data.email,
+        phone_number: data.phone_number,
+        role: data.role,
+        status: 'ACTIVE' as const,
+        notes: data.notes,
+        office_key_number: data.office_key_number,
+        has_parking_remote: data.has_parking_remote,
+        availability_monday: data.availability_monday || false,
+        availability_tuesday: data.availability_tuesday || false,
+        availability_wednesday: data.availability_wednesday || false,
+        availability_thursday: data.availability_thursday || false,
+        availability_friday: data.availability_friday || false,
+        availability_saturday_am: data.availability_saturday_am || false,
+        availability_saturday_pm: data.availability_saturday_pm || false,
+        availability_sunday_am: data.availability_sunday_am || false,
+        availability_sunday_pm: data.availability_sunday_pm || false,
       };
-      
-    } catch (error) {
-      console.error('Error getting staff with subjects:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Get a staff member by ID
-   */
-  getStaff: async (id: string): Promise<Staff | undefined> => {
-    return staffRepository.getById(id);
-  },
-  
-  /**
-   * Create a new staff member with a user account
-   */
-  createStaff: async (data: Partial<Staff>, password: string): Promise<{ staff: Staff; userId: string }> => {
-    // Ensure the user is an admin first
-    
-    // Validate email is provided and not null
-    if (!data.email) {
-      throw new Error('Email is required to create a staff member');
-    }
-    
-    // Create user account first
-    const { data: userData, error: userError } = await supabaseServer.auth.admin.createUser({
-      email: data.email,
-      password,
-      email_confirm: false, // Require email verification
-      user_metadata: {
-        user_role: data.role || StaffRole.TUTOR,
-        first_name: data.firstName,
-        last_name: data.lastName,
-      },
-    });
-    
-    if (userError) {
-      console.error('Error creating staff user:', userError);
-      throw userError;
-    }
 
-    if (!userData.user) {
-      throw new Error('Failed to create user account');
-    }
-    
-    // Create staff record with newly created user ID
-    const staffData: Partial<Staff> = {
-      ...data,
-      userId: userData.user.id,
-      status: StaffStatus.ACTIVE,
-    };
-    
-    const staff = await staffRepository.create(staffData);
-    
-    return { staff, userId: userData.user.id };
-  },
-  
-  /**
-   * Update a staff member
-   */
-  updateStaff: async (id: string, data: Partial<Staff>): Promise<Staff> => {
-    // Ensure the user is an admin first
-    
-    // If we're updating the role, also update the user_metadata
-    if (data.role && data.userId) {
-      try {
-        await supabaseServer.auth.admin.updateUserById(data.userId, {
-          user_metadata: {
-            user_role: data.role,
-          },
-        });
-      } catch (error) {
-        console.error('Error updating user role:', error);
-        // Continue with staff update even if user metadata update fails
-      }
-    }
-    
-    return staffRepository.update(id, data);
-  },
-  
-  /**
-   * Delete a staff member
-   */
-  deleteStaff: async (id: string): Promise<void> => {
-    // Ensure the user is an admin first
-    
-    // Get the staff record to find the user ID
-    const staff = await staffRepository.getById(id);
-    
-    // Delete the staff record first
-    await staffRepository.delete(id);
-    
-    // If there's a user ID, also delete the user account
-    if (staff?.userId) {
-      try {
-        await supabaseServer.auth.admin.deleteUser(staff.userId);
-      } catch (error) {
-        console.error('Error deleting user account:', error);
-        // Continue even if user account deletion fails
-      }
-    }
-  },
-  
-  /**
-   * Invite staff member by email (using a temporary password)
-   */
-  inviteStaff: async (data: Partial<Staff>): Promise<{ staff: Staff; userId: string }> => {
-    // Ensure the user is an admin first
-    
-    try {
-      let userId = '';
-      
-      // If email is provided, create a user account
-      if (data.email) {
-        // Generate a temporary password
-        const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).toUpperCase().slice(-2);
-        
-        // Get the base URL (works in both browser and server environments)
-        const baseUrl = typeof window !== 'undefined' 
-          ? window.location.origin 
-          : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-        
-        // Create the user with the temporary password and auto-confirm the email
-        const { data: userData, error: userError } = await supabaseServer.auth.signUp({
-          email: data.email,
-          password: tempPassword,
-          options: {
-            data: {
-              user_role: data.role || StaffRole.TUTOR,
-              first_name: data.firstName,
-              last_name: data.lastName,
-            },
-            emailRedirectTo: `${baseUrl}/auth/reset-password`
-          }
-        });
-        
-        if (userError) {
-          console.error('Error creating staff user:', userError);
-          throw userError;
-        }
-
-        if (!userData.user) {
-          throw new Error('Failed to create user account');
-        }
-        
-        userId = userData.user.id;
-      } else {
-        // If no email, generate a UUID for userId
-        userId = crypto.randomUUID();
-      }
-      
-      // Create staff record with user ID
-      const staffData: Partial<Staff> = {
-        ...data,
-        userId,
-        status: StaffStatus.ACTIVE,
-      };
-      
-      const staff = await staffRepository.create(staffData);
-      
-      return { staff, userId };
-    } catch (error) {
-      console.error('Error inviting staff:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Get the current staff member (for logged in user)
-   */
-  getCurrentStaff: async (): Promise<Staff | null> => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) return null;
-
-      const { data, error } = await supabase
+      const { data: staffRecord, error: staffError } = await supabaseServer
         .from('staff')
-        .select('*')
-        .eq('user_id', user.id)
+        .insert(staffData)
+        .select()
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return null;
-        }
-        throw error;
-      }
-
-      return transformToCamelCase(data) as Staff;
-    } catch (error) {
-      console.error('Error getting current staff:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Get all subjects assigned to a staff member
-   */
-  getStaffSubjects: async (staffId: string): Promise<Subject[]> => {
-    try {
-      // Get all staff_subjects entries for this staff member
-      const staffSubjects = await staffSubjectsRepository.getBy('staff_id', staffId);
-      
-      if (!staffSubjects.length) {
-        return [];
-      }
-      
-      // Get subject details for each subject_id
-      const subjectPromises = staffSubjects.map(async (staffSubject) => {
-        return subjectRepository.getById(staffSubject.subjectId);
-      });
-      
-      const subjectResults = await Promise.all(subjectPromises);
-      // Filter out undefined results (in case a subject doesn't exist anymore)
-      return subjectResults.filter(subject => subject !== undefined) as Subject[];
-    } catch (error) {
-      console.error('Error getting staff subjects:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Assign a subject to a staff member
-   */
-  assignSubjectToStaff: async (staffId: string, subjectId: string): Promise<StaffSubjects> => {
-    try {
-      // Ensure the user is an admin first
-      
-      // Check if the assignment already exists
-      const existing = await staffSubjectsRepository.findByField('staff_id', staffId);
-      if (existing && existing.subjectId === subjectId) {
-        return existing; // Already assigned, return existing record
-      }
-      
-      // Create the staff-subject assignment
-      const staffSubject: Partial<StaffSubjects> = {
-        staffId,
-        subjectId,
-      };
-      
-      return staffSubjectsRepository.create(staffSubject);
-    } catch (error) {
-      console.error('Error assigning subject to staff:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Remove a subject from a staff member
-   */
-  removeSubjectFromStaff: async (staffId: string, subjectId: string): Promise<void> => {
-    try {
-      // Ensure the user is an admin first
-      
-      // Get all staff-subject records for this staff member and subject
-      const staffSubjects = await staffSubjectsRepository.getBy('staff_id', staffId);
-      
-      // Find the specific record for this subject
-      const recordToDelete = staffSubjects.find(record => record.subjectId === subjectId);
-      
-      if (recordToDelete) {
-        await staffSubjectsRepository.delete(recordToDelete.id);
-      }
-    } catch (error) {
-      console.error('Error removing subject from staff:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Get a single staff member with their subjects in an optimized query
-   * This solves the N+1 query problem for the staff modal
-   */
-  getStaffWithSubjects: async (staffId: string): Promise<{ staff: Staff | null; subjects: Subject[] }> => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      // Get staff data
-      const { data: staffData, error: staffError } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('id', staffId)
-        .single();
-      
       if (staffError) {
-        if (staffError.code === 'PGRST116') {
-          return { staff: null, subjects: [] };
-        }
-        throw staffError;
+        // Clean up the auth user if staff creation fails
+        await supabaseServer.auth.admin.deleteUser(authData.user.id);
+        throw new Error(`Failed to create staff record: ${staffError.message}`);
       }
-      
-      // Get staff's subjects in a single query
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('staff_subjects')
-        .select(`
-          subject:subjects(*)
-        `)
-        .eq('staff_id', staffId);
-      
-      if (subjectsError) throw subjectsError;
-      
-      // Transform staff data
-      const staff = transformToCamelCase(staffData) as Staff;
-      
-      // Transform subjects data
-      const subjects = subjectsData
-        ?.map((row: any) => row.subject)
-        .filter(Boolean)
-        .map((subject: any) => transformToCamelCase(subject) as Subject) || [];
-      
-      return { staff, subjects };
-      
+
+      return staffRecord;
     } catch (error) {
-      console.error('Error getting staff with subjects:', error);
-      throw error;
+      throw new Error(`Unexpected error creating staff: ${error}`);
     }
   },
+
+  // Update staff
+  update: async (id: string, data: StaffUpdateData): Promise<Staff> => {
+    // Get current staff record to get user_id for auth update
+    const { data: currentStaff, error: fetchError } = await supabaseServer
+      .from('staff')
+      .select('user_id, email')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch current staff: ${fetchError.message}`);
+    }
+
+    try {
+      // Update auth user if email or role changed
+      if (data.email || data.role) {
+        const authUpdateData: any = {};
+        
+        if (data.email) {
+          authUpdateData.email = data.email;
+        }
+        
+        // Update user metadata
+        authUpdateData.user_metadata = {
+          first_name: data.first_name,
+          last_name: data.last_name,
+          // NOTE: No longer setting user_role in user_metadata since we use staff table roles
+        };
+
+        const { error: authError } = await supabaseServer.auth.admin.updateUserById(
+          currentStaff.user_id,
+          authUpdateData
+        );
+
+        if (authError) {
+          throw new Error(`Failed to update auth user: ${authError.message}`);
+        }
+      }
+
+      // Update staff record
+      const { data: updatedStaff, error: updateError } = await supabaseServer
+        .from('staff')
+        .update({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          email: data.email,
+          phone_number: data.phone_number,
+          role: data.role,
+          status: data.status,
+          notes: data.notes,
+          office_key_number: data.office_key_number,
+          has_parking_remote: data.has_parking_remote,
+          availability_monday: data.availability_monday,
+          availability_tuesday: data.availability_tuesday,
+          availability_wednesday: data.availability_wednesday,
+          availability_thursday: data.availability_thursday,
+          availability_friday: data.availability_friday,
+          availability_saturday_am: data.availability_saturday_am,
+          availability_saturday_pm: data.availability_saturday_pm,
+          availability_sunday_am: data.availability_sunday_am,
+          availability_sunday_pm: data.availability_sunday_pm,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw new Error(`Failed to update staff: ${updateError.message}`);
+      }
+
+      return updatedStaff;
+    } catch (error) {
+      throw new Error(`Unexpected error updating staff: ${error}`);
+    }
+  },
+
+  // Delete staff
+  delete: async (id: string): Promise<void> => {
+    // Get staff record to get user_id for auth deletion
+    const { data: staff, error: fetchError } = await supabaseServer
+      .from('staff')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch staff: ${fetchError.message}`);
+    }
+
+    // Delete staff record (this will trigger cascade delete)
+    const { error: deleteError } = await supabaseServer
+      .from('staff')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete staff: ${deleteError.message}`);
+    }
+
+    // Delete auth user
+    const { error: authError } = await supabaseServer.auth.admin.deleteUser(staff.user_id);
+    if (authError) {
+      console.warn(`Failed to delete auth user ${staff.user_id}: ${authError.message}`);
+      // Don't throw here as the staff record is already deleted
+    }
+  },
+
+  // Create staff account (variant that doesn't require password - for existing users)
+  createAccount: async (data: StaffCreateData & { user_id: string }): Promise<Staff> => {
+    const staffData = {
+      id: data.user_id,
+      user_id: data.user_id,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      email: data.email,
+      phone_number: data.phone_number,
+      role: data.role,
+      status: 'ACTIVE' as const,
+      notes: data.notes,
+      office_key_number: data.office_key_number,
+      has_parking_remote: data.has_parking_remote,
+      availability_monday: data.availability_monday || false,
+      availability_tuesday: data.availability_tuesday || false,
+      availability_wednesday: data.availability_wednesday || false,
+      availability_thursday: data.availability_thursday || false,
+      availability_friday: data.availability_friday || false,
+      availability_saturday_am: data.availability_saturday_am || false,
+      availability_saturday_pm: data.availability_saturday_pm || false,
+      availability_sunday_am: data.availability_sunday_am || false,
+      availability_sunday_pm: data.availability_sunday_pm || false,
+    };
+
+    // Update auth user metadata
+    const { error: authError } = await supabaseServer.auth.admin.updateUserById(
+      data.user_id,
+      {
+        // NOTE: No longer setting user_role in user_metadata since we use staff table roles
+        user_metadata: {
+          first_name: data.first_name,
+          last_name: data.last_name,
+        }
+      }
+    );
+
+    if (authError) {
+      throw new Error(`Failed to update auth user: ${authError.message}`);
+    }
+
+    const { data: staffRecord, error: staffError } = await supabaseServer
+      .from('staff')
+      .insert(staffData)
+      .select()
+      .single();
+
+    if (staffError) {
+      throw new Error(`Failed to create staff record: ${staffError.message}`);
+    }
+
+    return staffRecord;
+  },
+
+  // Get all staff (alias for compatibility with hooks)
+  getAllStaff: async (): Promise<Staff[]> => {
+    return staffApi.getAll();
+  },
+
+  // Get all staff with their subjects (optimized query)
+  getAllStaffWithSubjects: async () => {
+    const { data: staffData, error: staffError } = await supabaseServer
+      .from('staff')
+      .select(`
+        *,
+        staff_subjects (
+          id,
+          subject_id,
+          subjects (*)
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (staffError) {
+      throw new Error(`Failed to fetch staff with subjects: ${staffError.message}`);
+    }
+
+    return {
+      staff: staffData || [],
+      subjects: [] // For backward compatibility if needed
+    };
+  },
+
+  // Get staff member with subjects by ID
+  getStaffWithSubjects: async (staffId: string) => {
+    const { data: staffData, error: staffError } = await supabaseServer
+      .from('staff')
+      .select(`
+        *,
+        staff_subjects (
+          id,
+          subject_id,
+          subjects (*)
+        )
+      `)
+      .eq('id', staffId)
+      .single();
+
+    if (staffError) {
+      if (staffError.code === 'PGRST116') {
+        return { staff: null, subjects: [] };
+      }
+      throw new Error(`Failed to fetch staff with subjects: ${staffError.message}`);
+    }
+
+    // Extract subjects from the nested data structure
+    const subjects = staffData?.staff_subjects?.map((ss: any) => ss.subjects).filter(Boolean) || [];
+
+    return {
+      staff: staffData,
+      subjects: subjects
+    };
+  },
+
+  // Get subjects for a specific staff member
+  getStaffSubjects: async (staffId: string) => {
+    const { data, error } = await supabaseServer
+      .from('staff_subjects')
+      .select(`
+        subjects (*)
+      `)
+      .eq('staff_id', staffId);
+
+    if (error) {
+      throw new Error(`Failed to fetch staff subjects: ${error.message}`);
+    }
+
+    return data?.map((item: any) => item.subjects).filter(Boolean) || [];
+  }
 }; 

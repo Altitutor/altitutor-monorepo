@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Dispatch, SetStateAction, useCallback } from 'react';
+import { useState, useEffect, Dispatch, SetStateAction, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -13,13 +13,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
 import { 
   Search, 
   Grid3X3,
-  Plus
+  Plus,
+  RefreshCw
 } from 'lucide-react';
-import { useClasses } from '../hooks';
-import { classesApi } from '../api';
+import { useClassesWithDetails } from '../hooks/useClassesQuery';
 import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/database/types';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
@@ -37,28 +38,25 @@ type ViewMode = 'table' | 'timetable';
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
   const router = useRouter();
-  const { 
-    items: classes, 
-    loading, 
-    error, 
-    fetchAll, 
-    update, 
-    remove 
-  } = useClasses();
   
-  const [filteredClasses, setFilteredClasses] = useState<Class[]>([]);
+  // React Query hook for data fetching
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
+  } = useClassesWithDetails();
+
+  const classes = data?.classes || [];
+  const classSubjects = data?.classSubjects || {};
+  const classStudents = data?.classStudents || {};
+  const classStaff = data?.classStaff || {};
+  
+  // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
   const [dayFilter, setDayFilter] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  
-  // Additional state for detailed data
-  const [classesWithDetails, setClassesWithDetails] = useState<{
-    classes: Class[];
-    classSubjects: Record<string, Subject>;
-    classStudents: Record<string, Student[]>;
-    classStaff: Record<string, Staff[]>;
-  } | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
   
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
@@ -76,28 +74,31 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
-  // Function to fetch detailed data
-  const fetchAllWithDetails = useCallback(async () => {
-    setDetailsLoading(true);
-    try {
-      const details = await classesApi.getAllClassesWithDetails();
-      setClassesWithDetails(details);
-    } catch (err) {
-      console.error('Error fetching classes with details:', err);
-    } finally {
-      setDetailsLoading(false);
+  // Helper function to convert time to minutes for sorting - moved before useMemo
+  const timeToMinutes = (timeString: string): number => {
+    if (!timeString) return 0;
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const getSubjectDisplay = (classItem: Class): string => {
+    if (!classItem.subjectId) {
+      return classItem.level;
     }
-  }, []);
-
-  useEffect(() => {
-    fetchAllWithDetails();
-  }, [fetchAllWithDetails]);
-
-  useEffect(() => {
-    const sourceClasses = classesWithDetails?.classes || [];
-    if (!sourceClasses.length) return;
     
-    let result = [...sourceClasses];
+    const subject = classSubjects[classItem.id];
+    if (subject) {
+      return formatSubjectDisplay(subject);
+    }
+    
+    return classItem.level;
+  };
+
+  // Memoized filtered and sorted classes
+  const filteredClasses = useMemo(() => {
+    if (!classes.length) return [];
+    
+    let result = [...classes];
     
     // Apply search term
     if (searchTerm) {
@@ -131,15 +132,8 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       return timeA - timeB;
     });
     
-    setFilteredClasses(result);
-  }, [classesWithDetails, searchTerm, dayFilter]);
-
-  // Helper function to convert time to minutes for sorting
-  const timeToMinutes = (timeString: string): number => {
-    if (!timeString) return 0;
-    const [hours, minutes] = timeString.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
+    return result;
+  }, [classes, searchTerm, dayFilter, classSubjects]);
 
   const getStatusBadgeColor = (status: ClassStatus) => {
     switch (status) {
@@ -172,25 +166,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return timeString;
   };
 
-  const getSubjectDisplay = (classItem: Class): string => {
-    if (!classesWithDetails || !classItem.subjectId) {
-      return classItem.level;
-    }
-    
-    const subject = classesWithDetails.classSubjects[classItem.id];
-    if (subject) {
-      return formatSubjectDisplay(subject);
-    }
-    
-    return classItem.level;
-  };
-
   const getClassStudents = (classId: string): Student[] => {
-    return classesWithDetails?.classStudents[classId] || [];
+    return classStudents[classId] || [];
   };
 
   const getClassStaff = (classId: string): Staff[] => {
-    return classesWithDetails?.classStaff[classId] || [];
+    return classStaff[classId] || [];
   };
   
   const handleClassClick = (cls: Class) => {
@@ -210,13 +191,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     setIsStudentModalOpen(true);
   };
 
-  const handleClassUpdated = useCallback(() => {
-    setIsEditModalOpen(false);
-    setIsDetailModalOpen(false);
-    setSelectedClass(null);
-    fetchAll();
-    fetchAllWithDetails(); // Refresh detailed data too
-  }, [fetchAll, fetchAllWithDetails]);
+  const handleClassUpdated = () => {
+    refetch();
+  };
 
   // Day filter toggle function
   const toggleDay = (day: number) => {
@@ -233,12 +210,71 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     setDayFilter([]);
   };
 
-  if (loading || detailsLoading) {
-    return <div>Loading classes...</div>;
+  // Loading state
+  if (isLoading && classes.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search subject or level..."
+                className="pl-8"
+                disabled
+              />
+            </div>
+            
+            <div className="flex items-center gap-1">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                <Button key={day} variant="outline" size="sm" disabled>
+                  {day}
+                </Button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border">
+              <Button variant="default" size="sm" disabled className="rounded-r-none">
+                Table
+              </Button>
+              <Button variant="ghost" size="sm" disabled className="rounded-l-none">
+                <Grid3X3 className="h-4 w-4 mr-1" />
+                Timetable
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" disabled>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+        
+        <SkeletonTable rows={8} columns={6} />
+        
+        <div className="text-sm text-muted-foreground">
+          Loading classes...
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div className="text-red-500">Error loading classes: {error}</div>;
+  // Error state
+  if (error && classes.length === 0) {
+    return (
+      <div className="text-red-500 p-4">
+        Failed to load classes. Please try again.
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => refetch()} 
+          className="ml-2"
+        >
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -339,6 +375,16 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             </Button>
           </div>
           
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => refetch()} 
+            className="flex items-center"
+            disabled={isFetching}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -363,9 +409,13 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
               {filteredClasses.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center h-24">
-                    {searchTerm || dayFilter.length < 7 
-                      ? "No classes match your filters" 
-                      : "No classes found"}
+                    {isLoading ? (
+                      "Loading classes..."
+                    ) : searchTerm || dayFilter.length < 7 ? (
+                      "No classes match your filters"
+                    ) : (
+                      "No classes found"
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -426,24 +476,26 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       )}
 
       {viewMode === 'timetable' && (
-        <div className="h-[600px]">
-          <TimetableView
-            classes={filteredClasses}
-            classSubjects={classesWithDetails?.classSubjects}
-            classStudents={classesWithDetails?.classStudents}
-            classStaff={classesWithDetails?.classStaff}
-            onClassClick={handleClassClick}
-          />
-        </div>
+        <TimetableView
+          classes={filteredClasses}
+          classSubjects={classSubjects}
+          classStudents={classStudents}
+          classStaff={classStaff}
+          onClassClick={handleClassClick}
+        />
       )}
+      
+      <div className="text-sm text-muted-foreground">
+        {filteredClasses.length} classes displayed
+        {isFetching && <span className="ml-2">(Refreshing...)</span>}
+      </div>
 
       {/* Add Class Modal */}
       <AddClassModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
         onClassAdded={() => {
-          fetchAll();
-          fetchAllWithDetails();
+          refetch();
         }}
       />
 
@@ -478,8 +530,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           }}
           onStaffUpdated={() => {
             // Refresh class data to show updated staff information
-            fetchAll();
-            fetchAllWithDetails();
+            refetch();
           }}
         />
       )}
@@ -495,8 +546,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           }}
           onStudentUpdated={() => {
             // Refresh class data to show updated student information
-            fetchAll();
-            fetchAllWithDetails();
+            refetch();
           }}
         />
       )}

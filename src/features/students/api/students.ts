@@ -17,85 +17,6 @@ export const studentsApi = {
   },
   
   /**
-   * Get all students with their subjects in an optimized single query
-   * This solves the N+1 query problem for the students table
-   */
-  getAllStudentsWithSubjects: async (): Promise<{ students: Student[]; studentSubjects: Record<string, Subject[]> }> => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      // Single query to get all data with joins
-      const { data, error } = await supabase
-        .from('students')
-        .select(`
-          *,
-          students_subjects!inner(
-            subject:subjects(*)
-          )
-        `);
-      
-      if (error) throw error;
-      
-      // Transform the data structure
-      const studentsMap = new Map<string, Student>();
-      const studentSubjectsMap: Record<string, Subject[]> = {};
-      
-      // Process the joined data
-      data?.forEach((row: any) => {
-        // Transform student data to camelCase using repository function
-        const student = transformToCamelCase(row) as Student;
-        
-        studentsMap.set(student.id, student);
-        
-        // Initialize subjects array for this student if not exists
-        if (!studentSubjectsMap[student.id]) {
-          studentSubjectsMap[student.id] = [];
-        }
-        
-        // Process subjects for this student
-        if (row.students_subjects && Array.isArray(row.students_subjects)) {
-          row.students_subjects.forEach((studentSubject: any) => {
-            if (studentSubject.subject) {
-              const subject = transformToCamelCase(studentSubject.subject) as Subject;
-              
-              // Add subject if not already in the array (avoid duplicates)
-              if (!studentSubjectsMap[student.id].some(s => s.id === subject.id)) {
-                studentSubjectsMap[student.id].push(subject);
-              }
-            }
-          });
-        }
-      });
-      
-      // Also get students with no subjects
-      const { data: allStudents, error: allStudentsError } = await supabase
-        .from('students')
-        .select('*');
-      
-      if (allStudentsError) throw allStudentsError;
-      
-      // Add students with no subjects to the result
-      allStudents?.forEach((row: any) => {
-        if (!studentsMap.has(row.id)) {
-          const student = transformToCamelCase(row) as Student;
-          
-          studentsMap.set(student.id, student);
-          studentSubjectsMap[student.id] = [];
-        }
-      });
-      
-      return {
-        students: Array.from(studentsMap.values()),
-        studentSubjects: studentSubjectsMap
-      };
-      
-    } catch (error) {
-      console.error('Error getting students with subjects:', error);
-      throw error;
-    }
-  },
-  
-  /**
    * Get a single student with their subjects in an optimized query
    * This solves the N+1 query problem for the student modal
    */
@@ -207,31 +128,6 @@ export const studentsApi = {
     return studentRepository.delete(id);
   },
 
-  /**
-   * Get all subjects assigned to a student
-   */
-  getStudentSubjects: async (studentId: string): Promise<Subject[]> => {
-    try {
-      // Get all students_subjects entries for this student
-      const studentSubjects = await studentsSubjectsRepository.getBy('student_id', studentId);
-      
-      if (!studentSubjects.length) {
-        return [];
-      }
-      
-      // Get subject details for each subject_id
-      const subjectPromises = studentSubjects.map(async (studentSubject) => {
-        return subjectRepository.getById(studentSubject.subjectId);
-      });
-      
-      const subjectResults = await Promise.all(subjectPromises);
-      // Filter out undefined results (in case a subject doesn't exist anymore)
-      return subjectResults.filter(subject => subject !== undefined) as Subject[];
-    } catch (error) {
-      console.error('Error getting student subjects:', error);
-      throw error;
-    }
-  },
   
   /**
    * Assign a subject to a student
@@ -279,18 +175,6 @@ export const studentsApi = {
       }
     } catch (error) {
       console.error('Error removing subject from student:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Get students by status
-   */
-  getStudentsByStatus: async (status: StudentStatus): Promise<Student[]> => {
-    try {
-      return studentRepository.findByModelField('status', status);
-    } catch (error) {
-      console.error('Error getting students by status:', error);
       throw error;
     }
   },

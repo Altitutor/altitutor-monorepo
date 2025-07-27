@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuthStore } from '@/features/auth/hooks';
-import { AuthState as AuthStore } from '@/features/auth/types';
+import { useRouter } from 'next/navigation';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { Database } from '@/shared/lib/supabase/database/types';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -30,9 +31,11 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const { login, loading, error, clearError } = useAuthStore() as AuthStore;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const { resolvedTheme } = useTheme();
+  const router = useRouter();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -43,8 +46,31 @@ export function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    clearError();
-    await login(data.email, data.password);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const supabase = createClientComponentClient<Database>();
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+      
+      if (authError) {
+        throw authError;
+      }
+
+      if (!authData.user || !authData.session) {
+        throw new Error('Authentication failed: No user or session data');
+      }
+
+      // Redirect to dashboard on successful login
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
