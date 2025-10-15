@@ -1,3 +1,8 @@
+cicd
+
+
+
+
 its kinda slow - speed up load / db calls
 - implement tanstack/react-query for api calls and caching. update components to use react-query
 - optimise all api calls which traverse through tables to avoid n+1 problem - get everything in one fetch
