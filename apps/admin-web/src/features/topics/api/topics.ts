@@ -1,6 +1,7 @@
 import { topicRepository, subtopicRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
 import type { Topic, Subtopic } from '../types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 /**
  * Topics API client for working with topic and subtopic data
@@ -67,7 +68,7 @@ export const topicsApi = {
       throw error;
     }
     
-    return data as Topic[];
+    return (data ?? []).map((row: any) => transformToCamelCase(row) as Topic);
   },
 
   /**
@@ -153,7 +154,7 @@ export const topicsApi = {
       }
       
       // Convert from DB format to model format
-      const topics = data.map(topic => ({
+      const topics = (data ?? []).map((topic: any) => ({
         ...topic,
         subjectId: topic.subject_id,
         subject: topic.subjects ? {
@@ -194,7 +195,7 @@ export const topicsApi = {
       }
       
       // Convert from DB format to model format
-      const subtopics = data.map(subtopic => ({
+      const subtopics = (data ?? []).map((subtopic: any) => ({
         ...subtopic,
         topicId: subtopic.topic_id,
         topic: subtopic.topics ? {

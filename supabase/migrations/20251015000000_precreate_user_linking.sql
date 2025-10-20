@@ -56,7 +56,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS staff_user_nn_unique
 -- Prevent duplicates among active rows within the same table
 CREATE UNIQUE INDEX IF NOT EXISTS students_active_user_unique
   ON public.students(user_id)
-  WHERE user_id IS NOT NULL AND status IN ('CURRENT','TRIAL');
+  WHERE user_id IS NOT NULL AND status IN ('ACTIVE','TRIAL');
 
 CREATE UNIQUE INDEX IF NOT EXISTS staff_active_user_unique
   ON public.staff(user_id)
@@ -100,7 +100,7 @@ BEGIN
   UPDATE public.students st
     SET user_id = NEW.id
     WHERE st.user_id IS NULL
-      AND LOWER(st.email) = LOWER(NEW.email);
+      AND LOWER(st.student_email) = LOWER(NEW.email);
 
   RETURN NEW;
 END;$$;
@@ -123,7 +123,7 @@ DECLARE
   v_other_active BOOLEAN;
 BEGIN
   IF TG_TABLE_NAME = 'students' THEN
-    IF (NEW.user_id IS NOT NULL AND NEW.status IN ('CURRENT','TRIAL')) THEN
+    IF (NEW.user_id IS NOT NULL AND NEW.status IN ('ACTIVE','TRIAL')) THEN
       SELECT EXISTS (
         SELECT 1 FROM public.staff
         WHERE user_id = NEW.user_id
@@ -138,7 +138,7 @@ BEGIN
       SELECT EXISTS (
         SELECT 1 FROM public.students
         WHERE user_id = NEW.user_id
-          AND status IN ('CURRENT','TRIAL')
+          AND status IN ('ACTIVE','TRIAL')
       ) INTO v_other_active;
       IF v_other_active THEN
         RAISE EXCEPTION 'User has an active student record';
@@ -158,5 +158,8 @@ DROP TRIGGER IF EXISTS staff_role_guard ON public.staff;
 CREATE TRIGGER staff_role_guard
   BEFORE INSERT OR UPDATE ON public.staff
   FOR EACH ROW EXECUTE PROCEDURE public.prevent_dual_active_roles();
+
+
+
 
 

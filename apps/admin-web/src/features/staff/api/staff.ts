@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/shared/lib/supabase/client';
 import { Staff, StaffRole, Database } from '@/shared/lib/supabase/database/types';
+import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 export interface StaffCreateData {
   first_name: string;
@@ -29,6 +30,25 @@ export interface CreateStaffRequest extends StaffCreateData {
   password: string;
 }
 
+// Input from UI for inviting/creating staff (camelCase fields)
+export interface StaffInviteData {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+  phoneNumber?: string | null;
+  role: StaffRole;
+  status?: 'ACTIVE' | 'INACTIVE' | 'TRIAL';
+  availabilityMonday?: boolean;
+  availabilityTuesday?: boolean;
+  availabilityWednesday?: boolean;
+  availabilityThursday?: boolean;
+  availabilityFriday?: boolean;
+  availabilitySaturdayAm?: boolean;
+  availabilitySaturdayPm?: boolean;
+  availabilitySundayAm?: boolean;
+  availabilitySundayPm?: boolean;
+}
+
 export const staffApi = {
   // Get all staff
   getAll: async (): Promise<Staff[]> => {
@@ -41,7 +61,12 @@ export const staffApi = {
       throw new Error(`Failed to fetch staff: ${error.message}`);
     }
 
-    return data || [];
+    return (data?.map((item) => transformToCamelCase(item)) as Staff[]) || [];
+  },
+
+  // Back-compat alias
+  getStaff: async (id: string): Promise<Staff | null> => {
+    return staffApi.getById(id);
   },
 
   // Get staff by ID
@@ -59,7 +84,7 @@ export const staffApi = {
       throw new Error(`Failed to fetch staff: ${error.message}`);
     }
 
-    return data;
+    return data ? (transformToCamelCase(data) as Staff) : null;
   },
 
   // Get staff by user_id
@@ -77,7 +102,7 @@ export const staffApi = {
       throw new Error(`Failed to fetch staff: ${error.message}`);
     }
 
-    return data;
+    return data ? (transformToCamelCase(data) as Staff) : null;
   },
 
   // Create new staff (creates auth user and staff record)
@@ -139,10 +164,44 @@ export const staffApi = {
         throw new Error(`Failed to create staff record: ${staffError.message}`);
       }
 
-      return staffRecord;
+      return transformToCamelCase(staffRecord) as Staff;
     } catch (error) {
       throw new Error(`Unexpected error creating staff: ${error}`);
     }
+  },
+
+  // Wrapper used by hooks/components (expects camelCase Partial<Staff> + password)
+  createStaff: async (
+    data: Partial<Staff>,
+    password: string
+  ): Promise<{ staff: Staff }> => {
+    if (!data.email) {
+      throw new Error('Email is required to create a staff account with password');
+    }
+    if (!data.firstName || !data.lastName) {
+      throw new Error('First and last name are required to create a staff account');
+    }
+    if (!data.role) {
+      throw new Error('Role is required to create a staff account');
+    }
+    const staff = await staffApi.create({
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      phone_number: data.phoneNumber ?? undefined,
+      role: data.role,
+      password,
+      availability_monday: data.availabilityMonday,
+      availability_tuesday: data.availabilityTuesday,
+      availability_wednesday: data.availabilityWednesday,
+      availability_thursday: data.availabilityThursday,
+      availability_friday: data.availabilityFriday,
+      availability_saturday_am: data.availabilitySaturdayAm,
+      availability_saturday_pm: data.availabilitySaturdayPm,
+      availability_sunday_am: data.availabilitySundayAm,
+      availability_sunday_pm: data.availabilitySundayPm,
+    });
+    return { staff };
   },
 
   // Update staff
@@ -215,10 +274,34 @@ export const staffApi = {
         throw new Error(`Failed to update staff: ${updateError.message}`);
       }
 
-      return updatedStaff;
+      return transformToCamelCase(updatedStaff) as Staff;
     } catch (error) {
       throw new Error(`Unexpected error updating staff: ${error}`);
     }
+  },
+
+  // Back-compat alias that accepts camelCase fields
+  updateStaff: async (id: string, data: Partial<Staff>): Promise<Staff> => {
+    return staffApi.update(id, {
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email ?? undefined,
+      phone_number: data.phoneNumber ?? undefined,
+      role: data.role,
+      status: data.status,
+      notes: data.notes ?? undefined,
+      office_key_number: data.officeKeyNumber ?? undefined,
+      has_parking_remote: data.hasParkingRemote ?? undefined,
+      availability_monday: data.availabilityMonday,
+      availability_tuesday: data.availabilityTuesday,
+      availability_wednesday: data.availabilityWednesday,
+      availability_thursday: data.availabilityThursday,
+      availability_friday: data.availabilityFriday,
+      availability_saturday_am: data.availabilitySaturdayAm,
+      availability_saturday_pm: data.availabilitySaturdayPm,
+      availability_sunday_am: data.availabilitySundayAm,
+      availability_sunday_pm: data.availabilitySundayPm,
+    });
   },
 
   // Delete staff
@@ -250,6 +333,59 @@ export const staffApi = {
       console.warn(`Failed to delete auth user ${staff.user_id}: ${authError.message}`);
       // Don't throw here as the staff record is already deleted
     }
+  },
+
+  // Back-compat alias name used by hooks/components
+  deleteStaff: async (id: string): Promise<void> => {
+    return staffApi.delete(id);
+  },
+
+  // Invite a user by email and create the staff record
+  inviteStaff: async (data: StaffInviteData): Promise<{ staff: Staff }> => {
+    if (!data.email || data.email === '') {
+      throw new Error('Email is required to invite staff');
+    }
+
+    // Create/auth invite the user
+    const { data: inviteData, error: inviteError } = await supabaseServer.auth.admin.inviteUserByEmail(
+      data.email,
+      {
+        // Store some basic metadata for convenience
+        data: {
+          first_name: data.firstName,
+          last_name: data.lastName,
+        },
+      }
+    );
+
+    if (inviteError) {
+      throw new Error(`Failed to invite user: ${inviteError.message}`);
+    }
+
+    if (!inviteData.user) {
+      throw new Error('Invitation succeeded but no user returned');
+    }
+
+    // Create staff account associated to invited user
+    const staff = await staffApi.createAccount({
+      user_id: inviteData.user.id,
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      phone_number: data.phoneNumber ?? undefined,
+      role: data.role,
+      availability_monday: data.availabilityMonday,
+      availability_tuesday: data.availabilityTuesday,
+      availability_wednesday: data.availabilityWednesday,
+      availability_thursday: data.availabilityThursday,
+      availability_friday: data.availabilityFriday,
+      availability_saturday_am: data.availabilitySaturdayAm,
+      availability_saturday_pm: data.availabilitySaturdayPm,
+      availability_sunday_am: data.availabilitySundayAm,
+      availability_sunday_pm: data.availabilitySundayPm,
+    });
+
+    return { staff };
   },
 
   // Create staff account (variant that doesn't require password - for existing users)
@@ -303,7 +439,7 @@ export const staffApi = {
       throw new Error(`Failed to create staff record: ${staffError.message}`);
     }
 
-    return staffRecord;
+    return transformToCamelCase(staffRecord) as Staff;
   },
 
   // Get all staff (alias for compatibility with hooks)
@@ -311,8 +447,15 @@ export const staffApi = {
     return staffApi.getAll();
   },
 
+  // Current logged-in user's staff record
+  getCurrentStaff: async (): Promise<Staff | null> => {
+    const { data: userData, error } = await supabaseServer.auth.getUser();
+    if (error || !userData.user) return null;
+    return staffApi.getByUserId(userData.user.id);
+  },
+
   // Get all staff with their subjects (optimized query)
-  getAllStaffWithSubjects: async () => {
+  getAllStaffWithSubjects: async (): Promise<{ staff: Staff[]; subjects: any[] }> => {
     const { data: staffData, error: staffError } = await supabaseServer
       .from('staff')
       .select(`
@@ -330,8 +473,8 @@ export const staffApi = {
     }
 
     return {
-      staff: staffData || [],
-      subjects: [] // For backward compatibility if needed
+      staff: (staffData?.map((item: any) => transformToCamelCase(item) as Staff) || []),
+      subjects: []
     };
   },
 
@@ -361,9 +504,35 @@ export const staffApi = {
     const subjects = staffData?.staff_subjects?.map((ss: any) => ss.subjects).filter(Boolean) || [];
 
     return {
-      staff: staffData,
+      staff: transformToCamelCase(staffData) as Staff,
       subjects: subjects
     };
+  },
+
+  // Assign subject to staff
+  assignSubjectToStaff: async (staffId: string, subjectId: string): Promise<void> => {
+    const { error } = await supabaseServer
+      .from('staff_subjects')
+      .insert({ staff_id: staffId, subject_id: subjectId });
+
+    if (error) {
+      // Ignore duplicate insert
+      if (error.code === '23505') return;
+      throw new Error(`Failed to assign subject: ${error.message}`);
+    }
+  },
+
+  // Remove subject from staff
+  removeSubjectFromStaff: async (staffId: string, subjectId: string): Promise<void> => {
+    const { error } = await supabaseServer
+      .from('staff_subjects')
+      .delete()
+      .eq('staff_id', staffId)
+      .eq('subject_id', subjectId);
+
+    if (error) {
+      throw new Error(`Failed to remove subject: ${error.message}`);
+    }
   },
 
   // Get subjects for a specific staff member

@@ -26,7 +26,7 @@ export class Repository<T extends BaseEntity> {
    */
   async getAll(): Promise<T[]> {
     const { data, error } = await this.getClient()
-      .from(this.tableName)
+      .from(this.tableName as any)
       .select('*');
     
     if (error) {
@@ -43,7 +43,7 @@ export class Repository<T extends BaseEntity> {
    */
   async getById(id: string): Promise<T | undefined> {
     const { data, error } = await this.getClient()
-      .from(this.tableName)
+      .from(this.tableName as any)
       .select('*')
       .eq('id', id)
       .single();
@@ -70,7 +70,7 @@ export class Repository<T extends BaseEntity> {
    */
   async getBy(field: string, value: unknown): Promise<T[]> {
     const { data, error } = await this.getClient()
-      .from(this.tableName)
+      .from(this.tableName as any)
       .select('*')
       .eq(field, value);
     
@@ -96,7 +96,7 @@ export class Repository<T extends BaseEntity> {
     const dbData = convertToDbFormat(data);
     
     const { data: newEntity, error } = await this.getClient()
-      .from(this.tableName)
+      .from(this.tableName as any)
       .insert([{
         ...dbData,
         id: crypto.randomUUID() // Generate UUID on client side
@@ -117,7 +117,7 @@ export class Repository<T extends BaseEntity> {
     const dbData = convertToDbFormat(data);
     
     const { data: updatedEntity, error } = await this.getClient()
-      .from(this.tableName)
+      .from(this.tableName as any)
       .update(dbData)
       .eq('id', id)
       .select()
@@ -133,7 +133,7 @@ export class Repository<T extends BaseEntity> {
    */
   async delete(id: string): Promise<void> {
     const { error } = await this.getClient()
-      .from(this.tableName)
+      .from(this.tableName as any)
       .delete()
       .eq('id', id);
     
@@ -145,7 +145,7 @@ export class Repository<T extends BaseEntity> {
    */
   async findByField(field: string, value: string | number | boolean): Promise<T | null> {
     const { data, error } = await this.getClient()
-      .from(this.tableName)
+      .from(this.tableName as any)
       .select('*')
       .eq(field, value)
       .single();

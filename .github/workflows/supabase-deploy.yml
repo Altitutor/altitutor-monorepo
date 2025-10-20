@@ -1,0 +1,66 @@
+name: Supabase Deploy
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+
+      - name: Select project (branch → project)
+        id: project
+        run: |
+          if [ "${{ github.ref_name }}" = "develop" ]; then
+            echo "project=${{ secrets.SUPABASE_DEV_PROJECT_ID }}" >> $GITHUB_OUTPUT
+          else
+            echo "project=${{ secrets.SUPABASE_PROD_PROJECT_ID }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Export CLI env (PROJECT_ID, DB_PASSWORD)
+        run: |
+          echo "SUPABASE_PROJECT_ID=${{ steps.project.outputs.project }}" >> $GITHUB_ENV
+          if [ "${{ github.ref_name }}" = "develop" ]; then
+            echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DEV_DB_PASSWORD }}" >> $GITHUB_ENV
+          else
+            echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_PROD_DB_PASSWORD }}" >> $GITHUB_ENV
+          fi
+
+      - name: Link project
+        run: supabase link --project-ref $SUPABASE_PROJECT_ID
+
+      - name: Lint migrations (safety)
+        run: supabase db lint
+
+      - name: Push migrations
+        run: supabase db push
+
+      - name: Deploy edge functions (if any)
+        if: ${{ contains(github.event.head_commit.message, '[skip-functions]') == false }}
+        run: |
+          if [ -d "supabase/functions" ]; then
+            for fn in $(ls supabase/functions); do
+              supabase functions deploy "$fn" --project-ref $SUPABASE_PROJECT_ID || true
+            done
+          fi
+
+
+
+
+

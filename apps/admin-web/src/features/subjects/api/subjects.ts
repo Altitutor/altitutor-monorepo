@@ -1,6 +1,7 @@
 import { subjectRepository } from '@/shared/lib/supabase/database/repositories';
 import type { Subject, Topic, Subtopic } from '../types';
 import { useSupabaseClient, getSupabaseClient } from '@/shared/lib/supabase/client';
+import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 import { 
   staffSubjectsRepository, 
   studentsSubjectsRepository, 
@@ -91,7 +92,7 @@ export const subjectsApi = {
       throw error;
     }
     
-    return data as Subject[];
+    return (data ?? []).map((row: any) => transformToCamelCase(row) as Subject);
   },
 
   /**

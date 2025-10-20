@@ -10,7 +10,11 @@ dev-debug.log
 node_modules/
 
 # Environment variables
-.env
+*/*/.env.*
+.env.local
+.env.remote
+.env.dev
+.env.prod
 
 # Editor directories and files
 .idea
@@ -32,3 +36,7 @@ tasks/
 
 # Resource folder
 altitutor-admin-obsidian-vault/
+
+# Turbo
+.turbo/
+**/.turbo/
