@@ -1,0 +1,61 @@
+-- Fix lint errors for functions by qualifying columns and casting enum to text
+
+-- 1) has_student_selected_subjects: disambiguate column vs param
+CREATE OR REPLACE FUNCTION public.has_student_selected_subjects(p_student_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.students_subjects ss
+    WHERE ss.student_id = p_student_id
+  );
+$$;
+
+-- 2) get_subjects_for_student: cast enum to text for UPPER comparison
+--    If p_curriculum is NULL, treat as wildcard
+CREATE OR REPLACE FUNCTION public.get_subjects_for_student(p_curriculum text, p_year_level integer)
+RETURNS SETOF public.subjects
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT *
+  FROM public.subjects s
+  WHERE (
+    p_curriculum IS NULL OR UPPER(s.curriculum::text) = UPPER(p_curriculum)
+  )
+  AND (
+    p_year_level IS NULL OR s.year_level = p_year_level
+  )
+  ORDER BY s.name;
+$$;
+
+-- 3) map_tutor_to_id: qualify column names to avoid ambiguity
+CREATE OR REPLACE FUNCTION public.map_tutor_to_id(p_first_name text, p_last_name text)
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT s.id
+  FROM public.staff s
+  WHERE s.first_name = p_first_name
+    AND s.last_name = p_last_name
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+$$;
+
+-- 4) get_student_subjects: avoid ambiguous id by qualifying columns
+CREATE OR REPLACE FUNCTION public.get_student_subjects(p_student_id uuid)
+RETURNS SETOF public.subjects
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT sub.*
+  FROM public.students_subjects ss
+  JOIN public.subjects sub ON sub.id = ss.subject_id
+  WHERE ss.student_id = p_student_id
+  ORDER BY sub.name;
+$$;
+
+
