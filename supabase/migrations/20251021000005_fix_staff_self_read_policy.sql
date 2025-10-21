@@ -10,7 +10,8 @@ ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
 -- Allow any authenticated user to read their own staff row. This unblocks
 -- role resolution for helper functions (public.is_adminstaff/is_tutor) and
 -- for policies that do EXISTS() checks against staff.
-CREATE POLICY IF NOT EXISTS "Self can read own staff row" ON public.staff
+DROP POLICY IF EXISTS "Self can read own staff row" ON public.staff;
+CREATE POLICY "Self can read own staff row" ON public.staff
   FOR SELECT TO authenticated
   USING (user_id = auth.uid());
 
