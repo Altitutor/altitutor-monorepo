@@ -48,11 +48,11 @@ jobs:
       - name: Link project
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
-      - name: Lint migrations (safety)
-        run: supabase db lint --linked --level error --fail-on error
-
       - name: Push migrations
         run: supabase db push
+
+      - name: Lint remote schema (post-push)
+        run: supabase db lint --linked --level error --fail-on error
 
       - name: Generate TypeScript types (shared package)
         run: |
