@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -43,55 +43,9 @@ export function ClassesTab({
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  const loadStudentClasses = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      // Get all classes with details
-      const { classes: allClassesData, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
-      // Create StudentClass objects for all classes
-      const allClassesWithDetails: StudentClass[] = [];
-      const studentClasses: StudentClass[] = [];
-      for (const cls of allClassesData) {
-        const subject = classSubjects[cls.id];
-        const staff = classStaff[cls.id] || [];
-        const enrolledStudents = classStudents[cls.id] || [];
-        const studentCount = enrolledStudents.length;
-        const isEnrolled = enrolledStudents.some(enrolledStudent => enrolledStudent.id === student.id);
-        const classWithDetails = {
-          class: cls,
-          subject,
-          staff,
-          studentCount
-        };
-        allClassesWithDetails.push(classWithDetails);
-        if (isEnrolled) {
-          studentClasses.push(classWithDetails);
-        }
-      }
-      const sortClasses = (classes: StudentClass[]) => {
-        return classes.sort((a, b) => {
-          const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
-          const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
-          if (dayA !== dayB) {
-            return dayA - dayB;
-          }
-          return a.class.start_time.localeCompare(b.class.start_time);
-        });
-      };
-      setClasses(sortClasses([...studentClasses]));
-      setAllClasses(sortClasses([...allClassesWithDetails]));
-    } catch (err) {
-      console.error('Error loading student classes:', err);
-      setError('Failed to load classes');
-    } finally {
-      setLoading(false);
-    }
-  }, [student.id]);
-
   useEffect(() => {
     loadStudentClasses();
-  }, [student.id, loadStudentClasses]);
+  }, [student.id]);
 
   const loadStudentClasses = async () => {
     try {

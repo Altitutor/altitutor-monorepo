@@ -15,6 +15,7 @@ export default function TutorSessionLogsPage() {
     id: s.id,
     date: s.date,
     type: s.type,
+    status: s.status,
   })), [sessions]);
 
   return (
@@ -31,22 +32,24 @@ export default function TutorSessionLogsPage() {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={2} className="text-center h-24">Loading sessions...</TableCell>
+                    <TableCell colSpan={3} className="text-center h-24">Loading sessions...</TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={2} className="text-center h-24">No sessions assigned</TableCell>
+                    <TableCell colSpan={3} className="text-center h-24">No sessions assigned</TableCell>
                   </TableRow>
                 ) : (
                   rows.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>{r.date}</TableCell>
                       <TableCell>{r.type}</TableCell>
+                      <TableCell>{r.status}</TableCell>
                     </TableRow>
                   ))
                 )}

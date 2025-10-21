@@ -54,7 +54,8 @@ BEGIN
 END $$;
 
 -- Create uniform ADMINSTAFF(ACTIVE) policy for student_absences
-CREATE POLICY IF NOT EXISTS "ADMINSTAFF full access to student_absences" ON public.student_absences
+DROP POLICY IF EXISTS "ADMINSTAFF full access to student_absences" ON public.student_absences;
+CREATE POLICY "ADMINSTAFF full access to student_absences" ON public.student_absences
   FOR ALL TO authenticated
   USING (public.is_adminstaff_active())
   WITH CHECK (public.is_adminstaff_active());

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
@@ -98,42 +98,6 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
     }
   });
 
-  const loadSubjects = useCallback(async () => {
-    try {
-      const subjectsData = await subjectsApi.getAllSubjects();
-      setSubjects(subjectsData);
-    } catch (error) {
-      console.error('Error loading subjects:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load subjects',
-        variant: 'destructive',
-      });
-    }
-  }, [toast]);
-
-  const loadTopic = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Load topic with subject data included
-      const topicsWithSubjects = await topicsApi.getTopicsWithSubjects();
-      const topicData = topicsWithSubjects.topics.find(t => t.id === id);
-      if (!topicData) {
-        throw new Error('Topic not found');
-      }
-      setTopic(topicData);
-      setSubject(topicsWithSubjects.subjectByTopicId[topicData.id] ?? null);
-      const subtopicsData = await topicsApi.getSubtopicsByTopic(id);
-      setSubtopics(subtopicsData);
-    } catch (error) {
-      console.error('Error loading topic:', error);
-      setError('Failed to load topic data');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (isOpen) {
       loadSubjects();
@@ -143,7 +107,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
     } else {
       setIsEditing(false);
     }
-  }, [isOpen, topicId, loadSubjects, loadTopic]);
+  }, [isOpen, topicId]);
 
   // Update form when topic is loaded
   useEffect(() => {

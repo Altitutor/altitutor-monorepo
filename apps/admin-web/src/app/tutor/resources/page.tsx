@@ -1,3 +1,5 @@
+export { default } from '@/app/(tutor)/resources/page';
+
 'use client';
 
 import { TopicsTable } from '@/features/topics/components';

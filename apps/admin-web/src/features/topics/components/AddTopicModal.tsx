@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
@@ -39,7 +39,7 @@ export function AddTopicModal({ isOpen, onClose, onTopicAdded }: AddTopicModalPr
     }
   }, [isOpen]);
 
-  const loadSubjects = useCallback(async () => {
+  const loadSubjects = async () => {
     setLoading(true);
     try {
       const subjectsData = await subjectsApi.getAllSubjects();
@@ -54,7 +54,7 @@ export function AddTopicModal({ isOpen, onClose, onTopicAdded }: AddTopicModalPr
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
