@@ -1,4 +1,2 @@
-import { useRepository } from '@/shared/hooks/useRepository';
-import { subjectRepository } from '@/shared/lib/supabase/database/repositories';
-
-export const useSubjects = () => useRepository(subjectRepository); 
+// Repository layer removed. Use subjects feature hooks or direct API methods.
+export {};

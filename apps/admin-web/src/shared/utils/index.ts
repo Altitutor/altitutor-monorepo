@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Subject } from '@/shared/lib/supabase/database/types'
+import type { Tables } from '@altitutor/shared'
 
 /**
  * Combines class names with Tailwind's merge utility
@@ -41,10 +41,10 @@ export function formatDateTime(date: Date | string): string {
  * Format a subject for consistent display across the application
  * Combines curriculum, year level, name, and level in a standardized format
  */
-export function formatSubjectDisplay(subject: Subject): string {
+export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
   return [
     subject.curriculum || '',
-    subject.yearLevel ? subject.yearLevel : '',
+    subject.year_level ? subject.year_level : '',
     subject.name || '',
     subject.level || ''
   ].filter(Boolean).join(' ').trim();

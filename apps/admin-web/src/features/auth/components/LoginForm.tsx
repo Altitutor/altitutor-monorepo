@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Database } from '@/shared/lib/supabase/database/generated';
+import type { Database } from '@altitutor/shared';
 import { Button } from '@/components/ui/button';
 import {
   Form,

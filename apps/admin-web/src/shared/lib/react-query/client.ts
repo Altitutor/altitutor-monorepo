@@ -10,12 +10,10 @@ export const queryClient = new QueryClient({
       // Retry failed requests 3 times with exponential backoff
       retry: 3,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      // Refetch on window focus for fresh data
-      refetchOnWindowFocus: true,
-      // Don't refetch on reconnect by default (can be overridden per query)
-      refetchOnReconnect: 'always',
-      // Enable background refetching
-      refetchOnMount: true,
+      // Avoid refetching on each navigation; rely on staleTime
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
     },
     mutations: {
       // Retry mutations once on failure

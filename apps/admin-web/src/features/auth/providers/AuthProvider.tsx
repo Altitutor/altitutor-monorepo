@@ -5,7 +5,7 @@ import { Session } from '@supabase/supabase-js';
 import { User } from '@supabase/auth-helpers-nextjs';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
-import { Database } from '@/shared/lib/supabase/database/generated';
+import type { Database } from '@altitutor/shared';
 
 // Create context
 type AuthContextType = {

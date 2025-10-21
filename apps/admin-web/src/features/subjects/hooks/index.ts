@@ -1,2 +1,2 @@
-export { useSubjects } from './useSubjects';
+// useSubjects hook removed - use useSubjectsQuery instead
 export * from './useSubjectsQuery'; 

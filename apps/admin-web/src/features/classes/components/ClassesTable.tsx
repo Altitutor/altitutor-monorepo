@@ -21,7 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useClassesWithDetails } from '../hooks/useClassesQuery';
-import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
@@ -48,10 +48,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     isFetching 
   } = useClassesWithDetails();
 
-  const classes = data?.classes || [];
-  const classSubjects = data?.classSubjects || {};
-  const classStudents = data?.classStudents || {};
-  const classStaff = data?.classStaff || {};
+  const classes: Tables<'classes'>[] = (data?.classes as Tables<'classes'>[]) || [];
+  const classSubjects: Record<string, Tables<'subjects'>> = (data?.classSubjects as Record<string, Tables<'subjects'>>) || {};
+  const classStudents: Record<string, Tables<'students'>[]> = (data?.classStudents as Record<string, Tables<'students'>[]>) || {};
+  const classStaff: Record<string, Tables<'staff'>[]> = (data?.classStaff as Record<string, Tables<'staff'>[]>) || {};
   
   // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,7 +62,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [selectedClass, setSelectedClass] = useState<Tables<'classes'> | null>(null);
 
   // Use external modal state if provided, otherwise use internal state
   const isAddModalOpen = addModalState ? addModalState[0] : internalAddModalOpen;
@@ -81,9 +81,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return hours * 60 + minutes;
   };
 
-  const getSubjectDisplay = (classItem: Class): string => {
-    if (!classItem.subjectId) {
-      return classItem.level;
+  const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
+    if (!classItem.subject_id) {
+      return classItem.subject;
     }
     
     const subject = classSubjects[classItem.id];
@@ -91,7 +91,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       return formatSubjectDisplay(subject);
     }
     
-    return classItem.level;
+    return classItem.subject;
   };
 
   // Memoized filtered and sorted classes
@@ -105,7 +105,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(cls => {
         const subjectDisplay = getSubjectDisplay(cls).toLowerCase();
-        return cls.level.toLowerCase().includes(searchLower) ||
+        return cls.subject.toLowerCase().includes(searchLower) ||
                subjectDisplay.includes(searchLower) ||
                cls.notes?.toLowerCase().includes(searchLower);
       });
@@ -113,35 +113,35 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     
     // Apply day filter (multi-select)
     if (dayFilter.length > 0) {
-      result = result.filter(cls => dayFilter.includes(cls.dayOfWeek));
+      result = result.filter(cls => dayFilter.includes(cls.day_of_week));
     }
     
     // Default sorting: by day (Monday-Sunday), then by start time (earliest to latest)
     result.sort((a, b) => {
       // First sort by day (Monday=1, Tuesday=2, etc., Sunday=0 should be last)
-      const dayA = a.dayOfWeek === 0 ? 7 : a.dayOfWeek; // Move Sunday to end
-      const dayB = b.dayOfWeek === 0 ? 7 : b.dayOfWeek;
+      const dayA = a.day_of_week === 0 ? 7 : a.day_of_week; // Move Sunday to end
+      const dayB = b.day_of_week === 0 ? 7 : b.day_of_week;
       
       if (dayA !== dayB) {
         return dayA - dayB;
       }
       
       // If same day, sort by start time
-      const timeA = timeToMinutes(a.startTime);
-      const timeB = timeToMinutes(b.startTime);
+      const timeA = timeToMinutes(a.start_time);
+      const timeB = timeToMinutes(b.start_time);
       return timeA - timeB;
     });
     
     return result;
   }, [classes, searchTerm, dayFilter, classSubjects]);
 
-  const getStatusBadgeColor = (status: ClassStatus) => {
+  const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case ClassStatus.ACTIVE:
+      case 'ACTIVE':
         return 'bg-green-100 text-green-800';
-      case ClassStatus.INACTIVE:
+      case 'INACTIVE':
         return 'bg-gray-100 text-gray-800';
-      case ClassStatus.FULL:
+      case 'FULL':
         return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -166,15 +166,15 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return timeString;
   };
 
-  const getClassStudents = (classId: string): Student[] => {
+  const getClassStudents = (classId: string): Tables<'students'>[] => {
     return classStudents[classId] || [];
   };
 
-  const getClassStaff = (classId: string): Staff[] => {
+  const getClassStaff = (classId: string): Tables<'staff'>[] => {
     return classStaff[classId] || [];
   };
   
-  const handleClassClick = (cls: Class) => {
+  const handleClassClick = (cls: Tables<'classes'>) => {
     setSelectedClass(cls);
     setIsDetailModalOpen(true);
   };
@@ -400,7 +400,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                 <TableHead>
                   Subject
                 </TableHead>
-                <TableHead>Level</TableHead>
+                <TableHead>Subject Code</TableHead>
                 <TableHead>Students</TableHead>
                 <TableHead>Staff</TableHead>
               </TableRow>
@@ -425,14 +425,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleClassClick(cls)}
                   >
-                    <TableCell>{getDayOfWeek(cls.dayOfWeek)}</TableCell>
+                    <TableCell>{getDayOfWeek(cls.day_of_week)}</TableCell>
                     <TableCell>
-                      {formatTime(cls.startTime)} - {formatTime(cls.endTime)}
+                      {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
                     </TableCell>
                     <TableCell className="font-medium">
                       {getSubjectDisplay(cls)}
                     </TableCell>
-                    <TableCell>{cls.level}</TableCell>
+                    <TableCell>{cls.subject}</TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         {getClassStudents(cls.id).length === 0 ? (
@@ -444,7 +444,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                               className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
                               onClick={(e) => handleStudentClick(student.id, e)}
                             >
-                              {student.firstName} {student.lastName}
+                              {student.first_name} {student.last_name}
                             </div>
                           ))
                         )}
@@ -461,7 +461,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                               className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
                               onClick={(e) => handleStaffClick(staff.id, e)}
                             >
-                              {staff.firstName} {staff.lastName}
+                              {staff.first_name} {staff.last_name}
                             </div>
                           ))
                         )}

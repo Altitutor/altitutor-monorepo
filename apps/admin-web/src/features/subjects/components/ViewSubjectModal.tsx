@@ -22,8 +22,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { subjectsApi } from '../api';
-import type { Subject } from '../types';
-import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/database/types';
+import type { Tables, Enums, TablesUpdate } from '@altitutor/shared';
 import {
   Form,
   FormControl,
@@ -69,7 +68,7 @@ export interface ViewSubjectModalProps {
 }
 
 export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated }: ViewSubjectModalProps) {
-  const [subject, setSubject] = useState<Subject | null>(null);
+  const [subject, setSubject] = useState<Tables<'subjects'> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -80,8 +79,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   const formSchema = z.object({
     name: z.string().min(1, "Subject name is required"),
     year_level: z.coerce.number().int().min(1).max(12).nullable(),
-    curriculum: z.nativeEnum(SubjectCurriculum).nullable(),
-    discipline: z.nativeEnum(SubjectDiscipline).nullable(),
+    curriculum: z.enum(['SACE','IB','PRESACE','PRIMARY','MEDICINE']).nullable(),
+    discipline: z.enum(['MATHEMATICS','SCIENCE','HUMANITIES','ENGLISH','ART','LANGUAGE','MEDICINE']).nullable(),
     level: z.string().nullable(),
   });
 
@@ -109,9 +108,9 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     if (subject) {
       form.reset({
         name: subject.name,
-        year_level: subject.yearLevel,
-        curriculum: subject.curriculum,
-        discipline: subject.discipline,
+        year_level: subject.year_level,
+        curriculum: subject.curriculum as any,
+        discipline: subject.discipline as any,
         level: subject.level,
       });
     }
@@ -143,7 +142,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     if (subject) {
       form.reset({
         name: subject.name,
-        year_level: subject.yearLevel,
+        year_level: subject.year_level,
         curriculum: subject.curriculum,
         discipline: subject.discipline,
         level: subject.level,
@@ -157,27 +156,22 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     
     try {
       setLoading(true);
-      const updatedData: Partial<Subject> = {
+      const updatedData: TablesUpdate<'subjects'> = {
         name: values.name,
-        yearLevel: values.year_level,
-        curriculum: values.curriculum,
-        discipline: values.discipline,
+        year_level: values.year_level,
+        curriculum: values.curriculum as any,
+        discipline: values.discipline as any,
         level: values.level,
       };
       
-      await subjectsApi.updateSubject(subject.id, updatedData);
+      const updated = await subjectsApi.updateSubject(subject.id, updatedData);
       
-      const updatedSubject = {
-        ...subject,
-        ...updatedData,
-      };
-      
-      setSubject(updatedSubject);
+      setSubject(updated);
       setIsEditing(false);
       
       toast({
         title: "Subject updated",
-        description: `${updatedSubject.name} has been updated successfully.`,
+        description: `${updated.name} has been updated successfully.`,
       });
       
       if (onSubjectUpdated) {
@@ -327,7 +321,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Curriculum</FormLabel>
-                          <Select 
+                  <Select 
                             onValueChange={value => field.onChange(value || null)} 
                             value={field.value || ""} 
                           >
@@ -337,11 +331,11 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value={SubjectCurriculum.SACE}>{SubjectCurriculum.SACE}</SelectItem>
-                              <SelectItem value={SubjectCurriculum.IB}>{SubjectCurriculum.IB}</SelectItem>
-                              <SelectItem value={SubjectCurriculum.PRESACE}>{SubjectCurriculum.PRESACE}</SelectItem>
-                              <SelectItem value={SubjectCurriculum.PRIMARY}>{SubjectCurriculum.PRIMARY}</SelectItem>
-                              <SelectItem value={SubjectCurriculum.MEDICINE}>{SubjectCurriculum.MEDICINE}</SelectItem>
+                              <SelectItem value={'SACE'}>{'SACE'}</SelectItem>
+                              <SelectItem value={'IB'}>{'IB'}</SelectItem>
+                              <SelectItem value={'PRESACE'}>{'PRESACE'}</SelectItem>
+                              <SelectItem value={'PRIMARY'}>{'PRIMARY'}</SelectItem>
+                              <SelectItem value={'MEDICINE'}>{'MEDICINE'}</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -355,7 +349,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Discipline</FormLabel>
-                          <Select 
+                  <Select 
                             onValueChange={value => field.onChange(value || null)} 
                             value={field.value || ""} 
                           >
@@ -365,13 +359,13 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value={SubjectDiscipline.MATHEMATICS}>{SubjectDiscipline.MATHEMATICS}</SelectItem>
-                              <SelectItem value={SubjectDiscipline.SCIENCE}>{SubjectDiscipline.SCIENCE}</SelectItem>
-                              <SelectItem value={SubjectDiscipline.HUMANITIES}>{SubjectDiscipline.HUMANITIES}</SelectItem>
-                              <SelectItem value={SubjectDiscipline.ENGLISH}>{SubjectDiscipline.ENGLISH}</SelectItem>
-                              <SelectItem value={SubjectDiscipline.ART}>{SubjectDiscipline.ART}</SelectItem>
-                              <SelectItem value={SubjectDiscipline.LANGUAGE}>{SubjectDiscipline.LANGUAGE}</SelectItem>
-                              <SelectItem value={SubjectDiscipline.MEDICINE}>{SubjectDiscipline.MEDICINE}</SelectItem>
+                              <SelectItem value={'MATHEMATICS'}>{'MATHEMATICS'}</SelectItem>
+                              <SelectItem value={'SCIENCE'}>{'SCIENCE'}</SelectItem>
+                              <SelectItem value={'HUMANITIES'}>{'HUMANITIES'}</SelectItem>
+                              <SelectItem value={'ENGLISH'}>{'ENGLISH'}</SelectItem>
+                              <SelectItem value={'ART'}>{'ART'}</SelectItem>
+                              <SelectItem value={'LANGUAGE'}>{'LANGUAGE'}</SelectItem>
+                              <SelectItem value={'MEDICINE'}>{'MEDICINE'}</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -388,7 +382,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                   <div>{subject.name}</div>
                   
                   <div className="text-sm font-medium">Year Level:</div>
-                  <div>{subject.yearLevel || '-'}</div>
+                  <div>{subject.year_level || '-'}</div>
                   
                   <div className="text-sm font-medium">Curriculum:</div>
                   <div>

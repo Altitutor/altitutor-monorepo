@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Staff, Class, Subject, Student } from "@/shared/lib/supabase/database/types";
+import type { Tables } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,13 +10,13 @@ import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal } from '@/features/classes';
 
 interface ClassesTabProps {
-  staff: Staff;
+  staff: Tables<'staff'>;
 }
 
 interface StaffClass {
-  class: Class;
-  subject?: Subject;
-  students: Student[];
+  class: Tables<'classes'>;
+  subject?: Tables<'subjects'>;
+  students: Tables<'students'>[];
   studentCount: number;
 }
 
@@ -67,14 +67,14 @@ export function ClassesTab({
       
       // Sort by day of week, then by start time
       staffClasses.sort((a, b) => {
-        const dayA = a.class.dayOfWeek === 0 ? 7 : a.class.dayOfWeek;
-        const dayB = b.class.dayOfWeek === 0 ? 7 : b.class.dayOfWeek;
+        const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
+        const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
         
         if (dayA !== dayB) {
           return dayA - dayB;
         }
         
-        return a.class.startTime.localeCompare(b.class.startTime);
+        return a.class.start_time.localeCompare(b.class.start_time);
       });
       
       setClasses(staffClasses);
@@ -113,7 +113,7 @@ export function ClassesTab({
     if (staffClass.subject) {
       return formatSubjectDisplay(staffClass.subject);
     }
-    return staffClass.class.level;
+    return staffClass.class.subject;
   };
 
   if (loading) {
@@ -170,11 +170,11 @@ export function ClassesTab({
                       {getSubjectDisplay(staffClass)}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {staffClass.class.level}
+                      {staffClass.class.subject}
                     </p>
                   </div>
                   <Badge variant="secondary" className="text-xs">
-                    {getDayOfWeek(staffClass.class.dayOfWeek)}
+                    {getDayOfWeek(staffClass.class.day_of_week)}
                   </Badge>
                 </div>
               </CardHeader>
@@ -184,7 +184,7 @@ export function ClassesTab({
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span>
-                      {formatTime(staffClass.class.startTime)} - {formatTime(staffClass.class.endTime)}
+                      {formatTime(staffClass.class.start_time)} - {formatTime(staffClass.class.end_time)}
                     </span>
                   </div>
                   
@@ -207,7 +207,7 @@ export function ClassesTab({
                     <div className="flex flex-wrap gap-1">
                       {staffClass.students.slice(0, 3).map((student) => (
                         <Badge key={student.id} variant="outline" className="text-xs">
-                          {student.firstName} {student.lastName}
+                          {student.first_name} {student.last_name}
                         </Badge>
                       ))}
                       {staffClass.students.length > 3 && (

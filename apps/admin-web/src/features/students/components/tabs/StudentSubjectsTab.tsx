@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Student, Subject } from "@/shared/lib/supabase/database/types";
+import type { Tables } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,9 +10,9 @@ import { cn } from "@/shared/utils";
 import { ViewSubjectModal } from '@/features/subjects';
 
 interface StudentSubjectsTabProps {
-  student: Student;
-  studentSubjects: Subject[];
-  allSubjects: Subject[];
+  student: Tables<'students'>;
+  studentSubjects: Tables<'subjects'>[];
+  allSubjects: Tables<'subjects'>[];
   loadingSubjects: boolean;
   onViewSubject?: (subjectId: string) => void;
   onAssignSubject: (subjectId: string) => void;
@@ -96,7 +96,7 @@ export function StudentSubjectsTab({
           </div>
           <div>
             <span className="font-medium text-muted-foreground">Year Level:</span>
-            <div className="mt-1">{student.yearLevel ? `Year ${student.yearLevel}` : '-'}</div>
+            <div className="mt-1">{student.year_level ? `Year ${student.year_level}` : '-'}</div>
           </div>
         </div>
       </div>

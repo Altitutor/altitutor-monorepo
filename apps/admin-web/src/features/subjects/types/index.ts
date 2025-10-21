@@ -1,9 +1,1 @@
-export type { 
-  Subject,
-  Topic,
-  Subtopic,
-  SubjectCurriculum,
-  SubjectDiscipline,
-  StudentsSubjects,
-  StaffSubjects
-} from '@/shared/lib/supabase/database/types'; 
+export type { Tables, Enums, TablesInsert, TablesUpdate } from '@altitutor/shared';

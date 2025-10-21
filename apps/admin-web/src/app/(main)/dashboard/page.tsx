@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GraduationCap, CalendarDays, Users, Clock, CheckSquare, Zap } from 'lucide-react';
-import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { classesApi } from '@/shared/api';
 import { studentsApi } from '@/features/students/api';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
@@ -11,10 +11,10 @@ import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/u
 import { ViewClassModal } from '@/features/classes';
 
 interface TodayClassesProps {
-  classes: Class[];
-  classSubjects?: Record<string, Subject>;
-  classStudents?: Record<string, Student[]>;
-  classStaff?: Record<string, Staff[]>;
+  classes: Tables<'classes'>[];
+  classSubjects?: Record<string, Tables<'subjects'>>;
+  classStudents?: Record<string, Tables<'students'>[]>;
+  classStaff?: Record<string, Tables<'staff'>[]>;
   onClassClick: (classId: string) => void;
 }
 
@@ -23,17 +23,17 @@ function TodayClassesView({ classes, classSubjects, classStudents, classStaff, o
   const currentDayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
   
   // Filter classes for today
-  const todayClasses = classes.filter(cls => cls.dayOfWeek === currentDayOfWeek);
+  const todayClasses = classes.filter(cls => cls.day_of_week === currentDayOfWeek);
   
   // Group classes by start time
   const classesByTime = todayClasses.reduce((acc, cls) => {
-    const startTime = cls.startTime || '00:00';
+    const startTime = cls.start_time || '00:00';
     if (!acc[startTime]) {
       acc[startTime] = [];
     }
     acc[startTime].push(cls);
     return acc;
-  }, {} as Record<string, Class[]>);
+  }, {} as Record<string, Tables<'classes'>[]>);
 
   // Sort time slots
   const sortedTimeSlots = Object.keys(classesByTime).sort((a, b) => a.localeCompare(b));
@@ -51,9 +51,9 @@ function TodayClassesView({ classes, classSubjects, classStudents, classStaff, o
     return timeString;
   };
 
-  const getSubjectDisplay = (classItem: Class): string => {
-    if (!classSubjects || !classItem.subjectId) {
-      return classItem.level;
+  const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
+    if (!classSubjects || !classItem.subject_id) {
+      return classItem.subject;
     }
     
     const subject = classSubjects[classItem.id];
@@ -61,11 +61,11 @@ function TodayClassesView({ classes, classSubjects, classStudents, classStaff, o
       return formatSubjectDisplay(subject);
     }
     
-    return classItem.level;
+    return classItem.subject;
   };
 
-  const getClassColor = (classItem: Class): string => {
-    if (!classSubjects || !classItem.subjectId) {
+  const getClassColor = (classItem: Tables<'classes'>): string => {
+    if (!classSubjects || !classItem.subject_id) {
       return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
     }
     
@@ -96,7 +96,7 @@ function TodayClassesView({ classes, classSubjects, classStudents, classStaff, o
     <div className="space-y-4">
       {sortedTimeSlots.map((timeSlot) => {
         const timeClasses = classesByTime[timeSlot];
-        const endTime = timeClasses[0]?.endTime;
+        const endTime = timeClasses[0]?.end_time;
         
         return (
           <div key={timeSlot} className="space-y-2">
@@ -121,7 +121,7 @@ function TodayClassesView({ classes, classSubjects, classStudents, classStaff, o
                     <h4 className="font-semibold text-sm">
                       {getSubjectDisplay(cls)}
                     </h4>
-                    <p className="text-sm opacity-90">{cls.level}</p>
+                    <p className="text-sm opacity-90">{cls.subject}</p>
                     <div className="flex items-center justify-between text-xs opacity-75">
                       <div className="space-y-1">
                         {cls.room && <div>Room {cls.room}</div>}
@@ -148,10 +148,10 @@ export default function DashboardPage() {
     totalClasses: 0,
   });
   const [classesData, setClassesData] = useState<{
-    classes: Class[];
-    classSubjects: Record<string, Subject>;
-    classStudents: Record<string, Student[]>;
-    classStaff: Record<string, Staff[]>;
+    classes: Tables<'classes'>[];
+    classSubjects: Record<string, Tables<'subjects'>>;
+    classStudents: Record<string, Tables<'students'>[]>;
+    classStaff: Record<string, Tables<'staff'>[]>;
   }>({
     classes: [],
     classSubjects: {},

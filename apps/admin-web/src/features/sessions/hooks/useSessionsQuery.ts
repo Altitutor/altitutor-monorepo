@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sessionsApi } from '../api/sessions';
-import type { Session, SessionAttendance, SessionsStaff } from '../types';
-import type { Student, Staff } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 
 // Query Keys
 export const sessionsKeys = {
@@ -107,7 +106,7 @@ export function useUpdateSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Session> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'sessions'> }) =>
       sessionsApi.updateSession(id, data),
     onSuccess: (updatedSession, { id }) => {
       // Update the session in all relevant caches
@@ -121,7 +120,7 @@ export function useUpdateSession() {
         if (!old) return old;
         return {
           ...old,
-          sessions: old.sessions.map((session: Session) =>
+          sessions: old.sessions.map((session: Tables<'sessions'>) =>
             session.id === id ? updatedSession : session
           ),
         };
@@ -147,7 +146,7 @@ export function useDeleteSession() {
         if (!old) return old;
         return {
           ...old,
-          sessions: old.sessions.filter((session: Session) => session.id !== deletedId),
+          sessions: old.sessions.filter((session: Tables<'sessions'>) => session.id !== deletedId),
           sessionStudents: Object.fromEntries(
             Object.entries(old.sessionStudents).filter(([id]) => id !== deletedId)
           ),

@@ -13,9 +13,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useClasses } from '../hooks';
-import { useSubjects } from '@/features/subjects/hooks';
-import { ClassStatus } from '@/shared/lib/supabase/database/types';
+import { useCreateClass } from '../hooks/useClassesQuery';
+import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
+import type { TablesInsert } from '@altitutor/shared';
 
 interface AddClassModalProps {
   isOpen: boolean;
@@ -24,8 +24,8 @@ interface AddClassModalProps {
 }
 
 export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalProps) {
-  const { create } = useClasses();
-  const { items: subjects } = useSubjects();
+  const createMutation = useCreateClass();
+  const { data: subjects } = useSubjects();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -44,16 +44,18 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setError(null);
     
     try {
-      await create({
-        level,
-        dayOfWeek: parseInt(dayOfWeek, 10),
-        startTime,
-        endTime,
-        status: ClassStatus.ACTIVE,
-        subjectId: subjectId || undefined,
-        notes: notes || undefined,
-        room: room || undefined,
-      });
+      const payload: TablesInsert<'classes'> = {
+        id: crypto.randomUUID(),
+        subject: level,
+        day_of_week: parseInt(dayOfWeek, 10),
+        start_time: startTime,
+        end_time: endTime,
+        status: 'ACTIVE',
+        subject_id: subjectId || null,
+        notes: notes || null,
+        room: room || null,
+      };
+      await createMutation.mutateAsync(payload);
       
       onClassAdded();
       resetForm();
@@ -118,7 +120,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                   <SelectItem value="none">None</SelectItem>
                   {subjects?.map((subject) => (
                     <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name} {subject.yearLevel ? `Year ${subject.yearLevel}` : ''}
+                      {subject.name} {subject.year_level ? `Year ${subject.year_level}` : ''}
                       {subject.curriculum ? ` (${subject.curriculum})` : ''}
                     </SelectItem>
                   ))}

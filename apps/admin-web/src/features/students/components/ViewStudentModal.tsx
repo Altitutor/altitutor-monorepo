@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { studentsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
-import type { Student, Subject } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { 
   DetailsTab,
   StudentSubjectsTab, 
@@ -41,9 +41,9 @@ export function ViewStudentModal({
   onStudentUpdated
 }: ViewStudentModalProps) {
   const { toast } = useToast();
-  const [student, setStudent] = useState<Student | null>(null);
-  const [studentSubjects, setStudentSubjects] = useState<Subject[]>([]);
-  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
+  const [student, setStudent] = useState<Tables<'students'> | null>(null);
+  const [studentSubjects, setStudentSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
   const [loadingStudent, setLoadingStudent] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
   
@@ -128,32 +128,29 @@ export function ViewStudentModal({
     try {
       setLoadingDetailsUpdate(true);
       const updatedStudent = await studentsApi.updateStudent(student.id, {
-        // Student details
-        firstName: data.firstName,
-        lastName: data.lastName,
-        studentEmail: data.studentEmail || null,
-        studentPhone: data.studentPhone || null,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        student_email: data.studentEmail || null,
+        student_phone: data.studentPhone || null,
         school: data.school || null,
-        curriculum: data.curriculum || null,
-        yearLevel: data.yearLevel,
+        curriculum: (data.curriculum || null) as any,
+        year_level: data.yearLevel ?? null,
         status: data.status,
         notes: data.notes || null,
-        // Parent details
-        parentFirstName: data.parentFirstName || null,
-        parentLastName: data.parentLastName || null,
-        parentEmail: data.parentEmail || null,
-        parentPhone: data.parentPhone || null,
-        // Availability
-        availabilityMonday: data.availability_monday,
-        availabilityTuesday: data.availability_tuesday,
-        availabilityWednesday: data.availability_wednesday,
-        availabilityThursday: data.availability_thursday,
-        availabilityFriday: data.availability_friday,
-        availabilitySaturdayAm: data.availability_saturday_am,
-        availabilitySaturdayPm: data.availability_saturday_pm,
-        availabilitySundayAm: data.availability_sunday_am,
-        availabilitySundayPm: data.availability_sunday_pm,
-      });
+        parent_first_name: data.parentFirstName || null,
+        parent_last_name: data.parentLastName || null,
+        parent_email: data.parentEmail || null,
+        parent_phone: data.parentPhone || null,
+        availability_monday: data.availability_monday,
+        availability_tuesday: data.availability_tuesday,
+        availability_wednesday: data.availability_wednesday,
+        availability_thursday: data.availability_thursday,
+        availability_friday: data.availability_friday,
+        availability_saturday_am: data.availability_saturday_am,
+        availability_saturday_pm: data.availability_saturday_pm,
+        availability_sunday_am: data.availability_sunday_am,
+        availability_sunday_pm: data.availability_sunday_pm,
+      } as TablesUpdate<'students'>);
       
       setStudent(updatedStudent);
       setIsEditingDetails(false);
@@ -182,10 +179,10 @@ export function ViewStudentModal({
     try {
       setLoadingAccountUpdate(true);
       const updatedStudent = await studentsApi.updateStudent(student.id, {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        studentEmail: data.studentEmail || null,
-      });
+        first_name: data.firstName,
+        last_name: data.lastName,
+        student_email: data.studentEmail || null,
+      } as TablesUpdate<'students'>);
       
       setStudent(updatedStudent);
       setIsEditingAccount(false);
@@ -209,7 +206,7 @@ export function ViewStudentModal({
 
   // Handle password reset request
   const handlePasswordResetRequest = async () => {
-    if (!student || !student.studentEmail) {
+    if (!student || !student.student_email) {
       toast({
         title: "Error",
         description: "No email address found for this student.",
@@ -336,7 +333,7 @@ export function ViewStudentModal({
         <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none">
           <SheetHeader>
             <SheetTitle>
-              {student.firstName} {student.lastName}
+              {student.first_name} {student.last_name}
             </SheetTitle>
           </SheetHeader>
           
@@ -404,7 +401,7 @@ export function ViewStudentModal({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Student</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {student.firstName} {student.lastName}? 
+              Are you sure you want to delete {student.first_name} {student.last_name}? 
               This action cannot be undone and will remove all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>

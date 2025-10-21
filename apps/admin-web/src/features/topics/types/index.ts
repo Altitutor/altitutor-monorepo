@@ -1,4 +1,1 @@
-export type { 
-  Topic,
-  Subtopic
-} from '@/shared/lib/supabase/database/types'; 
+export type { Tables } from '@altitutor/shared';

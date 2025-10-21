@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 import './styles/globals.css'
 import { ThemeProvider } from '@/shared/components'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
-import { DbProvider } from '@/shared/lib/supabase/database/context'
+// Legacy DbProvider removed under migration
 import { AuthProvider } from '@/features/auth/providers'
 import { Navbar } from '@/shared/components'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
@@ -32,14 +32,12 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                <DbProvider>
-                  <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
-                    <Navbar />
-                    <main className="flex-1 pt-[var(--navbar-height)]">
-                      {children}
-                    </main>
-                  </div>
-                </DbProvider>
+                <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                  <Navbar />
+                  <main className="flex-1 pt-[var(--navbar-height)]">
+                    {children}
+                  </main>
+                </div>
               </ThemeProvider>
             </AuthGuard>
           </AuthProvider>

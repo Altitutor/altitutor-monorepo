@@ -13,7 +13,9 @@
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["packages/shared/src/*"],
-      "@ui/*": ["packages/ui/src/*"]
+      "@ui/*": ["packages/ui/src/*"],
+      "@altitutor/shared": ["packages/shared/src/index.ts"],
+      "@altitutor/shared/*": ["packages/shared/src/*"]
     }
   },
   "exclude": [

@@ -21,8 +21,7 @@ import {
   Plus,
   RefreshCw
 } from 'lucide-react';
-import type { Student, Subject, Class } from '@/shared/lib/supabase/database/types';
-import { StudentStatus } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 import { AddStudentModal } from './AddStudentModal';
@@ -54,14 +53,14 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     isFetching 
   } = useStudentsWithDetails();
 
-  const students = data?.students || [];
-  const studentSubjects = data?.studentSubjects || {};
-  const studentClasses = data?.studentClasses || {};
+  const students: Tables<'students'>[] = data?.students || [];
+  const studentSubjects: Record<string, Tables<'subjects'>[]> = data?.studentSubjects || {};
+  const studentClasses: Record<string, Tables<'classes'>[]> = data?.studentClasses || {};
 
   // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StudentStatus | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Student>('lastName');
+  const [statusFilter, setStatusFilter] = useState<Tables<'students'>['status'] | 'ALL'>('ALL');
+  const [sortField, setSortField] = useState<keyof Tables<'students'>>('last_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -79,10 +78,10 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(student => 
-        (student.firstName?.toLowerCase() || '').includes(searchLower) ||
-        (student.lastName?.toLowerCase() || '').includes(searchLower) ||
-        (student.studentEmail?.toLowerCase() || '').includes(searchLower) ||
-        (student.parentEmail?.toLowerCase() || '').includes(searchLower) ||
+        (student.first_name?.toLowerCase() || '').includes(searchLower) ||
+        (student.last_name?.toLowerCase() || '').includes(searchLower) ||
+        (student.student_email?.toLowerCase() || '').includes(searchLower) ||
+        (student.parent_email?.toLowerCase() || '').includes(searchLower) ||
         (student.school?.toLowerCase() || '').includes(searchLower)
       );
     }
@@ -120,7 +119,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     }
   }, [onRefresh, refetch]);
 
-  const handleSort = (field: keyof Student) => {
+  const handleSort = (field: keyof Tables<'students'>) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -245,20 +244,20 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                 Status: {statusFilter}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setStatusFilter('ALL')}>
                 All Statuses
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter(StudentStatus.ACTIVE)}>
+              <DropdownMenuItem onClick={() => setStatusFilter('ACTIVE')}>
                 Active
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter(StudentStatus.INACTIVE)}>
+              <DropdownMenuItem onClick={() => setStatusFilter('INACTIVE')}>
                 Inactive
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter(StudentStatus.TRIAL)}>
+              <DropdownMenuItem onClick={() => setStatusFilter('TRIAL')}>
                 Trial
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter(StudentStatus.DISCONTINUED)}>
+              <DropdownMenuItem onClick={() => setStatusFilter('DISCONTINUED')}>
                 Discontinued
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -295,25 +294,25 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                   sortField === 'curriculum' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('yearLevel')}>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('year_level')}>
                 Year Level
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
-                  sortField === 'yearLevel' ? "opacity-100" : "opacity-40"
+                  sortField === 'year_level' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('firstName')}>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('first_name')}>
                 First Name
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
-                  sortField === 'firstName' ? "opacity-100" : "opacity-40"
+                  sortField === 'first_name' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('lastName')}>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('last_name')}>
                 Last Name
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
-                  sortField === 'lastName' ? "opacity-100" : "opacity-40"
+                  sortField === 'last_name' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
               <TableHead>Subjects</TableHead>
@@ -344,7 +343,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                     onClick={() => handleStudentClick(student.id)}
                   >
                     <TableCell>
-                      <Badge className={cn("text-xs", getStudentStatusColor(student.status))}>
+                      <Badge className={cn("text-xs", getStudentStatusColor(student.status as any))}>
                         {student.status}
                       </Badge>
                     </TableCell>
@@ -358,19 +357,19 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                       )}
                     </TableCell>
                     <TableCell>
-                      {student.yearLevel ? (
+                      {student.year_level ? (
                         <Badge variant="secondary" className="text-xs">
-                          Year {student.yearLevel}
+                          Year {student.year_level}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {student.firstName || '-'}
+                      {student.first_name || '-'}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {student.lastName || '-'}
+                      {student.last_name || '-'}
                     </TableCell>
                     <TableCell>
                       {subjects.length > 0 ? (
@@ -391,7 +390,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                       {classes.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {classes
-                            .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
+                            .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
                             .map((cls) => (
                               <Button
                                 key={cls.id}
@@ -403,7 +402,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                                   handleClassClick(cls.id);
                                 }}
                               >
-                                {cls.level} - {getDayOfWeek(cls.dayOfWeek)} {formatTime(cls.startTime)}
+                                {cls.subject} - {getDayOfWeek(cls.day_of_week)} {formatTime(cls.start_time)}
                               </Button>
                             ))}
                         </div>

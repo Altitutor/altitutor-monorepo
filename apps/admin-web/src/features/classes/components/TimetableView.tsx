@@ -1,16 +1,16 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Class, ClassStatus, Subject, Student, Staff } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 
 interface TimetableViewProps {
-  classes: Class[];
-  classSubjects?: Record<string, Subject>;
-  classStudents?: Record<string, Student[]>;
-  classStaff?: Record<string, Staff[]>;
-  onClassClick: (cls: Class) => void;
+  classes: Tables<'classes'>[];
+  classSubjects?: Record<string, Tables<'subjects'>>;
+  classStudents?: Record<string, Tables<'students'>[]>;
+  classStaff?: Record<string, Tables<'staff'>[]>;
+  onClassClick: (cls: Tables<'classes'>) => void;
 }
 
 interface TimeSlot {
@@ -21,7 +21,7 @@ interface TimeSlot {
 }
 
 interface ClassPosition {
-  class: Class;
+  class: Tables<'classes'>;
   top: number;
   height: number;
   left: number;
@@ -49,7 +49,7 @@ export function TimetableView({
 
   // Filter days that have classes
   const activeDays = days.filter(day => 
-    classes.some(cls => cls.dayOfWeek === day.value)
+    classes.some(cls => cls.day_of_week === day.value)
   );
 
   // Generate time slots from 9am to 8pm
@@ -77,11 +77,11 @@ export function TimetableView({
 
   // Calculate position of a class block relative to the timetable grid
   const calculateClassPosition = (
-    cls: Class, 
-    overlappingClasses: Class[]
+    cls: Tables<'classes'>, 
+    overlappingClasses: Tables<'classes'>[]
   ): ClassPosition => {
-    const startMinutes = timeToMinutes(cls.startTime);
-    const endMinutes = timeToMinutes(cls.endTime);
+    const startMinutes = timeToMinutes(cls.start_time);
+    const endMinutes = timeToMinutes(cls.end_time);
     const duration = endMinutes - startMinutes;
     
     // Position from 9am (540 minutes) - each hour slot is 60px
@@ -111,8 +111,8 @@ export function TimetableView({
   };
 
   // Find overlapping classes for a specific day and time range
-  const findOverlappingClasses = (dayClasses: Class[]): Class[][] => {
-    const groups: Class[][] = [];
+  const findOverlappingClasses = (dayClasses: Tables<'classes'>[]): Tables<'classes'>[][] => {
+    const groups: Tables<'classes'>[][] = [];
     const processed = new Set<string>();
     
     dayClasses.forEach(cls => {
@@ -121,14 +121,14 @@ export function TimetableView({
       const group = [cls];
       processed.add(cls.id);
       
-      const clsStart = timeToMinutes(cls.startTime);
-      const clsEnd = timeToMinutes(cls.endTime);
+      const clsStart = timeToMinutes(cls.start_time);
+      const clsEnd = timeToMinutes(cls.end_time);
       
       dayClasses.forEach(otherCls => {
         if (processed.has(otherCls.id)) return;
         
-        const otherStart = timeToMinutes(otherCls.startTime);
-        const otherEnd = timeToMinutes(otherCls.endTime);
+        const otherStart = timeToMinutes(otherCls.start_time);
+        const otherEnd = timeToMinutes(otherCls.end_time);
         
         // Check if classes overlap
         if (clsStart < otherEnd && clsEnd > otherStart) {
@@ -146,8 +146,8 @@ export function TimetableView({
   // Get classes for each visible day
   const getClassesForDay = (dayValue: number): ClassPosition[] => {
     const dayClasses = classes
-      .filter(cls => cls.dayOfWeek === dayValue)
-      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      .filter(cls => cls.day_of_week === dayValue)
+      .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     
     const overlapGroups = findOverlappingClasses(dayClasses);
     const positions: ClassPosition[] = [];
@@ -162,9 +162,9 @@ export function TimetableView({
     return positions;
   };
 
-  const getSubjectDisplay = (classItem: Class): string => {
-    if (!classSubjects || !classItem.subjectId) {
-      return classItem.level;
+  const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
+    if (!classSubjects || !classItem.subject_id) {
+      return classItem.subject;
     }
     
     const subject = classSubjects[classItem.id];
@@ -172,12 +172,12 @@ export function TimetableView({
       return formatSubjectDisplay(subject);
     }
     
-    return classItem.level;
+    return classItem.subject;
   };
 
   // Get color for class based on subject
-  const getClassColor = (classItem: Class): string => {
-    if (!classSubjects || !classItem.subjectId) {
+  const getClassColor = (classItem: Tables<'classes'>): string => {
+    if (!classSubjects || !classItem.subject_id) {
       // Default color for classes without subjects
       return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
     }
@@ -286,7 +286,7 @@ export function TimetableView({
                           
                           {/* Level */}
                           <div className="text-xs opacity-90 truncate leading-tight">
-                            {position.class.level}
+                            {position.class.subject}
                           </div>
                           
                           {/* Room */}
@@ -298,7 +298,7 @@ export function TimetableView({
                           
                           {/* Time */}
                           <div className="text-xs opacity-90 truncate leading-tight mt-1">
-                            {formatTime(position.class.startTime)} - {formatTime(position.class.endTime)}
+                            {formatTime(position.class.start_time)} - {formatTime(position.class.end_time)}
                           </div>
                           
                           {/* Student count (if space allows) */}

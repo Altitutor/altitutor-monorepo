@@ -1,5 +1,2 @@
-export type { 
-  Student,
-  StudentStatus,
-  StudentsSubjects
-} from '@/shared/lib/supabase/database/types'; 
+// Redirect: prefer using @altitutor/shared types
+export type { Tables, Enums, TablesInsert, TablesUpdate } from '@altitutor/shared';

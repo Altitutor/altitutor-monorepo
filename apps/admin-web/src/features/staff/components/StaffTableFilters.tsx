@@ -9,7 +9,8 @@ import {
   RefreshCw,
   RotateCcw
 } from 'lucide-react';
-import { StaffRole, StaffStatus } from '../types';
+type StaffRole = 'ADMINSTAFF' | 'TUTOR' | 'ADMIN';
+type StaffStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,10 +65,10 @@ export const StaffTableFilters = memo(function StaffTableFilters({
             <DropdownMenuItem onClick={() => onRoleFilterChange('ALL')}>
               All Roles
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleFilterChange(StaffRole.ADMINSTAFF)}>
+            <DropdownMenuItem onClick={() => onRoleFilterChange('ADMINSTAFF')}>
               Admin Staff
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleFilterChange(StaffRole.TUTOR)}>
+            <DropdownMenuItem onClick={() => onRoleFilterChange('TUTOR')}>
               Tutor
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -84,13 +85,13 @@ export const StaffTableFilters = memo(function StaffTableFilters({
             <DropdownMenuItem onClick={() => onStatusFilterChange('ALL')}>
               All
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusFilterChange(StaffStatus.ACTIVE)}>
+            <DropdownMenuItem onClick={() => onStatusFilterChange('ACTIVE')}>
               Active
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusFilterChange(StaffStatus.INACTIVE)}>
+            <DropdownMenuItem onClick={() => onStatusFilterChange('INACTIVE')}>
               Inactive
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusFilterChange(StaffStatus.TRIAL)}>
+            <DropdownMenuItem onClick={() => onStatusFilterChange('TRIAL')}>
               Trial
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -1,6 +1,6 @@
-import { supabaseServer } from '@/shared/lib/supabase/client';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Database } from '@/shared/lib/supabase/database/generated';
+import type { Database } from '@altitutor/shared';
 import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest } from '../types';
 
 export const authApi = {
@@ -8,7 +8,7 @@ export const authApi = {
    * Login with email and password
    */
   login: async (credentials: LoginRequest) => {
-    const { data, error } = await supabaseServer.auth.signInWithPassword({
+    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
     });
@@ -29,7 +29,7 @@ export const authApi = {
    * Log out and invalidate the session
    */
   logout: async () => {
-    const { error } = await supabaseServer.auth.signOut();
+    const { error } = await getSupabaseClient().auth.signOut();
     if (error) throw error;
     return { message: 'Logged out successfully' };
   },
@@ -123,7 +123,7 @@ export const authApi = {
    */
   verifyToken: async () => {
     try {
-      const { data: { session }, error } = await supabaseServer.auth.getSession();
+      const { data: { session }, error } = await getSupabaseClient().auth.getSession();
       if (error) {
         console.error('Token verification error:', error);
         return { valid: false, error: error.message };
@@ -145,7 +145,7 @@ export const authApi = {
    */
   async getCurrentUser() {
     try {
-      const { data: { user }, error } = await supabaseServer.auth.getUser();
+      const { data: { user }, error } = await getSupabaseClient().auth.getUser();
       if (error) {
         throw new Error(error.message || 'Failed to get current user');
       }
@@ -161,7 +161,7 @@ export const authApi = {
    */
   async getSession() {
     try {
-      const { data: { session }, error } = await supabaseServer.auth.getSession();
+      const { data: { session }, error } = await getSupabaseClient().auth.getSession();
       if (error) {
         throw new Error(error.message || 'Failed to get session');
       }

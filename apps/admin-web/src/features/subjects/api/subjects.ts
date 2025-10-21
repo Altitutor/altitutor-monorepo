@@ -1,16 +1,5 @@
-import { subjectRepository } from '@/shared/lib/supabase/database/repositories';
-import type { Subject, Topic, Subtopic } from '../types';
-import { useSupabaseClient, getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
-import { 
-  staffSubjectsRepository, 
-  studentsSubjectsRepository, 
-  staffRepository, 
-  studentRepository, 
-  classRepository,
-  topicRepository,
-  subtopicRepository
-} from '@/shared/lib/supabase/database/repositories';
+import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 /**
  * Subjects API client for working with subject data
@@ -19,32 +8,41 @@ export const subjectsApi = {
   /**
    * Get all subjects
    */
-  getAllSubjects: async (): Promise<Subject[]> => {
-    return subjectRepository.getAll();
+  getAllSubjects: async (): Promise<Tables<'subjects'>[]> => {
+    const { data, error } = await getSupabaseClient()
+      .from('subjects')
+      .select('*');
+    if (error) throw error;
+    return (data ?? []) as Tables<'subjects'>[];
   },
   
   /**
    * Get a subject by ID
    */
-  getSubject: async (id: string): Promise<Subject | undefined> => {
-    return subjectRepository.getById(id);
+  getSubject: async (id: string): Promise<Tables<'subjects'> | null> => {
+    const { data, error } = await getSupabaseClient()
+      .from('subjects')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data ?? null) as Tables<'subjects'> | null;
   },
   
   /**
    * Search subjects by name, curriculum, or year level
    */
-  searchSubjects: async (query: string): Promise<Subject[]> => {
+  searchSubjects: async (query: string): Promise<Tables<'subjects'>[]> => {
     try {
-      // Get all subjects first
-      const allSubjects = await subjectRepository.getAll();
+      const allSubjects = await subjectsApi.getAllSubjects();
       
       // Filter subjects based on the search query
       const lowerQuery = query.toLowerCase();
       return allSubjects.filter(subject => {
         return (
           (subject.name?.toLowerCase().includes(lowerQuery)) ||
-          (subject.curriculum?.toLowerCase().includes(lowerQuery)) ||
-          (subject.yearLevel?.toString().includes(lowerQuery))
+          (String(subject.curriculum || '').toLowerCase().includes(lowerQuery)) ||
+          (String(subject.year_level || '').includes(lowerQuery))
         );
       });
     } catch (error) {
@@ -56,65 +54,66 @@ export const subjectsApi = {
   /**
    * Create a new subject
    */
-  createSubject: async (data: Partial<Subject>): Promise<Subject> => {
-    // Ensure the user is an admin first
-    return subjectRepository.create(data);
+  createSubject: async (data: TablesInsert<'subjects'>): Promise<Tables<'subjects'>> => {
+    const payload: TablesInsert<'subjects'> = { ...data };
+    const { data: created, error } = await getSupabaseClient()
+      .from('subjects')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return created as Tables<'subjects'>;
   },
   
   /**
    * Update a subject
    */
-  updateSubject: async (id: string, data: Partial<Subject>): Promise<Subject> => {
-    // Ensure the user is an admin first
-    return subjectRepository.update(id, data);
+  updateSubject: async (id: string, data: TablesUpdate<'subjects'>): Promise<Tables<'subjects'>> => {
+    const { data: updated, error } = await getSupabaseClient()
+      .from('subjects')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated as Tables<'subjects'>;
   },
   
   /**
    * Delete a subject
    */
   deleteSubject: async (id: string): Promise<void> => {
-    // Ensure the user is an admin first
-    return subjectRepository.delete(id);
+    const { error } = await getSupabaseClient()
+      .from('subjects')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   },
 
   /**
    * Direct query to get all subjects (bypassing repository)
    * This is a fallback in case the repository approach fails
    */
-  directGetAllSubjects: async (): Promise<Subject[]> => {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('subjects')
-      .select('*');
-    
-    if (error) {
-      console.error('Direct query error:', error);
-      throw error;
-    }
-    
-    return (data ?? []).map((row: any) => transformToCamelCase(row) as Subject);
+  directGetAllSubjects: async (): Promise<Tables<'subjects'>[]> => {
+    return subjectsApi.getAllSubjects();
   },
 
   /**
    * Get staff members assigned to a subject
    */
-  getSubjectStaff: async (subjectId: string) => {
+  getSubjectStaff: async (subjectId: string): Promise<Tables<'staff'>[]> => {
     try {
-      // Get all staff_subjects entries for this subject
-      const staffSubjects = await staffSubjectsRepository.getBy('subject_id', subjectId);
-      
-      if (!staffSubjects.length) {
-        return [];
-      }
-      
-      // Get staff details for each staff_id
-      const staffPromises = staffSubjects.map(async (staffSubject) => {
-        return staffRepository.getById(staffSubject.staffId);
-      });
-      
-      const staffResults = await Promise.all(staffPromises);
-      // Filter out undefined results (in case a staff doesn't exist anymore)
-      return staffResults.filter(staff => staff !== undefined);
+      const { data, error } = await getSupabaseClient()
+        .from('staff_subjects')
+        .select(`
+          staff:staff(*)
+        `)
+        .eq('subject_id', subjectId);
+      if (error) throw error;
+      const staff = (data ?? [])
+        .map((row: any) => row.staff as Tables<'staff'>)
+        .filter(Boolean);
+      return staff;
     } catch (error) {
       console.error('Error getting subject staff:', error);
       throw error;
@@ -124,23 +123,19 @@ export const subjectsApi = {
   /**
    * Get students enrolled in a subject
    */
-  getSubjectStudents: async (subjectId: string) => {
+  getSubjectStudents: async (subjectId: string): Promise<Tables<'students'>[]> => {
     try {
-      // Get all students_subjects entries for this subject
-      const studentSubjects = await studentsSubjectsRepository.getBy('subject_id', subjectId);
-      
-      if (!studentSubjects.length) {
-        return [];
-      }
-      
-      // Get student details for each student_id
-      const studentPromises = studentSubjects.map(async (studentSubject) => {
-        return studentRepository.getById(studentSubject.studentId);
-      });
-      
-      const studentResults = await Promise.all(studentPromises);
-      // Filter out undefined results (in case a student doesn't exist anymore)
-      return studentResults.filter(student => student !== undefined);
+      const { data, error } = await getSupabaseClient()
+        .from('students_subjects')
+        .select(`
+          student:students(*)
+        `)
+        .eq('subject_id', subjectId);
+      if (error) throw error;
+      const students = (data ?? [])
+        .map((row: any) => row.student as Tables<'students'>)
+        .filter(Boolean);
+      return students;
     } catch (error) {
       console.error('Error getting subject students:', error);
       throw error;
@@ -150,10 +145,14 @@ export const subjectsApi = {
   /**
    * Get classes for a subject
    */
-  getSubjectClasses: async (subjectId: string) => {
+  getSubjectClasses: async (subjectId: string): Promise<Tables<'classes'>[]> => {
     try {
-      // Use our repository with the correct field name
-      return classRepository.getBy('subject_id', subjectId);
+      const { data, error } = await getSupabaseClient()
+        .from('classes')
+        .select('*')
+        .eq('subject_id', subjectId);
+      if (error) throw error;
+      return (data ?? []) as Tables<'classes'>[];
     } catch (error) {
       console.error('Error getting subject classes:', error);
       throw error;
@@ -163,10 +162,15 @@ export const subjectsApi = {
   /**
    * Get topics for a subject
    */
-  getSubjectTopics: async (subjectId: string): Promise<Topic[]> => {
+  getSubjectTopics: async (subjectId: string): Promise<Tables<'topics'>[]> => {
     try {
-      const topics = await topicRepository.getBy('subject_id', subjectId);
-      return topics.sort((a, b) => a.number - b.number);
+      const { data, error } = await getSupabaseClient()
+        .from('topics')
+        .select('*')
+        .eq('subject_id', subjectId)
+        .order('number', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Tables<'topics'>[];
     } catch (error) {
       console.error('Error getting subject topics:', error);
       throw error;
@@ -176,10 +180,15 @@ export const subjectsApi = {
   /**
    * Get subtopics for a topic
    */
-  getTopicSubtopics: async (topicId: string): Promise<Subtopic[]> => {
+  getTopicSubtopics: async (topicId: string): Promise<Tables<'subtopics'>[]> => {
     try {
-      const subtopics = await subtopicRepository.getBy('topic_id', topicId);
-      return subtopics.sort((a, b) => a.number - b.number);
+      const { data, error } = await getSupabaseClient()
+        .from('subtopics')
+        .select('*')
+        .eq('topic_id', topicId)
+        .order('number', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Tables<'subtopics'>[];
     } catch (error) {
       console.error('Error getting topic subtopics:', error);
       throw error;

@@ -9,31 +9,20 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Mail, Phone, Calendar, User, UserCircle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
-import { useStaff } from '@/shared/hooks';
-import { Staff } from '@/shared/lib/supabase/database/types';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import type { Tables } from '@altitutor/shared';
 
 export default function MyAccountPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { findByField, loading: staffLoading } = useStaff();
-  const [staffRecord, setStaffRecord] = useState<Staff | null>(null);
+  const { data: staffRecord, isLoading: staffLoading } = useCurrentStaff();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchStaffRecord = async () => {
-      if (!user?.id) return;
-      
-      try {
-        const staff = await findByField('user_id', user.id);
-        setStaffRecord(staff);
-      } catch (err) {
-        setError('Failed to load staff record');
-        console.error(err);
-      }
-    };
-    
-    fetchStaffRecord();
-  }, [user, findByField]);
+    if (!staffRecord && user) {
+      // error handling is managed via isLoading/error below
+    }
+  }, [user, staffRecord]);
 
   if (!user) {
     return (
@@ -144,19 +133,19 @@ export default function MyAccountPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Full Name</span>
                   <span className="font-medium">
-                    {staffRecord.firstName} {staffRecord.lastName}
+                    {staffRecord.first_name} {staffRecord.last_name}
                   </span>
                 </div>
                 
                 <Separator />
                 
-                {staffRecord.phoneNumber && (
+                {staffRecord.phone_number && (
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Phone</span>
                       <div className="flex items-center gap-2">
                         <Phone className="h-4 w-4 text-gray-400" />
-                        <span className="font-medium">{staffRecord.phoneNumber}</span>
+                        <span className="font-medium">{staffRecord.phone_number}</span>
                       </div>
                     </div>
                     <Separator />
@@ -175,7 +164,7 @@ export default function MyAccountPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Staff Since</span>
                   <span className="text-sm">
-                    {new Date(staffRecord.createdAt).toLocaleDateString()}
+                    {new Date(staffRecord.created_at || '').toLocaleDateString()}
                   </span>
                 </div>
                 

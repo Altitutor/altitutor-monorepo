@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Staff, StaffRole } from "@/shared/lib/supabase/database/types";
+import type { Tables } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,13 +25,13 @@ import {
 const accountFormSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  role: z.nativeEnum(StaffRole),
+  role: z.enum(['TUTOR','ADMINSTAFF']),
 });
 
 type AccountFormData = z.infer<typeof accountFormSchema>;
 
 interface AccountTabProps {
-  staffMember: Staff;
+  staffMember: Tables<'staff'>;
   isLoading: boolean;
   isEditingAccount: boolean;
   hasPasswordResetLinkSent: boolean;
@@ -58,9 +58,9 @@ export function AccountTab({
   const accountForm = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
     defaultValues: {
-      firstName: staffMember.firstName || '',
-      lastName: staffMember.lastName || '',
-      role: staffMember.role,
+      firstName: staffMember.first_name || '',
+      lastName: staffMember.last_name || '',
+      role: (staffMember.role as 'TUTOR' | 'ADMINSTAFF') || 'TUTOR',
     },
   });
 
@@ -84,7 +84,7 @@ export function AccountTab({
       {isEditingAccount ? (
         <form
           id="account-edit-form"
-          onSubmit={accountForm.handleSubmit(onAccountUpdate)}
+          onSubmit={accountForm.handleSubmit(onAccountUpdate as any)}
           className="space-y-4"
         >
           <div className="grid grid-cols-2 gap-4">
@@ -132,10 +132,10 @@ export function AccountTab({
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={StaffRole.TUTOR}>
+                    <SelectItem value={'TUTOR'}>
                       Tutor
                     </SelectItem>
-                    <SelectItem value={StaffRole.ADMINSTAFF}>
+                    <SelectItem value={'ADMINSTAFF'}>
                       Admin Staff
                     </SelectItem>
                   </SelectContent>
@@ -164,7 +164,7 @@ export function AccountTab({
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
                       This will permanently delete the staff member
-                      "{staffMember.firstName || ''} {staffMember.lastName || ''}" and their user account.
+                      "{staffMember.first_name || ''} {staffMember.last_name || ''}" and their user account.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -217,8 +217,8 @@ export function AccountTab({
         <>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
             <div className="text-sm font-medium">User ID:</div>
-            <div className="text-sm font-mono min-w-0 truncate" title={staffMember.userId}>
-              {staffMember.userId}
+            <div className="text-sm font-mono min-w-0 truncate" title={staffMember.user_id ?? ''}>
+              {staffMember.user_id}
             </div>
 
             <div className="text-sm font-medium">Email:</div>

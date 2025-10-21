@@ -1,2 +1,2 @@
-export { useSessions } from './useSessions';
-export * from './useSessionsQuery'; 
+// useSessions removed; use useSessionsQuery exports
+export * from './useSessionsQuery';

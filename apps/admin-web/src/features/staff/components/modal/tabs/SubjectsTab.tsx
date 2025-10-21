@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Staff, Subject } from "@/shared/lib/supabase/database/types";
+import type { Tables } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,9 +10,9 @@ import { cn } from "@/shared/utils";
 import { ViewSubjectModal } from '@/features/subjects';
 
 interface SubjectsTabProps {
-  staffMember: Staff;
-  staffSubjects: Subject[];
-  allSubjects: Subject[];
+  staffMember: Tables<'staff'>;
+  staffSubjects: Tables<'subjects'>[];
+  allSubjects: Tables<'subjects'>[];
   loadingSubjects: boolean;
   onViewSubject?: (subjectId: string) => void;
   onAssignSubject: (subjectId: string) => void;

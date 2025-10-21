@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentsApi } from '../api/students';
-import type { Student, Subject, Class } from '@/shared/lib/supabase/database/types';
-import { StudentStatus } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 
 // Query Keys
 export const studentsKeys = {
@@ -12,7 +11,7 @@ export const studentsKeys = {
   detail: (id: string) => [...studentsKeys.details(), id] as const,
   withDetails: () => [...studentsKeys.all, 'withDetails'] as const,
   withSubjects: () => [...studentsKeys.all, 'withSubjects'] as const,
-  byStatus: (status: StudentStatus) => [...studentsKeys.all, 'byStatus', status] as const,
+  byStatus: (status: Tables<'students'>['status']) => [...studentsKeys.all, 'byStatus', status] as const,
 };
 
 // Get all students with details (subjects and classes)
@@ -96,7 +95,7 @@ export function useUpdateStudent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Student> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'students'> }) =>
       studentsApi.updateStudent(id, data),
     onSuccess: (updatedStudent, { id }) => {
       // Update the student in all relevant caches
@@ -110,7 +109,7 @@ export function useUpdateStudent() {
         if (!old) return old;
         return {
           ...old,
-          students: old.students.map((student: Student) =>
+          students: old.students.map((student: Tables<'students'>) =>
             student.id === id ? updatedStudent : student
           ),
         };
@@ -136,7 +135,7 @@ export function useDeleteStudent() {
         if (!old) return old;
         return {
           ...old,
-          students: old.students.filter((student: Student) => student.id !== deletedId),
+          students: old.students.filter((student: Tables<'students'>) => student.id !== deletedId),
           studentSubjects: Object.fromEntries(
             Object.entries(old.studentSubjects).filter(([id]) => id !== deletedId)
           ),

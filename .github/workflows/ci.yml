@@ -29,5 +29,5 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.sha }}
           restore-keys: ${{ runner.os }}-turbo-
       - run: npm ci
-      - run: npx turbo run lint test build
+      - run: npx turbo run lint test typecheck build
 

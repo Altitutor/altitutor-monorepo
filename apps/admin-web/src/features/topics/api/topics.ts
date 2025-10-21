@@ -1,7 +1,5 @@
-import { topicRepository, subtopicRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
-import type { Topic, Subtopic } from '../types';
+import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 /**
  * Topics API client for working with topic and subtopic data
@@ -10,128 +8,154 @@ export const topicsApi = {
   /**
    * Get all topics
    */
-  getAllTopics: async (): Promise<Topic[]> => {
-    try {
-      console.log('Getting all topics from repository');
-      const topics = await topicRepository.getAll();
-      console.log(`Retrieved ${topics?.length || 0} topics`);
-      return topics;
-    } catch (error) {
-      console.error('Error getting topics:', error);
-      throw error;
-    }
+  getAllTopics: async (): Promise<Tables<'topics'>[]> => {
+    const { data, error } = await getSupabaseClient()
+      .from('topics')
+      .select('*');
+    if (error) throw error;
+    return (data ?? []) as Tables<'topics'>[];
   },
   
   /**
    * Get a topic by ID
    */
-  getTopic: async (id: string): Promise<Topic | undefined> => {
-    return topicRepository.getById(id);
+  getTopic: async (id: string): Promise<Tables<'topics'> | null> => {
+    const { data, error } = await getSupabaseClient()
+      .from('topics')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data ?? null) as Tables<'topics'> | null;
   },
   
   /**
    * Create a new topic
    */
-  createTopic: async (data: Partial<Topic>): Promise<Topic> => {
-    // Ensure the user is an admin first
-    return topicRepository.create(data);
+  createTopic: async (data: TablesInsert<'topics'>): Promise<Tables<'topics'>> => {
+    const { data: created, error } = await getSupabaseClient()
+      .from('topics')
+      .insert(data)
+      .select()
+      .single();
+    if (error) throw error;
+    return created as Tables<'topics'>;
   },
   
   /**
    * Update a topic
    */
-  updateTopic: async (id: string, data: Partial<Topic>): Promise<Topic> => {
-    // Ensure the user is an admin first
-    return topicRepository.update(id, data);
+  updateTopic: async (id: string, data: TablesUpdate<'topics'>): Promise<Tables<'topics'>> => {
+    const { data: updated, error } = await getSupabaseClient()
+      .from('topics')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated as Tables<'topics'>;
   },
   
   /**
    * Delete a topic
    */
   deleteTopic: async (id: string): Promise<void> => {
-    // Ensure the user is an admin first
-    return topicRepository.delete(id);
+    const { error } = await getSupabaseClient()
+      .from('topics')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   },
 
   /**
    * Direct query to get all topics (bypassing repository)
    * This is a fallback in case the repository approach fails
    */
-  directGetAllTopics: async (): Promise<Topic[]> => {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('topics')
-      .select('*');
-    
-    if (error) {
-      console.error('Direct query error:', error);
-      throw error;
-    }
-    
-    return (data ?? []).map((row: any) => transformToCamelCase(row) as Topic);
+  directGetAllTopics: async (): Promise<Tables<'topics'>[]> => {
+    return topicsApi.getAllTopics();
   },
 
   /**
    * Get all topics for a specific subject
    */
-  getTopicsBySubject: async (subjectId: string): Promise<Topic[]> => {
-    try {
-      const topics = await topicRepository.getBy('subject_id', subjectId);
-      return topics.sort((a, b) => a.number - b.number);
-    } catch (error) {
-      console.error('Error getting topics by subject:', error);
-      throw error;
-    }
+  getTopicsBySubject: async (subjectId: string): Promise<Tables<'topics'>[]> => {
+    const { data, error } = await getSupabaseClient()
+      .from('topics')
+      .select('*')
+      .eq('subject_id', subjectId)
+      .order('number', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as Tables<'topics'>[];
   },
 
   /**
    * Get all subtopics for a topic
    */
-  getSubtopicsByTopic: async (topicId: string): Promise<Subtopic[]> => {
-    try {
-      const subtopics = await subtopicRepository.getBy('topic_id', topicId);
-      return subtopics.sort((a, b) => a.number - b.number);
-    } catch (error) {
-      console.error('Error getting subtopics by topic:', error);
-      throw error;
-    }
+  getSubtopicsByTopic: async (topicId: string): Promise<Tables<'subtopics'>[]> => {
+    const { data, error } = await getSupabaseClient()
+      .from('subtopics')
+      .select('*')
+      .eq('topic_id', topicId)
+      .order('number', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as Tables<'subtopics'>[];
   },
 
   /**
    * Get a subtopic by ID
    */
-  getSubtopic: async (id: string): Promise<Subtopic | undefined> => {
-    return subtopicRepository.getById(id);
+  getSubtopic: async (id: string): Promise<Tables<'subtopics'> | null> => {
+    const { data, error } = await getSupabaseClient()
+      .from('subtopics')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data ?? null) as Tables<'subtopics'> | null;
   },
 
   /**
    * Create a new subtopic
    */
-  createSubtopic: async (data: Partial<Subtopic>): Promise<Subtopic> => {
-    // Ensure the user is an admin first
-    return subtopicRepository.create(data);
+  createSubtopic: async (data: TablesInsert<'subtopics'>): Promise<Tables<'subtopics'>> => {
+    const { data: created, error } = await getSupabaseClient()
+      .from('subtopics')
+      .insert(data)
+      .select()
+      .single();
+    if (error) throw error;
+    return created as Tables<'subtopics'>;
   },
 
   /**
    * Update a subtopic
    */
-  updateSubtopic: async (id: string, data: Partial<Subtopic>): Promise<Subtopic> => {
-    // Ensure the user is an admin first
-    return subtopicRepository.update(id, data);
+  updateSubtopic: async (id: string, data: TablesUpdate<'subtopics'>): Promise<Tables<'subtopics'>> => {
+    const { data: updated, error } = await getSupabaseClient()
+      .from('subtopics')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated as Tables<'subtopics'>;
   },
 
   /**
    * Delete a subtopic
    */
   deleteSubtopic: async (id: string): Promise<void> => {
-    // Ensure the user is an admin first
-    return subtopicRepository.delete(id);
+    const { error } = await getSupabaseClient()
+      .from('subtopics')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   },
 
   /**
    * Get topics with their related subject information
    */
-  getTopicsWithSubjects: async (): Promise<Topic[]> => {
+  getTopicsWithSubjects: async (): Promise<{ topics: Tables<'topics'>[]; subjectByTopicId: Record<string, Tables<'subjects'>> }> => {
     try {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
@@ -153,17 +177,12 @@ export const topicsApi = {
         throw error;
       }
       
-      // Convert from DB format to model format
-      const topics = (data ?? []).map((topic: any) => ({
-        ...topic,
-        subjectId: topic.subject_id,
-        subject: topic.subjects ? {
-          ...topic.subjects,
-          yearLevel: topic.subjects.year_level,
-        } : undefined
-      }));
-      
-      return topics as Topic[];
+      const topics = (data ?? []) as any[];
+      const subjectByTopicId: Record<string, Tables<'subjects'>> = {};
+      topics.forEach((t: any) => {
+        if (t.subjects) subjectByTopicId[t.id] = t.subjects as Tables<'subjects'>;
+      });
+      return { topics: topics as Tables<'topics'>[], subjectByTopicId };
     } catch (error) {
       console.error('Error in getTopicsWithSubjects:', error);
       throw error;
@@ -173,7 +192,7 @@ export const topicsApi = {
   /**
    * Get all subtopics with their related topic information
    */
-  getAllSubtopicsWithTopics: async (): Promise<Subtopic[]> => {
+  getAllSubtopicsWithTopics: async (): Promise<{ subtopics: Tables<'subtopics'>[]; topicBySubtopicId: Record<string, Tables<'topics'>> }> => {
     try {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
@@ -194,17 +213,12 @@ export const topicsApi = {
         throw error;
       }
       
-      // Convert from DB format to model format
-      const subtopics = (data ?? []).map((subtopic: any) => ({
-        ...subtopic,
-        topicId: subtopic.topic_id,
-        topic: subtopic.topics ? {
-          ...subtopic.topics,
-          subjectId: subtopic.topics.subject_id
-        } : undefined
-      }));
-      
-      return subtopics as Subtopic[];
+      const subtopics = (data ?? []) as any[];
+      const topicBySubtopicId: Record<string, Tables<'topics'>> = {};
+      subtopics.forEach((s: any) => {
+        if (s.topics) topicBySubtopicId[s.id] = s.topics as Tables<'topics'>;
+      });
+      return { subtopics: subtopics as Tables<'subtopics'>[], topicBySubtopicId };
     } catch (error) {
       console.error('Error in getAllSubtopicsWithTopics:', error);
       throw error;

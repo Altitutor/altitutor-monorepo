@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { subjectsApi } from '../api/subjects';
-import type { Subject, Topic, Subtopic } from '../types';
+import type { Tables, TablesUpdate, TablesInsert } from '@altitutor/shared';
 
 // Query Keys
 export const subjectsKeys = {
@@ -115,7 +115,7 @@ export function useCreateSubject() {
       queryClient.invalidateQueries({ queryKey: subjectsKeys.all });
       
       // Optimistically add the new subject to the cache
-      queryClient.setQueryData(subjectsKeys.lists(), (old: Subject[] | undefined) => {
+      queryClient.setQueryData(subjectsKeys.lists(), (old: Tables<'subjects'>[] | undefined) => {
         if (!old) return [newSubject];
         return [...old, newSubject];
       });
@@ -127,14 +127,14 @@ export function useUpdateSubject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Subject> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'subjects'> }) =>
       subjectsApi.updateSubject(id, data),
     onSuccess: (updatedSubject, { id }) => {
       // Update the subject in the detail cache
       queryClient.setQueryData(subjectsKeys.detail(id), updatedSubject);
 
       // Update in the main subjects list
-      queryClient.setQueryData(subjectsKeys.lists(), (old: Subject[] | undefined) => {
+      queryClient.setQueryData(subjectsKeys.lists(), (old: Tables<'subjects'>[] | undefined) => {
         if (!old) return [updatedSubject];
         return old.map((subject) =>
           subject.id === id ? updatedSubject : subject
@@ -162,7 +162,7 @@ export function useDeleteSubject() {
       queryClient.removeQueries({ queryKey: subjectsKeys.detail(deletedId) });
       
       // Remove from lists
-      queryClient.setQueryData(subjectsKeys.lists(), (old: Subject[] | undefined) => {
+      queryClient.setQueryData(subjectsKeys.lists(), (old: Tables<'subjects'>[] | undefined) => {
         if (!old) return [];
         return old.filter((subject) => subject.id !== deletedId);
       });

@@ -4,9 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { staffApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
-import type { Staff } from "../../types";
-import type { Subject } from "@/shared/lib/supabase/database/types";
-import { supabaseServer } from "@/shared/lib/supabase/client";
+import type { Tables } from '@altitutor/shared';
+import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { SubjectsTab } from './tabs/SubjectsTab';
 import { ClassesTab } from './tabs/ClassesTab';
@@ -27,9 +26,9 @@ export function ViewStaffModal({
   onStaffUpdated 
 }: ViewStaffModalProps) {
   // State
-  const [staffMember, setStaffMember] = useState<Staff | null>(null);
-  const [staffSubjects, setStaffSubjects] = useState<Subject[]>([]);
-  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
+  const [staffMember, setStaffMember] = useState<Tables<'staff'> | null>(null);
+  const [staffSubjects, setStaffSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
@@ -73,7 +72,7 @@ export function ViewStaffModal({
       // Use the optimized method that gets both staff and subjects efficiently
       const { staff: staffData, subjects: subjectsData } = await staffApi.getStaffWithSubjects(staffId);
       setStaffMember(staffData || null);
-      setStaffSubjects(subjectsData);
+      setStaffSubjects(subjectsData as Tables<'subjects'>[]);
     } catch (err) {
       console.error('Failed to fetch staff:', err);
       toast({
@@ -91,7 +90,7 @@ export function ViewStaffModal({
     try {
       setLoadingSubjects(true);
       const subjects = await staffApi.getStaffSubjects(id);
-      setStaffSubjects(subjects);
+      setStaffSubjects((subjects as any) as Tables<'subjects'>[]);
     } catch (err) {
       console.error('Failed to fetch staff subjects:', err);
       toast({
@@ -108,7 +107,7 @@ export function ViewStaffModal({
   const fetchAllSubjects = async () => {
     try {
       const subjects = await subjectsApi.getAllSubjects();
-      setAllSubjects(subjects);
+      setAllSubjects((subjects as any) as Tables<'subjects'>[]);
     } catch (err) {
       console.error('Failed to fetch subjects:', err);
     }
@@ -123,25 +122,24 @@ export function ViewStaffModal({
       
       // Map form data to staff update - fix the updateStaff method to pass id and data separately
       await staffApi.updateStaff(staffMember.id, {
-        firstName: data.firstName,
-        lastName: data.lastName,
+        first_name: data.firstName,
+        last_name: data.lastName,
         // Email can be null or empty string
-        email: data.email === '' ? null : data.email,
-        phoneNumber: data.phoneNumber || null,
+        email: data.email || undefined,
+        phone_number: data.phoneNumber || null,
         role: data.role,
         status: data.status,
-        // Handle office key properly
-        officeKeyNumber: data.officeKeyNumber,
-        hasParkingRemote: data.hasParkingRemote,
-        availabilityMonday: data.availability_monday,
-        availabilityTuesday: data.availability_tuesday,
-        availabilityWednesday: data.availability_wednesday,
-        availabilityThursday: data.availability_thursday,
-        availabilityFriday: data.availability_friday,
-        availabilitySaturdayAm: data.availability_saturday_am,
-        availabilitySaturdayPm: data.availability_saturday_pm,
-        availabilitySundayAm: data.availability_sunday_am,
-        availabilitySundayPm: data.availability_sunday_pm
+        office_key_number: data.officeKeyNumber,
+        has_parking_remote: data.hasParkingRemote,
+        availability_monday: data.availability_monday,
+        availability_tuesday: data.availability_tuesday,
+        availability_wednesday: data.availability_wednesday,
+        availability_thursday: data.availability_thursday,
+        availability_friday: data.availability_friday,
+        availability_saturday_am: data.availability_saturday_am,
+        availability_saturday_pm: data.availability_saturday_pm,
+        availability_sunday_am: data.availability_sunday_am,
+        availability_sunday_pm: data.availability_sunday_pm
       });
       
       // Refetch staff
@@ -179,14 +177,14 @@ export function ViewStaffModal({
       // Update the user's account details
       // Since there's no updateStaffAccount method, we'll use the updateStaff method and supabaseServer directly
       await staffApi.updateStaff(staffMember.id, {
-        firstName: data.firstName,
-        lastName: data.lastName,
+        first_name: data.firstName,
+        last_name: data.lastName,
         role: data.role,
       });
       
       // Additionally update the user_metadata in auth
-      if (staffMember.userId) {
-        await supabaseServer.auth.admin.updateUserById(staffMember.userId, {
+      if (staffMember.user_id) {
+        await getSupabaseClient().auth.admin.updateUserById(staffMember.user_id, {
           user_metadata: {
             first_name: data.firstName,
             last_name: data.lastName,
@@ -262,7 +260,7 @@ export function ViewStaffModal({
     try {
       setIsLoading(true);
       
-      const { error } = await supabaseServer.auth.resetPasswordForEmail(
+      const { error } = await getSupabaseClient().auth.resetPasswordForEmail(
         staffMember.email,
         {
           redirectTo: `${baseUrl}/auth/callback`,
@@ -349,7 +347,7 @@ export function ViewStaffModal({
       <SheetContent className="overflow-y-auto max-w-md">
         <SheetHeader>
           <SheetTitle>
-            {staffMember.firstName} {staffMember.lastName}
+            {staffMember.first_name} {staffMember.last_name}
           </SheetTitle>
         </SheetHeader>
         

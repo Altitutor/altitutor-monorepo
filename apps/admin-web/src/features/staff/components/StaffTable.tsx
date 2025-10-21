@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SkeletonTable } from "@/components/ui/skeleton-table";
-import type { Staff, StaffRole, StaffStatus } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { useStaffWithSubjects } from '../hooks/useStaffQuery';
 import { AddStaffModal } from './AddStaffModal';
 import { ViewStaffModal } from './modal';
@@ -32,13 +32,13 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
   } = useStaffWithSubjects();
 
   // Extract staff array from the data structure
-  const staffMembers = data?.staff || [];
+  const staffMembers = (data?.staff as Tables<'staff'>[] | undefined) || [];
 
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<StaffRole | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<StaffStatus | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Staff>('firstName');
+  const [roleFilter, setRoleFilter] = useState<any | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<any | 'ALL'>('ALL');
+  const [sortField, setSortField] = useState<keyof Tables<'staff'>>('first_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Modal state
@@ -58,10 +58,10 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(staff => 
-        staff.firstName.toLowerCase().includes(searchLower) ||
-        staff.lastName.toLowerCase().includes(searchLower) ||
+        (staff.first_name || '').toLowerCase().includes(searchLower) ||
+        (staff.last_name || '').toLowerCase().includes(searchLower) ||
         staff.email?.toLowerCase().includes(searchLower) ||
-        staff.phoneNumber?.toLowerCase().includes(searchLower)
+        staff.phone_number?.toLowerCase().includes(searchLower)
       );
     }
     
@@ -77,8 +77,8 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     
     // Apply sorting
     result.sort((a, b) => {
-      const aValue = String(a[sortField as keyof Staff] || '');
-      const bValue = String(b[sortField as keyof Staff] || '');
+      const aValue = String(a[sortField] || '');
+      const bValue = String(b[sortField] || '');
       
       const comparison = aValue.localeCompare(bValue);
       return sortDirection === 'asc' ? comparison : -comparison;
@@ -110,7 +110,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     refetch();
   }, [refetch]);
 
-  const handleSort = useCallback((field: keyof Staff) => {
+  const handleSort = useCallback((field: keyof Tables<'staff'>) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -123,7 +123,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     setSearchTerm('');
     setRoleFilter('ALL');
     setStatusFilter('ALL');
-    setSortField('firstName');
+    setSortField('first_name');
     setSortDirection('asc');
   }, []);
 

@@ -6,7 +6,7 @@ import { classesApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
 import { studentsApi } from '@/features/students/api';
 import { staffApi } from "@/features/staff/api";
-import { Class, Subject, Student, Staff } from "@/shared/lib/supabase/database/types";
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
@@ -25,13 +25,13 @@ export function ViewClassModal({
   onClassUpdated 
 }: ViewClassModalProps) {
   // State
-  const [classData, setClassData] = useState<Class | null>(null);
-  const [subject, setSubject] = useState<Subject | null>(null);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classStudents, setClassStudents] = useState<Student[]>([]);
-  const [classStaff, setClassStaff] = useState<Staff[]>([]);
-  const [allStudents, setAllStudents] = useState<Student[]>([]);
-  const [allStaff, setAllStaff] = useState<Staff[]>([]);
+  const [classData, setClassData] = useState<Tables<'classes'> | null>(null);
+  const [subject, setSubject] = useState<Tables<'subjects'> | null>(null);
+  const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [classStudents, setClassStudents] = useState<Tables<'students'>[]>([]);
+  const [classStaff, setClassStaff] = useState<Tables<'staff'>[]>([]);
+  const [allStudents, setAllStudents] = useState<Tables<'students'>[]>([]);
+  const [allStaff, setAllStaff] = useState<Tables<'staff'>[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -115,16 +115,17 @@ export function ViewClassModal({
     try {
       setIsLoading(true);
       
-      await classesApi.updateClass(classData.id, {
-        level: data.level,
-        dayOfWeek: data.dayOfWeek,
-        startTime: data.startTime,
-        endTime: data.endTime,
+      const updateData: TablesUpdate<'classes'> = {
+        subject: data.level,
+        day_of_week: data.dayOfWeek,
+        start_time: data.startTime,
+        end_time: data.endTime,
         status: data.status,
-        subjectId: data.subjectId || undefined,
-        room: data.room || undefined,
-        notes: data.notes || undefined,
-      });
+        subject_id: data.subjectId || null,
+        room: data.room || null,
+        notes: data.notes || null,
+      };
+      await classesApi.updateClass(classData.id, updateData);
       
       // Refetch class
       await fetchClassData();
@@ -277,7 +278,7 @@ export function ViewClassModal({
       <SheetContent className="overflow-y-auto max-w-md">
         <SheetHeader>
           <SheetTitle>
-            {classData.level}
+            {classData.subject}
           </SheetTitle>
         </SheetHeader>
         

@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Student, StudentStatus, SubjectCurriculum } from "@/shared/lib/supabase/database/types";
+import type { Tables, Enums } from "@altitutor/shared";
 import { StudentStatusBadge } from "@/components/ui/enum-badge";
 import { Pencil, X, Check, Loader2 } from 'lucide-react';
 
@@ -19,9 +19,9 @@ export interface DetailsFormData {
   studentEmail?: string;
   studentPhone?: string;
   school?: string;
-  curriculum?: SubjectCurriculum;
+  curriculum?: Enums<'subject_curriculum'>;
   yearLevel?: number;
-  status: StudentStatus;
+  status: Tables<'students'>['status'];
   notes?: string;
   
   // Parent details
@@ -43,7 +43,7 @@ export interface DetailsFormData {
 }
 
 interface DetailsTabProps {
-  student: Student;
+  student: Tables<'students'>;
   isEditing: boolean;
   isLoading: boolean;
   onEdit: () => void;
@@ -60,28 +60,28 @@ export function DetailsTab({
   onSubmit
 }: DetailsTabProps) {
   const [formData, setFormData] = useState<DetailsFormData>({
-    firstName: student.firstName || '',
-    lastName: student.lastName || '',
-    studentEmail: student.studentEmail || '',
-    studentPhone: student.studentPhone || '',
+    firstName: student.first_name || '',
+    lastName: student.last_name || '',
+    studentEmail: student.student_email || '',
+    studentPhone: student.student_phone || '',
     school: student.school || '',
-    curriculum: (student.curriculum as SubjectCurriculum) || undefined,
-    yearLevel: student.yearLevel || undefined,
-    status: student.status || StudentStatus.TRIAL,
+    curriculum: (student.curriculum as Enums<'subject_curriculum'>) || undefined,
+    yearLevel: student.year_level || undefined,
+    status: student.status,
     notes: student.notes || '',
-    parentFirstName: student.parentFirstName || '',
-    parentLastName: student.parentLastName || '',
-    parentEmail: student.parentEmail || '',
-    parentPhone: student.parentPhone || '',
-    availability_monday: student.availabilityMonday || false,
-    availability_tuesday: student.availabilityTuesday || false,
-    availability_wednesday: student.availabilityWednesday || false,
-    availability_thursday: student.availabilityThursday || false,
-    availability_friday: student.availabilityFriday || false,
-    availability_saturday_am: student.availabilitySaturdayAm || false,
-    availability_saturday_pm: student.availabilitySaturdayPm || false,
-    availability_sunday_am: student.availabilitySundayAm || false,
-    availability_sunday_pm: student.availabilitySundayPm || false,
+    parentFirstName: student.parent_first_name || '',
+    parentLastName: student.parent_last_name || '',
+    parentEmail: student.parent_email || '',
+    parentPhone: student.parent_phone || '',
+    availability_monday: !!student.availability_monday,
+    availability_tuesday: !!student.availability_tuesday,
+    availability_wednesday: !!student.availability_wednesday,
+    availability_thursday: !!student.availability_thursday,
+    availability_friday: !!student.availability_friday,
+    availability_saturday_am: !!student.availability_saturday_am,
+    availability_saturday_pm: !!student.availability_saturday_pm,
+    availability_sunday_am: !!student.availability_sunday_am,
+    availability_sunday_pm: !!student.availability_sunday_pm,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -158,17 +158,17 @@ export function DetailsTab({
                   <Label htmlFor="curriculum">Curriculum</Label>
                   <Select
                     value={formData.curriculum || ''}
-                    onValueChange={(value) => handleInputChange('curriculum', value as SubjectCurriculum)}
+                    onValueChange={(value) => handleInputChange('curriculum', value as Enums<'subject_curriculum'>)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select curriculum" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={SubjectCurriculum.SACE}>SACE</SelectItem>
-                      <SelectItem value={SubjectCurriculum.IB}>IB</SelectItem>
-                      <SelectItem value={SubjectCurriculum.PRESACE}>PRESACE</SelectItem>
-                      <SelectItem value={SubjectCurriculum.PRIMARY}>PRIMARY</SelectItem>
-                      <SelectItem value={SubjectCurriculum.MEDICINE}>MEDICINE</SelectItem>
+                      <SelectItem value={'SACE'}>SACE</SelectItem>
+                      <SelectItem value={'IB'}>IB</SelectItem>
+                      <SelectItem value={'PRESACE'}>PRESACE</SelectItem>
+                      <SelectItem value={'PRIMARY'}>PRIMARY</SelectItem>
+                      <SelectItem value={'MEDICINE'}>MEDICINE</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -189,16 +189,16 @@ export function DetailsTab({
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => handleInputChange('status', value as StudentStatus)}
+                  onValueChange={(value) => handleInputChange('status', value as Tables<'students'>['status'])}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={StudentStatus.ACTIVE}>Active</SelectItem>
-                    <SelectItem value={StudentStatus.INACTIVE}>Inactive</SelectItem>
-                    <SelectItem value={StudentStatus.TRIAL}>Trial</SelectItem>
-                    <SelectItem value={StudentStatus.DISCONTINUED}>Discontinued</SelectItem>
+                    <SelectItem value={'ACTIVE'}>Active</SelectItem>
+                    <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
+                    <SelectItem value={'TRIAL'}>Trial</SelectItem>
+                    <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -347,22 +347,22 @@ export function DetailsTab({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">First Name</Label>
-              <p className="text-sm">{student.firstName || '-'}</p>
+              <p className="text-sm">{student.first_name || '-'}</p>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Last Name</Label>
-              <p className="text-sm">{student.lastName || '-'}</p>
+              <p className="text-sm">{student.last_name || '-'}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Student Email</Label>
-              <p className="text-sm">{student.studentEmail || '-'}</p>
+              <p className="text-sm">{student.student_email || '-'}</p>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Student Phone</Label>
-              <p className="text-sm">{student.studentPhone || '-'}</p>
+              <p className="text-sm">{student.student_phone || '-'}</p>
             </div>
           </div>
 
@@ -385,8 +385,8 @@ export function DetailsTab({
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Year Level</Label>
               <p className="text-sm">
-                {student.yearLevel ? (
-                  <Badge variant="secondary">Year {student.yearLevel}</Badge>
+                {student.year_level ? (
+                  <Badge variant="secondary">Year {student.year_level}</Badge>
                 ) : (
                   '-'
                 )}
@@ -397,7 +397,7 @@ export function DetailsTab({
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Status</Label>
             <div className="mt-1">
-              <StudentStatusBadge value={student.status} />
+              <StudentStatusBadge value={student.status as any} />
             </div>
           </div>
 
@@ -419,22 +419,22 @@ export function DetailsTab({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Parent First Name</Label>
-              <p className="text-sm">{student.parentFirstName || '-'}</p>
+              <p className="text-sm">{student.parent_first_name || '-'}</p>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Parent Last Name</Label>
-              <p className="text-sm">{student.parentLastName || '-'}</p>
+              <p className="text-sm">{student.parent_last_name || '-'}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Parent Email</Label>
-              <p className="text-sm">{student.parentEmail || '-'}</p>
+              <p className="text-sm">{student.parent_email || '-'}</p>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Parent Phone</Label>
-              <p className="text-sm">{student.parentPhone || '-'}</p>
+              <p className="text-sm">{student.parent_phone || '-'}</p>
             </div>
           </div>
         </CardContent>
@@ -451,15 +451,15 @@ export function DetailsTab({
               <h4 className="font-medium mb-3">Weekdays</h4>
               <div className="space-y-2">
                 {[
-                  { key: 'availabilityMonday', label: 'Monday' },
-                  { key: 'availabilityTuesday', label: 'Tuesday' },
-                  { key: 'availabilityWednesday', label: 'Wednesday' },
-                  { key: 'availabilityThursday', label: 'Thursday' },
-                  { key: 'availabilityFriday', label: 'Friday' },
+                  { key: 'availability_monday', label: 'Monday' },
+                  { key: 'availability_tuesday', label: 'Tuesday' },
+                  { key: 'availability_wednesday', label: 'Wednesday' },
+                  { key: 'availability_thursday', label: 'Thursday' },
+                  { key: 'availability_friday', label: 'Friday' },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${student[key as keyof Student] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <span className={`text-sm ${student[key as keyof Student] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {label}
                     </span>
                   </div>
@@ -471,14 +471,14 @@ export function DetailsTab({
               <h4 className="font-medium mb-3">Weekends</h4>
               <div className="space-y-2">
                 {[
-                  { key: 'availabilitySaturdayAm', label: 'Saturday AM' },
-                  { key: 'availabilitySaturdayPm', label: 'Saturday PM' },
-                  { key: 'availabilitySundayAm', label: 'Sunday AM' },
-                  { key: 'availabilitySundayPm', label: 'Sunday PM' },
+                  { key: 'availability_saturday_am', label: 'Saturday AM' },
+                  { key: 'availability_saturday_pm', label: 'Saturday PM' },
+                  { key: 'availability_sunday_am', label: 'Sunday AM' },
+                  { key: 'availability_sunday_pm', label: 'Sunday PM' },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${student[key as keyof Student] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <span className={`text-sm ${student[key as keyof Student] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {label}
                     </span>
                   </div>

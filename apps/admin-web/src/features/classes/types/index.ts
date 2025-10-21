@@ -1,7 +1,1 @@
-export type { 
-  Class,
-  ClassStatus,
-  ClassEnrollment,
-  ClassAssignment,
-  EnrollmentStatus
-} from '@/shared/lib/supabase/database/types'; 
+export type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';

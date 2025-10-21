@@ -8,8 +8,7 @@ import { SubjectCurriculumBadge } from '@/components/ui/enum-badge';
 import { Separator } from '@/components/ui/separator';
 import { topicsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
-import type { Topic, Subtopic } from '../types';
-import type { Subject } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { AddSubtopicModal } from './AddSubtopicModal';
 import { ViewSubtopicModal } from './ViewSubtopicModal';
 import { PencilIcon, PlusIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
@@ -51,7 +50,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 // Function to get a color for a subject based on curriculum
-const getSubjectColor = (subject?: Subject): string => {
+const getSubjectColor = (subject?: Tables<'subjects'>): string => {
   if (!subject || !subject.curriculum) return 'bg-gray-100 text-gray-800';
   
   switch (subject.curriculum) {
@@ -74,10 +73,10 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [topic, setTopic] = useState<Topic | null>(null);
-  const [subject, setSubject] = useState<Subject | null>(null);
-  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [topic, setTopic] = useState<Tables<'topics'> | null>(null);
+  const [subject, setSubject] = useState<Tables<'subjects'> | null>(null);
+  const [subtopics, setSubtopics] = useState<Tables<'subtopics'>[]>([]);
+  const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -116,7 +115,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
       form.reset({
         name: topic.name,
         number: topic.number,
-        subject_id: topic.subjectId,
+        subject_id: topic.subject_id,
         area: topic.area || "",
       });
     }
@@ -142,7 +141,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
     try {
       // Load topic with subject data included
       const topicsWithSubjects = await topicsApi.getTopicsWithSubjects();
-      const topicData = topicsWithSubjects.find(t => t.id === id);
+      const topicData = topicsWithSubjects.topics.find(t => t.id === id);
       
       if (!topicData) {
         throw new Error('Topic not found');
@@ -151,13 +150,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
       setTopic(topicData);
       
       // Set subject from the topic's subject property
-      if (topicData.subject) {
-        setSubject(topicData.subject);
-      } else if (topicData.subjectId) {
-        // Fallback to loading subject directly if not included
-        const subjectData = await subjectsApi.getSubject(topicData.subjectId);
-        setSubject(subjectData || null);
-      }
+      setSubject(topicsWithSubjects.subjectByTopicId[topicData.id] ?? null);
 
       // Load subtopics
       const subtopicsData = await topicsApi.getSubtopicsByTopic(id);
@@ -179,7 +172,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
       form.reset({
         name: topic.name,
         number: topic.number,
-        subject_id: topic.subjectId,
+        subject_id: topic.subject_id,
         area: topic.area || "",
       });
     }
@@ -192,25 +185,20 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
     setSubmitting(true);
     
     try {
-      const topicData: Partial<Topic> = {
+      const topicData: TablesUpdate<'topics'> = {
         name: values.name,
         number: values.number,
-        subjectId: values.subject_id,
+        subject_id: values.subject_id,
         area: values.area || null,
       };
       
-      await topicsApi.updateTopic(topicId, topicData);
+      const updated = await topicsApi.updateTopic(topicId, topicData);
       
       // Update local topic data
-      const updatedTopic = {
-        ...topic!,
-        ...topicData,
-      };
-      
-      setTopic(updatedTopic as Topic);
+      setTopic(updated);
       
       // Reload subject data if it changed
-      if (topic?.subjectId !== values.subject_id) {
+      if (topic?.subject_id !== values.subject_id) {
         try {
           const subjectData = await subjectsApi.getSubject(values.subject_id);
           setSubject(subjectData || null);

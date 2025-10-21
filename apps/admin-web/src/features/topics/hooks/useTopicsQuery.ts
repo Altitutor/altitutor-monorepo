@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { topicsApi } from '../api/topics';
-import type { Topic, Subtopic } from '../types';
+import type { Tables, TablesUpdate, TablesInsert } from '@altitutor/shared';
 
 // Query Keys
 export const topicsKeys = {
@@ -106,7 +106,7 @@ export function useCreateTopic() {
       queryClient.invalidateQueries({ queryKey: topicsKeys.all });
       
       // Optimistically add the new topic to the cache
-      queryClient.setQueryData(topicsKeys.lists(), (old: Topic[] | undefined) => {
+      queryClient.setQueryData(topicsKeys.lists(), (old: Tables<'topics'>[] | undefined) => {
         if (!old) return [newTopic];
         return [...old, newTopic];
       });
@@ -121,14 +121,14 @@ export function useUpdateTopic() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Topic> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'topics'> }) =>
       topicsApi.updateTopic(id, data),
     onSuccess: (updatedTopic, { id }) => {
       // Update the topic in the detail cache
       queryClient.setQueryData(topicsKeys.detail(id), updatedTopic);
 
       // Update in the main topics list
-      queryClient.setQueryData(topicsKeys.lists(), (old: Topic[] | undefined) => {
+      queryClient.setQueryData(topicsKeys.lists(), (old: Tables<'topics'>[] | undefined) => {
         if (!old) return [updatedTopic];
         return old.map((topic) =>
           topic.id === id ? updatedTopic : topic
@@ -152,7 +152,7 @@ export function useDeleteTopic() {
       queryClient.removeQueries({ queryKey: topicsKeys.detail(deletedId) });
       
       // Remove from lists
-      queryClient.setQueryData(topicsKeys.lists(), (old: Topic[] | undefined) => {
+      queryClient.setQueryData(topicsKeys.lists(), (old: Tables<'topics'>[] | undefined) => {
         if (!old) return [];
         return old.filter((topic) => topic.id !== deletedId);
       });
@@ -178,9 +178,9 @@ export function useCreateSubtopic() {
       queryClient.invalidateQueries({ queryKey: topicsKeys.subtopics.all });
       
       // Invalidate the specific topic's subtopics
-      if (newSubtopic.topicId) {
+      if ((newSubtopic as Tables<'subtopics'>).topic_id) {
         queryClient.invalidateQueries({ 
-          queryKey: topicsKeys.subtopics.byTopic(newSubtopic.topicId) 
+          queryKey: topicsKeys.subtopics.byTopic((newSubtopic as Tables<'subtopics'>).topic_id) 
         });
       }
       
@@ -194,7 +194,7 @@ export function useUpdateSubtopic() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Subtopic> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'subtopics'> }) =>
       topicsApi.updateSubtopic(id, data),
     onSuccess: (updatedSubtopic, { id }) => {
       // Update the subtopic in the detail cache
@@ -204,9 +204,9 @@ export function useUpdateSubtopic() {
       queryClient.invalidateQueries({ queryKey: topicsKeys.subtopics.all });
       
       // Invalidate the specific topic's subtopics
-      if (updatedSubtopic.topicId) {
+      if ((updatedSubtopic as Tables<'subtopics'>).topic_id) {
         queryClient.invalidateQueries({ 
-          queryKey: topicsKeys.subtopics.byTopic(updatedSubtopic.topicId) 
+          queryKey: topicsKeys.subtopics.byTopic((updatedSubtopic as Tables<'subtopics'>).topic_id) 
         });
       }
       

@@ -1,9 +1,5 @@
-import { studentRepository, studentsSubjectsRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
-import type { Student, StudentsSubjects } from '../types';
-import { StudentStatus } from '@/shared/lib/supabase/database/types';
-import type { Subject, Class } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 /**
  * Students API client for working with student data
@@ -12,15 +8,17 @@ export const studentsApi = {
   /**
    * Get all students
    */
-  getAllStudents: async (): Promise<Student[]> => {
-    return studentRepository.getAll();
+  getAllStudents: async (): Promise<Tables<'students'>[]> => {
+    const { data, error } = await getSupabaseClient().from('students').select('*');
+    if (error) throw error;
+    return (data ?? []) as Tables<'students'>[];
   },
   
   /**
    * Get a single student with their subjects in an optimized query
    * This solves the N+1 query problem for the student modal
    */
-  getStudentWithSubjects: async (studentId: string): Promise<{ student: Student | null; subjects: Subject[] }> => {
+  getStudentWithSubjects: async (studentId: string): Promise<{ student: Tables<'students'> | null; subjects: Tables<'subjects'>[] }> => {
     const supabase = getSupabaseClient();
     
     try {
@@ -42,20 +40,20 @@ export const studentsApi = {
       const { data: subjectsData, error: subjectsError } = await supabase
         .from('students_subjects')
         .select(`
-          subject:subjects(*)
+          subject_details:subjects(*)
         `)
         .eq('student_id', studentId);
       
       if (subjectsError) throw subjectsError;
       
       // Transform student data
-      const student = transformToCamelCase(studentData) as Student;
+      const student = studentData as Tables<'students'>;
       
       // Transform subjects data
       const subjects = subjectsData
-        ?.map((row: any) => row.subject)
+        ?.map((row: any) => row.subject_details)
         .filter(Boolean)
-        .map((subject: any) => transformToCamelCase(subject) as Subject) || [];
+        .map((subject: any) => subject as Tables<'subjects'>) || [];
       
       return { student, subjects };
       
@@ -68,26 +66,28 @@ export const studentsApi = {
   /**
    * Get a student by ID
    */
-  getStudent: async (id: string): Promise<Student | undefined> => {
-    return studentRepository.getById(id);
+  getStudent: async (id: string): Promise<Tables<'students'> | null> => {
+    const { data, error } = await getSupabaseClient().from('students').select('*').eq('id', id).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data ?? null) as Tables<'students'> | null;
   },
   
   /**
    * Search students by name, email, or status
    */
-  searchStudents: async (query: string): Promise<Student[]> => {
+  searchStudents: async (query: string): Promise<Tables<'students'>[]> => {
     try {
       // Get all students first
-      const allStudents = await studentRepository.getAll();
+      const allStudents = await studentsApi.getAllStudents();
       
       // Filter students based on the search query
       const lowerQuery = query.toLowerCase();
       return allStudents.filter(student => {
         return (
-          (student.firstName?.toLowerCase().includes(lowerQuery)) ||
-          (student.lastName?.toLowerCase().includes(lowerQuery)) ||
-          (student.studentEmail?.toLowerCase().includes(lowerQuery)) ||
-          (student.parentEmail?.toLowerCase().includes(lowerQuery)) ||
+          (student.first_name?.toLowerCase().includes(lowerQuery)) ||
+          (student.last_name?.toLowerCase().includes(lowerQuery)) ||
+          (student.student_email?.toLowerCase().includes(lowerQuery)) ||
+          (student.parent_email?.toLowerCase().includes(lowerQuery)) ||
           (student.status?.toLowerCase().includes(lowerQuery))
         );
       });
@@ -100,24 +100,34 @@ export const studentsApi = {
   /**
    * Create a new student
    */
-  createStudent: async (data: Partial<Student>): Promise<Student> => {
-    // Ensure the user is an admin first
-    
-    // Set default status if not provided
-    const studentData: Partial<Student> = {
-      ...data,
-      status: data.status || StudentStatus.TRIAL,
+  createStudent: async (data: TablesInsert<'students'>): Promise<Tables<'students'>> => {
+    // Ensure id exists if the table requires it
+    const payload: TablesInsert<'students'> = {
+      ...(data as TablesInsert<'students'>),
+      id: (data as any)?.id ?? crypto.randomUUID(),
     };
-    
-    return studentRepository.create(studentData);
+
+    const { data: created, error } = await getSupabaseClient()
+      .from('students')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return created as Tables<'students'>;
   },
   
   /**
    * Update a student
    */
-  updateStudent: async (id: string, data: Partial<Student>): Promise<Student> => {
-    // Ensure the user is an admin first
-    return studentRepository.update(id, data);
+  updateStudent: async (id: string, data: TablesUpdate<'students'>): Promise<Tables<'students'>> => {
+    const { data: updated, error } = await getSupabaseClient()
+      .from('students')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated as Tables<'students'>;
   },
   
   /**
@@ -125,32 +135,25 @@ export const studentsApi = {
    */
   deleteStudent: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    return studentRepository.delete(id);
+    const { error } = await getSupabaseClient().from('students').delete().eq('id', id);
+    if (error) throw error;
   },
 
   
   /**
    * Assign a subject to a student
    */
-  assignSubjectToStudent: async (studentId: string, subjectId: string): Promise<StudentsSubjects> => {
+  assignSubjectToStudent: async (studentId: string, subjectId: string): Promise<Tables<'students_subjects'>> => {
     try {
       // Ensure the user is an admin first
       
       // Check if the assignment already exists
-      const existing = await studentsSubjectsRepository.getBy('student_id', studentId);
-      const existingSubject = existing.find(record => record.subjectId === subjectId);
-      
-      if (existingSubject) {
-        return existingSubject; // Already assigned, return existing record
-      }
-      
-      // Create the student-subject assignment
-      const studentSubject: Partial<StudentsSubjects> = {
-        studentId,
-        subjectId,
-      };
-      
-      return studentsSubjectsRepository.create(studentSubject);
+      const { data: existing, error: existingError } = await getSupabaseClient().from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
+      if (existingError) throw existingError;
+      if ((existing ?? []).length) return existing[0] as Tables<'students_subjects'>;
+      const { data, error } = await getSupabaseClient().from('students_subjects').insert({ student_id: studentId, subject_id: subjectId }).select().single();
+      if (error) throw error;
+      return data as Tables<'students_subjects'>;
     } catch (error) {
       console.error('Error assigning subject to student:', error);
       throw error;
@@ -165,13 +168,11 @@ export const studentsApi = {
       // Ensure the user is an admin first
       
       // Get all student-subject records for this student and subject
-      const studentSubjects = await studentsSubjectsRepository.getBy('student_id', studentId);
-      
-      // Find the specific record for this subject
-      const recordToDelete = studentSubjects.find(record => record.subjectId === subjectId);
-      
-      if (recordToDelete) {
-        await studentsSubjectsRepository.delete(recordToDelete.id);
+      const { data, error } = await getSupabaseClient().from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
+      if (error) throw error;
+      if ((data ?? []).length) {
+        const { error: delError } = await getSupabaseClient().from('students_subjects').delete().eq('student_id', studentId).eq('subject_id', subjectId);
+        if (delError) throw delError;
       }
     } catch (error) {
       console.error('Error removing subject from student:', error);
@@ -184,9 +185,9 @@ export const studentsApi = {
    * This solves the N+1 query problem for the students table with class information
    */
   getAllStudentsWithDetails: async (): Promise<{ 
-    students: Student[]; 
-    studentSubjects: Record<string, Subject[]>;
-    studentClasses: Record<string, Class[]>;
+    students: Tables<'students'>[]; 
+    studentSubjects: Record<string, Tables<'subjects'>[]>;
+    studentClasses: Record<string, Tables<'classes'>[]>;
   }> => {
     const supabase = getSupabaseClient();
     
@@ -203,7 +204,7 @@ export const studentsApi = {
         .from('students_subjects')
         .select(`
           student_id,
-          subject:subjects(*)
+          subject_details:subjects(*)
         `);
       
       if (studentSubjectsError) throw studentSubjectsError;
@@ -215,7 +216,7 @@ export const studentsApi = {
           student_id,
           class:classes(
             *,
-            subject:subjects(*)
+            subject_details:subjects(*)
           )
         `)
         .eq('status', 'ACTIVE');
@@ -223,9 +224,9 @@ export const studentsApi = {
       if (enrollmentsError) throw enrollmentsError;
       
       // Transform and organize the data
-      const students = studentsData?.map((row: any) => transformToCamelCase(row) as Student) || [];
-      const studentSubjects: Record<string, Subject[]> = {};
-      const studentClasses: Record<string, Class[]> = {};
+      const students = (studentsData ?? []) as Tables<'students'>[];
+      const studentSubjects: Record<string, Tables<'subjects'>[]> = {};
+      const studentClasses: Record<string, Tables<'classes'>[]> = {};
       
       // Initialize arrays for all students
       students.forEach(student => {
@@ -235,8 +236,8 @@ export const studentsApi = {
       
       // Process student subjects
       studentSubjectsData?.forEach((row: any) => {
-        if (row.subject && row.student_id) {
-          const subject = transformToCamelCase(row.subject) as Subject;
+        if (row.subject_details && row.student_id) {
+          const subject = row.subject_details as Tables<'subjects'>;
           if (studentSubjects[row.student_id]) {
             studentSubjects[row.student_id].push(subject);
           }
@@ -246,7 +247,7 @@ export const studentsApi = {
       // Process student classes
       enrollmentsData?.forEach((row: any) => {
         if (row.class && row.student_id) {
-          const cls = transformToCamelCase(row.class) as Class;
+          const cls = row.class as Tables<'classes'>;
           if (studentClasses[row.student_id]) {
             studentClasses[row.student_id].push(cls);
           }

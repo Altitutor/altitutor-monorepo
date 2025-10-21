@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { staffApi } from '../api/staff';
-import type { Staff, Subject, StaffRole, StaffStatus } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesInsert } from '@altitutor/shared';
+type Staff = Tables<'staff'>;
+type Subject = Tables<'subjects'>;
+type StaffRole = string;
+type StaffStatus = string;
 
 // Query Keys
 export const staffKeys = {
@@ -83,8 +87,34 @@ export function useCreateStaff() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ data, password }: { data: Partial<Staff>; password: string }) =>
-      staffApi.createStaff(data, password),
+    mutationFn: async ({ data, password }: { data: TablesInsert<'staff'>; password: string }) => {
+      // Convert data to the expected format for createStaff
+      const staffData: TablesInsert<'staff'> = {
+        id: data.id,
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
+        email: data.email || '',
+        role: data.role || 'TUTOR',
+        status: data.status || 'TRIAL',
+        phone_number: data.phone_number || null,
+        office_key_number: data.office_key_number || null,
+        has_parking_remote: data.has_parking_remote || null,
+        availability_monday: data.availability_monday || false,
+        availability_tuesday: data.availability_tuesday || false,
+        availability_wednesday: data.availability_wednesday || false,
+        availability_thursday: data.availability_thursday || false,
+        availability_friday: data.availability_friday || false,
+        availability_saturday_am: data.availability_saturday_am || false,
+        availability_saturday_pm: data.availability_saturday_pm || false,
+        availability_sunday_am: data.availability_sunday_am || false,
+        availability_sunday_pm: data.availability_sunday_pm || false,
+        notes: data.notes || null,
+        user_id: data.user_id || null,
+        created_at: data.created_at || null,
+        updated_at: data.updated_at || null,
+      };
+      return staffApi.createStaff(staffData, password);
+    },
     onSuccess: (result) => {
       // Invalidate and refetch staff lists
       queryClient.invalidateQueries({ queryKey: staffKeys.all });

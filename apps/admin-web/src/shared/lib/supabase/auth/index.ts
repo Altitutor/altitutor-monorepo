@@ -2,7 +2,8 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Database } from '../database/generated';
+import type { Database } from '@altitutor/shared';
+import { useSupabaseClient, getSupabaseClient } from '@/shared/lib/supabase/client';
 
 // Auth types - role checking is now done via staff table in database
 export type UserRole = 'ADMINSTAFF' | 'TUTOR' | 'STUDENT';
@@ -24,7 +25,7 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
       setLoading: (loading) => set({ loading }),
       signOut: async () => {
-        const supabase = createClientComponentClient<Database>();
+        const supabase = getSupabaseClient();
         await supabase.auth.signOut();
         set({ user: null });
       },
@@ -38,7 +39,7 @@ export const useAuthStore = create<AuthState>()(
 
 // Initialize auth state
 export async function initializeAuth() {
-  const supabase = createClientComponentClient<Database>();
+  const supabase = getSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   useAuthStore.getState().setUser(user as User);
   useAuthStore.getState().setLoading(false);
@@ -46,7 +47,7 @@ export async function initializeAuth() {
 
 // Auth state change listener
 export function setupAuthListener() {
-  const supabase = createClientComponentClient<Database>();
+  const supabase = getSupabaseClient();
   
   const { data: { subscription } } = supabase.auth.onAuthStateChange(
     async (event, session) => {

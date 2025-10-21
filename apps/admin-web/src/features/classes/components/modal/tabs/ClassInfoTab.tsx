@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Class, ClassStatus, Subject } from "@/shared/lib/supabase/database/types";
+import type { Tables } from '@altitutor/shared';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ const classInfoSchema = z.object({
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
-  status: z.nativeEnum(ClassStatus),
+  status: z.enum(['ACTIVE','INACTIVE','FULL']),
   subjectId: z.string().optional(),
   room: z.string().optional(),
   notes: z.string().optional(),
@@ -29,9 +29,9 @@ const classInfoSchema = z.object({
 type FormData = z.infer<typeof classInfoSchema>;
 
 interface ClassInfoTabProps {
-  classData: Class;
-  subject?: Subject | null;
-  subjects: Subject[];
+  classData: Tables<'classes'>;
+  subject?: Tables<'subjects'> | null;
+  subjects: Tables<'subjects'>[];
   isEditing: boolean;
   isLoading: boolean;
   onEdit: () => void;
@@ -52,12 +52,12 @@ export function ClassInfoTab({
   const form = useForm<FormData>({
     resolver: zodResolver(classInfoSchema),
     defaultValues: {
-      level: classData.level || '',
-      dayOfWeek: classData.dayOfWeek || 1,
-      startTime: classData.startTime || '',
-      endTime: classData.endTime || '',
-      status: classData.status || ClassStatus.ACTIVE,
-      subjectId: classData.subjectId || '',
+      level: classData.subject || '',
+      dayOfWeek: classData.day_of_week || 1,
+      startTime: classData.start_time || '',
+      endTime: classData.end_time || '',
+      status: (classData.status as any) || 'ACTIVE',
+      subjectId: classData.subject_id || '',
       room: classData.room || '',
       notes: classData.notes || '',
     },
@@ -130,9 +130,9 @@ export function ClassInfoTab({
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={ClassStatus.ACTIVE}>Active</SelectItem>
-                      <SelectItem value={ClassStatus.INACTIVE}>Inactive</SelectItem>
-                      <SelectItem value={ClassStatus.FULL}>Full</SelectItem>
+                      <SelectItem value={'ACTIVE'}>Active</SelectItem>
+                      <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
+                      <SelectItem value={'FULL'}>Full</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -283,20 +283,20 @@ export function ClassInfoTab({
         // View Mode
         <>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
-            <div className="text-sm font-medium">Level:</div>
-            <div className="min-w-0">{classData.level || '-'}</div>
+            <div className="text-sm font-medium">Subject Code:</div>
+            <div className="min-w-0">{classData.subject || '-'}</div>
             
             <div className="text-sm font-medium">Day:</div>
-            <div className="min-w-0">{getDayOfWeek(classData.dayOfWeek)}</div>
+            <div className="min-w-0">{getDayOfWeek(classData.day_of_week)}</div>
             
             <div className="text-sm font-medium">Time:</div>
             <div className="min-w-0">
-              {formatTime(classData.startTime)} - {formatTime(classData.endTime)}
+              {formatTime(classData.start_time)} - {formatTime(classData.end_time)}
             </div>
             
             <div className="text-sm font-medium">Status:</div>
             <div className="min-w-0">
-              <ClassStatusBadge value={classData.status} />
+              <ClassStatusBadge value={classData.status as any} />
             </div>
             
             <div className="text-sm font-medium">Subject:</div>

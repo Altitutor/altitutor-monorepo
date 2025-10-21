@@ -580,6 +580,7 @@ export type Database = {
           first_name: string
           has_parking_remote: string | null
           id: string
+          invite_token: string | null
           last_name: string
           notes: string | null
           office_key_number: number | null
@@ -587,7 +588,7 @@ export type Database = {
           role: string
           status: string
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           availability_friday?: boolean | null
@@ -604,6 +605,7 @@ export type Database = {
           first_name: string
           has_parking_remote?: string | null
           id: string
+          invite_token?: string | null
           last_name: string
           notes?: string | null
           office_key_number?: number | null
@@ -611,7 +613,7 @@ export type Database = {
           role: string
           status: string
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           availability_friday?: boolean | null
@@ -628,6 +630,7 @@ export type Database = {
           first_name?: string
           has_parking_remote?: string | null
           id?: string
+          invite_token?: string | null
           last_name?: string
           notes?: string | null
           office_key_number?: number | null
@@ -635,7 +638,7 @@ export type Database = {
           role?: string
           status?: string
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -758,6 +761,7 @@ export type Database = {
           curriculum: string | null
           first_name: string
           id: string
+          invite_token: string | null
           last_name: string
           notes: string | null
           parent_email: string | null
@@ -769,7 +773,7 @@ export type Database = {
           student_email: string | null
           student_phone: string | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
           year_level: number | null
         }
         Insert: {
@@ -787,6 +791,7 @@ export type Database = {
           curriculum?: string | null
           first_name: string
           id: string
+          invite_token?: string | null
           last_name: string
           notes?: string | null
           parent_email?: string | null
@@ -798,7 +803,7 @@ export type Database = {
           student_email?: string | null
           student_phone?: string | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
           year_level?: number | null
         }
         Update: {
@@ -816,6 +821,7 @@ export type Database = {
           curriculum?: string | null
           first_name?: string
           id?: string
+          invite_token?: string | null
           last_name?: string
           notes?: string | null
           parent_email?: string | null
@@ -827,7 +833,7 @@ export type Database = {
           student_email?: string | null
           student_phone?: string | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
           year_level?: number | null
         }
         Relationships: [

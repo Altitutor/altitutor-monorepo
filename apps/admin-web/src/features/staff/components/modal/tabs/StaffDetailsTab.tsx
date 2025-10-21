@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Staff, StaffRole, StaffStatus } from "@/shared/lib/supabase/database/types";
+import type { Tables } from '@altitutor/shared';
 import { Badge } from "@/components/ui/badge";
 import { StaffRoleBadge, StaffStatusBadge, BooleanBadge } from "@/components/ui/enum-badge";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,8 @@ const formSchema = z.object({
     .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
     .optional()
     .nullish(),
-  role: z.nativeEnum(StaffRole),
-  status: z.nativeEnum(StaffStatus),
+  role: z.enum(['TUTOR','ADMINSTAFF']),
+  status: z.enum(['ACTIVE','INACTIVE','TRIAL']),
   officeKeyNumber: z.union([
     z.number().int().positive(),
     z.string().regex(/^\d+$/).transform(Number),
@@ -47,34 +47,8 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-const getRoleBadgeColor = (role: StaffRole) => {
-  switch (role) {
-    case StaffRole.ADMIN:
-      return 'bg-purple-100 text-purple-800';
-    case StaffRole.TUTOR:
-      return 'bg-blue-100 text-blue-800';
-    case StaffRole.ADMINSTAFF:
-      return 'bg-indigo-100 text-indigo-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getStatusBadgeColor = (status: StaffStatus) => {
-  switch (status) {
-    case StaffStatus.ACTIVE:
-      return 'bg-green-100 text-green-800';
-    case StaffStatus.INACTIVE:
-      return 'bg-gray-100 text-gray-800';
-    case StaffStatus.TRIAL:
-      return 'bg-orange-100 text-orange-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
 interface StaffDetailsTabProps {
-  staffMember: Staff;
+  staffMember: Tables<'staff'>;
   isEditing: boolean;
   isLoading: boolean;
   onEdit: () => void;
@@ -93,23 +67,23 @@ export function StaffDetailsTab({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
-      firstName: staffMember.firstName || '',
-      lastName: staffMember.lastName || '',
+      firstName: (staffMember as any).first_name || '',
+      lastName: (staffMember as any).last_name || '',
       email: staffMember.email || '',
-      phoneNumber: staffMember.phoneNumber || '',
-      role: staffMember.role,
-      status: staffMember.status,
-      officeKeyNumber: staffMember.officeKeyNumber || null,
-      hasParkingRemote: staffMember.hasParkingRemote || 'NONE',
-      availability_monday: staffMember.availabilityMonday || false,
-      availability_tuesday: staffMember.availabilityTuesday || false,
-      availability_wednesday: staffMember.availabilityWednesday || false,
-      availability_thursday: staffMember.availabilityThursday || false,
-      availability_friday: staffMember.availabilityFriday || false,
-      availability_saturday_am: staffMember.availabilitySaturdayAm || false,
-      availability_saturday_pm: staffMember.availabilitySaturdayPm || false,
-      availability_sunday_am: staffMember.availabilitySundayAm || false,
-      availability_sunday_pm: staffMember.availabilitySundayPm || false,
+      phoneNumber: (staffMember as any).phone_number || '',
+      role: staffMember.role as any,
+      status: staffMember.status as any,
+      officeKeyNumber: (staffMember as any).office_key_number || null,
+      hasParkingRemote: (staffMember as any).has_parking_remote || 'NONE',
+      availability_monday: (staffMember as any).availability_monday || false,
+      availability_tuesday: (staffMember as any).availability_tuesday || false,
+      availability_wednesday: (staffMember as any).availability_wednesday || false,
+      availability_thursday: (staffMember as any).availability_thursday || false,
+      availability_friday: (staffMember as any).availability_friday || false,
+      availability_saturday_am: (staffMember as any).availability_saturday_am || false,
+      availability_saturday_pm: (staffMember as any).availability_saturday_pm || false,
+      availability_sunday_am: (staffMember as any).availability_sunday_am || false,
+      availability_sunday_pm: (staffMember as any).availability_sunday_pm || false,
     },
   });
 
@@ -250,15 +224,12 @@ export function StaffDetailsTab({
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={StaffRole.TUTOR}>Tutor</SelectItem>
-                      <SelectItem value={StaffRole.ADMINSTAFF}>Admin Staff</SelectItem>
+                      <SelectItem value={'TUTOR'}>Tutor</SelectItem>
+                      <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
               />
-              {form.formState.errors.role && (
-                <p className="text-sm text-red-500">{form.formState.errors.role.message}</p>
-              )}
             </div>
             
             <div className="space-y-2">
@@ -276,16 +247,13 @@ export function StaffDetailsTab({
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={StaffStatus.ACTIVE}>Active</SelectItem>
-                      <SelectItem value={StaffStatus.INACTIVE}>Inactive</SelectItem>
-                      <SelectItem value={StaffStatus.TRIAL}>Trial</SelectItem>
+                      <SelectItem value={'ACTIVE'}>Active</SelectItem>
+                      <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
+                      <SelectItem value={'TRIAL'}>Trial</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
               />
-              {form.formState.errors.status && (
-                <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
-              )}
             </div>
           </div>
           
@@ -461,10 +429,10 @@ export function StaffDetailsTab({
         <>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
             <div className="text-sm font-medium">First Name:</div>
-            <div className="min-w-0">{staffMember.firstName || '-'}</div>
+            <div className="min-w-0">{(staffMember as any).first_name || '-'}</div>
             
             <div className="text-sm font-medium">Last Name:</div>
-            <div className="min-w-0">{staffMember.lastName || '-'}</div>
+            <div className="min-w-0">{(staffMember as any).last_name || '-'}</div>
             
             <div className="text-sm font-medium">Email:</div>
             <div className="min-w-0 truncate" title={staffMember.email || ''}>
@@ -472,22 +440,22 @@ export function StaffDetailsTab({
             </div>
             
             <div className="text-sm font-medium">Phone Number:</div>
-            <div className="min-w-0">{staffMember.phoneNumber || '-'}</div>
+            <div className="min-w-0">{(staffMember as any).phone_number || '-'}</div>
             
             <div className="text-sm font-medium">Office Key Number:</div>
-            <div className="min-w-0">{staffMember.officeKeyNumber || '-'}</div>
+            <div className="min-w-0">{(staffMember as any).office_key_number || '-'}</div>
             
             <div className="text-sm font-medium">Parking Remote:</div>
-            <div className="min-w-0">{staffMember.hasParkingRemote || 'None'}</div>
+            <div className="min-w-0">{(staffMember as any).has_parking_remote || 'None'}</div>
             
             <div className="text-sm font-medium">Role:</div>
             <div className="min-w-0">
-              <StaffRoleBadge value={staffMember.role} />
+              <StaffRoleBadge value={staffMember.role as any} />
             </div>
             
             <div className="text-sm font-medium">Status:</div>
             <div className="min-w-0">
-              <StaffStatusBadge value={staffMember.status} />
+              <StaffStatusBadge value={staffMember.status as any} />
             </div>
             
           </div>
@@ -497,43 +465,43 @@ export function StaffDetailsTab({
           <div>
             <h3 className="text-sm font-medium mb-3">Availability</h3>
             <div className="grid grid-cols-3 gap-y-2">
-              {staffMember.availabilityMonday && (
+              {(staffMember as any).availability_monday && (
                 <span className="text-sm">Monday</span>
               )}
-              {staffMember.availabilityTuesday && (
+              {(staffMember as any).availability_tuesday && (
                 <span className="text-sm">Tuesday</span>
               )}
-              {staffMember.availabilityWednesday && (
+              {(staffMember as any).availability_wednesday && (
                 <span className="text-sm">Wednesday</span>
               )}
-              {staffMember.availabilityThursday && (
+              {(staffMember as any).availability_thursday && (
                 <span className="text-sm">Thursday</span>
               )}
-              {staffMember.availabilityFriday && (
+              {(staffMember as any).availability_friday && (
                 <span className="text-sm">Friday</span>
               )}
-              {staffMember.availabilitySaturdayAm && (
+              {(staffMember as any).availability_saturday_am && (
                 <span className="text-sm">Saturday AM</span>
               )}
-              {staffMember.availabilitySaturdayPm && (
+              {(staffMember as any).availability_saturday_pm && (
                 <span className="text-sm">Saturday PM</span>
               )}
-              {staffMember.availabilitySundayAm && (
+              {(staffMember as any).availability_sunday_am && (
                 <span className="text-sm">Sunday AM</span>
               )}
-              {staffMember.availabilitySundayPm && (
+              {(staffMember as any).availability_sunday_pm && (
                 <span className="text-sm">Sunday PM</span>
               )}
               {![
-                staffMember.availabilityMonday,
-                staffMember.availabilityTuesday,
-                staffMember.availabilityWednesday,
-                staffMember.availabilityThursday,
-                staffMember.availabilityFriday,
-                staffMember.availabilitySaturdayAm,
-                staffMember.availabilitySaturdayPm,
-                staffMember.availabilitySundayAm,
-                staffMember.availabilitySundayPm
+                (staffMember as any).availability_monday,
+                (staffMember as any).availability_tuesday,
+                (staffMember as any).availability_wednesday,
+                (staffMember as any).availability_thursday,
+                (staffMember as any).availability_friday,
+                (staffMember as any).availability_saturday_am,
+                (staffMember as any).availability_saturday_pm,
+                (staffMember as any).availability_sunday_am,
+                (staffMember as any).availability_sunday_pm
               ].some(Boolean) && (
                 <span className="text-sm text-muted-foreground">No availability set</span>
               )}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Student } from "@/shared/lib/supabase/database/types";
+import type { Tables } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +30,7 @@ const accountFormSchema = z.object({
 type AccountFormData = z.infer<typeof accountFormSchema>;
 
 interface StudentAccountTabProps {
-  student: Student;
+  student: Tables<'students'>;
   isLoading: boolean;
   isEditingAccount: boolean;
   hasPasswordResetLinkSent: boolean;
@@ -57,9 +57,9 @@ export function StudentAccountTab({
   const accountForm = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
     defaultValues: {
-      firstName: student.firstName || '',
-      lastName: student.lastName || '',
-      studentEmail: student.studentEmail || '',
+      firstName: student.first_name || '',
+      lastName: student.last_name || '',
+      studentEmail: student.student_email || '',
     },
   });
 
@@ -67,7 +67,7 @@ export function StudentAccountTab({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Account Information</h3>
-        {!isEditingAccount && student.userId && (
+        {!isEditingAccount && student.user_id && (
           <Button 
             variant="outline" 
             size="sm" 
@@ -80,7 +80,7 @@ export function StudentAccountTab({
         )}
       </div>
 
-      {!student.userId ? (
+      {!student.user_id ? (
         <div className="bg-muted/50 rounded-lg p-4 text-center">
           <p className="text-sm text-muted-foreground">
             This student does not have an associated user account.
@@ -152,7 +152,7 @@ export function StudentAccountTab({
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
                       This will permanently delete the student
-                      "{student.firstName || ''} {student.lastName || ''}" and their user account.
+                      "{student.first_name || ''} {student.last_name || ''}" and their user account.
                       This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
@@ -206,13 +206,13 @@ export function StudentAccountTab({
         <>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
             <div className="text-sm font-medium">User ID:</div>
-            <div className="text-sm font-mono min-w-0 truncate" title={student.userId || ''}>
-              {student.userId}
+            <div className="text-sm font-mono min-w-0 truncate" title={student.user_id || ''}>
+              {student.user_id}
             </div>
 
             <div className="text-sm font-medium">Email:</div>
-            <div className="min-w-0 truncate" title={student.studentEmail || ''}>
-              {student.studentEmail || '-'}
+            <div className="min-w-0 truncate" title={student.student_email || ''}>
+              {student.student_email || '-'}
             </div>
 
             <div className="text-sm font-medium">Account Type:</div>
@@ -231,7 +231,7 @@ export function StudentAccountTab({
               <Button
                 variant="outline"
                 onClick={onPasswordResetRequest}
-                disabled={isLoading || hasPasswordResetLinkSent || !student.studentEmail}
+                disabled={isLoading || hasPasswordResetLinkSent || !student.student_email}
                 className="justify-start"
               >
                 {isLoading ? (
@@ -252,7 +252,7 @@ export function StudentAccountTab({
                 )}
               </Button>
               
-              {!student.studentEmail && (
+              {!student.student_email && (
                 <p className="text-sm text-orange-600">
                   No email address set. Please add a student email first.
                 </p>
@@ -261,7 +261,7 @@ export function StudentAccountTab({
             
             {hasPasswordResetLinkSent && (
               <p className="text-sm text-green-600">
-                A password reset link has been sent to {student.studentEmail}.
+                A password reset link has been sent to {student.student_email}.
                 The student needs to check their email to set a new password.
               </p>
             )}

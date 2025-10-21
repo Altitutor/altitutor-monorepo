@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { topicsApi } from '../api';
-import type { Topic, Subtopic } from '../types';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
 
 interface AddSubtopicModalProps {
@@ -23,7 +23,7 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [topic, setTopic] = useState<Topic | null>(null);
+  const [topic, setTopic] = useState<Tables<'topics'> | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     number: 1,
@@ -95,10 +95,10 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
     setIsSubmitting(true);
 
     try {
-      const subtopicData: Partial<Subtopic> = {
+      const subtopicData: TablesInsert<'subtopics'> = {
         name: formData.name,
         number: formData.number,
-        topicId: topicId,
+        topic_id: topicId,
       };
 
       await topicsApi.createSubtopic(subtopicData);

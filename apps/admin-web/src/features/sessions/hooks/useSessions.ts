@@ -1,4 +1,2 @@
-import { useRepository } from '@/shared/hooks/useRepository';
-import { sessionRepository } from '@/shared/lib/supabase/database/repositories';
- 
-export const useSessions = () => useRepository(sessionRepository); 
+// Repository layer removed. Use query hooks from sessions feature or direct APIs instead.
+export {};

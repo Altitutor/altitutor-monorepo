@@ -1,13 +1,5 @@
-import { 
-  sessionRepository, 
-  sessionsStudentsRepository, 
-  sessionsStaffRepository,
-  sessionsResourceFilesRepository 
-} from '@/shared/lib/supabase/database/repositories';
-import { Session, SessionAttendance, SessionsStaff, SessionType } from '../types';
+import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
-import type { Student, Staff } from '@/shared/lib/supabase/database/types';
 
 /**
  * Sessions API client for working with session data
@@ -16,8 +8,10 @@ export const sessionsApi = {
   /**
    * Get all sessions
    */
-  getAllSessions: async (): Promise<Session[]> => {
-    return sessionRepository.getAll();
+  getAllSessions: async (): Promise<Tables<'sessions'>[]> => {
+    const { data, error } = await getSupabaseClient().from('sessions').select('*');
+    if (error) throw error;
+    return (data ?? []) as Tables<'sessions'>[];
   },
 
   /**
@@ -25,9 +19,9 @@ export const sessionsApi = {
    * This solves the N+1 query problem for the sessions table
    */
   getAllSessionsWithDetails: async (): Promise<{ 
-    sessions: Session[]; 
-    sessionStudents: Record<string, Student[]>;
-    sessionStaff: Record<string, Staff[]>;
+    sessions: Tables<'sessions'>[]; 
+    sessionStudents: Record<string, Tables<'students'>[]>;
+    sessionStaff: Record<string, Tables<'staff'>[]>;
   }> => {
     const supabase = getSupabaseClient();
     
@@ -60,27 +54,27 @@ export const sessionsApi = {
       if (staffError) throw staffError;
       
       // Transform sessions data
-      const sessions = allSessions?.map(session => transformToCamelCase(session) as Session) || [];
+      const sessions = (allSessions ?? []) as Tables<'sessions'>[];
       
       // Build session students map
-      const sessionStudentsMap: Record<string, Student[]> = {};
+      const sessionStudentsMap: Record<string, Tables<'students'>[]> = {};
       sessionStudentsData?.forEach((row: any) => {
         if (row.session_id && row.student) {
           if (!sessionStudentsMap[row.session_id]) {
             sessionStudentsMap[row.session_id] = [];
           }
-          sessionStudentsMap[row.session_id].push(transformToCamelCase(row.student) as Student);
+          sessionStudentsMap[row.session_id].push(row.student as Tables<'students'>);
         }
       });
       
       // Build session staff map
-      const sessionStaffMap: Record<string, Staff[]> = {};
+      const sessionStaffMap: Record<string, Tables<'staff'>[]> = {};
       sessionStaffData?.forEach((row: any) => {
         if (row.session_id && row.staff) {
           if (!sessionStaffMap[row.session_id]) {
             sessionStaffMap[row.session_id] = [];
           }
-          sessionStaffMap[row.session_id].push(transformToCamelCase(row.staff) as Staff);
+          sessionStaffMap[row.session_id].push(row.staff as Tables<'staff'>);
         }
       });
       
@@ -110,9 +104,9 @@ export const sessionsApi = {
    * Get a single session with its details in an optimized query
    */
   getSessionWithDetails: async (sessionId: string): Promise<{
-    session: Session | null;
-    students: Student[];
-    staff: Staff[];
+    session: Tables<'sessions'> | null;
+    students: Tables<'students'>[];
+    staff: Tables<'staff'>[];
   }> => {
     const supabase = getSupabaseClient();
     
@@ -152,15 +146,15 @@ export const sessionsApi = {
       if (staffError) throw staffError;
       
       // Transform data
-      const session = transformToCamelCase(sessionData) as Session;
+      const session = sessionData as Tables<'sessions'>;
       const students = studentsData
         ?.map((row: any) => row.student)
         .filter(Boolean)
-        .map((student: any) => transformToCamelCase(student) as Student) || [];
+        .map((student: any) => student as Tables<'students'>) || [];
       const staff = staffData
         ?.map((row: any) => row.staff)
         .filter(Boolean)
-        .map((staffMember: any) => transformToCamelCase(staffMember) as Staff) || [];
+        .map((staffMember: any) => staffMember as Tables<'staff'>) || [];
       
       return { session, students, staff };
       
@@ -173,26 +167,32 @@ export const sessionsApi = {
   /**
    * Get a session by ID
    */
-  getSession: async (id: string): Promise<Session | undefined> => {
-    return sessionRepository.getById(id);
+  getSession: async (id: string): Promise<Tables<'sessions'> | null> => {
+    const { data, error } = await getSupabaseClient().from('sessions').select('*').eq('id', id).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data ?? null) as Tables<'sessions'> | null;
   },
 
   /**
    * Create a new session
    */
-  createSession: async (data: Partial<Session>): Promise<Session> => {
+  createSession: async (data: TablesInsert<'sessions'>): Promise<Tables<'sessions'>> => {
     // Ensure the user is an admin first
     
-    return sessionRepository.create(data);
+    const { data: created, error } = await getSupabaseClient().from('sessions').insert(data).select().single();
+    if (error) throw error;
+    return created as Tables<'sessions'>;
   },
 
   /**
    * Update a session
    */
-  updateSession: async (id: string, data: Partial<Session>): Promise<Session> => {
+  updateSession: async (id: string, data: TablesUpdate<'sessions'>): Promise<Tables<'sessions'>> => {
     // Ensure the user is an admin first
     
-    return sessionRepository.update(id, data);
+    const { data: updated, error } = await getSupabaseClient().from('sessions').update(data).eq('id', id).select().single();
+    if (error) throw error;
+    return updated as Tables<'sessions'>;
   },
 
   /**
@@ -201,23 +201,24 @@ export const sessionsApi = {
   deleteSession: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
     
-    await sessionRepository.delete(id);
+    const { error } = await getSupabaseClient().from('sessions').delete().eq('id', id);
+    if (error) throw error;
   },
 
   /**
    * Add a student to a session (mark attendance)
    */
-  addStudentToSession: async (sessionId: string, studentId: string, attended: boolean = false): Promise<SessionAttendance> => {
+  addStudentToSession: async (sessionId: string, studentId: string, attended: boolean = false): Promise<Tables<'sessions_students'>> => {
     try {
-      // Ensure the user is an admin first
-      
-      const attendanceData: Partial<SessionAttendance> = {
-        sessionId,
-        studentId,
+      const payload: TablesInsert<'sessions_students'> = {
+        id: crypto.randomUUID(),
+        session_id: sessionId,
+        student_id: studentId,
         attended,
       };
-      
-      return sessionsStudentsRepository.create(attendanceData);
+      const { data, error } = await getSupabaseClient().from('sessions_students').insert(payload).select().single();
+      if (error) throw error;
+      return data as Tables<'sessions_students'>;
     } catch (error) {
       console.error('Error adding student to session:', error);
       throw error;
@@ -232,11 +233,11 @@ export const sessionsApi = {
       // Ensure the user is an admin first
       
       // Find the attendance record
-      const attendanceRecords = await sessionsStudentsRepository.getBy('session_id', sessionId);
-      const recordToDelete = attendanceRecords.find(record => record.studentId === studentId);
-      
-      if (recordToDelete) {
-        await sessionsStudentsRepository.delete(recordToDelete.id);
+      const { data, error } = await getSupabaseClient().from('sessions_students').select('id').eq('session_id', sessionId).eq('student_id', studentId);
+      if (error) throw error;
+      if ((data ?? []).length) {
+        const { error: delError } = await getSupabaseClient().from('sessions_students').delete().eq('session_id', sessionId).eq('student_id', studentId);
+        if (delError) throw delError;
       }
     } catch (error) {
       console.error('Error removing student from session:', error);
@@ -247,17 +248,17 @@ export const sessionsApi = {
   /**
    * Assign a staff member to a session
    */
-  assignStaffToSession: async (sessionId: string, staffId: string, type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' = 'MAIN_TUTOR'): Promise<SessionsStaff> => {
+  assignStaffToSession: async (sessionId: string, staffId: string, type: string = 'MAIN_TUTOR'): Promise<Tables<'sessions_staff'>> => {
     try {
-      // Ensure the user is an admin first
-      
-      const assignmentData: Partial<SessionsStaff> = {
-        sessionId,
-        staffId,
-        type,
+      const payload: TablesInsert<'sessions_staff'> = {
+        id: crypto.randomUUID(),
+        session_id: sessionId,
+        staff_id: staffId,
+        type: type as any,
       };
-      
-      return sessionsStaffRepository.create(assignmentData);
+      const { data, error } = await getSupabaseClient().from('sessions_staff').insert(payload).select().single();
+      if (error) throw error;
+      return data as Tables<'sessions_staff'>;
     } catch (error) {
       console.error('Error assigning staff to session:', error);
       throw error;
@@ -272,11 +273,11 @@ export const sessionsApi = {
       // Ensure the user is an admin first
       
       // Find the assignment record
-      const assignmentRecords = await sessionsStaffRepository.getBy('session_id', sessionId);
-      const recordToDelete = assignmentRecords.find(record => record.staffId === staffId);
-      
-      if (recordToDelete) {
-        await sessionsStaffRepository.delete(recordToDelete.id);
+      const { data, error } = await getSupabaseClient().from('sessions_staff').select('id').eq('session_id', sessionId).eq('staff_id', staffId);
+      if (error) throw error;
+      if ((data ?? []).length) {
+        const { error: delError } = await getSupabaseClient().from('sessions_staff').delete().eq('session_id', sessionId).eq('staff_id', staffId);
+        if (delError) throw delError;
       }
     } catch (error) {
       console.error('Error removing staff from session:', error);
@@ -287,22 +288,11 @@ export const sessionsApi = {
   /**
    * Update student attendance for a session
    */
-  updateAttendance: async (sessionId: string, studentId: string, attended: boolean, notes?: string): Promise<SessionAttendance> => {
+  updateAttendance: async (sessionId: string, studentId: string, attended: boolean, notes?: string): Promise<Tables<'sessions_students'>> => {
     try {
-      // Ensure the user is an admin first
-      
-      // Find the attendance record
-      const attendanceRecords = await sessionsStudentsRepository.getBy('session_id', sessionId);
-      const attendanceRecord = attendanceRecords.find(record => record.studentId === studentId);
-      
-      if (attendanceRecord) {
-        return sessionsStudentsRepository.update(attendanceRecord.id, {
-          attended,
-          notes,
-        });
-      } else {
-        throw new Error('Attendance record not found');
-      }
+      const { data, error } = await getSupabaseClient().from('sessions_students').update({ attended, notes: notes ?? null }).eq('session_id', sessionId).eq('student_id', studentId).select().single();
+      if (error) throw error;
+      return data as Tables<'sessions_students'>;
     } catch (error) {
       console.error('Error updating attendance:', error);
       throw error;
@@ -312,18 +302,13 @@ export const sessionsApi = {
   /**
    * Get sessions for a specific student
    */
-  getSessionsForStudent: async (studentId: string): Promise<Session[]> => {
+  getSessionsForStudent: async (studentId: string): Promise<Tables<'sessions'>[]> => {
     try {
       // Get attendance records for the student
-      const attendanceRecords = await sessionsStudentsRepository.getBy('student_id', studentId);
-      
-      // Get the sessions for these attendance records
-      const sessionPromises = attendanceRecords.map(async (attendance) => {
-        return sessionRepository.getById(attendance.sessionId);
-      });
-      
-      const sessions = await Promise.all(sessionPromises);
-      return sessions.filter(session => session !== undefined) as Session[];
+      const { data: attendanceRecords, error } = await getSupabaseClient().from('sessions_students').select('sessions(*)').eq('student_id', studentId);
+      if (error) throw error;
+      const sessions = (attendanceRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
+      return sessions;
     } catch (error) {
       console.error('Error getting sessions for student:', error);
       throw error;
@@ -333,18 +318,13 @@ export const sessionsApi = {
   /**
    * Get sessions for a specific staff member
    */
-  getSessionsForStaff: async (staffId: string): Promise<Session[]> => {
+  getSessionsForStaff: async (staffId: string): Promise<Tables<'sessions'>[]> => {
     try {
       // Get assignment records for the staff member
-      const assignmentRecords = await sessionsStaffRepository.getBy('staff_id', staffId);
-      
-      // Get the sessions for these assignment records
-      const sessionPromises = assignmentRecords.map(async (assignment) => {
-        return sessionRepository.getById(assignment.sessionId);
-      });
-      
-      const sessions = await Promise.all(sessionPromises);
-      return sessions.filter(session => session !== undefined) as Session[];
+      const { data: assignmentRecords, error } = await getSupabaseClient().from('sessions_staff').select('sessions(*)').eq('staff_id', staffId);
+      if (error) throw error;
+      const sessions = (assignmentRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
+      return sessions;
     } catch (error) {
       console.error('Error getting sessions for staff:', error);
       throw error;

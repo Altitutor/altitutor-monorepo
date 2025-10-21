@@ -2,11 +2,11 @@
 
 import { memo, useCallback } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Staff } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { StaffRoleBadge, StaffStatusBadge } from '@/components/ui/enum-badge';
 
 interface StaffTableRowProps {
-  staff: Staff;
+  staff: Tables<'staff'>;
   onStaffClick: (id: string) => void;
 }
 
@@ -24,18 +24,18 @@ export const StaffTableRow = memo(function StaffTableRow({
       onClick={handleClick}
     >
       <TableCell className="font-medium">
-        {staff.firstName || '-'}
+        {staff.first_name || '-'}
       </TableCell>
       <TableCell className="font-medium">
-        {staff.lastName || '-'}
+        {staff.last_name || '-'}
       </TableCell>
       <TableCell>{staff.email || '-'}</TableCell>
-      <TableCell>{staff.phoneNumber || '-'}</TableCell>
+      <TableCell>{staff.phone_number || '-'}</TableCell>
       <TableCell>
-        <StaffRoleBadge value={staff.role} />
+        <StaffRoleBadge value={staff.role as any} />
       </TableCell>
       <TableCell>
-        <StaffStatusBadge value={staff.status} />
+        <StaffStatusBadge value={staff.status as any} />
       </TableCell>
     </TableRow>
   );

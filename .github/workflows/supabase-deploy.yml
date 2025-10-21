@@ -8,6 +8,9 @@ on:
       - 'supabase/functions/**'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: supabase-${{ github.ref }}
   cancel-in-progress: false
@@ -50,6 +53,23 @@ jobs:
 
       - name: Push migrations
         run: supabase db push
+
+      - name: Generate TypeScript types (shared package)
+        run: |
+          mkdir -p packages/shared/src/supabase
+          supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > packages/shared/src/supabase/generated.ts
+
+      - name: Commit updated types (if changed)
+        run: |
+          if [ -n "$(git status --porcelain packages/shared/src/supabase/generated.ts)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add packages/shared/src/supabase/generated.ts
+            git commit -m "chore: update Supabase types [skip ci]"
+            git push
+          else
+            echo "No type changes to commit"
+          fi
 
       - name: Deploy edge functions (if any)
         if: ${{ contains(github.event.head_commit.message, '[skip-functions]') == false }}

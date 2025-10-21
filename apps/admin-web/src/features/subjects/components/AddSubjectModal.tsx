@@ -9,8 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { subjectsApi } from '../api';
-import type { Subject } from '../types';
-import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/database/types';
+import type { Tables, Enums, TablesInsert } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
 
 interface AddSubjectModalProps {
@@ -45,13 +44,13 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
     setIsSubmitting(true);
 
     try {
-      const subjectData: Partial<Subject> = {
+      const subjectData: Tables<'subjects'> | TablesInsert<'subjects'> = {
         name: formData.name,
-        yearLevel: formData.year_level ? parseInt(formData.year_level, 10) : null,
-        curriculum: formData.curriculum ? (formData.curriculum as SubjectCurriculum) : null,
-        discipline: formData.discipline ? (formData.discipline as SubjectDiscipline) : null,
+        year_level: formData.year_level ? parseInt(formData.year_level, 10) : null,
+        curriculum: formData.curriculum ? (formData.curriculum as Enums<'subject_curriculum'>) : null,
+        discipline: formData.discipline ? (formData.discipline as Enums<'subject_discipline'>) : null,
         level: formData.level || null,
-      };
+      } as TablesInsert<'subjects'>;
 
       await subjectsApi.createSubject(subjectData);
       
@@ -126,11 +125,11 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
                   <SelectValue placeholder="Select curriculum" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SubjectCurriculum.SACE}>SACE</SelectItem>
-                  <SelectItem value={SubjectCurriculum.IB}>IB</SelectItem>
-                  <SelectItem value={SubjectCurriculum.PRESACE}>Pre-SACE</SelectItem>
-                  <SelectItem value={SubjectCurriculum.PRIMARY}>Primary</SelectItem>
-                  <SelectItem value={SubjectCurriculum.MEDICINE}>Medicine</SelectItem>
+                  <SelectItem value={'SACE'}>SACE</SelectItem>
+                  <SelectItem value={'IB'}>IB</SelectItem>
+                  <SelectItem value={'PRESACE'}>Pre-SACE</SelectItem>
+                  <SelectItem value={'PRIMARY'}>Primary</SelectItem>
+                  <SelectItem value={'MEDICINE'}>Medicine</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -161,12 +160,12 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
                   <SelectValue placeholder="Select discipline" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SubjectDiscipline.MATHEMATICS}>Mathematics</SelectItem>
-                  <SelectItem value={SubjectDiscipline.SCIENCE}>Science</SelectItem>
-                  <SelectItem value={SubjectDiscipline.HUMANITIES}>Humanities</SelectItem>
-                  <SelectItem value={SubjectDiscipline.ENGLISH}>English</SelectItem>
-                  <SelectItem value={SubjectDiscipline.ART}>Art</SelectItem>
-                  <SelectItem value={SubjectDiscipline.LANGUAGE}>Language</SelectItem>
+                  <SelectItem value={'MATHEMATICS'}>Mathematics</SelectItem>
+                  <SelectItem value={'SCIENCE'}>Science</SelectItem>
+                  <SelectItem value={'HUMANITIES'}>Humanities</SelectItem>
+                  <SelectItem value={'ENGLISH'}>English</SelectItem>
+                  <SelectItem value={'ART'}>Art</SelectItem>
+                  <SelectItem value={'LANGUAGE'}>Language</SelectItem>
                 </SelectContent>
               </Select>
             </div>

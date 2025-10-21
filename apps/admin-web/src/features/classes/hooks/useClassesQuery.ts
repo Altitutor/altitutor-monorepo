@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { classesApi } from '../api/classes';
-import type { Class, Student, Subject } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 
 // Query Keys
 export const classesKeys = {
@@ -82,7 +82,7 @@ export function useUpdateClass() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Class> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'classes'> }) =>
       classesApi.updateClass(id, data),
     onSuccess: (updatedClass, { id }) => {
       // Update the class in all relevant caches
@@ -96,7 +96,7 @@ export function useUpdateClass() {
         if (!old) return old;
         return {
           ...old,
-          classes: old.classes.map((cls: Class) =>
+          classes: old.classes.map((cls: Tables<'classes'>) =>
             cls.id === id ? updatedClass : cls
           ),
         };
@@ -122,7 +122,7 @@ export function useDeleteClass() {
         if (!old) return old;
         return {
           ...old,
-          classes: old.classes.filter((cls: Class) => cls.id !== deletedId),
+          classes: old.classes.filter((cls: Tables<'classes'>) => cls.id !== deletedId),
           classStudents: Object.fromEntries(
             Object.entries(old.classStudents).filter(([id]) => id !== deletedId)
           ),

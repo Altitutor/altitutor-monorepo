@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useCreateStudent } from '../hooks/useStudentsQuery';
-import { StudentStatus, Student } from '@/shared/lib/supabase/database/types';
+import type { TablesInsert, Tables } from '@altitutor/shared';
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -44,7 +44,7 @@ const formSchema = z.object({
     z.number().min(1).max(12).nullable(),
     z.literal('').transform(() => null)
   ]).optional(),
-  status: z.nativeEnum(StudentStatus),
+  status: z.enum(['ACTIVE','INACTIVE','TRIAL','DISCONTINUED']),
   notes: z.string().optional().nullish(),
   
   // Availability checkboxes
@@ -83,7 +83,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     school: '',
     curriculum: '',
     yearLevel: '',
-    status: StudentStatus.TRIAL,
+    status: 'TRIAL' as Tables<'students'>['status'],
     notes: '',
     // Availability fields
     availabilityMonday: false,
@@ -118,29 +118,35 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
 
     setLoading(true);
     try {
-      const studentData: Partial<Student> = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        studentEmail: formData.studentEmail || null,
-        studentPhone: formData.studentPhone || null,
-        parentFirstName: formData.parentFirstName || null,
-        parentLastName: formData.parentLastName || null,
-        parentEmail: formData.parentEmail || null,
-        parentPhone: formData.parentPhone || null,
+      const studentData: TablesInsert<'students'> = {
+        id: crypto.randomUUID(),
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        student_email: formData.studentEmail || null,
+        student_phone: formData.studentPhone || null,
+        parent_first_name: formData.parentFirstName || null,
+        parent_last_name: formData.parentLastName || null,
+        parent_email: formData.parentEmail || null,
+        parent_phone: formData.parentPhone || null,
         school: formData.school || null,
-        curriculum: formData.curriculum || null,
-        yearLevel: formData.yearLevel ? parseInt(formData.yearLevel) : null,
+        curriculum: (formData.curriculum || null) as any,
+        year_level: formData.yearLevel ? parseInt(formData.yearLevel) : null,
         status: formData.status,
         notes: formData.notes || null,
-        availabilityMonday: formData.availabilityMonday,
-        availabilityTuesday: formData.availabilityTuesday,
-        availabilityWednesday: formData.availabilityWednesday,
-        availabilityThursday: formData.availabilityThursday,
-        availabilityFriday: formData.availabilityFriday,
-        availabilitySaturdayAm: formData.availabilitySaturdayAm,
-        availabilitySaturdayPm: formData.availabilitySaturdayPm,
-        availabilitySundayAm: formData.availabilitySundayAm,
-        availabilitySundayPm: formData.availabilitySundayPm,
+        availability_monday: formData.availabilityMonday,
+        availability_tuesday: formData.availabilityTuesday,
+        availability_wednesday: formData.availabilityWednesday,
+        availability_thursday: formData.availabilityThursday,
+        availability_friday: formData.availabilityFriday,
+        availability_saturday_am: formData.availabilitySaturdayAm,
+        availability_saturday_pm: formData.availabilitySaturdayPm,
+        availability_sunday_am: formData.availabilitySundayAm,
+        availability_sunday_pm: formData.availabilitySundayPm,
+        created_at: null,
+        created_by: null,
+        invite_token: null,
+        updated_at: null,
+        user_id: null,
       };
 
       await createStudentMutation.mutateAsync(studentData);
@@ -166,7 +172,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         school: '',
         curriculum: '',
         yearLevel: '',
-        status: StudentStatus.TRIAL,
+        status: 'TRIAL',
         notes: '',
         availabilityMonday: false,
         availabilityTuesday: false,
@@ -335,16 +341,16 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
             <Label htmlFor="status">Status</Label>
             <Select
               value={formData.status}
-              onValueChange={(value) => handleInputChange('status', value as StudentStatus)}
+                onValueChange={(value) => handleInputChange('status', value)}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={StudentStatus.TRIAL}>Trial</SelectItem>
-                <SelectItem value={StudentStatus.ACTIVE}>Active</SelectItem>
-                <SelectItem value={StudentStatus.INACTIVE}>Inactive</SelectItem>
-                <SelectItem value={StudentStatus.DISCONTINUED}>Discontinued</SelectItem>
+                <SelectItem value={'TRIAL'}>Trial</SelectItem>
+                <SelectItem value={'ACTIVE'}>Active</SelectItem>
+                <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
+                <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -1,7 +1,5 @@
-import { classRepository, classesStudentsRepository, classesStaffRepository, studentRepository, staffRepository, subjectRepository } from '@/shared/lib/supabase/database/repositories';
-import { Class, ClassStatus, Student, Staff, Subject, ClassEnrollment, ClassAssignment, EnrollmentStatus } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { transformToCamelCase } from '@/shared/lib/supabase/database/utils';
 
 /**
  * Classes API client for working with class data
@@ -10,8 +8,11 @@ export const classesApi = {
   /**
    * Get all classes
    */
-  getAllClasses: async (): Promise<Class[]> => {
-    return classRepository.getAll();
+  getAllClasses: async (): Promise<Tables<'classes'>[]> => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.from('classes').select('*');
+    if (error) throw error;
+    return (data ?? []) as Tables<'classes'>[];
   },
   
   /**
@@ -19,12 +20,15 @@ export const classesApi = {
    * This solves the N+1 query problem for the classes table
    */
   getAllClassesWithDetails: async (): Promise<{ 
-    classes: Class[]; 
-    classSubjects: Record<string, Subject>;
-    classStudents: Record<string, Student[]>; 
-    classStaff: Record<string, Staff[]>;
+    classes: Tables<'classes'>[]; 
+    classSubjects: Record<string, Tables<'subjects'>>;
+    classStudents: Record<string, Tables<'students'>[]>; 
+    classStaff: Record<string, Tables<'staff'>[]>;
   }> => {
     const supabase = getSupabaseClient();
+    type ClassRowWithSubject = Tables<'classes'> & { subject_details?: Tables<'subjects'> };
+    type EnrollmentRow = { class_id: string; student: Tables<'students'> | null };
+    type AssignmentRow = { class_id: string; staff: Tables<'staff'> | null };
     
     try {
       // Get all classes with their subjects
@@ -32,7 +36,7 @@ export const classesApi = {
         .from('classes')
         .select(`
           *,
-          subject:subjects(*)
+          subject_details:subjects(*)
         `);
       
       if (classesError) throw classesError;
@@ -60,19 +64,19 @@ export const classesApi = {
       if (assignmentsError) throw assignmentsError;
       
       // Transform and organize the data
-      const classes: Class[] = [];
-      const classSubjects: Record<string, Subject> = {};
-      const classStudents: Record<string, Student[]> = {};
-      const classStaff: Record<string, Staff[]> = {};
+      const classes: Tables<'classes'>[] = [];
+      const classSubjects: Record<string, Tables<'subjects'>> = {};
+      const classStudents: Record<string, Tables<'students'>[]> = {};
+      const classStaff: Record<string, Tables<'staff'>[]> = {};
       
       // Process classes
-      classesData?.forEach((row: any) => {
-        const cls = transformToCamelCase(row) as Class;
+      (classesData as ClassRowWithSubject[] | null)?.forEach((row) => {
+        const cls = row as Tables<'classes'>;
         classes.push(cls);
         
         // Add subject if available
-        if (row.subject) {
-          classSubjects[cls.id] = transformToCamelCase(row.subject) as Subject;
+        if (row.subject_details) {
+          classSubjects[cls.id] = row.subject_details as Tables<'subjects'>;
         }
         
         // Initialize arrays
@@ -81,24 +85,22 @@ export const classesApi = {
       });
       
       // Process enrollments
-      enrollmentsData?.forEach((row: any) => {
+      (enrollmentsData as EnrollmentRow[] | null)?.forEach((row) => {
         if (row.student && row.class_id) {
-          const student = transformToCamelCase(row.student) as Student;
           if (!classStudents[row.class_id]) {
             classStudents[row.class_id] = [];
           }
-          classStudents[row.class_id].push(student);
+          classStudents[row.class_id].push(row.student);
         }
       });
       
       // Process assignments
-      assignmentsData?.forEach((row: any) => {
+      (assignmentsData as AssignmentRow[] | null)?.forEach((row) => {
         if (row.staff && row.class_id) {
-          const staff = transformToCamelCase(row.staff) as Staff;
           if (!classStaff[row.class_id]) {
             classStaff[row.class_id] = [];
           }
-          classStaff[row.class_id].push(staff);
+          classStaff[row.class_id].push(row.staff);
         }
       });
       
@@ -119,10 +121,10 @@ export const classesApi = {
    * Get a single class with its details
    */
   getClassWithDetails: async (classId: string): Promise<{
-    class: Class | null;
-    subject: Subject | null;
-    students: Student[];
-    staff: Staff[];
+    class: Tables<'classes'> | null;
+    subject: Tables<'subjects'> | null;
+    students: Tables<'students'>[];
+    staff: Tables<'staff'>[];
   }> => {
     const supabase = getSupabaseClient();
     
@@ -132,7 +134,7 @@ export const classesApi = {
         .from('classes')
         .select(`
           *,
-          subject:subjects(*)
+          subject_details:subjects(*)
         `)
         .eq('id', classId)
         .single();
@@ -167,10 +169,15 @@ export const classesApi = {
       if (staffError) throw staffError;
       
       // Transform the data
-      const cls = transformToCamelCase(classData) as Class;
-      const subject = classData.subject ? transformToCamelCase(classData.subject) as Subject : null;
-      const students = studentsData?.map((row: any) => transformToCamelCase(row.student) as Student).filter(Boolean) || [];
-      const staff = staffData?.map((row: any) => transformToCamelCase(row.staff) as Staff).filter(Boolean) || [];
+      const cls = classData as Tables<'classes'>;
+      const subject = (classData as { subject_details?: Tables<'subjects'> } | null)?.subject_details ?? null;
+      const students = ((studentsData as Array<{ student: Tables<'students'> | null }> | null) ?? [])
+        .map((row) => row.student)
+        .filter(Boolean) as Tables<'students'>[];
+      const staffRows: Array<{ staff: Tables<'staff'> | null }> = staffData ? ((staffData as unknown) as Array<{ staff: Tables<'staff'> | null }>) : [];
+      const staff = staffRows
+        .map((row) => row.staff)
+        .filter(Boolean) as Tables<'staff'>[];
       
       return { class: cls, subject, students, staff };
       
@@ -183,31 +190,32 @@ export const classesApi = {
   /**
    * Get a class by ID
    */
-  getClass: async (id: string): Promise<Class | undefined> => {
-    return classRepository.getById(id);
+  getClass: async (id: string): Promise<Tables<'classes'> | null> => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.from('classes').select('*').eq('id', id).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data ?? null) as Tables<'classes'> | null;
   },
   
   /**
    * Create a new class
    */
-  createClass: async (data: Partial<Class>): Promise<Class> => {
-    // Ensure the user is an admin first
-    
-    // Set default status if not provided
-    const classData: Partial<Class> = {
-      ...data,
-      status: data.status || ClassStatus.ACTIVE,
-    };
-    
-    return classRepository.create(classData);
+  createClass: async (data: TablesInsert<'classes'>): Promise<Tables<'classes'>> => {
+    const payload: TablesInsert<'classes'> = data;
+    const supabase = getSupabaseClient();
+    const { data: created, error } = await supabase.from('classes').insert(payload).select().single();
+    if (error) throw error;
+    return created as Tables<'classes'>;
   },
   
   /**
    * Update a class
    */
-  updateClass: async (id: string, data: Partial<Class>): Promise<Class> => {
-    // Ensure the user is an admin first
-    return classRepository.update(id, data);
+  updateClass: async (id: string, data: TablesUpdate<'classes'>): Promise<Tables<'classes'>> => {
+    const supabase = getSupabaseClient();
+    const { data: updated, error } = await supabase.from('classes').update(data).eq('id', id).select().single();
+    if (error) throw error;
+    return updated as Tables<'classes'>;
   },
   
   /**
@@ -215,32 +223,30 @@ export const classesApi = {
    */
   deleteClass: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    return classRepository.delete(id);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from('classes').delete().eq('id', id);
+    if (error) throw error;
   },
   
   /**
    * Get all students enrolled in a class
    */
-  getClassStudents: async (classId: string): Promise<Student[]> => {
+  getClassStudents: async (classId: string): Promise<Tables<'students'>[]> => {
     try {
       // Get all class enrollments for this class
-      const enrollments = await classesStudentsRepository.getBy('class_id', classId);
+      const { data: enrollments, error } = await getSupabaseClient().from('classes_students').select('student:students(*), class_id').eq('class_id', classId);
+      if (error) throw error;
       
       // Filter for active enrollments
-      const activeEnrollments = enrollments.filter(enrollment => enrollment.status === 'ACTIVE');
+      const activeEnrollments = ((enrollments as Array<{ student: Tables<'students'> | null; status?: string }> | null) ?? [])
+        .filter((enrollment) => enrollment.student && enrollment.status !== 'INACTIVE');
       
       if (!activeEnrollments.length) {
         return [];
       }
       
       // Get student details for each enrollment
-      const studentPromises = activeEnrollments.map(async (enrollment) => {
-        return studentRepository.getById(enrollment.studentId);
-      });
-      
-      const studentResults = await Promise.all(studentPromises);
-      // Filter out undefined results
-      return studentResults.filter(student => student !== undefined) as Student[];
+      return activeEnrollments.map((enrollment) => enrollment.student!) as Tables<'students'>[];
     } catch (error) {
       console.error('Error getting class students:', error);
       throw error;
@@ -250,26 +256,20 @@ export const classesApi = {
   /**
    * Get all staff assigned to a class
    */
-  getClassStaff: async (classId: string): Promise<Staff[]> => {
+  getClassStaff: async (classId: string): Promise<Tables<'staff'>[]> => {
     try {
       // Get all class assignments for this class
-      const assignments = await classesStaffRepository.getBy('class_id', classId);
+      const { data: assignments, error } = await getSupabaseClient().from('classes_staff').select('staff:staff(*), class_id, status').eq('class_id', classId).eq('status', 'ACTIVE');
+      if (error) throw error;
       
       // Filter for active assignments
-      const activeAssignments = assignments.filter(assignment => assignment.status === 'ACTIVE');
-      
-      if (!activeAssignments.length) {
+      if (!(assignments ?? []).length) {
         return [];
       }
-      
-      // Get staff details for each assignment
-      const staffPromises = activeAssignments.map(async (assignment) => {
-        return staffRepository.getById(assignment.staffId);
-      });
-      
-      const staffResults = await Promise.all(staffPromises);
-      // Filter out undefined results
-      return staffResults.filter(staff => staff !== undefined) as Staff[];
+      const assignmentRows: Array<{ staff: Tables<'staff'> | null }> = assignments ? ((assignments as unknown) as Array<{ staff: Tables<'staff'> | null }>) : [];
+      return assignmentRows
+        .map((row) => row.staff)
+        .filter(Boolean) as Tables<'staff'>[];
     } catch (error) {
       console.error('Error getting class staff:', error);
       throw error;
@@ -279,27 +279,33 @@ export const classesApi = {
   /**
    * Enroll a student in a class
    */
-  enrollStudent: async (classId: string, studentId: string): Promise<ClassEnrollment> => {
+  enrollStudent: async (classId: string, studentId: string): Promise<Tables<'classes_students'>> => {
     try {
-      // Ensure the user is an admin first
-      
-      // Check if the enrollment already exists
-      const existing = await classesStudentsRepository.getBy('class_id', classId);
-      const existingEnrollment = existing.find(record => record.studentId === studentId && record.status === 'ACTIVE');
-      
-      if (existingEnrollment) {
-        return existingEnrollment; // Already enrolled
-      }
-      
-      // Create the enrollment
-      const enrollment: Partial<ClassEnrollment> = {
-        classId,
-        studentId,
-        startDate: new Date().toISOString().split('T')[0], // Today's date
-        status: EnrollmentStatus.ACTIVE,
+      const supabase = getSupabaseClient();
+      const { data: existing, error: existingError } = await supabase
+        .from('classes_students')
+        .select('id')
+        .eq('class_id', classId)
+        .eq('student_id', studentId)
+        .eq('status', 'ACTIVE')
+        .limit(1);
+      if (existingError) throw existingError;
+      if ((existing ?? []).length) return (existing![0] as Tables<'classes_students'>);
+
+      const payload: TablesInsert<'classes_students'> = {
+        id: crypto.randomUUID(),
+        class_id: classId,
+        student_id: studentId,
+        start_date: new Date().toISOString().split('T')[0],
+        status: 'ACTIVE',
       };
-      
-      return classesStudentsRepository.create(enrollment);
+      const { data, error } = await supabase
+        .from('classes_students')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as Tables<'classes_students'>;
     } catch (error) {
       console.error('Error enrolling student:', error);
       throw error;
@@ -311,21 +317,14 @@ export const classesApi = {
    */
   unenrollStudent: async (classId: string, studentId: string): Promise<void> => {
     try {
-      // Ensure the user is an admin first
-      
-      // Get all enrollments for this class and student
-      const enrollments = await classesStudentsRepository.getBy('class_id', classId);
-      
-      // Find the active enrollment for this student
-      const enrollment = enrollments.find(record => record.studentId === studentId && record.status === 'ACTIVE');
-      
-      if (enrollment) {
-        // Update status to inactive instead of discontinued (matches database constraint)
-        await classesStudentsRepository.update(enrollment.id, {
-          status: EnrollmentStatus.INACTIVE,
-          endDate: new Date().toISOString().split('T')[0],
-        });
-      }
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('classes_students')
+        .update({ status: 'INACTIVE', end_date: new Date().toISOString().split('T')[0] })
+        .eq('class_id', classId)
+        .eq('student_id', studentId)
+        .eq('status', 'ACTIVE');
+      if (error) throw error;
     } catch (error) {
       console.error('Error unenrolling student:', error);
       throw error;
@@ -335,28 +334,33 @@ export const classesApi = {
   /**
    * Assign a staff member to a class
    */
-  assignStaff: async (classId: string, staffId: string): Promise<ClassAssignment> => {
+  assignStaff: async (classId: string, staffId: string): Promise<Tables<'classes_staff'>> => {
     try {
-      // Ensure the user is an admin first
-      
-      // Check if the assignment already exists
-      const existing = await classesStaffRepository.getBy('class_id', classId);
-      const existingAssignment = existing.find(record => record.staffId === staffId && record.status === 'ACTIVE');
-      
-      if (existingAssignment) {
-        return existingAssignment; // Already assigned
-      }
-      
-      // Create the assignment
-      const assignment: Partial<ClassAssignment> = {
-        classId,
-        staffId,
-        startDate: new Date().toISOString().split('T')[0], // Today's date
+      const supabase = getSupabaseClient();
+      const { data: existing, error: existingError } = await supabase
+        .from('classes_staff')
+        .select('id')
+        .eq('class_id', classId)
+        .eq('staff_id', staffId)
+        .eq('status', 'ACTIVE')
+        .limit(1);
+      if (existingError) throw existingError;
+      if ((existing ?? []).length) return (existing![0] as Tables<'classes_staff'>);
+
+      const payload: TablesInsert<'classes_staff'> = {
+        id: crypto.randomUUID(),
+        class_id: classId,
+        staff_id: staffId,
+        start_date: new Date().toISOString().split('T')[0],
         status: 'ACTIVE',
-        isSubstitute: false,
       };
-      
-      return classesStaffRepository.create(assignment);
+      const { data, error } = await supabase
+        .from('classes_staff')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as Tables<'classes_staff'>;
     } catch (error) {
       console.error('Error assigning staff:', error);
       throw error;
@@ -368,21 +372,14 @@ export const classesApi = {
    */
   unassignStaff: async (classId: string, staffId: string): Promise<void> => {
     try {
-      // Ensure the user is an admin first
-      
-      // Get all assignments for this class and staff member
-      const assignments = await classesStaffRepository.getBy('class_id', classId);
-      
-      // Find the active assignment for this staff member
-      const assignment = assignments.find(record => record.staffId === staffId && record.status === 'ACTIVE');
-      
-      if (assignment) {
-        // Update status to inactive instead of deleting
-        await classesStaffRepository.update(assignment.id, {
-          status: 'INACTIVE',
-          endDate: new Date().toISOString().split('T')[0],
-        });
-      }
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('classes_staff')
+        .update({ status: 'INACTIVE', end_date: new Date().toISOString().split('T')[0] })
+        .eq('class_id', classId)
+        .eq('staff_id', staffId)
+        .eq('status', 'ACTIVE');
+      if (error) throw error;
     } catch (error) {
       console.error('Error unassigning staff:', error);
       throw error;
@@ -392,24 +389,24 @@ export const classesApi = {
   /**
    * Get classes by day of week
    */
-  getClassesByDay: async (dayOfWeek: number): Promise<Class[]> => {
-    try {
-      return classRepository.findByModelField('dayOfWeek', dayOfWeek);
-    } catch (error) {
-      console.error('Error getting classes by day:', error);
-      throw error;
-    }
+  getClassesByDay: async (dayOfWeek: number): Promise<Tables<'classes'>[]> => {
+    const { data, error } = await getSupabaseClient()
+      .from('classes')
+      .select('*')
+      .eq('day_of_week', dayOfWeek);
+    if (error) throw error;
+    return (data ?? []) as Tables<'classes'>[];
   },
   
   /**
    * Get classes by status
    */
-  getClassesByStatus: async (status: ClassStatus): Promise<Class[]> => {
-    try {
-      return classRepository.findByModelField('status', status);
-    } catch (error) {
-      console.error('Error getting classes by status:', error);
-      throw error;
-    }
+  getClassesByStatus: async (status: string): Promise<Tables<'classes'>[]> => {
+    const { data, error } = await getSupabaseClient()
+      .from('classes')
+      .select('*')
+      .eq('status', status);
+    if (error) throw error;
+    return (data ?? []) as Tables<'classes'>[];
   },
 }; 

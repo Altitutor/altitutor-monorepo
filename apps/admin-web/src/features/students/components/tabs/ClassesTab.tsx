@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Student, Class, Staff, Subject } from "@/shared/lib/supabase/database/types";
+import type { Tables } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,14 +14,14 @@ import { ViewClassModal } from '@/features/classes';
 import { cn } from "@/shared/utils";
 
 interface ClassesTabProps {
-  student: Student;
+  student: Tables<'students'>;
   onStudentUpdated?: () => void;
 }
 
 interface StudentClass {
-  class: Class;
-  subject?: Subject;
-  staff: Staff[];
+  class: Tables<'classes'>;
+  subject?: Tables<'subjects'>;
+  staff: Tables<'staff'>[];
   studentCount: number;
 }
 
@@ -82,14 +82,14 @@ export function ClassesTab({
       // Sort by day of week, then by start time
       const sortClasses = (classes: StudentClass[]) => {
         return classes.sort((a, b) => {
-          const dayA = a.class.dayOfWeek === 0 ? 7 : a.class.dayOfWeek;
-          const dayB = b.class.dayOfWeek === 0 ? 7 : b.class.dayOfWeek;
+          const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
+          const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
           
           if (dayA !== dayB) {
             return dayA - dayB;
           }
           
-          return a.class.startTime.localeCompare(b.class.startTime);
+          return a.class.start_time.localeCompare(b.class.start_time);
         });
       };
       
@@ -147,10 +147,10 @@ export function ClassesTab({
   const filteredAvailableClasses = availableClasses.filter(classData => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    const subject = classData.subject ? formatSubjectDisplay(classData.subject) : classData.class.level;
-    const level = classData.class.level;
-    const day = getDayOfWeek(classData.class.dayOfWeek);
-    const time = `${formatTime(classData.class.startTime)} - ${formatTime(classData.class.endTime)}`;
+    const subject = classData.subject ? formatSubjectDisplay(classData.subject) : classData.class.subject;
+    const level = classData.class.subject;
+    const day = getDayOfWeek(classData.class.day_of_week);
+    const time = `${formatTime(classData.class.start_time)} - ${formatTime(classData.class.end_time)}`;
     
     return (
       subject.toLowerCase().includes(query) ||
@@ -182,7 +182,7 @@ export function ClassesTab({
     if (studentClass.subject) {
       return formatSubjectDisplay(studentClass.subject);
     }
-    return studentClass.class.level;
+    return studentClass.class.subject;
   };
 
   if (loading) {
@@ -250,7 +250,7 @@ export function ClassesTab({
                               {getSubjectDisplay(classData)}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {getDayOfWeek(classData.class.dayOfWeek)} • {formatTime(classData.class.startTime)} - {formatTime(classData.class.endTime)}
+                              {getDayOfWeek(classData.class.day_of_week)} • {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
                             </div>
                           </div>
                           {enrollingClasses.has(classData.class.id) && (
@@ -320,7 +320,7 @@ export function ClassesTab({
                               {getSubjectDisplay(classData)}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {getDayOfWeek(classData.class.dayOfWeek)} • {formatTime(classData.class.startTime)} - {formatTime(classData.class.endTime)}
+                              {getDayOfWeek(classData.class.day_of_week)} • {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
                             </div>
                           </div>
                           {enrollingClasses.has(classData.class.id) && (
@@ -356,7 +356,7 @@ export function ClassesTab({
                         {getSubjectDisplay(classData)}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {classData.class.level}
+                        {classData.class.subject}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -371,13 +371,13 @@ export function ClassesTab({
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4" />
                       <span>
-                        {formatTime(classData.class.startTime)} - {formatTime(classData.class.endTime)}
+                        {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
                       </span>
                     </div>
                     
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      <span>{getDayOfWeek(classData.class.dayOfWeek)}</span>
+                      <span>{getDayOfWeek(classData.class.day_of_week)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -399,11 +399,11 @@ export function ClassesTab({
                       {getSubjectDisplay(studentClass)}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {studentClass.class.level}
+                      {studentClass.class.subject}
                     </p>
                   </div>
                   <Badge variant="secondary" className="text-xs">
-                    {getDayOfWeek(studentClass.class.dayOfWeek)}
+                    {getDayOfWeek(studentClass.class.day_of_week)}
                   </Badge>
                 </div>
               </CardHeader>
@@ -413,7 +413,7 @@ export function ClassesTab({
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span>
-                      {formatTime(studentClass.class.startTime)} - {formatTime(studentClass.class.endTime)}
+                      {formatTime(studentClass.class.start_time)} - {formatTime(studentClass.class.end_time)}
                     </span>
                   </div>
                   
@@ -436,7 +436,7 @@ export function ClassesTab({
                     <div className="flex flex-wrap gap-1">
                       {studentClass.staff.map((staff) => (
                         <Badge key={staff.id} variant="outline" className="text-xs">
-                          {staff.firstName} {staff.lastName}
+                          {staff.first_name} {staff.last_name}
                         </Badge>
                       ))}
                     </div>

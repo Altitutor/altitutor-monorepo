@@ -28,8 +28,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useSubjects } from '../hooks/useSubjectsQuery';
-import type { Subject } from '@/shared/lib/supabase/database/types';
-import { SubjectCurriculum, SubjectDiscipline } from '@/shared/lib/supabase/database/types';
+import type { Tables, Enums } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { SubjectCurriculumBadge } from '@/components/ui/enum-badge';
 import { ViewSubjectModal } from './ViewSubjectModal';
@@ -53,9 +52,9 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
 
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
-  const [curriculumFilter, setCurriculumFilter] = useState<SubjectCurriculum | 'ALL'>('ALL');
-  const [disciplineFilter, setDisciplineFilter] = useState<SubjectDiscipline | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Subject>('name');
+  const [curriculumFilter, setCurriculumFilter] = useState<Enums<'subject_curriculum'> | 'ALL'>('ALL');
+  const [disciplineFilter, setDisciplineFilter] = useState<Enums<'subject_discipline'> | 'ALL'>('ALL');
+  const [sortField, setSortField] = useState<keyof Tables<'subjects'>>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -72,7 +71,7 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(subject => 
         subject.name.toLowerCase().includes(searchLower) ||
-        String(subject.yearLevel).includes(searchLower) ||
+        String(subject.year_level).includes(searchLower) ||
         (subject.level && subject.level.toLowerCase().includes(searchLower))
       );
     }
@@ -113,7 +112,7 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     return result;
   }, [subjects, searchTerm, curriculumFilter, disciplineFilter, sortField, sortDirection]);
 
-  const handleSort = (field: keyof Subject) => {
+  const handleSort = (field: keyof Tables<'subjects'>) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -236,19 +235,19 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
               <DropdownMenuItem onClick={() => setCurriculumFilter('ALL')}>
                 All Curriculums
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter(SubjectCurriculum.SACE)}>
+              <DropdownMenuItem onClick={() => setCurriculumFilter('SACE')}>
                 SACE
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter(SubjectCurriculum.IB)}>
+              <DropdownMenuItem onClick={() => setCurriculumFilter('IB')}>
                 IB
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter(SubjectCurriculum.PRESACE)}>
+              <DropdownMenuItem onClick={() => setCurriculumFilter('PRESACE')}>
                 Pre-SACE
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter(SubjectCurriculum.PRIMARY)}>
+              <DropdownMenuItem onClick={() => setCurriculumFilter('PRIMARY')}>
                 Primary
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter(SubjectCurriculum.MEDICINE)}>
+              <DropdownMenuItem onClick={() => setCurriculumFilter('MEDICINE')}>
                 Medicine
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -270,25 +269,25 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
               <DropdownMenuItem onClick={() => setDisciplineFilter('ALL')}>
                 All Disciplines
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.MATHEMATICS)}>
+              <DropdownMenuItem onClick={() => setDisciplineFilter('MATHEMATICS')}>
                 Mathematics
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.SCIENCE)}>
+              <DropdownMenuItem onClick={() => setDisciplineFilter('SCIENCE')}>
                 Science
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.HUMANITIES)}>
+              <DropdownMenuItem onClick={() => setDisciplineFilter('HUMANITIES')}>
                 Humanities
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.ENGLISH)}>
+              <DropdownMenuItem onClick={() => setDisciplineFilter('ENGLISH')}>
                 English
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.ART)}>
+              <DropdownMenuItem onClick={() => setDisciplineFilter('ART')}>
                 Art
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.LANGUAGE)}>
+              <DropdownMenuItem onClick={() => setDisciplineFilter('LANGUAGE')}>
                 Languages
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter(SubjectDiscipline.MEDICINE)}>
+              <DropdownMenuItem onClick={() => setDisciplineFilter('MEDICINE')}>
                 Medicine
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -307,11 +306,11 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
                   sortField === 'curriculum' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('yearLevel')}>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('year_level')}>
                 Year Level
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
-                  sortField === 'yearLevel' ? "opacity-100" : "opacity-40"
+                  sortField === 'year_level' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
@@ -353,7 +352,7 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
                   <TableCell>
                     <SubjectCurriculumBadge value={subject.curriculum} />
                   </TableCell>
-                  <TableCell>{subject.yearLevel || '-'}</TableCell>
+                  <TableCell>{subject.year_level || '-'}</TableCell>
                   <TableCell className="font-medium">{subject.name}</TableCell>
                   <TableCell>{subject.level || '-'}</TableCell>
                 </TableRow>

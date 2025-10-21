@@ -10,8 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { topicsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
-import type { Topic } from '../types';
-import type { Subject, SubjectCurriculum } from '@/shared/lib/supabase/database/types';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { Loader2 } from 'lucide-react';
 
@@ -25,7 +24,7 @@ export function AddTopicModal({ isOpen, onClose, onTopicAdded }: AddTopicModalPr
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
@@ -78,12 +77,12 @@ export function AddTopicModal({ isOpen, onClose, onTopicAdded }: AddTopicModalPr
     setIsSubmitting(true);
 
     try {
-      const topicData: Partial<Topic> = {
+      const topicData: Tables<'topics'> | TablesInsert<'topics'> = {
         name: formData.name,
         number: formData.number,
-        subjectId: formData.subject_id,
+        subject_id: formData.subject_id,
         area: formData.area || null,
-      };
+      } as any;
 
       await topicsApi.createTopic(topicData);
       

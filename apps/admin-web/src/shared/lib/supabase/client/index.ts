@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Database } from '../database/generated';
+import type { Database } from '@altitutor/shared';
 
 // Environment variable validation
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -39,14 +39,20 @@ export const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
     )
   : null;
 
+// Memoized browser client to avoid multiple GoTrueClient instances
+let browserClient: ReturnType<typeof createClientComponentClient<Database>> | null = null;
+
 /**
  * Get the appropriate Supabase client based on environment
- * - Browser: Returns client component client with cookie handling
+ * - Browser: Returns client component client with cookie handling (memoized)
  * - Server: Returns server client
  */
 export function getSupabaseClient() {
   if (typeof window !== 'undefined') {
-    return createClientComponentClient<Database>();
+    if (!browserClient) {
+      browserClient = createClientComponentClient<Database>();
+    }
+    return browserClient;
   }
   return supabaseServer;
 }
@@ -57,9 +63,12 @@ export function getSupabaseClient() {
  */
 export function useSupabaseClient() {
   // During SSR or server context, return the server client
-  // During client hydration/runtime, return the client component client
+  // During client hydration/runtime, return the memoized client
   if (typeof window === 'undefined') {
     return supabaseServer;
   }
-  return createClientComponentClient<Database>();
+  if (!browserClient) {
+    browserClient = createClientComponentClient<Database>();
+  }
+  return browserClient;
 } 

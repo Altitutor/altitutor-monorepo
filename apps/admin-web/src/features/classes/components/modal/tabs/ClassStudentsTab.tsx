@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Class, Student, EnrollmentStatus } from "@/shared/lib/supabase/database/types";
+import type { Tables } from '@altitutor/shared';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,9 +9,9 @@ import { cn } from "@/shared/utils";
 import { ViewStudentModal } from '@/features/students';
 
 interface ClassStudentsTabProps {
-  classData: Class;
-  classStudents: Student[];
-  allStudents: Student[];
+  classData: Tables<'classes'>;
+  classStudents: Tables<'students'>[];
+  allStudents: Tables<'students'>[];
   loadingStudents: boolean;
   onViewStudent?: (studentId: string) => void;
   onEnrollStudent: (studentId: string) => void;
@@ -78,9 +78,9 @@ export function ClassStudentsTab({
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      student.firstName.toLowerCase().includes(query) ||
-      student.lastName.toLowerCase().includes(query) ||
-      (student.studentEmail && student.studentEmail.toLowerCase().includes(query))
+      student.first_name.toLowerCase().includes(query) ||
+      student.last_name.toLowerCase().includes(query) ||
+      (student.student_email && student.student_email.toLowerCase().includes(query))
     );
   });
 
@@ -129,9 +129,9 @@ export function ClassStudentsTab({
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex flex-col items-start">
-                            <div className="font-medium">{student.firstName} {student.lastName}</div>
-                            {student.studentEmail && (
-                              <div className="text-xs text-muted-foreground">{student.studentEmail}</div>
+                            <div className="font-medium">{student.first_name} {student.last_name}</div>
+                            {student.student_email && (
+                              <div className="text-xs text-muted-foreground">{student.student_email}</div>
                             )}
                           </div>
                           {enrollingStudents.has(student.id) && (
@@ -188,10 +188,10 @@ export function ClassStudentsTab({
                         >
                           <div className="flex items-center justify-between w-full">
                             <div className="flex flex-col items-start">
-                              <div className="font-medium">{student.firstName} {student.lastName}</div>
-                              {student.studentEmail && (
-                                <div className="text-xs text-muted-foreground">{student.studentEmail}</div>
-                              )}
+                      <div className="font-medium">{student.first_name} {student.last_name}</div>
+                      {student.student_email && (
+                              <div className="text-xs text-muted-foreground">{student.student_email}</div>
+                            )}
                             </div>
                             {enrollingStudents.has(student.id) && (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -221,7 +221,7 @@ export function ClassStudentsTab({
                 >
                   <div className="flex-1">
                     <div className="font-medium text-muted-foreground">
-                      {student.firstName} {student.lastName}
+                      {student.first_name} {student.last_name}
                     </div>
                     <div className="text-xs text-muted-foreground">Enrolling...</div>
                   </div>
@@ -235,7 +235,7 @@ export function ClassStudentsTab({
             
             {/* Show enrolled students */}
             {classStudents
-              .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+              .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
               .map((student) => (
               <div 
                 key={student.id} 
@@ -246,10 +246,10 @@ export function ClassStudentsTab({
               >
                 <div className="flex-1">
                   <div className="font-medium">
-                    {student.firstName} {student.lastName}
+                    {student.first_name} {student.last_name}
                   </div>
-                  {student.studentEmail && (
-                    <div className="text-xs text-muted-foreground">{student.studentEmail}</div>
+                  {student.student_email && (
+                    <div className="text-xs text-muted-foreground">{student.student_email}</div>
                   )}
                 </div>
                 

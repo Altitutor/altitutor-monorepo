@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { topicsApi } from '../api';
-import type { Topic, Subtopic } from '../types';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { PencilIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,8 +48,8 @@ export function ViewSubtopicModal({ isOpen, onClose, subtopicId, onSubtopicUpdat
   const [submitting, setSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [topic, setTopic] = useState<Topic | null>(null);
-  const [subtopic, setSubtopic] = useState<Subtopic | null>(null);
+  const [topic, setTopic] = useState<Tables<'topics'> | null>(null);
+  const [subtopic, setSubtopic] = useState<Tables<'subtopics'> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   // Initialize form
@@ -91,8 +91,8 @@ export function ViewSubtopicModal({ isOpen, onClose, subtopicId, onSubtopicUpdat
         setSubtopic(subtopicData);
         
         // Load related topic to display in title
-        if (subtopicData.topicId) {
-          const topicData = await topicsApi.getTopic(subtopicData.topicId);
+        if (subtopicData.topic_id) {
+          const topicData = await topicsApi.getTopic(subtopicData.topic_id);
           if (topicData) {
             setTopic(topicData);
           }
@@ -128,20 +128,15 @@ export function ViewSubtopicModal({ isOpen, onClose, subtopicId, onSubtopicUpdat
     setSubmitting(true);
     
     try {
-      const subtopicData: Partial<Subtopic> = {
+      const subtopicData: TablesUpdate<'subtopics'> = {
         name: values.name,
         number: values.number,
       };
       
-      await topicsApi.updateSubtopic(subtopicId, subtopicData);
+      const updated = await topicsApi.updateSubtopic(subtopicId, subtopicData);
       
       // Update local state
-      if (subtopic) {
-        setSubtopic({
-          ...subtopic,
-          ...subtopicData
-        });
-      }
+      setSubtopic(updated);
       
       toast({
         title: 'Success',

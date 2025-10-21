@@ -1,11 +1,1 @@
-export type { 
-  Session,
-  SessionAttendance,
-  SessionsStaff,
-  SessionsResourceFiles,
-  SessionAuditLog
-} from '@/shared/lib/supabase/database/types'; 
-
-export { 
-  SessionType
-} from '@/shared/lib/supabase/database/types'; 
+export type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';

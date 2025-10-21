@@ -1,2 +1,2 @@
-export { useClasses, useClassesStudents, useClassesStaff } from './useClasses';
-export * from './useClassesQuery'; 
+// useClasses* hooks removed; use useClassesQuery exports
+export * from './useClassesQuery';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Class, Staff } from "@/shared/lib/supabase/database/types";
+import type { Tables } from '@altitutor/shared';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,9 +10,9 @@ import { cn } from "@/shared/utils";
 import { ViewStaffModal } from '@/features/staff';
 
 interface ClassStaffTabProps {
-  classData: Class;
-  classStaff: Staff[];
-  allStaff: Staff[];
+  classData: Tables<'classes'>;
+  classStaff: Tables<'staff'>[];
+  allStaff: Tables<'staff'>[];
   loadingStaff: boolean;
   onViewStaff?: (staffId: string) => void;
   onAssignStaff: (staffId: string) => void;
@@ -79,8 +79,8 @@ export function ClassStaffTab({
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      staff.firstName.toLowerCase().includes(query) ||
-      staff.lastName.toLowerCase().includes(query) ||
+      staff.first_name.toLowerCase().includes(query) ||
+      staff.last_name.toLowerCase().includes(query) ||
       (staff.email && staff.email.toLowerCase().includes(query))
     );
   });
@@ -130,10 +130,10 @@ export function ClassStaffTab({
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex flex-col items-start">
-                            <div className="font-medium">{staff.firstName} {staff.lastName}</div>
+                            <div className="font-medium">{staff.first_name} {staff.last_name}</div>
                             <div className="flex items-center gap-2 mt-1">
-                              <StaffRoleBadge value={staff.role} />
-                              <StaffStatusBadge value={staff.status} />
+                              <StaffRoleBadge value={staff.role as any} />
+                              <StaffStatusBadge value={staff.status as any} />
                             </div>
                             {staff.email && (
                               <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
@@ -193,11 +193,11 @@ export function ClassStaffTab({
                         >
                           <div className="flex items-center justify-between w-full">
                             <div className="flex flex-col items-start">
-                              <div className="font-medium">{staff.firstName} {staff.lastName}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <StaffRoleBadge value={staff.role} />
-                                <StaffStatusBadge value={staff.status} />
-                              </div>
+                            <div className="font-medium">{staff.first_name} {staff.last_name}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <StaffRoleBadge value={staff.role as any} />
+                              <StaffStatusBadge value={staff.status as any} />
+                            </div>
                               {staff.email && (
                                 <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
                               )}
@@ -230,7 +230,7 @@ export function ClassStaffTab({
                 >
                   <div className="flex-1">
                     <div className="font-medium text-muted-foreground">
-                      {staff.firstName} {staff.lastName}
+                      {staff.first_name} {staff.last_name}
                     </div>
                     <div className="text-xs text-muted-foreground">Assigning...</div>
                   </div>
@@ -244,7 +244,7 @@ export function ClassStaffTab({
             
             {/* Show assigned staff */}
             {classStaff
-              .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+              .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
               .map((staff) => (
               <div 
                 key={staff.id} 
@@ -254,12 +254,12 @@ export function ClassStaffTab({
                 )}
               >
                 <div className="flex-1">
-                  <div className="font-medium">
-                    {staff.firstName} {staff.lastName}
+                    <div className="font-medium">
+                    {staff.first_name} {staff.last_name}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
-                    <StaffRoleBadge value={staff.role} />
-                    <StaffStatusBadge value={staff.status} />
+                    <StaffRoleBadge value={staff.role as any} />
+                    <StaffStatusBadge value={staff.status as any} />
                   </div>
                   {staff.email && (
                     <div className="text-sm text-muted-foreground mt-1">{staff.email}</div>

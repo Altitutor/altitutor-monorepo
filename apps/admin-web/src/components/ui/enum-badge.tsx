@@ -16,19 +16,18 @@ import {
   getBooleanColor,
   getParkingRemoteColor,
 } from '@/shared/utils/enum-colors';
-import {
-  StudentStatus,
-  StaffRole,
-  StaffStatus,
-  SubjectCurriculum,
-  SubjectDiscipline,
-  ClassStatus,
-  EnrollmentStatus,
-  AbsenceType,
-  MeetingType,
-  SessionType,
-  MessageStatus,
-} from '@/shared/lib/supabase/database/types';
+// Keep enum types broad to avoid dependency on domain enums; use strings
+type StudentStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED';
+type StaffRole = 'ADMIN' | 'TUTOR' | 'ADMINSTAFF';
+type StaffStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL';
+type SubjectCurriculum = 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE';
+type SubjectDiscipline = 'MATHEMATICS' | 'SCIENCE' | 'HUMANITIES' | 'ENGLISH' | 'ART' | 'LANGUAGE' | 'MEDICINE';
+type ClassStatus = 'ACTIVE' | 'INACTIVE' | 'FULL';
+type EnrollmentStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED' | 'TRIAL';
+type AbsenceType = 'PLANNED' | 'UNPLANNED';
+type MeetingType = 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'PARENT_MEETING' | 'OTHER';
+type SessionType = 'CLASS' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'TRIAL_SHIFT' | 'STAFF_INTERVIEW';
+type MessageStatus = 'DRAFT' | 'SENT' | 'FAILED';
 
 // Union type of all supported enum values
 type EnumValue = 

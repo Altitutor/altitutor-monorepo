@@ -33,8 +33,7 @@ import {
 import { ArrowUpDown, ChevronDown, ChevronRight, Plus, Search, X, RefreshCw } from 'lucide-react';
 import { useTopicsWithSubjects, useSubtopicsWithTopics, useDeleteTopic, useDeleteSubtopic } from '../hooks/useTopicsQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import type { Topic, Subtopic } from '../types';
-import type { Subject, SubjectCurriculum } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { ViewTopicModal } from './ViewTopicModal';
 import { AddSubtopicModal } from './AddSubtopicModal';
 import { ViewSubtopicModal } from './ViewSubtopicModal';
@@ -55,13 +54,13 @@ interface TopicsTableProps {
 }
 
 // Define a type that includes both Topic and Subtopics in a unified structure
-type TopicRow = Topic & {
+type TopicRow = Tables<'topics'> & {
   isSubtopic?: false;
-  subtopics?: Subtopic[];
-  subject?: Subject;
+  subtopics?: Tables<'subtopics'>[];
+  subject?: Tables<'subjects'>;
 };
 
-type SubtopicRow = Subtopic & {
+type SubtopicRow = Tables<'subtopics'> & {
   isSubtopic: true;
   topicId: string;
   topicName?: string;
@@ -74,14 +73,14 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
   
   // React Query hooks for data fetching
   const { 
-    data: topicsData = [], 
+    data: topicsWithSubjects = { topics: [], subjectByTopicId: {} }, 
     isLoading: topicsLoading, 
     error: topicsError,
     refetch: refetchTopics 
   } = useTopicsWithSubjects();
   
   const { 
-    data: subtopicsData = [], 
+    data: subtopicsWithTopics = { subtopics: [], topicBySubtopicId: {} }, 
     isLoading: subtopicsLoading, 
     error: subtopicsError,
     refetch: refetchSubtopics 
@@ -121,36 +120,36 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
   // Memoized table data creation
   const data = useMemo(() => {
     const tableData: TableRow[] = [];
-    
-    // Create a map of subtopics by topic ID for efficient lookup
-    const subtopicsByTopic: Record<string, Subtopic[]> = {};
-    subtopicsData.forEach(subtopic => {
-      if (!subtopicsByTopic[subtopic.topicId]) {
-        subtopicsByTopic[subtopic.topicId] = [];
-      }
-      subtopicsByTopic[subtopic.topicId].push(subtopic);
+    const topics = topicsWithSubjects.topics;
+    const subjectByTopicId = topicsWithSubjects.subjectByTopicId;
+    const subtopics = subtopicsWithTopics.subtopics;
+    const topicBySubtopicId = subtopicsWithTopics.topicBySubtopicId;
+
+    const subtopicsByTopic: Record<string, Tables<'subtopics'>[]> = {};
+    subtopics.forEach((s) => {
+      const tid = (s as Tables<'subtopics'>).topic_id;
+      if (!subtopicsByTopic[tid]) subtopicsByTopic[tid] = [];
+      subtopicsByTopic[tid].push(s);
     });
 
-    // Process topics and add their subtopics
-    topicsData.forEach(topic => {
+    topics.forEach((topic) => {
       const topicSubtopics = subtopicsByTopic[topic.id] || [];
-      
-      // Add the topic row
       const topicRow: TopicRow = {
         ...topic,
         isSubtopic: false,
         subtopics: topicSubtopics,
+        subject: subjectByTopicId[topic.id],
       };
       tableData.push(topicRow);
 
-      // Add subtopic rows if expanded
       if (Object.prototype.hasOwnProperty.call(expanded, topic.id) && expanded[topic.id as keyof typeof expanded]) {
-        topicSubtopics.forEach(subtopic => {
+        topicSubtopics.forEach((subtopic) => {
+          const parent = topic;
           const subtopicRow: SubtopicRow = {
             ...subtopic,
             isSubtopic: true,
-            topicId: topic.id,
-            topicName: topic.name,
+            topicId: parent.id,
+            topicName: parent.name,
           };
           tableData.push(subtopicRow);
         });
@@ -158,7 +157,7 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
     });
 
     return tableData;
-  }, [topicsData, subtopicsData, expanded]);
+  }, [topicsWithSubjects, subtopicsWithTopics, expanded]);
 
   // Filtered data based on text and subject filters
   const filteredData = useMemo(() => {
@@ -185,16 +184,16 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
       result = result.filter(row => {
         if (row.isSubtopic) {
           // For subtopics, find the parent topic and check its subject
-          const parentTopic = topicsData.find(t => t.id === row.topicId);
-          return parentTopic?.subjectId === selectedSubject;
+          const parentTopic = topicsWithSubjects.topics.find(t => t.id === row.topicId);
+          return parentTopic?.subject_id === selectedSubject;
         } else {
-          return row.subjectId === selectedSubject;
+          return (row as TopicRow).subject?.id === selectedSubject;
         }
       });
     }
 
     return result;
-  }, [data, textFilter, selectedSubject, topicsData]);
+  }, [data, textFilter, selectedSubject, topicsWithSubjects]);
 
   // Define columns for the table
   const columns: ColumnDef<TableRow>[] = [
@@ -370,7 +369,7 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
   const hasError = topicsError || subtopicsError || subjectsError;
 
   // Loading state
-  if (isLoading && topicsData.length === 0) {
+  if (isLoading && topicsWithSubjects.topics.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -407,7 +406,7 @@ export function TopicsTable({ onRefresh }: TopicsTableProps) {
   }
 
   // Error state
-  if (hasError && topicsData.length === 0) {
+  if (hasError && topicsWithSubjects.topics.length === 0) {
     return (
       <div className="text-red-500 p-4">
         Failed to load topics. Please try again.

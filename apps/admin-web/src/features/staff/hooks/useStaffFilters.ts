@@ -1,22 +1,22 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { Staff, StaffRole, StaffStatus } from '../types';
+import type { Tables } from '@altitutor/shared';
 import { useDebounce } from '@/shared/hooks';
 
 interface StaffFilters {
   searchTerm: string;
-  roleFilter: StaffRole | 'ALL';
-  statusFilter: StaffStatus | 'ALL';
-  sortField: keyof Staff;
+  roleFilter: 'TUTOR' | 'ADMINSTAFF' | 'ALL';
+  statusFilter: 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'ALL';
+  sortField: keyof Tables<'staff'>;
   sortDirection: 'asc' | 'desc';
 }
 
 interface UseStaffFiltersReturn {
-  filteredStaff: Staff[];
+  filteredStaff: Tables<'staff'>[];
   filters: StaffFilters;
   setSearchTerm: (term: string) => void;
-  setRoleFilter: (role: StaffRole | 'ALL') => void;
-  setStatusFilter: (status: StaffStatus | 'ALL') => void;
-  handleSort: (field: keyof Staff) => void;
+  setRoleFilter: (role: 'TUTOR' | 'ADMINSTAFF' | 'ALL') => void;
+  setStatusFilter: (status: 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'ALL') => void;
+  handleSort: (field: keyof Tables<'staff'>) => void;
   resetFilters: () => void;
 }
 
@@ -24,21 +24,21 @@ const initialFilters: StaffFilters = {
   searchTerm: '',
   roleFilter: 'ALL',
   statusFilter: 'ALL',
-  sortField: 'lastName',
+  sortField: 'last_name',
   sortDirection: 'asc',
 };
 
-export function useStaffFilters(staffMembers: Staff[]): UseStaffFiltersReturn {
+export function useStaffFilters(staffMembers: Tables<'staff'>[]): UseStaffFiltersReturn {
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<StaffRole | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<StaffStatus | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Staff>('lastName');
+  const [roleFilter, setRoleFilter] = useState<'TUTOR' | 'ADMINSTAFF' | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'ALL'>('ALL');
+  const [sortField, setSortField] = useState<keyof Tables<'staff'>>('last_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Debounce search term for better performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const handleSort = useCallback((field: keyof Staff) => {
+  const handleSort = useCallback((field: keyof Tables<'staff'>) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -51,7 +51,7 @@ export function useStaffFilters(staffMembers: Staff[]): UseStaffFiltersReturn {
     setSearchTerm('');
     setRoleFilter('ALL');
     setStatusFilter('ALL');
-    setSortField('lastName');
+    setSortField('last_name');
     setSortDirection('asc');
   }, []);
 
@@ -63,11 +63,11 @@ export function useStaffFilters(staffMembers: Staff[]): UseStaffFiltersReturn {
     // Apply search filter
     if (debouncedSearchTerm) {
       const searchLower = debouncedSearchTerm.toLowerCase();
-      result = result.filter(staff => 
-        (staff.firstName?.toLowerCase() || '').includes(searchLower) ||
-        (staff.lastName?.toLowerCase() || '').includes(searchLower) ||
+      result = result.filter(staff =>
+        (staff.first_name?.toLowerCase() || '').includes(searchLower) ||
+        (staff.last_name?.toLowerCase() || '').includes(searchLower) ||
         (staff.email?.toLowerCase() || '').includes(searchLower) ||
-        (staff.phoneNumber?.toLowerCase() || '').includes(searchLower)
+        (staff.phone_number?.toLowerCase() || '').includes(searchLower)
       );
     }
     
@@ -83,8 +83,8 @@ export function useStaffFilters(staffMembers: Staff[]): UseStaffFiltersReturn {
     
     // Apply sorting
     result.sort((a, b) => {
-      const valueA = a[sortField] || '';
-      const valueB = b[sortField] || '';
+      const valueA = a[sortField] || '' as any;
+      const valueB = b[sortField] || '' as any;
       
       if (typeof valueA === 'string' && typeof valueB === 'string') {
         return sortDirection === 'asc' 

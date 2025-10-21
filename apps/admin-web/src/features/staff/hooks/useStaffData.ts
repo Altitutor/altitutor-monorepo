@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Staff, Class } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { staffApi } from '../api';
 import { classesApi } from '@/features/classes/api';
 
 interface UseStaffDataReturn {
-  staffMembers: Staff[];
-  staffClasses: Record<string, Class[]>;
+  staffMembers: Tables<'staff'>[];
+  staffClasses: Record<string, Tables<'classes'>[]>;
   loading: boolean;
   error: string | null;
   refreshData: () => Promise<void>;
 }
 
 export function useStaffData(refreshTrigger?: number): UseStaffDataReturn {
-  const [staffMembers, setStaffMembers] = useState<Staff[]>([]);
-  const [staffClasses, setStaffClasses] = useState<Record<string, Class[]>>({});
+  const [staffMembers, setStaffMembers] = useState<Tables<'staff'>[]>([]);
+  const [staffClasses, setStaffClasses] = useState<Record<string, Tables<'classes'>[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,12 +26,12 @@ export function useStaffData(refreshTrigger?: number): UseStaffDataReturn {
       setStaffMembers(data);
       
       // Load classes for each staff member
-      const classesData: Record<string, Class[]> = {};
+      const classesData: Record<string, Tables<'classes'>[]> = {};
       const { classes: allClasses, classStaff } = await classesApi.getAllClassesWithDetails();
       
       // Filter classes for each staff member
       for (const staff of data) {
-        const staffClassesList: Class[] = [];
+        const staffClassesList: Tables<'classes'>[] = [];
         
         for (const cls of allClasses) {
           const assignedStaff = classStaff[cls.id] || [];

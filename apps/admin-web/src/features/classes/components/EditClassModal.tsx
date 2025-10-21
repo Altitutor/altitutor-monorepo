@@ -13,34 +13,34 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useClasses } from '../hooks';
-import { useSubjects } from '@/features/subjects/hooks';
-import { Class, ClassStatus } from '@/shared/lib/supabase/database/types';
+import { useUpdateClass } from '../hooks/useClassesQuery';
+import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
 
 interface EditClassModalProps {
   isOpen: boolean;
   onClose: () => void;
   onClassUpdated: () => void;
-  classData: Class;
+  classData: Tables<'classes'>;
 }
 
 export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: EditClassModalProps) {
-  const { update, loading: updateLoading, error: updateError } = useClasses();
-  const { items: subjects, loading: subjectsLoading, error: subjectsError } = useSubjects();
+  const updateMutation = useUpdateClass();
+  const { data: subjects } = useSubjects();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Form state
-  const [level, setLevel] = useState(classData.level);
-  const [dayOfWeek, setDayOfWeek] = useState<string>(classData.dayOfWeek.toString());
-  const [startTime, setStartTime] = useState(classData.startTime);
-  const [endTime, setEndTime] = useState(classData.endTime);
+  const [level, setLevel] = useState(classData.subject);
+  const [dayOfWeek, setDayOfWeek] = useState<string>(classData.day_of_week.toString());
+  const [startTime, setStartTime] = useState(classData.start_time);
+  const [endTime, setEndTime] = useState(classData.end_time);
   const [endTimeManuallyEdited, setEndTimeManuallyEdited] = useState(false);
-  const [subjectId, setSubjectId] = useState(classData.subjectId || '');
+  const [subjectId, setSubjectId] = useState(classData.subject_id || '');
   const [notes, setNotes] = useState(classData.notes || '');
   const [room, setRoom] = useState(classData.room || '');
-  const [status, setStatus] = useState<ClassStatus>(classData.status || ClassStatus.ACTIVE);
+  const [status, setStatus] = useState<string>(classData.status || 'ACTIVE');
 
   // Reset form when classData changes or modal opens
   useEffect(() => {
@@ -49,15 +49,15 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       const updatedClassData = { ...classData };
       
       // Set correct day for known classes
-      if (updatedClassData.level === 'UCAT A' && updatedClassData.dayOfWeek !== 0) {
-        updatedClassData.dayOfWeek = 0;
-      } else if (updatedClassData.level === '12IBBIO A1' && updatedClassData.dayOfWeek !== 6) {
-        updatedClassData.dayOfWeek = 6;
+      if (updatedClassData.subject === 'UCAT A' && updatedClassData.day_of_week !== 0) {
+        updatedClassData.day_of_week = 0;
+      } else if (updatedClassData.subject === '12IBBIO A1' && updatedClassData.day_of_week !== 6) {
+        updatedClassData.day_of_week = 6;
       }
       
       // Only calculate the end time if it doesn't exist in the database
-      if (!updatedClassData.endTime && updatedClassData.startTime && updatedClassData.startTime.includes(':')) {
-        const [hours, minutes] = updatedClassData.startTime.split(':').map(Number);
+      if (!updatedClassData.end_time && updatedClassData.start_time && updatedClassData.start_time.includes(':')) {
+        const [hours, minutes] = updatedClassData.start_time.split(':').map(Number);
         let endHours = hours;
         let endMinutes = minutes + 30;
         
@@ -71,17 +71,17 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
         // Format back to HH:MM format
         const formattedEndHours = String(endHours % 24).padStart(2, '0');
         const formattedEndMinutes = String(endMinutes).padStart(2, '0');
-        updatedClassData.endTime = `${formattedEndHours}:${formattedEndMinutes}`;
+        updatedClassData.end_time = `${formattedEndHours}:${formattedEndMinutes}`;
       }
       
-      setLevel(updatedClassData.level);
-      setDayOfWeek(updatedClassData.dayOfWeek.toString());
-      setStartTime(formatTimeForInput(updatedClassData.startTime));
-      setEndTime(formatTimeForInput(updatedClassData.endTime));
-      setSubjectId(updatedClassData.subjectId || '');
+      setLevel(updatedClassData.subject);
+      setDayOfWeek(updatedClassData.day_of_week.toString());
+      setStartTime(formatTimeForInput(updatedClassData.start_time));
+      setEndTime(formatTimeForInput(updatedClassData.end_time));
+      setSubjectId(updatedClassData.subject_id || '');
       setNotes(updatedClassData.notes || '');
       setRoom(updatedClassData.room || '');
-      setStatus(updatedClassData.status || ClassStatus.ACTIVE);
+      setStatus(updatedClassData.status || 'ACTIVE');
       setError(null);
       setEndTimeManuallyEdited(false); // Reset the manual edit flag
     }
@@ -114,14 +114,8 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   
   // Set error state from hooks
   useEffect(() => {
-    if (updateError) {
-      setError(`Update error: ${updateError}`);
-    } else if (subjectsError) {
-      setError(`Failed to load subjects: ${subjectsError}`);
-    } else {
-      setError(null);
-    }
-  }, [updateError, subjectsError]);
+    setError(null);
+  }, []);
   
   const formatTimeForInput = (timeString: string): string => {
     if (!timeString) return '';
@@ -164,16 +158,17 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       }
       
       // Save the changes to the database
-      const updatedClass = await update(classData.id, {
-        level,
-        dayOfWeek: finalDayOfWeek,
-        startTime,
-        endTime,
+      const payload: TablesUpdate<'classes'> = {
+        subject: level,
+        day_of_week: finalDayOfWeek,
+        start_time: startTime,
+        end_time: endTime,
         status,
-        subjectId: subjectId === 'none' ? undefined : subjectId || undefined,
-        notes: notes || undefined,
-        room: room || undefined,
-      });
+        subject_id: subjectId === 'none' ? null : subjectId || null,
+        notes: notes || null,
+        room: room || null,
+      };
+      const updatedClass = await updateMutation.mutateAsync({ id: classData.id, data: payload });
       
       console.log('Class updated successfully:', updatedClass);
       onClassUpdated();
@@ -189,8 +184,8 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Edit Class: {classData.level}</SheetTitle>
+          <SheetHeader>
+          <SheetTitle>Edit Class: {classData.subject}</SheetTitle>
         </SheetHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -228,7 +223,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
                   <SelectItem value="none">None</SelectItem>
                   {subjects?.map((subject) => (
                     <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name} {subject.yearLevel ? `Year ${subject.yearLevel}` : ''}
+                      {subject.name} {subject.year_level ? `Year ${subject.year_level}` : ''}
                       {subject.curriculum ? ` (${subject.curriculum})` : ''}
                     </SelectItem>
                   ))}
@@ -307,12 +302,12 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
               <Select 
-                defaultValue={ClassStatus.ACTIVE}
+                defaultValue={'ACTIVE'}
                 value={status} 
                 onValueChange={(value) => {
                   // Ensure we never set an empty string as the value
                   if (value) {
-                    setStatus(value as ClassStatus);
+                    setStatus(value as string);
                   }
                 }}
                 required

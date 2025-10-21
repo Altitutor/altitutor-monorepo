@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { useInviteStaff } from '../hooks/useStaffQuery';
-import { Staff, StaffRole, StaffStatus } from '../types';
+// Use string literals for role/status
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -31,7 +31,7 @@ const formSchema = z.object({
     .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
     .optional()
     .nullable(),
-  role: z.nativeEnum(StaffRole),
+  role: z.enum(['TUTOR','ADMINSTAFF']),
   
   // Availability checkboxes - required values in schema
   availability_monday: z.boolean(),
@@ -66,7 +66,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       lastName: '',
       email: '',
       phoneNumber: '',
-      role: StaffRole.TUTOR,
+      role: 'TUTOR',
       availability_monday: false,
       availability_tuesday: false,
       availability_wednesday: false,
@@ -85,21 +85,21 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     
     try {
       const staffData = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email || undefined,
+        phone_number: formData.phoneNumber || null,
         role: formData.role,
-        status: StaffStatus.ACTIVE,
-        availabilityMonday: formData.availability_monday,
-        availabilityTuesday: formData.availability_tuesday,
-        availabilityWednesday: formData.availability_wednesday,
-        availabilityThursday: formData.availability_thursday,
-        availabilityFriday: formData.availability_friday,
-        availabilitySaturdayAm: formData.availability_saturday_am,
-        availabilitySaturdayPm: formData.availability_saturday_pm,
-        availabilitySundayAm: formData.availability_sunday_am,
-        availabilitySundayPm: formData.availability_sunday_pm,
+        status: 'ACTIVE' as const,
+        availability_monday: formData.availability_monday,
+        availability_tuesday: formData.availability_tuesday,
+        availability_wednesday: formData.availability_wednesday,
+        availability_thursday: formData.availability_thursday,
+        availability_friday: formData.availability_friday,
+        availability_saturday_am: formData.availability_saturday_am,
+        availability_saturday_pm: formData.availability_saturday_pm,
+        availability_sunday_am: formData.availability_sunday_am,
+        availability_sunday_pm: formData.availability_sunday_pm,
       };
       
       // Create the staff member with user account using invitation
@@ -229,8 +229,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={StaffRole.TUTOR}>Tutor</SelectItem>
-                    <SelectItem value={StaffRole.ADMINSTAFF}>Admin Staff</SelectItem>
+                    <SelectItem value={'TUTOR'}>Tutor</SelectItem>
+                    <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
                   </SelectContent>
                 </Select>
               )}

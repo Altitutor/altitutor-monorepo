@@ -1,5 +1,5 @@
-// Re-export all types from various modules
-export * from '@/shared/lib/supabase/database/types';
+// Use Supabase generated types directly
+export type { Database, Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
 
 // Define shared types here
 export interface PaginationParams {

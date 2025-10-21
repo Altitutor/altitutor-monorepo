@@ -1,4 +1,4 @@
-import { Staff } from "@/shared/lib/supabase/database/types";
+import type { Tables } from "@altitutor/shared";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Trash2 } from "lucide-react";
 
 interface DeleteConfirmationDialogProps {
-  staffMember: Staff;
+  staffMember: Tables<'staff'>;
   isDeleting: boolean;
   onDelete: () => Promise<void>;
 }
@@ -37,7 +37,7 @@ export function DeleteConfirmationDialog({
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogDescription>
             This will permanently delete the staff member
-            "{staffMember.firstName || ''} {staffMember.lastName || ''}" and their user account.
+            "{staffMember.first_name || ''} {staffMember.last_name || ''}" and their user account.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -3,18 +3,18 @@
 import { memo, useCallback } from 'react';
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowUpDown } from 'lucide-react';
-import { Staff } from '@/shared/lib/supabase/database/types';
+import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 
 interface StaffTableHeaderProps {
-  sortField: keyof Staff;
+  sortField: keyof Tables<'staff'>;
   sortDirection: 'asc' | 'desc';
-  onSort: (field: keyof Staff) => void;
+  onSort: (field: keyof Tables<'staff'>) => void;
 }
 
-const sortableFields: Array<{ key: keyof Staff; label: string }> = [
-  { key: 'firstName', label: 'First Name' },
-  { key: 'lastName', label: 'Last Name' },
+const sortableFields: Array<{ key: keyof Tables<'staff'>; label: string }> = [
+  { key: 'first_name', label: 'First Name' },
+  { key: 'last_name', label: 'Last Name' },
   { key: 'email', label: 'Email' },
   { key: 'role', label: 'Role' },
   { key: 'status', label: 'Status' },
@@ -25,11 +25,11 @@ export const StaffTableHeader = memo(function StaffTableHeader({
   sortDirection,
   onSort,
 }: StaffTableHeaderProps) {
-  const handleSort = useCallback((field: keyof Staff) => {
+  const handleSort = useCallback((field: keyof Tables<'staff'>) => {
     onSort(field);
   }, [onSort]);
 
-  const renderSortableHeader = useCallback((field: keyof Staff, label: string) => (
+  const renderSortableHeader = useCallback((field: keyof Tables<'staff'>, label: string) => (
     <TableHead 
       key={field}
       className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
