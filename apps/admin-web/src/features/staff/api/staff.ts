@@ -53,7 +53,7 @@ export const staffApi = {
   getAll: async (): Promise<Tables<'staff'>[]> => {
     const { data, error } = await getSupabaseClient()
       .from('staff')
-      .select('*')
+      .select('id, first_name, last_name, email, phone_number, role, status, created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -61,6 +61,30 @@ export const staffApi = {
     }
 
     return (data ?? []) as Tables<'staff'>[];
+  },
+
+  /**
+   * Paginated, server-filtered staff list for pickers
+   */
+  list: async (params: { search?: string; role?: string; status?: string; limit?: number; offset?: number }): Promise<{ staff: Tables<'staff'>[]; total: number }> => {
+    const { search = '', role, status, limit = 20, offset = 0 } = params || {};
+    let query = getSupabaseClient()
+      .from('staff')
+      .select('id, first_name, last_name, email, phone_number, role, status', { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    const trimmed = search.trim();
+    if (trimmed.length > 0) {
+      const q = `%${trimmed}%`;
+      query = query.or(`first_name.ilike.${q},last_name.ilike.${q},email.ilike.${q}`);
+    }
+
+    if (role) query = query.eq('role', role);
+    if (status) query = query.eq('status', status);
+
+    const { data, count, error } = await query.range(offset, Math.max(offset + limit - 1, offset));
+    if (error) throw error;
+    return { staff: (data ?? []) as Tables<'staff'>[], total: count ?? 0 };
   },
 
   // Back-compat alias

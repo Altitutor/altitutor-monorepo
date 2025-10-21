@@ -12,7 +12,7 @@ export const classesApi = {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('classes')
-      .select('id, subject, subject_id, day_of_week, start_time, end_time, status, room, notes');
+      .select('id, subject_id, day_of_week, start_time, end_time, status, room, notes');
     if (error) throw error;
     return (data ?? []) as Tables<'classes'>[];
   },
@@ -37,7 +37,7 @@ export const classesApi = {
       const { data: classesData, error: classesError } = await supabase
         .from('classes')
         .select(`
-          id, subject, subject_id, day_of_week, start_time, end_time, status, room, notes,
+          id, subject_id, day_of_week, start_time, end_time, status, room, notes,
           subject_details:subjects(*)
         `);
       

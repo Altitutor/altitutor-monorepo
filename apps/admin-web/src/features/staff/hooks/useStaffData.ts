@@ -25,26 +25,22 @@ export function useStaffData(refreshTrigger?: number): UseStaffDataReturn {
       const data = await staffApi.getAllStaff();
       setStaffMembers(data);
       
-      // Load classes for each staff member
+      // Build staffId -> classes map in a single pass over assignments
       const classesData: Record<string, Tables<'classes'>[]> = {};
       const { classes: allClasses, classStaff } = await classesApi.getAllClassesWithDetails();
-      
-      // Filter classes for each staff member
-      for (const staff of data) {
-        const staffClassesList: Tables<'classes'>[] = [];
-        
-        for (const cls of allClasses) {
-          const assignedStaff = classStaff[cls.id] || [];
-          const isAssigned = assignedStaff.some(assignedStaffMember => 
-            assignedStaffMember.id === staff.id
-          );
-          
-          if (isAssigned) {
-            staffClassesList.push(cls);
-          }
+
+      // Initialize keys for all staff
+      for (const s of data) {
+        classesData[s.id] = [];
+      }
+
+      // For each class, push into each assigned staff bucket
+      for (const cls of allClasses) {
+        const assigned = classStaff[cls.id] || [];
+        for (const st of assigned) {
+          if (!classesData[st.id]) classesData[st.id] = [];
+          classesData[st.id].push(cls);
         }
-        
-        classesData[staff.id] = staffClassesList;
       }
       
       setStaffClasses(classesData);

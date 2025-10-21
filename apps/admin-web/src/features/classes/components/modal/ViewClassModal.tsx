@@ -86,18 +86,17 @@ export function ViewClassModal({
     }
   };
 
-  // Fetch all reference data (subjects, students, staff) in parallel
+  // Fetch reference data lazily for pickers with small page size
   const fetchAllData = async () => {
     try {
-      const [subjectsData, studentsData, staffData] = await Promise.all([
-        subjectsApi.getAllSubjects(),
-        studentsApi.getAllStudents(),
-        staffApi.getAllStaff()
+      const [subjectsPage, studentsPage, staffPage] = await Promise.all([
+        subjectsApi.list({ search: '', limit: 50, offset: 0 }),
+        studentsApi.list({ search: '', limit: 50, offset: 0 }),
+        staffApi.list({ search: '', limit: 50, offset: 0 }),
       ]);
-      
-      setSubjects(subjectsData);
-      setAllStudents(studentsData);
-      setAllStaff(staffData);
+      setSubjects(subjectsPage.subjects);
+      setAllStudents(studentsPage.students);
+      setAllStaff(staffPage.staff);
     } catch (err) {
       console.error('Failed to fetch reference data:', err);
       toast({

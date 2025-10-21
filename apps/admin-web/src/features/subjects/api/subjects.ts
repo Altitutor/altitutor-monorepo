@@ -11,9 +11,28 @@ export const subjectsApi = {
   getAllSubjects: async (): Promise<Tables<'subjects'>[]> => {
     const { data, error } = await getSupabaseClient()
       .from('subjects')
-      .select('*');
+      .select('id, name, curriculum, year_level, discipline, color, level');
     if (error) throw error;
     return (data ?? []) as Tables<'subjects'>[];
+  },
+  
+  /**
+   * Paginated, server-filtered subject list for pickers
+   */
+  list: async (params: { search?: string; limit?: number; offset?: number }): Promise<{ subjects: Tables<'subjects'>[]; total: number }> => {
+    const { search = '', limit = 20, offset = 0 } = params || {};
+    let query = getSupabaseClient()
+      .from('subjects')
+      .select('id, name, curriculum, year_level, discipline, color, level', { count: 'exact' })
+      .order('name', { ascending: true });
+    const trimmed = search.trim();
+    if (trimmed.length > 0) {
+      const q = `%${trimmed}%`;
+      query = query.or(`name.ilike.${q},level.ilike.${q}`);
+    }
+    const { data, count, error } = await query.range(offset, Math.max(offset + limit - 1, offset));
+    if (error) throw error;
+    return { subjects: (data ?? []) as Tables<'subjects'>[], total: count ?? 0 };
   },
   
   /**
@@ -33,22 +52,8 @@ export const subjectsApi = {
    * Search subjects by name, curriculum, or year level
    */
   searchSubjects: async (query: string): Promise<Tables<'subjects'>[]> => {
-    try {
-      const allSubjects = await subjectsApi.getAllSubjects();
-      
-      // Filter subjects based on the search query
-      const lowerQuery = query.toLowerCase();
-      return allSubjects.filter(subject => {
-        return (
-          (subject.name?.toLowerCase().includes(lowerQuery)) ||
-          (String(subject.curriculum || '').toLowerCase().includes(lowerQuery)) ||
-          (String(subject.year_level || '').includes(lowerQuery))
-        );
-      });
-    } catch (error) {
-      console.error('Error searching subjects:', error);
-      throw error;
-    }
+    const { subjects } = await subjectsApi.list({ search: query, limit: 20, offset: 0 });
+    return subjects;
   },
   
   /**
