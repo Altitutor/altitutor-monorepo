@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       absences: {
@@ -87,11 +92,11 @@ export type Database = {
           day_of_week: number
           end_time: string
           id: string
+          level: string
           notes: string | null
           room: string | null
           start_time: string
           status: string
-          subject: string
           subject_id: string | null
           updated_at: string | null
         }
@@ -101,11 +106,11 @@ export type Database = {
           day_of_week: number
           end_time: string
           id: string
+          level: string
           notes?: string | null
           room?: string | null
           start_time: string
           status: string
-          subject: string
           subject_id?: string | null
           updated_at?: string | null
         }
@@ -115,11 +120,11 @@ export type Database = {
           day_of_week?: number
           end_time?: string
           id?: string
+          level?: string
           notes?: string | null
           room?: string | null
           start_time?: string
           status?: string
-          subject?: string
           subject_id?: string | null
           updated_at?: string | null
         }
@@ -576,7 +581,7 @@ export type Database = {
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
           created_at: string | null
-          email: string
+          email: string | null
           first_name: string
           has_parking_remote: string | null
           id: string
@@ -601,7 +606,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
-          email: string
+          email?: string | null
           first_name: string
           has_parking_remote?: string | null
           id: string
@@ -626,7 +631,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
-          email?: string
+          email?: string | null
           first_name?: string
           has_parking_remote?: string | null
           id?: string
@@ -790,7 +795,7 @@ export type Database = {
           created_by?: string | null
           curriculum?: string | null
           first_name: string
-          id: string
+          id?: string
           invite_token?: string | null
           last_name: string
           notes?: string | null
@@ -966,6 +971,56 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          related_id: string
+          related_to: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority: string
+          related_id: string
+          related_to: string
+          status: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          related_id?: string
+          related_to?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topics: {
         Row: {
           area: string | null
@@ -1009,25 +1064,175 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_enum_value: {
-        Args: { enum_name: string; new_value: string }
-        Returns: undefined
+      add_student_subject: {
+        Args: { p_student_id: string; p_subject_id: string }
+        Returns: boolean
       }
-      current_staff_id: {
-        Args: Record<PropertyKey, never>
+      add_student_subjects: {
+        Args: { student_id: string; subject_ids: string[] }
+        Returns: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          student_id: string
+          subject_id: string
+          updated_at: string | null
+        }[]
+      }
+      create_admin_staff: {
+        Args: { p_email: string; p_user_id: string }
         Returns: string
       }
-      is_adminstaff: {
+      create_student: {
+        Args:
+          | {
+              availability_friday?: boolean
+              availability_monday?: boolean
+              availability_saturday_am?: boolean
+              availability_saturday_pm?: boolean
+              availability_sunday_am?: boolean
+              availability_sunday_pm?: boolean
+              availability_thursday?: boolean
+              availability_tuesday?: boolean
+              availability_wednesday?: boolean
+              curriculum: string
+              first_name: string
+              last_name: string
+              parent_email: string
+              parent_first_name: string
+              parent_last_name: string
+              parent_phone: string
+              school: string
+              student_email: string
+              student_phone: string
+              year_level: number
+            }
+          | {
+              p_curriculum: string
+              p_first_name: string
+              p_last_name: string
+              p_parent_email: string
+              p_parent_first_name: string
+              p_parent_last_name: string
+              p_parent_phone: string
+              p_school: string
+              p_student_email: string
+              p_student_phone?: string
+              p_user_id: string
+              p_year_level: number
+            }
+        Returns: string
+      }
+      debug_auth_info: {
         Args: Record<PropertyKey, never>
+        Returns: {
+          current_user_id: string
+          current_user_role: string
+          is_auth_function_adminstaff: boolean
+          is_auth_function_staff: boolean
+          is_direct_lookup_adminstaff: boolean
+          is_direct_lookup_staff: boolean
+          jwt_claims: string
+        }[]
+      }
+      get_staff_id_by_name: {
+        Args: { first_name_param: string; last_name_param: string }
+        Returns: string
+      }
+      get_student_subjects: {
+        Args: { student_id: string }
+        Returns: {
+          color: string | null
+          created_at: string | null
+          curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          discipline: Database["public"]["Enums"]["subject_discipline"] | null
+          id: string
+          level: string | null
+          name: string
+          updated_at: string | null
+          year_level: number | null
+        }[]
+      }
+      get_subjects_for_student: {
+        Args: { p_curriculum: string; p_year_level: number }
+        Returns: {
+          color: string | null
+          created_at: string | null
+          curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          discipline: Database["public"]["Enums"]["subject_discipline"] | null
+          id: string
+          level: string | null
+          name: string
+          updated_at: string | null
+          year_level: number | null
+        }[]
+      }
+      has_student_selected_subjects: {
+        Args: { student_id: string }
         Returns: boolean
       }
-      is_staff: {
-        Args: Record<PropertyKey, never>
+      is_student_profile_complete: {
+        Args: { student_id: string }
         Returns: boolean
       }
-      is_tutor: {
+      map_day_to_number: {
+        Args: { day_string: string }
+        Returns: number
+      }
+      map_subject_to_id: {
+        Args: { subject_code: string }
+        Returns: string
+      }
+      map_tutor_to_id: {
+        Args: { first_name: string; last_name: string }
+        Returns: string
+      }
+      repair_student_accounts: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      resend_confirmation_email: {
+        Args: { email_address: string }
+        Returns: string
+      }
+      select_student_subjects: {
+        Args: { p_student_id: string; p_subject_ids: string[] }
         Returns: boolean
+      }
+      set_claim: {
+        Args: { claim: string; uid: string; value: Json }
+        Returns: undefined
+      }
+      student_select_subjects: {
+        Args: { p_student_id: string; p_subject_ids: string[] }
+        Returns: Json
+      }
+      update_staff_by_first_name: {
+        Args: {
+          p_avail_fri: boolean
+          p_avail_mon: boolean
+          p_avail_sat_am: boolean
+          p_avail_sat_pm: boolean
+          p_avail_sun_am: boolean
+          p_avail_sun_pm: boolean
+          p_avail_thu: boolean
+          p_avail_tue: boolean
+          p_avail_wed: boolean
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_notes: string
+          p_office_key: string
+          p_parking_remote: string
+          p_phone: string
+          p_role: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      verify_email: {
+        Args: { user_email: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -1201,4 +1406,3 @@ export const Constants = {
     },
   },
 } as const
-
