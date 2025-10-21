@@ -14,77 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      absences: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          date: string
-          id: string
-          is_rescheduled: boolean
-          missed_session_id: string | null
-          reason: string | null
-          rescheduled_session_id: string | null
-          student_id: string
-          type: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          date: string
-          id: string
-          is_rescheduled?: boolean
-          missed_session_id?: string | null
-          reason?: string | null
-          rescheduled_session_id?: string | null
-          student_id: string
-          type: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          date?: string
-          id?: string
-          is_rescheduled?: boolean
-          missed_session_id?: string | null
-          reason?: string | null
-          rescheduled_session_id?: string | null
-          student_id?: string
-          type?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "absences_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "absences_missed_session_id_fkey"
-            columns: ["missed_session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "absences_rescheduled_session_id_fkey"
-            columns: ["rescheduled_session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "absences_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       classes: {
         Row: {
           created_at: string | null
@@ -385,7 +314,6 @@ export type Database = {
           id: string
           notes: string | null
           start_time: string | null
-          subject: string
           subject_id: string | null
           type: string
           updated_at: string | null
@@ -398,7 +326,6 @@ export type Database = {
           id: string
           notes?: string | null
           start_time?: string | null
-          subject: string
           subject_id?: string | null
           type: string
           updated_at?: string | null
@@ -411,7 +338,6 @@ export type Database = {
           id?: string
           notes?: string | null
           start_time?: string | null
-          subject?: string
           subject_id?: string | null
           type?: string
           updated_at?: string | null
@@ -484,7 +410,9 @@ export type Database = {
       }
       sessions_staff: {
         Row: {
+          attended: boolean
           created_at: string | null
+          created_by: string | null
           id: string
           session_id: string
           staff_id: string
@@ -492,7 +420,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          attended?: boolean
           created_at?: string | null
+          created_by?: string | null
           id?: string
           session_id: string
           staff_id: string
@@ -500,7 +430,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          attended?: boolean
           created_at?: string | null
+          created_by?: string | null
           id?: string
           session_id?: string
           staff_id?: string
@@ -508,6 +440,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sessions_staff_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sessions_staff_session_id_fkey"
             columns: ["session_id"]
@@ -528,6 +467,7 @@ export type Database = {
         Row: {
           attended: boolean
           created_at: string | null
+          created_by: string | null
           id: string
           notes: string | null
           session_id: string
@@ -537,6 +477,7 @@ export type Database = {
         Insert: {
           attended?: boolean
           created_at?: string | null
+          created_by?: string | null
           id: string
           notes?: string | null
           session_id: string
@@ -546,6 +487,7 @@ export type Database = {
         Update: {
           attended?: boolean
           created_at?: string | null
+          created_by?: string | null
           id?: string
           notes?: string | null
           session_id?: string
@@ -565,6 +507,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
         ]
@@ -714,6 +663,136 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_swaps: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          session_id: string
+          staff_added_id: string | null
+          staff_removed_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          session_id: string
+          staff_added_id?: string | null
+          staff_removed_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          session_id?: string
+          staff_added_id?: string | null
+          staff_removed_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_swaps_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_swaps_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_swaps_staff_added_id_fkey"
+            columns: ["staff_added_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_swaps_staff_removed_id_fkey"
+            columns: ["staff_removed_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_absences: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          date: string
+          id: string
+          is_rescheduled: boolean
+          missed_session_id: string | null
+          reason: string | null
+          rescheduled_session_id: string | null
+          student_id: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          date: string
+          id: string
+          is_rescheduled?: boolean
+          missed_session_id?: string | null
+          reason?: string | null
+          rescheduled_session_id?: string | null
+          student_id: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          date?: string
+          id?: string
+          is_rescheduled?: boolean
+          missed_session_id?: string | null
+          reason?: string | null
+          rescheduled_session_id?: string | null
+          student_id?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "absences_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "absences_missed_session_id_fkey"
+            columns: ["missed_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "absences_rescheduled_session_id_fkey"
+            columns: ["rescheduled_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "absences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
