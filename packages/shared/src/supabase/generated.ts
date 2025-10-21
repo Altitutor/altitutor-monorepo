@@ -1171,6 +1171,10 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
+      is_adminstaff_active: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_student_profile_complete: {
         Args: { student_id: string }
         Returns: boolean
