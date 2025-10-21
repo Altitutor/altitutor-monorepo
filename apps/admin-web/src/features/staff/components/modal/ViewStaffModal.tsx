@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -46,21 +46,25 @@ export function ViewStaffModal({
   }, []);
 
   // Fetch staff data
-  useEffect(() => {
-    if (isOpen && staffId) {
-      fetchStaffMember();
-      fetchAllSubjects();
-    } else {
-      // Reset state when closing
-      setStaffMember(null);
-      setStaffSubjects([]);
-      setAllSubjects([]);
-      setIsEditing(false);
-      setIsEditingAccount(false);
-      setHasPasswordResetLinkSent(false);
-      setActiveTab('details');
+  const fetchStaffMember = useCallback(async () => {
+    if (!staffId) return;
+    try {
+      setIsLoading(true);
+      // Use the optimized method that gets both staff and subjects efficiently
+      const { staff: staffData, subjects: subjectsData } = await staffApi.getStaffWithSubjects(staffId);
+      setStaffMember(staffData || null);
+      setStaffSubjects(subjectsData as Tables<'subjects'>[]);
+    } catch (err) {
+      console.error('Failed to fetch staff:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to load staff member details.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [isOpen, staffId]);
+  }, [staffId, toast]);
 
   // Fetch staff member data
   const fetchStaffMember = async () => {
@@ -104,14 +108,30 @@ export function ViewStaffModal({
   };
 
   // Fetch all subjects for assignment
-  const fetchAllSubjects = async () => {
+  const fetchAllSubjects = useCallback(async () => {
     try {
       const subjects = await subjectsApi.getAllSubjects();
       setAllSubjects((subjects as any) as Tables<'subjects'>[]);
     } catch (err) {
       console.error('Failed to fetch subjects:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && staffId) {
+      fetchStaffMember();
+      fetchAllSubjects();
+    } else {
+      // Reset state when closing
+      setStaffMember(null);
+      setStaffSubjects([]);
+      setAllSubjects([]);
+      setIsEditing(false);
+      setIsEditingAccount(false);
+      setHasPasswordResetLinkSent(false);
+      setActiveTab('details');
+    }
+  }, [isOpen, staffId, fetchStaffMember, fetchAllSubjects]);
 
   // Update staff handler
   const handleStaffUpdate = async (data: StaffDetailsFormData) => {

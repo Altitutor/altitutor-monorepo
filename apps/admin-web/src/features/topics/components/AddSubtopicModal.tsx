@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
@@ -40,7 +40,7 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
     }
   }, [isOpen, topicId]);
 
-  const loadTopic = async () => {
+  const loadTopic = useCallback(async () => {
     if (!topicId) return;
     
     setLoading(true);
@@ -66,7 +66,7 @@ export function AddSubtopicModal({ isOpen, onClose, topicId, onSubtopicAdded }: 
     } finally {
       setLoading(false);
     }
-  };
+  }, [topicId, toast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

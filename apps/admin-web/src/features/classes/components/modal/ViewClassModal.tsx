@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -41,35 +41,14 @@ export function ViewClassModal({
   const { toast } = useToast();
 
   // Fetch class data using the optimized method
-  useEffect(() => {
-    if (isOpen && classId) {
-      fetchClassData();
-      fetchAllData();
-    } else {
-      // Reset state when closing
-      setClassData(null);
-      setSubject(null);
-      setClassStudents([]);
-      setClassStaff([]);
-      setIsEditing(false);
-      setActiveTab('info');
-    }
-  }, [isOpen, classId]);
-
-  // Optimized fetch that gets all data in one efficient call
-  const fetchClassData = async () => {
+  const fetchClassData = useCallback(async () => {
     if (!classId) return;
-    
     try {
       setIsLoading(true);
-      
-      // Use the targeted method for single class instead of fetching all classes
       const { class: currentClass, subject: subjectData, students, staff } = await classesApi.getClassWithDetails(classId);
-      
       if (!currentClass) {
         throw new Error('Class not found');
       }
-      
       setClassData(currentClass);
       setClassStudents(students);
       setClassStaff(staff);
@@ -84,10 +63,9 @@ export function ViewClassModal({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [classId, toast]);
 
-  // Fetch reference data lazily for pickers with small page size
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       const [subjectsPage, studentsPage, staffPage] = await Promise.all([
         subjectsApi.list({ search: '', limit: 50, offset: 0 }),
@@ -105,7 +83,24 @@ export function ViewClassModal({
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (isOpen && classId) {
+      fetchClassData();
+      fetchAllData();
+    } else {
+      // Reset state when closing
+      setClassData(null);
+      setSubject(null);
+      setClassStudents([]);
+      setClassStaff([]);
+      setIsEditing(false);
+      setActiveTab('info');
+    }
+  }, [isOpen, classId, fetchClassData, fetchAllData]);
+
+  // Optimized fetch that gets all data in one efficient call (wrapped above)
 
   // Update class handler
   const handleClassUpdate = async (data: ClassInfoFormData) => {

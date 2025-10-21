@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
@@ -32,9 +32,49 @@ export function ClassesTab({
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
+  const loadStaffClasses = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // Get all classes with details
+      const { classes: allClasses, classSubjects, classStudents, classStaff } = await classesApi.getAllClassesWithDetails();
+      // Filter classes that include this staff member
+      const staffClasses: StaffClass[] = [];
+      for (const cls of allClasses) {
+        const assignedStaff = classStaff[cls.id] || [];
+        const isAssigned = assignedStaff.some(assignedStaffMember => assignedStaffMember.id === staff.id);
+        if (isAssigned) {
+          const subject = classSubjects[cls.id];
+          const students = classStudents[cls.id] || [];
+          const studentCount = students.length;
+          staffClasses.push({
+            class: cls,
+            subject,
+            students,
+            studentCount
+          });
+        }
+      }
+      staffClasses.sort((a, b) => {
+        const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
+        const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
+        if (dayA !== dayB) {
+          return dayA - dayB;
+        }
+        return a.class.start_time.localeCompare(b.class.start_time);
+      });
+      setClasses(staffClasses);
+    } catch (err) {
+      console.error('Error loading staff classes:', err);
+      setError('Failed to load classes');
+    } finally {
+      setLoading(false);
+    }
+  }, [staff.id]);
+
   useEffect(() => {
     loadStaffClasses();
-  }, [staff.id]);
+  }, [staff.id, loadStaffClasses]);
 
   const loadStaffClasses = async () => {
     try {

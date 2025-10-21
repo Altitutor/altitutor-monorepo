@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -64,7 +64,7 @@ export function ViewStudentModal({
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   // Load student data
-  const loadStudent = async () => {
+  const loadStudent = useCallback(async () => {
     if (!studentId) return;
     
     try {
@@ -83,10 +83,10 @@ export function ViewStudentModal({
     } finally {
       setLoadingStudent(false);
     }
-  };
+  }, [studentId, toast]);
 
   // Load subjects
-  const loadSubjects = async () => {
+  const loadSubjects = useCallback(async () => {
     if (!studentId) return;
     
     try {
@@ -104,7 +104,7 @@ export function ViewStudentModal({
     } finally {
       setLoadingSubjects(false);
     }
-  };
+  }, [studentId, toast]);
 
   // Initialize data when modal opens
   useEffect(() => {
@@ -112,7 +112,7 @@ export function ViewStudentModal({
       loadStudent(); // This now loads both student and subjects
       loadSubjects(); // This loads all subjects for dropdown
     }
-  }, [isOpen, studentId]);
+  }, [isOpen, studentId, loadStudent, loadSubjects]);
 
   // Reset edit states when modal closes
   useEffect(() => {
