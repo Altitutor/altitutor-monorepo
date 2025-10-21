@@ -10,7 +10,9 @@ export const classesApi = {
    */
   getAllClasses: async (): Promise<Tables<'classes'>[]> => {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from('classes').select('*');
+    const { data, error } = await supabase
+      .from('classes')
+      .select('id, subject, subject_id, day_of_week, start_time, end_time, status, room, notes');
     if (error) throw error;
     return (data ?? []) as Tables<'classes'>[];
   },
@@ -35,7 +37,7 @@ export const classesApi = {
       const { data: classesData, error: classesError } = await supabase
         .from('classes')
         .select(`
-          *,
+          id, subject, subject_id, day_of_week, start_time, end_time, status, room, notes,
           subject_details:subjects(*)
         `);
       
@@ -115,6 +117,32 @@ export const classesApi = {
       console.error('Error getting classes with details:', error);
       throw error;
     }
+  },
+
+  /**
+   * Lightweight aggregates for dashboard
+   */
+  getAggregates: async (): Promise<{
+    totalClasses: number;
+    totalClassEnrollments: number;
+  }> => {
+    const supabase = getSupabaseClient();
+
+    const [{ count: classesCount, error: classesErr }, { data: enrollmentsData, error: enrollErr }] = await Promise.all([
+      supabase.from('classes').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('classes_students')
+        .select('class_id', { count: 'exact' })
+        .eq('status', 'ACTIVE'),
+    ]);
+
+    if (classesErr) throw classesErr;
+    if (enrollErr) throw enrollErr;
+
+    return {
+      totalClasses: classesCount ?? 0,
+      totalClassEnrollments: (enrollmentsData?.length ?? 0),
+    };
   },
   
   /**

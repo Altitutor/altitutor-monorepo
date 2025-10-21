@@ -33,7 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ViewClassModal } from '@/features/classes';
-import { useStudentsWithDetails } from '../hooks/useStudentsQuery';
+import { useStudentsPageWithDetails } from '../hooks/useStudentsQuery';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 
 interface StudentsTableProps {
@@ -45,73 +45,42 @@ interface StudentsTableProps {
 export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: StudentsTableProps = {}) {
   const router = useRouter();
   
-  // React Query hook for data fetching
-  const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch,
-    isFetching 
-  } = useStudentsWithDetails();
-
-  const students: Tables<'students'>[] = data?.students || [];
-  const studentSubjects: Record<string, Tables<'subjects'>[]> = data?.studentSubjects || {};
-  const studentClasses: Record<string, Tables<'classes'>[]> = data?.studentClasses || {};
-
-  // Local state for UI
+  // Local UI state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Tables<'students'>['status'] | 'ALL'>('ALL');
   const [sortField, setSortField] = useState<keyof Tables<'students'>>('last_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const { 
+    data,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useStudentsPageWithDetails({
+    search: searchTerm,
+    status: statusFilter,
+    page,
+    pageSize,
+    orderBy: sortField,
+    ascending: sortDirection === 'asc',
+  });
+
+  const students: Tables<'students'>[] = data?.students || [];
+  const studentSubjects: Record<string, Tables<'subjects'>[]> = data?.studentSubjects || {};
+  const studentClasses: Record<string, Tables<'classes'>[]> = data?.studentClasses || {};
+  const total = data?.total || 0;
+
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  // Memoized filtered and sorted students
-  const filteredStudents = useMemo(() => {
-    if (!students) return [];
-    
-    let result = [...students];
-    
-    // Apply search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(student => 
-        (student.first_name?.toLowerCase() || '').includes(searchLower) ||
-        (student.last_name?.toLowerCase() || '').includes(searchLower) ||
-        (student.student_email?.toLowerCase() || '').includes(searchLower) ||
-        (student.parent_email?.toLowerCase() || '').includes(searchLower) ||
-        (student.school?.toLowerCase() || '').includes(searchLower)
-      );
-    }
-    
-    // Apply status filter
-    if (statusFilter !== 'ALL') {
-      result = result.filter(student => student.status === statusFilter);
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      const valueA = a[sortField] || '';
-      const valueB = b[sortField] || '';
-      
-      if (typeof valueA === 'string' && typeof valueB === 'string') {
-        return sortDirection === 'asc' 
-          ? valueA.localeCompare(valueB) 
-          : valueB.localeCompare(valueA);
-      }
-      
-      if (typeof valueA === 'number' && typeof valueB === 'number') {
-        return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
-      }
-      
-      return 0;
-    });
-    
-    return result;
-  }, [students, searchTerm, statusFilter, sortField, sortDirection]);
+  // Server provides filtered/sorted page; just display
+  const filteredStudents = students;
 
   // Refetch when onRefresh prop changes
   useEffect(() => {
@@ -127,6 +96,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
       setSortField(field);
       setSortDirection('asc');
     }
+    setPage(1);
   };
   
   const handleStudentClick = (id: string) => {
@@ -403,9 +373,15 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
         </Table>
       </div>
       
-      <div className="text-sm text-muted-foreground">
-        {filteredStudents.length} students displayed
-        {isFetching && <span className="ml-2">(Refreshing...)</span>}
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div>
+          Page {page} of {Math.max(1, Math.ceil(total / pageSize))} • {total} total
+          {isFetching && <span className="ml-2">(Refreshing...)</span>}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</Button>
+          <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / pageSize)} onClick={() => setPage(p => p + 1)}>Next</Button>
+        </div>
       </div>
 
       {/* Add Student Modal */}

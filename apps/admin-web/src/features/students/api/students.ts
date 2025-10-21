@@ -6,6 +6,61 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
  */
 export const studentsApi = {
   /**
+   * Paginated, server-filtered students list
+   */
+  list: async (params: {
+    search?: string;
+    status?: Tables<'students'>['status'] | 'ALL';
+    limit?: number;
+    offset?: number;
+    orderBy?: keyof Tables<'students'>;
+    ascending?: boolean;
+  }): Promise<{ students: Tables<'students'>[]; total: number }> => {
+    const supabase = getSupabaseClient();
+    const {
+      search = '',
+      status = 'ALL',
+      limit = 20,
+      offset = 0,
+      orderBy = 'last_name',
+      ascending = true,
+    } = params || {};
+
+    let query = supabase
+      .from('students')
+      .select(
+        // Narrow projection to columns required by index views
+        'id, first_name, last_name, status, curriculum, year_level, student_email, parent_email, school',
+        { count: 'exact' }
+      );
+
+    // Search across common fields
+    const trimmed = search.trim();
+    if (trimmed.length > 0) {
+      const q = `%${trimmed}%`;
+      query = query.or(
+        `first_name.ilike.${q},last_name.ilike.${q},student_email.ilike.${q},parent_email.ilike.${q},school.ilike.${q}`
+      );
+    }
+
+    // Status filter
+    if (status && status !== 'ALL') {
+      query = query.eq('status', status as Tables<'students'>['status']);
+    }
+
+    // Sorting
+    query = query.order(orderBy as string, { ascending });
+
+    // Pagination
+    const from = offset;
+    const to = Math.max(offset + limit - 1, offset);
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+    return { students: (data ?? []) as Tables<'students'>[], total: count ?? 0 };
+  },
+  /**
    * Get all students
    */
   getAllStudents: async (): Promise<Tables<'students'>[]> => {
@@ -264,5 +319,78 @@ export const studentsApi = {
       console.error('Error getting students with details:', error);
       throw error;
     }
+  },
+  
+  /**
+   * Get subjects and classes for a given set of student IDs (for paginated UIs)
+   */
+  getDetailsForStudentIds: async (
+    studentIds: string[]
+  ): Promise<{ 
+    studentSubjects: Record<string, Tables<'subjects'>[]>;
+    studentClasses: Record<string, Tables<'classes'>[]>;
+  }> => {
+    const supabase = getSupabaseClient();
+    const studentSubjects: Record<string, Tables<'subjects'>[]> = {};
+    const studentClasses: Record<string, Tables<'classes'>[]> = {};
+
+    if (!studentIds.length) {
+      return { studentSubjects, studentClasses };
+    }
+
+    // Initialize maps
+    for (const id of studentIds) {
+      studentSubjects[id] = [];
+      studentClasses[id] = [];
+    }
+
+    // Subjects mapping for these students
+    const { data: ssData, error: ssError } = await supabase
+      .from('students_subjects')
+      .select('student_id, subject_details:subjects(*)')
+      .in('student_id', studentIds);
+    if (ssError) throw ssError;
+    ssData?.forEach((row: any) => {
+      const sid = row.student_id as string;
+      const subj = row.subject_details as Tables<'subjects'> | null;
+      if (sid && subj) studentSubjects[sid].push(subj);
+    });
+
+    // Classes mapping (active enrollments) for these students
+    const { data: csData, error: csError } = await supabase
+      .from('classes_students')
+      .select('student_id, class:classes(*)')
+      .eq('status', 'ACTIVE')
+      .in('student_id', studentIds);
+    if (csError) throw csError;
+    csData?.forEach((row: any) => {
+      const sid = row.student_id as string;
+      const cls = row.class as Tables<'classes'> | null;
+      if (sid && cls) studentClasses[sid].push(cls);
+    });
+
+    return { studentSubjects, studentClasses };
+  },
+
+  /**
+   * Paginated students with detail mappings (subjects/classes) for current page
+   */
+  getStudentsWithDetailsPage: async (params: {
+    search?: string;
+    status?: Tables<'students'>['status'] | 'ALL';
+    limit?: number;
+    offset?: number;
+    orderBy?: keyof Tables<'students'>;
+    ascending?: boolean;
+  }): Promise<{ 
+    students: Tables<'students'>[];
+    studentSubjects: Record<string, Tables<'subjects'>[]>;
+    studentClasses: Record<string, Tables<'classes'>[]>;
+    total: number;
+  }> => {
+    const { students, total } = await studentsApi.list(params);
+    const ids = students.map(s => s.id);
+    const { studentSubjects, studentClasses } = await studentsApi.getDetailsForStudentIds(ids);
+    return { students, studentSubjects, studentClasses, total };
   },
 }; 

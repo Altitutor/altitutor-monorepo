@@ -6,6 +6,7 @@ import { GraduationCap, CalendarDays, Users, Clock, CheckSquare, Zap } from 'luc
 import type { Tables } from '@altitutor/shared';
 import { classesApi } from '@/shared/api';
 import { studentsApi } from '@/features/students/api';
+import { useQuery } from '@tanstack/react-query';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
@@ -161,36 +162,44 @@ export default function DashboardPage() {
     day: 'numeric' 
   });
 
+  // Parallel React Query calls
+  const { data: classesResult, isLoading: loadingClasses } = useQuery({
+    queryKey: ['dashboard', 'classesWithDetails'],
+    queryFn: classesApi.getAllClassesWithDetails,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+
+  const { data: aggregates, isLoading: loadingAggregates } = useQuery({
+    queryKey: ['dashboard', 'classAggregates'],
+    queryFn: classesApi.getAggregates,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+
+  const { data: studentsCount, isLoading: loadingStudentsCount } = useQuery({
+    queryKey: ['dashboard', 'studentsCount'],
+    queryFn: async () => {
+      const { students, total } = await studentsApi.list({ limit: 1, offset: 0 });
+      return total;
+    },
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch classes with details
-        const classesResult = await classesApi.getAllClassesWithDetails();
-        setClassesData(classesResult);
-
-        // Fetch students for total count
-        const students = await studentsApi.getAllStudents();
-        
-        // Calculate stats
-        const totalClassEnrollments = Object.values(classesResult.classStudents)
-          .reduce((total, students) => total + students.length, 0);
-          
-        setStats({
-          totalStudents: students.length,
-          totalClassEnrollments,
-          totalClasses: classesResult.classes.length,
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+    setLoading(loadingClasses || loadingAggregates || loadingStudentsCount);
+    if (classesResult) {
+      setClassesData(classesResult);
+    }
+    if (aggregates != null && studentsCount != null) {
+      setStats({
+        totalStudents: studentsCount,
+        totalClassEnrollments: aggregates.totalClassEnrollments,
+        totalClasses: aggregates.totalClasses,
+      });
+    }
+  }, [loadingClasses, loadingAggregates, loadingStudentsCount, classesResult, aggregates, studentsCount]);
 
   const handleClassClick = (classId: string) => {
     setSelectedClassId(classId);

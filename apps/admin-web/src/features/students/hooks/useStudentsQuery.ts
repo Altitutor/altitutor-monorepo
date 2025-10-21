@@ -34,6 +34,58 @@ export function useStudents() {
   });
 }
 
+// Paginated server-filtered students list
+export interface UseStudentsListParams {
+  search?: string;
+  status?: Tables<'students'>['status'] | 'ALL';
+  page?: number; // 1-based
+  pageSize?: number;
+  orderBy?: keyof Tables<'students'>;
+  ascending?: boolean;
+}
+
+export function useStudentsList(params: UseStudentsListParams) {
+  const {
+    search = '',
+    status = 'ALL',
+    page = 1,
+    pageSize = 20,
+    orderBy = 'last_name',
+    ascending = true,
+  } = params || {};
+
+  const offset = (Math.max(page, 1) - 1) * pageSize;
+
+  return useQuery({
+    queryKey: [...studentsKeys.lists(), 'paged', { search, status, page, pageSize, orderBy, ascending }],
+    queryFn: () => studentsApi.list({ search, status, limit: pageSize, offset, orderBy, ascending }),
+    keepPreviousData: true,
+    staleTime: 1000 * 30, // 30s for list pages
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+// Current page students + details (subjects/classes) for visible rows
+export function useStudentsPageWithDetails(params: UseStudentsListParams) {
+  const {
+    search = '',
+    status = 'ALL',
+    page = 1,
+    pageSize = 20,
+    orderBy = 'last_name',
+    ascending = true,
+  } = params || {};
+  const offset = (Math.max(page, 1) - 1) * pageSize;
+
+  return useQuery({
+    queryKey: [...studentsKeys.lists(), 'paged-with-details', { search, status, page, pageSize, orderBy, ascending }],
+    queryFn: () => studentsApi.getStudentsWithDetailsPage({ search, status, limit: pageSize, offset, orderBy, ascending }),
+    keepPreviousData: true,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 // Get single student with subjects
 export function useStudentWithSubjects(studentId: string) {
   return useQuery({
