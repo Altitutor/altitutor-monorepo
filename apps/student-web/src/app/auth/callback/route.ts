@@ -32,8 +32,8 @@ export async function GET(request: NextRequest) {
           return NextResponse.redirect(new URL('/reset-password', requestUrl.origin))
         }
         
-        // For other auth flows, redirect to the next URL or dashboard
-        const redirectUrl = next === '/' ? '/dashboard' : next
+        // For other auth flows, redirect to the next URL or home
+        const redirectUrl = next
         return NextResponse.redirect(new URL(redirectUrl, requestUrl.origin))
       }
     } catch (err) {
