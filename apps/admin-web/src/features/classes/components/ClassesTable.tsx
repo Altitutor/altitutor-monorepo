@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Dispatch, SetStateAction, useMemo } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -9,11 +9,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { SkeletonTable } from "@/components/ui/skeleton-table";
+} from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
+import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
   Grid3X3,
@@ -23,6 +23,7 @@ import {
 import { useClassesWithDetails } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
+import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils/enum-colors';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
 import { ViewClassModal } from './modal';
@@ -30,6 +31,7 @@ import { ViewStaffModal } from '@/features/staff';
 import { ViewStudentModal } from '@/features/students';
 import { TimetableView } from './TimetableView';
 import { formatTime } from '@/shared/utils/datetime';
+// import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface ClassesTableProps {
   addModalState?: [boolean, Dispatch<SetStateAction<boolean>>];
@@ -75,6 +77,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
+  // Ensure hooks are declared before any early returns
+  const parentRef = useRef<HTMLDivElement | null>(null);
+
   // Helper function to convert time to minutes for sorting - moved before useMemo
   const timeToMinutes = (timeString: string): number => {
     if (!timeString) return 0;
@@ -83,16 +88,23 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   };
 
   const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
-    if (!classItem.subject_id) {
-      return classItem.subject;
-    }
-    
     const subject = classSubjects[classItem.id];
     if (subject) {
       return formatSubjectDisplay(subject);
     }
-    
-    return classItem.subject;
+    return '-';
+  };
+
+  const getSubjectBadgeClass = (classItem: Tables<'classes'>): string => {
+    const subject = classSubjects[classItem.id];
+    if (!subject) return 'bg-gray-100 text-gray-800';
+    if ((subject as any).discipline) {
+      return getSubjectDisciplineColor((subject as any).discipline as any);
+    }
+    if ((subject as any).curriculum) {
+      return getSubjectCurriculumColor((subject as any).curriculum as any);
+    }
+    return 'bg-gray-100 text-gray-800';
   };
 
   // Memoized filtered and sorted classes
@@ -106,8 +118,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(cls => {
         const subjectDisplay = getSubjectDisplay(cls).toLowerCase();
-        return cls.subject.toLowerCase().includes(searchLower) ||
-               subjectDisplay.includes(searchLower) ||
+        return subjectDisplay.includes(searchLower) ||
                cls.notes?.toLowerCase().includes(searchLower);
       });
     }
@@ -211,6 +222,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
               <Input
                 placeholder="Search subject or level..."
                 className="pl-8"
+                value={""}
                 disabled
               />
             </div>
@@ -266,6 +278,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       </div>
     );
   }
+
+  // Non-virtualized list for stability for now (can re-enable later)
+  // parentRef declared above to keep hook order
 
   return (
     <div className="space-y-4">
@@ -379,7 +394,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       </div>
 
       {viewMode === 'table' && (
-        <div className="rounded-md border">
+        <div className="rounded-md border" ref={parentRef}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -390,7 +405,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                 <TableHead>
                   Subject
                 </TableHead>
-                <TableHead>Subject Code</TableHead>
                 <TableHead>Students</TableHead>
                 <TableHead>Staff</TableHead>
               </TableRow>
@@ -409,56 +423,60 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredClasses.map((cls) => (
-                  <TableRow 
-                    key={cls.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleClassClick(cls)}
-                  >
-                    <TableCell>{getDayOfWeek(cls.day_of_week)}</TableCell>
-                    <TableCell>
-                      {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {getSubjectDisplay(cls)}
-                    </TableCell>
-                    <TableCell>{cls.subject}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {getClassStudents(cls.id).length === 0 ? (
-                          <div className="text-muted-foreground text-sm">No students</div>
-                        ) : (
-                          getClassStudents(cls.id).map((student) => (
-                            <div 
-                              key={student.id} 
-                              className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-                              onClick={(e) => handleStudentClick(student.id, e)}
-                            >
-                              {student.first_name} {student.last_name}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {getClassStaff(cls.id).length === 0 ? (
-                          <div className="text-muted-foreground text-sm">No staff</div>
-                        ) : (
-                          getClassStaff(cls.id).map((staff) => (
-                            <div 
-                              key={staff.id} 
-                              className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-                              onClick={(e) => handleStaffClick(staff.id, e)}
-                            >
-                              {staff.first_name} {staff.last_name}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredClasses.map((cls, index) => {
+                  return (
+                    <TableRow
+                      key={cls.id}
+                      data-index={index}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleClassClick(cls)}
+                    >
+                      <TableCell>{getDayOfWeek(cls.day_of_week)}</TableCell>
+                      <TableCell>
+                        {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <Badge className={cn("text-xs", getSubjectBadgeClass(cls))}>
+                          {getSubjectDisplay(cls)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {getClassStudents(cls.id).length === 0 ? (
+                            <div className="text-muted-foreground text-sm">No students</div>
+                          ) : (
+                            getClassStudents(cls.id).map((student) => (
+                              <div 
+                                key={student.id} 
+                                className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                                onClick={(e) => handleStudentClick(student.id, e)}
+                              >
+                                {student.first_name} {student.last_name}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {getClassStaff(cls.id).length === 0 ? (
+                            <div className="text-muted-foreground text-sm">No staff</div>
+                          ) : (
+                            getClassStaff(cls.id).map((staff) => (
+                              <div 
+                                key={staff.id} 
+                                className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                                onClick={(e) => handleStaffClick(staff.id, e)}
+                              >
+                                {staff.first_name} {staff.last_name}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
-import { Button } from '@/components/ui/button';
+import { Button } from '@altitutor/ui';
 import {
   Form,
   FormControl,
@@ -15,9 +15,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Alert, AlertDescription } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';

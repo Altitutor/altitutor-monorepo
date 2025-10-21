@@ -1,8 +1,8 @@
 'use client';
 
 import { memo } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
 import { 
   Search, 
   Filter,
@@ -16,7 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@altitutor/ui";
 
 interface StaffTableFiltersProps {
   searchTerm: string;

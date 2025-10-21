@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/components/ui/use-toast";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
 import { staffApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
 import type { Tables } from '@altitutor/shared';

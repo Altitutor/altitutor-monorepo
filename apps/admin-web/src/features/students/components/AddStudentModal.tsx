@@ -9,20 +9,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+} from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import { Textarea } from "@altitutor/ui";
+import { Checkbox } from "@altitutor/ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+} from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
 import { useCreateStudent } from '../hooks/useStudentsQuery';
 import type { TablesInsert, Tables } from '@altitutor/shared';
 import { Controller, useForm } from "react-hook-form";

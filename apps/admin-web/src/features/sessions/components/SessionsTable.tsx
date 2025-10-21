@@ -9,17 +9,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@altitutor/ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { SkeletonTable } from "@/components/ui/skeleton-table";
+} from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
+import { SkeletonTable } from "@altitutor/ui";
 import { 
   ChevronDown, 
   Search, 

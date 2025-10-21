@@ -1,9 +1,9 @@
 'use client';
 
 import { memo, useCallback } from 'react';
-import { TableCell, TableRow } from "@/components/ui/table";
+import { TableCell, TableRow } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
-import { StaffRoleBadge, StaffStatusBadge } from '@/components/ui/enum-badge';
+import { StaffRoleBadge, StaffStatusBadge } from '@altitutor/ui';
 
 interface StaffTableRowProps {
   staff: Tables<'staff'>;

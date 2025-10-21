@@ -9,8 +9,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+} from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
 import { Loader2, Trash2 } from "lucide-react";
 
 interface DeleteConfirmationDialogProps {

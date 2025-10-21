@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
+import { useToast } from '@altitutor/ui';
 import { topicsApi } from '../api';
 import type { Tables, TablesInsert } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';

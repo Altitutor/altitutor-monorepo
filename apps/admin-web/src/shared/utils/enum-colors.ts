@@ -1,4 +1,5 @@
 // Minimal string literal types and plain string keys (no enum constant usage)
+import type { Tables } from '@altitutor/shared';
 type StudentStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED';
 type StaffRole = 'ADMIN' | 'TUTOR' | 'ADMINSTAFF';
 type StaffStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL';
@@ -125,59 +126,63 @@ export const PARKING_REMOTE_COLORS = {
  * These provide type safety and fallback to gray if value is invalid
  */
 
-export function getStudentStatusColor(status: StudentStatus | null | undefined): BadgeColorClass {
+export function getStudentStatusColor(
+  status: StudentStatus | Tables<'students'>['status'] | string | null | undefined
+): BadgeColorClass {
   if (!status) return 'bg-gray-100 text-gray-800';
-  return STUDENT_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-800';
+  return STUDENT_STATUS_COLORS[status as StudentStatus] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getStaffRoleColor(role: StaffRole | null | undefined): BadgeColorClass {
+export function getStaffRoleColor(role: StaffRole | string | null | undefined): BadgeColorClass {
   if (!role) return 'bg-gray-100 text-gray-800';
-  return STAFF_ROLE_COLORS[role] ?? 'bg-gray-100 text-gray-800';
+  return STAFF_ROLE_COLORS[role as StaffRole] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getStaffStatusColor(status: StaffStatus | null | undefined): BadgeColorClass {
+export function getStaffStatusColor(status: StaffStatus | string | null | undefined): BadgeColorClass {
   if (!status) return 'bg-gray-100 text-gray-800';
-  return STAFF_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-800';
+  return STAFF_STATUS_COLORS[status as StaffStatus] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getSubjectCurriculumColor(curriculum: SubjectCurriculum | null | undefined): BadgeColorClass {
+export function getSubjectCurriculumColor(
+  curriculum: SubjectCurriculum | Tables<'students'>['curriculum'] | string | null | undefined
+): BadgeColorClass {
   if (!curriculum) return 'bg-gray-100 text-gray-800';
-  return SUBJECT_CURRICULUM_COLORS[curriculum] ?? 'bg-gray-100 text-gray-800';
+  return SUBJECT_CURRICULUM_COLORS[curriculum as SubjectCurriculum] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getSubjectDisciplineColor(discipline: SubjectDiscipline | null | undefined): BadgeColorClass {
+export function getSubjectDisciplineColor(discipline: SubjectDiscipline | string | null | undefined): BadgeColorClass {
   if (!discipline) return 'bg-gray-100 text-gray-800';
-  return SUBJECT_DISCIPLINE_COLORS[discipline] ?? 'bg-gray-100 text-gray-800';
+  return SUBJECT_DISCIPLINE_COLORS[discipline as SubjectDiscipline] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getClassStatusColor(status: ClassStatus | null | undefined): BadgeColorClass {
+export function getClassStatusColor(status: ClassStatus | string | null | undefined): BadgeColorClass {
   if (!status) return 'bg-gray-100 text-gray-800';
-  return CLASS_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-800';
+  return CLASS_STATUS_COLORS[status as ClassStatus] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getEnrollmentStatusColor(status: EnrollmentStatus | null | undefined): BadgeColorClass {
+export function getEnrollmentStatusColor(status: EnrollmentStatus | string | null | undefined): BadgeColorClass {
   if (!status) return 'bg-gray-100 text-gray-800';
-  return enrollmentStatusColors[status] ?? 'bg-gray-100 text-gray-800';
+  return enrollmentStatusColors[status as EnrollmentStatus] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getAbsenceTypeColor(type: AbsenceType | null | undefined): BadgeColorClass {
+export function getAbsenceTypeColor(type: AbsenceType | string | null | undefined): BadgeColorClass {
   if (!type) return 'bg-gray-100 text-gray-800';
-  return ABSENCE_TYPE_COLORS[type] ?? 'bg-gray-100 text-gray-800';
+  return ABSENCE_TYPE_COLORS[type as AbsenceType] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getMeetingTypeColor(type: MeetingType | null | undefined): BadgeColorClass {
+export function getMeetingTypeColor(type: MeetingType | string | null | undefined): BadgeColorClass {
   if (!type) return 'bg-gray-100 text-gray-800';
-  return MEETING_TYPE_COLORS[type] ?? 'bg-gray-100 text-gray-800';
+  return MEETING_TYPE_COLORS[type as MeetingType] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getSessionTypeColor(type: SessionType | null | undefined): BadgeColorClass {
+export function getSessionTypeColor(type: SessionType | string | null | undefined): BadgeColorClass {
   if (!type) return 'bg-gray-100 text-gray-800';
-  return SESSION_TYPE_COLORS[type] ?? 'bg-gray-100 text-gray-800';
+  return SESSION_TYPE_COLORS[type as SessionType] ?? 'bg-gray-100 text-gray-800';
 }
 
-export function getMessageStatusColor(status: MessageStatus | null | undefined): BadgeColorClass {
+export function getMessageStatusColor(status: MessageStatus | string | null | undefined): BadgeColorClass {
   if (!status) return 'bg-gray-100 text-gray-800';
-  return MESSAGE_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-800';
+  return MESSAGE_STATUS_COLORS[status as MessageStatus] ?? 'bg-gray-100 text-gray-800';
 }
 
 export function getBooleanColor(value: boolean | null | undefined): BadgeColorClass {

@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useAuth } from '@/features/auth/providers/AuthProvider';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@altitutor/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 
 export function SessionTest() {
   const [mounted, setMounted] = useState(false);

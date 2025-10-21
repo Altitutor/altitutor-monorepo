@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter } from 'next/navigation';

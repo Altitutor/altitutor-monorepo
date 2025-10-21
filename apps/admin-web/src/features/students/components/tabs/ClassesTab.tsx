@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import type { Tables } from "@altitutor/shared";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { ScrollArea } from "@altitutor/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
 import { Loader2, Calendar, Clock, Users, MapPin, UserCog, BookOpen, Plus, Search } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
@@ -148,8 +148,8 @@ export function ClassesTab({
   const filteredAvailableClasses = availableClasses.filter(classData => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    const subject = classData.subject ? formatSubjectDisplay(classData.subject) : classData.class.subject;
-    const level = classData.class.subject;
+    const subject = classData.subject ? formatSubjectDisplay(classData.subject) : '-';
+    const level = classData.class.level || '';
     const day = getDayOfWeek(classData.class.day_of_week);
     const time = `${formatTime(classData.class.start_time)} - ${formatTime(classData.class.end_time)}`;
     
@@ -167,7 +167,7 @@ export function ClassesTab({
     if (studentClass.subject) {
       return formatSubjectDisplay(studentClass.subject);
     }
-    return studentClass.class.subject;
+    return '-';
   };
 
   if (loading) {
@@ -341,7 +341,7 @@ export function ClassesTab({
                         {getSubjectDisplay(classData)}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {classData.class.subject}
+                        {classData.class.level}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -384,7 +384,7 @@ export function ClassesTab({
                       {getSubjectDisplay(studentClass)}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {studentClass.class.subject}
+                      {studentClass.class.level}
                     </p>
                   </div>
                   <Badge variant="secondary" className="text-xs">

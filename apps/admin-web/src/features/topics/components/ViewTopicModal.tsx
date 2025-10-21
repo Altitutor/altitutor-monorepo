@@ -1,25 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { SubjectCurriculumBadge } from '@/components/ui/enum-badge';
-import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
+import { SubjectCurriculumBadge } from '@altitutor/ui';
+import { Separator } from '@altitutor/ui';
 import { topicsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { AddSubtopicModal } from './AddSubtopicModal';
 import { ViewSubtopicModal } from './ViewSubtopicModal';
 import { PencilIcon, PlusIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@altitutor/ui';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +29,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@altitutor/ui";
 import { useRouter } from 'next/navigation';
 
 export interface ViewTopicModalProps {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
+import { Card } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
@@ -165,15 +165,13 @@ export function TimetableView({
 
   const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
     if (!classSubjects || !classItem.subject_id) {
-      return classItem.subject;
+      return '-';
     }
-    
     const subject = classSubjects[classItem.id];
     if (subject) {
       return formatSubjectDisplay(subject);
     }
-    
-    return classItem.subject;
+    return '-';
   };
 
   // Get color for class based on subject
@@ -276,7 +274,7 @@ export function TimetableView({
                           
                           {/* Level */}
                           <div className="text-xs opacity-90 truncate leading-tight">
-                            {position.class.subject}
+                            {position.class.level}
                           </div>
                           
                           {/* Room */}

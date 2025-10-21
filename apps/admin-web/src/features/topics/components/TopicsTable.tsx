@@ -19,17 +19,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { SkeletonTable } from "@/components/ui/skeleton-table";
+} from '@altitutor/ui';
+import { Button, Input, Badge, SkeletonTable } from '@altitutor/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@altitutor/ui';
 import { ArrowUpDown, ChevronDown, ChevronRight, Plus, Search, X, RefreshCw } from 'lucide-react';
 import { useTopicsWithSubjects, useSubtopicsWithTopics, useDeleteTopic, useDeleteSubtopic } from '../hooks/useTopicsQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
@@ -41,10 +38,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+} from "@altitutor/ui";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@altitutor/ui";
 import { cn } from "@/shared/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@altitutor/ui";
 import { formatSubjectDisplay } from "@/shared/utils";
 import React from 'react';
 import { AddTopicModal } from './AddTopicModal';

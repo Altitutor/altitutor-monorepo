@@ -95,13 +95,7 @@ export const subjectsApi = {
     if (error) throw error;
   },
 
-  /**
-   * Direct query to get all subjects (bypassing repository)
-   * This is a fallback in case the repository approach fails
-   */
-  directGetAllSubjects: async (): Promise<Tables<'subjects'>[]> => {
-    return subjectsApi.getAllSubjects();
-  },
+  // Removed redundant direct getter alias
 
   /**
    * Get staff members assigned to a subject

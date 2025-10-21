@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { ScrollArea } from "@altitutor/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, Users, Plus, X, Search, Check } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { ViewStudentModal } from '@/features/students';

@@ -67,13 +67,7 @@ export const topicsApi = {
     if (error) throw error;
   },
 
-  /**
-   * Direct query to get all topics (bypassing repository)
-   * This is a fallback in case the repository approach fails
-   */
-  directGetAllTopics: async (): Promise<Tables<'topics'>[]> => {
-    return topicsApi.getAllTopics();
-  },
+  // Removed redundant direct getter alias
 
   /**
    * Get all topics for a specific subject

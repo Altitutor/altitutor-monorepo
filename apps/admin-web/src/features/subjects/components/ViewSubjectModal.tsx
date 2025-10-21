@@ -8,8 +8,8 @@ import {
   SheetTitle,
   SheetFooter,
   SheetDescription,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+} from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
 import { 
   AlertTriangle,
   BookOpen,
@@ -31,15 +31,15 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@altitutor/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,15 +50,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { SubjectCurriculumBadge, SubjectDisciplineBadge } from "@/components/ui/enum-badge";
+} from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
+import { SubjectCurriculumBadge, SubjectDisciplineBadge } from "@altitutor/ui";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@altitutor/ui";
 import { useRouter } from "next/navigation";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@altitutor/ui";
 
 export interface ViewSubjectModalProps {
   isOpen: boolean;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/components/ui/use-toast";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
 import { classesApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
 import { studentsApi } from '@/features/students/api';
@@ -115,7 +115,7 @@ export function ViewClassModal({
       setIsLoading(true);
       
       const updateData: TablesUpdate<'classes'> = {
-        subject: data.level,
+        level: data.level,
         day_of_week: data.dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
@@ -277,7 +277,7 @@ export function ViewClassModal({
       <SheetContent className="overflow-y-auto max-w-md">
         <SheetHeader>
           <SheetTitle>
-            {classData.subject}
+            {classData.level}
           </SheetTitle>
         </SheetHeader>
         

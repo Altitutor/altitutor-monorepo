@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button } from '@/components/ui/button';
+import { Button } from '@altitutor/ui';
 import {
   Form,
   FormControl,
@@ -13,9 +13,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Alert, AlertDescription } from '@altitutor/ui';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';

@@ -14,11 +14,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Skip auth check for public paths
     if (PUBLIC_PATHS.includes(pathname)) {
-      // If user is authenticated and trying to access login page, redirect to dashboard
+      // If user is authenticated and trying to access login page, redirect to role home
       if (user && pathname === '/login') {
-        router.push('/dashboard');
+        // Let middleware/root handle precise role redirect; send to root
+        router.push('/');
       }
-      // We don't redirect from reset-password even if authenticated
       return;
     }
 

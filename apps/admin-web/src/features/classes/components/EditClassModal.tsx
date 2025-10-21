@@ -1,18 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+} from '@altitutor/ui';
+import { Textarea } from '@altitutor/ui';
 import { useUpdateClass } from '../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
@@ -32,7 +32,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   const [error, setError] = useState<string | null>(null);
   
   // Form state
-  const [level, setLevel] = useState(classData.subject);
+  const [level, setLevel] = useState(classData.level);
   const [dayOfWeek, setDayOfWeek] = useState<string>(classData.day_of_week.toString());
   const [startTime, setStartTime] = useState(classData.start_time);
   const [endTime, setEndTime] = useState(classData.end_time);
@@ -49,9 +49,9 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       const updatedClassData = { ...classData };
       
       // Set correct day for known classes
-      if (updatedClassData.subject === 'UCAT A' && updatedClassData.day_of_week !== 0) {
+      if (updatedClassData.level === 'UCAT A' && updatedClassData.day_of_week !== 0) {
         updatedClassData.day_of_week = 0;
-      } else if (updatedClassData.subject === '12IBBIO A1' && updatedClassData.day_of_week !== 6) {
+      } else if (updatedClassData.level === '12IBBIO A1' && updatedClassData.day_of_week !== 6) {
         updatedClassData.day_of_week = 6;
       }
       
@@ -74,7 +74,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
         updatedClassData.end_time = `${formattedEndHours}:${formattedEndMinutes}`;
       }
       
-      setLevel(updatedClassData.subject);
+      setLevel(updatedClassData.level);
       setDayOfWeek(updatedClassData.day_of_week.toString());
       setStartTime(formatTimeForInput(updatedClassData.start_time));
       setEndTime(formatTimeForInput(updatedClassData.end_time));
@@ -159,7 +159,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       
       // Save the changes to the database
       const payload: TablesUpdate<'classes'> = {
-        subject: level,
+        level: level,
         day_of_week: finalDayOfWeek,
         start_time: startTime,
         end_time: endTime,
@@ -170,7 +170,10 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       };
       const updatedClass = await updateMutation.mutateAsync({ id: classData.id, data: payload });
       
-      console.log('Class updated successfully:', updatedClass);
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.log('Class updated successfully:', updatedClass);
+      }
       onClassUpdated();
       onClose();
     } catch (err) {
@@ -185,7 +188,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <SheetHeader>
-          <SheetTitle>Edit Class: {classData.subject}</SheetTitle>
+          <SheetTitle>Edit Class: {classData.level}</SheetTitle>
         </SheetHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

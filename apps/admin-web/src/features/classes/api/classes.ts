@@ -120,6 +120,103 @@ export const classesApi = {
   },
 
   /**
+   * Get classes with details for a specific staff member (via classes_staff)
+   */
+  getClassesForStaffWithDetails: async (staffId: string): Promise<{ 
+    classes: Tables<'classes'>[]; 
+    classSubjects: Record<string, Tables<'subjects'>>;
+    classStudents: Record<string, Tables<'students'>[]>; 
+    classStaff: Record<string, Tables<'staff'>[]>;
+  }> => {
+    const supabase = getSupabaseClient();
+    type ClassRowWithSubject = Tables<'classes'> & { subject_details?: Tables<'subjects'> };
+    type EnrollmentRow = { class_id: string; student: Tables<'students'> | null };
+    type AssignmentRow = { class_id: string; staff: Tables<'staff'> | null };
+    
+    try {
+      // Get class ids for the staff member
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('classes_staff')
+        .select('class_id')
+        .eq('staff_id', staffId)
+        .eq('status', 'ACTIVE');
+      if (assignmentError) throw assignmentError;
+      const assignmentRows: Array<{ class_id: string }> = (assignmentData ?? []) as Array<{ class_id: string }>;
+      const classIds = assignmentRows.map((r) => r.class_id);
+      if (!classIds.length) {
+        return { classes: [], classSubjects: {}, classStudents: {}, classStaff: {} };
+      }
+
+      // Fetch only those classes with subject
+      const { data: classesData, error: classesError } = await supabase
+        .from('classes')
+        .select(`
+          id, subject_id, day_of_week, start_time, end_time, status, room, notes,
+          subject_details:subjects(*)
+        `)
+        .in('id', classIds);
+      if (classesError) throw classesError;
+
+      // Enrollments for those classes
+      const { data: enrollmentsData, error: enrollmentsError } = await supabase
+        .from('classes_students')
+        .select(`
+          class_id,
+          student:students(*)
+        `)
+        .in('class_id', classIds)
+        .eq('status', 'ACTIVE');
+      if (enrollmentsError) throw enrollmentsError;
+
+      // Staff for those classes
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('classes_staff')
+        .select(`
+          class_id,
+          staff:staff!class_assignments_staff_id_fkey(*)
+        `)
+        .in('class_id', classIds)
+        .eq('status', 'ACTIVE');
+      if (assignmentsError) throw assignmentsError;
+
+      // Transform
+      const classes: Tables<'classes'>[] = [];
+      const classSubjects: Record<string, Tables<'subjects'>> = {};
+      const classStudents: Record<string, Tables<'students'>[]> = {};
+      const classStaff: Record<string, Tables<'staff'>[]> = {};
+
+      (classesData as ClassRowWithSubject[] | null)?.forEach((row) => {
+        const cls = row as Tables<'classes'>;
+        classes.push(cls);
+        if (row.subject_details) {
+          classSubjects[cls.id] = row.subject_details as Tables<'subjects'>;
+        }
+        classStudents[cls.id] = [];
+        classStaff[cls.id] = [];
+      });
+
+      (enrollmentsData as EnrollmentRow[] | null)?.forEach((row) => {
+        if (row.student && row.class_id) {
+          if (!classStudents[row.class_id]) classStudents[row.class_id] = [];
+          classStudents[row.class_id].push(row.student);
+        }
+      });
+
+      (assignmentsData as AssignmentRow[] | null)?.forEach((row) => {
+        if (row.staff && row.class_id) {
+          if (!classStaff[row.class_id]) classStaff[row.class_id] = [];
+          classStaff[row.class_id].push(row.staff);
+        }
+      });
+
+      return { classes, classSubjects, classStudents, classStaff };
+    } catch (error) {
+      console.error('Error getting classes for staff with details:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Lightweight aggregates for dashboard
    */
   getAggregates: async (): Promise<{
@@ -128,11 +225,14 @@ export const classesApi = {
   }> => {
     const supabase = getSupabaseClient();
 
-    const [{ count: classesCount, error: classesErr }, { data: enrollmentsData, error: enrollErr }] = await Promise.all([
+    const [
+      { count: classesCount, error: classesErr },
+      { count: enrollmentsCount, error: enrollErr },
+    ] = await Promise.all([
       supabase.from('classes').select('id', { count: 'exact', head: true }),
       supabase
         .from('classes_students')
-        .select('class_id', { count: 'exact' })
+        .select('class_id', { count: 'exact', head: true })
         .eq('status', 'ACTIVE'),
     ]);
 
@@ -141,7 +241,7 @@ export const classesApi = {
 
     return {
       totalClasses: classesCount ?? 0,
-      totalClassEnrollments: (enrollmentsData?.length ?? 0),
+      totalClassEnrollments: enrollmentsCount ?? 0,
     };
   },
   
@@ -261,20 +361,22 @@ export const classesApi = {
    */
   getClassStudents: async (classId: string): Promise<Tables<'students'>[]> => {
     try {
-      // Get all class enrollments for this class
-      const { data: enrollments, error } = await getSupabaseClient().from('classes_students').select('student:students(*), class_id').eq('class_id', classId);
+      // Get ACTIVE class enrollments for this class at the DB layer
+      const { data: enrollments, error } = await getSupabaseClient()
+        .from('classes_students')
+        .select('student:students(*), class_id')
+        .eq('class_id', classId)
+        .eq('status', 'ACTIVE');
       if (error) throw error;
       
-      // Filter for active enrollments
-      const activeEnrollments = ((enrollments as Array<{ student: Tables<'students'> | null; status?: string }> | null) ?? [])
-        .filter((enrollment) => enrollment.student && enrollment.status !== 'INACTIVE');
-      
-      if (!activeEnrollments.length) {
+      if (!((enrollments as Array<{ student: Tables<'students'> | null }> | null) ?? []).length) {
         return [];
       }
       
-      // Get student details for each enrollment
-      return activeEnrollments.map((enrollment) => enrollment.student!) as Tables<'students'>[];
+      // Map enrolled rows to student objects
+      return ((enrollments as Array<{ student: Tables<'students'> | null }>) || [])
+        .map((enrollment) => enrollment.student)
+        .filter(Boolean) as Tables<'students'>[];
     } catch (error) {
       console.error('Error getting class students:', error);
       throw error;

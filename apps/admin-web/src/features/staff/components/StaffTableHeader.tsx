@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useCallback } from 'react';
-import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableHead, TableHeader, TableRow } from "@altitutor/ui";
 import { ArrowUpDown } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';

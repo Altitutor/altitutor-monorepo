@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { LoginForm } from '@/features/auth/components/LoginForm';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@altitutor/ui';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function LoginPage() {

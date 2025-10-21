@@ -22,7 +22,10 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.session) {
-        console.log('Successfully exchanged code for session')
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.log('Successfully exchanged code for session')
+        }
         // For password reset flow, check if this is a recovery session
         const session = data.session
         const isRecoverySession = session.user?.recovery_sent_at || session.user?.email_change_sent_at
@@ -32,9 +35,21 @@ export async function GET(request: NextRequest) {
           return NextResponse.redirect(new URL('/reset-password', requestUrl.origin))
         }
         
-        // For other auth flows, redirect to the next URL or dashboard
-        const redirectUrl = next === '/' ? '/dashboard' : next
-        return NextResponse.redirect(new URL(redirectUrl, requestUrl.origin))
+        // Determine role home based on staff.role
+        try {
+          const { data: staff } = await supabase
+            .from('staff')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          const role = staff?.role as 'ADMINSTAFF' | 'TUTOR' | undefined;
+          const defaultHome = role === 'TUTOR' ? '/tutor/dashboard' : '/admin/dashboard';
+          const redirectUrl = next === '/' || next === '/dashboard' ? defaultHome : next;
+          return NextResponse.redirect(new URL(redirectUrl, requestUrl.origin))
+        } catch (e) {
+          // Fallback to admin home on error
+          return NextResponse.redirect(new URL('/admin/dashboard', requestUrl.origin))
+        }
       }
     } catch (err) {
       console.error('Unexpected error during code exchange:', err)

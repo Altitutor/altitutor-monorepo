@@ -11,6 +11,7 @@ export const classesKeys = {
   detail: (id: string) => [...classesKeys.details(), id] as const,
   withDetails: () => [...classesKeys.all, 'withDetails'] as const,
   withStudents: () => [...classesKeys.all, 'withStudents'] as const,
+  forStaffWithDetails: (staffId: string) => [...classesKeys.all, 'forStaffWithDetails', staffId] as const,
 };
 
 // Get all classes with details
@@ -20,6 +21,17 @@ export function useClassesWithDetails() {
     queryFn: classesApi.getAllClassesWithDetails,
     staleTime: 1000 * 60 * 2, // 2 minutes - frequently updated data
     gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Get classes with details for a staff member
+export function useClassesForStaffWithDetails(staffId: string) {
+  return useQuery({
+    queryKey: classesKeys.forStaffWithDetails(staffId),
+    queryFn: () => classesApi.getClassesForStaffWithDetails(staffId),
+    enabled: !!staffId,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
   });
 }
 

@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import { Textarea } from "@altitutor/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
+import { Checkbox } from "@altitutor/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
+import { Separator } from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
-import { StudentStatusBadge } from "@/components/ui/enum-badge";
+import { StudentStatusBadge } from "@altitutor/ui";
 import { Pencil, X, Check, Loader2 } from 'lucide-react';
 
 export interface DetailsFormData {

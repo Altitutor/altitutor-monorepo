@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import { Separator } from "@altitutor/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Loader2, UserCog, Mail, Trash2 } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@altitutor/ui";
 
 // Account metadata form schema
 const accountFormSchema = z.object({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -9,11 +9,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { SkeletonTable } from "@/components/ui/skeleton-table";
+} from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
+import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
@@ -26,14 +26,15 @@ import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
-import {
+import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@altitutor/ui";
 import { ViewClassModal } from '@/features/classes';
 import { useStudentsPageWithDetails } from '../hooks/useStudentsQuery';
+// import { useVirtualizer } from '@tanstack/react-virtual';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 
 interface StudentsTableProps {
@@ -68,10 +69,10 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     ascending: sortDirection === 'asc',
   });
 
-  const students: Tables<'students'>[] = data?.students || [];
-  const studentSubjects: Record<string, Tables<'subjects'>[]> = data?.studentSubjects || {};
-  const studentClasses: Record<string, Tables<'classes'>[]> = data?.studentClasses || {};
-  const total = data?.total || 0;
+  const students: Tables<'students'>[] = (data as any)?.students || [];
+  const studentSubjects: Record<string, Tables<'subjects'>[]> = (data as any)?.studentSubjects || {};
+  const studentClasses: Record<string, Tables<'classes'>[]> = (data as any)?.studentClasses || {};
+  const total = (data as any)?.total || 0;
 
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -81,6 +82,9 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
 
   // Server provides filtered/sorted page; just display
   const filteredStudents = students;
+
+  // Non-virtualized table for stability (virtualization can be re-enabled later)
+  const parentRef = useRef<HTMLDivElement | null>(null);
 
   // Refetch when onRefresh prop changes
   useEffect(() => {
@@ -100,15 +104,8 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
   };
   
   const handleStudentClick = (id: string) => {
-    // Clear any previous student data to prevent showing old data
-    setSelectedStudentId(null);
-    setIsViewModalOpen(false);
-    
-    // Set new student after a brief delay to ensure clean state
-    setTimeout(() => {
-      setSelectedStudentId(id);
-      setIsViewModalOpen(true);
-    }, 50);
+    setSelectedStudentId(id);
+    setIsViewModalOpen(true);
   };
 
   const handleStudentUpdated = () => {
@@ -178,6 +175,8 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     );
   }
 
+  
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -231,7 +230,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border" ref={parentRef}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -288,23 +287,24 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                 </TableCell>
               </TableRow>
             ) : (
-              filteredStudents.map((student) => {
+              filteredStudents.map((student, index) => {
                 const subjects = studentSubjects[student.id] || [];
                 const classes = studentClasses[student.id] || [];
                 return (
-                  <TableRow 
-                    key={student.id} 
+                  <TableRow
+                    key={student.id}
+                    data-index={index}
                     className="cursor-pointer"
                     onClick={() => handleStudentClick(student.id)}
                   >
                     <TableCell>
-                      <Badge className={cn("text-xs", getStudentStatusColor(student.status as any))}>
+                      <Badge className={cn("text-xs", getStudentStatusColor(student.status as Tables<'students'>['status']))}>
                         {student.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       {student.curriculum ? (
-                        <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as any))}>
+                        <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as Tables<'students'>['curriculum']))}>
                           {student.curriculum}
                         </Badge>
                       ) : (
@@ -357,7 +357,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                                   handleClassClick(cls.id);
                                 }}
                               >
-                                {cls.subject} - {getDayShortName(cls.day_of_week)} {formatTime(cls.start_time)}
+                                {getDayShortName(cls.day_of_week)} {formatTime(cls.start_time)}
                               </Button>
                             ))}
                         </div>

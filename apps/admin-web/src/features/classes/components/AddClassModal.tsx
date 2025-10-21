@@ -1,18 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+} from '@altitutor/ui';
+import { Textarea } from '@altitutor/ui';
 import { useCreateClass } from '../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import type { TablesInsert } from '@altitutor/shared';
@@ -46,7 +46,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     try {
       const payload: TablesInsert<'classes'> = {
         id: crypto.randomUUID(),
-        subject: level,
+        level: level,
         day_of_week: parseInt(dayOfWeek, 10),
         start_time: startTime,
         end_time: endTime,

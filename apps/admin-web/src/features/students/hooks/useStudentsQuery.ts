@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { studentsApi } from '../api/students';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 
@@ -12,6 +12,7 @@ export const studentsKeys = {
   withDetails: () => [...studentsKeys.all, 'withDetails'] as const,
   withSubjects: () => [...studentsKeys.all, 'withSubjects'] as const,
   byStatus: (status: Tables<'students'>['status']) => [...studentsKeys.all, 'byStatus', status] as const,
+  count: () => [...studentsKeys.all, 'count'] as const,
 };
 
 // Get all students with details (subjects and classes)
@@ -59,7 +60,7 @@ export function useStudentsList(params: UseStudentsListParams) {
   return useQuery({
     queryKey: [...studentsKeys.lists(), 'paged', { search, status, page, pageSize, orderBy, ascending }],
     queryFn: () => studentsApi.list({ search, status, limit: pageSize, offset, orderBy, ascending }),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     staleTime: 1000 * 30, // 30s for list pages
     gcTime: 1000 * 60 * 5,
   });
@@ -80,7 +81,7 @@ export function useStudentsPageWithDetails(params: UseStudentsListParams) {
   return useQuery({
     queryKey: [...studentsKeys.lists(), 'paged-with-details', { search, status, page, pageSize, orderBy, ascending }],
     queryFn: () => studentsApi.getStudentsWithDetailsPage({ search, status, limit: pageSize, offset, orderBy, ascending }),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
   });
@@ -116,6 +117,19 @@ export function useStudentsSearch(query: string) {
     enabled: query.length > 0,
     staleTime: 1000 * 30, // 30 seconds for search results
     gcTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Total students count (exact) using head:true pattern in API
+export function useStudentsCount() {
+  return useQuery({
+    queryKey: studentsKeys.count(),
+    queryFn: async () => {
+      const { total } = await studentsApi.list({ limit: 1, offset: 0 });
+      return total;
+    },
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
   });
 }
 

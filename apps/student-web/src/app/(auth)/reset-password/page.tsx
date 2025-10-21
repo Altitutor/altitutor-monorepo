@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';

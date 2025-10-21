@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { Tables } from "@altitutor/shared";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@altitutor/ui";
+import { ScrollArea } from "@altitutor/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
 import { Loader2, Calendar, Clock, Users, MapPin } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
@@ -98,7 +98,7 @@ export function ClassesTab({
     if (staffClass.subject) {
       return formatSubjectDisplay(staffClass.subject);
     }
-    return staffClass.class.subject;
+    return '-';
   };
 
   if (loading) {
@@ -155,7 +155,7 @@ export function ClassesTab({
                       {getSubjectDisplay(staffClass)}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {staffClass.class.subject}
+                      {staffClass.class.level}
                     </p>
                   </div>
                   <Badge variant="secondary" className="text-xs">

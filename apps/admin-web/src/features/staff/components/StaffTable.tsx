@@ -6,8 +6,8 @@ import {
   TableBody,
   TableCell,
   TableRow,
-} from "@/components/ui/table";
-import { SkeletonTable } from "@/components/ui/skeleton-table";
+} from "@altitutor/ui";
+import { SkeletonTable } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
 import { useStaffWithSubjects } from '../hooks/useStaffQuery';
 import { AddStaffModal } from './AddStaffModal';

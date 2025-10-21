@@ -1,7 +1,7 @@
 // Utility hooks
 export { useDebounce } from './useDebounce';
-export { useLocalStorage } from './useLocalStorage';
-export { useMediaQuery } from './useMediaQuery';
+// export { useLocalStorage } from './useLocalStorage';
+// export { useMediaQuery } from './useMediaQuery';
 // Repository hook removed under Option A
 
 // Re-export all feature hooks

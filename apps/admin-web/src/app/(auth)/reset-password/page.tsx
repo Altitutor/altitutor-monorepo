@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
@@ -24,11 +24,14 @@ function ResetPasswordContent() {
         // Check if we have a valid session (PKCE flow)
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        console.log('Reset password session check:', {
-          hasSession: !!session,
-          sessionError: sessionError?.message,
-          userEmail: session?.user?.email
-        });
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.log('Reset password session check:', {
+            hasSession: !!session,
+            sessionError: sessionError?.message,
+            userEmail: session?.user?.email
+          });
+        }
 
         if (sessionError) {
           console.error('Session error during password reset validation:', sessionError);

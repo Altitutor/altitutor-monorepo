@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import { Textarea } from "@altitutor/ui";
+import { Separator } from "@altitutor/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Loader2, Pencil } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { getClassStatusColor } from "@/shared/utils";
-import { ClassStatusBadge } from "@/components/ui/enum-badge";
+import { ClassStatusBadge } from "@altitutor/ui";
 import { formatSubjectDisplay } from "@/shared/utils";
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 
@@ -53,7 +53,7 @@ export function ClassInfoTab({
   const form = useForm<FormData>({
     resolver: zodResolver(classInfoSchema),
     defaultValues: {
-      level: classData.subject || '',
+      level: classData.level || '',
       dayOfWeek: classData.day_of_week || 1,
       startTime: classData.start_time || '',
       endTime: classData.end_time || '',
@@ -268,9 +268,6 @@ export function ClassInfoTab({
         // View Mode
         <>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
-            <div className="text-sm font-medium">Subject Code:</div>
-            <div className="min-w-0">{classData.subject || '-'}</div>
-            
             <div className="text-sm font-medium">Day:</div>
             <div className="min-w-0">{getDayOfWeek(classData.day_of_week)}</div>
             

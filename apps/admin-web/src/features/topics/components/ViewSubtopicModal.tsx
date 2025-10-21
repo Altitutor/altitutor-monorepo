@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
+import { useToast } from '@altitutor/ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,15 +16,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@altitutor/ui";
 import { topicsApi } from '../api';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { PencilIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Badge } from '@/components/ui/badge';
-import { Separator as UISeparator } from '@/components/ui/separator';
+import { Badge } from '@altitutor/ui';
+import { Separator as UISeparator } from '@altitutor/ui';
 
 interface ViewSubtopicModalProps {
   isOpen: boolean;

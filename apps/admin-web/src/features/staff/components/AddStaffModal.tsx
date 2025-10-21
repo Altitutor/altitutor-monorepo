@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/components/ui/use-toast';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Checkbox } from '@altitutor/ui';
+import { useToast } from '@altitutor/ui';
 import { useInviteStaff } from '../hooks/useStaffQuery';
 // Use string literals for role/status
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';

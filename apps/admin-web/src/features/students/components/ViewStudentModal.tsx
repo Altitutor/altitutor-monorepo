@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
 import { studentsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
@@ -25,7 +25,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@altitutor/ui";
 import { mapDetailsFormToStudentUpdate, mapAccountFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
 
 interface ViewStudentModalProps {
@@ -258,7 +258,10 @@ export function ViewStudentModal({
 
   // Handle view subject (placeholder for now)
   const handleViewSubject = (subjectId: string) => {
-    console.log('View subject:', subjectId);
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log('View subject:', subjectId);
+    }
     // TODO: Implement subject detail view
   };
 
