@@ -36,9 +36,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS staff_invite_token_unique
 -- ========================
 -- 3) Enforce referential integrity to auth.users
 -- ========================
+-- Clean up any orphaned references before adding FKs
+UPDATE public.students s
+  SET user_id = NULL
+  WHERE s.user_id IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM auth.users u WHERE u.id = s.user_id
+    );
+
+UPDATE public.staff st
+  SET user_id = NULL
+  WHERE st.user_id IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM auth.users u WHERE u.id = st.user_id
+    );
+
+-- Drop constraints if they exist to keep this migration idempotent
+ALTER TABLE public.students
+  DROP CONSTRAINT IF EXISTS students_user_fk;
+
 ALTER TABLE public.students
   ADD CONSTRAINT students_user_fk
   FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.staff
+  DROP CONSTRAINT IF EXISTS staff_user_fk;
 
 ALTER TABLE public.staff
   ADD CONSTRAINT staff_user_fk
