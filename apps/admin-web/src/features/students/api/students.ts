@@ -30,7 +30,7 @@ export const studentsApi = {
       .from('students')
       .select(
         // Narrow projection to columns required by index views
-        'id, first_name, last_name, status, curriculum, year_level, student_email, parent_email, school',
+        'id, first_name, last_name, status, curriculum, year_level, school',
         { count: 'exact' }
       );
 
@@ -39,7 +39,7 @@ export const studentsApi = {
     if (trimmed.length > 0) {
       const q = `%${trimmed}%`;
       query = query.or(
-        `first_name.ilike.${q},last_name.ilike.${q},student_email.ilike.${q},parent_email.ilike.${q},school.ilike.${q}`
+        `first_name.ilike.${q},last_name.ilike.${q},school.ilike.${q}`
       );
     }
 
@@ -58,7 +58,7 @@ export const studentsApi = {
 
     const { data, count, error } = await query;
     if (error) throw error;
-    return { students: (data ?? []) as Tables<'students'>[], total: count ?? 0 };
+    return { students: (data ?? []) as unknown as Tables<'students'>[], total: count ?? 0 };
   },
   /**
    * Get all students
@@ -141,8 +141,7 @@ export const studentsApi = {
         return (
           (student.first_name?.toLowerCase().includes(lowerQuery)) ||
           (student.last_name?.toLowerCase().includes(lowerQuery)) ||
-          (student.student_email?.toLowerCase().includes(lowerQuery)) ||
-          (student.parent_email?.toLowerCase().includes(lowerQuery)) ||
+          ((student as any).email?.toLowerCase().includes(lowerQuery)) ||
           (student.status?.toLowerCase().includes(lowerQuery))
         );
       });

@@ -9,6 +9,7 @@ import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle } from 'lucide-react';
+import { ChatDock } from '@/features/messages/floating/ChatDock';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -155,8 +156,10 @@ export default function AdminLayout({
   return (
     <div className="flex h-[calc(100vh-var(--navbar-height))] overflow-hidden">
       <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative">
         {children}
+        {/* Floating chat dock (admin-only) */}
+        <ChatDock />
       </div>
     </div>
   );

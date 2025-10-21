@@ -38,9 +38,11 @@ type SessionsTableProps = {
   staffId?: string;
   classId?: string;
   limit?: number;
+  rangeStart?: string; // YYYY-MM-DD
+  rangeEnd?: string;   // YYYY-MM-DD
 };
 
-export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTableProps) {
+export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd }: SessionsTableProps) {
   const router = useRouter();
   
   // React Query hook for data fetching
@@ -50,15 +52,18 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
     error, 
     refetch,
     isFetching 
-  } = useSessionsWithDetails();
+  } = useSessionsWithDetails({ rangeStart, rangeEnd });
   
   // Extract sessions array from the data structure
   const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
+  const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
+  const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
   
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Tables<'sessions'>>('date');
+  type SortField = 'start_at' | 'type';
+  const [sortField, setSortField] = useState<SortField>('start_at');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
 
   // Memoized filtered and sorted sessions
@@ -86,13 +91,22 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
       result = result.filter(session => session.class_id === classId);
     }
     
+    // Apply range filter (start_at within [rangeStart, rangeEnd]) if provided
+    if (rangeStart && rangeEnd) {
+      const startTs = new Date(rangeStart + 'T00:00:00').getTime();
+      const endTs = new Date(rangeEnd + 'T23:59:59').getTime();
+      result = result.filter((session) => {
+        const s = (session as any).start_at ? new Date((session as any).start_at).getTime() : 0;
+        return s >= startTs && s <= endTs;
+      });
+    }
+
     // Apply search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(session => 
-        session.subject.toLowerCase().includes(searchLower) ||
-        // teaching_content no longer exists; only subject/notes
-        session.notes?.toLowerCase().includes(searchLower)
+        (getClassSubject(session) || '').toLowerCase().includes(searchLower) ||
+        (session.notes || '').toLowerCase().includes(searchLower)
       );
     }
     
@@ -103,22 +117,15 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
     
     // Apply sorting
     result.sort((a, b) => {
-      const valueA = a[sortField] || '';
-      const valueB = b[sortField] || '';
-      
-      if (sortField === 'date') {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      if (sortField === 'start_at') {
+        const tsA = (a as any).start_at ? new Date((a as any).start_at).getTime() : 0;
+        const tsB = (b as any).start_at ? new Date((b as any).start_at).getTime() : 0;
+        return sortDirection === 'asc' ? tsA - tsB : tsB - tsA;
       }
-      
-      if (typeof valueA === 'string' && typeof valueB === 'string') {
-        return sortDirection === 'asc' 
-          ? valueA.localeCompare(valueB) 
-          : valueB.localeCompare(valueA);
-      }
-      
-      return 0;
+      // sortField === 'type'
+      const va = (a.type || '').toString();
+      const vb = (b.type || '').toString();
+      return sortDirection === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });
     
     // Apply limit if provided
@@ -129,7 +136,7 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
     return result;
   }, [allSessions, data, searchTerm, typeFilter, sortField, sortDirection, studentId, staffId, classId, limit]);
 
-  const handleSort = (field: keyof Tables<'sessions'>) => {
+  const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -174,12 +181,19 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
   };
   
   // Staff/name display relies on details map from hook; keep simple for now
-  const getStaffName = (_session: Tables<'sessions'>) => {
-    return '-';
-  };
+  const getStaffName = (_session: Tables<'sessions'>) => '-';
   
-  const getClassSubject = (_session: Tables<'sessions'>) => {
-    return '-';
+  const getClassSubject = (session: Tables<'sessions'>) => {
+    const cls = session.class_id ? classesById[session.class_id] : undefined;
+    if (!cls) return '-';
+    const subj = cls.subject_id ? subjectsById[cls.subject_id] : undefined;
+    return subj ? subj.name : '-';
+  };
+
+  const getTimeRange = (session: Tables<'sessions'>) => {
+    const s = (session as any).start_at ? new Date((session as any).start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const e = (session as any).end_at ? new Date((session as any).end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    return s && e ? `${s}–${e}` : s || e || '-';
   };
   
   const handleSessionClick = (id: string) => {
@@ -264,26 +278,14 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('start_at')}>
                 Date
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
-                  sortField === 'date' ? "opacity-100" : "opacity-40"
+                  sortField === 'start_at' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('subject')}>
-                Subject
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'subject' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              {!classId && (
-                <TableHead>Class</TableHead>
-              )}
-              {!staffId && (
-                <TableHead>Taught By</TableHead>
-              )}
+              <TableHead>Time</TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('type')}>
                 Type
                 <ArrowUpDown className={cn(
@@ -291,7 +293,12 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
                   sortField === 'type' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead>Notes</TableHead>
+              <TableHead>Subject</TableHead>
+              {!classId && (
+                <TableHead>Class</TableHead>
+              )}
+              {!staffId && (<TableHead>Taught By</TableHead>)}
+              
               <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
@@ -314,26 +321,24 @@ export function SessionsTable({ studentId, staffId, classId, limit }: SessionsTa
                   <TableCell>
                     <div className="flex items-center">
                       <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                      {formatDate(session.date)}
+                      {(session as any).start_at ? formatDate((session as any).start_at) : '-'}
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium">
-                    {session.subject}
+                  <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
+                  <TableCell>
+                    <Badge className={getSessionTypeBadgeColor(session.type)}>
+                      {session.type === 'CLASS' ? 'CLASS' : 'MEETING'}
+                    </Badge>
                   </TableCell>
+                  <TableCell className="font-medium">{getClassSubject(session)}</TableCell>
                   {!classId && (
                     <TableCell>{getClassSubject(session)}</TableCell>
                   )}
                   {!staffId && (
                     <TableCell>{getStaffName(session)}</TableCell>
                   )}
-                  <TableCell>
-                    <Badge className={getSessionTypeBadgeColor(session.type)}>
-                      {session.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                    {session.notes || '-'}
-                  </TableCell>
+                  
+                  
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>

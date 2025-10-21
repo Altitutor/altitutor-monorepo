@@ -204,12 +204,7 @@ export function ClassesTab({
                   </div>
                 )}
                 
-                {staffClass.class.notes && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Notes:</p>
-                    <p className="text-xs text-muted-foreground">{staffClass.class.notes}</p>
-                  </div>
-                )}
+                
               </CardContent>
             </Card>
           ))}

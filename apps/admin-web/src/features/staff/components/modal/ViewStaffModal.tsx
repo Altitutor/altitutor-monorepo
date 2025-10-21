@@ -11,6 +11,9 @@ import { SubjectsTab } from './tabs/SubjectsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { AccountTab, AccountFormData } from './tabs/AccountTab';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
+import { MessageThread } from '@/features/messages/components/MessageThread';
+import { useChatStore } from '@/features/messages/state/chatStore';
+import { Button as UIButton } from '@altitutor/ui';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -358,11 +361,12 @@ export function ViewStaffModal({
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="w-full">
+            <TabsList className="w-full grid grid-cols-5">
               <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
               <TabsTrigger value="subjects" className="flex-1">Subjects</TabsTrigger>
               <TabsTrigger value="classes" className="flex-1">Classes</TabsTrigger>
               <TabsTrigger value="account" className="flex-1">Account</TabsTrigger>
+              <TabsTrigger value="messages" className="flex-1">Messages</TabsTrigger>
             </TabsList>
             
             <TabsContent value="details" className="mt-4">
@@ -406,6 +410,25 @@ export function ViewStaffModal({
                 onDelete={handleDelete}
                 isDeleting={isDeleting}
               />
+            </TabsContent>
+
+            <TabsContent value="messages" className="mt-4">
+              <div className="flex flex-col h-[400px] border rounded-md">
+                <div className="px-3 py-2 border-b flex items-center justify-between">
+                  <div className="font-medium text-sm">Messages</div>
+                  <UIButton
+                    size="sm"
+                    onClick={() => {
+                      useChatStore.getState().openWindow({ conversationId: staffMember.id, title: `${staffMember.first_name} ${staffMember.last_name}` });
+                    }}
+                  >
+                    Pop out
+                  </UIButton>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <MessageThread conversationId={staffMember.id} />
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

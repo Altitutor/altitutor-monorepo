@@ -16,19 +16,12 @@ export interface DetailsFormData {
   // Student details
   firstName: string;
   lastName: string;
-  studentEmail?: string;
-  studentPhone?: string;
+  email?: string;
+  phone?: string;
   school?: string;
   curriculum?: Enums<'subject_curriculum'>;
   yearLevel?: number;
   status: Tables<'students'>['status'];
-  notes?: string;
-  
-  // Parent details
-  parentFirstName?: string;
-  parentLastName?: string;
-  parentEmail?: string;
-  parentPhone?: string;
   
   // Availability
   availability_monday: boolean;
@@ -62,17 +55,12 @@ export function DetailsTab({
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
     lastName: student.last_name || '',
-    studentEmail: student.student_email || '',
-    studentPhone: student.student_phone || '',
+    email: (student as any).email || (student as any).student_email || '',
+    phone: (student as any).phone || (student as any).student_phone || '',
     school: student.school || '',
     curriculum: (student.curriculum as Enums<'subject_curriculum'>) || undefined,
     yearLevel: student.year_level || undefined,
     status: student.status,
-    notes: student.notes || '',
-    parentFirstName: student.parent_first_name || '',
-    parentLastName: student.parent_last_name || '',
-    parentEmail: student.parent_email || '',
-    parentPhone: student.parent_phone || '',
     availability_monday: !!student.availability_monday,
     availability_tuesday: !!student.availability_tuesday,
     availability_wednesday: !!student.availability_wednesday,
@@ -126,20 +114,20 @@ export function DetailsTab({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="studentEmail">Student Email</Label>
+                  <Label htmlFor="email">Student Email</Label>
                   <Input
-                    id="studentEmail"
+                    id="email"
                     type="email"
-                    value={formData.studentEmail}
-                    onChange={(e) => handleInputChange('studentEmail', e.target.value)}
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="studentPhone">Student Phone</Label>
+                  <Label htmlFor="phone">Student Phone</Label>
                   <Input
-                    id="studentPhone"
-                    value={formData.studentPhone}
-                    onChange={(e) => handleInputChange('studentPhone', e.target.value)}
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
                   />
                 </div>
               </div>
@@ -203,62 +191,7 @@ export function DetailsTab({
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Parent Details Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Parent Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="parentFirstName">Parent First Name</Label>
-                  <Input
-                    id="parentFirstName"
-                    value={formData.parentFirstName}
-                    onChange={(e) => handleInputChange('parentFirstName', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="parentLastName">Parent Last Name</Label>
-                  <Input
-                    id="parentLastName"
-                    value={formData.parentLastName}
-                    onChange={(e) => handleInputChange('parentLastName', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="parentEmail">Parent Email</Label>
-                  <Input
-                    id="parentEmail"
-                    type="email"
-                    value={formData.parentEmail}
-                    onChange={(e) => handleInputChange('parentEmail', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="parentPhone">Parent Phone</Label>
-                  <Input
-                    id="parentPhone"
-                    value={formData.parentPhone}
-                    onChange={(e) => handleInputChange('parentPhone', e.target.value)}
-                  />
-                </div>
-              </div>
+              
             </CardContent>
           </Card>
 
@@ -358,11 +291,11 @@ export function DetailsTab({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Student Email</Label>
-              <p className="text-sm">{student.student_email || '-'}</p>
+              <p className="text-sm">{(student as any).email || (student as any).student_email || '-'}</p>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Student Phone</Label>
-              <p className="text-sm">{student.student_phone || '-'}</p>
+              <p className="text-sm">{(student as any).phone || (student as any).student_phone || '-'}</p>
             </div>
           </div>
 
@@ -410,35 +343,7 @@ export function DetailsTab({
         </CardContent>
       </Card>
 
-      {/* Parent Details Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Parent Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Parent First Name</Label>
-              <p className="text-sm">{student.parent_first_name || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Parent Last Name</Label>
-              <p className="text-sm">{student.parent_last_name || '-'}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Parent Email</Label>
-              <p className="text-sm">{student.parent_email || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Parent Phone</Label>
-              <p className="text-sm">{student.parent_phone || '-'}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Removed Parent Details Section */}
 
       {/* Availability Section */}
       <Card>

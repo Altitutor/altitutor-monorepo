@@ -56,7 +56,7 @@ export function StudentAccountTab({
     defaultValues: {
       firstName: student.first_name || '',
       lastName: student.last_name || '',
-      studentEmail: student.student_email || '',
+      studentEmail: (student as any).email || (student as any).student_email || '',
     },
   });
 
@@ -208,8 +208,8 @@ export function StudentAccountTab({
             </div>
 
             <div className="text-sm font-medium">Email:</div>
-            <div className="min-w-0 truncate" title={student.student_email || ''}>
-              {student.student_email || '-'}
+            <div className="min-w-0 truncate" title={(student as any).email || (student as any).student_email || ''}>
+              {(student as any).email || (student as any).student_email || '-'}
             </div>
 
             <div className="text-sm font-medium">Account Type:</div>
@@ -228,7 +228,7 @@ export function StudentAccountTab({
               <Button
                 variant="outline"
                 onClick={onPasswordResetRequest}
-                disabled={isLoading || hasPasswordResetLinkSent || !student.student_email}
+                disabled={isLoading || hasPasswordResetLinkSent || !((student as any).email || (student as any).student_email)}
                 className="justify-start"
               >
                 {isLoading ? (
@@ -249,7 +249,7 @@ export function StudentAccountTab({
                 )}
               </Button>
               
-              {!student.student_email && (
+              {!((student as any).email || (student as any).student_email) && (
                 <p className="text-sm text-orange-600">
                   No email address set. Please add a student email first.
                 </p>
@@ -258,7 +258,7 @@ export function StudentAccountTab({
             
             {hasPasswordResetLinkSent && (
               <p className="text-sm text-green-600">
-                A password reset link has been sent to {student.student_email}.
+                A password reset link has been sent to {(student as any).email || (student as any).student_email}.
                 The student needs to check their email to set a new password.
               </p>
             )}

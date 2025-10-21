@@ -84,7 +84,6 @@ export const classSchema = z.object({
   students: z.array(z.string()).min(1, { message: "Please select at least one student" }),
   tutor: z.string().min(1, { message: "Please select a tutor" }),
   location: z.string().min(1, { message: messages.required }),
-  notes: z.string().optional(),
 })
 
 // Payment form schema
@@ -94,7 +93,6 @@ export const paymentSchema = z.object({
   paymentDate: baseSchemas.date,
   paymentMethod: z.enum(["cash", "card", "bank_transfer"]),
   invoiceNumber: z.string().optional(),
-  notes: z.string().optional(),
 })
 
 // Helper function to create a form schema with custom fields

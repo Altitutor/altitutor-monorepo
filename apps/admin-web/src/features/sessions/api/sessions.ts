@@ -18,18 +18,27 @@ export const sessionsApi = {
    * Get all sessions with their attendees and staff in an optimized single query
    * This solves the N+1 query problem for the sessions table
    */
-  getAllSessionsWithDetails: async (): Promise<{ 
+  getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
     sessionStudents: Record<string, Tables<'students'>[]>;
     sessionStaff: Record<string, Tables<'staff'>[]>;
+    classesById: Record<string, Tables<'classes'>>;
+    subjectsById: Record<string, Tables<'subjects'>>;
   }> => {
     const supabase = getSupabaseClient();
     
     try {
-      // Get all sessions first
-      const { data: allSessions, error: sessionsError } = await supabase
-        .from('sessions')
-        .select('*');
+      // Get sessions in range if provided (server-side filtering)
+      let query = supabase.from('sessions').select('*');
+      if (args?.rangeStart) {
+        const startIso = `${args.rangeStart}T00:00:00Z`;
+        query = query.gte('start_at', startIso);
+      }
+      if (args?.rangeEnd) {
+        const endIso = `${args.rangeEnd}T23:59:59Z`;
+        query = query.lte('start_at', endIso);
+      }
+      const { data: allSessions, error: sessionsError } = await query;
       
       if (sessionsError) throw sessionsError;
       
@@ -56,6 +65,32 @@ export const sessionsApi = {
       // Transform sessions data
       const sessions = (allSessions ?? []) as Tables<'sessions'>[];
       
+      // Collect referenced IDs
+      const classIds = Array.from(new Set(sessions.map(s => s.class_id).filter(Boolean))) as string[];
+      const subjectIds = Array.from(new Set(sessions.map(s => s.subject_id).filter(Boolean))) as string[];
+
+      // Fetch referenced classes and subjects
+      const [classesRes, subjectsRes] = await Promise.all([
+        classIds.length
+          ? supabase.from('classes').select('*').in('id', classIds)
+          : Promise.resolve({ data: [] as any[], error: null as any }),
+        subjectIds.length
+          ? supabase.from('subjects').select('*').in('id', subjectIds)
+          : Promise.resolve({ data: [] as any[], error: null as any }),
+      ]);
+
+      if ((classesRes as any).error) throw (classesRes as any).error;
+      if ((subjectsRes as any).error) throw (subjectsRes as any).error;
+
+      const classesById: Record<string, Tables<'classes'>> = {};
+      for (const row of (classesRes as any).data as Tables<'classes'>[]) {
+        classesById[row.id] = row;
+      }
+      const subjectsById: Record<string, Tables<'subjects'>> = {};
+      for (const row of (subjectsRes as any).data as Tables<'subjects'>[]) {
+        subjectsById[row.id] = row;
+      }
+
       // Build session students map
       const sessionStudentsMap: Record<string, Tables<'students'>[]> = {};
       sessionStudentsData?.forEach((row: any) => {
@@ -91,7 +126,9 @@ export const sessionsApi = {
       return {
         sessions,
         sessionStudents: sessionStudentsMap,
-        sessionStaff: sessionStaffMap
+        sessionStaff: sessionStaffMap,
+        classesById,
+        subjectsById,
       };
       
     } catch (error) {
@@ -288,9 +325,9 @@ export const sessionsApi = {
   /**
    * Update student attendance for a session
    */
-  updateAttendance: async (sessionId: string, studentId: string, attended: boolean, notes?: string): Promise<Tables<'sessions_students'>> => {
+  updateAttendance: async (sessionId: string, studentId: string, attended: boolean): Promise<Tables<'sessions_students'>> => {
     try {
-      const { data, error } = await getSupabaseClient().from('sessions_students').update({ attended, notes: notes ?? null }).eq('session_id', sessionId).eq('student_id', studentId).select().single();
+      const { data, error } = await getSupabaseClient().from('sessions_students').update({ attended }).eq('session_id', sessionId).eq('student_id', studentId).select().single();
       if (error) throw error;
       return data as Tables<'sessions_students'>;
     } catch (error) {
@@ -329,5 +366,88 @@ export const sessionsApi = {
       console.error('Error getting sessions for staff:', error);
       throw error;
     }
+  },
+
+  /**
+   * Attendance and planned participants for a session
+   */
+  getSessionAttendanceDetails: async (sessionId: string): Promise<{
+    plannedStudents: Tables<'students'>[];
+    actualStudents: Tables<'students'>[];
+    plannedStaff: Tables<'staff'>[];
+    actualStaff: Tables<'staff'>[];
+  }> => {
+    const supabase = getSupabaseClient();
+    const sb: any = supabase; // loosen typing for non-typed tables
+    // sessions_students with joined students
+    const { data: ssRows, error: ssErr } = await supabase
+      .from('sessions_students')
+      .select('attended, student:students(*)')
+      .eq('session_id', sessionId);
+    if (ssErr) throw ssErr;
+
+    // student_absences for this session
+    const { data: absRows, error: absErr } = await sb
+      .from('student_absences')
+      .select('student_id')
+      .eq('missed_session_id', sessionId);
+    if (absErr) throw absErr;
+    const absentIds = new Set((absRows ?? []).map((r: any) => r.student_id));
+
+    const allStudents = (ssRows ?? []).map((r: any) => r.student).filter(Boolean) as Tables<'students'>[];
+    const actualStudents = (ssRows ?? [])
+      .filter((r: any) => r.attended && r.student)
+      .map((r: any) => r.student as Tables<'students'>);
+    const plannedStudents = allStudents.filter((s) => !absentIds.has(s.id));
+
+    // sessions_staff with joined staff
+    const { data: sfRows, error: sfErr } = await supabase
+      .from('sessions_staff')
+      .select('attended, staff:staff(*)')
+      .eq('session_id', sessionId);
+    if (sfErr) throw sfErr;
+    const baseStaff = (sfRows ?? []).map((r: any) => r.staff).filter(Boolean) as Tables<'staff'>[];
+    const actualStaff = (sfRows ?? [])
+      .filter((r: any) => r.attended && r.staff)
+      .map((r: any) => r.staff as Tables<'staff'>);
+
+    // staff_swaps: remove and add
+    const { data: swaps, error: swapErr } = await sb
+      .from('staff_swaps')
+      .select('staff_removed_id, staff_added_id')
+      .eq('session_id', sessionId);
+    if (swapErr) throw swapErr;
+    const removedIds = new Set<string>((swaps ?? []).map((s: any) => s.staff_removed_id as string).filter(Boolean));
+    const addedIds = new Set<string>((swaps ?? []).map((s: any) => s.staff_added_id as string).filter(Boolean));
+
+    // Planned staff = base minus removed plus added (by id)
+    const baseById = new Map<string, Tables<'staff'>>(baseStaff.map((s) => [s.id as string, s]));
+    removedIds.forEach((id: string) => baseById.delete(id));
+    // Fetch added staff rows if not already included
+    const toFetch: string[] = Array.from(addedIds).map(String).filter((id) => !baseById.has(id));
+    if (toFetch.length) {
+      const { data: addStaff, error: addErr } = await supabase
+        .from('staff')
+        .select('*')
+        .in('id', toFetch);
+      if (addErr) throw addErr;
+      (addStaff ?? []).forEach((s: any) => baseById.set(s.id as string, s as Tables<'staff'>));
+    }
+    const plannedStaff = Array.from(baseById.values());
+
+    return { plannedStudents, actualStudents, plannedStaff, actualStaff };
+  },
+
+  /**
+   * Linked resource files for a session
+   */
+  getSessionResources: async (sessionId: string): Promise<{ id: string; file: Tables<'resource_files'> }[]> => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('sessions_resource_files')
+      .select(`id, resource_file:resource_files(*)`)
+      .eq('session_id', sessionId);
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({ id: row.id as string, file: row.resource_file as Tables<'resource_files'> }));
   },
 }; 

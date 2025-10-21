@@ -38,7 +38,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   const [endTime, setEndTime] = useState(classData.end_time);
   const [endTimeManuallyEdited, setEndTimeManuallyEdited] = useState(false);
   const [subjectId, setSubjectId] = useState(classData.subject_id || '');
-  const [notes, setNotes] = useState(classData.notes || '');
+  
   const [room, setRoom] = useState(classData.room || '');
   const [status, setStatus] = useState<string>(classData.status || 'ACTIVE');
 
@@ -79,7 +79,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       setStartTime(formatTimeForInput(updatedClassData.start_time));
       setEndTime(formatTimeForInput(updatedClassData.end_time));
       setSubjectId(updatedClassData.subject_id || '');
-      setNotes(updatedClassData.notes || '');
+      
       setRoom(updatedClassData.room || '');
       setStatus(updatedClassData.status || 'ACTIVE');
       setError(null);
@@ -165,7 +165,6 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
         end_time: endTime,
         status,
         subject_id: subjectId === 'none' ? null : subjectId || null,
-        notes: notes || null,
         room: room || null,
       };
       const updatedClass = await updateMutation.mutateAsync({ id: classData.id, data: payload });
@@ -327,16 +326,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Additional notes about this class"
-              rows={3}
-            />
-          </div>
+          
           
           <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>

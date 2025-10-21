@@ -16,6 +16,9 @@ import {
   DetailsFormData,
   StudentAccountFormData
 } from './tabs';
+import { MessageThread } from '@/features/messages/components/MessageThread';
+import { Button as UIButton } from '@altitutor/ui';
+import { useChatStore } from '@/features/messages/state/chatStore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -182,7 +185,7 @@ export function ViewStudentModal({
 
   // Handle password reset request
   const handlePasswordResetRequest = async () => {
-    if (!student || !student.student_email) {
+    if (!student || !((student as any).email || (student as any).student_email)) {
       toast({
         title: "Error",
         description: "No email address found for this student.",
@@ -194,7 +197,7 @@ export function ViewStudentModal({
     try {
       setLoadingAccountUpdate(true);
       // TODO: Implement password reset API call
-      // await authApi.requestPasswordReset(student.studentEmail);
+      // await authApi.requestPasswordReset((student as any).email || (student as any).student_email);
       
       setHasPasswordResetLinkSent(true);
       
@@ -317,11 +320,12 @@ export function ViewStudentModal({
           </SheetHeader>
           
           <Tabs defaultValue="details" className="mt-6 flex flex-col h-[calc(100vh-200px)]">
-            <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
+            <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="subjects">Subjects</TabsTrigger>
               <TabsTrigger value="classes">Classes</TabsTrigger>
               <TabsTrigger value="account">Account</TabsTrigger>
+              <TabsTrigger value="messages">Messages</TabsTrigger>
             </TabsList>
             
             <div className="flex-1 overflow-hidden">
@@ -367,6 +371,27 @@ export function ViewStudentModal({
                   onPasswordResetRequest={handlePasswordResetRequest}
                   onDelete={handleDeleteStudent}
                 />
+              </TabsContent>
+
+              <TabsContent value="messages" className="mt-6 h-full overflow-hidden">
+                <div className="flex flex-col h-full border rounded-md">
+                  <div className="px-3 py-2 border-b flex items-center justify-between">
+                    <div className="font-medium text-sm">Messages</div>
+                    <UIButton
+                      size="sm"
+                      onClick={() => {
+                        // In real impl, ensure conversation for student's contact and open window
+                        // Placeholder: open a dummy window id using student.id
+                        useChatStore.getState().openWindow({ conversationId: student.id, title: `${student.first_name} ${student.last_name}` });
+                      }}
+                    >
+                      Pop out
+                    </UIButton>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <MessageThread conversationId={student.id} />
+                  </div>
+                </div>
               </TabsContent>
             </div>
           </Tabs>

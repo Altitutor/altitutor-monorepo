@@ -122,7 +122,6 @@ export function ViewClassModal({
         status: data.status,
         subject_id: data.subjectId || null,
         room: data.room || null,
-        notes: data.notes || null,
       };
       await classesApi.updateClass(classData.id, updateData);
       

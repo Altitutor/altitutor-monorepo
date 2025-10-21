@@ -5,18 +5,13 @@ export function mapDetailsFormToStudentUpdate(data: DetailsFormData): TablesUpda
   return {
     first_name: data.firstName,
     last_name: data.lastName,
-    student_email: data.studentEmail || null,
-    student_phone: data.studentPhone || null,
+    email: (data.email || null) as any,
+    phone: (data.phone || null) as any,
     school: data.school || null,
     // Keep enum tightening for Phase 7; for now allow null or provided value
     curriculum: (data.curriculum || null) as any,
     year_level: data.yearLevel ?? null,
     status: data.status,
-    notes: data.notes || null,
-    parent_first_name: data.parentFirstName || null,
-    parent_last_name: data.parentLastName || null,
-    parent_email: data.parentEmail || null,
-    parent_phone: data.parentPhone || null,
     availability_monday: data.availability_monday,
     availability_tuesday: data.availability_tuesday,
     availability_wednesday: data.availability_wednesday,
@@ -33,7 +28,7 @@ export function mapAccountFormToStudentUpdate(data: StudentAccountFormData): Tab
   return {
     first_name: data.firstName,
     last_name: data.lastName,
-    student_email: data.studentEmail || null,
+    email: (data.studentEmail || null) as any,
   } as TablesUpdate<'students'>;
 }
 

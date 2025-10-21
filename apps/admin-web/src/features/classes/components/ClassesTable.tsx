@@ -118,8 +118,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(cls => {
         const subjectDisplay = getSubjectDisplay(cls).toLowerCase();
-        return subjectDisplay.includes(searchLower) ||
-               cls.notes?.toLowerCase().includes(searchLower);
+        return subjectDisplay.includes(searchLower);
       });
     }
     

@@ -164,17 +164,7 @@ export default function MyAccountPage() {
                   </span>
                 </div>
                 
-                {staffRecord.notes && (
-                  <>
-                    <Separator />
-                    <div>
-                      <span className="text-sm text-gray-600 block mb-2">Notes</span>
-                      <p className="text-sm bg-gray-50 p-3 rounded-md">
-                        {staffRecord.notes}
-                      </p>
-                    </div>
-                  </>
-                )}
+                
               </>
             ) : (
               <div className="text-center py-4">

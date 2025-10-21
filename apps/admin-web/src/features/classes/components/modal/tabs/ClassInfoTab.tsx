@@ -24,7 +24,6 @@ const classInfoSchema = z.object({
   status: z.enum(['ACTIVE','INACTIVE','FULL']),
   subjectId: z.string().optional(),
   room: z.string().optional(),
-  notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof classInfoSchema>;
@@ -60,7 +59,6 @@ export function ClassInfoTab({
       status: (classData.status as any) || 'ACTIVE',
       subjectId: classData.subject_id || '',
       room: classData.room || '',
-      notes: classData.notes || '',
     },
   });
 
@@ -232,19 +230,7 @@ export function ClassInfoTab({
             )}
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea 
-              id="notes" 
-              {...form.register('notes')} 
-              disabled={isLoading} 
-              placeholder="Additional notes about this class"
-              rows={3}
-            />
-            {form.formState.errors.notes && (
-              <p className="text-sm text-red-500">{form.formState.errors.notes.message}</p>
-            )}
-          </div>
+          
 
           <div className="flex justify-end space-x-2">
             <Button
@@ -290,15 +276,7 @@ export function ClassInfoTab({
             <div className="min-w-0">{classData.room || '-'}</div>
           </div>
           
-          {classData.notes && (
-            <>
-              <Separator className="my-4" />
-              <div>
-                <h3 className="text-sm font-medium mb-3">Notes</h3>
-                <p className="text-sm whitespace-pre-wrap">{classData.notes}</p>
-              </div>
-            </>
-          )}
+          
         </>
       )}
     </div>

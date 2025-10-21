@@ -34,10 +34,6 @@ const formSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   studentEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
   studentPhone: z.string().optional().nullish(),
-  parentFirstName: z.string().optional().nullish(),
-  parentLastName: z.string().optional().nullish(),
-  parentEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
-  parentPhone: z.string().optional().nullish(),
   school: z.string().optional().nullish(),
   curriculum: z.string().optional().nullish(),
   yearLevel: z.union([
@@ -76,10 +72,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     lastName: '',
     studentEmail: '',
     studentPhone: '',
-    parentFirstName: '',
-    parentLastName: '',
-    parentEmail: '',
-    parentPhone: '',
     school: '',
     curriculum: '',
     yearLevel: '',
@@ -118,16 +110,12 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
 
     setLoading(true);
     try {
-      const studentData: TablesInsert<'students'> = {
+      const studentData: any = {
         id: crypto.randomUUID(),
         first_name: formData.firstName,
         last_name: formData.lastName,
-        student_email: formData.studentEmail || null,
-        student_phone: formData.studentPhone || null,
-        parent_first_name: formData.parentFirstName || null,
-        parent_last_name: formData.parentLastName || null,
-        parent_email: formData.parentEmail || null,
-        parent_phone: formData.parentPhone || null,
+        email: (formData.studentEmail || null) as any,
+        phone: (formData.studentPhone || null) as any,
         school: formData.school || null,
         curriculum: (formData.curriculum || null) as any,
         year_level: formData.yearLevel ? parseInt(formData.yearLevel) : null,
@@ -165,10 +153,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         lastName: '',
         studentEmail: '',
         studentPhone: '',
-        parentFirstName: '',
-        parentLastName: '',
-        parentEmail: '',
-        parentPhone: '',
         school: '',
         curriculum: '',
         yearLevel: '',
@@ -253,49 +237,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
                   id="studentPhone"
                   value={formData.studentPhone}
                   onChange={(e) => handleInputChange('studentPhone', e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Parent Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Parent Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="parentFirstName">Parent First Name</Label>
-                <Input
-                  id="parentFirstName"
-                  value={formData.parentFirstName}
-                  onChange={(e) => handleInputChange('parentFirstName', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="parentLastName">Parent Last Name</Label>
-                <Input
-                  id="parentLastName"
-                  value={formData.parentLastName}
-                  onChange={(e) => handleInputChange('parentLastName', e.target.value)}
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="parentEmail">Parent Email</Label>
-                <Input
-                  id="parentEmail"
-                  type="email"
-                  value={formData.parentEmail}
-                  onChange={(e) => handleInputChange('parentEmail', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="parentPhone">Parent Phone</Label>
-                <Input
-                  id="parentPhone"
-                  value={formData.parentPhone}
-                  onChange={(e) => handleInputChange('parentPhone', e.target.value)}
                 />
               </div>
             </div>
@@ -416,18 +357,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
                 </label>
               </div>
             </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="Any additional notes about the student..."
-              rows={3}
-            />
           </div>
 
           <DialogFooter>

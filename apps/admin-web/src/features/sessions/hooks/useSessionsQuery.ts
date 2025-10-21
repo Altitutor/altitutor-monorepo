@@ -15,10 +15,10 @@ export const sessionsKeys = {
 };
 
 // Get all sessions with details (optimized query)
-export function useSessionsWithDetails() {
+export function useSessionsWithDetails(args?: { rangeStart?: string; rangeEnd?: string }) {
   return useQuery({
-    queryKey: sessionsKeys.withDetails(),
-    queryFn: sessionsApi.getAllSessionsWithDetails,
+    queryKey: [...sessionsKeys.withDetails(), args?.rangeStart ?? null, args?.rangeEnd ?? null],
+    queryFn: () => sessionsApi.getAllSessionsWithDetails(args),
     staleTime: 1000 * 60 * 1, // 1 minute - sessions change frequently
     gcTime: 1000 * 60 * 3, // 3 minutes
   });
@@ -234,8 +234,8 @@ export function useUpdateAttendance() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sessionId, studentId, attended, notes }: { sessionId: string; studentId: string; attended: boolean; notes?: string }) =>
-      sessionsApi.updateAttendance(sessionId, studentId, attended, notes),
+    mutationFn: ({ sessionId, studentId, attended }: { sessionId: string; studentId: string; attended: boolean }) =>
+      sessionsApi.updateAttendance(sessionId, studentId, attended),
     onSuccess: (_, { sessionId }) => {
       // Invalidate session details to refetch with updated attendance
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });

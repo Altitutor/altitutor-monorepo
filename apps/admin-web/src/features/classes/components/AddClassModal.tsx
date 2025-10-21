@@ -35,7 +35,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [subjectId, setSubjectId] = useState('');
-  const [notes, setNotes] = useState('');
+  
   const [room, setRoom] = useState('');
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +52,6 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         end_time: endTime,
         status: 'ACTIVE',
         subject_id: subjectId || null,
-        notes: notes || null,
         room: room || null,
       };
       await createMutation.mutateAsync(payload);
@@ -74,7 +73,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setStartTime('');
     setEndTime('');
     setSubjectId('');
-    setNotes('');
+    
     setRoom('');
   };
   
@@ -183,16 +182,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Additional notes about this class"
-              rows={3}
-            />
-          </div>
+          
           
           <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
