@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ViewClassModal } from '@/features/classes';
 import { useStudentsWithDetails } from '../hooks/useStudentsQuery';
+import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 
 interface StudentsTableProps {
   onRefresh?: number;
@@ -153,23 +154,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     setIsClassModalOpen(true);
   };
 
-  const getDayOfWeek = (dayOfWeek: number) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days[dayOfWeek] || '';
-  };
-
-  const formatTime = (timeString: string) => {
-    if (!timeString) return '';
-    
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeString)) {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-    }
-    
-    return timeString;
-  };
+  
 
   // Loading state
   if (isLoading && students.length === 0) {
@@ -402,7 +387,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                                   handleClassClick(cls.id);
                                 }}
                               >
-                                {cls.subject} - {getDayOfWeek(cls.day_of_week)} {formatTime(cls.start_time)}
+                                {cls.subject} - {getDayShortName(cls.day_of_week)} {formatTime(cls.start_time)}
                               </Button>
                             ))}
                         </div>

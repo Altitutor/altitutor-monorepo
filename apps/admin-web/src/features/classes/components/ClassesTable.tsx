@@ -29,6 +29,7 @@ import { ViewClassModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { ViewStudentModal } from '@/features/students';
 import { TimetableView } from './TimetableView';
+import { formatTime } from '@/shared/utils/datetime';
 
 interface ClassesTableProps {
   addModalState?: [boolean, Dispatch<SetStateAction<boolean>>];
@@ -153,18 +154,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return days[day] || 'Unknown';
   };
 
-  const formatTime = (timeString: string) => {
-    if (!timeString) return '';
-    
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeString)) {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-    }
-    
-    return timeString;
-  };
+  
 
   const getClassStudents = (classId: string): Tables<'students'>[] => {
     return classStudents[classId] || [];

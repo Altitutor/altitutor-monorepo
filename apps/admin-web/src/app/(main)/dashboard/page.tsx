@@ -7,6 +7,7 @@ import type { Tables } from '@altitutor/shared';
 import { classesApi } from '@/shared/api';
 import { studentsApi } from '@/features/students/api';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
+import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 import { ViewClassModal } from '@/features/classes';
 
@@ -38,18 +39,7 @@ function TodayClassesView({ classes, classSubjects, classStudents, classStaff, o
   // Sort time slots
   const sortedTimeSlots = Object.keys(classesByTime).sort((a, b) => a.localeCompare(b));
 
-  const formatTime = (timeString: string) => {
-    if (!timeString) return '';
-    
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeString)) {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-    }
-    
-    return timeString;
-  };
+  
 
   const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
     if (!classSubjects || !classItem.subject_id) {

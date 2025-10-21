@@ -3,6 +3,7 @@
 import { Card } from '@/components/ui/card';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay } from '@/shared/utils/index';
+import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 
 interface TimetableViewProps {
@@ -198,18 +199,7 @@ export function TimetableView({
     return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
   };
 
-  const formatTime = (timeString: string) => {
-    if (!timeString) return '';
-    
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeString)) {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-    }
-    
-    return timeString;
-  };
+  
 
   if (activeDays.length === 0) {
     return (

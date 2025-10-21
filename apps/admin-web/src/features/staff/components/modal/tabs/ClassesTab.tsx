@@ -8,6 +8,7 @@ import { Loader2, Calendar, Clock, Users, MapPin } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal } from '@/features/classes';
+import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 
 interface ClassesTabProps {
   staff: Tables<'staff'>;
@@ -91,23 +92,7 @@ export function ClassesTab({
     setIsClassModalOpen(true);
   };
 
-  const getDayOfWeek = (day: number) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[day] || 'Unknown';
-  };
-
-  const formatTime = (timeString: string) => {
-    if (!timeString) return '';
-    
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeString)) {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-    }
-    
-    return timeString;
-  };
+  
 
   const getSubjectDisplay = (staffClass: StaffClass): string => {
     if (staffClass.subject) {
