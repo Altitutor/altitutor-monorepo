@@ -22,7 +22,6 @@ export type Database = {
           end_time: string
           id: string
           level: string
-          notes: string | null
           room: string | null
           start_time: string
           status: string
@@ -36,7 +35,6 @@ export type Database = {
           end_time: string
           id: string
           level: string
-          notes?: string | null
           room?: string | null
           start_time: string
           status: string
@@ -50,7 +48,6 @@ export type Database = {
           end_time?: string
           id?: string
           level?: string
-          notes?: string | null
           room?: string | null
           start_time?: string
           status?: string
@@ -70,38 +67,6 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      classes_audit_logs: {
-        Row: {
-          action: string
-          class_id: string
-          created_at: string | null
-          details: Json
-          id: string
-        }
-        Insert: {
-          action: string
-          class_id: string
-          created_at?: string | null
-          details: Json
-          id: string
-        }
-        Update: {
-          action?: string
-          class_id?: string
-          created_at?: string | null
-          details?: Json
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "classes_audit_logs_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
             referencedColumns: ["id"]
           },
         ]
@@ -222,6 +187,390 @@ export type Database = {
           },
         ]
       }
+      contacts: {
+        Row: {
+          contact_type: string
+          created_at: string | null
+          display_name: string | null
+          id: string
+          is_opted_out: boolean
+          opted_out_at: string | null
+          parent_id: string | null
+          phone_e164: string
+          staff_id: string | null
+          student_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          contact_type: string
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          is_opted_out?: boolean
+          opted_out_at?: string | null
+          parent_id?: string | null
+          phone_e164: string
+          staff_id?: string | null
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          contact_type?: string
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          is_opted_out?: boolean
+          opted_out_at?: string | null
+          parent_id?: string | null
+          phone_e164?: string
+          staff_id?: string | null
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_reads: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          id: string
+          last_read_at: string | null
+          last_read_message_id: string | null
+          staff_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          last_read_at?: string | null
+          last_read_message_id?: string | null
+          staff_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          last_read_at?: string | null
+          last_read_message_id?: string | null
+          staff_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_reads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          assigned_staff_id: string | null
+          contact_id: string
+          created_at: string | null
+          created_by_staff_id: string | null
+          id: string
+          is_pinned: boolean
+          last_message_at: string | null
+          last_message_id: string | null
+          owned_number_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_staff_id?: string | null
+          contact_id: string
+          created_at?: string | null
+          created_by_staff_id?: string | null
+          id?: string
+          is_pinned?: boolean
+          last_message_at?: string | null
+          last_message_id?: string | null
+          owned_number_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_staff_id?: string | null
+          contact_id?: string
+          created_at?: string | null
+          created_by_staff_id?: string | null
+          id?: string
+          is_pinned?: boolean
+          last_message_at?: string | null
+          last_message_id?: string | null
+          owned_number_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_owned_number_id_fkey"
+            columns: ["owned_number_id"]
+            isOneToOne: false
+            referencedRelation: "owned_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          account_sid: string | null
+          body: string
+          conversation_id: string
+          created_at: string | null
+          created_by_staff_id: string | null
+          delivered_at: string | null
+          direction: string
+          error_code: number | null
+          error_message: string | null
+          from_number_e164: string
+          id: string
+          message_sid: string | null
+          messaging_service_sid: string | null
+          received_at: string | null
+          sent_at: string | null
+          status: string
+          status_updated_at: string | null
+          to_number_e164: string
+        }
+        Insert: {
+          account_sid?: string | null
+          body: string
+          conversation_id: string
+          created_at?: string | null
+          created_by_staff_id?: string | null
+          delivered_at?: string | null
+          direction: string
+          error_code?: number | null
+          error_message?: string | null
+          from_number_e164: string
+          id?: string
+          message_sid?: string | null
+          messaging_service_sid?: string | null
+          received_at?: string | null
+          sent_at?: string | null
+          status: string
+          status_updated_at?: string | null
+          to_number_e164: string
+        }
+        Update: {
+          account_sid?: string | null
+          body?: string
+          conversation_id?: string
+          created_at?: string | null
+          created_by_staff_id?: string | null
+          delivered_at?: string | null
+          direction?: string
+          error_code?: number | null
+          error_message?: string | null
+          from_number_e164?: string
+          id?: string
+          message_sid?: string | null
+          messaging_service_sid?: string | null
+          received_at?: string | null
+          sent_at?: string | null
+          status?: string
+          status_updated_at?: string | null
+          to_number_e164?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owned_numbers: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_default: boolean
+          label: string | null
+          messaging_service_sid: string | null
+          phone_e164: string
+          twilio_phone_sid: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          messaging_service_sid?: string | null
+          phone_e164: string
+          twilio_phone_sid?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          messaging_service_sid?: string | null
+          phone_e164?: string
+          twilio_phone_sid?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      parents: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          first_name: string
+          id: string
+          invite_token: string | null
+          last_name: string
+          phone: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          first_name: string
+          id?: string
+          invite_token?: string | null
+          last_name: string
+          phone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          first_name?: string
+          id?: string
+          invite_token?: string | null
+          last_name?: string
+          phone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parents_students: {
+        Row: {
+          created_at: string | null
+          id: string
+          parent_id: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          parent_id: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          parent_id?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parents_students_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parents_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_files: {
         Row: {
           answers: Database["public"]["Enums"]["resource_answers"]
@@ -309,11 +658,9 @@ export type Database = {
         Row: {
           class_id: string | null
           created_at: string | null
-          date: string
-          end_time: string | null
+          end_at: string | null
           id: string
-          notes: string | null
-          start_time: string | null
+          start_at: string | null
           subject_id: string | null
           type: string
           updated_at: string | null
@@ -321,11 +668,9 @@ export type Database = {
         Insert: {
           class_id?: string | null
           created_at?: string | null
-          date: string
-          end_time?: string | null
+          end_at?: string | null
           id: string
-          notes?: string | null
-          start_time?: string | null
+          start_at?: string | null
           subject_id?: string | null
           type: string
           updated_at?: string | null
@@ -333,11 +678,9 @@ export type Database = {
         Update: {
           class_id?: string | null
           created_at?: string | null
-          date?: string
-          end_time?: string | null
+          end_at?: string | null
           id?: string
-          notes?: string | null
-          start_time?: string | null
+          start_at?: string | null
           subject_id?: string | null
           type?: string
           updated_at?: string | null
@@ -469,7 +812,6 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
-          notes: string | null
           session_id: string
           student_id: string
           updated_at: string | null
@@ -479,7 +821,6 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id: string
-          notes?: string | null
           session_id: string
           student_id: string
           updated_at?: string | null
@@ -489,7 +830,6 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
-          notes?: string | null
           session_id?: string
           student_id?: string
           updated_at?: string | null
@@ -595,38 +935,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
-      }
-      staff_audit_logs: {
-        Row: {
-          action: string
-          created_at: string | null
-          details: Json
-          id: string
-          staff_id: string
-        }
-        Insert: {
-          action: string
-          created_at?: string | null
-          details: Json
-          id: string
-          staff_id: string
-        }
-        Update: {
-          action?: string
-          created_at?: string | null
-          details?: Json
-          id?: string
-          staff_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_audit_logs_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       staff_subjects: {
         Row: {
@@ -797,38 +1105,6 @@ export type Database = {
           },
         ]
       }
-      student_audit_logs: {
-        Row: {
-          action: string
-          created_at: string | null
-          details: Json
-          id: string
-          student_id: string
-        }
-        Insert: {
-          action: string
-          created_at?: string | null
-          details: Json
-          id: string
-          student_id: string
-        }
-        Update: {
-          action?: string
-          created_at?: string | null
-          details?: Json
-          id?: string
-          student_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "student_audit_logs_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       students: {
         Row: {
           availability_friday: boolean | null
@@ -843,19 +1119,16 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           curriculum: string | null
+          email: string | null
           first_name: string
           id: string
           invite_token: string | null
           last_name: string
-          notes: string | null
-          parent_email: string | null
           parent_first_name: string | null
           parent_last_name: string | null
-          parent_phone: string | null
+          phone: string | null
           school: string | null
           status: string
-          student_email: string | null
-          student_phone: string | null
           updated_at: string | null
           user_id: string | null
           year_level: number | null
@@ -873,19 +1146,16 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           curriculum?: string | null
+          email?: string | null
           first_name: string
           id?: string
           invite_token?: string | null
           last_name: string
-          notes?: string | null
-          parent_email?: string | null
           parent_first_name?: string | null
           parent_last_name?: string | null
-          parent_phone?: string | null
+          phone?: string | null
           school?: string | null
           status: string
-          student_email?: string | null
-          student_phone?: string | null
           updated_at?: string | null
           user_id?: string | null
           year_level?: number | null
@@ -903,19 +1173,16 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           curriculum?: string | null
+          email?: string | null
           first_name?: string
           id?: string
           invite_token?: string | null
           last_name?: string
-          notes?: string | null
-          parent_email?: string | null
           parent_first_name?: string | null
           parent_last_name?: string | null
-          parent_phone?: string | null
+          phone?: string | null
           school?: string | null
           status?: string
-          student_email?: string | null
-          student_phone?: string | null
           updated_at?: string | null
           user_id?: string | null
           year_level?: number | null
@@ -1050,56 +1317,6 @@ export type Database = {
           },
         ]
       }
-      tasks: {
-        Row: {
-          assigned_to: string | null
-          created_at: string | null
-          description: string | null
-          due_date: string | null
-          id: string
-          priority: string
-          related_id: string
-          related_to: string
-          status: string
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          priority: string
-          related_id: string
-          related_to: string
-          status: string
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          priority?: string
-          related_id?: string
-          related_to?: string
-          status?: string
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       topics: {
         Row: {
           area: string | null
@@ -1143,81 +1360,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_student_subject: {
-        Args: { p_student_id: string; p_subject_id: string }
-        Returns: boolean
-      }
-      add_student_subjects: {
-        Args: { student_id: string; subject_ids: string[] }
-        Returns: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          student_id: string
-          subject_id: string
-          updated_at: string | null
-        }[]
-      }
-      create_admin_staff: {
-        Args: { p_email: string; p_user_id: string }
-        Returns: string
-      }
-      create_student: {
-        Args:
-          | {
-              availability_friday?: boolean
-              availability_monday?: boolean
-              availability_saturday_am?: boolean
-              availability_saturday_pm?: boolean
-              availability_sunday_am?: boolean
-              availability_sunday_pm?: boolean
-              availability_thursday?: boolean
-              availability_tuesday?: boolean
-              availability_wednesday?: boolean
-              curriculum: string
-              first_name: string
-              last_name: string
-              parent_email: string
-              parent_first_name: string
-              parent_last_name: string
-              parent_phone: string
-              school: string
-              student_email: string
-              student_phone: string
-              year_level: number
-            }
-          | {
-              p_curriculum: string
-              p_first_name: string
-              p_last_name: string
-              p_parent_email: string
-              p_parent_first_name: string
-              p_parent_last_name: string
-              p_parent_phone: string
-              p_school: string
-              p_student_email: string
-              p_student_phone?: string
-              p_user_id: string
-              p_year_level: number
-            }
-        Returns: string
-      }
-      debug_auth_info: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          current_user_id: string
-          current_user_role: string
-          is_auth_function_adminstaff: boolean
-          is_auth_function_staff: boolean
-          is_direct_lookup_adminstaff: boolean
-          is_direct_lookup_staff: boolean
-          jwt_claims: string
-        }[]
-      }
-      get_staff_id_by_name: {
-        Args: { first_name_param: string; last_name_param: string }
-        Returns: string
-      }
       get_student_subjects: {
         Args: { student_id: string }
         Returns: {
@@ -1254,10 +1396,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
-      is_student_profile_complete: {
-        Args: { student_id: string }
-        Returns: boolean
-      }
       map_day_to_number: {
         Args: { day_string: string }
         Returns: number
@@ -1270,47 +1408,21 @@ export type Database = {
         Args: { first_name: string; last_name: string }
         Returns: string
       }
-      repair_student_accounts: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
+      precreate_sessions: {
+        Args: {
+          end_date: string
+          p_class_id?: string
+          p_created_by: string
+          start_date: string
+        }
+        Returns: number
       }
       resend_confirmation_email: {
         Args: { email_address: string }
         Returns: string
       }
-      select_student_subjects: {
-        Args: { p_student_id: string; p_subject_ids: string[] }
-        Returns: boolean
-      }
       set_claim: {
         Args: { claim: string; uid: string; value: Json }
-        Returns: undefined
-      }
-      student_select_subjects: {
-        Args: { p_student_id: string; p_subject_ids: string[] }
-        Returns: Json
-      }
-      update_staff_by_first_name: {
-        Args: {
-          p_avail_fri: boolean
-          p_avail_mon: boolean
-          p_avail_sat_am: boolean
-          p_avail_sat_pm: boolean
-          p_avail_sun_am: boolean
-          p_avail_sun_pm: boolean
-          p_avail_thu: boolean
-          p_avail_tue: boolean
-          p_avail_wed: boolean
-          p_email: string
-          p_first_name: string
-          p_last_name: string
-          p_notes: string
-          p_office_key: string
-          p_parking_remote: string
-          p_phone: string
-          p_role: string
-          p_status: string
-        }
         Returns: undefined
       }
       verify_email: {
