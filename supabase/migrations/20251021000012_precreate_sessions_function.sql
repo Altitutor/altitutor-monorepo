@@ -39,6 +39,10 @@ DECLARE
   c RECORD;
   inserted_count INTEGER := 0;
   new_session_id UUID;
+  start_local TIMESTAMP;
+  end_local TIMESTAMP;
+  s_at TIMESTAMPTZ;
+  e_at TIMESTAMPTZ;
 BEGIN
   IF start_date IS NULL OR end_date IS NULL OR start_date > end_date THEN
     RETURN 0;
@@ -57,41 +61,35 @@ BEGIN
         -- Build start/end timestamps using DB timezone
         -- Interpret class times as local times on date d
         -- Note: classes.start_time/end_time are TEXT 'HH24:MI'
-        DECLARE start_local TIMESTAMP;
-        DECLARE end_local TIMESTAMP;
-        DECLARE s_at TIMESTAMPTZ;
-        DECLARE e_at TIMESTAMPTZ;
-        BEGIN
-          start_local := (to_char(d, 'YYYY-MM-DD') || ' ' || COALESCE(c.start_time, '00:00'))::timestamp;
-          end_local := (to_char(d, 'YYYY-MM-DD') || ' ' || COALESCE(c.end_time, COALESCE(c.start_time, '00:00')))::timestamp;
-          s_at := start_local AT TIME ZONE current_setting('TimeZone');
-          e_at := end_local AT TIME ZONE current_setting('TimeZone');
+        start_local := (to_char(d, 'YYYY-MM-DD') || ' ' || COALESCE(c.start_time, '00:00'))::timestamp;
+        end_local := (to_char(d, 'YYYY-MM-DD') || ' ' || COALESCE(c.end_time, COALESCE(c.start_time, '00:00')))::timestamp;
+        s_at := start_local AT TIME ZONE current_setting('TimeZone');
+        e_at := end_local AT TIME ZONE current_setting('TimeZone');
 
-          -- Find existing session for this class/start/end
-          SELECT s.id
-          INTO new_session_id
-          FROM public.sessions s
-          WHERE s.class_id = c.id
-            AND s.start_at = s_at
-            AND s.end_at = e_at
-          LIMIT 1;
+        -- Find existing session for this class/start/end
+        SELECT s.id
+        INTO new_session_id
+        FROM public.sessions s
+        WHERE s.class_id = c.id
+          AND s.start_at = s_at
+          AND s.end_at = e_at
+        LIMIT 1;
 
-          -- If not found, create it
-          IF new_session_id IS NULL THEN
-            INSERT INTO public.sessions(
-              id, start_at, end_at, type, class_id, subject_id, notes
-            ) VALUES (
-              uuid_generate_v4(),
-              s_at,
-              e_at,
-              'CLASS',
-              c.id,
-              c.subject_id,
-              NULL
-            ) RETURNING id INTO new_session_id;
-            inserted_count := inserted_count + 1;
-          END IF;
-        END;
+        -- If not found, create it
+        IF new_session_id IS NULL THEN
+          INSERT INTO public.sessions(
+            id, start_at, end_at, type, class_id, subject_id, notes
+          ) VALUES (
+            uuid_generate_v4(),
+            s_at,
+            e_at,
+            'CLASS',
+            c.id,
+            c.subject_id,
+            NULL
+          ) RETURNING id INTO new_session_id;
+          inserted_count := inserted_count + 1;
+        END IF;
 
         -- Precreate planned students for the session (classes_students active on this date)
         INSERT INTO public.sessions_students (id, session_id, student_id, attended, created_by)
@@ -129,7 +127,7 @@ BEGIN
             WHERE sf.session_id = new_session_id AND sf.staff_id = cst.staff_id
           );
       END IF;
-      d := d + INTERVAL '1 day';
+      d := d + 1;
     END WHILE;
   END LOOP;
 
