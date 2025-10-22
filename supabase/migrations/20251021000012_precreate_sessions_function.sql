@@ -28,7 +28,7 @@ ALTER TABLE public.sessions
 CREATE OR REPLACE FUNCTION public.precreate_sessions(
   start_date DATE,
   end_date DATE,
-  created_by UUID,
+  p_created_by UUID,
   p_class_id UUID DEFAULT NULL
 )
 RETURNS INTEGER
@@ -97,7 +97,7 @@ BEGIN
           new_session_id,
           cs.student_id,
           FALSE,
-          created_by
+          p_created_by
         FROM public.classes_students cs
         WHERE cs.class_id = c.id
           AND cs.status IN ('ACTIVE', 'TRIAL')
@@ -115,7 +115,7 @@ BEGIN
           new_session_id,
           cst.staff_id,
           'MAIN_TUTOR',
-          created_by
+          p_created_by
         FROM public.classes_staff cst
         WHERE cst.class_id = c.id
           AND cst.status = 'ACTIVE'
