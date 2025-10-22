@@ -78,15 +78,14 @@ BEGIN
         -- If not found, create it
         IF new_session_id IS NULL THEN
           INSERT INTO public.sessions(
-            id, start_at, end_at, type, class_id, subject_id, notes
+            id, start_at, end_at, type, class_id, subject_id
           ) VALUES (
             uuid_generate_v4(),
             s_at,
             e_at,
             'CLASS',
             c.id,
-            c.subject_id,
-            NULL
+            c.subject_id
           ) RETURNING id INTO new_session_id;
           inserted_count := inserted_count + 1;
         END IF;
@@ -128,7 +127,7 @@ BEGIN
           );
       END IF;
       d := d + 1;
-    END WHILE;
+    END LOOP;
   END LOOP;
 
   RETURN inserted_count;
