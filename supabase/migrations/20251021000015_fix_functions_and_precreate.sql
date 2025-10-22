@@ -25,6 +25,9 @@ END $$;
 -- ========================
 -- RE-CREATE precreate_sessions WITH DISAMBIGUATED PARAM NAMES
 -- ========================
+-- Drop old signature first (cannot change parameter names with CREATE OR REPLACE)
+DROP FUNCTION IF EXISTS public.precreate_sessions(date, date, uuid, uuid);
+
 CREATE OR REPLACE FUNCTION public.precreate_sessions(
   start_date DATE,
   end_date DATE,
