@@ -394,6 +394,7 @@ export type Database = {
           status: string
           status_updated_at: string | null
           to_number_e164: string
+          updated_at: string | null
         }
         Insert: {
           account_sid?: string | null
@@ -414,6 +415,7 @@ export type Database = {
           status: string
           status_updated_at?: string | null
           to_number_e164: string
+          updated_at?: string | null
         }
         Update: {
           account_sid?: string | null
@@ -434,6 +436,7 @@ export type Database = {
           status?: string
           status_updated_at?: string | null
           to_number_e164?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -1373,6 +1376,12 @@ export type Database = {
           updated_at: string | null
           year_level: number | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "subjects"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_subjects_for_student: {
         Args: { p_curriculum: string; p_year_level: number }
@@ -1387,23 +1396,20 @@ export type Database = {
           updated_at: string | null
           year_level: number | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "subjects"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
       }
-      is_adminstaff_active: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      map_day_to_number: {
-        Args: { day_string: string }
-        Returns: number
-      }
-      map_subject_to_id: {
-        Args: { subject_code: string }
-        Returns: string
-      }
+      is_adminstaff_active: { Args: never; Returns: boolean }
+      map_day_to_number: { Args: { day_string: string }; Returns: number }
+      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -1425,10 +1431,7 @@ export type Database = {
         Args: { claim: string; uid: string; value: Json }
         Returns: undefined
       }
-      verify_email: {
-        Args: { user_email: string }
-        Returns: undefined
-      }
+      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       resource_answers: "BLANK" | "ANSWERS"
