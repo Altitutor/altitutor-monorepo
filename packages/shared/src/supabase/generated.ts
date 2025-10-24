@@ -1703,7 +1703,7 @@ export type Database = {
         Args: {
           end_date: string
           p_class_id?: string
-          p_created_by: string
+          p_created_by?: string
           start_date: string
         }
         Returns: number
