@@ -374,6 +374,59 @@ export type Database = {
           },
         ]
       }
+      files: {
+        Row: {
+          bucket: string
+          created_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          filename: string
+          id: string
+          metadata: Json | null
+          mimetype: string
+          size_bytes: number
+          storage_path: string
+          storage_provider: string
+          updated_at: string | null
+        }
+        Insert: {
+          bucket: string
+          created_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          filename: string
+          id?: string
+          metadata?: Json | null
+          mimetype: string
+          size_bytes: number
+          storage_path: string
+          storage_provider?: string
+          updated_at?: string | null
+        }
+        Update: {
+          bucket?: string
+          created_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          filename?: string
+          id?: string
+          metadata?: Json | null
+          mimetype?: string
+          size_bytes?: number
+          storage_path?: string
+          storage_provider?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           account_sid: string | null
@@ -574,57 +627,6 @@ export type Database = {
           },
         ]
       }
-      resource_files: {
-        Row: {
-          answers: Database["public"]["Enums"]["resource_answers"]
-          created_at: string | null
-          file_url: string
-          id: string
-          number: number | null
-          subtopic_id: string | null
-          topic_id: string | null
-          type: Database["public"]["Enums"]["resource_type"]
-          updated_at: string | null
-        }
-        Insert: {
-          answers?: Database["public"]["Enums"]["resource_answers"]
-          created_at?: string | null
-          file_url: string
-          id?: string
-          number?: number | null
-          subtopic_id?: string | null
-          topic_id?: string | null
-          type: Database["public"]["Enums"]["resource_type"]
-          updated_at?: string | null
-        }
-        Update: {
-          answers?: Database["public"]["Enums"]["resource_answers"]
-          created_at?: string | null
-          file_url?: string
-          id?: string
-          number?: number | null
-          subtopic_id?: string | null
-          topic_id?: string | null
-          type?: Database["public"]["Enums"]["resource_type"]
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "resource_files_subtopic_id_fkey"
-            columns: ["subtopic_id"]
-            isOneToOne: false
-            referencedRelation: "subtopics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "resource_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       session_audit_logs: {
         Row: {
           action: string
@@ -701,55 +703,6 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sessions_resource_files: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          resource_file_id: string
-          session_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          resource_file_id: string
-          session_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          resource_file_id?: string
-          session_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_resource_files_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_resource_files_resource_file_id_fkey"
-            columns: ["resource_file_id"]
-            isOneToOne: false
-            referencedRelation: "resource_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_resource_files_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -1285,75 +1238,125 @@ export type Database = {
         }
         Relationships: []
       }
-      subtopics: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-          number: number
-          topic_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-          number: number
-          topic_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-          number?: number
-          topic_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "subtopics_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       topics: {
         Row: {
-          area: string | null
           created_at: string | null
+          created_by: string | null
           id: string
+          index: number
           name: string
-          number: number
+          parent_id: string | null
           subject_id: string
           updated_at: string | null
         }
         Insert: {
-          area?: string | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
+          index: number
           name: string
-          number: number
+          parent_id?: string | null
           subject_id: string
           updated_at?: string | null
         }
         Update: {
-          area?: string | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
+          index?: number
           name?: string
-          number?: number
+          parent_id?: string | null
           subject_id?: string
           updated_at?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics_files: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          file_id: string
+          id: string
+          index: number
+          is_solutions: boolean
+          is_solutions_of_id: string | null
+          topic_id: string
+          type: Database["public"]["Enums"]["resource_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          file_id: string
+          id?: string
+          index: number
+          is_solutions?: boolean
+          is_solutions_of_id?: string | null
+          topic_id: string
+          type: Database["public"]["Enums"]["resource_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          file_id?: string
+          id?: string
+          index?: number
+          is_solutions?: boolean
+          is_solutions_of_id?: string | null
+          topic_id?: string
+          type?: Database["public"]["Enums"]["resource_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
             referencedColumns: ["id"]
           },
         ]
