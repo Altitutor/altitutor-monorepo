@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { TopicsHierarchy, AddTopicModal, AddResourceFileModal, ViewTopicModal } from '@/features/topics';
+import { useTopics } from '@/features/topics/hooks';
 import {
   Sheet,
   SheetContent,
@@ -75,6 +77,16 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  
+  // Topics modals state
+  const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
+  const [addTopicParentId, setAddTopicParentId] = useState<string | undefined>(undefined);
+  const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
+  const [addResourceTopicId, setAddResourceTopicId] = useState<string | undefined>(undefined);
+  const [viewTopicId, setViewTopicId] = useState<string | null>(null);
+  const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
+  
+  const { data: allTopics = [], refetch: refetchTopics } = useTopics();
   
   const formSchema = z.object({
     name: z.string().min(1, "Subject name is required"),
@@ -224,20 +236,21 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={(isOpen) => {
-      if (!isOpen) onClose();
-    }}>
-      <SheetContent className="h-full max-h-[100vh] overflow-auto">
-        <SheetHeader className="mb-6">
-          <SheetTitle className="text-xl">
-            {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
-          </SheetTitle>
-          {!loading && subject && (
-            <SheetDescription className="text-lg font-medium">
-              {subject.name}
-            </SheetDescription>
-          )}
-        </SheetHeader>
+    <>
+      <Sheet open={isOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}>
+        <SheetContent className="h-full max-h-[100vh] overflow-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="text-xl">
+              {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
+            </SheetTitle>
+            {!loading && subject && (
+              <SheetDescription className="text-lg font-medium">
+                {subject.name}
+              </SheetDescription>
+            )}
+          </SheetHeader>
 
         {loading ? (
           <div className="flex justify-center items-center py-12">
@@ -401,19 +414,26 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                 
                 <Separator className="my-4" />
                 
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" className="flex items-center" onClick={() => navigateTo('/dashboard/topics')}>
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Topics
-                  </Button>
-                  <Button variant="outline" className="flex items-center" onClick={() => navigateTo('/dashboard/students')}>
-                    <Users className="mr-2 h-4 w-4" />
-                    Students
-                  </Button>
-                  <Button variant="outline" className="flex items-center" onClick={() => navigateTo('/dashboard/staff')}>
-                    <UserCog className="mr-2 h-4 w-4" />
-                    Staff
-                  </Button>
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Topics</h3>
+                  <TopicsHierarchy
+                    subjectId={subject.id}
+                    showAddTopic={true}
+                    showAddResource={true}
+                    onTopicClick={(id) => {
+                      setViewTopicId(id);
+                      setIsViewTopicModalOpen(true);
+                    }}
+                    onAddTopicClick={(parentId) => {
+                      setAddTopicParentId(parentId);
+                      setIsAddTopicModalOpen(true);
+                    }}
+                    onAddResourceClick={(topicId) => {
+                      setAddResourceTopicId(topicId);
+                      setIsAddResourceModalOpen(true);
+                    }}
+                    allTopics={allTopics}
+                  />
                 </div>
               </div>
             )}
@@ -492,5 +512,39 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         )}
       </SheetContent>
     </Sheet>
+    
+    {/* Topics Modals */}
+    <AddTopicModal
+      isOpen={isAddTopicModalOpen}
+      onClose={() => {
+        setIsAddTopicModalOpen(false);
+        refetchTopics();
+      }}
+      preselectedSubjectId={subjectId || undefined}
+      preselectedParentId={addTopicParentId}
+      onTopicAdded={() => refetchTopics()}
+    />
+    
+    <AddResourceFileModal
+      isOpen={isAddResourceModalOpen}
+      onClose={() => {
+        setIsAddResourceModalOpen(false);
+        refetchTopics();
+      }}
+      preselectedSubjectId={subjectId || undefined}
+      preselectedTopicId={addResourceTopicId}
+      onResourceAdded={() => refetchTopics()}
+    />
+    
+    <ViewTopicModal
+      isOpen={isViewTopicModalOpen}
+      onClose={() => {
+        setIsViewTopicModalOpen(false);
+        refetchTopics();
+      }}
+      topicId={viewTopicId}
+      onTopicUpdated={() => refetchTopics()}
+    />
+    </>
   );
 } 

@@ -1,232 +1,227 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { topicsApi } from '../api/topics';
-import type { Tables, TablesUpdate, TablesInsert } from '@altitutor/shared';
+import { topicsApi } from '../api';
+import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import { useToast } from '@altitutor/ui';
 
-// Query Keys
+/**
+ * React Query hooks for topics
+ */
+
+// Query keys
 export const topicsKeys = {
   all: ['topics'] as const,
-  lists: () => [...topicsKeys.all, 'list'] as const,
-  list: (filters: string) => [...topicsKeys.lists(), { filters }] as const,
-  details: () => [...topicsKeys.all, 'detail'] as const,
-  detail: (id: string) => [...topicsKeys.details(), id] as const,
-  withSubjects: () => [...topicsKeys.all, 'withSubjects'] as const,
-  bySubject: (subjectId: string) => [...topicsKeys.all, 'bySubject', subjectId] as const,
-  subtopics: {
-    all: ['subtopics'] as const,
-    lists: () => [...topicsKeys.subtopics.all, 'list'] as const,
-    details: () => [...topicsKeys.subtopics.all, 'detail'] as const,
-    detail: (id: string) => [...topicsKeys.subtopics.details(), id] as const,
-    byTopic: (topicId: string) => [...topicsKeys.subtopics.all, 'byTopic', topicId] as const,
-    withTopics: () => [...topicsKeys.subtopics.all, 'withTopics'] as const,
-  },
+  byId: (id: string) => ['topics', id] as const,
+  bySubject: (subjectId: string) => ['topics', 'subject', subjectId] as const,
+  byParent: (parentId: string) => ['topics', 'parent', parentId] as const,
+  hierarchy: (subjectId: string) => ['topics', 'hierarchy', subjectId] as const,
+  roots: (subjectId: string) => ['topics', 'roots', subjectId] as const,
+  withSubjects: () => ['topics', 'with-subjects'] as const,
 };
 
-// Get all topics
+/**
+ * Get all topics
+ */
 export function useTopics() {
   return useQuery({
-    queryKey: topicsKeys.lists(),
-    queryFn: topicsApi.getAllTopics,
-    staleTime: 1000 * 60 * 5, // 5 minutes - topics don't change often
-    gcTime: 1000 * 60 * 15, // 15 minutes
+    queryKey: topicsKeys.all,
+    queryFn: () => topicsApi.getAllTopics(),
   });
 }
 
-// Get topics with subjects
+/**
+ * Get a single topic by ID
+ */
+export function useTopicById(id: string | null) {
+  return useQuery({
+    queryKey: topicsKeys.byId(id!),
+    queryFn: () => topicsApi.getTopic(id!),
+    enabled: !!id,
+  });
+}
+
+/**
+ * Get topics by subject
+ */
+export function useTopicsBySubject(subjectId: string | null) {
+  return useQuery({
+    queryKey: topicsKeys.bySubject(subjectId!),
+    queryFn: () => topicsApi.getTopicsBySubject(subjectId!),
+    enabled: !!subjectId,
+  });
+}
+
+/**
+ * Get child topics of a parent
+ */
+export function useChildTopics(parentId: string | null) {
+  return useQuery({
+    queryKey: topicsKeys.byParent(parentId!),
+    queryFn: () => topicsApi.getChildTopics(parentId!),
+    enabled: !!parentId,
+  });
+}
+
+/**
+ * Get root topics for a subject
+ */
+export function useRootTopics(subjectId: string | null) {
+  return useQuery({
+    queryKey: topicsKeys.roots(subjectId!),
+    queryFn: () => topicsApi.getRootTopics(subjectId!),
+    enabled: !!subjectId,
+  });
+}
+
+/**
+ * Get topic hierarchy tree for a subject
+ */
+export function useTopicHierarchy(subjectId: string | null) {
+  return useQuery({
+    queryKey: topicsKeys.hierarchy(subjectId!),
+    queryFn: () => topicsApi.getTopicHierarchy(subjectId!),
+    enabled: !!subjectId,
+  });
+}
+
+/**
+ * Get topics with subjects
+ */
 export function useTopicsWithSubjects() {
   return useQuery({
     queryKey: topicsKeys.withSubjects(),
-    queryFn: topicsApi.getTopicsWithSubjects,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15, // 15 minutes
+    queryFn: () => topicsApi.getTopicsWithSubjects(),
   });
 }
 
-// Get single topic
-export function useTopic(topicId: string) {
-  return useQuery({
-    queryKey: topicsKeys.detail(topicId),
-    queryFn: () => topicsApi.getTopic(topicId),
-    enabled: !!topicId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15, // 15 minutes
-  });
-}
-
-// Get topics by subject
-export function useTopicsBySubject(subjectId: string) {
-  return useQuery({
-    queryKey: topicsKeys.bySubject(subjectId),
-    queryFn: () => topicsApi.getTopicsBySubject(subjectId),
-    enabled: !!subjectId,
-    staleTime: 1000 * 60 * 3, // 3 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
-  });
-}
-
-// Get subtopics by topic
-export function useSubtopicsByTopic(topicId: string) {
-  return useQuery({
-    queryKey: topicsKeys.subtopics.byTopic(topicId),
-    queryFn: () => topicsApi.getSubtopicsByTopic(topicId),
-    enabled: !!topicId,
-    staleTime: 1000 * 60 * 3, // 3 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
-  });
-}
-
-// Get single subtopic
-export function useSubtopic(subtopicId: string) {
-  return useQuery({
-    queryKey: topicsKeys.subtopics.detail(subtopicId),
-    queryFn: () => topicsApi.getSubtopic(subtopicId),
-    enabled: !!subtopicId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15, // 15 minutes
-  });
-}
-
-// Get all subtopics with topics
-export function useSubtopicsWithTopics() {
-  return useQuery({
-    queryKey: topicsKeys.subtopics.withTopics(),
-    queryFn: topicsApi.getAllSubtopicsWithTopics,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15, // 15 minutes
-  });
-}
-
-// Topic Mutations
+/**
+ * Create a topic
+ */
 export function useCreateTopic() {
   const queryClient = useQueryClient();
-
+  const { toast } = useToast();
+  
   return useMutation({
-    mutationFn: topicsApi.createTopic,
-    onSuccess: (newTopic) => {
-      // Invalidate and refetch topics lists
+    mutationFn: (data: Omit<TablesInsert<'topics'>, 'index'>) => topicsApi.createTopic(data),
+    onSuccess: (data) => {
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: topicsKeys.all });
+      queryClient.invalidateQueries({ queryKey: topicsKeys.bySubject(data.subject_id) });
+      if (data.parent_id) {
+        queryClient.invalidateQueries({ queryKey: topicsKeys.byParent(data.parent_id) });
+      } else {
+        queryClient.invalidateQueries({ queryKey: topicsKeys.roots(data.subject_id) });
+      }
+      queryClient.invalidateQueries({ queryKey: topicsKeys.hierarchy(data.subject_id) });
+      queryClient.invalidateQueries({ queryKey: topicsKeys.withSubjects() });
       
-      // Optimistically add the new topic to the cache
-      queryClient.setQueryData(topicsKeys.lists(), (old: Tables<'topics'>[] | undefined) => {
-        if (!old) return [newTopic];
-        return [...old, newTopic];
+      toast({
+        title: 'Success',
+        description: 'Topic created successfully',
       });
-      
-      // Also invalidate subject queries since topics are related to subjects
-      queryClient.invalidateQueries({ queryKey: ['subjects'] });
+    },
+    onError: (error) => {
+      console.error('Failed to create topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create topic',
+        variant: 'destructive',
+      });
     },
   });
 }
 
+/**
+ * Update a topic
+ */
 export function useUpdateTopic() {
   const queryClient = useQueryClient();
-
+  const { toast } = useToast();
+  
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'topics'> }) =>
       topicsApi.updateTopic(id, data),
-    onSuccess: (updatedTopic, { id }) => {
-      // Update the topic in the detail cache
-      queryClient.setQueryData(topicsKeys.detail(id), updatedTopic);
-
-      // Update in the main topics list
-      queryClient.setQueryData(topicsKeys.lists(), (old: Tables<'topics'>[] | undefined) => {
-        if (!old) return [updatedTopic];
-        return old.map((topic) =>
-          topic.id === id ? updatedTopic : topic
-        );
-      });
-
-      // Invalidate related queries
+    onSuccess: (data) => {
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: topicsKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['subjects'] });
+      queryClient.invalidateQueries({ queryKey: topicsKeys.byId(data.id) });
+      queryClient.invalidateQueries({ queryKey: topicsKeys.bySubject(data.subject_id) });
+      if (data.parent_id) {
+        queryClient.invalidateQueries({ queryKey: topicsKeys.byParent(data.parent_id) });
+      }
+      queryClient.invalidateQueries({ queryKey: topicsKeys.hierarchy(data.subject_id) });
+      queryClient.invalidateQueries({ queryKey: topicsKeys.withSubjects() });
+      
+      toast({
+        title: 'Success',
+        description: 'Topic updated successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to update topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update topic',
+        variant: 'destructive',
+      });
     },
   });
 }
 
+/**
+ * Delete a topic
+ */
 export function useDeleteTopic() {
   const queryClient = useQueryClient();
-
+  const { toast } = useToast();
+  
   return useMutation({
-    mutationFn: topicsApi.deleteTopic,
-    onSuccess: (_, deletedId) => {
-      // Remove from all caches
-      queryClient.removeQueries({ queryKey: topicsKeys.detail(deletedId) });
+    mutationFn: (id: string) => topicsApi.deleteTopic(id),
+    onSuccess: () => {
+      // Invalidate all topics queries
+      queryClient.invalidateQueries({ queryKey: topicsKeys.all });
       
-      // Remove from lists
-      queryClient.setQueryData(topicsKeys.lists(), (old: Tables<'topics'>[] | undefined) => {
-        if (!old) return [];
-        return old.filter((topic) => topic.id !== deletedId);
+      toast({
+        title: 'Success',
+        description: 'Topic deleted successfully',
       });
-
-      // Invalidate all topic queries
-      queryClient.invalidateQueries({ queryKey: topicsKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['subjects'] });
-      
-      // Also invalidate subtopics since they depend on topics
-      queryClient.invalidateQueries({ queryKey: topicsKeys.subtopics.all });
+    },
+    onError: (error) => {
+      console.error('Failed to delete topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete topic',
+        variant: 'destructive',
+      });
     },
   });
 }
 
-// Subtopic Mutations
-export function useCreateSubtopic() {
+/**
+ * Batch update topic indices
+ */
+export function useUpdateTopicIndices() {
   const queryClient = useQueryClient();
-
+  const { toast } = useToast();
+  
   return useMutation({
-    mutationFn: topicsApi.createSubtopic,
-    onSuccess: (newSubtopic) => {
-      // Invalidate and refetch subtopics lists
-      queryClient.invalidateQueries({ queryKey: topicsKeys.subtopics.all });
-      
-      // Invalidate the specific topic's subtopics
-      if ((newSubtopic as Tables<'subtopics'>).topic_id) {
-        queryClient.invalidateQueries({ 
-          queryKey: topicsKeys.subtopics.byTopic((newSubtopic as Tables<'subtopics'>).topic_id) 
-        });
-      }
-      
-      // Also invalidate topic queries since subtopics are related to topics
+    mutationFn: (updates: Array<{ id: string; index: number }>) =>
+      topicsApi.updateTopicIndices(updates),
+    onSuccess: () => {
+      // Invalidate all topics queries
       queryClient.invalidateQueries({ queryKey: topicsKeys.all });
+      
+      toast({
+        title: 'Success',
+        description: 'Topic order updated successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to update topic order:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update topic order',
+        variant: 'destructive',
+      });
     },
   });
 }
-
-export function useUpdateSubtopic() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'subtopics'> }) =>
-      topicsApi.updateSubtopic(id, data),
-    onSuccess: (updatedSubtopic, { id }) => {
-      // Update the subtopic in the detail cache
-      queryClient.setQueryData(topicsKeys.subtopics.detail(id), updatedSubtopic);
-
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: topicsKeys.subtopics.all });
-      
-      // Invalidate the specific topic's subtopics
-      if ((updatedSubtopic as Tables<'subtopics'>).topic_id) {
-        queryClient.invalidateQueries({ 
-          queryKey: topicsKeys.subtopics.byTopic((updatedSubtopic as Tables<'subtopics'>).topic_id) 
-        });
-      }
-      
-      queryClient.invalidateQueries({ queryKey: topicsKeys.all });
-    },
-  });
-}
-
-export function useDeleteSubtopic() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: topicsApi.deleteSubtopic,
-    onSuccess: (_, deletedId) => {
-      // Remove from all caches
-      queryClient.removeQueries({ queryKey: topicsKeys.subtopics.detail(deletedId) });
-
-      // Invalidate all subtopic queries
-      queryClient.invalidateQueries({ queryKey: topicsKeys.subtopics.all });
-      queryClient.invalidateQueries({ queryKey: topicsKeys.all });
-    },
-  });
-} 

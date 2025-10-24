@@ -1,19 +1,25 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useMemo, useState, useEffect } from 'react';
 import { SessionsTable } from '@/features/sessions';
 import { SessionsCalendarView } from '@/features/sessions';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { Button, Input, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { usePrecreateSessions } from '@/features/sessions';
+import { addDays, format } from 'date-fns';
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
   const viewParam = search.get('view') || 'table';
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [day, setDay] = useState<string>(new Date().toISOString().slice(0, 10));
   const { mutate: precreate, isPending } = usePrecreateSessions();
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
+  const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
 
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
@@ -21,10 +27,29 @@ export default function SessionsPage() {
     router.push(`/admin/dashboard/sessions?${params.toString()}`);
   };
 
-  const onPrecreate = () => {
-    if (!startDate || !endDate) return;
-    precreate({ start_date: startDate, end_date: endDate });
-  };
+  // Auto-precreate for the selected day
+  useEffect(() => {
+    if (!day) return;
+    precreate({ start_date: day, end_date: day });
+  }, [day]);
+
+  // Listen for events fired from SessionModal to open student/staff modals
+  useEffect(() => {
+    const onOpenStudent = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id: string };
+      if (detail?.id) setActiveStudentId(detail.id);
+    };
+    const onOpenStaff = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id: string };
+      if (detail?.id) setActiveStaffId(detail.id);
+    };
+    window.addEventListener('open-student-modal', onOpenStudent as any);
+    window.addEventListener('open-staff-modal', onOpenStaff as any);
+    return () => {
+      window.removeEventListener('open-student-modal', onOpenStudent as any);
+      window.removeEventListener('open-staff-modal', onOpenStaff as any);
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-4">
@@ -41,26 +66,50 @@ export default function SessionsPage() {
       {viewParam === 'table' && (
         <div className="flex items-end gap-2">
           <div>
-            <label className="block text-sm mb-1">Start</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <label className="block text-sm mb-1">Date</label>
+            <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-sm mb-1">End</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setDay(format(addDays(new Date(day), -1), 'yyyy-MM-dd'))}>Prev</Button>
+            <Button variant="outline" onClick={() => setDay(new Date().toISOString().slice(0, 10))}>Today</Button>
+            <Button variant="outline" onClick={() => setDay(format(addDays(new Date(day), 1), 'yyyy-MM-dd'))}>Next</Button>
           </div>
-          <Button onClick={onPrecreate} disabled={!startDate || !endDate || isPending}>
-            Precreate
-          </Button>
         </div>
       )}
 
       <Suspense>
         {viewParam === 'table' ? (
-          <SessionsTable rangeStart={startDate || undefined} rangeEnd={endDate || undefined} />
+          <SessionsTable 
+            rangeStart={day} 
+            rangeEnd={day}
+            onOpenSession={(id) => setActiveSessionId(id as string)}
+            onOpenStudent={(id) => setActiveStudentId(id as string)}
+            onOpenStaff={(id) => setActiveStaffId(id as string)}
+          />
         ) : (
-          <SessionsCalendarView />
+          <SessionsCalendarView onOpenSession={(id) => setActiveSessionId(id as string)} />
         )}
       </Suspense>
+
+      <SessionModal
+        isOpen={!!activeSessionId}
+        sessionId={activeSessionId}
+        onClose={() => setActiveSessionId(null)}
+      />
+
+      <ViewStudentModal
+        isOpen={!!activeStudentId}
+        studentId={activeStudentId}
+        onClose={() => setActiveStudentId(null)}
+        onStudentUpdated={() => {}}
+      />
+
+      <ViewStaffModal
+        isOpen={!!activeStaffId}
+        staffId={activeStaffId}
+        onClose={() => setActiveStaffId(null)}
+        onStaffUpdated={() => {}}
+      />
     </div>
   );
 }

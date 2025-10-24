@@ -76,7 +76,7 @@ jobs:
         run: |
           if [ -d "supabase/functions" ]; then
             for fn in $(ls supabase/functions); do
-              supabase functions deploy "$fn" --project-ref $SUPABASE_PROJECT_ID || true
+              supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
             done
           fi
 

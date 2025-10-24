@@ -272,10 +272,7 @@ export function TimetableView({
                             {getSubjectDisplay(position.class)}
                           </div>
                           
-                          {/* Level */}
-                          <div className="text-xs opacity-90 truncate leading-tight">
-                            {position.class.level}
-                          </div>
+                          {/* Additional details placeholder (was level) */}
                           
                           {/* Room */}
                           {position.class.room && (

@@ -166,8 +166,8 @@ export function useAddStudentToSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sessionId, studentId, attended }: { sessionId: string; studentId: string; attended?: boolean }) =>
-      sessionsApi.addStudentToSession(sessionId, studentId, attended),
+    mutationFn: ({ sessionId, studentId }: { sessionId: string; studentId: string }) =>
+      sessionsApi.addStudentToSession(sessionId, studentId),
     onSuccess: (_, { sessionId }) => {
       // Invalidate session details to refetch with new student
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
@@ -229,17 +229,3 @@ export function useRemoveStaffFromSession() {
     },
   });
 }
-
-export function useUpdateAttendance() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ sessionId, studentId, attended }: { sessionId: string; studentId: string; attended: boolean }) =>
-      sessionsApi.updateAttendance(sessionId, studentId, attended),
-    onSuccess: (_, { sessionId }) => {
-      // Invalidate session details to refetch with updated attendance
-      queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
-      queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
-    },
-  });
-} 

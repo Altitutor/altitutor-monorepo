@@ -176,21 +176,4 @@ export const subjectsApi = {
     }
   },
 
-  /**
-   * Get subtopics for a topic
-   */
-  getTopicSubtopics: async (topicId: string): Promise<Tables<'subtopics'>[]> => {
-    try {
-      const { data, error } = await getSupabaseClient()
-        .from('subtopics')
-        .select('*')
-        .eq('topic_id', topicId)
-        .order('number', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Tables<'subtopics'>[];
-    } catch (error) {
-      console.error('Error getting topic subtopics:', error);
-      throw error;
-    }
-  },
 }; 

@@ -17,6 +17,7 @@ type ChatStoreState = {
   focusWindow: (conversationId: string) => void;
   incrementUnread: (conversationId: string) => void;
   resetUnread: (conversationId: string) => void;
+  updateWindowTitle: (conversationId: string, title: string) => void;
   hasWindow: (conversationId: string) => boolean;
 };
 
@@ -67,6 +68,13 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     set({
       windows: get().windows.map(w =>
         w.conversationId === conversationId ? { ...w, unreadCount: 0 } : w
+      ),
+    });
+  },
+  updateWindowTitle: (conversationId, title) => {
+    set({
+      windows: get().windows.map(w =>
+        w.conversationId === conversationId ? { ...w, title } : w
       ),
     });
   },

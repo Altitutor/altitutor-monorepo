@@ -334,12 +334,7 @@ export function DetailsTab({
             </div>
           </div>
 
-          {student.notes && (
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
-              <p className="text-sm whitespace-pre-wrap">{student.notes}</p>
-            </div>
-          )}
+          {/* Notes field removed from schema */}
         </CardContent>
       </Card>
 

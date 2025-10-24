@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@altitutor/ui';
-import { GraduationCap, CalendarDays, Users, Clock, CheckSquare, Zap } from 'lucide-react';
+import { Button } from '@altitutor/ui';
+import { GraduationCap, CalendarDays, Users, Clock, CheckSquare, Zap, FileText } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
@@ -11,6 +12,8 @@ import { cn, formatSubjectDisplay } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 import { ViewClassModal } from '@/features/classes';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { useAuth } from '@/features/auth';
 
 interface TodayClassesProps {
   classes: Tables<'classes'>[];
@@ -125,8 +128,27 @@ function TodayClassesView({ classes, classSubjects, classStudents, classStaff, o
 
 export default function DashboardPage() {
   const { data: classesData, isLoading: loadingClasses, refetch: refetchClasses } = useClassesWithDetails();
+  const { session } = useAuth();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
+
+  // Fetch current staff record to get staff ID
+  const { data: currentStaff } = useQuery({
+    queryKey: ['currentStaff', session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return null;
+      const supabase = await import('@/shared/lib/supabase/client').then(m => m.getSupabaseClient());
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, role, first_name, last_name')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user?.id,
+  });
 
   const currentDate = new Date();
   const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -236,8 +258,15 @@ export default function DashboardPage() {
             <Zap className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-center py-6">
-              <p className="text-muted-foreground">Coming soon</p>
+            <div className="space-y-2">
+              <Button
+                onClick={() => setIsTutorLogModalOpen(true)}
+                className="w-full"
+                variant="outline"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Tutor Log
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -289,6 +318,15 @@ export default function DashboardPage() {
         onClose={handleCloseClassModal}
         onClassUpdated={handleClassUpdated}
       />
+
+      {currentStaff?.id && (
+        <LogSessionModal
+          isOpen={isTutorLogModalOpen}
+          onClose={() => setIsTutorLogModalOpen(false)}
+          currentStaffId={currentStaff.id}
+          adminMode={true}
+        />
+      )}
     </div>
   );
 }

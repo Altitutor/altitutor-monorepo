@@ -17,8 +17,8 @@ export function usePrecreateSessions() {
       const { data, error } = await supabase.rpc('precreate_sessions', {
         start_date,
         end_date,
-        created_by: created_by ?? null,
-        p_class_id: class_id ?? null,
+        p_created_by: created_by || undefined, // Pass undefined if not provided
+        p_class_id: class_id || undefined, // Pass undefined if not provided
       });
       if (error) throw error;
       return data as number | null;

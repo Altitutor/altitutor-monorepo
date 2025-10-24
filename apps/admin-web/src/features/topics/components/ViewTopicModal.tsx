@@ -1,25 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetDescription,
+} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { SubjectCurriculumBadge } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
-import { topicsApi } from '../api';
-import { subjectsApi } from '@/features/subjects/api';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
-import { AddSubtopicModal } from './AddSubtopicModal';
-import { ViewSubtopicModal } from './ViewSubtopicModal';
-import { PencilIcon, PlusIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
-import { useToast } from '@altitutor/ui';
-import { formatSubjectDisplay } from '@/shared/utils';
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,8 +21,49 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@altitutor/ui";
+} from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@altitutor/ui';
+import { PencilIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
+import { formatSubjectDisplay } from '@/shared/utils';
+import { subjectsApi } from '@/features/subjects/api';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
+import {
+  useTopicById,
+  useTopics,
+  useUpdateTopic,
+  useDeleteTopic,
+  useTopicsBySubject,
+  useTopicFilesByTopic,
+} from '../hooks';
+import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
+import { TopicsHierarchy, TopicNode } from './TopicsHierarchy';
+import { DraggableTopicsList } from './DraggableTopicsList';
+import { FilePreview } from './FilePreview';
+import { AddTopicModal } from './AddTopicModal';
+import { AddResourceFileModal } from './AddResourceFileModal';
+import { deriveTopicFileCode, deriveTopicCode, buildTopicTree } from '../utils/codes';
+import { Plus } from 'lucide-react';
+
+const formSchema = z.object({
+  name: z.string().min(1, 'Topic name is required'),
+  subject_id: z.string().min(1, 'Subject is required'),
+  parent_id: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 export interface ViewTopicModalProps {
   isOpen: boolean;
@@ -39,129 +72,51 @@ export interface ViewTopicModalProps {
   onTopicUpdated?: () => void;
 }
 
-// Form schema for validation
-const formSchema = z.object({
-  name: z.string().min(1, "Topic name is required"),
-  number: z.coerce.number().int().min(1, "Number must be at least 1"),
-  subject_id: z.string().min(1, "Subject is required"),
-  area: z.string().optional(),
-});
-
-type FormData = z.infer<typeof formSchema>;
-
-// Function to get a color for a subject based on curriculum
-const getSubjectColor = (subject?: Tables<'subjects'>): string => {
-  if (!subject || !subject.curriculum) return 'bg-gray-100 text-gray-800';
-  
-  switch (subject.curriculum) {
-    case 'SACE':
-      return 'bg-blue-100 text-blue-800';
-    case 'IB':
-      return 'bg-green-100 text-green-800';
-    case 'PRESACE':
-      return 'bg-purple-100 text-purple-800';
-    case 'PRIMARY':
-      return 'bg-amber-100 text-amber-800';
-    case 'MEDICINE':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: ViewTopicModalProps) {
+export function ViewTopicModal({
+  isOpen,
+  onClose,
+  topicId,
+  onTopicUpdated,
+}: ViewTopicModalProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [topic, setTopic] = useState<Tables<'topics'> | null>(null);
-  const [subject, setSubject] = useState<Tables<'subjects'> | null>(null);
-  const [subtopics, setSubtopics] = useState<Tables<'subtopics'>[]>([]);
-  const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   
-  // Modals for subtopics
-  const [isAddSubtopicModalOpen, setIsAddSubtopicModalOpen] = useState(false);
-  const [viewSubtopicId, setViewSubtopicId] = useState<string | null>(null);
-  const [isViewSubtopicModalOpen, setIsViewSubtopicModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
+  const [addTopicParentId, setAddTopicParentId] = useState<string | undefined>(undefined);
+  const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
+  const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
+  const [viewTopicId, setViewTopicId] = useState<string | null>(null);
+  
+  const { data: topic, isLoading, error } = useTopicById(topicId);
+  const { data: subjects = [] } = useSubjects();
+  const { data: allTopics = [] } = useTopics();
+  const { data: subjectTopics = [] } = useTopicsBySubject(topic?.subject_id || null);
+  const { data: topicFiles = [] } = useTopicFilesByTopic(topicId);
+  
+  const updateTopicMutation = useUpdateTopic();
+  const deleteTopicMutation = useDeleteTopic();
 
-  // Initialize form
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      number: 1,
-      subject_id: "",
-      area: "",
-    }
+      name: '',
+      subject_id: '',
+      parent_id: 'none',
+    },
   });
-
-  useEffect(() => {
-    if (isOpen) {
-      loadSubjects();
-      if (topicId) {
-        loadTopic(topicId);
-      }
-    } else {
-      setIsEditing(false);
-    }
-  }, [isOpen, topicId]);
 
   // Update form when topic is loaded
   useEffect(() => {
     if (topic) {
       form.reset({
         name: topic.name,
-        number: topic.number,
         subject_id: topic.subject_id,
-        area: topic.area || "",
+        parent_id: topic.parent_id || 'none',
       });
     }
   }, [topic, form]);
-
-  const loadSubjects = async () => {
-    try {
-      const subjectsData = await subjectsApi.getAllSubjects();
-      setSubjects(subjectsData);
-    } catch (error) {
-      console.error('Error loading subjects:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load subjects',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const loadTopic = async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Load topic with subject data included
-      const topicsWithSubjects = await topicsApi.getTopicsWithSubjects();
-      const topicData = topicsWithSubjects.topics.find(t => t.id === id);
-      
-      if (!topicData) {
-        throw new Error('Topic not found');
-      }
-      
-      setTopic(topicData);
-      
-      // Set subject from the topic's subject property
-      setSubject(topicsWithSubjects.subjectByTopicId[topicData.id] ?? null);
-
-      // Load subtopics
-      const subtopicsData = await topicsApi.getSubtopicsByTopic(id);
-      setSubtopics(subtopicsData);
-    } catch (error) {
-      console.error('Error loading topic:', error);
-      setError('Failed to load topic data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -171,9 +126,8 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
     if (topic) {
       form.reset({
         name: topic.name,
-        number: topic.number,
         subject_id: topic.subject_id,
-        area: topic.area || "",
+        parent_id: topic.parent_id || 'none',
       });
     }
     setIsEditing(false);
@@ -181,122 +135,69 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
 
   const onSubmit = async (values: FormData) => {
     if (!topicId) return;
-    
-    setSubmitting(true);
-    
+
     try {
       const topicData: TablesUpdate<'topics'> = {
         name: values.name,
-        number: values.number,
         subject_id: values.subject_id,
-        area: values.area || null,
+        parent_id: values.parent_id === 'none' ? null : values.parent_id || null,
       };
-      
-      const updated = await topicsApi.updateTopic(topicId, topicData);
-      
-      // Update local topic data
-      setTopic(updated);
-      
-      // Reload subject data if it changed
-      if (topic?.subject_id !== values.subject_id) {
-        try {
-          const subjectData = await subjectsApi.getSubject(values.subject_id);
-          setSubject(subjectData || null);
-        } catch (error) {
-          console.error('Error loading updated subject:', error);
-          setSubject(null);
-        }
-      }
-      
-      toast({
-        title: 'Success',
-        description: 'Topic updated successfully',
-      });
-      
+
+      await updateTopicMutation.mutateAsync({ id: topicId, data: topicData });
+
       setIsEditing(false);
-      
+
       if (onTopicUpdated) {
         onTopicUpdated();
       }
-      
-      router.refresh();
     } catch (error) {
       console.error('Failed to update topic:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update topic. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!topicId) return;
-    setSubmitting(true);
-    
+
     try {
-      await topicsApi.deleteTopic(topicId);
-      
-      toast({
-        title: 'Success',
-        description: 'Topic deleted successfully',
-      });
-      
+      await deleteTopicMutation.mutateAsync(topicId);
+
       if (onTopicUpdated) {
         onTopicUpdated();
       }
-      
+
       setShowDeleteDialog(false);
       onClose();
-      router.refresh();
     } catch (error) {
       console.error('Failed to delete topic:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete topic. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSubmitting(false);
     }
   };
 
-  const handleAddSubtopic = () => {
-    setIsAddSubtopicModalOpen(true);
-  };
+  // Get children topics
+  const childrenTopics = subjectTopics.filter(t => t.parent_id === topicId);
+  
+  // Get available parent topics (exclude self and descendants)
+  const availableParents = subjectTopics.filter(t => 
+    t.id !== topicId && t.parent_id !== topicId
+  );
 
-  const handleEditSubtopic = (subtopicId: string) => {
-    setViewSubtopicId(subtopicId);
-    setIsViewSubtopicModalOpen(true);
-  };
-
-  const handleChange = () => {
-    if (topicId) {
-      loadTopic(topicId);
-    }
-    if (onTopicUpdated) {
-      onTopicUpdated();
-    }
-  };
+  const subject = subjects.find(s => s.id === topic?.subject_id);
 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] overflow-y-auto">
+        <SheetContent className="h-full max-h-[100vh] overflow-y-auto w-full sm:max-w-[600px]">
           <SheetHeader className="mb-6">
             <SheetTitle className="text-xl">
-              {loading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic'}
+              {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
             </SheetTitle>
-            {!loading && topic && (
+            {!isLoading && topic && (
               <SheetDescription className="text-lg font-medium">
                 {topic.name}
               </SheetDescription>
             )}
           </SheetHeader>
-          
-          {loading ? (
+
+          {isLoading ? (
             <div className="py-6 text-center">
               <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
               <p>Loading topic data...</p>
@@ -304,7 +205,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
           ) : error ? (
             <div className="py-6 text-center text-destructive">
               <AlertTriangle className="h-6 w-6 mx-auto mb-2" />
-              <p>{error}</p>
+              <p>Failed to load topic</p>
             </div>
           ) : topic ? (
             <div className="space-y-8 pb-20">
@@ -323,21 +224,7 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
                         required
                       />
                     </div>
-                    
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="number" className="text-right">
-                        Number
-                      </Label>
-                      <Input
-                        id="number"
-                        type="number"
-                        {...form.register('number', { valueAsNumber: true })}
-                        className="col-span-3"
-                        min="1"
-                        required
-                      />
-                    </div>
-                    
+
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="subject_id" className="text-right">
                         Subject
@@ -358,19 +245,47 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="area" className="text-right">
-                        Area
+                      <Label htmlFor="parent_id" className="text-right">
+                        Parent
                       </Label>
-                      <Input
-                        id="area"
-                        {...form.register('area')}
-                        className="col-span-3"
-                        placeholder="Optional area or category"
-                      />
+                      <Select
+                        value={form.watch('parent_id')}
+                        onValueChange={(value) => form.setValue('parent_id', value)}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="None (root topic)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None (root topic)</SelectItem>
+                          {availableParents.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
+
+                  {/* Child Topics Reordering */}
+                  {childrenTopics.length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-3">Child Topics</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Drag to reorder
+                      </p>
+                      <DraggableTopicsList
+                        topics={childrenTopics}
+                        allTopics={allTopics}
+                        onReorder={(updates) => {
+                          // Handle reordering - this would call a batch update API
+                          console.log('Reorder updates:', updates);
+                        }}
+                      />
+                    </div>
+                  )}
                 </form>
               ) : (
                 // View Mode
@@ -378,113 +293,163 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     <div className="text-sm font-medium">Name:</div>
                     <div>{topic.name}</div>
-                    
-                    <div className="text-sm font-medium">Number:</div>
-                    <div>{topic.number}</div>
-                    
+
                     <div className="text-sm font-medium">Subject:</div>
                     <div>
                       {subject ? (
-                        <SubjectCurriculumBadge value={subject.curriculum} />
-                      ) : 'N/A'}
+                        <Badge variant="outline">{formatSubjectDisplay(subject)}</Badge>
+                      ) : (
+                        'N/A'
+                      )}
                     </div>
-                    
-                    {topic.area && (
-                      <>
-                        <div className="text-sm font-medium">Area:</div>
-                        <div>{topic.area}</div>
-                      </>
+
+                    <div className="text-sm font-medium">Parent:</div>
+                    <div>
+                      {topic.parent_id
+                        ? allTopics.find(t => t.id === topic.parent_id)?.name || 'Unknown'
+                        : 'None (root topic)'}
+                    </div>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* Files Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-semibold">Files</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddResourceModalOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add File
+                      </Button>
+                    </div>
+                    {topicFiles.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No files attached to this topic</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {topicFiles.map((topicFile) => {
+                          const topicCode = topic ? deriveTopicCode(topic, allTopics) : '';
+                          const code = `${topicCode}${topicFile.type}.${topicFile.index}${topicFile.is_solutions ? '_SOL' : ''}`;
+                          return (
+                            <div key={topicFile.id} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">{code}</Badge>
+                                <span className="text-sm font-medium">{topicFile.type}</span>
+                                {topicFile.is_solutions && (
+                                  <Badge variant="secondary">Solutions</Badge>
+                                )}
+                              </div>
+                              {topicFile.file && (
+                                <FilePreview
+                                  fileUrl={topicFile.file.storage_path}
+                                  fileName={topicFile.file.filename}
+                                  mimeType={topicFile.file.mimetype}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* Subtopics Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-semibold">Subtopics</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddTopicModalOpen(true);
+                          setAddTopicParentId(topicId || undefined);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Subtopic
+                      </Button>
+                    </div>
+                    {childrenTopics.length > 0 ? (
+                      <div className="space-y-1">
+                        {buildTopicTree(subjectTopics, topicId || null).map((childTopic) => (
+                          <TopicNode
+                            key={childTopic.id}
+                            topic={childTopic}
+                            allTopics={subjectTopics}
+                            level={0}
+                            showAddTopic={false}
+                            showAddResource={false}
+                            onTopicClick={(id) => {
+                              setViewTopicId(id);
+                              setIsViewTopicModalOpen(true);
+                            }}
+                            searchQuery=""
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No subtopics</p>
                     )}
                   </div>
                 </div>
               )}
-              
-              <Separator className="my-4" />
-              
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Subtopics</h3>
-                  <Button size="sm" variant="outline" onClick={handleAddSubtopic}>
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Add Subtopic
-                  </Button>
-                </div>
-                
-                {subtopics.length > 0 ? (
-                  <div className="space-y-3">
-                    {subtopics.map((subtopic) => (
-                      <div key={subtopic.id} className="p-3 border rounded-md flex items-center justify-between">
-                        <div>
-                          <span className="font-medium">
-                            {subtopic.number}. {subtopic.name}
-                          </span>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => handleEditSubtopic(subtopic.id)}
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-4">
-                    No subtopics found for this topic.
-                  </div>
-                )}
-              </div>
             </div>
           ) : (
             <div className="py-6 text-center text-destructive">
               Topic not found or has been deleted.
             </div>
           )}
-          
+
           {/* Action buttons at the bottom */}
-          {!loading && topic && (
+          {!isLoading && topic && (
             <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
               <div className="flex w-full justify-between">
                 {isEditing ? (
                   <>
-                    <Button 
-                      type="button" 
-                      variant="destructive" 
+                    <Button
+                      type="button"
+                      variant="destructive"
                       onClick={() => setShowDeleteDialog(true)}
-                      disabled={submitting}
+                      disabled={updateTopicMutation.isPending}
                     >
                       <TrashIcon className="h-4 w-4 mr-2" />
                       Delete
                     </Button>
-                    
+
                     <div className="flex space-x-2">
-                      <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={submitting}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCancelEdit}
+                        disabled={updateTopicMutation.isPending}
+                      >
                         Cancel
                       </Button>
-                      <Button 
-                        type="button" 
-                        disabled={submitting}
+                      <Button
+                        type="button"
+                        disabled={updateTopicMutation.isPending}
                         onClick={form.handleSubmit(onSubmit)}
                       >
-                        {submitting ? (
+                        {updateTopicMutation.isPending ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Saving...
                           </>
-                        ) : 'Save Changes'}
+                        ) : (
+                          'Save Changes'
+                        )}
                       </Button>
                     </div>
                   </>
                 ) : (
-                  <Button
-                    variant="outline"
-                    onClick={handleEdit}
-                    disabled={!topic}
-                    className="flex items-center"
-                  >
+                  <Button variant="outline" onClick={handleEdit} disabled={!topic}>
                     <PencilIcon className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
@@ -494,44 +459,71 @@ export function ViewTopicModal({ isOpen, onClose, topicId, onTopicUpdated }: Vie
           )}
         </SheetContent>
       </Sheet>
-      
+
       {/* Confirmation dialog for delete */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the topic
-              and all its subtopics.
+              This action cannot be undone. This will permanently delete the topic and all its
+              children.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete} 
-              disabled={submitting}
+            <AlertDialogCancel disabled={deleteTopicMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteTopicMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {submitting ? 'Deleting...' : 'Delete Topic'}
+              {deleteTopicMutation.isPending ? 'Deleting...' : 'Delete Topic'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
-      {/* Subtopic Modals */}
-      <AddSubtopicModal
-        isOpen={isAddSubtopicModalOpen}
-        onClose={() => setIsAddSubtopicModalOpen(false)}
-        topicId={topicId}
-        onSubtopicAdded={handleChange}
+
+      {/* Add Topic Modal */}
+      <AddTopicModal
+        isOpen={isAddTopicModalOpen}
+        onClose={() => {
+          setIsAddTopicModalOpen(false);
+          if (onTopicUpdated) onTopicUpdated();
+        }}
+        preselectedSubjectId={topic?.subject_id}
+        preselectedParentId={addTopicParentId}
+        onTopicAdded={() => {
+          if (onTopicUpdated) onTopicUpdated();
+        }}
       />
-      
-      <ViewSubtopicModal
-        isOpen={isViewSubtopicModalOpen}
-        onClose={() => setIsViewSubtopicModalOpen(false)}
-        subtopicId={viewSubtopicId}
-        onSubtopicUpdated={handleChange}
+
+      {/* Add Resource Modal */}
+      <AddResourceFileModal
+        isOpen={isAddResourceModalOpen}
+        onClose={() => {
+          setIsAddResourceModalOpen(false);
+          if (onTopicUpdated) onTopicUpdated();
+        }}
+        preselectedSubjectId={topic?.subject_id}
+        preselectedTopicId={topicId || undefined}
+        onResourceAdded={() => {
+          if (onTopicUpdated) onTopicUpdated();
+        }}
       />
+
+      {/* Nested View Topic Modal for subtopics */}
+      {isViewTopicModalOpen && (
+        <ViewTopicModal
+          isOpen={isViewTopicModalOpen}
+          onClose={() => setIsViewTopicModalOpen(false)}
+          topicId={viewTopicId}
+          onTopicUpdated={() => {
+            if (onTopicUpdated) onTopicUpdated();
+          }}
+        />
+      )}
     </>
   );
-} 
+}

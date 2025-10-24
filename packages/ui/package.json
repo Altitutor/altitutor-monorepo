@@ -20,7 +20,8 @@
     "type": "git",
     "url": "git+https://github.com/Altitutor/altitutor-monorepo.git",
     "directory": "packages/ui"
+  },
+  "dependencies": {
+    "@radix-ui/react-tooltip": "^1.2.8"
   }
 }
-
-

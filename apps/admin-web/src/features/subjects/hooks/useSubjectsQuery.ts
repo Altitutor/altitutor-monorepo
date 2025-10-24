@@ -93,17 +93,6 @@ export function useSubjectTopics(subjectId: string) {
   });
 }
 
-// Get topic subtopics
-export function useTopicSubtopics(topicId: string) {
-  return useQuery({
-    queryKey: subjectsKeys.subtopics(topicId),
-    queryFn: () => subjectsApi.getTopicSubtopics(topicId),
-    enabled: !!topicId,
-    staleTime: 1000 * 60 * 3, // 3 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
-  });
-}
-
 // Mutations
 export function useCreateSubject() {
   const queryClient = useQueryClient();

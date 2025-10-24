@@ -1,5 +1,6 @@
-export { TopicsTable } from './TopicsTable';
-export { AddTopicModal } from './AddTopicModal';
-export { ViewTopicModal } from './ViewTopicModal';
-export { AddSubtopicModal } from './AddSubtopicModal';
-export { ViewSubtopicModal } from './ViewSubtopicModal';
+export * from './AddTopicModal';
+export * from './AddResourceFileModal';
+export * from './ViewTopicModal';
+export * from './TopicsHierarchy';
+export * from './DraggableTopicsList';
+export * from './FilePreview';

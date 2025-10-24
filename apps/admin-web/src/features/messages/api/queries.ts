@@ -10,12 +10,25 @@ export function useConversations() {
     queryKey: ['conversations'],
     queryFn: async () => {
       const supabase = getSupabaseClient();
-      const { data, error } = await supabase
+      // Get current user's staff ID for read tracking
+      const { data: user } = await supabase.auth.getUser();
+      const userId = user?.user?.id;
+      
+      // Fetch conversations with last message and read status
+      const { data, error } = await (supabase as any)
         .from('conversations')
         .select(`
-          id, status, last_message_at, assigned_staff_id,
-          contact:contacts(id, display_name, phone_e164, contact_type),
-          owned_number:owned_numbers(id, phone_e164, label)
+          id, 
+          status, 
+          last_message_at, 
+          last_message_id,
+          assigned_staff_id, 
+          contact_id, 
+          owned_number_id, 
+          contacts(id, display_name, phone_e164, contact_type, students(id, first_name, last_name), parents(id, first_name, last_name, parents_students(students(id, first_name, last_name))), staff(id, first_name, last_name)), 
+          owned_numbers(id, phone_e164, label),
+          messages!conversations_last_message_id_fkey(id, direction),
+          conversation_reads(id, last_read_message_id, last_read_at)
         `)
         .order('last_message_at', { ascending: false });
       if (error) throw error;
@@ -24,16 +37,18 @@ export function useConversations() {
   });
 }
 
+type Page = { items: any[]; nextCursor?: string };
+
 export function useMessages(conversationId: string) {
   return useInfiniteQuery({
     queryKey: ['messages', conversationId],
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage?.nextCursor,
+    getNextPageParam: (lastPage: Page | undefined) => lastPage?.nextCursor,
     queryFn: async ({ pageParam }) => {
       const supabase = getSupabaseClient();
       let query = supabase
         .from('messages')
-        .select('*')
+        .select('*, staff:created_by_staff_id(id, first_name, last_name)')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
@@ -42,8 +57,9 @@ export function useMessages(conversationId: string) {
       }
       const { data, error } = await query;
       if (error) throw error;
-      const nextCursor = data && data.length === PAGE_SIZE ? data[data.length - 1].created_at : undefined;
-      return { items: data || [], nextCursor };
+      const nextCursor = data && data.length === PAGE_SIZE ? (data[data.length - 1] as any).created_at : undefined;
+      const page: Page = { items: (data as any) || [], nextCursor };
+      return page;
     },
   });
 }

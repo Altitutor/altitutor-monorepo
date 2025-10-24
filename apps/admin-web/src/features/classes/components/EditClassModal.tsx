@@ -202,7 +202,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
               <Label htmlFor="level">Class Name/Code *</Label>
               <Input
                 id="level"
-                value={level}
+                value={level || ''}
                 onChange={(e) => setLevel(e.target.value)}
                 placeholder="e.g., 10MATH C2"
                 required

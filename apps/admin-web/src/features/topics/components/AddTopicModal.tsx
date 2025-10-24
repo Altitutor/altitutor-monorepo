@@ -1,221 +1,211 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@altitutor/ui';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { useToast } from '@altitutor/ui';
-import { topicsApi } from '../api';
-import { subjectsApi } from '@/features/subjects/api';
-import type { Tables, TablesInsert } from '@altitutor/shared';
-import { formatSubjectDisplay } from '@/shared/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useCreateTopic, useTopicsBySubject } from '../hooks';
+import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
+import { formatSubjectDisplay } from '@/shared/utils';
+import type { Tables } from '@altitutor/shared';
 
-interface AddTopicModalProps {
+const formSchema = z.object({
+  name: z.string().min(1, 'Topic name is required'),
+  subject_id: z.string().min(1, 'Subject is required'),
+  parent_id: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+export interface AddTopicModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onTopicAdded: () => void;
+  preselectedSubjectId?: string;
+  preselectedParentId?: string;
+  onTopicAdded?: (topic: Tables<'topics'>) => void;
 }
 
-export function AddTopicModal({ isOpen, onClose, onTopicAdded }: AddTopicModalProps) {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    name: '',
-    number: 1,
-    subject_id: '',
-    area: '',
+export function AddTopicModal({
+  isOpen,
+  onClose,
+  preselectedSubjectId,
+  preselectedParentId,
+  onTopicAdded,
+}: AddTopicModalProps) {
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
+    preselectedSubjectId || null
+  );
+
+  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
+  const { data: topics = [] } = useTopicsBySubject(selectedSubjectId);
+  const createTopicMutation = useCreateTopic();
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      subject_id: preselectedSubjectId || '',
+      parent_id: preselectedParentId || 'none',
+    },
   });
 
+  // Update form when preselected values change
+  useEffect(() => {
+    if (preselectedSubjectId) {
+      form.setValue('subject_id', preselectedSubjectId);
+      setSelectedSubjectId(preselectedSubjectId);
+    }
+    if (preselectedParentId) {
+      form.setValue('parent_id', preselectedParentId);
+    }
+  }, [preselectedSubjectId, preselectedParentId, form]);
+
+  // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
-      loadSubjects();
-    }
-  }, [isOpen]);
-
-  const loadSubjects = async () => {
-    setLoading(true);
-    try {
-      const subjectsData = await subjectsApi.getAllSubjects();
-      setSubjects(subjectsData);
-    } catch (error) {
-      console.error('Error loading subjects:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load subjects. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value)) {
-      setFormData((prev) => ({ ...prev, number: value }));
-    }
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const topicData: Tables<'topics'> | TablesInsert<'topics'> = {
-        name: formData.name,
-        number: formData.number,
-        subject_id: formData.subject_id,
-        area: formData.area || null,
-      } as any;
-
-      await topicsApi.createTopic(topicData);
-      
-      toast({
-        title: 'Success',
-        description: 'Topic added successfully',
-      });
-      
-      // Reset form data
-      setFormData({
+      form.reset({
         name: '',
-        number: 1,
-        subject_id: '',
-        area: '',
+        subject_id: preselectedSubjectId || '',
+        parent_id: preselectedParentId || 'none',
       });
-      
-      onTopicAdded();
+      setSelectedSubjectId(preselectedSubjectId || null);
+    }
+  }, [isOpen, preselectedSubjectId, preselectedParentId, form]);
+
+  const onSubmit = async (values: FormData) => {
+    try {
+      const topic = await createTopicMutation.mutateAsync({
+        name: values.name,
+        subject_id: values.subject_id,
+        parent_id: values.parent_id === 'none' ? null : values.parent_id || null,
+      });
+
+      if (onTopicAdded) {
+        onTopicAdded(topic);
+      }
+
       onClose();
-      router.refresh();
     } catch (error) {
-      console.error('Failed to add topic:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add topic. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
+      // Error is handled by the mutation
+      console.error('Failed to create topic:', error);
     }
   };
+
+  const handleSubjectChange = (value: string) => {
+    setSelectedSubjectId(value);
+    form.setValue('subject_id', value);
+    // Clear parent selection when subject changes
+    form.setValue('parent_id', 'none');
+  };
+
+  // Filter topics to only show those in the selected subject
+  const availableParentTopics = topics.filter((t) => t.subject_id === selectedSubjectId);
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100vh] overflow-y-auto">
-        <SheetHeader className="mb-6">
-          <SheetTitle className="text-xl">Add New Topic</SheetTitle>
-        </SheetHeader>
-        
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Loading subjects...</span>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Add Topic</DialogTitle>
+          <DialogDescription>
+            Create a new topic. Index will be automatically assigned.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="subject_id">Subject *</Label>
+            <Select
+              value={form.watch('subject_id')}
+              onValueChange={handleSubjectChange}
+              disabled={!!preselectedSubjectId || subjectsLoading}
+            >
+              <SelectTrigger id="subject_id">
+                <SelectValue placeholder="Select subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject.id} value={subject.id}>
+                    {formatSubjectDisplay(subject)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {form.formState.errors.subject_id && (
+              <p className="text-sm text-destructive">{form.formState.errors.subject_id.message}</p>
+            )}
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="pb-20">
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="number" className="text-right">
-                  Number
-                </Label>
-                <Input
-                  id="number"
-                  name="number"
-                  type="number"
-                  value={formData.number}
-                  onChange={handleNumberChange}
-                  className="col-span-3"
-                  min="1"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="subject_id" className="text-right">
-                  Subject
-                </Label>
-                <Select
-                  value={formData.subject_id}
-                  onValueChange={(value) => handleSelectChange('subject_id', value)}
-                  disabled={loading}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((subject) => (
-                      <SelectItem key={subject.id} value={subject.id}>
-                        {formatSubjectDisplay(subject)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="area" className="text-right">
-                  Area
-                </Label>
-                <Input
-                  id="area"
-                  name="area"
-                  value={formData.area}
-                  onChange={handleChange}
-                  className="col-span-3"
-                  placeholder="Optional area or category"
-                />
-              </div>
-            </div>
-          </form>
-        )}
-        
-        {/* Action buttons at the bottom */}
-        <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
-          <div className="flex w-full justify-end gap-2">
-            <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting || loading}>
+
+          <div className="space-y-2">
+            <Label htmlFor="parent_id">Parent Topic (Optional)</Label>
+            <Select
+              value={form.watch('parent_id')}
+              onValueChange={(value) => form.setValue('parent_id', value)}
+              disabled={!selectedSubjectId || !!preselectedParentId}
+            >
+              <SelectTrigger id="parent_id">
+                <SelectValue placeholder="None (root topic)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None (root topic)</SelectItem>
+                {availableParentTopics.map((topic) => (
+                  <SelectItem key={topic.id} value={topic.id}>
+                    {topic.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="name">Topic Name *</Label>
+            <Input
+              id="name"
+              {...form.register('name')}
+              placeholder="Enter topic name"
+              disabled={createTopicMutation.isPending}
+            />
+            {form.formState.errors.name && (
+              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={createTopicMutation.isPending}
+            >
               Cancel
             </Button>
-            <Button 
-              type="button" 
-              disabled={isSubmitting || loading}
-              onClick={handleSubmit}
-            >
-              {isSubmitting ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Adding...</>
-              ) : 'Add Topic'}
+            <Button type="submit" disabled={createTopicMutation.isPending}>
+              {createTopicMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Add Topic
             </Button>
-          </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
-} 
+}

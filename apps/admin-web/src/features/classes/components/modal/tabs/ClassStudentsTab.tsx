@@ -80,7 +80,7 @@ export function ClassStudentsTab({
     return (
       student.first_name.toLowerCase().includes(query) ||
       student.last_name.toLowerCase().includes(query) ||
-      (student.student_email && student.student_email.toLowerCase().includes(query))
+      (student.email && student.email.toLowerCase().includes(query))
     );
   });
 
@@ -130,8 +130,8 @@ export function ClassStudentsTab({
                         <div className="flex items-center justify-between w-full">
                           <div className="flex flex-col items-start">
                             <div className="font-medium">{student.first_name} {student.last_name}</div>
-                            {student.student_email && (
-                              <div className="text-xs text-muted-foreground">{student.student_email}</div>
+                            {student.email && (
+                              <div className="text-xs text-muted-foreground">{student.email}</div>
                             )}
                           </div>
                           {enrollingStudents.has(student.id) && (
@@ -189,8 +189,8 @@ export function ClassStudentsTab({
                           <div className="flex items-center justify-between w-full">
                             <div className="flex flex-col items-start">
                       <div className="font-medium">{student.first_name} {student.last_name}</div>
-                      {student.student_email && (
-                              <div className="text-xs text-muted-foreground">{student.student_email}</div>
+                            {student.email && (
+                              <div className="text-xs text-muted-foreground">{student.email}</div>
                             )}
                             </div>
                             {enrollingStudents.has(student.id) && (
@@ -248,8 +248,8 @@ export function ClassStudentsTab({
                   <div className="font-medium">
                     {student.first_name} {student.last_name}
                   </div>
-                  {student.student_email && (
-                    <div className="text-xs text-muted-foreground">{student.student_email}</div>
+                  {student.email && (
+                    <div className="text-xs text-muted-foreground">{student.email}</div>
                   )}
                 </div>
                 
