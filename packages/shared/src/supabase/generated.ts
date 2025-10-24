@@ -21,7 +21,7 @@ export type Database = {
           day_of_week: number
           end_time: string
           id: string
-          level: string
+          level: string | null
           room: string | null
           start_time: string
           status: string
@@ -34,7 +34,7 @@ export type Database = {
           day_of_week: number
           end_time: string
           id: string
-          level: string
+          level?: string | null
           room?: string | null
           start_time: string
           status: string
@@ -47,7 +47,7 @@ export type Database = {
           day_of_week?: number
           end_time?: string
           id?: string
-          level?: string
+          level?: string | null
           room?: string | null
           start_time?: string
           status?: string
