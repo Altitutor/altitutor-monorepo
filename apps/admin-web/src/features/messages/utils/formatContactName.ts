@@ -9,7 +9,7 @@ export function formatContactName(conversation: any): string {
       if (student) {
         return `${student.first_name} ${student.last_name}`.trim();
       }
-      return contact.display_name || contact.phone_e164;
+      return contact.phone_e164;
     }
     case 'PARENT': {
       const parent = contact.parents;
@@ -23,17 +23,19 @@ export function formatContactName(conversation: any): string {
         }
         return `${parent.first_name} ${parent.last_name}`.trim();
       }
-      return contact.display_name || contact.phone_e164;
+      return contact.phone_e164;
     }
     case 'STAFF': {
       const staff = contact.staff;
       if (staff) {
         return `${staff.first_name} ${staff.last_name}`.trim();
       }
-      return contact.display_name || contact.phone_e164;
+      return contact.phone_e164;
     }
     default:
-      return contact.display_name || contact.phone_e164;
+      // For LEAD or unknown types, just show phone number
+      return contact.phone_e164;
   }
 }
+
 

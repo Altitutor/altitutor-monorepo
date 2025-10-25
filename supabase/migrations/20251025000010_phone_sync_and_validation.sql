@@ -69,10 +69,59 @@ END;
 $$;
 
 -- ============================================================================
--- PART 3: Add Phone Validation Constraints
+-- PART 3: Standardize Existing Data BEFORE Adding Constraints
+-- ============================================================================
+
+-- First, let's see what phone numbers exist that can't be standardized
+-- Set invalid/non-AU phone numbers to NULL (they can be fixed manually later)
+DO $$
+DECLARE
+  rec RECORD;
+  standardized TEXT;
+BEGIN
+  -- Check students
+  FOR rec IN SELECT id, phone FROM public.students WHERE phone IS NOT NULL
+  LOOP
+    standardized := standardize_au_phone(rec.phone);
+    IF NOT validate_phone_e164(standardized) THEN
+      RAISE NOTICE 'Student ID %: Invalid phone % -> %, setting to NULL', rec.id, rec.phone, standardized;
+      UPDATE public.students SET phone = NULL WHERE id = rec.id;
+    ELSE
+      UPDATE public.students SET phone = standardized WHERE id = rec.id;
+    END IF;
+  END LOOP;
+
+  -- Check staff
+  FOR rec IN SELECT id, phone_number FROM public.staff WHERE phone_number IS NOT NULL
+  LOOP
+    standardized := standardize_au_phone(rec.phone_number);
+    IF NOT validate_phone_e164(standardized) THEN
+      RAISE NOTICE 'Staff ID %: Invalid phone % -> %, setting to NULL', rec.id, rec.phone_number, standardized;
+      UPDATE public.staff SET phone_number = NULL WHERE id = rec.id;
+    ELSE
+      UPDATE public.staff SET phone_number = standardized WHERE id = rec.id;
+    END IF;
+  END LOOP;
+
+  -- Check parents
+  FOR rec IN SELECT id, phone FROM public.parents WHERE phone IS NOT NULL
+  LOOP
+    standardized := standardize_au_phone(rec.phone);
+    IF NOT validate_phone_e164(standardized) THEN
+      RAISE NOTICE 'Parent ID %: Invalid phone % -> %, setting to NULL', rec.id, rec.phone, standardized;
+      UPDATE public.parents SET phone = NULL WHERE id = rec.id;
+    ELSE
+      UPDATE public.parents SET phone = standardized WHERE id = rec.id;
+    END IF;
+  END LOOP;
+END $$;
+
+-- ============================================================================
+-- PART 4: Add Phone Validation Constraints
 -- ============================================================================
 
 -- Add check constraints to ensure E.164 format
+-- Note: Data has already been standardized above
 ALTER TABLE public.students
 DROP CONSTRAINT IF EXISTS students_phone_e164_check;
 
@@ -95,7 +144,7 @@ ADD CONSTRAINT parents_phone_e164_check
 CHECK (validate_phone_e164(phone));
 
 -- ============================================================================
--- PART 4: Remove display_name from contacts
+-- PART 5: Remove display_name from contacts
 -- ============================================================================
 
 -- Remove display_name column since we'll rely on joins to get names
@@ -103,7 +152,7 @@ ALTER TABLE public.contacts
 DROP COLUMN IF EXISTS display_name;
 
 -- ============================================================================
--- PART 5: BEFORE Trigger Functions (Standardization)
+-- PART 6: BEFORE Trigger Functions (Standardization)
 -- ============================================================================
 
 -- BEFORE trigger: Standardize and validate phone for students
@@ -164,7 +213,7 @@ END;
 $$;
 
 -- ============================================================================
--- PART 6: AFTER Trigger Functions (Contact Sync)
+-- PART 7: AFTER Trigger Functions (Contact Sync)
 -- ============================================================================
 
 -- AFTER trigger: Sync student phone to contacts
@@ -381,7 +430,7 @@ END;
 $$;
 
 -- ============================================================================
--- PART 7: Orphan Trigger Functions (on DELETE)
+-- PART 8: Orphan Trigger Functions (on DELETE)
 -- ============================================================================
 
 -- Orphan contact when student is deleted
@@ -445,7 +494,7 @@ END;
 $$;
 
 -- ============================================================================
--- PART 8: Create Triggers
+-- PART 9: Create Triggers
 -- ============================================================================
 
 -- Drop existing triggers if they exist
@@ -508,38 +557,10 @@ CREATE TRIGGER orphan_parent_contact_trigger
   EXECUTE FUNCTION orphan_contact_on_parent_delete();
 
 -- ============================================================================
--- PART 9: Backfill Existing Data
+-- PART 10: Backfill Contacts for Existing Data
 -- ============================================================================
 
--- Temporarily disable triggers for bulk update
-ALTER TABLE public.students DISABLE TRIGGER standardize_student_phone_trigger;
-ALTER TABLE public.students DISABLE TRIGGER sync_student_contact_trigger;
-ALTER TABLE public.staff DISABLE TRIGGER standardize_staff_phone_trigger;
-ALTER TABLE public.staff DISABLE TRIGGER sync_staff_contact_trigger;
-ALTER TABLE public.parents DISABLE TRIGGER standardize_parent_phone_trigger;
-ALTER TABLE public.parents DISABLE TRIGGER sync_parent_contact_trigger;
-
--- Standardize existing phone numbers
-UPDATE public.students
-SET phone = standardize_au_phone(phone)
-WHERE phone IS NOT NULL;
-
-UPDATE public.staff
-SET phone_number = standardize_au_phone(phone_number)
-WHERE phone_number IS NOT NULL;
-
-UPDATE public.parents
-SET phone = standardize_au_phone(phone)
-WHERE phone IS NOT NULL;
-
--- Re-enable triggers
-ALTER TABLE public.students ENABLE TRIGGER standardize_student_phone_trigger;
-ALTER TABLE public.students ENABLE TRIGGER sync_student_contact_trigger;
-ALTER TABLE public.staff ENABLE TRIGGER standardize_staff_phone_trigger;
-ALTER TABLE public.staff ENABLE TRIGGER sync_staff_contact_trigger;
-ALTER TABLE public.parents ENABLE TRIGGER standardize_parent_phone_trigger;
-ALTER TABLE public.parents ENABLE TRIGGER sync_parent_contact_trigger;
-
+-- Note: Phone numbers were already standardized in PART 3
 -- Now create/link contacts for all existing phone numbers
 -- Link students
 INSERT INTO public.contacts (phone_e164, student_id, contact_type)

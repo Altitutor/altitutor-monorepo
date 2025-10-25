@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
-import { Button } from "@altitutor/ui";
+import { Button as UIButton } from '@altitutor/ui';
 import { useToast } from "@altitutor/ui";
 import { studentsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { 
   DetailsTab,
   StudentSubjectsTab, 
@@ -17,7 +17,8 @@ import {
   StudentAccountFormData
 } from './tabs';
 import { MessageThread } from '@/features/messages/components/MessageThread';
-import { Button as UIButton } from '@altitutor/ui';
+import { Composer } from '@/features/messages/components/Composer';
+import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import {
   AlertDialog,
@@ -30,6 +31,9 @@ import {
   AlertDialogTitle,
 } from "@altitutor/ui";
 import { mapDetailsFormToStudentUpdate, mapAccountFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
+import { ViewParentModal } from './ViewParentModal';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { ensureConversationForRelated } from '@/features/messages/api/queries';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -50,6 +54,9 @@ export function ViewStudentModal({
   const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
   const [loadingStudent, setLoadingStudent] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [parents, setParents] = useState<any[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Edit states for each tab
   const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -65,6 +72,11 @@ export function ViewStudentModal({
 
   // Password reset state
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  
+  // Parent modal state
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [parentModalOpen, setParentModalOpen] = useState(false);
+  const [parentModalDefaultTab, setParentModalDefaultTab] = useState<string>('students');
 
   // Load student data
   const loadStudent = async () => {
@@ -76,6 +88,29 @@ export function ViewStudentModal({
       const { student: studentData, subjects: subjectsData } = await studentsApi.getStudentWithSubjects(studentId);
       setStudent(studentData || null);
       setStudentSubjects(subjectsData);
+      
+      // Also fetch parents
+      const supabase = getSupabaseClient();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: parentsData, error: parentsError } = await supabase
+        .from('parents_students')
+        .select('parents!inner(id,first_name,last_name,email,phone)')
+        .eq('student_id', studentId);
+      
+      if (parentsError) {
+        console.error('Failed to fetch parents:', parentsError);
+      }
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setParents(parentsData?.map((ps: any) => ps.parents).filter(Boolean) || []);
+      
+      // Get conversation ID for messages tab
+      const convId = await ensureConversationForRelated(studentId, 'student');
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.log('[ViewStudentModal] Conversation ID for student', studentId, ':', convId);
+      }
+      setConversationId(convId);
     } catch (error) {
       console.error('Failed to load student:', error);
       toast({
@@ -115,6 +150,7 @@ export function ViewStudentModal({
       loadStudent(); // This now loads both student and subjects
       loadSubjects(); // This loads all subjects for dropdown
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, studentId]);
 
   // Reset edit states when modal closes
@@ -185,6 +221,7 @@ export function ViewStudentModal({
 
   // Handle password reset request
   const handlePasswordResetRequest = async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!student || !((student as any).email || (student as any).student_email)) {
       toast({
         title: "Error",
@@ -259,15 +296,6 @@ export function ViewStudentModal({
     }
   };
 
-  // Handle view subject (placeholder for now)
-  const handleViewSubject = (subjectId: string) => {
-    if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.log('View subject:', subjectId);
-    }
-    // TODO: Implement subject detail view
-  };
-
   // Handle student deletion
   const handleDeleteStudent = async () => {
     if (!student) return;
@@ -317,6 +345,9 @@ export function ViewStudentModal({
             <SheetTitle>
               {student.first_name} {student.last_name}
             </SheetTitle>
+            <SheetDescription>
+              View and manage student details, subjects, classes, and account settings
+            </SheetDescription>
           </SheetHeader>
           
           <Tabs defaultValue="details" className="mt-6 flex flex-col h-[calc(100vh-200px)]">
@@ -328,8 +359,8 @@ export function ViewStudentModal({
               <TabsTrigger value="messages">Messages</TabsTrigger>
             </TabsList>
             
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="details" className="mt-6 h-full overflow-y-auto">
+            <div className="flex-1 overflow-hidden mt-4">
+              <TabsContent value="details" className="h-full overflow-y-auto m-0">
                 <DetailsTab
                   student={student}
                   isEditing={isEditingDetails}
@@ -338,9 +369,36 @@ export function ViewStudentModal({
                   onCancelEdit={() => setIsEditingDetails(false)}
                   onSubmit={handleDetailsSubmit}
                 />
+                
+                {/* Parents Section */}
+                {parents.length > 0 && (
+                  <div className="mt-6 space-y-2">
+                    <h3 className="text-lg font-medium">Parents</h3>
+                    <div className="space-y-2">
+                      {parents.map((parent) => (
+                        <div key={parent.id} className="flex items-center justify-between p-3 border rounded-md">
+                          <div>
+                            <p className="font-medium">{parent.first_name} {parent.last_name}</p>
+                            <p className="text-sm text-muted-foreground">{parent.email || parent.phone_e164}</p>
+                          </div>
+                          <UIButton
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedParentId(parent.id);
+                              setParentModalOpen(true);
+                            }}
+                          >
+                            View Details
+                          </UIButton>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </TabsContent>
               
-              <TabsContent value="subjects" className="mt-6 h-full overflow-y-auto">
+              <TabsContent value="subjects" className="h-full overflow-y-auto m-0">
                 <StudentSubjectsTab
                   student={student}
                   studentSubjects={studentSubjects}
@@ -351,14 +409,14 @@ export function ViewStudentModal({
                 />
               </TabsContent>
               
-              <TabsContent value="classes" className="mt-6 h-full overflow-y-auto">
+              <TabsContent value="classes" className="h-full overflow-y-auto m-0">
                 <ClassesTab
                   student={student}
                   onStudentUpdated={onStudentUpdated}
                 />
               </TabsContent>
               
-              <TabsContent value="account" className="mt-6 h-full overflow-y-auto">
+              <TabsContent value="account" className="h-full overflow-y-auto m-0">
                 <StudentAccountTab
                   student={student}
                   isLoading={loadingAccountUpdate}
@@ -373,24 +431,37 @@ export function ViewStudentModal({
                 />
               </TabsContent>
 
-              <TabsContent value="messages" className="mt-6 h-full overflow-hidden">
+              <TabsContent value="messages" className="h-full overflow-hidden m-0">
                 <div className="flex flex-col h-full border rounded-md">
-                  <div className="px-3 py-2 border-b flex items-center justify-between">
+                  <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
                     <div className="font-medium text-sm">Messages</div>
                     <UIButton
                       size="sm"
                       onClick={() => {
-                        // In real impl, ensure conversation for student's contact and open window
-                        // Placeholder: open a dummy window id using student.id
-                        useChatStore.getState().openWindow({ conversationId: student.id, title: `${student.first_name} ${student.last_name}` });
+                        if (conversationId) {
+                          useChatStore.getState().openWindow({ conversationId, title: `${student.first_name} ${student.last_name}` });
+                          onClose(); // Close the modal after popping out
+                        }
                       }}
+                      disabled={!conversationId}
                     >
                       Pop out
                     </UIButton>
                   </div>
-                  <div className="flex-1 min-h-0">
-                    <MessageThread conversationId={student.id} />
-                  </div>
+                  {conversationId ? (
+                    <>
+                      <div className="flex-1 min-h-0 overflow-hidden">
+                        <MessageThread conversationId={conversationId} />
+                      </div>
+                      <div className="flex-shrink-0">
+                        <Composer conversationId={conversationId} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      No conversation found
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </div>
@@ -398,6 +469,17 @@ export function ViewStudentModal({
           
         </SheetContent>
       </Sheet>
+
+      {/* Parent Modal */}
+      <ViewParentModal
+        isOpen={parentModalOpen}
+        onClose={() => {
+          setParentModalOpen(false);
+          setSelectedParentId(null);
+        }}
+        parentId={selectedParentId}
+        onParentUpdated={loadStudent}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

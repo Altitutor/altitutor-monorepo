@@ -12,7 +12,9 @@ import { ClassesTab } from './tabs/ClassesTab';
 import { AccountTab, AccountFormData } from './tabs/AccountTab';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { MessageThread } from '@/features/messages/components/MessageThread';
+import { Composer } from '@/features/messages/components/Composer';
 import { useChatStore } from '@/features/messages/state/chatStore';
+import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { Button as UIButton } from '@altitutor/ui';
 
 interface ViewStaffModalProps {
@@ -40,6 +42,7 @@ export function ViewStaffModal({
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [baseUrl, setBaseUrl] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -76,6 +79,11 @@ export function ViewStaffModal({
       const { staff: staffData, subjects: subjectsData } = await staffApi.getStaffWithSubjects(staffId);
       setStaffMember(staffData || null);
       setStaffSubjects(subjectsData as Tables<'subjects'>[]);
+      
+      // Get conversation ID for messages tab
+      const convId = await ensureConversationForRelated(staffId, 'staff');
+      console.log('[ViewStaffModal] Conversation ID for staff', staffId, ':', convId);
+      setConversationId(convId);
     } catch (err) {
       console.error('Failed to fetch staff:', err);
       toast({
@@ -354,22 +362,22 @@ export function ViewStaffModal({
           </SheetTitle>
         </SheetHeader>
         
-        <div className="mt-6">
-          <Tabs 
-            defaultValue="details" 
-            value={activeTab} 
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="w-full grid grid-cols-5">
-              <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-              <TabsTrigger value="subjects" className="flex-1">Subjects</TabsTrigger>
-              <TabsTrigger value="classes" className="flex-1">Classes</TabsTrigger>
-              <TabsTrigger value="account" className="flex-1">Account</TabsTrigger>
-              <TabsTrigger value="messages" className="flex-1">Messages</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="details" className="mt-4">
+        <Tabs 
+          defaultValue="details" 
+          value={activeTab} 
+          onValueChange={setActiveTab}
+          className="mt-6 flex flex-col h-[calc(100vh-200px)]"
+        >
+          <TabsList className="w-full grid grid-cols-5 flex-shrink-0">
+            <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+            <TabsTrigger value="subjects" className="flex-1">Subjects</TabsTrigger>
+            <TabsTrigger value="classes" className="flex-1">Classes</TabsTrigger>
+            <TabsTrigger value="account" className="flex-1">Account</TabsTrigger>
+            <TabsTrigger value="messages" className="flex-1">Messages</TabsTrigger>
+          </TabsList>
+          
+          <div className="flex-1 overflow-hidden mt-4">
+            <TabsContent value="details" className="h-full overflow-y-auto m-0">
               <StaffDetailsTab
                 staffMember={staffMember}
                 isEditing={isEditing}
@@ -380,7 +388,7 @@ export function ViewStaffModal({
               />
             </TabsContent>
             
-            <TabsContent value="subjects" className="mt-4">
+            <TabsContent value="subjects" className="h-full overflow-y-auto m-0">
               <SubjectsTab
                 staffMember={staffMember}
                 staffSubjects={staffSubjects}
@@ -391,13 +399,13 @@ export function ViewStaffModal({
               />
             </TabsContent>
             
-            <TabsContent value="classes" className="mt-4">
+            <TabsContent value="classes" className="h-full overflow-y-auto m-0">
               <ClassesTab
                 staff={staffMember}
               />
             </TabsContent>
             
-            <TabsContent value="account" className="mt-4">
+            <TabsContent value="account" className="h-full overflow-y-auto m-0">
               <AccountTab
                 staffMember={staffMember}
                 isLoading={isLoading}
@@ -412,26 +420,41 @@ export function ViewStaffModal({
               />
             </TabsContent>
 
-            <TabsContent value="messages" className="mt-4">
-              <div className="flex flex-col h-[400px] border rounded-md">
-                <div className="px-3 py-2 border-b flex items-center justify-between">
+            <TabsContent value="messages" className="h-full overflow-hidden m-0">
+              <div className="flex flex-col h-full border rounded-md">
+                <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
                   <div className="font-medium text-sm">Messages</div>
                   <UIButton
                     size="sm"
                     onClick={() => {
-                      useChatStore.getState().openWindow({ conversationId: staffMember.id, title: `${staffMember.first_name} ${staffMember.last_name}` });
+                      if (conversationId) {
+                        useChatStore.getState().openWindow({ conversationId, title: `${staffMember.first_name} ${staffMember.last_name}` });
+                        onClose(); // Close the modal after popping out
+                      }
                     }}
+                    disabled={!conversationId}
                   >
                     Pop out
                   </UIButton>
                 </div>
-                <div className="flex-1 min-h-0">
-                  <MessageThread conversationId={staffMember.id} />
-                </div>
+                {conversationId ? (
+                  <>
+                    <div className="flex-1 min-h-0 overflow-hidden">
+                      <MessageThread conversationId={conversationId} />
+                    </div>
+                    <div className="flex-shrink-0">
+                      <Composer conversationId={conversationId} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    No conversation found
+                  </div>
+                )}
               </div>
             </TabsContent>
-          </Tabs>
-        </div>
+          </div>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );
