@@ -133,3 +133,4 @@ CREATE POLICY "ADMINSTAFF full access to sessions_students" ON public.sessions_s
   USING (public.is_adminstaff_active())
   WITH CHECK (public.is_adminstaff_active());
 
+

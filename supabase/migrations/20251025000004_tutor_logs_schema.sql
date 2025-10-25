@@ -420,3 +420,4 @@ CREATE POLICY "ADMINSTAFF full access to notes" ON public.notes
   USING (public.is_adminstaff_active())
   WITH CHECK (public.is_adminstaff_active());
 
+
