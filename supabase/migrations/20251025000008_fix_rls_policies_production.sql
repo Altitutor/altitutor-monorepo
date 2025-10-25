@@ -1,5 +1,5 @@
--- Force fix RLS policies for files and topics_files tables
--- This ensures ADMINSTAFF role is used instead of ADMIN
+-- Apply the correct RLS policies for production
+-- This migration supersedes 20251025000007 with the correct schema-qualified statements
 
 -- Fix topics table policies
 DROP POLICY IF EXISTS admin_all_topics ON public.topics;
@@ -39,7 +39,7 @@ CREATE POLICY adminstaff_all_files ON public.files
     ) = 'ADMINSTAFF'
   );
 
--- Fix topics_files table policies
+-- Fix topics_files table policies (this is the critical one that was failing)
 DROP POLICY IF EXISTS admin_all_topics_files ON public.topics_files;
 DROP POLICY IF EXISTS adminstaff_all_topics_files ON public.topics_files;
 CREATE POLICY adminstaff_all_topics_files ON public.topics_files
