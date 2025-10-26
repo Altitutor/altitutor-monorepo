@@ -1645,6 +1645,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      batch_update_topic_indices: {
+        Args: { updates: Json }
+        Returns: undefined
+      }
       get_student_subjects: {
         Args: { student_id: string }
         Returns: {
