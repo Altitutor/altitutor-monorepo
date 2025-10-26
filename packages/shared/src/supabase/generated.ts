@@ -191,7 +191,6 @@ export type Database = {
         Row: {
           contact_type: string
           created_at: string | null
-          display_name: string | null
           id: string
           is_opted_out: boolean
           opted_out_at: string | null
@@ -204,7 +203,6 @@ export type Database = {
         Insert: {
           contact_type: string
           created_at?: string | null
-          display_name?: string | null
           id?: string
           is_opted_out?: boolean
           opted_out_at?: string | null
@@ -217,7 +215,6 @@ export type Database = {
         Update: {
           contact_type?: string
           created_at?: string | null
-          display_name?: string | null
           id?: string
           is_opted_out?: boolean
           opted_out_at?: string | null
@@ -1716,6 +1713,8 @@ export type Database = {
         Args: { claim: string; uid: string; value: Json }
         Returns: undefined
       }
+      standardize_au_phone: { Args: { phone_input: string }; Returns: string }
+      validate_phone_e164: { Args: { phone: string }; Returns: boolean }
       verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
