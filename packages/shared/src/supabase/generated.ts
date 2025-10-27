@@ -662,6 +662,94 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount_cents: number
+          charged_at: string | null
+          created_at: string
+          currency: string
+          failure_code: string | null
+          failure_message: string | null
+          fee_cents: number | null
+          id: string
+          last_retry_at: string | null
+          net_cents: number | null
+          receipt_url: string | null
+          refunded_at: string | null
+          retry_count: number
+          session_id: string
+          sessions_students_id: string
+          status: string
+          stripe_charge_id: string | null
+          stripe_payment_intent_id: string | null
+          student_id: string
+        }
+        Insert: {
+          amount_cents: number
+          charged_at?: string | null
+          created_at?: string
+          currency?: string
+          failure_code?: string | null
+          failure_message?: string | null
+          fee_cents?: number | null
+          id?: string
+          last_retry_at?: string | null
+          net_cents?: number | null
+          receipt_url?: string | null
+          refunded_at?: string | null
+          retry_count?: number
+          session_id: string
+          sessions_students_id: string
+          status?: string
+          stripe_charge_id?: string | null
+          stripe_payment_intent_id?: string | null
+          student_id: string
+        }
+        Update: {
+          amount_cents?: number
+          charged_at?: string | null
+          created_at?: string
+          currency?: string
+          failure_code?: string | null
+          failure_message?: string | null
+          fee_cents?: number | null
+          id?: string
+          last_retry_at?: string | null
+          net_cents?: number | null
+          receipt_url?: string | null
+          refunded_at?: string | null
+          retry_count?: number
+          session_id?: string
+          sessions_students_id?: string
+          status?: string
+          stripe_charge_id?: string | null
+          stripe_payment_intent_id?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           class_id: string | null
@@ -1008,6 +1096,60 @@ export type Database = {
           },
         ]
       }
+      student_subsidies: {
+        Row: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          created_at: string
+          currency: string
+          effective_from: string
+          effective_until: string | null
+          id: string
+          price_cents: number
+          student_id: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          price_cents: number
+          student_id: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          billing_type?: Database["public"]["Enums"]["billing_type"]
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          price_cents?: number
+          student_id?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_subsidies_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subsidies_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           availability_friday: boolean | null
@@ -1100,6 +1242,50 @@ export type Database = {
           },
         ]
       }
+      students_billing: {
+        Row: {
+          card_brand: string | null
+          card_country: string | null
+          card_last4: string | null
+          created_at: string
+          default_payment_method_id: string | null
+          stripe_customer_id: string
+          student_id: string
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          card_brand?: string | null
+          card_country?: string | null
+          card_last4?: string | null
+          created_at?: string
+          default_payment_method_id?: string | null
+          stripe_customer_id: string
+          student_id: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          card_brand?: string | null
+          card_country?: string | null
+          card_last4?: string | null
+          created_at?: string
+          default_payment_method_id?: string | null
+          stripe_customer_id?: string
+          student_id?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_billing_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students_subjects: {
         Row: {
           created_at: string | null
@@ -1151,35 +1337,44 @@ export type Database = {
       }
       subjects: {
         Row: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
           color: string | null
           created_at: string | null
+          currency: string
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
           name: string
+          session_fee_cents: number
           updated_at: string | null
           year_level: number | null
         }
         Insert: {
+          billing_type?: Database["public"]["Enums"]["billing_type"]
           color?: string | null
           created_at?: string | null
+          currency?: string
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
           name: string
+          session_fee_cents?: number
           updated_at?: string | null
           year_level?: number | null
         }
         Update: {
+          billing_type?: Database["public"]["Enums"]["billing_type"]
           color?: string | null
           created_at?: string | null
+          currency?: string
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
           name?: string
+          session_fee_cents?: number
           updated_at?: string | null
           year_level?: number | null
         }
@@ -1652,13 +1847,16 @@ export type Database = {
       get_student_subjects: {
         Args: { student_id: string }
         Returns: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
           color: string | null
           created_at: string | null
+          currency: string
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
           name: string
+          session_fee_cents: number
           updated_at: string | null
           year_level: number | null
         }[]
@@ -1672,13 +1870,16 @@ export type Database = {
       get_subjects_for_student: {
         Args: { p_curriculum: string; p_year_level: number }
         Returns: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
           color: string | null
           created_at: string | null
+          currency: string
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
           name: string
+          session_fee_cents: number
           updated_at: string | null
           year_level: number | null
         }[]
@@ -1722,6 +1923,7 @@ export type Database = {
       verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
+      billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
       resource_answers: "BLANK" | "ANSWERS"
       resource_type:
         | "NOTES"
@@ -1868,6 +2070,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      billing_type: ["CLASS", "EXAM_COURSE", "DRAFTING"],
       resource_answers: ["BLANK", "ANSWERS"],
       resource_type: [
         "NOTES",
