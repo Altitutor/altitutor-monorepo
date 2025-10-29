@@ -199,7 +199,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 8:
         return (
           <Step9Confirmation
-            formData={formData as TutorLogFormData}
+            formData={formData}
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
           />
@@ -274,4 +274,5 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     </Dialog>
   );
 }
+
 

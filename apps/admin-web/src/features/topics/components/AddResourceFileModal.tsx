@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +65,7 @@ export function AddResourceFileModal({
   const [selectedSolutionOfId, setSelectedSolutionOfId] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
 
   const { data: subjects = [] } = useSubjects();
   const { data: topics = [] } = useTopicsBySubject(selectedSubjectId);
@@ -75,6 +76,17 @@ export function AddResourceFileModal({
   
   const uploadFileMutation = useUploadFile();
   const createTopicFileMutation = useCreateTopicFile();
+
+  // Filter subjects based on search query
+  const filteredSubjects = useMemo(() => {
+    if (!subjectSearchQuery) return subjects;
+    
+    const query = subjectSearchQuery.toLowerCase();
+    return subjects.filter((subject) => {
+      const displayText = formatSubjectDisplay(subject).toLowerCase();
+      return displayText.includes(query) || subject.name.toLowerCase().includes(query);
+    });
+  }, [subjects, subjectSearchQuery]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -174,7 +186,17 @@ export function AddResourceFileModal({
                 <SelectValue placeholder="Select subject" />
               </SelectTrigger>
               <SelectContent>
-                {subjects.map((subject) => (
+                <div className="p-2">
+                  <input
+                    type="text"
+                    placeholder="Search subjects..."
+                    value={subjectSearchQuery}
+                    onChange={(e) => setSubjectSearchQuery(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                {filteredSubjects.map((subject) => (
                   <SelectItem key={subject.id} value={subject.id}>
                     {formatSubjectDisplay(subject)}
                   </SelectItem>

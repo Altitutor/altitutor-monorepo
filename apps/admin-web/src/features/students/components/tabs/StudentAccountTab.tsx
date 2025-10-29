@@ -1,10 +1,6 @@
-import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
-import { Button, Input, Label, Separator } from "@altitutor/ui";
-import { Loader2, UserCog, Mail, Trash2 } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Button, Separator } from "@altitutor/ui";
+import { Loader2, Mail, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,24 +13,11 @@ import {
   AlertDialogTrigger,
 } from "@altitutor/ui";
 
-// Account form schema for students
-const accountFormSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  studentEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
-});
-
-type AccountFormData = z.infer<typeof accountFormSchema>;
-
 interface StudentAccountTabProps {
   student: Tables<'students'>;
   isLoading: boolean;
-  isEditingAccount: boolean;
   hasPasswordResetLinkSent: boolean;
   isDeleting?: boolean;
-  onEditAccount: () => void;
-  onCancelEditAccount: () => void;
-  onAccountUpdate: (data: AccountFormData) => Promise<void>;
   onPasswordResetRequest: () => Promise<void>;
   onDelete?: () => Promise<void>;
 }
@@ -42,100 +25,80 @@ interface StudentAccountTabProps {
 export function StudentAccountTab({
   student,
   isLoading,
-  isEditingAccount,
   hasPasswordResetLinkSent,
   isDeleting = false,
-  onEditAccount,
-  onCancelEditAccount,
-  onAccountUpdate,
   onPasswordResetRequest,
   onDelete
 }: StudentAccountTabProps) {
-  const accountForm = useForm<AccountFormData>({
-    resolver: zodResolver(accountFormSchema),
-    defaultValues: {
-      firstName: student.first_name || '',
-      lastName: student.last_name || '',
-      studentEmail: (student as any).email || (student as any).student_email || '',
-    },
-  });
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Account Information</h3>
-        {!isEditingAccount && student.user_id && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onEditAccount} 
-            className="flex items-center gap-2"
-          >
-            <UserCog className="h-4 w-4" />
-            Edit Account
-          </Button>
-        )}
-      </div>
-
       {!student.user_id ? (
         <div className="bg-muted/50 rounded-lg p-4 text-center">
           <p className="text-sm text-muted-foreground">
             This student does not have an associated user account.
           </p>
         </div>
-      ) : isEditingAccount ? (
-        <form
-          id="student-account-edit-form"
-          onSubmit={accountForm.handleSubmit(onAccountUpdate)}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="account-firstName">First Name</Label>
-              <Input
-                id="account-firstName"
-                {...accountForm.register('firstName')}
-                disabled={isLoading}
-              />
-              {accountForm.formState.errors.firstName && (
-                <p className="text-sm text-red-500">
-                  {accountForm.formState.errors.firstName.message}
-                </p>
-              )}
+      ) : (
+        <>
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Password Management</h3>
+            <p className="text-sm text-muted-foreground">
+              Send a password reset link to this student's email address.
+            </p>
+            
+            <div className="flex flex-col space-y-3">
+          <Button
+            variant="outline"
+            onClick={onPasswordResetRequest}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            disabled={isLoading || hasPasswordResetLinkSent || !((student as any).email || (student as any).student_email)}
+            className="justify-start w-fit"
+          >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending reset link...
+                  </>
+                ) : hasPasswordResetLinkSent ? (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Reset link sent
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Send password reset email
+                  </>
+                )}
+              </Button>
+          
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {!((student as any).email || (student as any).student_email) && (
+            <p className="text-sm text-orange-600">
+              No email address set. Please add a student email in the Details tab.
+            </p>
+          )}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="account-lastName">Last Name</Label>
-              <Input
-                id="account-lastName"
-                {...accountForm.register('lastName')}
-                disabled={isLoading}
-              />
-              {accountForm.formState.errors.lastName && (
-                <p className="text-sm text-red-500">
-                  {accountForm.formState.errors.lastName.message}
-                </p>
-              )}
-            </div>
+        
+        {hasPasswordResetLinkSent && (
+          <>
+            <p className="text-sm text-green-600">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              A password reset link has been sent to {(student as any).email || (student as any).student_email}.
+              The student needs to check their email to set a new password.
+            </p>
+          </>
+        )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="account-studentEmail">Student Email</Label>
-            <Input
-              id="account-studentEmail"
-              type="email"
-              {...accountForm.register('studentEmail')}
-              disabled={isLoading}
-            />
-            {accountForm.formState.errors.studentEmail && (
-              <p className="text-sm text-red-500">
-                {accountForm.formState.errors.studentEmail.message}
-              </p>
-            )}
-          </div>
+          <Separator className="my-6" />
 
-          <div className="flex justify-between space-x-2 pt-4">
-            {/* Delete student button */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-destructive">Danger Zone</h3>
+            <p className="text-sm text-muted-foreground">
+              Permanently delete this student and their associated data. This action cannot be undone.
+            </p>
+            
             {onDelete && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -173,101 +136,10 @@ export function StudentAccountTab({
                 </AlertDialogContent>
               </AlertDialog>
             )}
-
-            <div className="flex space-x-2 ml-auto">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancelEditAccount}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
-            </div>
-          </div>
-        </form>
-      ) : (
-        <>
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
-            <div className="text-sm font-medium">User ID:</div>
-            <div className="text-sm font-mono min-w-0 truncate" title={student.user_id || ''}>
-              {student.user_id}
-            </div>
-
-            <div className="text-sm font-medium">Email:</div>
-            <div className="min-w-0 truncate" title={(student as any).email || (student as any).student_email || ''}>
-              {(student as any).email || (student as any).student_email || '-'}
-            </div>
-
-            <div className="text-sm font-medium">Account Type:</div>
-            <div className="min-w-0">Student</div>
-          </div>
-
-          <Separator className="my-4" />
-
-          <div className="space-y-4">
-            <h3 className="text-md font-medium">Password Management</h3>
-            <p className="text-sm text-muted-foreground">
-              Send a password reset link to this student's email address.
-            </p>
-            
-            <div className="flex flex-col space-y-3">
-              <Button
-                variant="outline"
-                onClick={onPasswordResetRequest}
-                disabled={isLoading || hasPasswordResetLinkSent || !((student as any).email || (student as any).student_email)}
-                className="justify-start"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending reset link...
-                  </>
-                ) : hasPasswordResetLinkSent ? (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Reset link sent
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Send password reset email
-                  </>
-                )}
-              </Button>
-              
-              {!((student as any).email || (student as any).student_email) && (
-                <p className="text-sm text-orange-600">
-                  No email address set. Please add a student email first.
-                </p>
-              )}
-            </div>
-            
-            {hasPasswordResetLinkSent && (
-              <p className="text-sm text-green-600">
-                A password reset link has been sent to {(student as any).email || (student as any).student_email}.
-                The student needs to check their email to set a new password.
-              </p>
-            )}
           </div>
         </>
       )}
     </div>
   );
 }
-
-export { accountFormSchema };
-export type { AccountFormData as StudentAccountFormData }; 
+ 

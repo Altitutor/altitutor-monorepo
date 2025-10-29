@@ -79,3 +79,4 @@ export function Step8Notes({ notes, onUpdate }: Step8NotesProps) {
   );
 }
 
+

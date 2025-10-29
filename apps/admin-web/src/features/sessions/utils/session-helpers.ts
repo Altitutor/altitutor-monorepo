@@ -68,3 +68,4 @@ export function formatSessionDate(date: Date | string): string {
   return `${dayName} ${day}/${month}/${year}`;
 }
 
+

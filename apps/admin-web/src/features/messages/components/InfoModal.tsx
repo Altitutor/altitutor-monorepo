@@ -24,3 +24,4 @@ export function InfoModal({ conversationId, isOpen, onClose }: InfoModalProps) {
   );
 }
 
+

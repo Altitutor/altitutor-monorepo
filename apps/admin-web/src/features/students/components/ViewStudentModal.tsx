@@ -10,16 +10,14 @@ import { subjectsApi } from '@/features/subjects/api';
 import type { Tables } from '@altitutor/shared';
 import { 
   DetailsTab,
-  StudentSubjectsTab, 
   ClassesTab,
   StudentAccountTab,
-  DetailsFormData,
-  StudentAccountFormData
+  DetailsFormData
 } from './tabs';
-import { MessageThread } from '@/features/messages/components/MessageThread';
-import { Composer } from '@/features/messages/components/Composer';
+import { StudentSessionsTab } from './StudentSessionsTab';
+import { StudentBillingTab } from './StudentBillingTab';
+import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { useChatStore } from '@/features/messages/state/chatStore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { mapDetailsFormToStudentUpdate, mapAccountFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
+import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
 import { ViewParentModal } from './ViewParentModal';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
@@ -60,7 +58,6 @@ export function ViewStudentModal({
   
   // Edit states for each tab
   const [isEditingDetails, setIsEditingDetails] = useState(false);
-  const [isEditingAccount, setIsEditingAccount] = useState(false);
   
   // Loading states for each tab
   const [loadingDetailsUpdate, setLoadingDetailsUpdate] = useState(false);
@@ -77,6 +74,11 @@ export function ViewStudentModal({
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [parentModalOpen, setParentModalOpen] = useState(false);
   const [parentModalDefaultTab, setParentModalDefaultTab] = useState<string>('students');
+  
+  // Subject modal state
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+  const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
 
   // Load student data
   const loadStudent = async () => {
@@ -157,7 +159,6 @@ export function ViewStudentModal({
   useEffect(() => {
     if (!isOpen) {
       setIsEditingDetails(false);
-      setIsEditingAccount(false);
     }
   }, [isOpen]);
 
@@ -187,35 +188,6 @@ export function ViewStudentModal({
       });
     } finally {
       setLoadingDetailsUpdate(false);
-    }
-  };
-
-  // Handle account update
-  const handleAccountSubmit = async (data: StudentAccountFormData) => {
-    if (!student) return;
-    
-    try {
-      setLoadingAccountUpdate(true);
-      const payload = mapAccountFormToStudentUpdate(data);
-      const updatedStudent = await studentsApi.updateStudent(student.id, payload);
-      
-      setStudent(updatedStudent);
-      setIsEditingAccount(false);
-      onStudentUpdated();
-      
-      toast({
-        title: "Success",
-        description: "Account information updated successfully.",
-      });
-    } catch (error) {
-      console.error('Failed to update account:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update account information. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingAccountUpdate(false);
     }
   };
 
@@ -295,6 +267,12 @@ export function ViewStudentModal({
       });
     }
   };
+  
+  // Handle viewing subject details
+  const handleViewSubject = (subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    setSubjectModalOpen(true);
+  };
 
   // Handle student deletion
   const handleDeleteStudent = async () => {
@@ -340,27 +318,29 @@ export function ViewStudentModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none">
-          <SheetHeader>
+        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none h-full flex flex-col p-0">
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <SheetTitle>
-              {student.first_name} {student.last_name}
+              Student Details
             </SheetTitle>
-            <SheetDescription>
-              View and manage student details, subjects, classes, and account settings
+            <SheetDescription className="text-lg font-medium">
+              {student.first_name} {student.last_name}
             </SheetDescription>
           </SheetHeader>
           
-          <Tabs defaultValue="details" className="mt-6 flex flex-col h-[calc(100vh-200px)]">
-            <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="subjects">Subjects</TabsTrigger>
-              <TabsTrigger value="classes">Classes</TabsTrigger>
-              <TabsTrigger value="account">Account</TabsTrigger>
-              <TabsTrigger value="messages">Messages</TabsTrigger>
-            </TabsList>
+          <div className="flex-1 overflow-hidden flex flex-col px-6 pb-6">
+            <Tabs defaultValue="details" className="flex flex-col h-full">
+            <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="classes">Classes</TabsTrigger>
+                <TabsTrigger value="account">Account</TabsTrigger>
+                <TabsTrigger value="messages">Messages</TabsTrigger>
+              <TabsTrigger value="sessions">Sessions</TabsTrigger>
+              <TabsTrigger value="billing">Billing</TabsTrigger>
+              </TabsList>
             
             <div className="flex-1 overflow-hidden mt-4">
-              <TabsContent value="details" className="h-full overflow-y-auto m-0">
+              <TabsContent value="details" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <DetailsTab
                   student={student}
                   isEditing={isEditingDetails}
@@ -368,6 +348,11 @@ export function ViewStudentModal({
                   onEdit={() => setIsEditingDetails(true)}
                   onCancelEdit={() => setIsEditingDetails(false)}
                   onSubmit={handleDetailsSubmit}
+                  studentSubjects={studentSubjects}
+                  loadingSubjects={loadingSubjects}
+                  onAddSubject={() => setIsAddSubjectDialogOpen(true)}
+                  onRemoveSubject={handleRemoveSubject}
+                  onViewSubject={handleViewSubject}
                 />
                 
                 {/* Parents Section */}
@@ -376,7 +361,15 @@ export function ViewStudentModal({
                     <h3 className="text-lg font-medium">Parents</h3>
                     <div className="space-y-2">
                       {parents.map((parent) => (
-                        <div key={parent.id} className="flex items-center justify-between p-3 border rounded-md">
+                        <div 
+                          key={parent.id} 
+                          className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            setSelectedParentId(parent.id);
+                            setParentModalDefaultTab('messages');
+                            setParentModalOpen(true);
+                          }}
+                        >
                           <div>
                             <p className="font-medium">{parent.first_name} {parent.last_name}</p>
                             <p className="text-sm text-muted-foreground">{parent.email || parent.phone_e164}</p>
@@ -384,12 +377,14 @@ export function ViewStudentModal({
                           <UIButton
                             size="sm"
                             variant="outline"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedParentId(parent.id);
+                              setParentModalDefaultTab('messages');
                               setParentModalOpen(true);
                             }}
                           >
-                            View Details
+                            Message
                           </UIButton>
                         </div>
                       ))}
@@ -398,74 +393,42 @@ export function ViewStudentModal({
                 )}
               </TabsContent>
               
-              <TabsContent value="subjects" className="h-full overflow-y-auto m-0">
-                <StudentSubjectsTab
-                  student={student}
-                  studentSubjects={studentSubjects}
-                  allSubjects={allSubjects}
-                  loadingSubjects={loadingSubjects}
-                  onAssignSubject={handleAssignSubject}
-                  onRemoveSubject={handleRemoveSubject}
-                />
-              </TabsContent>
-              
-              <TabsContent value="classes" className="h-full overflow-y-auto m-0">
+              <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <ClassesTab
                   student={student}
                   onStudentUpdated={onStudentUpdated}
                 />
               </TabsContent>
               
-              <TabsContent value="account" className="h-full overflow-y-auto m-0">
+              <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <StudentAccountTab
                   student={student}
                   isLoading={loadingAccountUpdate}
-                  isEditingAccount={isEditingAccount}
                   hasPasswordResetLinkSent={hasPasswordResetLinkSent}
                   isDeleting={loadingDelete}
-                  onEditAccount={() => setIsEditingAccount(true)}
-                  onCancelEditAccount={() => setIsEditingAccount(false)}
-                  onAccountUpdate={handleAccountSubmit}
                   onPasswordResetRequest={handlePasswordResetRequest}
                   onDelete={handleDeleteStudent}
                 />
               </TabsContent>
 
-              <TabsContent value="messages" className="h-full overflow-hidden m-0">
-                <div className="flex flex-col h-full border rounded-md">
-                  <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
-                    <div className="font-medium text-sm">Messages</div>
-                    <UIButton
-                      size="sm"
-                      onClick={() => {
-                        if (conversationId) {
-                          useChatStore.getState().openWindow({ conversationId, title: `${student.first_name} ${student.last_name}` });
-                          onClose(); // Close the modal after popping out
-                        }
-                      }}
-                      disabled={!conversationId}
-                    >
-                      Pop out
-                    </UIButton>
-                  </div>
-                  {conversationId ? (
-                    <>
-                      <div className="flex-1 min-h-0 overflow-hidden">
-                        <MessageThread conversationId={conversationId} />
-                      </div>
-                      <div className="flex-shrink-0">
-                        <Composer conversationId={conversationId} />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                      No conversation found
-                    </div>
-                  )}
-                </div>
+              <TabsContent value="messages" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                <MessagesTabContent 
+                  conversationId={conversationId}
+                  title={`${student.first_name} ${student.last_name}`}
+                  onClose={onClose}
+                />
+              </TabsContent>
+
+              <TabsContent value="sessions" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                <StudentSessionsTab student={student} />
+              </TabsContent>
+
+              <TabsContent value="billing" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                <StudentBillingTab student={student} />
               </TabsContent>
             </div>
           </Tabs>
+          </div>
           
         </SheetContent>
       </Sheet>
@@ -476,10 +439,63 @@ export function ViewStudentModal({
         onClose={() => {
           setParentModalOpen(false);
           setSelectedParentId(null);
+          setParentModalDefaultTab('students');
         }}
         parentId={selectedParentId}
         onParentUpdated={loadStudent}
+        defaultTab={parentModalDefaultTab}
       />
+      
+      {/* Subject Modal */}
+      {selectedSubjectId && (
+        <ViewSubjectModal
+          isOpen={subjectModalOpen}
+          onClose={() => {
+            setSubjectModalOpen(false);
+            setSelectedSubjectId(null);
+          }}
+          subjectId={selectedSubjectId}
+          onSubjectUpdated={() => {
+            loadStudent();
+          }}
+        />
+      )}
+      
+      {/* Add Subject Dialog */}
+      <AlertDialog open={isAddSubjectDialogOpen} onOpenChange={setIsAddSubjectDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign Subject</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select a subject to assign to this student.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-[400px] overflow-y-auto">
+            <div className="space-y-2">
+              {allSubjects.filter(s => !studentSubjects.some(ss => ss.id === s.id)).map((subject) => (
+                <button
+                  key={subject.id}
+                  onClick={() => {
+                    handleAssignSubject(subject.id);
+                    setIsAddSubjectDialogOpen(false);
+                  }}
+                  className="w-full text-left p-3 border rounded-md hover:bg-muted/50 transition-colors"
+                >
+                  <div className="font-medium">
+                    {subject.curriculum} {subject.year_level ? `Year ${subject.year_level}` : ''} {subject.name}
+                  </div>
+                  {subject.level && (
+                    <div className="text-sm text-muted-foreground">{subject.level}</div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

@@ -56,4 +56,6 @@ export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
 export const navHoverStyles = "hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white" 
 
 // Re-export enum color utilities
-export * from './enum-colors'; 
+export * from './enum-colors';
+export * from './subject-icons';
+ 

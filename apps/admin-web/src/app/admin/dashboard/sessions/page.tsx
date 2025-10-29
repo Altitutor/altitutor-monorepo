@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense, useMemo, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { SessionsTable } from '@/features/sessions';
 import { SessionsCalendarView } from '@/features/sessions';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { Button, Input, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
+import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
+import { Button, Input, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { usePrecreateSessions } from '@/features/sessions';
 import { addDays, format } from 'date-fns';
@@ -16,10 +17,12 @@ export default function SessionsPage() {
   const router = useRouter();
   const viewParam = search.get('view') || 'table';
   const [day, setDay] = useState<string>(new Date().toISOString().slice(0, 10));
-  const { mutate: precreate, isPending } = usePrecreateSessions();
+  const { mutate: precreate } = usePrecreateSessions();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
+  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
@@ -33,7 +36,7 @@ export default function SessionsPage() {
     precreate({ start_date: day, end_date: day });
   }, [day]);
 
-  // Listen for events fired from SessionModal to open student/staff modals
+  // Listen for events fired from SessionModal to open student/staff/topic/file modals
   useEffect(() => {
     const onOpenStudent = (e: Event) => {
       const detail = (e as CustomEvent).detail as { id: string };
@@ -43,11 +46,25 @@ export default function SessionsPage() {
       const detail = (e as CustomEvent).detail as { id: string };
       if (detail?.id) setActiveStaffId(detail.id);
     };
+    const onOpenTopic = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id: string };
+      if (detail?.id) setActiveTopicId(detail.id);
+    };
+    const onOpenFile = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id: string };
+      if (detail?.id) setActiveFileId(detail.id);
+    };
+    
     window.addEventListener('open-student-modal', onOpenStudent as any);
     window.addEventListener('open-staff-modal', onOpenStaff as any);
+    window.addEventListener('open-topic-modal', onOpenTopic as any);
+    window.addEventListener('open-file-preview', onOpenFile as any);
+    
     return () => {
       window.removeEventListener('open-student-modal', onOpenStudent as any);
       window.removeEventListener('open-staff-modal', onOpenStaff as any);
+      window.removeEventListener('open-topic-modal', onOpenTopic as any);
+      window.removeEventListener('open-file-preview', onOpenFile as any);
     };
   }, []);
 
@@ -109,6 +126,19 @@ export default function SessionsPage() {
         staffId={activeStaffId}
         onClose={() => setActiveStaffId(null)}
         onStaffUpdated={() => {}}
+      />
+
+      <ViewTopicModal
+        isOpen={!!activeTopicId}
+        topicId={activeTopicId}
+        onClose={() => setActiveTopicId(null)}
+        onTopicUpdated={() => {}}
+      />
+
+      <FilePreviewModal
+        isOpen={!!activeFileId}
+        fileId={activeFileId}
+        onClose={() => setActiveFileId(null)}
       />
     </div>
   );

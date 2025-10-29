@@ -41,6 +41,7 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
   
   // Check if conversation is unreplied (last message is inbound)
   const isUnreplied = (conversation: any) => {
+    // Check if the last message (stored in messages field from query) is inbound
     return conversation.messages?.direction === 'INBOUND';
   };
 

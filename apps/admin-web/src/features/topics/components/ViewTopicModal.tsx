@@ -36,10 +36,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@altitutor/ui';
-import { useRouter } from 'next/navigation';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { subjectsApi } from '@/features/subjects/api';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { TablesUpdate } from '@altitutor/shared';
 import {
   useTopicById,
   useTopics,
@@ -47,13 +45,15 @@ import {
   useDeleteTopic,
   useTopicsBySubject,
   useTopicFilesByTopic,
+  useUpdateTopicIndices,
 } from '../hooks';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import { TopicsHierarchy, TopicNode } from './TopicsHierarchy';
+import { TopicNode } from './TopicsHierarchy';
 import { DraggableTopicsList } from './DraggableTopicsList';
-import { FilePreview } from './FilePreview';
+import { FileCard } from './FileCard';
 import { AddTopicModal } from './AddTopicModal';
 import { AddResourceFileModal } from './AddResourceFileModal';
+import { EditTopicFileModal } from './EditTopicFileModal';
 import { deriveTopicFileCode, deriveTopicCode, buildTopicTree } from '../utils/codes';
 import { Plus } from 'lucide-react';
 
@@ -78,9 +78,6 @@ export function ViewTopicModal({
   topicId,
   onTopicUpdated,
 }: ViewTopicModalProps) {
-  const { toast } = useToast();
-  const router = useRouter();
-  
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
@@ -88,6 +85,9 @@ export function ViewTopicModal({
   const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
   const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
   const [viewTopicId, setViewTopicId] = useState<string | null>(null);
+  const [isEditFileModalOpen, setIsEditFileModalOpen] = useState(false);
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
+  const [reorderedChildren, setReorderedChildren] = useState<Array<{ id: string; index: number }>>([]);
   
   const { data: topic, isLoading, error } = useTopicById(topicId);
   const { data: subjects = [] } = useSubjects();
@@ -97,6 +97,7 @@ export function ViewTopicModal({
   
   const updateTopicMutation = useUpdateTopic();
   const deleteTopicMutation = useDeleteTopic();
+  const updateTopicIndices = useUpdateTopicIndices();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -130,12 +131,17 @@ export function ViewTopicModal({
         parent_id: topic.parent_id || 'none',
       });
     }
+    setReorderedChildren([]);
     setIsEditing(false);
+  };
+
+  const handleTopicReorder = (updates: Array<{ id: string; index: number }>) => {
+    setReorderedChildren(updates);
   };
 
   const onSubmit = async (values: FormData) => {
     if (!topicId) return;
-
+    
     try {
       const topicData: TablesUpdate<'topics'> = {
         name: values.name,
@@ -144,9 +150,15 @@ export function ViewTopicModal({
       };
 
       await updateTopicMutation.mutateAsync({ id: topicId, data: topicData });
-
+      
+      // Update children indices if they were reordered
+      if (reorderedChildren.length > 0) {
+        await updateTopicIndices.mutateAsync(reorderedChildren);
+        setReorderedChildren([]);
+      }
+      
       setIsEditing(false);
-
+      
       if (onTopicUpdated) {
         onTopicUpdated();
       }
@@ -160,11 +172,11 @@ export function ViewTopicModal({
 
     try {
       await deleteTopicMutation.mutateAsync(topicId);
-
+      
       if (onTopicUpdated) {
         onTopicUpdated();
       }
-
+      
       setShowDeleteDialog(false);
       onClose();
     } catch (error) {
@@ -185,8 +197,8 @@ export function ViewTopicModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] overflow-y-auto w-full sm:max-w-[600px]">
-          <SheetHeader className="mb-6">
+        <SheetContent className="h-full w-full sm:max-w-[600px] flex flex-col p-0">
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <SheetTitle className="text-xl">
               {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
             </SheetTitle>
@@ -196,7 +208,9 @@ export function ViewTopicModal({
               </SheetDescription>
             )}
           </SheetHeader>
-
+          
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto px-6 pb-20">
           {isLoading ? (
             <div className="py-6 text-center">
               <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
@@ -208,7 +222,7 @@ export function ViewTopicModal({
               <p>Failed to load topic</p>
             </div>
           ) : topic ? (
-            <div className="space-y-8 pb-20">
+            <div className="space-y-8">
               {isEditing ? (
                 // Edit Mode
                 <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -224,7 +238,7 @@ export function ViewTopicModal({
                         required
                       />
                     </div>
-
+                    
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="subject_id" className="text-right">
                         Subject
@@ -245,7 +259,7 @@ export function ViewTopicModal({
                         </SelectContent>
                       </Select>
                     </div>
-
+                    
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="parent_id" className="text-right">
                         Parent
@@ -281,7 +295,7 @@ export function ViewTopicModal({
                         allTopics={allTopics}
                         onReorder={(updates) => {
                           // Handle reordering - this would call a batch update API
-                          console.log('Reorder updates:', updates);
+                          setReorderedChildren(updates);
                         }}
                       />
                     </div>
@@ -293,7 +307,7 @@ export function ViewTopicModal({
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     <div className="text-sm font-medium">Name:</div>
                     <div>{topic.name}</div>
-
+                    
                     <div className="text-sm font-medium">Subject:</div>
                     <div>
                       {subject ? (
@@ -302,19 +316,32 @@ export function ViewTopicModal({
                         'N/A'
                       )}
                     </div>
-
+                    
                     <div className="text-sm font-medium">Parent:</div>
                     <div>
-                      {topic.parent_id
-                        ? allTopics.find(t => t.id === topic.parent_id)?.name || 'Unknown'
-                        : 'None (root topic)'}
-                    </div>
+                      {topic.parent_id ? (
+                        <button
+                          onClick={() => {
+                            const parentTopic = allTopics.find(t => t.id === topic.parent_id);
+                            if (parentTopic) {
+                              setViewTopicId(topic.parent_id);
+                              setIsViewTopicModalOpen(true);
+                            }
+                          }}
+                          className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
+                        >
+                          {allTopics.find(t => t.id === topic.parent_id)?.name || 'Unknown'}
+                        </button>
+                      ) : (
+                        'None (root topic)'
+                    )}
                   </div>
-
-                  <Separator className="my-4" />
-
+                </div>
+              
+              <Separator className="my-4" />
+              
                   {/* Files Section */}
-                  <div>
+              <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-lg font-semibold">Files</h3>
                       <Button
@@ -326,32 +353,30 @@ export function ViewTopicModal({
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add File
-                      </Button>
-                    </div>
+                  </Button>
+                </div>
                     {topicFiles.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No files attached to this topic</p>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {topicFiles.map((topicFile) => {
                           const topicCode = topic ? deriveTopicCode(topic, allTopics) : '';
-                          const code = `${topicCode}${topicFile.type}.${topicFile.index}${topicFile.is_solutions ? '_SOL' : ''}`;
+                          const code = deriveTopicFileCode(topicFile, topicCode, topicFile.type);
+                          
                           return (
-                            <div key={topicFile.id} className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">{code}</Badge>
-                                <span className="text-sm font-medium">{topicFile.type}</span>
-                                {topicFile.is_solutions && (
-                                  <Badge variant="secondary">Solutions</Badge>
-                                )}
-                              </div>
-                              {topicFile.file && (
-                                <FilePreview
-                                  fileUrl={topicFile.file.storage_path}
-                                  fileName={topicFile.file.filename}
-                                  mimeType={topicFile.file.mimetype}
-                                />
-                              )}
-                            </div>
+                            <FileCard
+                              key={topicFile.id}
+                              fileCode={code}
+                              fileType={topicFile.type}
+                              filename={topicFile.file.filename}
+                              storagePath={topicFile.file.storage_path}
+                              mimeType={topicFile.file.mimetype}
+                              topicFileId={topicFile.id}
+                              onEdit={(id) => {
+                                setEditingFileId(id);
+                                setIsEditFileModalOpen(true);
+                              }}
+                            />
                           );
                         })}
                       </div>
@@ -364,65 +389,79 @@ export function ViewTopicModal({
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-lg font-semibold">Subtopics</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setIsAddTopicModalOpen(true);
-                          setAddTopicParentId(topicId || undefined);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Subtopic
-                      </Button>
+                      {!isEditing && (
+                        <Button 
+                          variant="outline"
+                          size="sm" 
+                          onClick={() => {
+                            setIsAddTopicModalOpen(true);
+                            setAddTopicParentId(topicId || undefined);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Subtopic
+                        </Button>
+                      )}
                     </div>
+                    
                     {childrenTopics.length > 0 ? (
-                      <div className="space-y-1">
-                        {buildTopicTree(subjectTopics, topicId || null).map((childTopic) => (
-                          <TopicNode
-                            key={childTopic.id}
-                            topic={childTopic}
-                            allTopics={subjectTopics}
-                            level={0}
-                            showAddTopic={false}
-                            showAddResource={false}
-                            onTopicClick={(id) => {
-                              setViewTopicId(id);
-                              setIsViewTopicModalOpen(true);
-                            }}
-                            searchQuery=""
-                          />
-                        ))}
-                      </div>
+                      isEditing ? (
+                        // Edit mode: Show draggable list
+                        <DraggableTopicsList
+                          topics={childrenTopics}
+                          allTopics={subjectTopics}
+                          onReorder={handleTopicReorder}
+                        />
+                      ) : (
+                        // View mode: Show hierarchy
+                        <div className="space-y-1">
+                          {buildTopicTree(subjectTopics, topicId || null).map((childTopic) => (
+                            <TopicNode
+                              key={childTopic.id}
+                              topic={childTopic}
+                              allTopics={subjectTopics}
+                              level={0}
+                              showAddTopic={false}
+                              showAddResource={false}
+                              onTopicClick={(id) => {
+                                setViewTopicId(id);
+                                setIsViewTopicModalOpen(true);
+                              }}
+                              searchQuery=""
+                            />
+                          ))}
+                        </div>
+                      )
                     ) : (
                       <p className="text-sm text-muted-foreground">No subtopics</p>
                     )}
                   </div>
-                </div>
-              )}
+                  </div>
+                )}
             </div>
           ) : (
             <div className="py-6 text-center text-destructive">
               Topic not found or has been deleted.
             </div>
           )}
-
+          </div>
+          
           {/* Action buttons at the bottom */}
           {!isLoading && topic && (
-            <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
+            <SheetFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
               <div className="flex w-full justify-between">
                 {isEditing ? (
                   <>
-                    <Button
-                      type="button"
-                      variant="destructive"
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
                       onClick={() => setShowDeleteDialog(true)}
                       disabled={updateTopicMutation.isPending}
                     >
                       <TrashIcon className="h-4 w-4 mr-2" />
                       Delete
                     </Button>
-
+                    
                     <div className="flex space-x-2">
                       <Button
                         type="button"
@@ -432,8 +471,8 @@ export function ViewTopicModal({
                       >
                         Cancel
                       </Button>
-                      <Button
-                        type="button"
+                      <Button 
+                        type="button" 
                         disabled={updateTopicMutation.isPending}
                         onClick={form.handleSubmit(onSubmit)}
                       >
@@ -459,7 +498,7 @@ export function ViewTopicModal({
           )}
         </SheetContent>
       </Sheet>
-
+      
       {/* Confirmation dialog for delete */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -474,8 +513,8 @@ export function ViewTopicModal({
             <AlertDialogCancel disabled={deleteTopicMutation.isPending}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
+            <AlertDialogAction 
+              onClick={handleDelete} 
               disabled={deleteTopicMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -484,7 +523,7 @@ export function ViewTopicModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
+      
       {/* Add Topic Modal */}
       <AddTopicModal
         isOpen={isAddTopicModalOpen}
@@ -513,6 +552,20 @@ export function ViewTopicModal({
         }}
       />
 
+      {/* Edit File Modal */}
+      {editingFileId && topic && (
+        <EditTopicFileModal
+          isOpen={isEditFileModalOpen}
+          onClose={() => {
+            setIsEditFileModalOpen(false);
+            setEditingFileId(null);
+          }}
+          topicFileId={editingFileId}
+          currentTopicId={topic.id}
+          currentSubjectId={topic.subject_id}
+        />
+      )}
+
       {/* Nested View Topic Modal for subtopics */}
       {isViewTopicModalOpen && (
         <ViewTopicModal
@@ -526,4 +579,4 @@ export function ViewTopicModal({
       )}
     </>
   );
-}
+} 

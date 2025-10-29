@@ -50,7 +50,11 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
           const newItem = (payload as any).new;
           const pages = [...old.pages];
           if (pages[0]) {
-            pages[0] = { ...pages[0], items: [newItem, ...pages[0].items] };
+            // Check if message already exists to prevent duplicates
+            const exists = pages[0].items.some((m: any) => m.id === newItem.id);
+            if (!exists) {
+              pages[0] = { ...pages[0], items: [newItem, ...pages[0].items] };
+            }
           }
           return { ...old, pages };
         });

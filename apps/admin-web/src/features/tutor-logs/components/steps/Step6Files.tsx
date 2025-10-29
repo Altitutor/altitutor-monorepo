@@ -123,3 +123,4 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
   );
 }
 
+

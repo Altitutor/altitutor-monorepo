@@ -51,3 +51,4 @@ export function StudentAvatar({ student, showTooltip = true, size = 'md', classN
   );
 }
 
+

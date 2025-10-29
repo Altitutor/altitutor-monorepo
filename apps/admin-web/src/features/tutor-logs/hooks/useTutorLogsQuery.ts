@@ -59,7 +59,7 @@ export function useUnloggedSessions(staffId: string) {
     queryKey: tutorLogsKeys.unlogged(staffId),
     queryFn: () => tutorLogsApi.getUnloggedSessions(staffId),
     enabled: !!staffId,
-    staleTime: 1000 * 60 * 2, // 2 minutes (more frequent since this changes often)
+    staleTime: 0, // Always refetch to ensure we have the latest data
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -107,4 +107,5 @@ export function useDeleteTutorLog() {
     },
   });
 }
+
 

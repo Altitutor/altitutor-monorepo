@@ -540,7 +540,7 @@ export const sessionsApi = {
         // Get tutor log files
         const { data: filesData, error: filesError } = await supabase
           .from('tutor_logs_topics_files')
-          .select('*, topics_file:topics_files(*)')
+          .select('*, topics_file:topics_files(*, file:files(*))')
           .eq('tutor_log_id', tutorLogData.id);
         
         if (filesError) throw filesError;

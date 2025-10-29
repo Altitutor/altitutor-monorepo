@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Download, FileIcon, Loader2 } from 'lucide-react';
+import { getSignedUrl } from '@/shared/lib/supabase/storage';
 
 export interface FilePreviewProps {
-  fileUrl: string;
+  fileUrl: string; // This is actually storage_path
   fileName: string;
   mimeType: string;
   onDownload?: () => void;
@@ -21,7 +22,7 @@ export function FilePreview({ fileUrl, fileName, mimeType, onDownload }: FilePre
     if (onDownload) {
       onDownload();
     } else {
-      // Default download behavior
+      // Default download behavior - but this won't work without signed URL
       const link = document.createElement('a');
       link.href = fileUrl;
       link.download = fileName;
@@ -31,8 +32,17 @@ export function FilePreview({ fileUrl, fileName, mimeType, onDownload }: FilePre
     }
   };
 
-  const handleView = () => {
-    window.open(fileUrl, '_blank');
+  const handleView = async () => {
+    try {
+      setLoading(true);
+      // Generate signed URL for viewing
+      const signedUrl = await getSignedUrl(fileUrl);
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('Failed to generate signed URL:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,8 +64,10 @@ export function FilePreview({ fileUrl, fileName, mimeType, onDownload }: FilePre
             variant="outline"
             size="sm"
             onClick={handleView}
+            disabled={loading}
             className="flex items-center gap-1"
           >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             View
           </Button>
           <Button

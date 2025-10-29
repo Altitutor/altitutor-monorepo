@@ -9,10 +9,9 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { SubjectsTab } from './tabs/SubjectsTab';
 import { ClassesTab } from './tabs/ClassesTab';
-import { AccountTab, AccountFormData } from './tabs/AccountTab';
+import { AccountTab } from './tabs/AccountTab';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
-import { MessageThread } from '@/features/messages/components/MessageThread';
-import { Composer } from '@/features/messages/components/Composer';
+import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { Button as UIButton } from '@altitutor/ui';
@@ -38,7 +37,6 @@ export function ViewStaffModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [baseUrl, setBaseUrl] = useState('');
@@ -62,7 +60,6 @@ export function ViewStaffModal({
       setStaffSubjects([]);
       setAllSubjects([]);
       setIsEditing(false);
-      setIsEditingAccount(false);
       setHasPasswordResetLinkSent(false);
       setActiveTab('details');
     }
@@ -171,57 +168,6 @@ export function ViewStaffModal({
       toast({
         title: 'Update failed',
         description: 'There was an error updating the staff member. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Account update handler
-  const handleAccountUpdate = async (data: AccountFormData) => {
-    if (!staffMember) return;
-    
-    try {
-      setIsLoading(true);
-      
-      // Update the user's account details
-      // Since there's no updateStaffAccount method, we'll use the updateStaff method and supabaseServer directly
-      await staffApi.updateStaff(staffMember.id, {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        role: data.role,
-      });
-      
-      // Additionally update the user_metadata in auth
-      if (staffMember.user_id) {
-        await getSupabaseClient().auth.admin.updateUserById(staffMember.user_id, {
-          user_metadata: {
-            first_name: data.firstName,
-            last_name: data.lastName,
-            user_role: data.role,
-          },
-        });
-      }
-      
-      // Refetch staff
-      await fetchStaffMember();
-      
-      // Reset edit mode
-      setIsEditingAccount(false);
-      
-      // Notify parent of update
-      onStaffUpdated();
-      
-      toast({
-        title: 'Account updated',
-        description: 'Staff account has been updated successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to update account:', err);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the account. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -376,8 +322,8 @@ export function ViewStaffModal({
             <TabsTrigger value="messages" className="flex-1">Messages</TabsTrigger>
           </TabsList>
           
-          <div className="flex-1 overflow-hidden mt-4">
-            <TabsContent value="details" className="h-full overflow-y-auto m-0">
+          <div className="flex-1 overflow-hidden">
+            <TabsContent value="details" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
               <StaffDetailsTab
                 staffMember={staffMember}
                 isEditing={isEditing}
@@ -388,7 +334,7 @@ export function ViewStaffModal({
               />
             </TabsContent>
             
-            <TabsContent value="subjects" className="h-full overflow-y-auto m-0">
+            <TabsContent value="subjects" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
               <SubjectsTab
                 staffMember={staffMember}
                 staffSubjects={staffSubjects}
@@ -399,59 +345,29 @@ export function ViewStaffModal({
               />
             </TabsContent>
             
-            <TabsContent value="classes" className="h-full overflow-y-auto m-0">
+            <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
               <ClassesTab
                 staff={staffMember}
               />
             </TabsContent>
             
-            <TabsContent value="account" className="h-full overflow-y-auto m-0">
+            <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
               <AccountTab
                 staffMember={staffMember}
                 isLoading={isLoading}
-                isEditingAccount={isEditingAccount}
                 hasPasswordResetLinkSent={hasPasswordResetLinkSent}
-                onEditAccount={() => setIsEditingAccount(true)}
-                onCancelEditAccount={() => setIsEditingAccount(false)}
-                onAccountUpdate={handleAccountUpdate}
                 onPasswordResetRequest={handlePasswordResetRequest}
                 onDelete={handleDelete}
                 isDeleting={isDeleting}
               />
             </TabsContent>
 
-            <TabsContent value="messages" className="h-full overflow-hidden m-0">
-              <div className="flex flex-col h-full border rounded-md">
-                <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
-                  <div className="font-medium text-sm">Messages</div>
-                  <UIButton
-                    size="sm"
-                    onClick={() => {
-                      if (conversationId) {
-                        useChatStore.getState().openWindow({ conversationId, title: `${staffMember.first_name} ${staffMember.last_name}` });
-                        onClose(); // Close the modal after popping out
-                      }
-                    }}
-                    disabled={!conversationId}
-                  >
-                    Pop out
-                  </UIButton>
-                </div>
-                {conversationId ? (
-                  <>
-                    <div className="flex-1 min-h-0 overflow-hidden">
-                      <MessageThread conversationId={conversationId} />
-                    </div>
-                    <div className="flex-shrink-0">
-                      <Composer conversationId={conversationId} />
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    No conversation found
-                  </div>
-                )}
-              </div>
+            <TabsContent value="messages" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <MessagesTabContent 
+                conversationId={conversationId}
+                title={`${staffMember.first_name} ${staffMember.last_name}`}
+                onClose={onClose}
+              />
             </TabsContent>
           </div>
         </Tabs>

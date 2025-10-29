@@ -11,7 +11,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { format } from 'date-fns';
 
 type Step9ConfirmationProps = {
-  formData: TutorLogFormData;
+  formData: Partial<TutorLogFormData>;
   onSubmit: () => void;
   isSubmitting: boolean;
 };
@@ -39,7 +39,7 @@ export function Step9Confirmation({
       setSession(sessionData);
 
       // Get students
-      const studentIds = formData.studentAttendance.map((sa) => sa.studentId);
+      const studentIds = (formData.studentAttendance || []).map((sa) => sa.studentId);
       if (studentIds.length > 0) {
         const { data: students } = await supabase
           .from('students')
@@ -49,7 +49,7 @@ export function Step9Confirmation({
       }
 
       // Get staff
-      const staffIds = formData.staffAttendance.map((sa) => sa.staffId);
+      const staffIds = (formData.staffAttendance || []).map((sa) => sa.staffId);
       if (staffIds.length > 0) {
         const { data: staff } = await supabase
           .from('staff')
@@ -59,7 +59,7 @@ export function Step9Confirmation({
       }
 
       // Get topics
-      const topicIds = formData.topics.map((t) => t.topicId);
+      const topicIds = (formData.topics || []).map((t) => t.topicId);
       if (topicIds.length > 0) {
         const { data: topics } = await supabase
           .from('topics')
@@ -69,11 +69,13 @@ export function Step9Confirmation({
       }
     };
 
-    fetchData();
+    if (formData.sessionId) {
+      fetchData();
+    }
   }, [formData]);
 
-  const attendedStudents = formData.studentAttendance.filter((sa) => sa.attended);
-  const attendedStaff = formData.staffAttendance.filter((sa) => sa.attended);
+  const attendedStudents = formData.studentAttendance?.filter((sa) => sa.attended) || [];
+  const attendedStaff = formData.staffAttendance?.filter((sa) => sa.attended) || [];
 
   return (
     <div className="space-y-6">
@@ -154,11 +156,11 @@ export function Step9Confirmation({
 
       {/* Topics */}
       <div>
-        <div className="font-medium mb-2">Topics Covered ({formData.topics.length})</div>
+        <div className="font-medium mb-2">Topics Covered ({formData.topics?.length || 0})</div>
         <div className="space-y-2">
-          {formData.topics.map((topic) => {
+          {(formData.topics || []).map((topic) => {
             const topicData = topicsMap.get(topic.topicId);
-            const studentCount = topic.studentIds.length;
+            const studentCount = topic.studentIds?.length || 0;
             return (
               <div key={topic.topicId} className="text-sm">
                 <span className="font-medium">{topicData?.name}</span>
@@ -170,26 +172,26 @@ export function Step9Confirmation({
       </div>
 
       {/* Files */}
-      {formData.topicFiles.length > 0 && (
+      {(formData.topicFiles?.length || 0) > 0 && (
         <>
           <Separator />
           <div>
-            <div className="font-medium mb-2">Files Used ({formData.topicFiles.length})</div>
+            <div className="font-medium mb-2">Files Used ({formData.topicFiles?.length || 0})</div>
             <div className="text-sm text-muted-foreground">
-              {formData.topicFiles.length} file(s) selected
+              {formData.topicFiles?.length || 0} file(s) selected
             </div>
           </div>
         </>
       )}
 
       {/* Notes */}
-      {formData.notes.length > 0 && (
+      {(formData.notes?.length || 0) > 0 && (
         <>
           <Separator />
           <div>
-            <div className="font-medium mb-2">Notes ({formData.notes.length})</div>
+            <div className="font-medium mb-2">Notes ({formData.notes?.length || 0})</div>
             <div className="space-y-2">
-              {formData.notes.map((note, index) => (
+              {(formData.notes || []).map((note, index) => (
                 <div key={index} className="text-sm p-2 bg-muted/30 rounded">
                   {note}
                 </div>
@@ -209,4 +211,5 @@ export function Step9Confirmation({
     </div>
   );
 }
+
 

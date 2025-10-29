@@ -259,21 +259,14 @@ export const topicsApi = {
   updateTopicIndices: async (updates: Array<{ id: string; index: number }>): Promise<void> => {
     const supabase = getSupabaseClient();
     
-    // Update each topic's index
-    const promises = updates.map(({ id, index }) =>
-      supabase
-        .from('topics')
-        .update({ index } as TablesUpdate<'topics'>)
-        .eq('id', id)
-    );
+    // Use RPC function to update indices atomically
+    const { error } = await supabase.rpc('batch_update_topic_indices', {
+      updates: updates as any
+    });
     
-    const results = await Promise.all(promises);
-    
-    // Check for errors
-    const errors = results.filter(r => r.error);
-    if (errors.length > 0) {
-      console.error('Failed to update topic indices:', errors);
-      throw new Error('Failed to update some topic indices');
+    if (error) {
+      console.error('Failed to update topic indices:', error);
+      throw new Error('Failed to update topic indices');
     }
   },
   

@@ -149,7 +149,40 @@ export const topicsFilesApi = {
    * Update a topic file
    */
   updateTopicFile: async (id: string, data: TablesUpdate<'topics_files'>): Promise<Tables<'topics_files'>> => {
-    const { data: updated, error } = await getSupabaseClient()
+    const supabase = getSupabaseClient();
+    
+    // If topic_id or type is changing, we need to recalculate the index
+    if (data.topic_id || data.type !== undefined) {
+      // First get the current topic file
+      const { data: currentFile, error: fetchError } = await supabase
+        .from('topics_files')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) {
+        console.error('Failed to fetch current topic file:', fetchError);
+        throw fetchError;
+      }
+      
+      // Determine the new topic_id and type (use provided or existing)
+      const newTopicId = data.topic_id || currentFile.topic_id;
+      const newType = data.type !== undefined ? data.type : currentFile.type;
+      const newIsSolutions = data.is_solutions !== undefined ? data.is_solutions : currentFile.is_solutions;
+      
+      // Check if topic, type, or solutions status changed
+      const topicChanged = data.topic_id && data.topic_id !== currentFile.topic_id;
+      const typeChanged = data.type !== undefined && data.type !== currentFile.type;
+      const solutionsChanged = data.is_solutions !== undefined && data.is_solutions !== currentFile.is_solutions;
+      
+      if (topicChanged || typeChanged || solutionsChanged) {
+        // Get the next index for the new combination
+        const nextIndex = await topicsFilesApi.getNextTopicFileIndex(newTopicId, newIsSolutions);
+        data.index = nextIndex;
+      }
+    }
+    
+    const { data: updated, error } = await supabase
       .from('topics_files')
       .update(data)
       .eq('id', id)

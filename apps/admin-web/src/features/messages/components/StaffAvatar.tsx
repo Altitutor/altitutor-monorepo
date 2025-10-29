@@ -53,3 +53,4 @@ export function StaffAvatar({ staffId, firstName, lastName }: StaffAvatarProps) 
   );
 }
 
+

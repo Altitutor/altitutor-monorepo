@@ -418,8 +418,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                   <h3 className="text-lg font-semibold mb-3">Topics</h3>
                   <TopicsHierarchy
                     subjectId={subject.id}
-                    showAddTopic={true}
-                    showAddResource={true}
+                    showAddTopic={false}
+                    showAddResource={false}
                     onTopicClick={(id) => {
                       setViewTopicId(id);
                       setIsViewTopicModalOpen(true);

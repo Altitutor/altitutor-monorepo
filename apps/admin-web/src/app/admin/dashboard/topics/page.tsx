@@ -6,16 +6,12 @@ import {
   AddTopicModal,
   AddResourceFileModal,
   ViewTopicModal,
+  EditTopicFileModal,
 } from '@/features/topics';
 import { Button, Input } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
-import { ArrowLeft, Search } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { ScrollArea } from '@altitutor/ui';
+import { ArrowLeft, Search, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useTopics } from '@/features/topics/hooks';
@@ -25,6 +21,7 @@ export default function TopicsPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
+  const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   
   // Modals state
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
@@ -33,6 +30,10 @@ export default function TopicsPage() {
   const [addResourceTopicId, setAddResourceTopicId] = useState<string | undefined>(undefined);
   const [viewTopicId, setViewTopicId] = useState<string | null>(null);
   const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
+  const [isEditFileModalOpen, setIsEditFileModalOpen] = useState(false);
+  const [editFileTopicFileId, setEditFileTopicFileId] = useState<string | null>(null);
+  const [editFileTopicId, setEditFileTopicId] = useState<string | null>(null);
+  const [editFileSubjectId, setEditFileSubjectId] = useState<string | null>(null);
 
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: allTopics = [], refetch: refetchTopics } = useTopics();
@@ -63,6 +64,13 @@ export default function TopicsPage() {
     setIsViewTopicModalOpen(true);
   };
 
+  const handleEditFileClick = (topicFileId: string, topicId: string, subjectId: string) => {
+    setEditFileTopicFileId(topicFileId);
+    setEditFileTopicId(topicId);
+    setEditFileSubjectId(subjectId);
+    setIsEditFileModalOpen(true);
+  };
+
   const handleModalClose = () => {
     // Refetch topics when any modal closes
     refetchTopics();
@@ -82,39 +90,56 @@ export default function TopicsPage() {
       </div>
 
       {/* Subject Selector */}
-      <div className="mb-4 space-y-2">
-        <label className="text-sm font-medium">Select Subject</label>
-        <Select value={selectedSubjectId || ''} onValueChange={setSelectedSubjectId}>
-          <SelectTrigger className="w-full max-w-md">
-            <SelectValue placeholder="Select a subject" />
-          </SelectTrigger>
-          <SelectContent>
-            <div className="p-2">
+      <div className="mb-4">
+        <label className="text-sm font-medium mb-2 block">Select Subject</label>
+        <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-full max-w-md justify-between">
+              {selectedSubjectId
+                ? formatSubjectDisplay(subjects.find((s) => s.id === selectedSubjectId)!)
+                : 'Select a subject'}
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[400px] p-0" align="start">
+            <div className="p-3">
               <Input
                 placeholder="Search subjects..."
                 value={subjectSearchQuery}
                 onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                className="h-8"
-                onClick={(e) => e.stopPropagation()}
+                className="mb-3"
               />
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {subjectsLoading ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      Loading subjects...
+                    </div>
+                  ) : filteredSubjects.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {subjectSearchQuery ? 'No subjects match your search' : 'No subjects found'}
+                    </div>
+                  ) : (
+                    filteredSubjects.map((subject) => (
+                      <Button
+                        key={subject.id}
+                        variant="ghost"
+                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => {
+                          setSelectedSubjectId(subject.id);
+                          setIsSubjectPopoverOpen(false);
+                          setSubjectSearchQuery('');
+                        }}
+                      >
+                        <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </div>
-            {subjectsLoading ? (
-              <SelectItem value="loading" disabled>
-                Loading subjects...
-              </SelectItem>
-            ) : filteredSubjects.length === 0 ? (
-              <div className="p-2 text-sm text-muted-foreground text-center">
-                No subjects found
-              </div>
-            ) : (
-              filteredSubjects.map((subject) => (
-                <SelectItem key={subject.id} value={subject.id}>
-                  {formatSubjectDisplay(subject)}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Search Bar */}
@@ -133,11 +158,12 @@ export default function TopicsPage() {
         <TopicsHierarchy
           subjectId={selectedSubjectId}
           searchQuery={searchQuery}
-          showAddTopic={true}
-          showAddResource={true}
+          showAddTopic={false}
+          showAddResource={false}
           onTopicClick={handleTopicClick}
           onAddTopicClick={handleAddTopic}
           onAddResourceClick={handleAddResource}
+          onEditFileClick={handleEditFileClick}
           allTopics={allTopics}
         />
       </div>
@@ -174,6 +200,22 @@ export default function TopicsPage() {
         topicId={viewTopicId}
         onTopicUpdated={handleModalClose}
       />
+
+      {editFileTopicFileId && editFileTopicId && editFileSubjectId && (
+        <EditTopicFileModal
+          isOpen={isEditFileModalOpen}
+          onClose={() => {
+            setIsEditFileModalOpen(false);
+            setEditFileTopicFileId(null);
+            setEditFileTopicId(null);
+            setEditFileSubjectId(null);
+            handleModalClose();
+          }}
+          topicFileId={editFileTopicFileId}
+          currentTopicId={editFileTopicId}
+          currentSubjectId={editFileSubjectId}
+        />
+      )}
     </div>
   );
 }

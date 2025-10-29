@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { cn, navHoverStyles } from '@/shared/utils/index';
@@ -61,6 +61,11 @@ const navItems = [
     title: 'Reports',
     href: '/admin/dashboard/reports',
     icon: FileText,
+  },
+  {
+    title: 'Billing',
+    href: '/admin/dashboard/billing/payments',
+    icon: CreditCard,
   },
   {
     title: 'Settings',

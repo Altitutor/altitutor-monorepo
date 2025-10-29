@@ -26,15 +26,25 @@ Deno.serve(async (_req: Request) => {
   if (!STRIPE_SECRET_KEY) return json({ error: 'Stripe key not configured' }, 500);
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
-  const FEE_PERCENT_DOM = Number(Deno.env.get('STRIPE_FEE_PERCENT_DOMESTIC') || '0.0175');
-  const FEE_PERCENT_INTL = Number(Deno.env.get('STRIPE_FEE_PERCENT_INTL') || '0.029');
-  const FEE_FIXED_CENTS = Number(Deno.env.get('STRIPE_FEE_FIXED_CENTS') || '30');
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
   try {
+    // Load fee settings from DB
+    const { data: settings, error: settingsErr } = await supabase
+      .from('billing_settings')
+      .select('setting_key, setting_value');
+    if (settingsErr) throw settingsErr;
+    
+    const settingsMap: Record<string, string> = {};
+    for (const s of settings || []) settingsMap[s.setting_key] = s.setting_value;
+    
+    const FEE_PERCENT_DOM = Number(settingsMap.fee_percent_domestic || '0.0175');
+    const FEE_PERCENT_INTL = Number(settingsMap.fee_percent_intl || '0.029');
+    const FEE_FIXED_CENTS = Number(settingsMap.fee_fixed_cents || '30');
+    const DOMESTIC_COUNTRY = (settingsMap.domestic_country || 'AU').toUpperCase();
+
     const { startIso, endIso } = startEndForTomorrow(new Date());
 
     // Find sessions for tomorrow
@@ -113,7 +123,7 @@ Deno.serve(async (_req: Request) => {
       const billing = billingByStudent[row.student_id];
       if (!billing?.stripe_customer_id || !billing?.default_payment_method_id) continue;
 
-      const isIntl = (billing.card_country && billing.card_country.toUpperCase() !== 'AU');
+      const isIntl = (billing.card_country && billing.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
       const grossCents = grossUp(netCents, !!isIntl, FEE_PERCENT_DOM, FEE_PERCENT_INTL, FEE_FIXED_CENTS);
 
       // Ensure no duplicate payment exists
@@ -183,5 +193,3 @@ Deno.serve(async (_req: Request) => {
     return json({ error: 'runner_error' }, 500);
   }
 });
-
-

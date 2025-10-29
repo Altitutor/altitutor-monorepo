@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -54,6 +54,7 @@ export function AddTopicModal({
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
     preselectedSubjectId || null
   );
+  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
 
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: topics = [] } = useTopicsBySubject(selectedSubjectId);
@@ -117,6 +118,17 @@ export function AddTopicModal({
     form.setValue('parent_id', 'none');
   };
 
+  // Filter subjects based on search query
+  const filteredSubjects = useMemo(() => {
+    if (!subjectSearchQuery) return subjects;
+    
+    const query = subjectSearchQuery.toLowerCase();
+    return subjects.filter((subject) => {
+      const displayText = formatSubjectDisplay(subject).toLowerCase();
+      return displayText.includes(query) || subject.name.toLowerCase().includes(query);
+    });
+  }, [subjects, subjectSearchQuery]);
+
   // Filter topics to only show those in the selected subject
   const availableParentTopics = topics.filter((t) => t.subject_id === selectedSubjectId);
 
@@ -142,7 +154,16 @@ export function AddTopicModal({
                 <SelectValue placeholder="Select subject" />
               </SelectTrigger>
               <SelectContent>
-                {subjects.map((subject) => (
+                <div className="p-2">
+                  <Input
+                    placeholder="Search subjects..."
+                    value={subjectSearchQuery}
+                    onChange={(e) => setSubjectSearchQuery(e.target.value)}
+                    className="h-8"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                {filteredSubjects.map((subject) => (
                   <SelectItem key={subject.id} value={subject.id}>
                     {formatSubjectDisplay(subject)}
                   </SelectItem>

@@ -11,6 +11,7 @@ import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { StudentAvatar } from './StudentAvatar';
 import { AttendanceCell } from './AttendanceCell';
 import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -35,8 +38,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         if (result.session?.class?.subject?.id) {
           const { data: topicsData } = await (await import('@/shared/lib/supabase/client')).getSupabaseClient()
             .from('topics')
-            .select('*')
-            .eq('subject_id', result.session.class.subject.id);
+            .select('id, name, index, parent_id, subject_id')
+            .eq('subject_id', result.session.class.subject.id)
+            .order('index', { ascending: true });
+          
+          console.log('Fetched topics for subject:', result.session.class.subject.id, topicsData);
           setAllTopics(topicsData || []);
         }
       } catch (error) {
@@ -174,13 +180,14 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   });
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[720px] sm:w-[900px] sm:max-w-none overflow-y-auto">
-        <SheetHeader>
+      <SheetContent className="w-[720px] sm:w-[900px] sm:max-w-none overflow-y-auto p-0">
+        <SheetHeader className="sticky top-0 z-10 bg-background border-b px-6 py-4">
           <SheetTitle>{sessionTitle}</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 px-6">
           {/* Session Info */}
           <Card>
             <CardHeader>
@@ -340,8 +347,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                   </TableHeader>
                   <TableBody>
                     {tutorLog.topics.map((topicData: any) => {
-                      const topic = topicData.topic;
+                      // Find the complete topic record from allTopics to ensure we have parent_id and index
+                      const topic = allTopics.find(t => t.id === topicData.topic?.id) || topicData.topic;
+                      console.log('Topic for code derivation:', topic, 'allTopics:', allTopics);
                       const topicCode = deriveTopicCode(topic, allTopics);
+                      console.log('Derived topic code:', topicCode, 'for topic:', topic.name);
                       const students = topicData.students || [];
                       const files = topicData.files || [];
                       
@@ -366,12 +376,15 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                                   if (!topicFile) return null;
                                   
                                   const fileCode = deriveTopicFileCode(topicFile, topicCode, topicFile.type);
+                                  const fileId = topicFile.file?.id;
+                                  
                                   return (
                                     <button
                                       key={fileData.id}
                                       type="button"
                                       className="text-blue-600 hover:underline block text-left"
-                                      onClick={() => handleOpenFile(topicFile.id)}
+                                      onClick={() => fileId && handleOpenFile(fileId)}
+                                      disabled={!fileId}
                                     >
                                       {fileCode}
                                     </button>
@@ -386,7 +399,16 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                             ) : (
                               <div className="flex flex-wrap gap-1">
                                 {students.slice(0, 5).map((student: any) => (
-                                  <StudentAvatar key={student.id} student={student} size="sm" />
+                                  <button
+                                    key={student.id}
+                                    onClick={() => {
+                                      setSelectedStudentId(student.id);
+                                      setIsStudentModalOpen(true);
+                                    }}
+                                    className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+                                  >
+                                    <StudentAvatar student={student} size="sm" />
+                                  </button>
                                 ))}
                                 {students.length > 5 && (
                                   <span className="text-xs text-muted-foreground self-center ml-1">
@@ -414,5 +436,21 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         </div>
       </SheetContent>
     </Sheet>
+    
+    {/* Student Modal */}
+    {selectedStudentId && (
+      <ViewStudentModal
+        isOpen={isStudentModalOpen}
+        onClose={() => {
+          setIsStudentModalOpen(false);
+          setSelectedStudentId(null);
+        }}
+        studentId={selectedStudentId}
+        onStudentUpdated={() => {
+          // Optionally refresh session data
+        }}
+      />
+    )}
+  </>
   );
 }

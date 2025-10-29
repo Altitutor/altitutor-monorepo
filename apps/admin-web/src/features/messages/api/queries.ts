@@ -27,12 +27,30 @@ export function useConversations() {
           owned_number_id, 
           contacts(id, display_name, phone_e164, contact_type, students(id, first_name, last_name), parents(id, first_name, last_name, parents_students(students(id, first_name, last_name))), staff(id, first_name, last_name)), 
           owned_numbers(id, phone_e164, label),
-          messages!conversations_last_message_id_fkey(id, direction),
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
         .order('last_message_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      
+      // For each conversation, fetch the last message to get its direction
+      const conversationsWithLastMessage = await Promise.all((data || []).map(async (conv: any) => {
+        if (conv.last_message_id) {
+          const { data: lastMsg, error: msgError } = await supabase
+            .from('messages')
+            .select('id, direction')
+            .eq('id', conv.last_message_id)
+            .single();
+          
+          if (msgError) {
+            console.error('[useConversations] Failed to fetch last message for conversation', conv.id, msgError);
+          }
+          
+          return { ...conv, messages: lastMsg };
+        }
+        return conv;
+      }));
+      
+      return conversationsWithLastMessage;
     },
   });
 }
@@ -86,6 +104,36 @@ export async function ensureConversationForContact(contactId: string): Promise<s
   return ensureConversation(contactId, ownedNumberId);
 }
 
+// Helper to get contact ID from student/staff/parent ID
+export async function getContactIdByRelatedId(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
+  const supabase = getSupabaseClient();
+  const field = type === 'student' ? 'student_id' : type === 'staff' ? 'staff_id' : 'parent_id';
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq(field, relatedId)
+    .maybeSingle();
+  if (error) {
+    console.error('[getContactIdByRelatedId] Error:', error);
+    throw error;
+  }
+  console.log('[getContactIdByRelatedId]', type, relatedId, '-> contact ID:', data?.id);
+  return data?.id || null;
+}
+
+// Helper to ensure conversation for student/staff/parent
+export async function ensureConversationForRelated(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
+  console.log('[ensureConversationForRelated] Start:', type, relatedId);
+  const contactId = await getContactIdByRelatedId(relatedId, type);
+  if (!contactId) {
+    console.log('[ensureConversationForRelated] No contact found for', type, relatedId);
+    return null;
+  }
+  const conversationId = await ensureConversationForContact(contactId);
+  console.log('[ensureConversationForRelated] Result conversation ID:', conversationId);
+  return conversationId;
+}
+
 async function ensureConversation(contactId: string, ownedNumberId: string): Promise<string> {
   const supabase = getSupabaseClient();
   // Try find active
@@ -100,14 +148,28 @@ async function ensureConversation(contactId: string, ownedNumberId: string): Pro
   if (findErr) throw findErr;
   if (existing?.id) return existing.id;
 
-  // Create
+  // Create - with error handling for duplicate constraint
   const { data: created, error: createErr } = await supabase
     .from('conversations')
     .insert({ contact_id: contactId, owned_number_id: ownedNumberId, status: 'OPEN' })
     .select('id')
-    .single();
+    .maybeSingle();
+  
+  // If duplicate key error (conversation was created between our check and insert), retry the select
+  if (createErr && createErr.code === '23505') {
+    const { data: retry } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .eq('owned_number_id', ownedNumberId)
+      .in('status', ['OPEN', 'SNOOZED'])
+      .limit(1)
+      .maybeSingle();
+    if (retry?.id) return retry.id;
+  }
+  
   if (createErr) throw createErr;
-  return created.id as string;
+  return created?.id as string;
 }
 
 

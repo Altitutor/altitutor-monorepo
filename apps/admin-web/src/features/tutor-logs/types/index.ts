@@ -50,3 +50,4 @@ export type TutorLogWithDetails = Tables<'tutor_logs'> & {
   notes: Tables<'notes'>[];
 };
 
+

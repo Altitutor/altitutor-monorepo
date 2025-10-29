@@ -3,16 +3,14 @@ import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Calendar, Clock, Users, MapPin, UserCog, BookOpen, Plus, Search } from "lucide-react";
+import { Loader2, Calendar, Plus } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { ViewClassModal } from '@/features/classes';
-import { cn } from "@/shared/utils";
-import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { ViewClassModal, ClassCard } from '@/features/classes';
+import { getDayOfWeek } from '@/shared/utils/datetime';
+import { formatTime } from '@/shared/utils/datetime';
 
 interface ClassesTabProps {
   student: Tables<'students'>;
@@ -45,6 +43,7 @@ export function ClassesTab({
 
   useEffect(() => {
     loadStudentClasses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id]);
 
   const loadStudentClasses = async () => {
@@ -255,7 +254,7 @@ export function ClassesTab({
   }
 
   return (
-    <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
+    <div className="flex-1 h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-medium">Enrolled Classes ({classes.length})</h3>
@@ -323,115 +322,58 @@ export function ClassesTab({
       </div>
       
       <ScrollArea className="flex-1">
-        <div className="space-y-3">
+        <div className="space-y-6">
           {/* Show currently enrolling classes at the top */}
           {Array.from(enrollingClasses).map(classId => {
             const classData = allClasses.find(c => c.class.id === classId);
             if (!classData) return null;
             
             return (
-              <Card 
+              <ClassCard
                 key={`enrolling-${classData.class.id}`}
-                className="border-dashed bg-muted/50"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-base font-semibold text-muted-foreground">
-                        {getSubjectDisplay(classData)}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {classData.class.level}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-xs text-muted-foreground">Enrolling...</span>
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0 space-y-3">
-                  <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      <span>
-                        {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      <span>{getDayOfWeek(classData.class.day_of_week)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                class={classData.class}
+                subject={classData.subject}
+                staff={classData.staff}
+                isEnrolling={true}
+              />
             );
           })}
           
-          {/* Show enrolled classes */}
-          {classes.map((studentClass) => (
-            <Card 
-              key={studentClass.class.id} 
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => handleClassClick(studentClass.class.id)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold">
-                      {getSubjectDisplay(studentClass)}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {studentClass.class.level}
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {getDayOfWeek(studentClass.class.day_of_week)}
-                  </Badge>
+          {/* Group classes by day */}
+          {(() => {
+            const classesByDay: Record<string, StudentClass[]> = {};
+            
+            classes.forEach(classData => {
+              const day = getDayOfWeek(classData.class.day_of_week);
+              if (!classesByDay[day]) {
+                classesByDay[day] = [];
+              }
+              classesByDay[day].push(classData);
+            });
+            
+            // Sort days in weekday order
+            const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const sortedDays = Object.keys(classesByDay).sort((a, b) => {
+              return dayOrder.indexOf(a) - dayOrder.indexOf(b);
+            });
+            
+            return sortedDays.map(day => (
+              <div key={day}>
+                <h4 className="text-sm font-semibold mb-2">{day}</h4>
+                <div className="space-y-2">
+                  {classesByDay[day].map(studentClass => (
+                    <ClassCard
+                      key={studentClass.class.id}
+                      class={studentClass.class}
+                      subject={studentClass.subject}
+                      staff={studentClass.staff}
+                      onClick={() => handleClassClick(studentClass.class.id)}
+                    />
+                  ))}
                 </div>
-              </CardHeader>
-              
-              <CardContent className="pt-0 space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {formatTime(studentClass.class.start_time)} - {formatTime(studentClass.class.end_time)}
-                    </span>
-                  </div>
-                  
-                  {studentClass.class.room && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>Room {studentClass.class.room}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{studentClass.studentCount} student{studentClass.studentCount !== 1 ? 's' : ''}</span>
-                  </div>
-                </div>
-                
-                {studentClass.staff.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Staff:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {studentClass.staff.map((staff) => (
-                        <Badge key={staff.id} variant="outline" className="text-xs">
-                          {staff.first_name} {staff.last_name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            ));
+          })()}
         </div>
       </ScrollArea>
       

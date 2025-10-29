@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import { Textarea } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
@@ -10,7 +9,8 @@ import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
 import { StudentStatusBadge } from "@altitutor/ui";
-import { Pencil, X, Check, Loader2 } from 'lucide-react';
+import { Pencil, X, Check, Loader2, Plus } from 'lucide-react';
+import { getSubjectCurriculumColor, getStudentStatusColor, getSubjectIcon } from '@/shared/utils';
 
 export interface DetailsFormData {
   // Student details
@@ -42,6 +42,12 @@ interface DetailsTabProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: DetailsFormData) => void;
+  // Subjects props
+  studentSubjects?: Tables<'subjects'>[];
+  loadingSubjects?: boolean;
+  onAddSubject?: () => void;
+  onRemoveSubject?: (subjectId: string) => void;
+  onViewSubject?: (subjectId: string) => void;
 }
 
 export function DetailsTab({
@@ -50,12 +56,19 @@ export function DetailsTab({
   isLoading,
   onEdit,
   onCancelEdit,
-  onSubmit
+  onSubmit,
+  studentSubjects = [],
+  loadingSubjects = false,
+  onAddSubject,
+  onRemoveSubject,
+  onViewSubject
 }: DetailsTabProps) {
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
     lastName: student.last_name || '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     email: (student as any).email || (student as any).student_email || '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     phone: (student as any).phone || (student as any).student_phone || '',
     school: student.school || '',
     curriculum: (student.curriculum as Enums<'subject_curriculum'>) || undefined,
@@ -77,7 +90,7 @@ export function DetailsTab({
     onSubmit(formData);
   };
 
-  const handleInputChange = (field: keyof DetailsFormData, value: any) => {
+  const handleInputChange = (field: keyof DetailsFormData, value: string | number | boolean | Enums<'subject_curriculum'> | Tables<'students'>['status'] | undefined) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -267,127 +280,171 @@ export function DetailsTab({
   // View mode
   return (
     <div className="space-y-6 pb-6">
-      {/* Student Details Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Student Information</CardTitle>
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">First Name</Label>
-              <p className="text-sm">{student.first_name || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Last Name</Label>
-              <p className="text-sm">{student.last_name || '-'}</p>
-            </div>
-          </div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Student Information</h3>
+        <Button variant="outline" size="sm" onClick={onEdit}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Student Email</Label>
-              <p className="text-sm">{(student as any).email || (student as any).student_email || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Student Phone</Label>
-              <p className="text-sm">{(student as any).phone || (student as any).student_phone || '-'}</p>
-            </div>
-          </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <div className="text-sm font-medium">First Name:</div>
+        <div>{student.first_name || '-'}</div>
+        
+        <div className="text-sm font-medium">Last Name:</div>
+        <div>{student.last_name || '-'}</div>
+        
+        <div className="text-sm font-medium">Student Email:</div>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <div>{(student as any).email || (student as any).student_email || '-'}</div>
+        
+        <div className="text-sm font-medium">Student Phone:</div>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <div>{(student as any).phone || (student as any).student_phone || '-'}</div>
+        
+        <div className="text-sm font-medium">School:</div>
+        <div>{student.school || '-'}</div>
+        
+        <div className="text-sm font-medium">Curriculum:</div>
+        <div>
+          {student.curriculum ? (
+            <Badge className={getSubjectCurriculumColor(student.curriculum as Enums<'subject_curriculum'>)}>
+              {student.curriculum}
+            </Badge>
+          ) : (
+            '-'
+          )}
+        </div>
+        
+        <div className="text-sm font-medium">Year Level:</div>
+        <div>
+          {student.year_level ? (
+            <Badge variant="outline">Year {student.year_level}</Badge>
+          ) : (
+            '-'
+          )}
+        </div>
+        
+        <div className="text-sm font-medium">Status:</div>
+        <div>
+          <Badge className={getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED')}>
+            {student.status}
+          </Badge>
+        </div>
+      </div>
 
-          <div>
-            <Label className="text-sm font-medium text-muted-foreground">School</Label>
-            <p className="text-sm">{student.school || '-'}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Curriculum</Label>
-              <p className="text-sm">
-                {student.curriculum ? (
-                  <Badge variant="secondary">{student.curriculum}</Badge>
-                ) : (
-                  '-'
-                )}
-              </p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Year Level</Label>
-              <p className="text-sm">
-                {student.year_level ? (
-                  <Badge variant="secondary">Year {student.year_level}</Badge>
-                ) : (
-                  '-'
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-            <div className="mt-1">
-              <StudentStatusBadge value={student.status as any} />
-            </div>
-          </div>
-
-          {/* Notes field removed from schema */}
-        </CardContent>
-      </Card>
-
-      {/* Removed Parent Details Section */}
+      <Separator className="my-6" />
 
       {/* Availability Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Availability</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium mb-3">Weekdays</h4>
-              <div className="space-y-2">
-                {[
-                  { key: 'availability_monday', label: 'Monday' },
-                  { key: 'availability_tuesday', label: 'Tuesday' },
-                  { key: 'availability_wednesday', label: 'Wednesday' },
-                  { key: 'availability_thursday', label: 'Thursday' },
-                  { key: 'availability_friday', label: 'Friday' },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-medium mb-3">Weekends</h4>
-              <div className="space-y-2">
-                {[
-                  { key: 'availability_saturday_am', label: 'Saturday AM' },
-                  { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                  { key: 'availability_sunday_am', label: 'Sunday AM' },
-                  { key: 'availability_sunday_pm', label: 'Sunday PM' },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Availability</h3>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-medium mb-3">Weekdays</h4>
+            <div className="space-y-2">
+              {[
+                { key: 'availability_monday', label: 'Monday' },
+                { key: 'availability_tuesday', label: 'Tuesday' },
+                { key: 'availability_wednesday', label: 'Wednesday' },
+                { key: 'availability_thursday', label: 'Thursday' },
+                { key: 'availability_friday', label: 'Friday' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div>
+            <h4 className="font-medium mb-3">Weekends</h4>
+            <div className="space-y-2">
+              {[
+                { key: 'availability_saturday_am', label: 'Saturday AM' },
+                { key: 'availability_saturday_pm', label: 'Saturday PM' },
+                { key: 'availability_sunday_am', label: 'Sunday AM' },
+                { key: 'availability_sunday_pm', label: 'Sunday PM' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Separator className="my-6" />
+
+      {/* Subjects Section */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold">Subjects</h3>
+          {onAddSubject && (
+            <Button variant="outline" size="sm" onClick={onAddSubject}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Subject
+            </Button>
+          )}
+        </div>
+        
+        {loadingSubjects ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : studentSubjects.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No subjects assigned to this student</p>
+        ) : (
+          <div className="space-y-2">
+            {studentSubjects.map((subject) => {
+              const Icon = getSubjectIcon(subject.discipline);
+              const subjectDisplay = [
+                subject.curriculum,
+                subject.year_level ? `Year ${subject.year_level}` : '',
+                subject.name
+              ].filter(Boolean).join(' ');
+              
+              return (
+                <div
+                  key={subject.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => onViewSubject?.(subject.id)}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">{subjectDisplay}</div>
+                      {subject.level && (
+                        <p className="text-xs text-muted-foreground">{subject.level}</p>
+                      )}
+                    </div>
+                  </div>
+                  {onRemoveSubject && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveSubject(subject.id);
+                      }}
+                      className="flex-shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 } 
