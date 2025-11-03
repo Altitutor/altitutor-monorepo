@@ -41,7 +41,6 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
           id,
           contacts (
             id,
-            display_name,
             phone_e164,
             contact_type,
             student_id,
@@ -334,7 +333,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
   return (
     <div className={`border-l dark:border-brand-dark-border p-6 ${className}`}>
       <div className="space-y-2">
-        <h3 className="font-semibold">{contact.display_name || 'Unknown Contact'}</h3>
+        <h3 className="font-semibold">{contact.phone_e164 || 'Unknown Contact'}</h3>
         <p className="text-sm text-muted-foreground">{contact.contact_type}</p>
         <div className="text-sm">
           <span className="font-medium text-muted-foreground">Phone:</span>{' '}

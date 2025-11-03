@@ -1,3 +1,4 @@
+// @ts-nocheck
 // deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -109,7 +110,7 @@ Deno.serve(async (req: Request) => {
     // Upsert/find contact by phone
     const { data: contactExisting } = await supabase
       .from('contacts')
-      .select('id, display_name')
+      .select('id')
       .eq('phone_e164', from)
       .maybeSingle();
 
@@ -117,7 +118,7 @@ Deno.serve(async (req: Request) => {
     if (!contactId) {
       const { data: inserted, error: insErr } = await supabase
         .from('contacts')
-        .insert({ display_name: from, contact_type: 'LEAD', phone_e164: from })
+        .insert({ contact_type: 'LEAD', phone_e164: from })
         .select('id')
         .single();
       if (insErr) throw insErr;

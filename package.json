@@ -17,6 +17,7 @@
     "db:types:remote": "npx supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" --schema public > packages/shared/src/supabase/generated.ts && npm -w @altitutor/shared run build"
   },
   "devDependencies": {
+    "supabase": "^2.54.11",
     "turbo": "^2.0.0"
   },
   "packageManager": "npm@10.9.2",
@@ -25,4 +26,3 @@
     "url": "git+https://github.com/Altitutor/altitutor-monorepo.git"
   }
 }
-

@@ -29,7 +29,6 @@ export function ChatWindow({ descriptor }: Props) {
           id,
           contacts (
             id,
-            display_name,
             phone_e164,
             contact_type,
             students (id, first_name, last_name),

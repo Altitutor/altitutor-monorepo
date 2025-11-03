@@ -25,7 +25,7 @@ export function useConversations() {
           assigned_staff_id, 
           contact_id, 
           owned_number_id, 
-          contacts(id, display_name, phone_e164, contact_type, students(id, first_name, last_name), parents(id, first_name, last_name, parents_students(students(id, first_name, last_name))), staff(id, first_name, last_name)), 
+          contacts(id, phone_e164, contact_type, students(id, first_name, last_name), parents(id, first_name, last_name, parents_students(students(id, first_name, last_name))), staff(id, first_name, last_name)), 
           owned_numbers(id, phone_e164, label),
           conversation_reads(id, last_read_message_id, last_read_at)
         `)

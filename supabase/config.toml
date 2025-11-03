@@ -288,6 +288,16 @@ deno_version = 1
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Webhook functions - no JWT verification (use their own signature verification)
+[functions.twilio-inbound]
+verify_jwt = false
+
+[functions.twilio-status]
+verify_jwt = false
+
+[functions.stripe-webhooks]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

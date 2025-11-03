@@ -8,11 +8,20 @@ import { useRouter } from 'next/navigation';
 import { LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@altitutor/ui';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 export function Navbar() {
   const router = useRouter();
-  const { signOut } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
+  const { data: staffRecord } = useCurrentStaff();
 
   const handleLogout = async () => {
     try {
@@ -21,6 +30,22 @@ export function Navbar() {
     } catch (error) {
       console.error('Logout failed:', error);
     }
+  };
+
+  // Get user initials
+  const getInitials = () => {
+    if (staffRecord?.first_name && staffRecord?.last_name) {
+      return `${staffRecord.first_name.charAt(0)}${staffRecord.last_name.charAt(0)}`.toUpperCase();
+    }
+    return user?.email?.charAt(0).toUpperCase() || 'U';
+  };
+
+  // Get user full name
+  const getFullName = () => {
+    if (staffRecord?.first_name && staffRecord?.last_name) {
+      return `${staffRecord.first_name} ${staffRecord.last_name}`;
+    }
+    return user?.email?.split('@')[0] || 'User';
   };
 
   return (
@@ -40,12 +65,35 @@ export function Navbar() {
         </div>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Button 
-            variant="outline" 
-            onClick={handleLogout}
-          >
-            Logout
-          </Button>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium">
+                    {getInitials()}
+                  </div>
+                  <span className="hidden sm:inline">{getFullName()}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/dashboard/my-account" className="flex items-center cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="outline" asChild>
+              <Link href="/login">Login</Link>
+            </Button>
+          )}
         </div>
       </div>
     </nav>
