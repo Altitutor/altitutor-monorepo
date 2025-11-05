@@ -7,7 +7,8 @@ import { Button as UIButton } from '@altitutor/ui';
 import { useToast } from "@altitutor/ui";
 import { studentsApi } from '../api';
 import { subjectsApi } from '@/features/subjects/api';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { 
   DetailsTab,
   ClassesTab,
@@ -92,7 +93,7 @@ export function ViewStudentModal({
       setStudentSubjects(subjectsData);
       
       // Also fetch parents
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: parentsData, error: parentsError } = await supabase
         .from('parents_students')

@@ -138,7 +138,7 @@ export default function DashboardPage() {
     queryKey: ['currentStaff', session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return null;
-      const supabase = await import('@/shared/lib/supabase/client').then(m => m.getSupabaseClient());
+      const supabase = await import('@/shared/lib/supabase/client').then(m => m.getSupabaseClient()) as any;
       const { data, error } = await supabase
         .from('staff')
         .select('id, role, first_name, last_name')

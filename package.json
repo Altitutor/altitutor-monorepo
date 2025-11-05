@@ -13,14 +13,14 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "db:types": "npx supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && npm -w @altitutor/shared run build",
-    "db:types:remote": "npx supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" --schema public > packages/shared/src/supabase/generated.ts && npm -w @altitutor/shared run build"
+    "db:types": "pnpm exec supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build",
+    "db:types:remote": "pnpm exec supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build"
   },
   "devDependencies": {
     "supabase": "^2.54.11",
     "turbo": "^2.0.0"
   },
-  "packageManager": "npm@10.9.2",
+  "packageManager": "pnpm@9.15.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Altitutor/altitutor-monorepo.git"

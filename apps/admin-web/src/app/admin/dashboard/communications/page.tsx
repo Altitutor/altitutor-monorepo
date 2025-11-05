@@ -28,7 +28,7 @@ export default function CommunicationsPage() {
     queryKey: ['conversation', activeConversationId],
     queryFn: async () => {
       if (!activeConversationId) return null;
-      const supabase = getSupabaseClient();
+      const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
         .from('conversations')
         .select(`

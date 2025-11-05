@@ -6,6 +6,8 @@ import { Badge } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { CalendarIcon, Clock } from 'lucide-react';
 import { cn } from '@/shared/utils/index';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Step1SessionPickerProps = {
   staffId: string;

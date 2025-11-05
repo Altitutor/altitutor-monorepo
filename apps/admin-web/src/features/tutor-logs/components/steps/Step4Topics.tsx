@@ -9,6 +9,8 @@ import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { deriveTopicCode } from '@/features/topics/utils/codes';
 import { cn } from '@/shared/utils/index';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type TopicItem = {
   topicId: string;
@@ -32,7 +34,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
       // Get session to find subject
       const { data: sessionData } = await supabase

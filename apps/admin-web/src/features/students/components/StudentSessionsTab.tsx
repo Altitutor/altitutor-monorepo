@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { 
   Table, 
   TableBody, 
@@ -39,7 +40,7 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
   const loadSessions = async () => {
     setLoading(true);
     try {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
       // Get end of today in local timezone
       const endOfToday = new Date();
@@ -136,7 +137,7 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
   const handleTestCharge = async (sessionsStudentsId: string) => {
     setChargingSessionId(sessionsStudentsId);
     try {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {

@@ -1,5 +1,6 @@
-import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Subjects API client for working with subject data
@@ -9,7 +10,7 @@ export const subjectsApi = {
    * Get all subjects
    */
   getAllSubjects: async (): Promise<Tables<'subjects'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('subjects')
       .select('id, name, curriculum, year_level, discipline, color, level');
     if (error) throw error;
@@ -21,7 +22,7 @@ export const subjectsApi = {
    */
   list: async (params: { search?: string; limit?: number; offset?: number }): Promise<{ subjects: Tables<'subjects'>[]; total: number }> => {
     const { search = '', limit = 20, offset = 0 } = params || {};
-    let query = getSupabaseClient()
+    let query = (getSupabaseClient() as SupabaseClient<Database>)
       .from('subjects')
       .select('id, name, curriculum, year_level, discipline, color, level', { count: 'exact' })
       .order('name', { ascending: true });
@@ -39,7 +40,7 @@ export const subjectsApi = {
    * Get a subject by ID
    */
   getSubject: async (id: string): Promise<Tables<'subjects'> | null> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('subjects')
       .select('*')
       .eq('id', id)
@@ -61,7 +62,7 @@ export const subjectsApi = {
    */
   createSubject: async (data: TablesInsert<'subjects'>): Promise<Tables<'subjects'>> => {
     const payload: TablesInsert<'subjects'> = { ...data };
-    const { data: created, error } = await getSupabaseClient()
+    const { data: created, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('subjects')
       .insert(payload)
       .select()
@@ -74,7 +75,7 @@ export const subjectsApi = {
    * Update a subject
    */
   updateSubject: async (id: string, data: TablesUpdate<'subjects'>): Promise<Tables<'subjects'>> => {
-    const { data: updated, error } = await getSupabaseClient()
+    const { data: updated, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('subjects')
       .update(data)
       .eq('id', id)
@@ -88,7 +89,7 @@ export const subjectsApi = {
    * Delete a subject
    */
   deleteSubject: async (id: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('subjects')
       .delete()
       .eq('id', id);
@@ -102,7 +103,7 @@ export const subjectsApi = {
    */
   getSubjectStaff: async (subjectId: string): Promise<Tables<'staff'>[]> => {
     try {
-      const { data, error } = await getSupabaseClient()
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('staff_subjects')
         .select(`
           staff:staff(*)
@@ -124,7 +125,7 @@ export const subjectsApi = {
    */
   getSubjectStudents: async (subjectId: string): Promise<Tables<'students'>[]> => {
     try {
-      const { data, error } = await getSupabaseClient()
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('students_subjects')
         .select(`
           student:students(*)
@@ -146,7 +147,7 @@ export const subjectsApi = {
    */
   getSubjectClasses: async (subjectId: string): Promise<Tables<'classes'>[]> => {
     try {
-      const { data, error } = await getSupabaseClient()
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('classes')
         .select('*')
         .eq('subject_id', subjectId);
@@ -163,7 +164,7 @@ export const subjectsApi = {
    */
   getSubjectTopics: async (subjectId: string): Promise<Tables<'topics'>[]> => {
     try {
-      const { data, error } = await getSupabaseClient()
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('topics')
         .select('*')
         .eq('subject_id', subjectId)

@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest } from '../types';
 
 export const authApi = {
@@ -8,7 +9,7 @@ export const authApi = {
    * Login with email and password
    */
   login: async (credentials: LoginRequest) => {
-    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
     });
@@ -29,7 +30,7 @@ export const authApi = {
    * Log out and invalidate the session
    */
   logout: async () => {
-    const { error } = await getSupabaseClient().auth.signOut();
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.signOut();
     if (error) throw error;
     return { message: 'Logged out successfully' };
   },
@@ -123,7 +124,7 @@ export const authApi = {
    */
   verifyToken: async () => {
     try {
-      const { data: { session }, error } = await getSupabaseClient().auth.getSession();
+      const { data: { session }, error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.getSession();
       if (error) {
         console.error('Token verification error:', error);
         return { valid: false, error: error.message };
@@ -145,7 +146,7 @@ export const authApi = {
    */
   async getCurrentUser() {
     try {
-      const { data: { user }, error } = await getSupabaseClient().auth.getUser();
+      const { data: { user }, error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.getUser();
       if (error) {
         throw new Error(error.message || 'Failed to get current user');
       }
@@ -161,7 +162,7 @@ export const authApi = {
    */
   async getSession() {
     try {
-      const { data: { session }, error } = await getSupabaseClient().auth.getSession();
+      const { data: { session }, error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.getSession();
       if (error) {
         throw new Error(error.message || 'Failed to get session');
       }

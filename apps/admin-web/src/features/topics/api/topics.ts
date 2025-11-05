@@ -1,6 +1,8 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getNextTopicIndex, buildTopicTree, type TopicTree } from '../utils/codes';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Topics API client for working with hierarchical topic data
@@ -10,7 +12,7 @@ export const topicsApi = {
    * Get all topics
    */
   getAllTopics: async (): Promise<Tables<'topics'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics')
       .select('*')
       .order('index', { ascending: true });
@@ -27,7 +29,7 @@ export const topicsApi = {
    * Get a topic by ID
    */
   getTopic: async (id: string): Promise<Tables<'topics'> | null> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics')
       .select('*')
       .eq('id', id)
@@ -45,7 +47,7 @@ export const topicsApi = {
    * Get topics by subject ID
    */
   getTopicsBySubject: async (subjectId: string): Promise<Tables<'topics'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics')
       .select('*')
       .eq('subject_id', subjectId)
@@ -63,7 +65,7 @@ export const topicsApi = {
    * Get child topics of a parent
    */
   getChildTopics: async (parentId: string): Promise<Tables<'topics'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics')
       .select('*')
       .eq('parent_id', parentId)
@@ -81,7 +83,7 @@ export const topicsApi = {
    * Get root topics (no parent) for a subject
    */
   getRootTopics: async (subjectId: string): Promise<Tables<'topics'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics')
       .select('*')
       .eq('subject_id', subjectId)
@@ -130,7 +132,7 @@ export const topicsApi = {
    * Create a new topic
    */
   createTopic: async (data: Omit<TablesInsert<'topics'>, 'index'>): Promise<Tables<'topics'>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
     // Get existing topics to calculate next index
     const { data: existing } = await supabase
@@ -180,7 +182,7 @@ export const topicsApi = {
    * Update a topic
    */
   updateTopic: async (id: string, data: TablesUpdate<'topics'>): Promise<Tables<'topics'>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
     // Check if parent_id is being changed
     if (data.parent_id !== undefined) {
@@ -242,7 +244,7 @@ export const topicsApi = {
    * Delete a topic (will cascade delete children)
    */
   deleteTopic: async (id: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics')
       .delete()
       .eq('id', id);
@@ -257,7 +259,7 @@ export const topicsApi = {
    * Batch update topic indices (for reordering)
    */
   updateTopicIndices: async (updates: Array<{ id: string; index: number }>): Promise<void> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
     // Use RPC function to update indices atomically
     const { error } = await supabase.rpc('batch_update_topic_indices', {
@@ -278,7 +280,7 @@ export const topicsApi = {
     subjectByTopicId: Record<string, Tables<'subjects'>>;
   }> => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
       const { data, error } = await supabase
         .from('topics')
         .select(`

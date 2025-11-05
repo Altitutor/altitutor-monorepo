@@ -28,13 +28,13 @@ export async function middleware(req: NextRequest) {
 
   if (!session) return res;
 
-  const { data: staff } = await supabase
+  const { data: staff } = (await supabase
     .from('staff')
     .select('role')
     .eq('user_id', session.user.id)
-    .maybeSingle();
+    .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
 
-  const role = staff?.role as 'ADMINSTAFF' | 'TUTOR' | undefined;
+  const role = staff?.role;
 
   if (pathname === '/') {
     const home = role === 'TUTOR' ? '/tutor/dashboard' : '/admin/dashboard';

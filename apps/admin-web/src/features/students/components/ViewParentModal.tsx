@@ -6,7 +6,8 @@ import { useToast } from "@altitutor/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { ViewStudentModal } from './ViewStudentModal';
@@ -39,7 +40,7 @@ export function ViewParentModal({
     
     try {
       setLoadingParent(true);
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data, error } = await supabase
         .from('parents')
         .select(`

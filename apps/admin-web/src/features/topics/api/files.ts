@@ -1,6 +1,8 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { uploadFile as uploadToStorage, getSignedUrl as getStorageSignedUrl } from '@/shared/lib/supabase/storage';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Files API for managing file metadata and storage
@@ -15,7 +17,7 @@ export const filesApi = {
     topicId: string;
     file: File;
   }): Promise<Tables<'files'>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
     // Upload to storage
     const { path, url } = await uploadToStorage({
@@ -69,7 +71,7 @@ export const filesApi = {
    * Get a file by ID
    */
   getFile: async (id: string): Promise<Tables<'files'> | null> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('files')
       .select('*')
       .eq('id', id)
@@ -109,7 +111,7 @@ export const filesApi = {
    * Soft delete a file (set deleted_at)
    */
   softDeleteFile: async (id: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('files')
       .update({ deleted_at: new Date().toISOString() } as TablesUpdate<'files'>)
       .eq('id', id);
@@ -124,7 +126,7 @@ export const filesApi = {
    * Restore a soft-deleted file
    */
   restoreFile: async (id: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('files')
       .update({ deleted_at: null } as TablesUpdate<'files'>)
       .eq('id', id);
@@ -139,7 +141,7 @@ export const filesApi = {
    * Get all files (optionally including soft-deleted)
    */
   getAllFiles: async (includeSoftDeleted = false): Promise<Tables<'files'>[]> => {
-    let query = getSupabaseClient()
+    let query = (getSupabaseClient() as SupabaseClient<Database>)
       .from('files')
       .select('*')
       .order('created_at', { ascending: false });

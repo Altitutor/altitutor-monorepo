@@ -7,6 +7,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
 import { Badge } from '@altitutor/ui';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Props {
   activeConversationId?: string | null;
@@ -20,7 +22,7 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'unreplied'>('all');
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const channel = supabase
       .channel('conversations-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {

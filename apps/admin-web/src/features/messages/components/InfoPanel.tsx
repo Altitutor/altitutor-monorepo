@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Skeleton } from "@altitutor/ui";
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Student tabs
 import { 
@@ -34,7 +36,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     queryKey: ['conversation-info', conversationId],
     queryFn: async () => {
       if (!conversationId) return null;
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -145,12 +147,8 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
               <StudentAccountTab
                 student={student}
                 isLoading={false}
-                isEditingAccount={false}
                 hasPasswordResetLinkSent={false}
                 isDeleting={false}
-                onEditAccount={() => {}}
-                onCancelEditAccount={() => {}}
-                onAccountUpdate={async () => {}}
                 onPasswordResetRequest={async () => {}}
                 onDelete={async () => {}}
               />
@@ -211,11 +209,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
               <StaffAccountTab
                 staffMember={staff}
                 isLoading={false}
-                isEditingAccount={false}
                 hasPasswordResetLinkSent={false}
-                onEditAccount={() => {}}
-                onCancelEditAccount={() => {}}
-                onAccountUpdate={async () => {}}
                 onPasswordResetRequest={async () => {}}
                 onDelete={async () => {}}
                 isDeleting={false}
@@ -309,12 +303,8 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                       <StudentAccountTab
                         student={student}
                         isLoading={false}
-                        isEditingAccount={false}
                         hasPasswordResetLinkSent={false}
                         isDeleting={false}
-                        onEditAccount={() => {}}
-                        onCancelEditAccount={() => {}}
-                        onAccountUpdate={async () => {}}
                         onPasswordResetRequest={async () => {}}
                         onDelete={async () => {}}
                       />

@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface StaffCreateData {
   first_name: string;
@@ -51,7 +52,7 @@ export interface StaffInviteData {
 export const staffApi = {
   // Get all staff
   getAll: async (): Promise<Tables<'staff'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select('id, first_name, last_name, email, phone_number, role, status, created_at')
       .order('created_at', { ascending: false });
@@ -68,7 +69,7 @@ export const staffApi = {
    */
   list: async (params: { search?: string; role?: string; status?: string; limit?: number; offset?: number }): Promise<{ staff: Tables<'staff'>[]; total: number }> => {
     const { search = '', role, status, limit = 20, offset = 0 } = params || {};
-    let query = getSupabaseClient()
+    let query = (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select('id, first_name, last_name, email, phone_number, role, status', { count: 'exact' })
       .order('created_at', { ascending: false });
@@ -94,7 +95,7 @@ export const staffApi = {
 
   // Get staff by ID
   getById: async (id: string): Promise<Tables<'staff'> | null> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select('*')
       .eq('id', id)
@@ -112,7 +113,7 @@ export const staffApi = {
 
   // Get staff by user_id
   getByUserId: async (userId: string): Promise<Tables<'staff'> | null> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select('*')
       .eq('user_id', userId)
@@ -132,7 +133,7 @@ export const staffApi = {
   create: async (data: CreateStaffRequest): Promise<Tables<'staff'> > => {
     try {
       // Create auth user
-      const { data: authData, error: authError } = await getSupabaseClient().auth.admin.createUser({
+      const { data: authData, error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.createUser({
         email: data.email,
         password: data.password,
         email_confirm: true,
@@ -175,7 +176,7 @@ export const staffApi = {
         availability_sunday_pm: data.availability_sunday_pm || false,
       };
 
-      const { data: staffRecord, error: staffError } = await getSupabaseClient()
+      const { data: staffRecord, error: staffError } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('staff')
         .insert(staffData)
         .select()
@@ -183,7 +184,7 @@ export const staffApi = {
 
       if (staffError) {
         // Clean up the auth user if staff creation fails
-        await getSupabaseClient().auth.admin.deleteUser(authData.user.id);
+        await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.deleteUser(authData.user.id);
         throw new Error(`Failed to create staff record: ${staffError.message}`);
       }
 
@@ -221,7 +222,7 @@ export const staffApi = {
   // Update staff
   update: async (id: string, data: StaffUpdateData): Promise<Tables<'staff'> > => {
     // Get current staff record to get user_id for auth update
-    const { data: currentStaff, error: fetchError } = await getSupabaseClient()
+    const { data: currentStaff, error: fetchError } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select('user_id, email')
       .eq('id', id)
@@ -247,7 +248,7 @@ export const staffApi = {
           // NOTE: No longer setting user_role in user_metadata since we use staff table roles
         };
 
-        const { error: authError } = await getSupabaseClient().auth.admin.updateUserById(
+        const { error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.updateUserById(
           currentStaff.user_id!,
           authUpdateData
         );
@@ -258,7 +259,7 @@ export const staffApi = {
       }
 
       // Update staff record
-      const { data: updatedStaff, error: updateError } = await getSupabaseClient()
+      const { data: updatedStaff, error: updateError } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('staff')
         .update({
           first_name: data.first_name,
@@ -321,7 +322,7 @@ export const staffApi = {
   // Delete staff
   delete: async (id: string): Promise<void> => {
     // Get staff record to get user_id for auth deletion
-    const { data: staff, error: fetchError } = await getSupabaseClient()
+    const { data: staff, error: fetchError } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select('user_id')
       .eq('id', id)
@@ -332,7 +333,7 @@ export const staffApi = {
     }
 
     // Delete staff record (this will trigger cascade delete)
-    const { error: deleteError } = await getSupabaseClient()
+    const { error: deleteError } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .delete()
       .eq('id', id);
@@ -342,7 +343,7 @@ export const staffApi = {
     }
 
     // Delete auth user
-    const { error: authError } = await getSupabaseClient().auth.admin.deleteUser(staff.user_id!);
+    const { error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.deleteUser(staff.user_id!);
     if (authError) {
       console.warn(`Failed to delete auth user ${staff.user_id}: ${authError.message}`);
       // Don't throw here as the staff record is already deleted
@@ -361,7 +362,7 @@ export const staffApi = {
     }
 
     // Create/auth invite the user
-    const { data: inviteData, error: inviteError } = await getSupabaseClient().auth.admin.inviteUserByEmail(
+    const { data: inviteData, error: inviteError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.inviteUserByEmail(
       data.email!,
       {
         // Store some basic metadata for convenience
@@ -419,7 +420,7 @@ export const staffApi = {
     };
 
     // Update auth user metadata
-    const { error: authError } = await getSupabaseClient().auth.admin.updateUserById(
+    const { error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.updateUserById(
       data.user_id!,
       {
         // NOTE: No longer setting user_role in user_metadata since we use staff table roles
@@ -434,7 +435,7 @@ export const staffApi = {
       throw new Error(`Failed to update auth user: ${authError.message}`);
     }
 
-    const { data: staffRecord, error: staffError } = await getSupabaseClient()
+    const { data: staffRecord, error: staffError } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .insert(staffData)
       .select()
@@ -454,14 +455,14 @@ export const staffApi = {
 
   // Current logged-in user's staff record
   getCurrentStaff: async (): Promise<Tables<'staff'> | null> => {
-    const { data: userData, error } = await getSupabaseClient().auth.getUser();
+    const { data: userData, error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.getUser();
     if (error || !userData.user) return null;
     return staffApi.getByUserId(userData.user.id);
   },
 
   // Get all staff with their subjects (optimized query)
   getAllStaffWithSubjects: async (): Promise<{ staff: Tables<'staff'>[]; subjects: unknown[] }> => {
-    const { data: staffData, error: staffError } = await getSupabaseClient()
+    const { data: staffData, error: staffError } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select(`
         *,
@@ -485,7 +486,7 @@ export const staffApi = {
 
   // Get staff member with subjects by ID
   getStaffWithSubjects: async (staffId: string) => {
-    const { data: staffData, error: staffError } = await getSupabaseClient()
+    const { data: staffData, error: staffError } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff')
       .select(`
         *,
@@ -516,7 +517,7 @@ export const staffApi = {
 
   // Assign subject to staff
   assignSubjectToStaff: async (staffId: string, subjectId: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff_subjects')
       .insert({ staff_id: staffId, subject_id: subjectId });
 
@@ -529,7 +530,7 @@ export const staffApi = {
 
   // Remove subject from staff
   removeSubjectFromStaff: async (staffId: string, subjectId: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff_subjects')
       .delete()
       .eq('staff_id', staffId)
@@ -542,7 +543,7 @@ export const staffApi = {
 
   // Get subjects for a specific staff member
   getStaffSubjects: async (staffId: string) => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('staff_subjects')
       .select(`
         subjects (*)

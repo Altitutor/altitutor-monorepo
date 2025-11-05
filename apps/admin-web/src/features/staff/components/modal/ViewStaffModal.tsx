@@ -4,8 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { staffApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { SubjectsTab } from './tabs/SubjectsTab';
 import { ClassesTab } from './tabs/ClassesTab';
@@ -217,7 +218,7 @@ export function ViewStaffModal({
     try {
       setIsLoading(true);
       
-      const { error } = await getSupabaseClient().auth.resetPasswordForEmail(
+      const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.resetPasswordForEmail(
         staffMember.email,
         {
           redirectTo: `${baseUrl}/auth/callback`,

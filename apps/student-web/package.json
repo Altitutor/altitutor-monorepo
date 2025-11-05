@@ -22,12 +22,12 @@
     "type-check": "npm run typecheck",
     "storybook": "storybook dev -p 6007",
     "build-storybook": "storybook build",
-    "db:types": "npm -w @altitutor/shared run build",
-    "db:types:remote": "npm -w @altitutor/shared run build"
+    "db:types": "pnpm --filter @altitutor/shared run build",
+    "db:types:remote": "pnpm --filter @altitutor/shared run build"
   },
   "dependencies": {
-    "@altitutor/shared": "*",
-    "@altitutor/ui": "*",
+    "@altitutor/shared": "workspace:*",
+    "@altitutor/ui": "workspace:*",
     "@hookform/resolvers": "^5.0.1",
     "@radix-ui/react-accordion": "^1.2.8",
     "@radix-ui/react-alert-dialog": "^1.1.11",

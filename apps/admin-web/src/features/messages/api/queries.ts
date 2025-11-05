@@ -2,6 +2,8 @@
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const PAGE_SIZE = 30;
 
@@ -9,7 +11,7 @@ export function useConversations() {
   return useQuery({
     queryKey: ['conversations'],
     queryFn: async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       // Get current user's staff ID for read tracking
       const { data: user } = await supabase.auth.getUser();
       const userId = user?.user?.id;
@@ -63,7 +65,7 @@ export function useMessages(conversationId: string) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage: Page | undefined) => lastPage?.nextCursor,
     queryFn: async ({ pageParam }) => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       let query = supabase
         .from('messages')
         .select('*, staff:created_by_staff_id(id, first_name, last_name)')
@@ -83,7 +85,7 @@ export function useMessages(conversationId: string) {
 }
 
 export async function ensureConversationForContact(contactId: string): Promise<string> {
-  const supabase = getSupabaseClient();
+  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
   // Find default owned number
   const { data: owned, error: ownedErr } = await supabase
     .from('owned_numbers')
@@ -106,7 +108,7 @@ export async function ensureConversationForContact(contactId: string): Promise<s
 
 // Helper to get contact ID from student/staff/parent ID
 export async function getContactIdByRelatedId(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
-  const supabase = getSupabaseClient();
+  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
   const field = type === 'student' ? 'student_id' : type === 'staff' ? 'staff_id' : 'parent_id';
   const { data, error } = await supabase
     .from('contacts')
@@ -135,7 +137,7 @@ export async function ensureConversationForRelated(relatedId: string, type: 'stu
 }
 
 async function ensureConversation(contactId: string, ownedNumberId: string): Promise<string> {
-  const supabase = getSupabaseClient();
+  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
   // Try find active
   const { data: existing, error: findErr } = await supabase
     .from('conversations')

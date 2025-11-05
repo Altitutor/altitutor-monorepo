@@ -1,6 +1,8 @@
 import type { Tables, TablesInsert } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { TutorLogFormData, TutorLogWithDetails } from '../types';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Tutor Logs API client
@@ -11,7 +13,7 @@ export const tutorLogsApi = {
    * This should be done in a transaction-like manner
    */
   createTutorLog: async (data: TutorLogFormData, createdBy: string): Promise<Tables<'tutor_logs'>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
 
     try {
       // 1. Create the tutor log
@@ -179,7 +181,7 @@ export const tutorLogsApi = {
    * Get a single tutor log with all related data
    */
   getTutorLog: async (id: string): Promise<TutorLogWithDetails | null> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
 
     try {
       const { data: tutorLog, error: tutorLogError } = await supabase
@@ -265,7 +267,7 @@ export const tutorLogsApi = {
    * Check if a session has been logged
    */
   getTutorLogForSession: async (sessionId: string): Promise<Tables<'tutor_logs'> | null> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('tutor_logs')
       .select('*')
       .eq('session_id', sessionId)
@@ -282,7 +284,7 @@ export const tutorLogsApi = {
   getUnloggedSessions: async (staffId: string): Promise<Array<Tables<'sessions'> & { 
     class: Tables<'classes'> & { subject: Tables<'subjects'> } 
   }>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
 
     try {
       // Get all sessions where this staff is assigned
@@ -335,7 +337,7 @@ export const tutorLogsApi = {
    * Get all tutor logs (admin only)
    */
   getAllTutorLogs: async (): Promise<Tables<'tutor_logs'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('tutor_logs')
       .select('*')
       .order('created_at', { ascending: false });
@@ -358,7 +360,7 @@ export const tutorLogsApi = {
    * This will cascade delete all related records
    */
   deleteTutorLog: async (id: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('tutor_logs')
       .delete()
       .eq('id', id);

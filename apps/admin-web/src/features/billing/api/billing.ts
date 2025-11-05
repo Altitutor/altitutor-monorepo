@@ -1,11 +1,13 @@
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type PaymentRow = Tables<'payments'>;
 
 export const billingApi = {
   async getPaymentsByStudent(studentId: string): Promise<PaymentRow[]> {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('payments')
       .select('*')
       .eq('student_id', studentId)
@@ -15,7 +17,7 @@ export const billingApi = {
   },
 
   async getPaymentsBySession(sessionId: string): Promise<PaymentRow[]> {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('payments')
       .select('*')
       .eq('session_id', sessionId)
@@ -26,7 +28,7 @@ export const billingApi = {
 
   async listPayments(params: { status?: PaymentRow['status'] | 'ALL'; from?: string; to?: string; q?: string; limit?: number; }): Promise<PaymentRow[]> {
     const { status = 'ALL', from, to, q, limit = 200 } = params || {};
-    let query = getSupabaseClient()
+    let query = (getSupabaseClient() as SupabaseClient<Database>)
       .from('payments')
       .select('*')
       .order('created_at', { ascending: false })
@@ -45,7 +47,7 @@ export const billingApi = {
   },
 
   async retryPayment(paymentId: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     const { error } = await supabase
       .from('payments')
       .update({ retry_count: 0, last_retry_at: null, status: 'failed' })
@@ -55,7 +57,7 @@ export const billingApi = {
 
   async testChargeSession(sessionId: string, studentId: string): Promise<void> {
     // Call edge function to manually trigger charge for a session/student pair (testing only)
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data: { session } } = await supabase.auth.getSession();
     
     const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/billing-test-charge`;

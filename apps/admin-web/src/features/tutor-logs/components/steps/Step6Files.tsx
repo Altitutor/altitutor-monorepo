@@ -5,6 +5,8 @@ import { Checkbox } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type TopicItem = {
   topicId: string;
@@ -32,7 +34,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const topicIds = topics.map((t) => t.topicId);
 
       if (topicIds.length === 0) {

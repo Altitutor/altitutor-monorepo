@@ -9,6 +9,8 @@ import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../../types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { format } from 'date-fns';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Step9ConfirmationProps = {
   formData: Partial<TutorLogFormData>;
@@ -28,7 +30,9 @@ export function Step9Confirmation({
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = getSupabaseClient();
+      if (!formData.sessionId) return;
+      
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
       // Get session
       const { data: sessionData } = await supabase

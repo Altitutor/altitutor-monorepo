@@ -38,7 +38,7 @@ export function PricingTable({ subjects, onUpdate }: PricingTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingSubject, setEditingSubject] = useState<SubjectRow | null>(null);
   const [sessionFeeCents, setSessionFeeCents] = useState<number>(0);
-  const [billingType, setBillingType] = useState<string>('CLASS');
+  const [billingType, setBillingType] = useState<'CLASS' | 'EXAM_COURSE' | 'DRAFTING'>('CLASS');
   const [currency, setCurrency] = useState<string>('AUD');
   const [saving, setSaving] = useState(false);
 
@@ -142,7 +142,7 @@ export function PricingTable({ subjects, onUpdate }: PricingTableProps) {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="billing-type">Billing Type</Label>
-              <Select value={billingType} onValueChange={setBillingType}>
+              <Select value={billingType} onValueChange={(value) => setBillingType(value as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING')}>
                 <SelectTrigger id="billing-type">
                   <SelectValue />
                 </SelectTrigger>

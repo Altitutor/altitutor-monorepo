@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type StaffAttendanceItem = {
   staffId: string;
@@ -33,7 +35,7 @@ export function Step2StaffAttendance({
 
   useEffect(() => {
     const fetchSessionStaff = async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data, error } = await supabase
         .from('sessions_staff')
         .select('*, staff:staff!sessions_staff_staff_id_fkey(*)')

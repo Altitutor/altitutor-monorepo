@@ -5,7 +5,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@altitutor/ui';
 import { Separator, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge } from '@altitutor/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import { format } from 'date-fns';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { sessionsApi } from '../api/sessions';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { StudentAvatar } from './StudentAvatar';
@@ -36,9 +37,10 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         
         // Fetch all topics for the subject to derive topic codes
         if (result.session?.class?.subject?.id) {
-          const { data: topicsData } = await (await import('@/shared/lib/supabase/client')).getSupabaseClient()
+          const supabaseClient = (await import('@/shared/lib/supabase/client')).getSupabaseClient() as SupabaseClient<Database>;
+          const { data: topicsData } = await supabaseClient
             .from('topics')
-            .select('id, name, index, parent_id, subject_id')
+            .select('*')
             .eq('subject_id', result.session.class.subject.id)
             .order('index', { ascending: true });
           

@@ -1,5 +1,7 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Students API client for working with student data
@@ -16,7 +18,7 @@ export const studentsApi = {
     orderBy?: keyof Tables<'students'>;
     ascending?: boolean;
   }): Promise<{ students: Tables<'students'>[]; total: number }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const {
       search = '',
       status = 'ALL',
@@ -64,7 +66,7 @@ export const studentsApi = {
    * Get all students
    */
   getAllStudents: async (): Promise<Tables<'students'>[]> => {
-    const { data, error } = await getSupabaseClient().from('students').select('*');
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students').select('*');
     if (error) throw error;
     return (data ?? []) as Tables<'students'>[];
   },
@@ -74,7 +76,7 @@ export const studentsApi = {
    * This solves the N+1 query problem for the student modal
    */
   getStudentWithSubjects: async (studentId: string): Promise<{ student: Tables<'students'> | null; subjects: Tables<'subjects'>[] }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
       // Get student data
@@ -122,7 +124,7 @@ export const studentsApi = {
    * Get a student by ID
    */
   getStudent: async (id: string): Promise<Tables<'students'> | null> => {
-    const { data, error } = await getSupabaseClient().from('students').select('*').eq('id', id).single();
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students').select('*').eq('id', id).single();
     if (error && error.code !== 'PGRST116') throw error;
     return (data ?? null) as Tables<'students'> | null;
   },
@@ -161,7 +163,7 @@ export const studentsApi = {
       id: (data as any)?.id ?? crypto.randomUUID(),
     };
 
-    const { data: created, error } = await getSupabaseClient()
+    const { data: created, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('students')
       .insert(payload)
       .select()
@@ -174,7 +176,7 @@ export const studentsApi = {
    * Update a student
    */
   updateStudent: async (id: string, data: TablesUpdate<'students'>): Promise<Tables<'students'>> => {
-    const { data: updated, error } = await getSupabaseClient()
+    const { data: updated, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('students')
       .update(data)
       .eq('id', id)
@@ -189,7 +191,7 @@ export const studentsApi = {
    */
   deleteStudent: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    const { error } = await getSupabaseClient().from('students').delete().eq('id', id);
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students').delete().eq('id', id);
     if (error) throw error;
   },
 
@@ -202,10 +204,10 @@ export const studentsApi = {
       // Ensure the user is an admin first
       
       // Check if the assignment already exists
-      const { data: existing, error: existingError } = await getSupabaseClient().from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
+      const { data: existing, error: existingError } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
       if (existingError) throw existingError;
       if ((existing ?? []).length) return existing[0] as Tables<'students_subjects'>;
-      const { data, error } = await getSupabaseClient().from('students_subjects').insert({ student_id: studentId, subject_id: subjectId }).select().single();
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').insert({ student_id: studentId, subject_id: subjectId }).select().single();
       if (error) throw error;
       return data as Tables<'students_subjects'>;
     } catch (error) {
@@ -222,10 +224,10 @@ export const studentsApi = {
       // Ensure the user is an admin first
       
       // Get all student-subject records for this student and subject
-      const { data, error } = await getSupabaseClient().from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
       if (error) throw error;
       if ((data ?? []).length) {
-        const { error: delError } = await getSupabaseClient().from('students_subjects').delete().eq('student_id', studentId).eq('subject_id', subjectId);
+        const { error: delError } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').delete().eq('student_id', studentId).eq('subject_id', subjectId);
         if (delError) throw delError;
       }
     } catch (error) {
@@ -243,7 +245,7 @@ export const studentsApi = {
     studentSubjects: Record<string, Tables<'subjects'>[]>;
     studentClasses: Record<string, Tables<'classes'>[]>;
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
       // Get all students
@@ -329,7 +331,7 @@ export const studentsApi = {
     studentSubjects: Record<string, Tables<'subjects'>[]>;
     studentClasses: Record<string, Tables<'classes'>[]>;
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const studentSubjects: Record<string, Tables<'subjects'>[]> = {};
     const studentClasses: Record<string, Tables<'classes'>[]> = {};
 

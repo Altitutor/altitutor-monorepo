@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         
         // Determine role home based on staff.role
         try {
-          const { data: staff } = await supabase
+          const { data: staff } = await (supabase as any)
             .from('staff')
             .select('role')
             .eq('user_id', session.user.id)

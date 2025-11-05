@@ -1,6 +1,8 @@
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getNextTopicFileIndex } from '../utils/codes';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Topics Files API for managing the link between topics and files
@@ -11,7 +13,7 @@ export const topicsFilesApi = {
    * Create a topic file link
    */
   createTopicFile: async (data: Omit<TablesInsert<'topics_files'>, 'index'>): Promise<Tables<'topics_files'>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     // Get existing topic files to calculate next index
     const { data: existing } = await supabase
@@ -62,7 +64,7 @@ export const topicsFilesApi = {
    * Get a topic file by ID
    */
   getTopicFile: async (id: string): Promise<Tables<'topics_files'> | null> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics_files')
       .select('*')
       .eq('id', id)
@@ -80,7 +82,7 @@ export const topicsFilesApi = {
    * Get all topic files for a topic with file details
    */
   getTopicFilesByTopic: async (topicId: string): Promise<Array<Tables<'topics_files'> & { file: Tables<'files'> }>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     const { data, error } = await supabase
       .from('topics_files')
@@ -107,7 +109,7 @@ export const topicsFilesApi = {
     topicId: string,
     type: Enums<'resource_type'>
   ): Promise<Tables<'topics_files'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics_files')
       .select('*')
       .eq('topic_id', topicId)
@@ -128,10 +130,13 @@ export const topicsFilesApi = {
   getAvailableSolutionLinks: async (
     topicId: string,
     type: Enums<'resource_type'>
-  ): Promise<Tables<'topics_files'>[]> => {
-    const { data, error } = await getSupabaseClient()
+  ): Promise<Array<Tables<'topics_files'> & { file: Tables<'files'> }>> => {
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics_files')
-      .select('*')
+      .select(`
+        *,
+        file:files(*)
+      `)
       .eq('topic_id', topicId)
       .eq('type', type)
       .eq('is_solutions', false)
@@ -142,14 +147,14 @@ export const topicsFilesApi = {
       throw error;
     }
     
-    return (data ?? []) as Tables<'topics_files'>[];
+    return (data ?? []) as Array<Tables<'topics_files'> & { file: Tables<'files'> }>;
   },
   
   /**
    * Update a topic file
    */
   updateTopicFile: async (id: string, data: TablesUpdate<'topics_files'>): Promise<Tables<'topics_files'>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     // If topic_id or type is changing, we need to recalculate the index
     if (data.topic_id || data.type !== undefined) {
@@ -177,7 +182,18 @@ export const topicsFilesApi = {
       
       if (topicChanged || typeChanged || solutionsChanged) {
         // Get the next index for the new combination
-        const nextIndex = await topicsFilesApi.getNextTopicFileIndex(newTopicId, newIsSolutions);
+        // Get existing files to calculate the next index
+        const { data: existingFiles } = await supabase
+          .from('topics_files')
+          .select('*')
+          .eq('topic_id', newTopicId);
+        
+        const nextIndex = getNextTopicFileIndex(
+          newTopicId,
+          newType,
+          newIsSolutions,
+          (existingFiles ?? []) as Tables<'topics_files'>[]
+        );
         data.index = nextIndex;
       }
     }
@@ -201,7 +217,7 @@ export const topicsFilesApi = {
    * Delete a topic file
    */
   deleteTopicFile: async (id: string): Promise<void> => {
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics_files')
       .delete()
       .eq('id', id);
@@ -216,7 +232,7 @@ export const topicsFilesApi = {
    * Batch update topic file indices (for reordering)
    */
   updateTopicFileIndices: async (updates: Array<{ id: string; index: number }>): Promise<void> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     // Update each topic file's index
     const promises = updates.map(({ id, index }) =>
@@ -240,7 +256,7 @@ export const topicsFilesApi = {
    * Get all topic files (for admin/debug purposes)
    */
   getAllTopicFiles: async (): Promise<Tables<'topics_files'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('topics_files')
       .select('*')
       .order('created_at', { ascending: false });

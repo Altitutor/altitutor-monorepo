@@ -6,6 +6,8 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { FilePreview } from './FilePreview';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import type { Tables } from '@altitutor/shared';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface FilePreviewModalProps {
   isOpen: boolean;
@@ -26,7 +28,7 @@ export function FilePreviewModal({ isOpen, fileId, onClose }: FilePreviewModalPr
 
       setIsLoading(true);
       try {
-        const supabase = getSupabaseClient();
+        const supabase = (getSupabaseClient() as SupabaseClient<Database>);
         const { data, error } = await supabase
           .from('files')
           .select('*')

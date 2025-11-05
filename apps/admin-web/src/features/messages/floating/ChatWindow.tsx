@@ -8,6 +8,8 @@ import { Composer } from '../components/Composer';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { formatContactName } from '../utils/formatContactName';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Props {
   descriptor: ChatWindowDescriptor;
@@ -22,7 +24,7 @@ export function ChatWindow({ descriptor }: Props) {
   const { data: conversation } = useQuery({
     queryKey: ['conversation-header', descriptor.conversationId],
     queryFn: async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data, error } = await supabase
         .from('conversations')
         .select(`

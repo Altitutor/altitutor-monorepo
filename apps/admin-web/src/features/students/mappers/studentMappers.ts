@@ -1,5 +1,5 @@
 import type { TablesUpdate } from '@altitutor/shared';
-import type { DetailsFormData, StudentAccountFormData } from '../components/tabs';
+import type { DetailsFormData } from '../components/tabs';
 
 export function mapDetailsFormToStudentUpdate(data: DetailsFormData): TablesUpdate<'students'> {
   return {
@@ -21,14 +21,6 @@ export function mapDetailsFormToStudentUpdate(data: DetailsFormData): TablesUpda
     availability_saturday_pm: data.availability_saturday_pm,
     availability_sunday_am: data.availability_sunday_am,
     availability_sunday_pm: data.availability_sunday_pm,
-  } as TablesUpdate<'students'>;
-}
-
-export function mapAccountFormToStudentUpdate(data: StudentAccountFormData): TablesUpdate<'students'> {
-  return {
-    first_name: data.firstName,
-    last_name: data.lastName,
-    email: (data.studentEmail || null) as any,
   } as TablesUpdate<'students'>;
 }
 

@@ -9,6 +9,8 @@ import { Plus, X, Search } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { cn } from '@/shared/utils/index';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type StudentAttendanceItem = {
   studentId: string;
@@ -37,7 +39,7 @@ export function Step3StudentAttendance({
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
       // Get session students
       const { data: ssData, error: ssError } = await supabase

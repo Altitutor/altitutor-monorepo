@@ -1,5 +1,7 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Sessions API client for working with session data
@@ -9,7 +11,7 @@ export const sessionsApi = {
    * Get all sessions
    */
   getAllSessions: async (): Promise<Tables<'sessions'>[]> => {
-    const { data, error } = await getSupabaseClient().from('sessions').select('*');
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions').select('*');
     if (error) throw error;
     return (data ?? []) as Tables<'sessions'>[];
   },
@@ -25,7 +27,7 @@ export const sessionsApi = {
     classesById: Record<string, Tables<'classes'>>;
     subjectsById: Record<string, Tables<'subjects'>>;
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
       // Get sessions in range if provided (server-side filtering)
@@ -143,7 +145,7 @@ export const sessionsApi = {
     students: Tables<'students'>[];
     staff: Tables<'staff'>[];
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
       // Get session data
@@ -201,7 +203,7 @@ export const sessionsApi = {
    * Get a session by ID
    */
   getSession: async (id: string): Promise<Tables<'sessions'> | null> => {
-    const { data, error } = await getSupabaseClient().from('sessions').select('*').eq('id', id).single();
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions').select('*').eq('id', id).single();
     if (error && error.code !== 'PGRST116') throw error;
     return (data ?? null) as Tables<'sessions'> | null;
   },
@@ -212,7 +214,7 @@ export const sessionsApi = {
   createSession: async (data: TablesInsert<'sessions'>): Promise<Tables<'sessions'>> => {
     // Ensure the user is an admin first
     
-    const { data: created, error } = await getSupabaseClient().from('sessions').insert(data).select().single();
+    const { data: created, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions').insert(data).select().single();
     if (error) throw error;
     return created as Tables<'sessions'>;
   },
@@ -223,7 +225,7 @@ export const sessionsApi = {
   updateSession: async (id: string, data: TablesUpdate<'sessions'>): Promise<Tables<'sessions'>> => {
     // Ensure the user is an admin first
     
-    const { data: updated, error } = await getSupabaseClient().from('sessions').update(data).eq('id', id).select().single();
+    const { data: updated, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions').update(data).eq('id', id).select().single();
     if (error) throw error;
     return updated as Tables<'sessions'>;
   },
@@ -234,7 +236,7 @@ export const sessionsApi = {
   deleteSession: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
     
-    const { error } = await getSupabaseClient().from('sessions').delete().eq('id', id);
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions').delete().eq('id', id);
     if (error) throw error;
   },
 
@@ -248,7 +250,7 @@ export const sessionsApi = {
         session_id: sessionId,
         student_id: studentId,
       };
-      const { data, error } = await getSupabaseClient().from('sessions_students').insert(payload).select().single();
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_students').insert(payload).select().single();
       if (error) throw error;
       return data as Tables<'sessions_students'>;
     } catch (error) {
@@ -265,10 +267,10 @@ export const sessionsApi = {
       // Ensure the user is an admin first
       
       // Find the attendance record
-      const { data, error } = await getSupabaseClient().from('sessions_students').select('id').eq('session_id', sessionId).eq('student_id', studentId);
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_students').select('id').eq('session_id', sessionId).eq('student_id', studentId);
       if (error) throw error;
       if ((data ?? []).length) {
-        const { error: delError } = await getSupabaseClient().from('sessions_students').delete().eq('session_id', sessionId).eq('student_id', studentId);
+        const { error: delError } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_students').delete().eq('session_id', sessionId).eq('student_id', studentId);
         if (delError) throw delError;
       }
     } catch (error) {
@@ -288,7 +290,7 @@ export const sessionsApi = {
         staff_id: staffId,
         type: type as any,
       };
-      const { data, error } = await getSupabaseClient().from('sessions_staff').insert(payload).select().single();
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').insert(payload).select().single();
       if (error) throw error;
       return data as Tables<'sessions_staff'>;
     } catch (error) {
@@ -305,10 +307,10 @@ export const sessionsApi = {
       // Ensure the user is an admin first
       
       // Find the assignment record
-      const { data, error } = await getSupabaseClient().from('sessions_staff').select('id').eq('session_id', sessionId).eq('staff_id', staffId);
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').select('id').eq('session_id', sessionId).eq('staff_id', staffId);
       if (error) throw error;
       if ((data ?? []).length) {
-        const { error: delError } = await getSupabaseClient().from('sessions_staff').delete().eq('session_id', sessionId).eq('staff_id', staffId);
+        const { error: delError } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').delete().eq('session_id', sessionId).eq('staff_id', staffId);
         if (delError) throw delError;
       }
     } catch (error) {
@@ -324,7 +326,7 @@ export const sessionsApi = {
   getSessionsForStudent: async (studentId: string): Promise<Tables<'sessions'>[]> => {
     try {
       // Get attendance records for the student
-      const { data: attendanceRecords, error } = await getSupabaseClient().from('sessions_students').select('sessions(*)').eq('student_id', studentId);
+      const { data: attendanceRecords, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_students').select('sessions(*)').eq('student_id', studentId);
       if (error) throw error;
       const sessions = (attendanceRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
       return sessions;
@@ -340,7 +342,7 @@ export const sessionsApi = {
   getSessionsForStaff: async (staffId: string): Promise<Tables<'sessions'>[]> => {
     try {
       // Get assignment records for the staff member
-      const { data: assignmentRecords, error } = await getSupabaseClient().from('sessions_staff').select('sessions(*)').eq('staff_id', staffId);
+      const { data: assignmentRecords, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').select('sessions(*)').eq('staff_id', staffId);
       if (error) throw error;
       const sessions = (assignmentRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
       return sessions;
@@ -357,7 +359,7 @@ export const sessionsApi = {
     plannedStudents: Tables<'students'>[];
     plannedStaff: Tables<'staff'>[];
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     // sessions_students with joined students (only those without planned_absence)
     const { data: ssRows, error: ssErr } = await supabase
@@ -388,7 +390,7 @@ export const sessionsApi = {
    * Get comprehensive session details including tutor logs
    */
   getSessionWithTutorLog: async (sessionId: string) => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
       // 1. Get session with class and subject

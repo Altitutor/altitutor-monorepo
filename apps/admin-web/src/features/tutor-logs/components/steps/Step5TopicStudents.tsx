@@ -5,6 +5,8 @@ import { Button } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type TopicItem = {
   topicId: string;
@@ -27,7 +29,7 @@ export function Step5TopicStudents({
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
       const topicIds = topics.map((t) => t.topicId);
 

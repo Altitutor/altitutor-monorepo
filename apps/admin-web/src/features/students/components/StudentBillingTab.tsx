@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
   const [billing, setBilling] = useState<Tables<'students_billing'> | null>(null as any);
@@ -12,7 +13,7 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
   const load = async () => {
     setLoading(true);
     try {
-      const { data, error } = await getSupabaseClient()
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('students_billing')
         .select('*')
         .eq('student_id', student.id)
@@ -32,7 +33,7 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
   const handleRemoveMethod = async () => {
     if (!billing) return;
     // For MVP, clear default_payment_method_id; a full solution would call Stripe to detach
-    const { error } = await getSupabaseClient()
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('students_billing')
       .update({ default_payment_method_id: null, card_brand: null, card_last4: null, card_country: null })
       .eq('student_id', student.id);

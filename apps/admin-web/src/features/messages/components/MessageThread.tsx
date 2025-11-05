@@ -10,6 +10,8 @@ import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Props {
   conversationId: string;
@@ -37,7 +39,7 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
 
   useEffect(() => {
     // realtime subscription for this conversation's messages
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     // Debug: mark subscription lifecycle
     console.debug('[MessageThread] subscribe', { conversationId });
     const channel = supabase

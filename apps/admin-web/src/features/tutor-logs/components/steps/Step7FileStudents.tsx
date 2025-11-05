@@ -5,6 +5,8 @@ import { X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type TopicItem = {
   topicId: string;
@@ -34,7 +36,7 @@ export function Step7FileStudents({
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
       const fileIds = topicFiles.map((tf) => tf.topicsFilesId);
       const topicIds = topics.map((t) => t.topicId);

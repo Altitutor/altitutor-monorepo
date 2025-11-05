@@ -7,6 +7,8 @@ import { ChatWindow } from './ChatWindow';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useToast } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export function ChatDock() {
   const pathname = usePathname();
@@ -20,10 +22,10 @@ export function ChatDock() {
   const isMessagesPage = pathname?.startsWith('/admin/dashboard/communications');
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const channel = supabase
       .channel('messages-inbound')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload: any) => {
         const row: any = (payload as any).new;
         if (row?.direction === 'INBOUND') {
           // Mark conversation as unread for all staff by deleting conversation_reads

@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { sessionsKeys } from './useSessionsQuery';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type PrecreateArgs = {
   start_date: string; // YYYY-MM-DD
@@ -13,7 +15,7 @@ export function usePrecreateSessions() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ start_date, end_date, created_by, class_id }: PrecreateArgs) => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data, error } = await supabase.rpc('precreate_sessions', {
         start_date,
         end_date,

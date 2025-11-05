@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Textarea } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { X, Plus } from 'lucide-react';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Step8NotesProps = {
   notes: string[];

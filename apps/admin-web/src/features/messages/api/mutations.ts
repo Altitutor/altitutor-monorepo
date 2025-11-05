@@ -3,13 +3,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export function useSendMessage() {
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
   return useMutation({
     mutationFn: async (args: { conversationId: string; body: string }) => {
-      const supabase = getSupabaseClient() as any;
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       // Create message row (QUEUED)
       const { data: staffRow } = await supabase
         .from('staff')
@@ -63,7 +65,7 @@ export function useMarkRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: { conversationId: string; lastMessageId: string }) => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data: staff } = await supabase
         .from('staff')
         .select('id')
@@ -89,7 +91,7 @@ export function useMarkUnread() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (conversationId: string) => {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       await supabase
         .from('conversation_reads')
         .delete()

@@ -65,7 +65,7 @@ export function useTopicFilesByType(topicId: string | null, type: Enums<'resourc
  * Get available solution links
  */
 export function useAvailableSolutionLinks(topicId: string | null, type: Enums<'resource_type'> | null) {
-  return useQuery({
+  return useQuery<Array<Tables<'topics_files'> & { file: Tables<'files'> }>>({
     queryKey: topicsFilesKeys.solutionLinks(topicId!, type!),
     queryFn: () => topicsFilesApi.getAvailableSolutionLinks(topicId!, type!),
     enabled: !!topicId && !!type,

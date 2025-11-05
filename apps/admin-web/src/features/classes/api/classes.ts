@@ -1,5 +1,6 @@
-import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Classes API client for working with class data
@@ -9,7 +10,7 @@ export const classesApi = {
    * Get all classes
    */
   getAllClasses: async (): Promise<Tables<'classes'>[]> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data, error } = await supabase
       .from('classes')
       .select('id, subject_id, day_of_week, start_time, end_time, status, room');
@@ -27,7 +28,7 @@ export const classesApi = {
     classStudents: Record<string, Tables<'students'>[]>; 
     classStaff: Record<string, Tables<'staff'>[]>;
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     type ClassRowWithSubject = Tables<'classes'> & { subject_details?: Tables<'subjects'> };
     type EnrollmentRow = { class_id: string; student: Tables<'students'> | null };
     type AssignmentRow = { class_id: string; staff: Tables<'staff'> | null };
@@ -128,7 +129,7 @@ export const classesApi = {
     classStudents: Record<string, Tables<'students'>[]>; 
     classStaff: Record<string, Tables<'staff'>[]>;
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     type ClassRowWithSubject = Tables<'classes'> & { subject_details?: Tables<'subjects'> };
     type EnrollmentRow = { class_id: string; student: Tables<'students'> | null };
     type AssignmentRow = { class_id: string; staff: Tables<'staff'> | null };
@@ -223,7 +224,7 @@ export const classesApi = {
     totalClasses: number;
     totalClassEnrollments: number;
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
     const [
       { count: classesCount, error: classesErr },
@@ -254,7 +255,7 @@ export const classesApi = {
     students: Tables<'students'>[];
     staff: Tables<'staff'>[];
   }> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
       // Get class with subject
@@ -319,7 +320,7 @@ export const classesApi = {
    * Get a class by ID
    */
   getClass: async (id: string): Promise<Tables<'classes'> | null> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data, error } = await supabase.from('classes').select('*').eq('id', id).single();
     if (error && error.code !== 'PGRST116') throw error;
     return (data ?? null) as Tables<'classes'> | null;
@@ -330,7 +331,7 @@ export const classesApi = {
    */
   createClass: async (data: TablesInsert<'classes'>): Promise<Tables<'classes'>> => {
     const payload: TablesInsert<'classes'> = data;
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data: created, error } = await supabase.from('classes').insert(payload).select().single();
     if (error) throw error;
     return created as Tables<'classes'>;
@@ -340,7 +341,7 @@ export const classesApi = {
    * Update a class
    */
   updateClass: async (id: string, data: TablesUpdate<'classes'>): Promise<Tables<'classes'>> => {
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data: updated, error } = await supabase.from('classes').update(data).eq('id', id).select().single();
     if (error) throw error;
     return updated as Tables<'classes'>;
@@ -351,7 +352,7 @@ export const classesApi = {
    */
   deleteClass: async (id: string): Promise<void> => {
     // Ensure the user is an admin first
-    const supabase = getSupabaseClient();
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { error } = await supabase.from('classes').delete().eq('id', id);
     if (error) throw error;
   },
@@ -362,7 +363,7 @@ export const classesApi = {
   getClassStudents: async (classId: string): Promise<Tables<'students'>[]> => {
     try {
       // Get ACTIVE class enrollments for this class at the DB layer
-      const { data: enrollments, error } = await getSupabaseClient()
+      const { data: enrollments, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('classes_students')
         .select('student:students(*), class_id')
         .eq('class_id', classId)
@@ -389,7 +390,7 @@ export const classesApi = {
   getClassStaff: async (classId: string): Promise<Tables<'staff'>[]> => {
     try {
       // Get all class assignments for this class
-      const { data: assignments, error } = await getSupabaseClient().from('classes_staff').select('staff:staff(*), class_id, status').eq('class_id', classId).eq('status', 'ACTIVE');
+      const { data: assignments, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('classes_staff').select('staff:staff(*), class_id, status').eq('class_id', classId).eq('status', 'ACTIVE');
       if (error) throw error;
       
       // Filter for active assignments
@@ -411,7 +412,7 @@ export const classesApi = {
    */
   enrollStudent: async (classId: string, studentId: string): Promise<Tables<'classes_students'>> => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data: existing, error: existingError } = await supabase
         .from('classes_students')
         .select('id')
@@ -447,7 +448,7 @@ export const classesApi = {
    */
   unenrollStudent: async (classId: string, studentId: string): Promise<void> => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { error } = await supabase
         .from('classes_students')
         .update({ status: 'INACTIVE', end_date: new Date().toISOString().split('T')[0] })
@@ -466,7 +467,7 @@ export const classesApi = {
    */
   assignStaff: async (classId: string, staffId: string): Promise<Tables<'classes_staff'>> => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data: existing, error: existingError } = await supabase
         .from('classes_staff')
         .select('id')
@@ -502,7 +503,7 @@ export const classesApi = {
    */
   unassignStaff: async (classId: string, staffId: string): Promise<void> => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { error } = await supabase
         .from('classes_staff')
         .update({ status: 'INACTIVE', end_date: new Date().toISOString().split('T')[0] })
@@ -520,7 +521,8 @@ export const classesApi = {
    * Get classes by day of week
    */
   getClassesByDay: async (dayOfWeek: number): Promise<Tables<'classes'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { data, error } = await supabase
       .from('classes')
       .select('*')
       .eq('day_of_week', dayOfWeek);
@@ -532,7 +534,8 @@ export const classesApi = {
    * Get classes by status
    */
   getClassesByStatus: async (status: string): Promise<Tables<'classes'>[]> => {
-    const { data, error } = await getSupabaseClient()
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { data, error } = await supabase
       .from('classes')
       .select('*')
       .eq('status', status);

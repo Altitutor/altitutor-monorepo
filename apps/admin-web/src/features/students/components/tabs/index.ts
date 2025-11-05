@@ -6,5 +6,4 @@ export { DetailsTab } from './DetailsTab';
 export { ClassesTab } from './ClassesTab';
 
 
-export type { StudentAccountFormData } from './StudentAccountTab';
 export type { DetailsFormData } from './DetailsTab'; 
