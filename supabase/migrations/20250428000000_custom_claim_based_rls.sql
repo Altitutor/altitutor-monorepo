@@ -15,49 +15,49 @@ ALTER TABLE students
 -- ========================
 
 -- Create function to check user role
-CREATE OR REPLACE FUNCTION auth.user_role()
+CREATE OR REPLACE FUNCTION public.user_role()
 RETURNS TEXT AS $$
   SELECT COALESCE(
     current_setting('request.jwt.claims', true)::json->>'user_role',
     'student'
   )::TEXT;
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- Create function to check if user is ADMINSTAFF
-CREATE OR REPLACE FUNCTION auth.is_adminstaff()
+CREATE OR REPLACE FUNCTION public.is_adminstaff()
 RETURNS BOOLEAN AS $$
-  SELECT auth.user_role() = 'ADMINSTAFF';
-$$ LANGUAGE sql STABLE;
+  SELECT public.user_role() = 'ADMINSTAFF';
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- Create function to check if user is TUTOR
-CREATE OR REPLACE FUNCTION auth.is_tutor()
+CREATE OR REPLACE FUNCTION public.is_tutor()
 RETURNS BOOLEAN AS $$
-  SELECT auth.user_role() = 'TUTOR';
-$$ LANGUAGE sql STABLE;
+  SELECT public.user_role() = 'TUTOR';
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- Create function to check if user is STUDENT
-CREATE OR REPLACE FUNCTION auth.is_student()
+CREATE OR REPLACE FUNCTION public.is_student()
 RETURNS BOOLEAN AS $$
-  SELECT auth.user_role() = 'STUDENT';
-$$ LANGUAGE sql STABLE;
+  SELECT public.user_role() = 'STUDENT';
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- Create function to check if user is staff (either ADMINSTAFF or TUTOR)
-CREATE OR REPLACE FUNCTION auth.is_staff()
+CREATE OR REPLACE FUNCTION public.is_staff()
 RETURNS BOOLEAN AS $$
-  SELECT auth.user_role() IN ('ADMINSTAFF', 'TUTOR');
-$$ LANGUAGE sql STABLE;
+  SELECT public.user_role() IN ('ADMINSTAFF', 'TUTOR');
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- Create function to get the staff ID for the current user
-CREATE OR REPLACE FUNCTION auth.current_staff_id()
+CREATE OR REPLACE FUNCTION public.current_staff_id()
 RETURNS UUID AS $$
   SELECT id FROM staff WHERE user_id = auth.uid();
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- Create function to get the student ID for the current user
-CREATE OR REPLACE FUNCTION auth.current_student_id()
+CREATE OR REPLACE FUNCTION public.current_student_id()
 RETURNS UUID AS $$
   SELECT id FROM students WHERE user_id = auth.uid();
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- ========================
 -- UPDATE RLS POLICIES
@@ -75,23 +75,23 @@ DROP POLICY IF EXISTS "Enable all access for authenticated users" ON students;
 -- Students table policies
 CREATE POLICY "Allow read access to all staff" ON students
   FOR SELECT TO authenticated
-  USING (auth.is_staff());
+  USING (public.is_staff());
 
 CREATE POLICY "Allow students to read own data" ON students
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid() AND auth.is_student());
+  USING (user_id = auth.uid() AND public.is_student());
 
 CREATE POLICY "Allow adminstaff to insert" ON students
   FOR INSERT TO authenticated
-  WITH CHECK (auth.is_adminstaff());
+  WITH CHECK (public.is_adminstaff());
 
 CREATE POLICY "Allow adminstaff to update" ON students
   FOR UPDATE TO authenticated
-  USING (auth.is_adminstaff());
+  USING (public.is_adminstaff());
 
 CREATE POLICY "Allow adminstaff to delete" ON students
   FOR DELETE TO authenticated
-  USING (auth.is_adminstaff());
+  USING (public.is_adminstaff());
 
 -- Staff table policies
 DROP POLICY IF EXISTS "Allow authenticated read access" ON staff;
