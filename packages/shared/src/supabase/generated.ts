@@ -1919,6 +1919,10 @@ export type Database = {
         Returns: boolean
       }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      log_student_absences: {
+        Args: { logged_by_staff_id: string; operations: Json }
+        Returns: Json
+      }
       map_day_to_number: { Args: { day_string: string }; Returns: number }
       map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
