@@ -181,6 +181,7 @@ BEGIN
         is_rescheduled = true,
         rescheduled_at = current_timestamp,
         rescheduled_sessions_students_id = new_ss_id,
+        is_credited = false,  -- Explicitly set to false to satisfy constraint
         updated_at = current_timestamp
       WHERE id = original_ss_id;
       
@@ -202,6 +203,7 @@ BEGIN
         is_credited = true,
         credited_at = current_timestamp,
         credited_by = logged_by_staff_id,
+        is_rescheduled = false,  -- Explicitly set to false to satisfy constraint
         updated_at = current_timestamp
       WHERE id = original_ss_id;
       
