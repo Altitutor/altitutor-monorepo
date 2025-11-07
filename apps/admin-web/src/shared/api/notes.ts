@@ -1,0 +1,80 @@
+import type { Tables, TablesInsert, Database } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+/**
+ * Notes API client for working with notes data
+ */
+export const notesApi = {
+  /**
+   * Create a new note
+   */
+  createNote: async (params: {
+    targetType: string;
+    targetId: string;
+    note: string;
+    staffId: string;
+  }): Promise<Tables<'notes'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const noteInsert: TablesInsert<'notes'> = {
+      target_type: params.targetType,
+      target_id: params.targetId,
+      note: params.note,
+      created_by: params.staffId,
+    };
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .insert(noteInsert)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data as Tables<'notes'>;
+  },
+
+  /**
+   * Get notes for a specific target
+   */
+  getNotes: async (params: {
+    targetType: string;
+    targetId: string;
+  }): Promise<Tables<'notes'>[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('target_type', params.targetType)
+      .eq('target_id', params.targetId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return (data ?? []) as Tables<'notes'>[];
+  },
+
+  /**
+   * Get notes with staff details
+   */
+  getNotesWithStaff: async (params: {
+    targetType: string;
+    targetId: string;
+  }): Promise<Array<Tables<'notes'> & { staff?: Tables<'staff'> | null }>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .select(`
+        *,
+        staff:created_by(*)
+      `)
+      .eq('target_type', params.targetType)
+      .eq('target_id', params.targetId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data as any;
+  },
+};
+

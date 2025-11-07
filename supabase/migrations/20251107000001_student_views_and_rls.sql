@@ -93,13 +93,17 @@ SELECT
   cs.id AS enrollment_id,
   cs.student_id,
   cs.class_id,
-  cs.start_date AS enrollment_start_date,
-  cs.end_date AS enrollment_end_date,
-  cs.status AS enrollment_status,
+  cs.enrolled_at,
+  cs.enrolled_by,
+  cs.unenrolled_at,
+  cs.unenrolled_by,
   cs.created_at AS enrollment_created_at,
   cs.updated_at AS enrollment_updated_at,
+  CASE 
+    WHEN cs.unenrolled_at IS NULL THEN 'ACTIVE'
+    ELSE 'INACTIVE'
+  END AS enrollment_status,
   -- Class details
-  c.id AS class_id,
   c.day_of_week,
   c.start_time,
   c.end_time,
@@ -154,7 +158,7 @@ SELECT
     ))
     FROM public.classes_students cs2
     JOIN public.students s ON s.id = cs2.student_id
-    WHERE cs2.class_id = c.id AND cs2.status = 'ACTIVE'
+    WHERE cs2.class_id = c.id AND cs2.unenrolled_at IS NULL
   ) AS students,
   -- Staff in this class (limited info + subjects they teach)
   (
@@ -198,7 +202,6 @@ AS
 SELECT 
   ss.id AS session_student_id,
   ss.student_id,
-  ss.session_id,
   ss.planned_absence,
   ss.planned_absence_logged_at,
   ss.is_rescheduled,
