@@ -9,16 +9,17 @@ import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
 import { StudentStatusBadge } from "@altitutor/ui";
-import { Pencil, X, Check, Loader2, Plus } from 'lucide-react';
+import { Pencil, X, Check, Loader2 } from 'lucide-react';
 import { getSubjectCurriculumColor, getStudentStatusColor, getSubjectIcon } from '@/shared/utils';
+import { PhoneInput } from '@/shared/components/PhoneInput';
 
 export interface DetailsFormData {
   // Student details
   firstName: string;
   lastName: string;
-  email?: string;
-  phone?: string;
-  school?: string;
+  email: string;
+  phone: string;
+  school: string;
   curriculum?: Enums<'subject_curriculum'>;
   yearLevel?: number;
   status: Tables<'students'>['status'];
@@ -45,9 +46,9 @@ interface DetailsTabProps {
   // Subjects props
   studentSubjects?: Tables<'subjects'>[];
   loadingSubjects?: boolean;
-  onAddSubject?: () => void;
   onRemoveSubject?: (subjectId: string) => void;
   onViewSubject?: (subjectId: string) => void;
+  addSubjectButton?: React.ReactNode;
 }
 
 export function DetailsTab({
@@ -59,18 +60,18 @@ export function DetailsTab({
   onSubmit,
   studentSubjects = [],
   loadingSubjects = false,
-  onAddSubject,
   onRemoveSubject,
-  onViewSubject
+  onViewSubject,
+  addSubjectButton
 }: DetailsTabProps) {
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
     lastName: student.last_name || '',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    email: (student as any).email || (student as any).student_email || '',
+    email: (student.email || student.student_email || '') as string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    phone: (student as any).phone || (student as any).student_phone || '',
-    school: student.school || '',
+    phone: (student.phone || student.student_phone || '') as string,
+    school: (student.school || '') as string,
     curriculum: (student.curriculum as Enums<'subject_curriculum'>) || undefined,
     yearLevel: student.year_level || undefined,
     status: student.status,
@@ -96,8 +97,10 @@ export function DetailsTab({
 
   if (isEditing) {
     return (
-      <div className="space-y-6 pb-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <>
+        {/* Edit Mode with Sticky Footer */}
+        <div className="flex-1 overflow-y-auto px-1">
+          <form id="student-edit-form" onSubmit={handleSubmit} className="space-y-6 pb-6">
           {/* Student Details Section */}
           <Card>
             <CardHeader>
@@ -131,16 +134,15 @@ export function DetailsTab({
                   <Input
                     id="email"
                     type="email"
-                    value={formData.email}
+                    value={formData.email || ''}
                     onChange={(e) => handleInputChange('email', e.target.value)}
                   />
                 </div>
                 <div>
                   <Label htmlFor="phone">Student Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                  <PhoneInput
+                    value={formData.phone || ''}
+                    onChange={(value) => handleInputChange('phone', value)}
                   />
                 </div>
               </div>
@@ -149,7 +151,7 @@ export function DetailsTab({
                 <Label htmlFor="school">School</Label>
                 <Input
                   id="school"
-                  value={formData.school}
+                  value={formData.school || ''}
                   onChange={(e) => handleInputChange('school', e.target.value)}
                 />
               </div>
@@ -257,29 +259,92 @@ export function DetailsTab({
             </CardContent>
           </Card>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={onCancelEdit} disabled={isLoading}>
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4 mr-2" />
-              )}
-              {isLoading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
         </form>
-      </div>
+
+        {/* Subjects Section - Edit Mode */}
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Subjects</CardTitle>
+              {addSubjectButton}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingSubjects ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : studentSubjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No subjects assigned to this student</p>
+            ) : (
+              <div className="space-y-2">
+                {studentSubjects.map((subject) => {
+                  const Icon = getSubjectIcon(subject.discipline);
+                  const subjectDisplay = [
+                    subject.curriculum,
+                    subject.year_level ? `Year ${subject.year_level}` : '',
+                    subject.name
+                  ].filter(Boolean).join(' ');
+                  
+                  return (
+                    <div
+                      key={subject.id}
+                      className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => onViewSubject?.(subject.id)}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">{subjectDisplay}</div>
+                          {subject.level && (
+                            <p className="text-xs text-muted-foreground">{subject.level}</p>
+                          )}
+                        </div>
+                      </div>
+                      {onRemoveSubject && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveSubject(subject.id);
+                          }}
+                          className="flex-shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        </div>
+
+        {/* Sticky Footer with Buttons */}
+        <div className="flex-shrink-0 border-t bg-background p-4 flex justify-end space-x-2">
+          <Button type="button" variant="outline" onClick={onCancelEdit} disabled={isLoading}>
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
+          <Button type="submit" form="student-edit-form" disabled={isLoading}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4 mr-2" />
+            )}
+            {isLoading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </>
     );
   }
 
   // View mode
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Student Information</h3>
         <Button variant="outline" size="sm" onClick={onEdit}>
@@ -297,11 +362,11 @@ export function DetailsTab({
         
         <div className="text-sm font-medium">Student Email:</div>
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <div>{(student as any).email || (student as any).student_email || '-'}</div>
+        <div>{student.email || student.student_email || '-'}</div>
         
         <div className="text-sm font-medium">Student Phone:</div>
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <div>{(student as any).phone || (student as any).student_phone || '-'}</div>
+        <div>{student.phone || student.student_phone || '-'}</div>
         
         <div className="text-sm font-medium">School:</div>
         <div>{student.school || '-'}</div>
@@ -383,16 +448,10 @@ export function DetailsTab({
 
       <Separator className="my-6" />
 
-      {/* Subjects Section */}
+      {/* Subjects Section - View Only */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold">Subjects</h3>
-          {onAddSubject && (
-            <Button variant="outline" size="sm" onClick={onAddSubject}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Subject
-            </Button>
-          )}
         </div>
         
         {loadingSubjects ? (
@@ -414,31 +473,18 @@ export function DetailsTab({
               return (
                 <div
                   key={subject.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => onViewSubject?.(subject.id)}
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium">{subjectDisplay}</div>
+                      <div className="text-sm font-medium">{subjectDisplay}</div>
                       {subject.level && (
                         <p className="text-xs text-muted-foreground">{subject.level}</p>
                       )}
                     </div>
                   </div>
-                  {onRemoveSubject && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveSubject(subject.id);
-                      }}
-                      className="flex-shrink-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               );
             })}

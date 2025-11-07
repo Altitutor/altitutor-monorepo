@@ -6,8 +6,13 @@ import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/reset-password'];
 const ADMIN_PORTAL_URL = process.env.NEXT_PUBLIC_ADMIN_PORTAL_URL || 'http://localhost:3000';
+
+// Helper function to check if a path is public
+const isPublicPath = (pathname: string): boolean => {
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/');
+};
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -24,28 +29,36 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setRoleChecking(true);
       
       try {
+        console.log('[AuthGuard] Checking role for user:', user.id);
+        
         // Check if user is a student
-        const { data: studentData } = await supabase
+        const { data: studentData, error: studentError } = await supabase
           .from('students')
           .select('id')
-          .eq('id', user.id)
+          .eq('user_id', user.id)
           .maybeSingle();
 
+        console.log('[AuthGuard] Student query result:', { studentData, studentError });
+
         if (studentData) {
+          console.log('[AuthGuard] User is a student');
           setIsStudent(true);
           setRoleChecking(false);
           return;
         }
 
         // Check if user is staff
-        const { data: staffData } = await supabase
+        const { data: staffData, error: staffError } = await supabase
           .from('staff')
           .select('id, role')
-          .eq('id', user.id)
+          .eq('user_id', user.id)
           .maybeSingle();
+
+        console.log('[AuthGuard] Staff query result:', { staffData, staffError });
 
         if (staffData) {
           // User is staff, redirect to admin portal
+          console.log('[AuthGuard] User is staff, redirecting to admin portal');
           setIsStudent(false);
           setRoleChecking(false);
           
@@ -56,6 +69,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
         // User exists in auth but not in students or staff tables
         // This shouldn't happen, but handle it gracefully
+        console.log('[AuthGuard] User not found in students or staff tables');
         setIsStudent(false);
         setRoleChecking(false);
       } catch (error) {
@@ -64,14 +78,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     };
 
-    if (user && !PUBLIC_PATHS.includes(pathname)) {
+    if (user && !isPublicPath(pathname)) {
       checkUserRole();
     }
   }, [user, loading, pathname, supabase]);
 
   useEffect(() => {
     // Skip auth check for public paths
-    if (PUBLIC_PATHS.includes(pathname)) {
+    if (isPublicPath(pathname)) {
       // If user is authenticated and trying to access login page, redirect to dashboard
       if (user && pathname === '/login' && !roleChecking) {
         router.push('/dashboard');
@@ -91,7 +105,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // For public routes, always render
-  if (PUBLIC_PATHS.includes(pathname)) {
+  if (isPublicPath(pathname)) {
     return <>{children}</>;
   }
 

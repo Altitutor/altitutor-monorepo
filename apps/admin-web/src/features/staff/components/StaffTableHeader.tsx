@@ -13,11 +13,10 @@ interface StaffTableHeaderProps {
 }
 
 const sortableFields: Array<{ key: keyof Tables<'staff'>; label: string }> = [
+  { key: 'status', label: 'Status' },
+  { key: 'role', label: 'Role' },
   { key: 'first_name', label: 'First Name' },
   { key: 'last_name', label: 'Last Name' },
-  { key: 'email', label: 'Email' },
-  { key: 'role', label: 'Role' },
-  { key: 'status', label: 'Status' },
 ];
 
 export const StaffTableHeader = memo(function StaffTableHeader({
@@ -49,7 +48,7 @@ export const StaffTableHeader = memo(function StaffTableHeader({
     <TableHeader>
       <TableRow>
         {sortableFields.map(({ key, label }) => renderSortableHeader(key, label))}
-        <TableHead>Phone</TableHead>
+        <TableHead>Classes</TableHead>
       </TableRow>
     </TableHeader>
   );

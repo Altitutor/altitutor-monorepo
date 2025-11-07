@@ -6,6 +6,11 @@ import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 
+// Helper function to check if a path is public
+const isPublicPath = (pathname: string): boolean => {
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/');
+};
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -13,7 +18,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Skip auth check for public paths
-    if (PUBLIC_PATHS.includes(pathname)) {
+    if (isPublicPath(pathname)) {
       // If user is authenticated and trying to access login page, redirect to role home
       if (user && pathname === '/login') {
         // Let middleware/root handle precise role redirect; send to root
@@ -34,7 +39,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // For public routes, always render
-  if (PUBLIC_PATHS.includes(pathname)) {
+  if (isPublicPath(pathname)) {
     return <>{children}</>;
   }
 

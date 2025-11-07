@@ -123,7 +123,64 @@ export async function getContactIdByRelatedId(relatedId: string, type: 'student'
   return data?.id || null;
 }
 
-// Helper to ensure conversation for student/staff/parent
+// Helper to GET EXISTING conversation for student/staff/parent (does NOT create)
+export async function getExistingConversationForRelated(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
+  console.log('[getExistingConversationForRelated] Start:', type, relatedId);
+  const contactId = await getContactIdByRelatedId(relatedId, type);
+  if (!contactId) {
+    console.log('[getExistingConversationForRelated] No contact found for', type, relatedId);
+    return null;
+  }
+  
+  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+  
+  // Get default owned number
+  const { data: owned } = await supabase
+    .from('owned_numbers')
+    .select('id')
+    .eq('is_default', true)
+    .limit(1)
+    .maybeSingle();
+  
+  const ownedNumberId = owned?.id;
+  if (!ownedNumberId) {
+    // fallback to any owned number
+    const { data: anyOwned } = await supabase.from('owned_numbers').select('id').limit(1).maybeSingle();
+    if (!anyOwned?.id) {
+      console.log('[getExistingConversationForRelated] No owned numbers configured');
+      return null;
+    }
+    const ownedId = anyOwned.id;
+    
+    // Try find existing conversation
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .eq('owned_number_id', ownedId)
+      .in('status', ['OPEN', 'SNOOZED'])
+      .limit(1)
+      .maybeSingle();
+    
+    console.log('[getExistingConversationForRelated] Result conversation ID:', existing?.id || null);
+    return existing?.id || null;
+  }
+  
+  // Try find existing conversation
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('contact_id', contactId)
+    .eq('owned_number_id', ownedNumberId)
+    .in('status', ['OPEN', 'SNOOZED'])
+    .limit(1)
+    .maybeSingle();
+  
+  console.log('[getExistingConversationForRelated] Result conversation ID:', existing?.id || null);
+  return existing?.id || null;
+}
+
+// Helper to ensure conversation for student/staff/parent (CREATES if needed)
 export async function ensureConversationForRelated(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
   console.log('[ensureConversationForRelated] Start:', type, relatedId);
   const contactId = await getContactIdByRelatedId(relatedId, type);

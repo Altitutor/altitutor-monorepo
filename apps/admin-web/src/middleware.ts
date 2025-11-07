@@ -21,6 +21,12 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
+  // For API routes, we just refresh the session but don't redirect
+  // The API route itself will handle auth checks
+  if (pathname.startsWith('/api')) {
+    return res;
+  }
+
   const isProtected = pathname.startsWith('/admin') || pathname.startsWith('/tutor') || pathname === '/';
   if (!session && isProtected) {
     return NextResponse.redirect(new URL('/login', origin));
@@ -52,7 +58,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/admin/:path*', '/tutor/:path*', '/dashboard', '/dashboard/:path*'],
+  matcher: ['/', '/admin/:path*', '/tutor/:path*', '/dashboard', '/dashboard/:path*', '/api/:path*'],
 };
 
 

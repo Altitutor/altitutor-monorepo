@@ -4,14 +4,21 @@ import { useState, useRef, useEffect } from 'react';
 import { useSendMessage } from '../api/mutations';
 
 interface Props {
-  conversationId: string;
+  conversationId: string | null;
   onTyping?: () => void;
+  onBeforeSend?: (messageBody: string) => Promise<string | null>;
 }
 
-export function Composer({ conversationId, onTyping }: Props) {
+export function Composer({ conversationId: initialConversationId, onTyping, onBeforeSend }: Props) {
   const [text, setText] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Update conversationId if prop changes
+  useEffect(() => {
+    setConversationId(initialConversationId);
+  }, [initialConversationId]);
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -30,8 +37,24 @@ export function Composer({ conversationId, onTyping }: Props) {
     const body = text.trim();
     if (!body) return;
     setText('');
+    
     try {
-      await send.mutateAsync({ conversationId, body });
+      // If no conversation yet, create it first via onBeforeSend
+      let targetConvId = conversationId;
+      if (!targetConvId && onBeforeSend) {
+        targetConvId = await onBeforeSend(body);
+        if (targetConvId) {
+          setConversationId(targetConvId);
+        }
+      }
+      
+      if (!targetConvId) {
+        setText(body);
+        console.error('[Composer] No conversation ID available');
+        return;
+      }
+      
+      await send.mutateAsync({ conversationId: targetConvId, body });
     } catch (e) {
       console.error(e);
       setText(body);

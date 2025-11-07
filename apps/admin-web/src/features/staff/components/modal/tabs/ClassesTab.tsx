@@ -1,39 +1,63 @@
 import { useState, useEffect } from 'react';
 import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { Loader2, Calendar, Clock, Users, MapPin } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
+import { Loader2, Calendar, Plus, Grid3X3 } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { ViewClassModal } from '@/features/classes';
-import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { ViewClassModal, ClassCard, TimetableView } from '@/features/classes';
+import { getDayOfWeek } from '@/shared/utils/datetime';
+import { formatTime } from '@/shared/utils/datetime';
+
+type ViewMode = 'table' | 'timetable';
 
 interface ClassesTabProps {
   staff: Tables<'staff'>;
+  onStaffUpdated?: () => void;
 }
 
 interface StaffClass {
   class: Tables<'classes'>;
   subject?: Tables<'subjects'>;
-  students: Tables<'students'>[];
+  staff: Tables<'staff'>[];
   studentCount: number;
 }
 
 export function ClassesTab({
-  staff
+  staff,
+  onStaffUpdated
 }: ClassesTabProps) {
+  const { toast } = useToast();
   const [classes, setClasses] = useState<StaffClass[]>([]);
+  const [allClasses, setAllClasses] = useState<StaffClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assigningClasses, setAssigningClasses] = useState<Set<string>>(new Set());
+  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  
+  // Prepare data for timetable view
+  const timetableClasses = classes.map(c => c.class);
+  const timetableSubjects: Record<string, Tables<'subjects'>> = {};
+  const timetableStaff: Record<string, Tables<'staff'>[]> = {};
+  classes.forEach(c => {
+    if (c.subject) {
+      timetableSubjects[c.class.id] = c.subject;
+    }
+    timetableStaff[c.class.id] = c.staff;
+  });
 
   useEffect(() => {
     loadStaffClasses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staff.id]);
 
   const loadStaffClasses = async () => {
@@ -42,43 +66,49 @@ export function ClassesTab({
       setError(null);
       
       // Get all classes with details
-      const { classes: allClasses, classSubjects, classStudents, classStaff } = await classesApi.getAllClassesWithDetails();
+      const { classes: allClassesData, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
       
-      // Filter classes that include this staff member
+      // Create StaffClass objects for all classes
+      const allClassesWithDetails: StaffClass[] = [];
       const staffClasses: StaffClass[] = [];
       
-      for (const cls of allClasses) {
-        // Check if staff is assigned to this class
+      for (const cls of allClassesData) {
+        const subject = classSubjects[cls.id];
         const assignedStaff = classStaff[cls.id] || [];
+        const enrolledStudents = classStudents[cls.id] || [];
+        const studentCount = enrolledStudents.length;
         const isAssigned = assignedStaff.some(assignedStaffMember => assignedStaffMember.id === staff.id);
         
+        const classWithDetails = {
+          class: cls,
+          subject,
+          staff: assignedStaff,
+          studentCount
+        };
+        
+        allClassesWithDetails.push(classWithDetails);
+        
         if (isAssigned) {
-          const subject = classSubjects[cls.id];
-          const students = classStudents[cls.id] || [];
-          const studentCount = students.length;
-          
-          staffClasses.push({
-            class: cls,
-            subject,
-            students,
-            studentCount
-          });
+          staffClasses.push(classWithDetails);
         }
       }
       
       // Sort by day of week, then by start time
-      staffClasses.sort((a, b) => {
-        const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
-        const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
-        
-        if (dayA !== dayB) {
-          return dayA - dayB;
-        }
-        
-        return a.class.start_time.localeCompare(b.class.start_time);
-      });
+      const sortClasses = (classes: StaffClass[]) => {
+        return classes.sort((a, b) => {
+          const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
+          const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
+          
+          if (dayA !== dayB) {
+            return dayA - dayB;
+          }
+          
+          return a.class.start_time.localeCompare(b.class.start_time);
+        });
+      };
       
-      setClasses(staffClasses);
+      setClasses(sortClasses([...staffClasses]));
+      setAllClasses(sortClasses([...allClassesWithDetails]));
     } catch (err) {
       console.error('Error loading staff classes:', err);
       setError('Failed to load classes');
@@ -87,10 +117,62 @@ export function ClassesTab({
     }
   };
 
+  // Handle class assignment
+  const handleAssignClass = async (classId: string) => {
+    setAssigningClasses(prev => new Set(prev).add(classId));
+    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
+    
+    try {
+      await classesApi.assignStaff(classId, staff.id);
+      await loadStaffClasses(); // Reload classes
+      onStaffUpdated?.(); // Notify parent of changes
+      
+      toast({
+        title: "Success",
+        description: "Staff assigned to class successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to assign to class:', error);
+      toast({
+        title: "Assignment failed",
+        description: "There was an error assigning the staff member to the class. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningClasses(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(classId);
+        return newSet;
+      });
+    }
+  };
+
   const handleClassClick = (classId: string) => {
     setSelectedClassId(classId);
     setIsClassModalOpen(true);
   };
+
+  // Get available classes for assignment (not currently assigned)
+  const availableClasses = allClasses.filter(classData => 
+    !classes.some(staffClass => staffClass.class.id === classData.class.id)
+  );
+
+  // Filter available classes based on search query
+  const filteredAvailableClasses = availableClasses.filter(classData => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const subject = classData.subject ? formatSubjectDisplay(classData.subject) : '-';
+    const level = classData.class.level || '';
+    const day = getDayOfWeek(classData.class.day_of_week);
+    const time = `${formatTime(classData.class.start_time)} - ${formatTime(classData.class.end_time)}`;
+    
+    return (
+      subject.toLowerCase().includes(query) ||
+      level.toLowerCase().includes(query) ||
+      day.toLowerCase().includes(query) ||
+      time.toLowerCase().includes(query)
+    );
+  });
 
   
 
@@ -122,94 +204,227 @@ export function ClassesTab({
     );
   }
 
-  if (classes.length === 0) {
+  if (classes.length === 0 && assigningClasses.size === 0) {
     return (
       <div className="flex-1 flex flex-col justify-center items-center">
         <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground mb-4">No classes assigned</p>
-        <p className="text-xs text-muted-foreground text-center max-w-sm">
+        <p className="text-xs text-muted-foreground text-center max-w-sm mb-4">
           This staff member is not currently assigned to any classes.
         </p>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Assign to a class
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[400px]" align="center">
+            <div className="p-3">
+              <Input
+                placeholder="Search classes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="mb-3"
+              />
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {filteredAvailableClasses.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {searchQuery ? 'No classes match your search' : 'No available classes found'}
+                    </div>
+                  ) : (
+                    filteredAvailableClasses.map(classData => (
+                      <Button
+                        key={classData.class.id}
+                        variant="ghost"
+                        className="w-full justify-start h-auto p-3 hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => handleAssignClass(classData.class.id)}
+                        disabled={assigningClasses.has(classData.class.id)}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium">
+                              {getSubjectDisplay(classData)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {getDayOfWeek(classData.class.day_of_week)} • {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
+                            </div>
+                          </div>
+                          {assigningClasses.has(classData.class.id) && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        </div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
+    <div className="flex-1 h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-medium">Assigned Classes ({classes.length})</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-medium">Assigned Classes ({classes.length})</h3>
+          
+          {/* Show currently assigning classes */}
+          {assigningClasses.size > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Assigning to {assigningClasses.size} class{assigningClasses.size > 1 ? 'es' : ''}...</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* View Mode Selector */}
+          <div className="flex rounded-md border">
+            <Button 
+              variant={viewMode === 'table' ? 'default' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="rounded-r-none"
+            >
+              Table
+            </Button>
+            <Button 
+              variant={viewMode === 'timetable' ? 'default' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('timetable')}
+              className="rounded-l-none"
+            >
+              <Grid3X3 className="h-4 w-4 mr-1" />
+              Timetable
+            </Button>
+          </div>
+          
+          <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Add Class</span>
+              </Button>
+            </PopoverTrigger>
+          <PopoverContent className="p-0 w-[400px]" align="end">
+            <div className="p-3">
+              <Input
+                placeholder="Search classes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="mb-3"
+              />
+              <ScrollArea className="max-h-[300px]">
+                <div className="space-y-1">
+                  {filteredAvailableClasses.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {searchQuery ? 'No classes match your search' : 'No available classes found'}
+                    </div>
+                  ) : (
+                    filteredAvailableClasses.map(classData => (
+                      <Button
+                        key={classData.class.id}
+                        variant="ghost"
+                        className="w-full justify-start h-auto p-3 hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => handleAssignClass(classData.class.id)}
+                        disabled={assigningClasses.has(classData.class.id)}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium">
+                              {getSubjectDisplay(classData)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {getDayOfWeek(classData.class.day_of_week)} • {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
+                            </div>
+                          </div>
+                          {assigningClasses.has(classData.class.id) && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        </div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </PopoverContent>
+        </Popover>
+        </div>
       </div>
       
-      <ScrollArea className="flex-1">
-        <div className="space-y-3">
-          {classes.map((staffClass) => (
-            <Card 
-              key={staffClass.class.id} 
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => handleClassClick(staffClass.class.id)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold">
-                      {getSubjectDisplay(staffClass)}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {staffClass.class.level}
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {getDayOfWeek(staffClass.class.day_of_week)}
-                  </Badge>
-                </div>
-              </CardHeader>
+      {/* Conditional View Rendering */}
+      {viewMode === 'table' ? (
+        <ScrollArea className="flex-1">
+          <div className="space-y-6">
+            {/* Show currently assigning classes at the top */}
+            {Array.from(assigningClasses).map(classId => {
+              const classData = allClasses.find(c => c.class.id === classId);
+              if (!classData) return null;
               
-              <CardContent className="pt-0 space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {formatTime(staffClass.class.start_time)} - {formatTime(staffClass.class.end_time)}
-                    </span>
-                  </div>
-                  
-                  {staffClass.class.room && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>Room {staffClass.class.room}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{staffClass.studentCount} student{staffClass.studentCount !== 1 ? 's' : ''}</span>
+              return (
+                <ClassCard
+                  key={`assigning-${classData.class.id}`}
+                  class={classData.class}
+                  subject={classData.subject}
+                  staff={classData.staff}
+                  isEnrolling={true}
+                />
+              );
+            })}
+            
+            {/* Group classes by day */}
+            {(() => {
+              const classesByDay: Record<string, StaffClass[]> = {};
+              
+              classes.forEach(classData => {
+                const day = getDayOfWeek(classData.class.day_of_week);
+                if (!classesByDay[day]) {
+                  classesByDay[day] = [];
+                }
+                classesByDay[day].push(classData);
+              });
+              
+              // Sort days in weekday order
+              const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+              const sortedDays = Object.keys(classesByDay).sort((a, b) => {
+                return dayOrder.indexOf(a) - dayOrder.indexOf(b);
+              });
+              
+              return sortedDays.map(day => (
+                <div key={day}>
+                  <h4 className="text-sm font-semibold mb-2">{day}</h4>
+                  <div className="space-y-2">
+                    {classesByDay[day].map(staffClass => (
+                      <ClassCard
+                        key={staffClass.class.id}
+                        class={staffClass.class}
+                        subject={staffClass.subject}
+                        staff={staffClass.staff}
+                        onClick={() => handleClassClick(staffClass.class.id)}
+                      />
+                    ))}
                   </div>
                 </div>
-                
-                {staffClass.students.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Students:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {staffClass.students.slice(0, 3).map((student) => (
-                        <Badge key={student.id} variant="outline" className="text-xs">
-                          {student.first_name} {student.last_name}
-                        </Badge>
-                      ))}
-                      {staffClass.students.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{staffClass.students.length - 3} more
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                
-              </CardContent>
-            </Card>
-          ))}
+              ));
+            })()}
+          </div>
+        </ScrollArea>
+      ) : (
+        <div className="flex-1 overflow-hidden">
+          <TimetableView
+            classes={timetableClasses}
+            classSubjects={timetableSubjects}
+            classStaff={timetableStaff}
+            onClassClick={(cls) => handleClassClick(cls.id)}
+          />
         </div>
-      </ScrollArea>
+      )}
       
       {/* Class Modal */}
       {selectedClassId && (

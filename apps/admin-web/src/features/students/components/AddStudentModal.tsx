@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { z } from 'zod';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,8 +12,6 @@ import {
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import { Textarea } from "@altitutor/ui";
-import { Checkbox } from "@altitutor/ui";
 import {
   Select,
   SelectContent,
@@ -25,37 +22,12 @@ import {
 import { useToast } from "@altitutor/ui";
 import { useCreateStudent } from '../hooks/useStudentsQuery';
 import type { TablesInsert, Tables } from '@altitutor/shared';
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-
-// Form schema for adding students
-const formSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  studentEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
-  studentPhone: z.string().optional().nullish(),
-  school: z.string().optional().nullish(),
-  curriculum: z.string().optional().nullish(),
-  yearLevel: z.union([
-    z.number().min(1).max(12).nullable(),
-    z.literal('').transform(() => null)
-  ]).optional(),
-  status: z.enum(['ACTIVE','INACTIVE','TRIAL','DISCONTINUED']),
-  notes: z.string().optional().nullish(),
-  
-  // Availability checkboxes
-  availability_monday: z.boolean(),
-  availability_tuesday: z.boolean(),
-  availability_wednesday: z.boolean(),
-  availability_thursday: z.boolean(),
-  availability_friday: z.boolean(),
-  availability_saturday_am: z.boolean(),
-  availability_saturday_pm: z.boolean(),
-  availability_sunday_am: z.boolean(),
-  availability_sunday_pm: z.boolean(),
-});
-
-type FormData = z.infer<typeof formSchema>;
+import { PhoneInput } from '@/shared/components/PhoneInput';
+import { SubjectSearchPopover } from '@/features/subjects/components';
+import { subjectsApi } from '@/features/subjects/api';
+import { studentsApi } from '../api';
+import { getSubjectIcon } from '@/shared/utils';
+import { X } from 'lucide-react';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -67,6 +39,8 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
   const { toast } = useToast();
   const createStudentMutation = useCreateStudent();
   const [loading, setLoading] = useState(false);
+  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -76,7 +50,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     curriculum: '',
     yearLevel: '',
     status: 'TRIAL' as Tables<'students'>['status'],
-    notes: '',
     // Availability fields
     availabilityMonday: false,
     availabilityTuesday: false,
@@ -88,6 +61,35 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     availabilitySundayAm: false,
     availabilitySundayPm: false,
   });
+
+  // Load subjects when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadSubjects();
+    }
+  }, [isOpen]);
+
+  const loadSubjects = async () => {
+    try {
+      const subjects = await subjectsApi.getAllSubjects();
+      setAllSubjects(subjects);
+    } catch (error) {
+      console.error('Failed to load subjects:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load subjects. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddSubject = (subject: Tables<'subjects'>) => {
+    setSelectedSubjects(prev => [...prev, subject]);
+  };
+
+  const handleRemoveSubject = (subjectId: string) => {
+    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
+  };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
@@ -120,7 +122,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         curriculum: (formData.curriculum || null) as any,
         year_level: formData.yearLevel ? parseInt(formData.yearLevel) : null,
         status: formData.status,
-        notes: formData.notes || null,
         availability_monday: formData.availabilityMonday,
         availability_tuesday: formData.availabilityTuesday,
         availability_wednesday: formData.availabilityWednesday,
@@ -137,7 +138,25 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         user_id: null,
       };
 
-      await createStudentMutation.mutateAsync(studentData);
+      const createdStudent = await createStudentMutation.mutateAsync(studentData);
+      
+      // Assign selected subjects to the student
+      if (selectedSubjects.length > 0 && createdStudent) {
+        try {
+          await Promise.all(
+            selectedSubjects.map(subject => 
+              studentsApi.assignSubjectToStudent(createdStudent.id, subject.id)
+            )
+          );
+        } catch (subjectError) {
+          console.error('Failed to assign some subjects:', subjectError);
+          toast({
+            title: "Warning",
+            description: "Student created but some subjects could not be assigned.",
+            variant: "default",
+          });
+        }
+      }
       
       toast({
         title: "Success",
@@ -157,7 +176,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         curriculum: '',
         yearLevel: '',
         status: 'TRIAL',
-        notes: '',
         availabilityMonday: false,
         availabilityTuesday: false,
         availabilityWednesday: false,
@@ -168,6 +186,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         availabilitySundayAm: false,
         availabilitySundayPm: false,
       });
+      setSelectedSubjects([]);
     } catch (error) {
       console.error('Error adding student:', error);
       toast({
@@ -233,10 +252,9 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
               </div>
               <div>
                 <Label htmlFor="studentPhone">Student Phone</Label>
-                <Input
-                  id="studentPhone"
+                <PhoneInput
                   value={formData.studentPhone}
-                  onChange={(e) => handleInputChange('studentPhone', e.target.value)}
+                  onChange={(value) => handleInputChange('studentPhone', value)}
                 />
               </div>
             </div>
@@ -256,12 +274,21 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
               </div>
               <div>
                 <Label htmlFor="curriculum">Curriculum</Label>
-                <Input
-                  id="curriculum"
+                <Select
                   value={formData.curriculum}
-                  onChange={(e) => handleInputChange('curriculum', e.target.value)}
-                  placeholder="e.g., SACE, IB, VCE"
-                />
+                  onValueChange={(value) => handleInputChange('curriculum', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select curriculum" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SACE">SACE</SelectItem>
+                    <SelectItem value="IB">IB</SelectItem>
+                    <SelectItem value="PRESACE">PRESACE</SelectItem>
+                    <SelectItem value="PRIMARY">PRIMARY</SelectItem>
+                    <SelectItem value="MEDICINE">MEDICINE</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="yearLevel">Year Level</Label>
@@ -294,6 +321,59 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
                 <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Subjects */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Subjects</h3>
+              <SubjectSearchPopover
+                allSubjects={allSubjects}
+                selectedSubjects={selectedSubjects}
+                onSelectSubject={handleAddSubject}
+              />
+            </div>
+            
+            {selectedSubjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No subjects selected</p>
+            ) : (
+              <div className="space-y-2">
+                {selectedSubjects.map((subject) => {
+                  const Icon = getSubjectIcon(subject.discipline);
+                  const subjectDisplay = [
+                    subject.curriculum,
+                    subject.year_level ? `Year ${subject.year_level}` : '',
+                    subject.name
+                  ].filter(Boolean).join(' ');
+                  
+                  return (
+                    <div
+                      key={subject.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{subjectDisplay}</div>
+                          {subject.level && (
+                            <p className="text-xs text-muted-foreground">{subject.level}</p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveSubject(subject.id)}
+                        className="flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Availability */}

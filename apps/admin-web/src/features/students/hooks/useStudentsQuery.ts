@@ -38,7 +38,10 @@ export function useStudents() {
 // Paginated server-filtered students list
 export interface UseStudentsListParams {
   search?: string;
-  status?: Tables<'students'>['status'] | 'ALL';
+  statuses?: Tables<'students'>['status'][];
+  curriculums?: string[];
+  yearLevels?: number[];
+  subjectIds?: string[];
   page?: number; // 1-based
   pageSize?: number;
   orderBy?: keyof Tables<'students'>;
@@ -48,7 +51,10 @@ export interface UseStudentsListParams {
 export function useStudentsList(params: UseStudentsListParams) {
   const {
     search = '',
-    status = 'ALL',
+    statuses = [],
+    curriculums = [],
+    yearLevels = [],
+    subjectIds = [],
     page = 1,
     pageSize = 20,
     orderBy = 'last_name',
@@ -58,8 +64,8 @@ export function useStudentsList(params: UseStudentsListParams) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: [...studentsKeys.lists(), 'paged', { search, status, page, pageSize, orderBy, ascending }],
-    queryFn: () => studentsApi.list({ search, status, limit: pageSize, offset, orderBy, ascending }),
+    queryKey: [...studentsKeys.lists(), 'paged', { search, statuses, curriculums, yearLevels, subjectIds, page, pageSize, orderBy, ascending }],
+    queryFn: () => studentsApi.list({ search, statuses, curriculums, yearLevels, subjectIds, limit: pageSize, offset, orderBy, ascending }),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 30, // 30s for list pages
     gcTime: 1000 * 60 * 5,
@@ -70,7 +76,10 @@ export function useStudentsList(params: UseStudentsListParams) {
 export function useStudentsPageWithDetails(params: UseStudentsListParams) {
   const {
     search = '',
-    status = 'ALL',
+    statuses = [],
+    curriculums = [],
+    yearLevels = [],
+    subjectIds = [],
     page = 1,
     pageSize = 20,
     orderBy = 'last_name',
@@ -79,8 +88,8 @@ export function useStudentsPageWithDetails(params: UseStudentsListParams) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: [...studentsKeys.lists(), 'paged-with-details', { search, status, page, pageSize, orderBy, ascending }],
-    queryFn: () => studentsApi.getStudentsWithDetailsPage({ search, status, limit: pageSize, offset, orderBy, ascending }),
+    queryKey: [...studentsKeys.lists(), 'paged-with-details', { search, statuses, curriculums, yearLevels, subjectIds, page, pageSize, orderBy, ascending }],
+    queryFn: () => studentsApi.getStudentsWithDetailsPage({ search, statuses, curriculums, yearLevels, subjectIds, limit: pageSize, offset, orderBy, ascending }),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
@@ -125,7 +134,7 @@ export function useStudentsCount() {
   return useQuery({
     queryKey: studentsKeys.count(),
     queryFn: async () => {
-      const { total } = await studentsApi.list({ limit: 1, offset: 0 });
+      const { total } = await studentsApi.list({ statuses: [], limit: 1, offset: 0 });
       return total;
     },
     staleTime: 1000 * 60 * 3,

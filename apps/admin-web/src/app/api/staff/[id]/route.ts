@@ -1,0 +1,147 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
+import type { Database } from '@altitutor/shared';
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Verify user is authenticated and has admin role
+
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user is admin or staff with appropriate permissions
+    const { data: currentUserStaff, error: staffError } = await supabase
+      .from('staff')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (staffError || !currentUserStaff || currentUserStaff.role !== 'ADMINSTAFF') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
+    // Verify admin client is available
+    if (!supabaseAdmin) {
+      console.error('Admin client not initialized - missing SUPABASE_SERVICE_ROLE_KEY');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
+    const staffId = params.id;
+    const body = await request.json();
+
+    // Get current staff record to get user_id for auth update
+    const { data: currentStaff, error: fetchError } = await supabase
+      .from('staff')
+      .select('user_id, email')
+      .eq('id', staffId)
+      .single();
+
+    if (fetchError || !currentStaff) {
+      return NextResponse.json(
+        { error: `Failed to fetch current staff: ${fetchError?.message || 'Staff not found'}` },
+        { status: 404 }
+      );
+    }
+
+    // Update auth user if user_id exists and email or phone changed
+    if (currentStaff.user_id && (body.email || body.phone_number)) {
+      const authUpdateData: { 
+        email?: string;
+        phone?: string;
+      } = {};
+      
+      if (body.email) {
+        authUpdateData.email = body.email;
+      }
+      
+      // Update phone with validation
+      if (body.phone_number) {
+        // Clean and validate phone number (E.164 format: +[country code][number])
+        const cleanedPhone = body.phone_number.replace(/[\s\-\(\)]/g, '');
+        
+        // Check if it's a valid E.164 format (starts with + and has 10-15 digits)
+        const phoneRegex = /^\+[1-9]\d{9,14}$/;
+        
+        if (phoneRegex.test(cleanedPhone)) {
+          authUpdateData.phone = cleanedPhone;
+        } else {
+          console.warn(`Invalid phone format for staff ${staffId}: ${body.phone_number}. Skipping auth.users phone update.`);
+          // Continue without failing - phone will still update in staff table
+        }
+      }
+
+      // Only call auth update if we have something to update
+      if (authUpdateData.email || authUpdateData.phone) {
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          currentStaff.user_id,
+          authUpdateData
+        );
+
+        if (authError) {
+          console.error('Auth update error:', authError);
+          return NextResponse.json(
+            { error: `Failed to update auth user: ${authError.message}` },
+            { status: 500 }
+          );
+        }
+      }
+    }
+
+    // Update staff record
+    const { data: updatedStaff, error: updateError } = await supabase
+      .from('staff')
+      // @ts-expect-error - TypeScript inference issue with Supabase client
+      .update({
+        first_name: body.first_name,
+        last_name: body.last_name,
+        email: body.email ?? undefined,
+        phone_number: body.phone_number,
+        role: body.role,
+        status: body.status,
+        notes: body.notes,
+        office_key_number: body.office_key_number,
+        has_parking_remote: body.has_parking_remote,
+        availability_monday: body.availability_monday,
+        availability_tuesday: body.availability_tuesday,
+        availability_wednesday: body.availability_wednesday,
+        availability_thursday: body.availability_thursday,
+        availability_friday: body.availability_friday,
+        availability_saturday_am: body.availability_saturday_am,
+        availability_saturday_pm: body.availability_saturday_pm,
+        availability_sunday_am: body.availability_sunday_am,
+        availability_sunday_pm: body.availability_sunday_pm,
+      })
+      .eq('id', staffId)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json(
+        { error: `Failed to update staff: ${updateError.message}` },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ data: updatedStaff }, { status: 200 });
+  } catch (error) {
+    console.error('Unexpected error updating staff:', error);
+    return NextResponse.json(
+      { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { status: 500 }
+    );
+  }
+}
+

@@ -55,6 +55,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         start_time: startTime,
         end_time: endTime,
         status: 'ACTIVE',
+        subject: subjectName,
         subject_id: subjectId || null,
         room: room || null,
       };

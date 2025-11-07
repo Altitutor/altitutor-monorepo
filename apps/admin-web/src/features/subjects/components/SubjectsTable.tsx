@@ -10,22 +10,21 @@ import {
   TableHeader,
   TableRow,
 } from "@altitutor/ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
+import { Checkbox } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { 
-  ChevronDown, 
   Search, 
   ArrowUpDown,
   Filter,
-  RefreshCw
+  X
 } from 'lucide-react';
 import { useSubjects } from '../hooks/useSubjectsQuery';
 import type { Tables, Enums } from '@altitutor/shared';
@@ -52,13 +51,36 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
 
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
-  const [curriculumFilter, setCurriculumFilter] = useState<Enums<'subject_curriculum'> | 'ALL'>('ALL');
-  const [disciplineFilter, setDisciplineFilter] = useState<Enums<'subject_discipline'> | 'ALL'>('ALL');
+  const [curriculumFilters, setCurriculumFilters] = useState<Enums<'subject_curriculum'>[]>([]);
+  const [disciplineFilters, setDisciplineFilters] = useState<Enums<'subject_discipline'>[]>([]);
   const [sortField, setSortField] = useState<keyof Tables<'subjects'>>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Filter toggle handlers
+  const toggleCurriculumFilter = (curriculum: Enums<'subject_curriculum'>) => {
+    setCurriculumFilters(prev => 
+      prev.includes(curriculum) 
+        ? prev.filter(c => c !== curriculum)
+        : [...prev, curriculum]
+    );
+  };
+
+  const toggleDisciplineFilter = (discipline: Enums<'subject_discipline'>) => {
+    setDisciplineFilters(prev => 
+      prev.includes(discipline) 
+        ? prev.filter(d => d !== discipline)
+        : [...prev, discipline]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setCurriculumFilters([]);
+    setDisciplineFilters([]);
+    setSearchTerm('');
+  };
 
   // Memoized filtered and sorted subjects
   const filteredSubjects = useMemo(() => {
@@ -77,13 +99,13 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     }
     
     // Apply curriculum filter
-    if (curriculumFilter !== 'ALL') {
-      result = result.filter(subject => subject.curriculum === curriculumFilter);
+    if (curriculumFilters.length > 0) {
+      result = result.filter(subject => subject.curriculum && curriculumFilters.includes(subject.curriculum));
     }
     
     // Apply discipline filter
-    if (disciplineFilter !== 'ALL') {
-      result = result.filter(subject => subject.discipline === disciplineFilter);
+    if (disciplineFilters.length > 0) {
+      result = result.filter(subject => subject.discipline && disciplineFilters.includes(subject.discipline));
     }
     
     // Apply sorting
@@ -110,7 +132,7 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     });
     
     return result;
-  }, [subjects, searchTerm, curriculumFilter, disciplineFilter, sortField, sortDirection]);
+  }, [subjects, searchTerm, curriculumFilters, disciplineFilters, sortField, sortDirection]);
 
   const handleSort = (field: keyof Tables<'subjects'>) => {
     if (sortField === field) {
@@ -150,6 +172,11 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     refetch();
   };
 
+  // Count active filters
+  const activeFiltersCount = 
+    (curriculumFilters.length > 0 ? 1 : 0) +
+    (disciplineFilters.length > 0 ? 1 : 0);
+
   // Loading state
   if (isLoading && subjects.length === 0) {
     return (
@@ -164,10 +191,6 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
             />
           </div>
           <div className="flex space-x-2 items-center">
-            <Button variant="outline" size="sm" disabled className="flex items-center">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
           </div>
         </div>
         
@@ -208,90 +231,71 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
           />
         </div>
         <div className="flex space-x-2 items-center">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh} 
-            className="flex items-center"
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
-            Refresh
-          </Button>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {/* Clear Filters */}
+          {activeFiltersCount > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearAllFilters}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+          )}
+
+          {/* Curriculum Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
               <Button 
-                variant={curriculumFilter !== 'ALL' ? "secondary" : "outline"} 
+                variant={curriculumFilters.length > 0 ? "secondary" : "outline"} 
                 size="sm"
-                className="flex items-center"
               >
                 <Filter className="h-4 w-4 mr-2" />
-                {curriculumFilter === 'ALL' ? 'Curriculum' : curriculumFilter}
-                <ChevronDown className="h-4 w-4 ml-1" />
+                Curriculum {curriculumFilters.length > 0 && `(${curriculumFilters.length})`}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setCurriculumFilter('ALL')}>
-                All Curriculums
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter('SACE')}>
-                SACE
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter('IB')}>
-                IB
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter('PRESACE')}>
-                Pre-SACE
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter('PRIMARY')}>
-                Primary
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCurriculumFilter('MEDICINE')}>
-                Medicine
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <div className="space-y-2">
+                <div className="font-medium text-sm mb-2">Curriculum</div>
+                {(['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'] as const).map((curriculum) => (
+                  <label key={curriculum} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={curriculumFilters.includes(curriculum)}
+                      onCheckedChange={() => toggleCurriculumFilter(curriculum)}
+                    />
+                    <span className="text-sm">{curriculum}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Discipline Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
               <Button 
-                variant={disciplineFilter !== 'ALL' ? "secondary" : "outline"} 
+                variant={disciplineFilters.length > 0 ? "secondary" : "outline"} 
                 size="sm"
-                className="flex items-center"
               >
                 <Filter className="h-4 w-4 mr-2" />
-                {disciplineFilter === 'ALL' ? 'Discipline' : disciplineFilter}
-                <ChevronDown className="h-4 w-4 ml-1" />
+                Discipline {disciplineFilters.length > 0 && `(${disciplineFilters.length})`}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setDisciplineFilter('ALL')}>
-                All Disciplines
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter('MATHEMATICS')}>
-                Mathematics
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter('SCIENCE')}>
-                Science
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter('HUMANITIES')}>
-                Humanities
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter('ENGLISH')}>
-                English
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter('ART')}>
-                Art
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter('LANGUAGE')}>
-                Languages
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDisciplineFilter('MEDICINE')}>
-                Medicine
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <div className="space-y-2">
+                <div className="font-medium text-sm mb-2">Discipline</div>
+                {(['MATHEMATICS', 'SCIENCE', 'HUMANITIES', 'ENGLISH', 'ART', 'LANGUAGE', 'MEDICINE'] as const).map((discipline) => (
+                  <label key={discipline} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={disciplineFilters.includes(discipline)}
+                      onCheckedChange={() => toggleDisciplineFilter(discipline)}
+                    />
+                    <span className="text-sm">{discipline}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -335,7 +339,7 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
                 <TableCell colSpan={4} className="text-center h-24">
                   {isLoading ? (
                     "Loading subjects..."
-                  ) : searchTerm || curriculumFilter !== 'ALL' || disciplineFilter !== 'ALL' ? (
+                  ) : searchTerm || activeFiltersCount > 0 ? (
                     "No subjects match your filters"
                   ) : (
                     "No subjects found"

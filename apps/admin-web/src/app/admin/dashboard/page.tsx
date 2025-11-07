@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { GraduationCap, CalendarDays, Users, Clock, CheckSquare, Zap, FileText } from 'lucide-react';
+import { GraduationCap, CalendarDays, Calendar, Users, Clock, CheckSquare, Zap, FileText } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
@@ -13,6 +13,7 @@ import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 import { ViewClassModal } from '@/features/classes';
 import { LogSessionModal } from '@/features/tutor-logs';
+import { LogAbsenceDialog } from '@/features/sessions';
 import { useAuth } from '@/features/auth';
 
 interface TodayClassesProps {
@@ -132,6 +133,7 @@ export default function DashboardPage() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
+  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
 
   // Fetch current staff record to get staff ID
   const { data: currentStaff } = useQuery({
@@ -267,6 +269,14 @@ export default function DashboardPage() {
                 <FileText className="h-4 w-4 mr-2" />
                 Tutor Log
               </Button>
+              <Button
+                onClick={() => setIsLogAbsenceDialogOpen(true)}
+                className="w-full"
+                variant="outline"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Log Absence
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -320,12 +330,19 @@ export default function DashboardPage() {
       />
 
       {currentStaff?.id && (
-        <LogSessionModal
-          isOpen={isTutorLogModalOpen}
-          onClose={() => setIsTutorLogModalOpen(false)}
-          currentStaffId={currentStaff.id}
-          adminMode={true}
-        />
+        <>
+          <LogSessionModal
+            isOpen={isTutorLogModalOpen}
+            onClose={() => setIsTutorLogModalOpen(false)}
+            currentStaffId={currentStaff.id}
+            adminMode={true}
+          />
+          <LogAbsenceDialog
+            isOpen={isLogAbsenceDialogOpen}
+            onClose={() => setIsLogAbsenceDialogOpen(false)}
+            staffId={currentStaff.id}
+          />
+        </>
       )}
     </div>
   );

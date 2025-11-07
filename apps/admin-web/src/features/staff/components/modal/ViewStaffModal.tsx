@@ -1,21 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
+import { Button as UIButton } from '@altitutor/ui';
 import { staffApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
-import { SubjectsTab } from './tabs/SubjectsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { AccountTab } from './tabs/AccountTab';
-import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { useChatStore } from '@/features/messages/state/chatStore';
-import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { Button as UIButton } from '@altitutor/ui';
+import { getExistingConversationForRelated } from '@/features/messages/api/queries';
+import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -42,6 +40,15 @@ export function ViewStaffModal({
   const [activeTab, setActiveTab] = useState('details');
   const [baseUrl, setBaseUrl] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  
+  // Subject modal state
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+  
+  // Temporary subjects state for editing (not saved until form submit)
+  const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
+  const [subjectsToRemove, setSubjectsToRemove] = useState<string[]>([]);
   
   const { toast } = useToast();
 
@@ -78,9 +85,9 @@ export function ViewStaffModal({
       setStaffMember(staffData || null);
       setStaffSubjects(subjectsData as Tables<'subjects'>[]);
       
-      // Get conversation ID for messages tab
-      const convId = await ensureConversationForRelated(staffId, 'staff');
-      console.log('[ViewStaffModal] Conversation ID for staff', staffId, ':', convId);
+      // Get existing conversation ID for messages tab (don't create new one)
+      const convId = await getExistingConversationForRelated(staffId, 'staff');
+      console.log('[ViewStaffModal] Existing conversation ID for staff', staffId, ':', convId);
       setConversationId(convId);
     } catch (err) {
       console.error('Failed to fetch staff:', err);
@@ -129,7 +136,7 @@ export function ViewStaffModal({
     try {
       setIsLoading(true);
       
-      // Map form data to staff update - fix the updateStaff method to pass id and data separately
+      // Map form data to staff update
       await staffApi.updateStaff(staffMember.id, {
         first_name: data.firstName,
         last_name: data.lastName,
@@ -150,6 +157,18 @@ export function ViewStaffModal({
         availability_sunday_am: data.availability_sunday_am,
         availability_sunday_pm: data.availability_sunday_pm
       });
+      
+      // Apply subject changes
+      for (const subjectId of subjectsToAdd) {
+        await staffApi.assignSubjectToStaff(staffMember.id, subjectId);
+      }
+      for (const subjectId of subjectsToRemove) {
+        await staffApi.removeSubjectFromStaff(staffMember.id, subjectId);
+      }
+      
+      // Clear temporary subject changes
+      setSubjectsToAdd([]);
+      setSubjectsToRemove([]);
       
       // Refetch staff
       await fetchStaffMember();
@@ -245,134 +264,165 @@ export function ViewStaffModal({
     }
   };
 
-  // Handle subject assignment
-  const handleAssignSubject = async (subjectId: string) => {
-    if (!staffMember) return;
+  // Handle starting edit mode
+  const handleStartEdit = () => {
+    setTempStaffSubjects([...staffSubjects]);
+    setSubjectsToAdd([]);
+    setSubjectsToRemove([]);
+    setIsEditing(true);
+  };
+
+  // Handle canceling edit mode
+  const handleCancelEdit = () => {
+    setTempStaffSubjects([]);
+    setSubjectsToAdd([]);
+    setSubjectsToRemove([]);
+    setIsEditing(false);
+  };
+
+  // Handle subject assignment (in edit mode - temporary)
+  const handleAssignSubject = (subjectId: string) => {
+    const subject = allSubjects.find(s => s.id === subjectId);
+    if (!subject) return;
     
-    try {
-      await staffApi.assignSubjectToStaff(staffMember.id, subjectId);
-      await fetchStaffMember(); // Reload staff with updated subjects
-      toast({
-        title: 'Success',
-        description: 'Subject assigned successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to assign subject:', err);
-      toast({
-        title: 'Assignment failed',
-        description: 'There was an error assigning the subject. Please try again.',
-        variant: 'destructive',
-      });
+    // Add to temporary subjects list
+    setTempStaffSubjects(prev => [...prev, subject]);
+    
+    // Track as added (unless it was previously marked for removal)
+    if (subjectsToRemove.includes(subjectId)) {
+      setSubjectsToRemove(prev => prev.filter(id => id !== subjectId));
+    } else {
+      setSubjectsToAdd(prev => [...prev, subjectId]);
     }
   };
 
-  // Handle subject removal
-  const handleRemoveSubject = async (subjectId: string) => {
-    if (!staffMember) return;
+  // Handle subject removal (in edit mode - temporary)
+  const handleRemoveSubject = (subjectId: string) => {
+    // Remove from temporary subjects list
+    setTempStaffSubjects(prev => prev.filter(s => s.id !== subjectId));
     
-    try {
-      await staffApi.removeSubjectFromStaff(staffMember.id, subjectId);
-      await fetchStaffMember(); // Reload staff with updated subjects
-      toast({
-        title: 'Success',
-        description: 'Subject removed successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to remove subject:', err);
-      toast({
-        title: 'Removal failed',
-        description: 'There was an error removing the subject. Please try again.',
-        variant: 'destructive',
-      });
+    // Track as removed (unless it was previously marked for addition)
+    if (subjectsToAdd.includes(subjectId)) {
+      setSubjectsToAdd(prev => prev.filter(id => id !== subjectId));
+    } else {
+      setSubjectsToRemove(prev => [...prev, subjectId]);
     }
   };
 
-  // Early return if no staff member loaded
-  if (!staffMember) {
-    return (
+  // Handle viewing subject details
+  const handleViewSubject = (subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    setSubjectModalOpen(true);
+  };
+
+  // Always render the Sheet to allow exit animation
+  return (
+    <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Loading staff member...</SheetTitle>
-          </SheetHeader>
+        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none h-full flex flex-col p-0">
+          {!staffMember ? (
+            <div className="flex justify-center items-center h-full">
+              <div className="text-muted-foreground">
+                {isLoading ? 'Loading...' : ''}
+              </div>
+            </div>
+          ) : (
+            <>
+              <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
+                <SheetTitle>
+                  Staff Member Details
+                </SheetTitle>
+                <SheetDescription className="text-lg font-medium">
+                  {staffMember.first_name} {staffMember.last_name}
+                </SheetDescription>
+              </SheetHeader>
+          
+              <div className="flex-1 overflow-hidden flex flex-col px-6 pb-6">
+                <Tabs 
+                  defaultValue="details" 
+                  value={activeTab} 
+                  onValueChange={setActiveTab}
+                  className="flex flex-col h-full"
+                >
+                  <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="classes">Classes</TabsTrigger>
+                    <TabsTrigger value="account">Account</TabsTrigger>
+                    <TabsTrigger value="messages">Messages</TabsTrigger>
+                  </TabsList>
+                
+                  <div className="flex-1 overflow-hidden mt-4">
+                  <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                    <StaffDetailsTab
+                      staffMember={staffMember}
+                      isEditing={isEditing}
+                      isLoading={isLoading}
+                      onEdit={handleStartEdit}
+                      onCancelEdit={handleCancelEdit}
+                      onSubmit={handleStaffUpdate}
+                      staffSubjects={isEditing ? tempStaffSubjects : staffSubjects}
+                      loadingSubjects={loadingSubjects}
+                      onRemoveSubject={handleRemoveSubject}
+                      onViewSubject={handleViewSubject}
+                      addSubjectButton={
+                        <SubjectSearchPopover
+                          allSubjects={allSubjects}
+                          selectedSubjects={isEditing ? tempStaffSubjects : staffSubjects}
+                          onSelectSubject={(subject) => handleAssignSubject(subject.id)}
+                        />
+                      }
+                    />
+                  </TabsContent>
+                    
+                    <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                      <ClassesTab
+                        staff={staffMember}
+                        onStaffUpdated={onStaffUpdated}
+                      />
+                    </TabsContent>
+                    
+                    <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                      <AccountTab
+                        staffMember={staffMember}
+                        isLoading={isLoading}
+                        hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+                        onPasswordResetRequest={handlePasswordResetRequest}
+                        onDelete={handleDelete}
+                        isDeleting={isDeleting}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="messages" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                      <MessagesTabContent 
+                        conversationId={conversationId}
+                        title={`${staffMember.first_name} ${staffMember.last_name}`}
+                        onClose={onClose}
+                        relatedId={staffId || undefined}
+                        relatedType="staff"
+                      />
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              </div>
+            </>
+          )}
         </SheetContent>
       </Sheet>
-    );
-  }
 
-  return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="overflow-y-auto max-w-md">
-        <SheetHeader>
-          <SheetTitle>
-            {staffMember.first_name} {staffMember.last_name}
-          </SheetTitle>
-        </SheetHeader>
-        
-        <Tabs 
-          defaultValue="details" 
-          value={activeTab} 
-          onValueChange={setActiveTab}
-          className="mt-6 flex flex-col h-[calc(100vh-200px)]"
-        >
-          <TabsList className="w-full grid grid-cols-5 flex-shrink-0">
-            <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-            <TabsTrigger value="subjects" className="flex-1">Subjects</TabsTrigger>
-            <TabsTrigger value="classes" className="flex-1">Classes</TabsTrigger>
-            <TabsTrigger value="account" className="flex-1">Account</TabsTrigger>
-            <TabsTrigger value="messages" className="flex-1">Messages</TabsTrigger>
-          </TabsList>
-          
-          <div className="flex-1 overflow-hidden">
-            <TabsContent value="details" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <StaffDetailsTab
-                staffMember={staffMember}
-                isEditing={isEditing}
-                isLoading={isLoading}
-                onEdit={() => setIsEditing(true)}
-                onCancelEdit={() => setIsEditing(false)}
-                onSubmit={handleStaffUpdate}
-              />
-            </TabsContent>
-            
-            <TabsContent value="subjects" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <SubjectsTab
-                staffMember={staffMember}
-                staffSubjects={staffSubjects}
-                allSubjects={allSubjects}
-                loadingSubjects={loadingSubjects}
-                onAssignSubject={handleAssignSubject}
-                onRemoveSubject={handleRemoveSubject}
-              />
-            </TabsContent>
-            
-            <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <ClassesTab
-                staff={staffMember}
-              />
-            </TabsContent>
-            
-            <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <AccountTab
-                staffMember={staffMember}
-                isLoading={isLoading}
-                hasPasswordResetLinkSent={hasPasswordResetLinkSent}
-                onPasswordResetRequest={handlePasswordResetRequest}
-                onDelete={handleDelete}
-                isDeleting={isDeleting}
-              />
-            </TabsContent>
-
-            <TabsContent value="messages" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <MessagesTabContent 
-                conversationId={conversationId}
-                title={`${staffMember.first_name} ${staffMember.last_name}`}
-                onClose={onClose}
-              />
-            </TabsContent>
-          </div>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+      {/* Subject Modal */}
+      {selectedSubjectId && (
+        <ViewSubjectModal
+          isOpen={subjectModalOpen}
+          onClose={() => {
+            setSubjectModalOpen(false);
+            setSelectedSubjectId(null);
+          }}
+          subjectId={selectedSubjectId}
+          onSubjectUpdated={() => {
+            fetchStaffMember();
+          }}
+        />
+      )}
+    </>
   );
 } 

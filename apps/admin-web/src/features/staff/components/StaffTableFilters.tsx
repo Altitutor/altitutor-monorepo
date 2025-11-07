@@ -3,44 +3,63 @@
 import { memo } from 'react';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
+import { Checkbox } from "@altitutor/ui";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@altitutor/ui";
 import { 
   Search, 
   Filter,
-  RefreshCw,
-  RotateCcw
+  X
 } from 'lucide-react';
+
 type StaffRole = 'ADMINSTAFF' | 'TUTOR' | 'ADMIN';
 type StaffStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@altitutor/ui";
 
 interface StaffTableFiltersProps {
   searchTerm: string;
-  roleFilter: StaffRole | 'ALL';
-  statusFilter: StaffStatus | 'ALL';
+  roleFilters: string[];
+  statusFilters: string[];
   onSearchChange: (value: string) => void;
-  onRoleFilterChange: (role: StaffRole | 'ALL') => void;
-  onStatusFilterChange: (status: StaffStatus | 'ALL') => void;
-  onRefresh: () => void;
+  onRoleFiltersChange: (roles: string[]) => void;
+  onStatusFiltersChange: (statuses: string[]) => void;
   onResetFilters: () => void;
   isLoading?: boolean;
 }
 
 export const StaffTableFilters = memo(function StaffTableFilters({
   searchTerm,
-  roleFilter,
-  statusFilter,
+  roleFilters,
+  statusFilters,
   onSearchChange,
-  onRoleFilterChange,
-  onStatusFilterChange,
-  onRefresh,
+  onRoleFiltersChange,
+  onStatusFiltersChange,
   onResetFilters,
   isLoading = false,
 }: StaffTableFiltersProps) {
+  const toggleRoleFilter = (role: string) => {
+    onRoleFiltersChange(
+      roleFilters.includes(role)
+        ? roleFilters.filter(r => r !== role)
+        : [...roleFilters, role]
+    );
+  };
+
+  const toggleStatusFilter = (status: string) => {
+    onStatusFiltersChange(
+      statusFilters.includes(status)
+        ? statusFilters.filter(s => s !== status)
+        : [...statusFilters, status]
+    );
+  };
+
+  // Count active filters - default is ACTIVE status only
+  const activeFiltersCount = 
+    (roleFilters.length > 0 ? 1 : 0) +
+    (statusFilters.length !== 1 || !statusFilters.includes('ACTIVE') ? 1 : 0);
+
   return (
     <div className="flex justify-between items-center gap-4">
       <div className="relative w-64">
@@ -54,68 +73,72 @@ export const StaffTableFilters = memo(function StaffTableFilters({
       </div>
       
       <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Filter className="h-4 w-4 mr-2" />
-              Role: {roleFilter}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onRoleFilterChange('ALL')}>
-              All Roles
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleFilterChange('ADMINSTAFF')}>
-              Admin Staff
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleFilterChange('TUTOR')}>
-              Tutor
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Filter className="h-4 w-4 mr-2" />
-              Status: {statusFilter}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onStatusFilterChange('ALL')}>
-              All
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusFilterChange('ACTIVE')}>
-              Active
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusFilterChange('INACTIVE')}>
-              Inactive
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusFilterChange('TRIAL')}>
-              Trial
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Clear Filters */}
+        {activeFiltersCount > 0 && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onResetFilters}
+            disabled={isLoading}
+          >
+            <X className="h-4 w-4 mr-2" />
+            Clear
+          </Button>
+        )}
 
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onResetFilters}
-          disabled={isLoading}
-        >
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Reset
-        </Button>
+        {/* Role Filter */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button 
+              variant={roleFilters.length > 0 ? "secondary" : "outline"} 
+              size="sm"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Role {roleFilters.length > 0 && `(${roleFilters.length})`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56" align="end">
+            <div className="space-y-2">
+              <div className="font-medium text-sm mb-2">Staff Role</div>
+              {(['ADMINSTAFF', 'TUTOR', 'ADMIN'] as const).map((role) => (
+                <label key={role} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={roleFilters.includes(role)}
+                    onCheckedChange={() => toggleRoleFilter(role)}
+                  />
+                  <span className="text-sm">{role === 'ADMINSTAFF' ? 'Admin Staff' : role}</span>
+                </label>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
 
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onRefresh} 
-          disabled={isLoading}
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        {/* Status Filter */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button 
+              variant={statusFilters.length > 0 ? "secondary" : "outline"} 
+              size="sm"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Status {statusFilters.length > 0 && `(${statusFilters.length})`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56" align="end">
+            <div className="space-y-2">
+              <div className="font-medium text-sm mb-2">Staff Status</div>
+              {(['ACTIVE', 'INACTIVE', 'TRIAL'] as const).map((status) => (
+                <label key={status} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={statusFilters.includes(status)}
+                    onCheckedChange={() => toggleStatusFilter(status)}
+                  />
+                  <span className="text-sm">{status}</span>
+                </label>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );

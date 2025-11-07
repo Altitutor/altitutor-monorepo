@@ -68,8 +68,8 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium">
+                <Button variant="outline" className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
                   <span className="hidden sm:inline">{getFullName()}</span>
@@ -77,7 +77,7 @@ export function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link href="/admin/dashboard/my-account" className="flex items-center cursor-pointer">
+                  <Link href="/admin/my-account" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </Link>

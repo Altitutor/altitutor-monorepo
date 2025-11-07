@@ -14,16 +14,18 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
+import { Checkbox } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
   Filter,
   Plus,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSubjectDisplay } from '@/shared/utils/index';
-import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
+import { cn, formatSubjectDisplay, formatSubjectShortName, formatClassName, formatClassShortName } from '@/shared/utils/index';
+import { getStudentStatusColor, getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils/enum-colors';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
 import { 
@@ -31,9 +33,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@altitutor/ui";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@altitutor/ui";
 import { ViewClassModal } from '@/features/classes';
 import { useStudentsPageWithDetails } from '../hooks/useStudentsQuery';
+import { useSubjects } from '@/features/subjects';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 
@@ -48,9 +58,12 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
   
   // Local UI state
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Tables<'students'>['status'] | 'ALL'>('ALL');
-  const [sortField, setSortField] = useState<keyof Tables<'students'>>('last_name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [statusFilters, setStatusFilters] = useState<Tables<'students'>['status'][]>(['ACTIVE', 'TRIAL']);
+  const [curriculumFilters, setCurriculumFilters] = useState<string[]>([]);
+  const [yearLevelFilters, setYearLevelFilters] = useState<number[]>([]);
+  const [subjectFilters, setSubjectFilters] = useState<string[]>([]);
+  const [sortField, setSortField] = useState<keyof Tables<'students'>>('status');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -62,16 +75,23 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     refetch,
   } = useStudentsPageWithDetails({
     search: searchTerm,
-    status: statusFilter,
+    statuses: statusFilters,
+    curriculums: curriculumFilters,
+    yearLevels: yearLevelFilters,
+    subjectIds: subjectFilters,
     page,
     pageSize,
     orderBy: sortField,
     ascending: sortDirection === 'asc',
   });
 
+  // Get all subjects for the filter dropdown
+  const { data: allSubjects = [] } = useSubjects();
+
   const students: Tables<'students'>[] = (data as any)?.students || [];
   const studentSubjects: Record<string, Tables<'subjects'>[]> = (data as any)?.studentSubjects || {};
-  const studentClasses: Record<string, Tables<'classes'>[]> = (data as any)?.studentClasses || {};
+  const studentClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> })[]> = (data as any)?.studentClasses || {};
+  const classSubjects: Record<string, Tables<'subjects'>> = (data as any)?.classSubjects || {};
   const total = (data as any)?.total || 0;
 
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -80,8 +100,33 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  // Server provides filtered/sorted page; just display
-  const filteredStudents = students;
+  // Server provides filtered/sorted page; apply compound sorting for status field
+  const filteredStudents = useMemo(() => {
+    if (!students.length) return students;
+    
+    // If sorting by status, apply secondary sort by first_name
+    if (sortField === 'status') {
+      const sorted = [...students].sort((a, b) => {
+        const aStatus = String(a.status || '');
+        const bStatus = String(b.status || '');
+        
+        const statusComparison = aStatus.localeCompare(bStatus);
+        const primarySort = sortDirection === 'asc' ? statusComparison : -statusComparison;
+        
+        // If status values are equal, sort by first_name
+        if (statusComparison === 0) {
+          const aFirstName = String(a.first_name || '');
+          const bFirstName = String(b.first_name || '');
+          return aFirstName.localeCompare(bFirstName);
+        }
+        
+        return primarySort;
+      });
+      return sorted;
+    }
+    
+    return students;
+  }, [students, sortField, sortDirection]);
 
   // Non-virtualized table for stability (virtualization can be re-enabled later)
   const parentRef = useRef<HTMLDivElement | null>(null);
@@ -92,6 +137,52 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
       refetch();
     }
   }, [onRefresh, refetch]);
+
+  // Filter toggle handlers
+  const toggleStatusFilter = (status: Tables<'students'>['status']) => {
+    setStatusFilters(prev => 
+      prev.includes(status) 
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    );
+    setPage(1);
+  };
+
+  const toggleCurriculumFilter = (curriculum: string) => {
+    setCurriculumFilters(prev => 
+      prev.includes(curriculum) 
+        ? prev.filter(c => c !== curriculum)
+        : [...prev, curriculum]
+    );
+    setPage(1);
+  };
+
+  const toggleYearLevelFilter = (yearLevel: number) => {
+    setYearLevelFilters(prev => 
+      prev.includes(yearLevel) 
+        ? prev.filter(y => y !== yearLevel)
+        : [...prev, yearLevel]
+    );
+    setPage(1);
+  };
+
+  const toggleSubjectFilter = (subjectId: string) => {
+    setSubjectFilters(prev => 
+      prev.includes(subjectId) 
+        ? prev.filter(s => s !== subjectId)
+        : [...prev, subjectId]
+    );
+    setPage(1);
+  };
+
+  const clearAllFilters = () => {
+    setStatusFilters(['ACTIVE', 'TRIAL']);
+    setCurriculumFilters([]);
+    setYearLevelFilters([]);
+    setSubjectFilters([]);
+    setSearchTerm('');
+    setPage(1);
+  };
 
   const handleSort = (field: keyof Tables<'students'>) => {
     if (sortField === field) {
@@ -140,7 +231,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled>
               <Filter className="h-4 w-4 mr-2" />
-              Status: ALL
+              Filters
             </Button>
             <Button variant="outline" size="sm" disabled>
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -149,7 +240,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
           </div>
         </div>
         
-        <SkeletonTable rows={8} columns={7} />
+        <SkeletonTable rows={8} columns={6} />
         
         <div className="text-sm text-muted-foreground">
           Loading students...
@@ -177,6 +268,13 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
 
   
 
+  // Count active filters
+  const activeFiltersCount = 
+    (statusFilters.length !== 2 || !statusFilters.includes('ACTIVE') || !statusFilters.includes('TRIAL') ? 1 : 0) +
+    (curriculumFilters.length > 0 ? 1 : 0) +
+    (yearLevelFilters.length > 0 ? 1 : 0) +
+    (subjectFilters.length > 0 ? 1 : 0);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -191,47 +289,136 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
         </div>
         
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Status: {statusFilter}
-              </Button>
-            </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setStatusFilter('ALL')}>
-                All Statuses
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter('ACTIVE')}>
-                Active
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter('INACTIVE')}>
-                Inactive
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter('TRIAL')}>
-                Trial
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter('DISCONTINUED')}>
-                Discontinued
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Clear Filters */}
+          {activeFiltersCount > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearAllFilters}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+          )}
 
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => refetch()} 
-            className="flex items-center"
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
-            Refresh
-          </Button>
+          {/* Status Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={statusFilters.length > 0 ? "secondary" : "outline"} 
+                size="sm"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Status {statusFilters.length > 0 && `(${statusFilters.length})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <div className="space-y-2">
+                <div className="font-medium text-sm mb-2">Student Status</div>
+                {(['ACTIVE', 'TRIAL', 'INACTIVE', 'DISCONTINUED'] as const).map((status) => (
+                  <label key={status} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={statusFilters.includes(status)}
+                      onCheckedChange={() => toggleStatusFilter(status)}
+                    />
+                    <span className="text-sm">{status}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Curriculum Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={curriculumFilters.length > 0 ? "secondary" : "outline"} 
+                size="sm"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Curriculum {curriculumFilters.length > 0 && `(${curriculumFilters.length})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <div className="space-y-2">
+                <div className="font-medium text-sm mb-2">Curriculum</div>
+                {['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map((curriculum) => (
+                  <label key={curriculum} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={curriculumFilters.includes(curriculum)}
+                      onCheckedChange={() => toggleCurriculumFilter(curriculum)}
+                    />
+                    <span className="text-sm">{curriculum}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Year Level Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={yearLevelFilters.length > 0 ? "secondary" : "outline"} 
+                size="sm"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Year {yearLevelFilters.length > 0 && `(${yearLevelFilters.length})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <div className="space-y-2">
+                <div className="font-medium text-sm mb-2">Year Level</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((year) => (
+                    <label key={year} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={yearLevelFilters.includes(year)}
+                        onCheckedChange={() => toggleYearLevelFilter(year)}
+                      />
+                      <span className="text-sm">{year}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Subject Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={subjectFilters.length > 0 ? "secondary" : "outline"} 
+                size="sm"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Subjects {subjectFilters.length > 0 && `(${subjectFilters.length})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-2">
+                <div className="font-medium text-sm mb-2">Subjects</div>
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {allSubjects
+                    .sort((a, b) => formatSubjectDisplay(a).localeCompare(formatSubjectDisplay(b)))
+                    .map((subject) => (
+                      <label key={subject.id} className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={subjectFilters.includes(subject.id)}
+                          onCheckedChange={() => toggleSubjectFilter(subject.id)}
+                        />
+                        <span className="text-sm">{formatSubjectDisplay(subject)}</span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
-      <div className="rounded-md border" ref={parentRef}>
-        <Table>
+      <div className="rounded-md border overflow-x-auto" ref={parentRef}>
+        <Table className="min-w-full">
           <TableHeader>
             <TableRow>
               <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
@@ -241,19 +428,8 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                   sortField === 'status' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('curriculum')}>
-                Curriculum
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'curriculum' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('year_level')}>
-                Year Level
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'year_level' ? "opacity-100" : "opacity-40"
-                )} />
+              <TableHead>
+                Education
               </TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('first_name')}>
                 First Name
@@ -269,17 +445,16 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                   sortField === 'last_name' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead>Subjects</TableHead>
               <TableHead>Classes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-24">
+                <TableCell colSpan={5} className="text-center h-24">
                   {isLoading ? (
                     "Loading students..."
-                  ) : searchTerm || statusFilter !== 'ALL' ? (
+                  ) : searchTerm || activeFiltersCount > 0 ? (
                     "No students match your filters"
                   ) : (
                     "No students found"
@@ -303,43 +478,27 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {student.curriculum ? (
-                        <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as Tables<'students'>['curriculum']))}>
-                          {student.curriculum}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {student.year_level ? (
-                        <Badge variant="secondary" className="text-xs">
-                          Year {student.year_level}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
+                      <div className="flex flex-wrap gap-1 items-center">
+                        {student.curriculum ? (
+                          <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as Tables<'students'>['curriculum']))}>
+                            {student.curriculum}
+                          </Badge>
+                        ) : null}
+                        {student.year_level ? (
+                          <Badge variant="secondary" className="text-xs">
+                            Year {student.year_level}
+                          </Badge>
+                        ) : null}
+                        {!student.curriculum && !student.year_level && (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">
                       {student.first_name || '-'}
                     </TableCell>
                     <TableCell className="font-medium">
                       {student.last_name || '-'}
-                    </TableCell>
-                    <TableCell>
-                      {subjects.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {subjects
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((subject) => (
-                              <Badge key={subject.id} variant="outline" className="text-xs w-fit">
-                                {formatSubjectDisplay(subject)}
-                              </Badge>
-                            ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">No subjects</span>
-                      )}
                     </TableCell>
                     <TableCell>
                       {classes.length > 0 ? (
@@ -351,13 +510,16 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                                 key={cls.id}
                                 variant="link"
                                 size="sm"
-                                className="h-auto p-0 text-xs justify-start"
+                                className="h-auto p-0 text-xs justify-start whitespace-nowrap"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   handleClassClick(cls.id);
                                 }}
+                                title={formatClassName(cls, cls.subject)}
                               >
-                                {getDayShortName(cls.day_of_week)} {formatTime(cls.start_time)}
+                                {/* Default to short names, only show full on 2xl+ screens */}
+                                <span className="2xl:hidden">{formatClassShortName(cls, cls.subject)}</span>
+                                <span className="hidden 2xl:inline">{formatClassName(cls, cls.subject)}</span>
                               </Button>
                             ))}
                         </div>
@@ -391,18 +553,16 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
         onStudentAdded={handleStudentUpdated}
       />
 
-      {/* View/Edit Student Modal - only render when we have a selected student ID */}
-      {selectedStudentId && (
-        <ViewStudentModal 
-          isOpen={isViewModalOpen}
-          onClose={() => {
-            setIsViewModalOpen(false);
-            setSelectedStudentId(null);
-          }}
-          studentId={selectedStudentId}
-          onStudentUpdated={handleStudentUpdated}
-        />
-      )}
+      {/* View/Edit Student Modal */}
+      <ViewStudentModal 
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedStudentId(null);
+        }}
+        studentId={selectedStudentId}
+        onStudentUpdated={handleStudentUpdated}
+      />
 
       {/* Class Modal */}
       {selectedClassId && (

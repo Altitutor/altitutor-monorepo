@@ -53,10 +53,16 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         setIsLoading(false);
       }
     };
-    load();
-    if (!isOpen) {
-      setData(null);
-      setAllTopics([]);
+    
+    if (isOpen && sessionId) {
+      load();
+    } else if (!isOpen) {
+      // Delay state reset to allow exit animation to complete
+      const timer = setTimeout(() => {
+        setData(null);
+        setAllTopics([]);
+      }, 300); // Match Sheet animation duration
+      return () => clearTimeout(timer);
     }
   }, [isOpen, sessionId]);
 
@@ -80,16 +86,17 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     window.dispatchEvent(new CustomEvent('open-file-preview', { detail: { id } }));
   };
 
-  if (!isOpen) return null;
-
+  // Always render the Sheet to allow exit animation
   if (isLoading || !data) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="w-[720px] sm:w-[900px] sm:max-w-none overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Loading...</SheetTitle>
+            <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
           </SheetHeader>
-          <div className="py-6 text-center text-muted-foreground">Loading session details...</div>
+          {isLoading && (
+            <div className="py-6 text-center text-muted-foreground">Loading session details...</div>
+          )}
         </SheetContent>
       </Sheet>
     );

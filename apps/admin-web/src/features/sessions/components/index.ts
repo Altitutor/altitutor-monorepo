@@ -4,3 +4,7 @@ export * from './SessionsView';
 export * from './SessionModal';
 export * from './StudentAvatar';
 export * from './AttendanceCell';
+export * from './AbsenceSessionSelector';
+export * from './AbsenceActionSelector';
+export * from './AbsenceSummary';
+export * from './LogAbsenceDialog';

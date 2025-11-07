@@ -10,3 +10,5 @@ DROP TRIGGER IF EXISTS on_email_confirmed ON auth.users;
 -- Drop the function
 DROP FUNCTION IF EXISTS auth.after_email_confirmation();
 
+
+

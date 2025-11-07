@@ -9,7 +9,7 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { ensureConversationForRelated } from '@/features/messages/api/queries';
+import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { ViewStudentModal } from './ViewStudentModal';
 
 interface ViewParentModalProps {
@@ -60,9 +60,9 @@ export function ViewParentModal({
       const studentsList = data?.parents_students?.map((ps: any) => ps.students).filter(Boolean) || [];
       setStudents(studentsList);
       
-      // Get conversation ID for messages tab
-      const convId = await ensureConversationForRelated(parentId, 'parent');
-      console.log('[ViewParentModal] Conversation ID for parent', parentId, ':', convId);
+      // Get existing conversation ID for messages tab (don't create new one)
+      const convId = await getExistingConversationForRelated(parentId, 'parent');
+      console.log('[ViewParentModal] Existing conversation ID for parent', parentId, ':', convId);
       setConversationId(convId);
     } catch (error) {
       console.error('Failed to load parent:', error);
@@ -176,6 +176,8 @@ export function ViewParentModal({
                     conversationId={conversationId}
                     title={`${parent.first_name} ${parent.last_name}`}
                     onClose={onClose}
+                    relatedId={parentId || undefined}
+                    relatedType="parent"
                   />
                 </div>
               </div>

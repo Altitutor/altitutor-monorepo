@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useClassesWithDetails } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSubjectDisplay } from '@/shared/utils/index';
+import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils/enum-colors';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
@@ -245,10 +245,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                 Timetable
               </Button>
             </div>
-            <Button variant="outline" size="sm" disabled>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
           </div>
         </div>
         
@@ -378,17 +374,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
               Timetable
             </Button>
           </div>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => refetch()} 
-            className="flex items-center"
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
-            Refresh
-          </Button>
         </div>
       </div>
 
@@ -435,40 +420,52 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                         {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        <Badge className={cn("text-xs", getSubjectBadgeClass(cls))}>
-                          {getSubjectDisplay(cls)}
+                        <Badge 
+                          className={cn("text-xs whitespace-nowrap", getSubjectBadgeClass(cls))}
+                          title={getSubjectDisplay(cls)}
+                        >
+                          {/* Default to short names, only show full on 2xl+ screens */}
+                          <span className="2xl:hidden">{(() => {
+                            const subject = classSubjects[cls.id];
+                            return subject ? formatSubjectShortName(subject) : '-';
+                          })()}</span>
+                          <span className="hidden 2xl:inline">{getSubjectDisplay(cls)}</span>
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           {getClassStudents(cls.id).length === 0 ? (
-                            <div className="text-muted-foreground text-sm">No students</div>
+                            <span className="text-muted-foreground text-sm">No students</span>
                           ) : (
                             getClassStudents(cls.id).map((student) => (
-                              <div 
-                                key={student.id} 
-                                className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                              <Button
+                                key={student.id}
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs justify-start"
                                 onClick={(e) => handleStudentClick(student.id, e)}
                               >
                                 {student.first_name} {student.last_name}
-                              </div>
+                              </Button>
                             ))
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           {getClassStaff(cls.id).length === 0 ? (
-                            <div className="text-muted-foreground text-sm">No staff</div>
+                            <span className="text-muted-foreground text-sm">No staff</span>
                           ) : (
                             getClassStaff(cls.id).map((staff) => (
-                              <div 
-                                key={staff.id} 
-                                className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                              <Button
+                                key={staff.id}
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs justify-start"
                                 onClick={(e) => handleStaffClick(staff.id, e)}
                               >
                                 {staff.first_name} {staff.last_name}
-                              </div>
+                              </Button>
                             ))
                           )}
                         </div>
@@ -543,20 +540,18 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       )}
       
       {/* Student Modal */}
-      {selectedStudentId && (
-        <ViewStudentModal
-          studentId={selectedStudentId}
-          isOpen={isStudentModalOpen}
-          onClose={() => {
-            setIsStudentModalOpen(false);
-            setSelectedStudentId(null);
-          }}
-          onStudentUpdated={() => {
-            // Refresh class data to show updated student information
-            refetch();
-          }}
-        />
-      )}
+      <ViewStudentModal
+        studentId={selectedStudentId}
+        isOpen={isStudentModalOpen}
+        onClose={() => {
+          setIsStudentModalOpen(false);
+          setSelectedStudentId(null);
+        }}
+        onStudentUpdated={() => {
+          // Refresh class data to show updated student information
+          refetch();
+        }}
+      />
     </div>
   );
 } 

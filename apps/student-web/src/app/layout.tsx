@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './styles/globals.css'
 import { ThemeProvider } from '@/shared/components'
 import { AuthProvider } from '@/features/auth/providers'
+import { AuthGuard } from '@/features/auth/components'
 import { Navbar } from '@/shared/components'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 
@@ -23,19 +24,21 @@ export default function RootLayout({
       <body className={inter.className} style={{ "--navbar-height": "64px" } as React.CSSProperties}>
         <ReactQueryProvider>
           <AuthProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
-                <Navbar />
-                <main className="flex-1 pt-[var(--navbar-height)]">
-                  {children}
-                </main>
-              </div>
-            </ThemeProvider>
+            <AuthGuard>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                  <Navbar />
+                  <main className="flex-1 pt-[var(--navbar-height)]">
+                    {children}
+                  </main>
+                </div>
+              </ThemeProvider>
+            </AuthGuard>
           </AuthProvider>
         </ReactQueryProvider>
       </body>

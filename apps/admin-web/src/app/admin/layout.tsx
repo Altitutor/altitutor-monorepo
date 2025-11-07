@@ -10,67 +10,83 @@ import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle } from 'lucide-react';
 import { ChatDock } from '@/features/messages/floating/ChatDock';
+import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
   onToggle: () => void;
 }
 
-const navItems = [
+type NavItem = 
+  | { type?: 'link'; title: string; href: string; icon: LucideIcon }
+  | { type: 'heading'; title: string };
+
+const navItems: NavItem[] = [
   {
     title: 'Dashboard',
     href: '/admin/dashboard',
     icon: Home,
   },
   {
+    type: 'heading',
+    title: 'SCHEDULING',
+  },
+  {
     title: 'Students',
-    href: '/admin/dashboard/students',
+    href: '/admin/students',
     icon: GraduationCap,
   },
   {
     title: 'Staff',
-    href: '/admin/dashboard/staff',
+    href: '/admin/staff',
     icon: Users,
   },
   {
     title: 'Classes',
-    href: '/admin/dashboard/classes',
+    href: '/admin/classes',
     icon: Calendar,
   },
   {
-    title: 'Subjects',
-    href: '/admin/dashboard/subjects',
-    icon: Beaker,
-  },
-  {
-    title: 'Topics & Resources',
-    href: '/admin/dashboard/topics',
-    icon: Newspaper,
-  },
-  {
     title: 'Sessions',
-    href: '/admin/dashboard/sessions',
+    href: '/admin/sessions',
     icon: ClipboardList,
   },
   {
+    type: 'heading',
+    title: 'RESOURCES',
+  },
+  {
+    title: 'Subjects',
+    href: '/admin/subjects',
+    icon: Beaker,
+  },
+  {
+    title: 'Topics',
+    href: '/admin/topics',
+    icon: Newspaper,
+  },
+  {
+    type: 'heading',
+    title: 'COMMUNICATIONS',
+  },
+  {
     title: 'Communications',
-    href: '/admin/dashboard/communications',
+    href: '/admin/communications',
     icon: MessageCircle,
   },
   {
-    title: 'Reports',
-    href: '/admin/dashboard/reports',
-    icon: FileText,
+    type: 'heading',
+    title: 'FINANCIAL',
   },
   {
     title: 'Billing',
-    href: '/admin/dashboard/billing/payments',
+    href: '/admin/billing/payments',
     icon: CreditCard,
   },
   {
-    title: 'Settings',
-    href: '/admin/dashboard/settings',
-    icon: Settings,
+    title: 'Reports',
+    href: '/admin/reports',
+    icon: FileText,
   },
 ];
 
@@ -105,43 +121,57 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
       
       <ScrollArea className="flex-1">
         <nav className="flex flex-col gap-1 p-2">
-          {navItems.map((item) => (
-            <Link 
-              key={item.href} 
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === item.href 
-                  ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                  : navHoverStyles,
-                collapsed && "justify-center px-0"
-              )}
-            >
-              <item.icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
-              {!collapsed && <span>{item.title}</span>}
-            </Link>
-          ))}
+          {navItems.map((item, index) => {
+            if (item.type === 'heading') {
+              return (
+                <div 
+                  key={`heading-${index}`}
+                  className={cn(
+                    "text-xs font-semibold text-muted-foreground px-3 pt-4 pb-2",
+                    collapsed && "text-center px-0"
+                  )}
+                >
+                  {!collapsed && item.title}
+                  {collapsed && <div className="h-px bg-border" />}
+                </div>
+              );
+            }
+            
+            const Icon = item.icon;
+            return (
+              <Link 
+                key={item.href} 
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  pathname === item.href 
+                    ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
+                    : navHoverStyles,
+                  collapsed && "justify-center px-0"
+                )}
+              >
+                <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+                {!collapsed && <span>{item.title}</span>}
+              </Link>
+            );
+          })}
         </nav>
       </ScrollArea>
       
-      <div className="border-t dark:border-brand-dark-border p-4">
-        {!collapsed ? (
-          <Link href="/admin/dashboard/my-account" className="flex items-center gap-3 text-sm hover:bg-accent/10 rounded-md p-2 transition-colors">
-            <div className="h-8 w-8 rounded-full bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg">
-              {(user?.user_metadata?.name as string)?.charAt(0) || user?.email?.charAt(0) || 'U'}
-            </div>
-            <div className="truncate">
-              <p className="font-medium">{(user?.user_metadata?.name as string) || user?.email?.split('@')[0] || 'User'}</p>
-              <p className="text-muted-foreground text-xs truncate">{user?.email || ''}</p>
-            </div>
-          </Link>
-        ) : (
-          <Link href="/admin/dashboard/my-account" className="flex justify-center hover:bg-accent rounded-md p-2 transition-colors">
-            <div className="h-8 w-8 rounded-full bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg">
-              {(user?.user_metadata?.name as string)?.charAt(0) || user?.email?.charAt(0) || 'U'}
-            </div>
-          </Link>
-        )}
+      <div className="border-t dark:border-brand-dark-border p-2">
+        <Link 
+          href="/admin/settings"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+            pathname === '/admin/settings'
+              ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
+              : navHoverStyles,
+            collapsed && "justify-center px-0"
+          )}
+        >
+          <Settings className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+          {!collapsed && <span>Settings</span>}
+        </Link>
       </div>
     </div>
   );

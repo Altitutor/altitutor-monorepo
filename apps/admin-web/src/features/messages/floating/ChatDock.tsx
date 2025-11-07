@@ -19,7 +19,7 @@ export function ChatDock() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const isMessagesPage = pathname?.startsWith('/admin/dashboard/communications');
+  const isMessagesPage = pathname?.startsWith('/admin/communications');
 
   useEffect(() => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);

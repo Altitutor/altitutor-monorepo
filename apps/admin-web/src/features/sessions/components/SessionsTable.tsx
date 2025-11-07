@@ -10,22 +10,13 @@ import {
   TableHeader,
   TableRow,
 } from "@altitutor/ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { 
-  ChevronDown, 
   Search, 
-  MoreHorizontal,
   ArrowUpDown,
-  Filter,
   CalendarIcon,
   RefreshCw
 } from 'lucide-react';
@@ -33,6 +24,7 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
+import { ViewClassModal } from '@/features/classes';
 
 type SessionsTableProps = {
   studentId?: string;
@@ -69,6 +61,10 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   type SortField = 'start_at' | 'type';
   const [sortField, setSortField] = useState<SortField>('start_at');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
+  
+  // Class modal state
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
   const getClassSubject = (session: Tables<'sessions'>) => {
     const cls = session.class_id ? classesById[session.class_id] : undefined;
@@ -86,6 +82,17 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     if (subj?.name) parts.push(subj.name);
     if (cls?.level) parts.push(String(cls.level));
     return parts.join(' ');
+  };
+
+  const getClassShortDisplay = (session: Tables<'sessions'>) => {
+    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
+    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
+    const parts: string[] = [];
+    if (subj?.curriculum) parts.push(String(subj.curriculum));
+    const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
+    const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
+    if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
+    return parts.filter(Boolean).join(' ');
   };
 
   // Memoized filtered and sorted sessions
@@ -119,9 +126,9 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
         const start = startOfDay(parseISO(rangeStart));
         const end = endOfDay(parseISO(rangeEnd));
         result = result.filter((session) => {
-          if (!(session as any).start_at) return false;
+          if (!session.start_at) return false;
           try {
-            const sessionDate = parseISO((session as any).start_at);
+            const sessionDate = parseISO(session.start_at);
             return isWithinInterval(sessionDate, { start, end });
           } catch {
             return false;
@@ -227,13 +234,19 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   // (removed duplicate helper definitions)
 
   const getTimeRange = (session: Tables<'sessions'>) => {
-    const s = (session as any).start_at ? new Date((session as any).start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    const e = (session as any).end_at ? new Date((session as any).end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const s = session.start_at ? new Date(session.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const e = session.end_at ? new Date(session.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     return s && e ? `${s}–${e}` : s || e || '-';
   };
   
   const handleSessionClick = (id: string) => {
     if (onOpenSession) onOpenSession(id);
+  };
+
+  const handleClassClick = (classId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedClassId(classId);
+    setIsClassModalOpen(true);
   };
 
   // Loading state
@@ -335,14 +348,12 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               {/* Taught By removed as requested */}
               <TableHead>Students</TableHead>
               <TableHead>Staff</TableHead>
-              
-              <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={(classId ? 6 : 7)} className="text-center h-24">
+                <TableCell colSpan={(classId ? 5 : 6)} className="text-center h-24">
                   {searchTerm || typeFilter !== 'ALL' 
                     ? "No sessions match your filters" 
                     : "No sessions found"}
@@ -358,7 +369,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                   <TableCell>
                     <div className="flex items-center">
                       <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                      {(session as any).start_at ? formatDate((session as any).start_at) : '-'}
+                      {session.start_at ? formatDate(session.start_at) : '-'}
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
@@ -368,72 +379,65 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                     </Badge>
                   </TableCell>
                   {!classId && (
-                    <TableCell className="font-medium">{getClassDisplay(session)}</TableCell>
+                    <TableCell>
+                      {session.class_id ? (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
+                          onClick={(e) => handleClassClick(session.class_id!, e)}
+                          title={getClassDisplay(session)}
+                        >
+                          {/* Default to short names, only show full on 2xl+ screens */}
+                          <span className="2xl:hidden">{getClassShortDisplay(session)}</span>
+                          <span className="hidden 2xl:inline">{getClassDisplay(session)}</span>
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
                   )}
-                  <TableCell className="text-sm">
+                  <TableCell>
                     {(() => {
                       const planned: any[] = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
-                      if (!planned.length) return '-';
+                      if (!planned.length) return <span className="text-muted-foreground text-sm">-</span>;
                       return (
                         <div className="flex flex-col gap-1">
                           {planned.map((s) => (
-                            <button
+                            <Button
                               key={s.id}
-                              type="button"
-                              className="text-blue-600 hover:underline text-left"
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs justify-start"
                               onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
                             >
                               {s.first_name} {s.last_name}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       );
                     })()}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell>
                     {(() => {
                       const planned: any[] = ((data as any)?.sessionStaff?.[session.id] || []) as any[];
-                      if (!planned.length) return '-';
+                      if (!planned.length) return <span className="text-muted-foreground text-sm">-</span>;
                       return (
                         <div className="flex flex-col gap-1">
                           {planned.map((s) => (
-                            <button
+                            <Button
                               key={s.id}
-                              type="button"
-                              className="text-blue-600 hover:underline text-left"
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs justify-start"
                               onClick={(e) => { e.stopPropagation(); (onOpenStaff as any)?.(s.id); }}
                             >
                               {s.first_name} {s.last_name}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       );
                     })()}
-                  </TableCell>
-                  
-                  
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/dashboard/sessions/${session.id}/edit`);
-                        }}>
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          // Handle attendance
-                        }}>
-                          Manage Attendance
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
@@ -446,6 +450,22 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
         <div className="text-sm text-muted-foreground">
           {filteredSessions.length} sessions displayed
         </div>
+      )}
+
+      {/* Class Modal */}
+      {selectedClassId && (
+        <ViewClassModal
+          classId={selectedClassId}
+          isOpen={isClassModalOpen}
+          onClose={() => {
+            setIsClassModalOpen(false);
+            setSelectedClassId(null);
+          }}
+          onClassUpdated={() => {
+            // Refresh sessions when class is updated
+            refetch();
+          }}
+        />
       )}
     </div>
   );

@@ -124,7 +124,7 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
             return (
               <button
                 key={c.id}
-                className={`w-full text-left p-3 hover:bg-muted ${isActive ? 'bg-muted' : ''}`}
+                className={`w-full text-left p-3 hover:bg-muted ${isActive ? 'md:bg-muted' : ''}`}
                 onClick={() => onSelect(c.id)}
               >
                 <div className="flex items-center justify-between mb-1">

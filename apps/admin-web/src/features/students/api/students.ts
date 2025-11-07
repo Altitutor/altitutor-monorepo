@@ -12,7 +12,10 @@ export const studentsApi = {
    */
   list: async (params: {
     search?: string;
-    status?: Tables<'students'>['status'] | 'ALL';
+    statuses?: Tables<'students'>['status'][];
+    curriculums?: string[];
+    yearLevels?: number[];
+    subjectIds?: string[];
     limit?: number;
     offset?: number;
     orderBy?: keyof Tables<'students'>;
@@ -21,7 +24,10 @@ export const studentsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const {
       search = '',
-      status = 'ALL',
+      statuses = [],
+      curriculums = [],
+      yearLevels = [],
+      subjectIds = [],
       limit = 20,
       offset = 0,
       orderBy = 'last_name',
@@ -45,9 +51,41 @@ export const studentsApi = {
       );
     }
 
-    // Status filter
-    if (status && status !== 'ALL') {
-      query = query.eq('status', status as Tables<'students'>['status']);
+    // Status filter (multiple selection with OR)
+    if (statuses && statuses.length > 0) {
+      query = query.in('status', statuses);
+    }
+
+    // Curriculum filter (multiple selection with OR)
+    if (curriculums && curriculums.length > 0) {
+      query = query.in('curriculum', curriculums);
+    }
+
+    // Year level filter (multiple selection with OR)
+    if (yearLevels && yearLevels.length > 0) {
+      query = query.in('year_level', yearLevels);
+    }
+
+    // If subject filter is provided, we need to join with students_subjects
+    // This is more complex and requires a different approach
+    let studentIds: string[] | null = null;
+    if (subjectIds && subjectIds.length > 0) {
+      const { data: studentsSubjectsData, error: ssError } = await supabase
+        .from('students_subjects')
+        .select('student_id')
+        .in('subject_id', subjectIds);
+      
+      if (ssError) throw ssError;
+      
+      // Get unique student IDs
+      studentIds = Array.from(new Set(studentsSubjectsData?.map(ss => ss.student_id) || []));
+      
+      // If no students found with these subjects, return empty result
+      if (studentIds.length === 0) {
+        return { students: [], total: 0 };
+      }
+      
+      query = query.in('id', studentIds);
     }
 
     // Sorting
@@ -143,7 +181,7 @@ export const studentsApi = {
         return (
           (student.first_name?.toLowerCase().includes(lowerQuery)) ||
           (student.last_name?.toLowerCase().includes(lowerQuery)) ||
-          ((student as any).email?.toLowerCase().includes(lowerQuery)) ||
+          (student.email?.toLowerCase().includes(lowerQuery)) ||
           (student.status?.toLowerCase().includes(lowerQuery))
         );
       });
@@ -173,26 +211,66 @@ export const studentsApi = {
   },
   
   /**
-   * Update a student
+   * Update a student - calls server-side API route for admin operations
    */
   updateStudent: async (id: string, data: TablesUpdate<'students'>): Promise<Tables<'students'>> => {
-    const { data: updated, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('students')
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return updated as Tables<'students'>;
+    try {
+      const response = await fetch(`/api/students/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          email: data.email ?? undefined,
+          phone: data.phone,
+          parent_first_name: (data as any).parent_first_name,
+          parent_last_name: (data as any).parent_last_name,
+          status: data.status,
+          curriculum: (data as any).curriculum,
+          year_level: (data as any).year_level,
+          school: (data as any).school,
+          availability_monday: (data as any).availability_monday,
+          availability_tuesday: (data as any).availability_tuesday,
+          availability_wednesday: (data as any).availability_wednesday,
+          availability_thursday: (data as any).availability_thursday,
+          availability_friday: (data as any).availability_friday,
+          availability_saturday_am: (data as any).availability_saturday_am,
+          availability_saturday_pm: (data as any).availability_saturday_pm,
+          availability_sunday_am: (data as any).availability_sunday_am,
+          availability_sunday_pm: (data as any).availability_sunday_pm,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to update student: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result.data as Tables<'students'>;
+    } catch (error) {
+      throw new Error(`Unexpected error updating student: ${error instanceof Error ? error.message : error}`);
+    }
   },
   
   /**
-   * Delete a student
+   * Delete a student - calls server-side API route for admin operations
    */
   deleteStudent: async (id: string): Promise<void> => {
-    // Ensure the user is an admin first
-    const { error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students').delete().eq('id', id);
-    if (error) throw error;
+    try {
+      const response = await fetch(`/api/students/${id}/delete`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete student: ${response.statusText}`);
+      }
+    } catch (error) {
+      throw new Error(`Unexpected error deleting student: ${error instanceof Error ? error.message : error}`);
+    }
   },
 
   
@@ -329,14 +407,16 @@ export const studentsApi = {
     studentIds: string[]
   ): Promise<{ 
     studentSubjects: Record<string, Tables<'subjects'>[]>;
-    studentClasses: Record<string, Tables<'classes'>[]>;
+    studentClasses: Record<string, (Tables<'classes'> & { subjectDetails?: Tables<'subjects'> })[]>;
+    classSubjects: Record<string, Tables<'subjects'>>;
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const studentSubjects: Record<string, Tables<'subjects'>[]> = {};
-    const studentClasses: Record<string, Tables<'classes'>[]> = {};
+    const studentClasses: Record<string, (Tables<'classes'> & { subjectDetails?: Tables<'subjects'> })[]> = {};
+    const classSubjects: Record<string, Tables<'subjects'>> = {};
 
     if (!studentIds.length) {
-      return { studentSubjects, studentClasses };
+      return { studentSubjects, studentClasses, classSubjects };
     }
 
     // Initialize maps
@@ -357,20 +437,32 @@ export const studentsApi = {
       if (sid && subj) studentSubjects[sid].push(subj);
     });
 
-    // Classes mapping (active enrollments) for these students
+    // Classes mapping (active enrollments) with subject information for these students
     const { data: csData, error: csError } = await supabase
       .from('classes_students')
-      .select('student_id, class:classes(*)')
+      .select('student_id, class:classes(*, subject_details:subjects(*))')
       .eq('status', 'ACTIVE')
       .in('student_id', studentIds);
     if (csError) throw csError;
     csData?.forEach((row: any) => {
       const sid = row.student_id as string;
-      const cls = row.class as Tables<'classes'> | null;
-      if (sid && cls) studentClasses[sid].push(cls);
+      const classWithSubject = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
+      if (sid && classWithSubject) {
+        const cls: Tables<'classes'> & { subjectDetails?: Tables<'subjects'> } = {
+          ...classWithSubject,
+          subjectDetails: classWithSubject.subject_details
+        };
+        delete (cls as any).subject_details;
+        studentClasses[sid].push(cls);
+        
+        // Store subject by class ID for easy lookup
+        if (classWithSubject.subject_details) {
+          classSubjects[classWithSubject.id] = classWithSubject.subject_details;
+        }
+      }
     });
 
-    return { studentSubjects, studentClasses };
+    return { studentSubjects, studentClasses, classSubjects };
   },
 
   /**
@@ -378,7 +470,10 @@ export const studentsApi = {
    */
   getStudentsWithDetailsPage: async (params: {
     search?: string;
-    status?: Tables<'students'>['status'] | 'ALL';
+    statuses?: Tables<'students'>['status'][];
+    curriculums?: string[];
+    yearLevels?: number[];
+    subjectIds?: string[];
     limit?: number;
     offset?: number;
     orderBy?: keyof Tables<'students'>;
@@ -386,12 +481,13 @@ export const studentsApi = {
   }): Promise<{ 
     students: Tables<'students'>[];
     studentSubjects: Record<string, Tables<'subjects'>[]>;
-    studentClasses: Record<string, Tables<'classes'>[]>;
+    studentClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> })[]>;
+    classSubjects: Record<string, Tables<'subjects'>>;
     total: number;
   }> => {
     const { students, total } = await studentsApi.list(params);
     const ids = students.map(s => s.id);
-    const { studentSubjects, studentClasses } = await studentsApi.getDetailsForStudentIds(ids);
-    return { students, studentSubjects, studentClasses, total };
+    const { studentSubjects, studentClasses, classSubjects } = await studentsApi.getDetailsForStudentIds(ids);
+    return { students, studentSubjects, studentClasses, classSubjects, total };
   },
 }; 

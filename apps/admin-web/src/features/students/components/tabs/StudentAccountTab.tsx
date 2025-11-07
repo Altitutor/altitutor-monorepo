@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
 import { Button, Separator } from "@altitutor/ui";
-import { Loader2, Mail, Trash2 } from "lucide-react";
+import { Loader2, Mail, Trash2, UserPlus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,6 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@altitutor/ui";
+import { SendInviteDialog } from '../SendInviteDialog';
 
 interface StudentAccountTabProps {
   student: Tables<'students'>;
@@ -30,13 +32,31 @@ export function StudentAccountTab({
   onPasswordResetRequest,
   onDelete
 }: StudentAccountTabProps) {
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       {!student.user_id ? (
-        <div className="bg-muted/50 rounded-lg p-4 text-center">
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Account Setup</h3>
           <p className="text-sm text-muted-foreground">
-            This student does not have an associated user account.
+            This student does not have an associated user account yet. Send them an invite to create one.
           </p>
+          
+          <Button
+            variant="default"
+            onClick={() => setInviteDialogOpen(true)}
+            className="justify-start w-fit"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Send Invite
+          </Button>
+
+          <SendInviteDialog
+            isOpen={inviteDialogOpen}
+            onClose={() => setInviteDialogOpen(false)}
+            student={student}
+          />
         </div>
       ) : (
         <>
@@ -51,7 +71,7 @@ export function StudentAccountTab({
             variant="outline"
             onClick={onPasswordResetRequest}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            disabled={isLoading || hasPasswordResetLinkSent || !((student as any).email || (student as any).student_email)}
+            disabled={isLoading || hasPasswordResetLinkSent || !(student.email || student.student_email)}
             className="justify-start w-fit"
           >
                 {isLoading ? (
@@ -73,7 +93,7 @@ export function StudentAccountTab({
               </Button>
           
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {!((student as any).email || (student as any).student_email) && (
+          {!(student.email || student.student_email) && (
             <p className="text-sm text-orange-600">
               No email address set. Please add a student email in the Details tab.
             </p>
@@ -84,7 +104,7 @@ export function StudentAccountTab({
           <>
             <p className="text-sm text-green-600">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              A password reset link has been sent to {(student as any).email || (student as any).student_email}.
+              A password reset link has been sent to {student.email || student.student_email}.
               The student needs to check their email to set a new password.
             </p>
           </>

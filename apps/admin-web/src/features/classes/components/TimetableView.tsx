@@ -2,7 +2,7 @@
 
 import { Card } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSubjectDisplay } from '@/shared/utils/index';
+import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
 
@@ -174,6 +174,17 @@ export function TimetableView({
     return '-';
   };
 
+  const getSubjectShortDisplay = (classItem: Tables<'classes'>): string => {
+    if (!classSubjects || !classItem.subject_id) {
+      return '-';
+    }
+    const subject = classSubjects[classItem.id];
+    if (subject) {
+      return formatSubjectShortName(subject);
+    }
+    return '-';
+  };
+
   // Get color for class based on subject
   const getClassColor = (classItem: Tables<'classes'>): string => {
     if (!classSubjects || !classItem.subject_id) {
@@ -266,10 +277,11 @@ export function TimetableView({
                             minHeight: '45px'
                           }}
                           onClick={() => onClassClick(position.class)}
+                          title={getSubjectDisplay(position.class)}
                         >
-                          {/* Subject */}
+                          {/* Subject - Use short name for compact display */}
                           <div className="font-semibold truncate text-xs leading-tight">
-                            {getSubjectDisplay(position.class)}
+                            {getSubjectShortDisplay(position.class)}
                           </div>
                           
                           {/* Additional details placeholder (was level) */}

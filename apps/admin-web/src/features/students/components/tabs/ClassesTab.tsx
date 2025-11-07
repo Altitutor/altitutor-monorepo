@@ -5,12 +5,14 @@ import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Calendar, Plus } from "lucide-react";
+import { Loader2, Calendar, Plus, Grid3X3 } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { ViewClassModal, ClassCard } from '@/features/classes';
+import { ViewClassModal, ClassCard, TimetableView } from '@/features/classes';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { formatTime } from '@/shared/utils/datetime';
+
+type ViewMode = 'table' | 'timetable';
 
 interface ClassesTabProps {
   student: Tables<'students'>;
@@ -36,10 +38,22 @@ export function ClassesTab({
   const [enrollingClasses, setEnrollingClasses] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  
+  // Prepare data for timetable view
+  const timetableClasses = classes.map(c => c.class);
+  const timetableSubjects: Record<string, Tables<'subjects'>> = {};
+  const timetableStaff: Record<string, Tables<'staff'>[]> = {};
+  classes.forEach(c => {
+    if (c.subject) {
+      timetableSubjects[c.class.id] = c.subject;
+    }
+    timetableStaff[c.class.id] = c.staff;
+  });
 
   useEffect(() => {
     loadStudentClasses();
@@ -268,13 +282,35 @@ export function ClassesTab({
           )}
         </div>
         
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Class</span>
+        <div className="flex items-center gap-2">
+          {/* View Mode Selector */}
+          <div className="flex rounded-md border">
+            <Button 
+              variant={viewMode === 'table' ? 'default' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="rounded-r-none"
+            >
+              Table
             </Button>
-          </PopoverTrigger>
+            <Button 
+              variant={viewMode === 'timetable' ? 'default' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('timetable')}
+              className="rounded-l-none"
+            >
+              <Grid3X3 className="h-4 w-4 mr-1" />
+              Timetable
+            </Button>
+          </div>
+          
+          <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Add Class</span>
+              </Button>
+            </PopoverTrigger>
           <PopoverContent className="p-0 w-[400px]" align="end">
             <div className="p-3">
               <Input
@@ -319,63 +355,76 @@ export function ClassesTab({
             </div>
           </PopoverContent>
         </Popover>
+        </div>
       </div>
       
-      <ScrollArea className="flex-1">
-        <div className="space-y-6">
-          {/* Show currently enrolling classes at the top */}
-          {Array.from(enrollingClasses).map(classId => {
-            const classData = allClasses.find(c => c.class.id === classId);
-            if (!classData) return null;
+      {/* Conditional View Rendering */}
+      {viewMode === 'table' ? (
+        <ScrollArea className="flex-1">
+          <div className="space-y-6">
+            {/* Show currently enrolling classes at the top */}
+            {Array.from(enrollingClasses).map(classId => {
+              const classData = allClasses.find(c => c.class.id === classId);
+              if (!classData) return null;
+              
+              return (
+                <ClassCard
+                  key={`enrolling-${classData.class.id}`}
+                  class={classData.class}
+                  subject={classData.subject}
+                  staff={classData.staff}
+                  isEnrolling={true}
+                />
+              );
+            })}
             
-            return (
-              <ClassCard
-                key={`enrolling-${classData.class.id}`}
-                class={classData.class}
-                subject={classData.subject}
-                staff={classData.staff}
-                isEnrolling={true}
-              />
-            );
-          })}
-          
-          {/* Group classes by day */}
-          {(() => {
-            const classesByDay: Record<string, StudentClass[]> = {};
-            
-            classes.forEach(classData => {
-              const day = getDayOfWeek(classData.class.day_of_week);
-              if (!classesByDay[day]) {
-                classesByDay[day] = [];
-              }
-              classesByDay[day].push(classData);
-            });
-            
-            // Sort days in weekday order
-            const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-            const sortedDays = Object.keys(classesByDay).sort((a, b) => {
-              return dayOrder.indexOf(a) - dayOrder.indexOf(b);
-            });
-            
-            return sortedDays.map(day => (
-              <div key={day}>
-                <h4 className="text-sm font-semibold mb-2">{day}</h4>
-                <div className="space-y-2">
-                  {classesByDay[day].map(studentClass => (
-                    <ClassCard
-                      key={studentClass.class.id}
-                      class={studentClass.class}
-                      subject={studentClass.subject}
-                      staff={studentClass.staff}
-                      onClick={() => handleClassClick(studentClass.class.id)}
-                    />
-                  ))}
+            {/* Group classes by day */}
+            {(() => {
+              const classesByDay: Record<string, StudentClass[]> = {};
+              
+              classes.forEach(classData => {
+                const day = getDayOfWeek(classData.class.day_of_week);
+                if (!classesByDay[day]) {
+                  classesByDay[day] = [];
+                }
+                classesByDay[day].push(classData);
+              });
+              
+              // Sort days in weekday order
+              const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+              const sortedDays = Object.keys(classesByDay).sort((a, b) => {
+                return dayOrder.indexOf(a) - dayOrder.indexOf(b);
+              });
+              
+              return sortedDays.map(day => (
+                <div key={day}>
+                  <h4 className="text-sm font-semibold mb-2">{day}</h4>
+                  <div className="space-y-2">
+                    {classesByDay[day].map(studentClass => (
+                      <ClassCard
+                        key={studentClass.class.id}
+                        class={studentClass.class}
+                        subject={studentClass.subject}
+                        staff={studentClass.staff}
+                        onClick={() => handleClassClick(studentClass.class.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ));
-          })()}
+              ));
+            })()}
+          </div>
+        </ScrollArea>
+      ) : (
+        <div className="flex-1 overflow-hidden">
+          <TimetableView
+            classes={timetableClasses}
+            classSubjects={timetableSubjects}
+            classStaff={timetableStaff}
+            onClassClick={(cls) => handleClassClick(cls.id)}
+          />
         </div>
-      </ScrollArea>
+      )}
       
       {/* Class Modal */}
       {selectedClassId && (

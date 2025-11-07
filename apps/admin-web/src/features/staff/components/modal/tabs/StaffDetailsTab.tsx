@@ -8,10 +8,11 @@ import { Label } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
-import { Loader2, Pencil } from "lucide-react";
+import { Loader2, Pencil, X } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { getSubjectIcon } from '@/shared/utils';
 
 // Form schema for staff details
 const formSchema = z.object({
@@ -54,6 +55,12 @@ interface StaffDetailsTabProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: FormData) => Promise<void>;
+  // Subjects props
+  staffSubjects?: Tables<'subjects'>[];
+  loadingSubjects?: boolean;
+  onRemoveSubject?: (subjectId: string) => void;
+  onViewSubject?: (subjectId: string) => void;
+  addSubjectButton?: React.ReactNode;
 }
 
 export function StaffDetailsTab({
@@ -62,51 +69,41 @@ export function StaffDetailsTab({
   isLoading,
   onEdit,
   onCancelEdit,
-  onSubmit
+  onSubmit,
+  staffSubjects = [],
+  loadingSubjects = false,
+  onRemoveSubject,
+  onViewSubject,
+  addSubjectButton
 }: StaffDetailsTabProps) {
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      firstName: (staffMember as any).first_name || '',
-      lastName: (staffMember as any).last_name || '',
+      firstName: staffMember.first_name || '',
+      lastName: staffMember.last_name || '',
       email: staffMember.email || '',
-      phoneNumber: (staffMember as any).phone_number || '',
-      role: staffMember.role as any,
-      status: staffMember.status as any,
-      officeKeyNumber: (staffMember as any).office_key_number || null,
-      hasParkingRemote: (staffMember as any).has_parking_remote || 'NONE',
-      availability_monday: (staffMember as any).availability_monday || false,
-      availability_tuesday: (staffMember as any).availability_tuesday || false,
-      availability_wednesday: (staffMember as any).availability_wednesday || false,
-      availability_thursday: (staffMember as any).availability_thursday || false,
-      availability_friday: (staffMember as any).availability_friday || false,
-      availability_saturday_am: (staffMember as any).availability_saturday_am || false,
-      availability_saturday_pm: (staffMember as any).availability_saturday_pm || false,
-      availability_sunday_am: (staffMember as any).availability_sunday_am || false,
-      availability_sunday_pm: (staffMember as any).availability_sunday_pm || false,
+      phoneNumber: staffMember.phone_number || '',
+      role: staffMember.role,
+      status: staffMember.status,
+      officeKeyNumber: staffMember.office_key_number || null,
+      hasParkingRemote: staffMember.has_parking_remote || 'NONE',
+      availability_monday: staffMember.availability_monday || false,
+      availability_tuesday: staffMember.availability_tuesday || false,
+      availability_wednesday: staffMember.availability_wednesday || false,
+      availability_thursday: staffMember.availability_thursday || false,
+      availability_friday: staffMember.availability_friday || false,
+      availability_saturday_am: staffMember.availability_saturday_am || false,
+      availability_saturday_pm: staffMember.availability_saturday_pm || false,
+      availability_sunday_am: staffMember.availability_sunday_am || false,
+      availability_sunday_pm: staffMember.availability_sunday_pm || false,
     },
   });
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Staff details</h3>
-        {!isEditing && (
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="flex items-center gap-2" 
-            onClick={onEdit}
-          >
-            <Pencil className="h-4 w-4" />
-            Edit
-          </Button>
-        )}
-      </div>
-
-      {isEditing ? (
-        // Edit Mode
-        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
+  return isEditing ? (
+    <>
+      {/* Edit Mode with Sticky Footer */}
+      <div className="flex-1 overflow-y-auto px-1">
+        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
@@ -406,109 +403,219 @@ export function StaffDetailsTab({
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancelEdit}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
+        </form>
+
+        {/* Subjects Section - Edit Mode */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold">Subjects</h3>
+            {addSubjectButton}
+          </div>
+          
+          {loadingSubjects ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : staffSubjects.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No subjects assigned to this staff member</p>
+          ) : (
+            <div className="space-y-2">
+              {staffSubjects.map((subject) => {
+                const Icon = getSubjectIcon(subject.discipline);
+                const subjectDisplay = [
+                  subject.curriculum,
+                  subject.year_level ? `Year ${subject.year_level}` : '',
+                  subject.name
+                ].filter(Boolean).join(' ');
+                
+                return (
+                  <div
+                    key={subject.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => onViewSubject?.(subject.id)}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium">{subjectDisplay}</div>
+                        {subject.level && (
+                          <p className="text-xs text-muted-foreground">{subject.level}</p>
+                        )}
+                      </div>
+                    </div>
+                    {onRemoveSubject && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveSubject(subject.id);
+                        }}
+                        className="flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky Footer with Buttons */}
+      <div className="flex-shrink-0 border-t bg-background p-4 flex justify-end space-x-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancelEdit}
+          disabled={isLoading}
+        >
+          Cancel
+        </Button>
+        <Button 
+          type="submit"
+          form="staff-edit-form"
+          disabled={isLoading}
+        >
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Save Changes
+        </Button>
+      </div>
+    </>
+  ) : (
+    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Staff Information</h3>
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
             </Button>
           </div>
-        </form>
-      ) : (
-        // View Mode
-        <>
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <div className="text-sm font-medium">First Name:</div>
-            <div className="min-w-0">{(staffMember as any).first_name || '-'}</div>
+            <div>{staffMember.first_name || '-'}</div>
             
             <div className="text-sm font-medium">Last Name:</div>
-            <div className="min-w-0">{(staffMember as any).last_name || '-'}</div>
+            <div>{staffMember.last_name || '-'}</div>
             
             <div className="text-sm font-medium">Email:</div>
-            <div className="min-w-0 truncate" title={staffMember.email || ''}>
-              {staffMember.email || '-'}
-            </div>
+            <div>{staffMember.email || '-'}</div>
             
             <div className="text-sm font-medium">Phone Number:</div>
-            <div className="min-w-0">{(staffMember as any).phone_number || '-'}</div>
+            <div>{staffMember.phone_number || '-'}</div>
             
             <div className="text-sm font-medium">Office Key Number:</div>
-            <div className="min-w-0">{(staffMember as any).office_key_number || '-'}</div>
+            <div>{staffMember.office_key_number || '-'}</div>
             
             <div className="text-sm font-medium">Parking Remote:</div>
-            <div className="min-w-0">{(staffMember as any).has_parking_remote || 'None'}</div>
+            <div>{staffMember.has_parking_remote || 'None'}</div>
             
             <div className="text-sm font-medium">Role:</div>
-            <div className="min-w-0">
-              <StaffRoleBadge value={staffMember.role as any} />
+            <div>
+              <StaffRoleBadge value={staffMember.role} />
             </div>
             
             <div className="text-sm font-medium">Status:</div>
-            <div className="min-w-0">
-              <StaffStatusBadge value={staffMember.status as any} />
+            <div>
+              <StaffStatusBadge value={staffMember.status} />
+            </div>
+          </div>
+          
+          <Separator className="my-6" />
+          
+          {/* Availability Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Availability</h3>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-medium mb-3">Weekdays</h4>
+                <div className="space-y-2">
+                  {([
+                    { key: 'availability_monday' as const, label: 'Monday' },
+                    { key: 'availability_tuesday' as const, label: 'Tuesday' },
+                    { key: 'availability_wednesday' as const, label: 'Wednesday' },
+                    { key: 'availability_thursday' as const, label: 'Thursday' },
+                    { key: 'availability_friday' as const, label: 'Friday' },
+                  ] as const).map(({ key, label }) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <div className={`w-3 h-3 rounded-full ${staffMember[key] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <span className={`text-sm ${staffMember[key] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-3">Weekends</h4>
+                <div className="space-y-2">
+                  {([
+                    { key: 'availability_saturday_am' as const, label: 'Saturday AM' },
+                    { key: 'availability_saturday_pm' as const, label: 'Saturday PM' },
+                    { key: 'availability_sunday_am' as const, label: 'Sunday AM' },
+                    { key: 'availability_sunday_pm' as const, label: 'Sunday PM' },
+                  ] as const).map(({ key, label }) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <div className={`w-3 h-3 rounded-full ${staffMember[key] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <span className={`text-sm ${staffMember[key] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Subjects Section - View Only */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Subjects</h3>
             </div>
             
+            {loadingSubjects ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : staffSubjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No subjects assigned to this staff member</p>
+            ) : (
+              <div className="space-y-2">
+                {staffSubjects.map((subject) => {
+                  const Icon = getSubjectIcon(subject.discipline);
+                  const subjectDisplay = [
+                    subject.curriculum,
+                    subject.year_level ? `Year ${subject.year_level}` : '',
+                    subject.name
+                  ].filter(Boolean).join(' ');
+                  
+                  return (
+                    <div
+                      key={subject.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => onViewSubject?.(subject.id)}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{subjectDisplay}</div>
+                          {subject.level && (
+                            <p className="text-xs text-muted-foreground">{subject.level}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          
-          <Separator className="my-4" />
-          
-          <div>
-            <h3 className="text-sm font-medium mb-3">Availability</h3>
-            <div className="grid grid-cols-3 gap-y-2">
-              {(staffMember as any).availability_monday && (
-                <span className="text-sm">Monday</span>
-              )}
-              {(staffMember as any).availability_tuesday && (
-                <span className="text-sm">Tuesday</span>
-              )}
-              {(staffMember as any).availability_wednesday && (
-                <span className="text-sm">Wednesday</span>
-              )}
-              {(staffMember as any).availability_thursday && (
-                <span className="text-sm">Thursday</span>
-              )}
-              {(staffMember as any).availability_friday && (
-                <span className="text-sm">Friday</span>
-              )}
-              {(staffMember as any).availability_saturday_am && (
-                <span className="text-sm">Saturday AM</span>
-              )}
-              {(staffMember as any).availability_saturday_pm && (
-                <span className="text-sm">Saturday PM</span>
-              )}
-              {(staffMember as any).availability_sunday_am && (
-                <span className="text-sm">Sunday AM</span>
-              )}
-              {(staffMember as any).availability_sunday_pm && (
-                <span className="text-sm">Sunday PM</span>
-              )}
-              {![
-                (staffMember as any).availability_monday,
-                (staffMember as any).availability_tuesday,
-                (staffMember as any).availability_wednesday,
-                (staffMember as any).availability_thursday,
-                (staffMember as any).availability_friday,
-                (staffMember as any).availability_saturday_am,
-                (staffMember as any).availability_saturday_pm,
-                (staffMember as any).availability_sunday_am,
-                (staffMember as any).availability_sunday_pm
-              ].some(Boolean) && (
-                <span className="text-sm text-muted-foreground">No availability set</span>
-              )}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

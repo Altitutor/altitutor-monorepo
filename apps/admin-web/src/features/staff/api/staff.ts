@@ -129,68 +129,45 @@ export const staffApi = {
     return (data ?? null) as Tables<'staff'> | null;
   },
 
-  // Create new staff (creates auth user and staff record)
+  // Create new staff - calls server-side API route for admin operations
   create: async (data: CreateStaffRequest): Promise<Tables<'staff'> > => {
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.createUser({
-        email: data.email,
-        password: data.password,
-        email_confirm: true,
-        // NOTE: No longer setting user_metadata.user_role since we use staff table roles
-        user_metadata: {
-          first_name: data.first_name,
-          last_name: data.last_name,
-        }
-      });
-
-      if (authError) {
-        throw new Error(`Failed to create auth user: ${authError.message}`);
-      }
-
-      if (!authData.user) {
-        throw new Error('Auth user creation succeeded but no user returned');
-      }
-
-      // Create staff record
-      const staffData = {
-        id: authData.user.id,
-        user_id: authData.user.id,
+      const response = await fetch('/api/staff', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
         first_name: data.first_name,
         last_name: data.last_name,
         email: data.email,
+          password: data.password,
         phone_number: data.phone_number,
         role: data.role,
-        status: 'ACTIVE' as const,
         notes: data.notes,
         office_key_number: data.office_key_number,
         has_parking_remote: data.has_parking_remote,
-        availability_monday: data.availability_monday || false,
-        availability_tuesday: data.availability_tuesday || false,
-        availability_wednesday: data.availability_wednesday || false,
-        availability_thursday: data.availability_thursday || false,
-        availability_friday: data.availability_friday || false,
-        availability_saturday_am: data.availability_saturday_am || false,
-        availability_saturday_pm: data.availability_saturday_pm || false,
-        availability_sunday_am: data.availability_sunday_am || false,
-        availability_sunday_pm: data.availability_sunday_pm || false,
-      };
+          availability_monday: data.availability_monday,
+          availability_tuesday: data.availability_tuesday,
+          availability_wednesday: data.availability_wednesday,
+          availability_thursday: data.availability_thursday,
+          availability_friday: data.availability_friday,
+          availability_saturday_am: data.availability_saturday_am,
+          availability_saturday_pm: data.availability_saturday_pm,
+          availability_sunday_am: data.availability_sunday_am,
+          availability_sunday_pm: data.availability_sunday_pm,
+        }),
+      });
 
-      const { data: staffRecord, error: staffError } = await (getSupabaseClient() as SupabaseClient<Database>)
-        .from('staff')
-        .insert(staffData)
-        .select()
-        .single();
-
-      if (staffError) {
-        // Clean up the auth user if staff creation fails
-        await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.deleteUser(authData.user.id);
-        throw new Error(`Failed to create staff record: ${staffError.message}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to create staff: ${response.statusText}`);
       }
 
-      return staffRecord as Tables<'staff'>;
+      const result = await response.json();
+      return result.data as Tables<'staff'>;
     } catch (error) {
-      throw new Error(`Unexpected error creating staff: ${error}`);
+      throw new Error(`Unexpected error creating staff: ${error instanceof Error ? error.message : error}`);
     }
   },
 
@@ -219,49 +196,15 @@ export const staffApi = {
     return { staff };
   },
 
-  // Update staff
+  // Update staff - calls server-side API route for admin operations
   update: async (id: string, data: StaffUpdateData): Promise<Tables<'staff'> > => {
-    // Get current staff record to get user_id for auth update
-    const { data: currentStaff, error: fetchError } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('staff')
-      .select('user_id, email')
-      .eq('id', id)
-      .single();
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch current staff: ${fetchError.message}`);
-    }
-
     try {
-      // Update auth user if email or role changed
-      if (data.email || data.role) {
-        const authUpdateData: { email?: string; user_metadata?: { first_name?: string; last_name?: string } } = {};
-        
-        if (data.email) {
-          authUpdateData.email = data.email!;
-        }
-        
-        // Update user metadata
-        authUpdateData.user_metadata = {
-          first_name: data.first_name,
-          last_name: data.last_name,
-          // NOTE: No longer setting user_role in user_metadata since we use staff table roles
-        };
-
-        const { error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.updateUserById(
-          currentStaff.user_id!,
-          authUpdateData
-        );
-
-        if (authError) {
-          throw new Error(`Failed to update auth user: ${authError.message}`);
-        }
-      }
-
-      // Update staff record
-      const { data: updatedStaff, error: updateError } = await (getSupabaseClient() as SupabaseClient<Database>)
-        .from('staff')
-        .update({
+      const response = await fetch(`/api/staff/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           first_name: data.first_name,
           last_name: data.last_name,
           email: data.email ?? undefined,
@@ -280,18 +223,18 @@ export const staffApi = {
           availability_saturday_pm: data.availability_saturday_pm,
           availability_sunday_am: data.availability_sunday_am,
           availability_sunday_pm: data.availability_sunday_pm,
-        })
-        .eq('id', id)
-        .select()
-        .single();
+        }),
+      });
 
-      if (updateError) {
-        throw new Error(`Failed to update staff: ${updateError.message}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to update staff: ${response.statusText}`);
       }
 
-      return updatedStaff as Tables<'staff'>;
+      const result = await response.json();
+      return result.data as Tables<'staff'>;
     } catch (error) {
-      throw new Error(`Unexpected error updating staff: ${error}`);
+      throw new Error(`Unexpected error updating staff: ${error instanceof Error ? error.message : error}`);
     }
   },
 
@@ -319,34 +262,19 @@ export const staffApi = {
     });
   },
 
-  // Delete staff
+  // Delete staff - calls server-side API route for admin operations
   delete: async (id: string): Promise<void> => {
-    // Get staff record to get user_id for auth deletion
-    const { data: staff, error: fetchError } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('staff')
-      .select('user_id')
-      .eq('id', id)
-      .single();
+    try {
+      const response = await fetch(`/api/staff/${id}/delete`, {
+        method: 'DELETE',
+      });
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch staff: ${fetchError.message}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete staff: ${response.statusText}`);
     }
-
-    // Delete staff record (this will trigger cascade delete)
-    const { error: deleteError } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('staff')
-      .delete()
-      .eq('id', id);
-
-    if (deleteError) {
-      throw new Error(`Failed to delete staff: ${deleteError.message}`);
-    }
-
-    // Delete auth user
-    const { error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.deleteUser(staff.user_id!);
-    if (authError) {
-      console.warn(`Failed to delete auth user ${staff.user_id}: ${authError.message}`);
-      // Don't throw here as the staff record is already deleted
+    } catch (error) {
+      throw new Error(`Unexpected error deleting staff: ${error instanceof Error ? error.message : error}`);
     }
   },
 
@@ -355,43 +283,47 @@ export const staffApi = {
     return staffApi.delete(id);
   },
 
-  // Invite a user by email and create the staff record
+  // Invite a user by email and create the staff record - calls server-side API route
   inviteStaff: async (data: StaffInviteData): Promise<{ staff: Tables<'staff'> }> => {
     if (!data.email || data.email === '') {
       throw new Error('Email is required to invite staff');
     }
 
-    // Create/auth invite the user
-    const { data: inviteData, error: inviteError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.inviteUserByEmail(
-      data.email!,
-      {
-        // Store some basic metadata for convenience
-        data: {
+    try {
+      const response = await fetch('/api/staff/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           first_name: data.first_name,
           last_name: data.last_name,
-        },
+          email: data.email,
+          phone_number: data.phone_number,
+          role: data.role,
+          status: data.status,
+          availability_monday: data.availability_monday,
+          availability_tuesday: data.availability_tuesday,
+          availability_wednesday: data.availability_wednesday,
+          availability_thursday: data.availability_thursday,
+          availability_friday: data.availability_friday,
+          availability_saturday_am: data.availability_saturday_am,
+          availability_saturday_pm: data.availability_saturday_pm,
+          availability_sunday_am: data.availability_sunday_am,
+          availability_sunday_pm: data.availability_sunday_pm,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to invite staff: ${response.statusText}`);
       }
-    );
 
-    if (inviteError) {
-      throw new Error(`Failed to invite user: ${inviteError.message}`);
+      const result = await response.json();
+      return { staff: result.data as Tables<'staff'> };
+    } catch (error) {
+      throw new Error(`Unexpected error inviting staff: ${error instanceof Error ? error.message : error}`);
     }
-
-    if (!inviteData.user) {
-      throw new Error('Invitation succeeded but no user returned');
-    }
-
-    // Create staff account associated to invited user
-    const staff = await staffApi.createAccount({
-      user_id: inviteData.user.id,
-      first_name: data.first_name,
-      last_name: data.last_name,
-      email: data.email!,
-      phone_number: data.phone_number ?? undefined,
-      role: data.role,
-    });
-
-    return { staff };
   },
 
   // Create staff account (variant that doesn't require password - for existing users)
@@ -419,9 +351,10 @@ export const staffApi = {
       availability_sunday_pm: data.availability_sunday_pm || false,
     };
 
-    // Update auth user metadata
+    // Update auth user metadata (if user_id is valid)
+    if (data.user_id) {
     const { error: authError } = await (getSupabaseClient() as SupabaseClient<Database>).auth.admin.updateUserById(
-      data.user_id!,
+        data.user_id,
       {
         // NOTE: No longer setting user_role in user_metadata since we use staff table roles
         user_metadata: {
@@ -433,6 +366,7 @@ export const staffApi = {
 
     if (authError) {
       throw new Error(`Failed to update auth user: ${authError.message}`);
+      }
     }
 
     const { data: staffRecord, error: staffError } = await (getSupabaseClient() as SupabaseClient<Database>)
@@ -460,28 +394,77 @@ export const staffApi = {
     return staffApi.getByUserId(userData.user.id);
   },
 
-  // Get all staff with their subjects (optimized query)
-  getAllStaffWithSubjects: async (): Promise<{ staff: Tables<'staff'>[]; subjects: unknown[] }> => {
-    const { data: staffData, error: staffError } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('staff')
-      .select(`
-        *,
-        staff_subjects (
-          id,
-          subject_id,
-          subjects (*)
-        )
-      `)
-      .order('created_at', { ascending: false });
+  // Get all staff with their subjects and classes (optimized query)
+  getAllStaffWithSubjects: async (): Promise<{ staff: Tables<'staff'>[]; subjects: unknown[]; staffClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> })[]>; classSubjects: Record<string, Tables<'subjects'>> }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    try {
+      // Get all staff with subjects
+      const { data: staffData, error: staffError } = await supabase
+        .from('staff')
+        .select(`
+          *,
+          staff_subjects (
+            id,
+            subject_id,
+            subjects (*)
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-    if (staffError) {
-      throw new Error(`Failed to fetch staff with subjects: ${staffError.message}`);
+      if (staffError) throw staffError;
+
+      // Get all staff-class assignments with class details and subject information
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('classes_staff')
+        .select(`
+          staff_id,
+          class:classes(*, subject_details:subjects(*))
+        `)
+        .eq('status', 'ACTIVE');
+
+      if (assignmentsError) throw assignmentsError;
+
+      // Transform and organize the data
+      const staff = (staffData ?? []) as Tables<'staff'>[];
+      const staffClasses: Record<string, (Tables<'classes'> & { subjectDetails?: Tables<'subjects'> })[]> = {};
+      const classSubjects: Record<string, Tables<'subjects'>> = {};
+
+      // Initialize arrays for all staff
+      staff.forEach(staffMember => {
+        staffClasses[staffMember.id] = [];
+      });
+
+      // Process staff classes
+      assignmentsData?.forEach((assignment: any) => {
+        const classWithSubject = assignment.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
+        if (classWithSubject && assignment.staff_id) {
+          if (!staffClasses[assignment.staff_id]) {
+            staffClasses[assignment.staff_id] = [];
+          }
+          const cls: Tables<'classes'> & { subjectDetails?: Tables<'subjects'> } = {
+            ...classWithSubject,
+            subjectDetails: classWithSubject.subject_details
+          };
+          delete (cls as any).subject_details;
+          staffClasses[assignment.staff_id].push(cls);
+          
+          // Store subject by class ID for easy lookup
+          if (classWithSubject.subject_details) {
+            classSubjects[classWithSubject.id] = classWithSubject.subject_details;
+          }
+        }
+      });
+
+      return {
+        staff,
+        subjects: [],
+        staffClasses,
+        classSubjects
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch staff with subjects and classes: ${error}`);
     }
-
-    return {
-      staff: (staffData ?? []) as Tables<'staff'>[],
-      subjects: []
-    };
   },
 
   // Get staff member with subjects by ID

@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
 import { Button, Separator } from "@altitutor/ui";
-import { Loader2, Mail, Trash2 } from "lucide-react";
+import { Loader2, Mail, Trash2, UserPlus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,6 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@altitutor/ui";
+import { SendInviteDialog } from '../SendInviteDialog';
 
 interface AccountTabProps {
   staffMember: Tables<'staff'>;
@@ -30,8 +32,33 @@ export function AccountTab({
   onPasswordResetRequest,
   onDelete
 }: AccountTabProps) {
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+
   return (
     <div className="space-y-6">
+      {!staffMember.user_id ? (
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Account Setup</h3>
+          <p className="text-sm text-muted-foreground">
+            This staff member does not have an associated user account yet. Send them an invite to create one.
+          </p>
+          
+          <Button
+            variant="default"
+            onClick={() => setInviteDialogOpen(true)}
+            className="justify-start w-fit"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Send Invite
+          </Button>
+
+          <SendInviteDialog
+            isOpen={inviteDialogOpen}
+            onClose={() => setInviteDialogOpen(false)}
+            staffMember={staffMember}
+          />
+        </div>
+      ) : (
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Password Management</h3>
         <p className="text-sm text-muted-foreground">
@@ -77,6 +104,7 @@ export function AccountTab({
           </p>
         )}
       </div>
+      )}
 
       <Separator className="my-6" />
 
