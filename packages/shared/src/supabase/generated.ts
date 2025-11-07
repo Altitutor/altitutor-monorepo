@@ -1371,8 +1371,6 @@ export type Database = {
           id: string
           invite_token: string | null
           last_name: string
-          parent_first_name: string | null
-          parent_last_name: string | null
           phone: string | null
           school: string | null
           status: string
@@ -1398,8 +1396,6 @@ export type Database = {
           id?: string
           invite_token?: string | null
           last_name: string
-          parent_first_name?: string | null
-          parent_last_name?: string | null
           phone?: string | null
           school?: string | null
           status: string
@@ -1425,8 +1421,6 @@ export type Database = {
           id?: string
           invite_token?: string | null
           last_name?: string
-          parent_first_name?: string | null
-          parent_last_name?: string | null
           phone?: string | null
           school?: string | null
           status?: string
@@ -2132,37 +2126,37 @@ export type Database = {
     Views: {
       vstudent_billing: {
         Row: {
-          card_brand: string | null
-          card_country: string | null
-          card_last4: string | null
           created_at: string | null
-          default_payment_method_id: string | null
           stripe_customer_id: string | null
+          stripe_payment_method_brand: string | null
+          stripe_payment_method_country: string | null
+          stripe_payment_method_id: string | null
+          stripe_payment_method_last4: string | null
+          stripe_payment_method_verified_at: string | null
           student_id: string | null
           updated_at: string | null
-          verified_at: string | null
         }
         Insert: {
-          card_brand?: string | null
-          card_country?: string | null
-          card_last4?: string | null
           created_at?: string | null
-          default_payment_method_id?: string | null
           stripe_customer_id?: string | null
+          stripe_payment_method_brand?: string | null
+          stripe_payment_method_country?: string | null
+          stripe_payment_method_id?: string | null
+          stripe_payment_method_last4?: string | null
+          stripe_payment_method_verified_at?: string | null
           student_id?: string | null
           updated_at?: string | null
-          verified_at?: string | null
         }
         Update: {
-          card_brand?: string | null
-          card_country?: string | null
-          card_last4?: string | null
           created_at?: string | null
-          default_payment_method_id?: string | null
           stripe_customer_id?: string | null
+          stripe_payment_method_brand?: string | null
+          stripe_payment_method_country?: string | null
+          stripe_payment_method_id?: string | null
+          stripe_payment_method_last4?: string | null
+          stripe_payment_method_verified_at?: string | null
           student_id?: string | null
           updated_at?: string | null
-          verified_at?: string | null
         }
         Relationships: [
           {
@@ -2326,8 +2320,6 @@ export type Database = {
           first_name: string | null
           id: string | null
           last_name: string | null
-          parent_first_name: string | null
-          parent_last_name: string | null
           phone: string | null
           school: string | null
           status: string | null
@@ -2351,8 +2343,6 @@ export type Database = {
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          parent_first_name?: string | null
-          parent_last_name?: string | null
           phone?: string | null
           school?: string | null
           status?: string | null
@@ -2376,8 +2366,6 @@ export type Database = {
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          parent_first_name?: string | null
-          parent_last_name?: string | null
           phone?: string | null
           school?: string | null
           status?: string | null
@@ -2455,6 +2443,7 @@ export type Database = {
       }
       vstudent_sessions: {
         Row: {
+          attendance_status: boolean | null
           class_day_of_week: number | null
           class_end_time: string | null
           class_id: string | null
@@ -2463,6 +2452,7 @@ export type Database = {
           class_start_time: string | null
           credited_at: string | null
           end_at: string | null
+          has_tutor_log: boolean | null
           is_credited: boolean | null
           is_rescheduled: boolean | null
           planned_absence: boolean | null
