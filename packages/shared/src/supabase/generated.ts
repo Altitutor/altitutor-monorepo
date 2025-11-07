@@ -158,33 +158,36 @@ export type Database = {
           class_id: string
           created_at: string | null
           created_by: string | null
-          end_date: string | null
+          enrolled_at: string
+          enrolled_by: string | null
           id: string
-          start_date: string
-          status: string
           student_id: string
+          unenrolled_at: string | null
+          unenrolled_by: string | null
           updated_at: string | null
         }
         Insert: {
           class_id: string
           created_at?: string | null
           created_by?: string | null
-          end_date?: string | null
+          enrolled_at: string
+          enrolled_by?: string | null
           id: string
-          start_date: string
-          status: string
           student_id: string
+          unenrolled_at?: string | null
+          unenrolled_by?: string | null
           updated_at?: string | null
         }
         Update: {
           class_id?: string
           created_at?: string | null
           created_by?: string | null
-          end_date?: string | null
+          enrolled_at?: string
+          enrolled_by?: string | null
           id?: string
-          start_date?: string
-          status?: string
           student_id?: string
+          unenrolled_at?: string | null
+          unenrolled_by?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -205,6 +208,20 @@ export type Database = {
           {
             foreignKeyName: "classes_students_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_students_enrolled_by_fkey"
+            columns: ["enrolled_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_students_unenrolled_by_fkey"
+            columns: ["unenrolled_by"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
