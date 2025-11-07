@@ -1284,6 +1284,63 @@ export type Database = {
           },
         ]
       }
+      student_payment_methods: {
+        Row: {
+          card_brand: string
+          card_country: string | null
+          card_exp_month: number
+          card_exp_year: number
+          card_last4: string
+          created_at: string
+          id: string
+          is_default: boolean
+          stripe_payment_method_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          card_brand: string
+          card_country?: string | null
+          card_exp_month: number
+          card_exp_year: number
+          card_last4: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          stripe_payment_method_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          card_brand?: string
+          card_country?: string | null
+          card_exp_month?: number
+          card_exp_year?: number
+          card_last4?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          stripe_payment_method_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_payment_methods_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_payment_methods_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_subsidies: {
         Row: {
           billing_type: Database["public"]["Enums"]["billing_type"]
@@ -1440,37 +1497,22 @@ export type Database = {
       }
       students_billing: {
         Row: {
-          card_brand: string | null
-          card_country: string | null
-          card_last4: string | null
           created_at: string
-          default_payment_method_id: string | null
           stripe_customer_id: string
           student_id: string
           updated_at: string
-          verified_at: string | null
         }
         Insert: {
-          card_brand?: string | null
-          card_country?: string | null
-          card_last4?: string | null
           created_at?: string
-          default_payment_method_id?: string | null
           stripe_customer_id: string
           student_id: string
           updated_at?: string
-          verified_at?: string | null
         }
         Update: {
-          card_brand?: string | null
-          card_country?: string | null
-          card_last4?: string | null
           created_at?: string
-          default_payment_method_id?: string | null
           stripe_customer_id?: string
           student_id?: string
           updated_at?: string
-          verified_at?: string | null
         }
         Relationships: [
           {
@@ -2127,34 +2169,25 @@ export type Database = {
       vstudent_billing: {
         Row: {
           created_at: string | null
+          default_payment_method: Json | null
+          payment_methods: Json | null
           stripe_customer_id: string | null
-          stripe_payment_method_brand: string | null
-          stripe_payment_method_country: string | null
-          stripe_payment_method_id: string | null
-          stripe_payment_method_last4: string | null
-          stripe_payment_method_verified_at: string | null
           student_id: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          default_payment_method?: never
+          payment_methods?: never
           stripe_customer_id?: string | null
-          stripe_payment_method_brand?: string | null
-          stripe_payment_method_country?: string | null
-          stripe_payment_method_id?: string | null
-          stripe_payment_method_last4?: string | null
-          stripe_payment_method_verified_at?: string | null
           student_id?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          default_payment_method?: never
+          payment_methods?: never
           stripe_customer_id?: string | null
-          stripe_payment_method_brand?: string | null
-          stripe_payment_method_country?: string | null
-          stripe_payment_method_id?: string | null
-          stripe_payment_method_last4?: string | null
-          stripe_payment_method_verified_at?: string | null
           student_id?: string | null
           updated_at?: string | null
         }
