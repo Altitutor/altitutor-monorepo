@@ -11,6 +11,7 @@ import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal, ClassCard, TimetableView } from '@/features/classes';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { formatTime } from '@/shared/utils/datetime';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 type ViewMode = 'table' | 'timetable';
 
@@ -31,6 +32,7 @@ export function ClassesTab({
   onStudentUpdated
 }: ClassesTabProps) {
   const { toast } = useToast();
+  const { data: currentStaff } = useCurrentStaff();
   const [classes, setClasses] = useState<StudentClass[]>([]);
   const [allClasses, setAllClasses] = useState<StudentClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,11 +121,24 @@ export function ClassesTab({
 
   // Handle class enrollment
   const handleEnrollClass = async (classId: string) => {
+    if (!currentStaff) {
+      toast({
+        title: "Error",
+        description: "Unable to determine current staff member.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setEnrollingClasses(prev => new Set(prev).add(classId));
     setIsAddPopoverOpen(false); // Close the popover immediately for better UX
     
     try {
-      await classesApi.enrollStudent(classId, student.id);
+      // Enroll starting today at midnight
+      const enrolledAt = new Date();
+      enrolledAt.setHours(0, 0, 0, 0);
+      
+      await classesApi.enrollStudent(classId, student.id, enrolledAt, currentStaff.id);
       await loadStudentClasses(); // Reload classes
       onStudentUpdated?.(); // Notify parent of changes
       

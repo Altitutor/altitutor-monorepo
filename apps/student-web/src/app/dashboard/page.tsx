@@ -19,18 +19,16 @@ export default function DashboardPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Get student record
+        // Get student record from view
         const { data: studentData } = await supabase
-          .from('students')
+          .from('vstudent_profile')
           .select('*')
-          .eq('id', user.id)
           .maybeSingle();
 
-        // Get billing info
+        // Get billing info from view
         const { data: billingData } = await supabase
-          .from('students_billing')
+          .from('vstudent_billing')
           .select('*')
-          .eq('student_id', user.id)
           .maybeSingle();
 
         setStudent(studentData);

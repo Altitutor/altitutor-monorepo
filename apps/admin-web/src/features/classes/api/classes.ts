@@ -44,14 +44,18 @@ export const classesApi = {
       
       if (classesError) throw classesError;
       
-      // Get all class enrollments with student data
+      // Get all class enrollments with student data (current and future enrollments)
       const { data: enrollmentsData, error: enrollmentsError } = await supabase
         .from('classes_students')
         .select(`
           class_id,
+          enrolled_at,
+          enrolled_by,
+          unenrolled_at,
+          unenrolled_by,
           student:students(*)
         `)
-        .eq('status', 'ACTIVE');
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
       
       if (enrollmentsError) throw enrollmentsError;
       
@@ -158,15 +162,19 @@ export const classesApi = {
         .in('id', classIds);
       if (classesError) throw classesError;
 
-      // Enrollments for those classes
+      // Enrollments for those classes (current and future enrollments)
       const { data: enrollmentsData, error: enrollmentsError } = await supabase
         .from('classes_students')
         .select(`
           class_id,
+          enrolled_at,
+          enrolled_by,
+          unenrolled_at,
+          unenrolled_by,
           student:students(*)
         `)
         .in('class_id', classIds)
-        .eq('status', 'ACTIVE');
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
       if (enrollmentsError) throw enrollmentsError;
 
       // Staff for those classes
@@ -234,7 +242,7 @@ export const classesApi = {
       supabase
         .from('classes_students')
         .select('class_id', { count: 'exact', head: true })
-        .eq('status', 'ACTIVE'),
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`),
     ]);
 
     if (classesErr) throw classesErr;
@@ -275,14 +283,18 @@ export const classesApi = {
         throw classError;
       }
       
-      // Get students for this class
+      // Get students for this class (current and future enrollments)
       const { data: studentsData, error: studentsError } = await supabase
         .from('classes_students')
         .select(`
+          enrolled_at,
+          enrolled_by,
+          unenrolled_at,
+          unenrolled_by,
           student:students(*)
         `)
         .eq('class_id', classId)
-        .eq('status', 'ACTIVE');
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
       
       if (studentsError) throw studentsError;
       
@@ -358,16 +370,16 @@ export const classesApi = {
   },
   
   /**
-   * Get all students enrolled in a class
+   * Get all students enrolled in a class (current and future enrollments)
    */
   getClassStudents: async (classId: string): Promise<Tables<'students'>[]> => {
     try {
-      // Get ACTIVE class enrollments for this class at the DB layer
+      // Get current and future class enrollments for this class
       const { data: enrollments, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('classes_students')
-        .select('student:students(*), class_id')
+        .select('student:students(*), class_id, enrolled_at, enrolled_by, unenrolled_at, unenrolled_by')
         .eq('class_id', classId)
-        .eq('status', 'ACTIVE');
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
       if (error) throw error;
       
       if (!((enrollments as Array<{ student: Tables<'students'> | null }> | null) ?? []).length) {
@@ -410,25 +422,21 @@ export const classesApi = {
   /**
    * Enroll a student in a class
    */
-  enrollStudent: async (classId: string, studentId: string): Promise<Tables<'classes_students'>> => {
+  enrollStudent: async (
+    classId: string, 
+    studentId: string, 
+    enrolledAt: Date, 
+    staffId: string
+  ): Promise<Tables<'classes_students'>> => {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { data: existing, error: existingError } = await supabase
-        .from('classes_students')
-        .select('id')
-        .eq('class_id', classId)
-        .eq('student_id', studentId)
-        .eq('status', 'ACTIVE')
-        .limit(1);
-      if (existingError) throw existingError;
-      if ((existing ?? []).length) return (existing![0] as Tables<'classes_students'>);
-
+      
       const payload: TablesInsert<'classes_students'> = {
         id: crypto.randomUUID(),
         class_id: classId,
         student_id: studentId,
-        start_date: new Date().toISOString().split('T')[0],
-        status: 'ACTIVE',
+        enrolled_at: enrolledAt.toISOString(),
+        enrolled_by: staffId,
       };
       const { data, error } = await supabase
         .from('classes_students')
@@ -444,20 +452,78 @@ export const classesApi = {
   },
   
   /**
-   * Remove a student from a class
+   * Remove a student from a class (immediate or scheduled future unenrollment)
    */
-  unenrollStudent: async (classId: string, studentId: string): Promise<void> => {
+  unenrollStudent: async (
+    classId: string, 
+    studentId: string, 
+    staffId: string, 
+    unenrolledAt?: Date
+  ): Promise<void> => {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { error } = await supabase
         .from('classes_students')
-        .update({ status: 'INACTIVE', end_date: new Date().toISOString().split('T')[0] })
+        .update({ 
+          unenrolled_at: (unenrolledAt || new Date()).toISOString(),
+          unenrolled_by: staffId 
+        })
         .eq('class_id', classId)
         .eq('student_id', studentId)
-        .eq('status', 'ACTIVE');
+        .is('unenrolled_at', null);
       if (error) throw error;
     } catch (error) {
       console.error('Error unenrolling student:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Update enrollment date for a future enrollment
+   */
+  updateEnrollmentDate: async (
+    classId: string,
+    studentId: string,
+    newEnrolledAt: Date,
+    staffId: string
+  ): Promise<Tables<'classes_students'>> => {
+    try {
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      // First check if the enrollment is in the future
+      const { data: existing, error: fetchError } = await supabase
+        .from('classes_students')
+        .select('enrolled_at')
+        .eq('class_id', classId)
+        .eq('student_id', studentId)
+        .is('unenrolled_at', null)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      if (!existing) throw new Error('Enrollment not found');
+      
+      const enrolledAt = new Date(existing.enrolled_at);
+      if (enrolledAt <= new Date()) {
+        throw new Error('Cannot update enrollment date for enrollments that have already started');
+      }
+      
+      // Update the enrollment date
+      const { data, error } = await supabase
+        .from('classes_students')
+        .update({ 
+          enrolled_at: newEnrolledAt.toISOString(),
+          enrolled_by: staffId 
+        })
+        .eq('class_id', classId)
+        .eq('student_id', studentId)
+        .is('unenrolled_at', null)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as Tables<'classes_students'>;
+    } catch (error) {
+      console.error('Error updating enrollment date:', error);
       throw error;
     }
   },

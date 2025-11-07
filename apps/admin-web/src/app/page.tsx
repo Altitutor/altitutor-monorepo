@@ -12,11 +12,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading && user) {
-      const role = staff?.role as 'ADMINSTAFF' | 'TUTOR' | undefined;
-      const home = role === 'TUTOR' ? '/tutor/dashboard' : '/admin/dashboard';
-      router.replace(home);
+      router.replace('/dashboard');
     }
-  }, [loading, user, staff, router]);
+  }, [loading, user, router]);
 
   return null;
 }

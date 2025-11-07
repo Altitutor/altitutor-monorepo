@@ -57,7 +57,7 @@ export function ChatWindow({ descriptor }: Props) {
 
   return (
     <div 
-      className="w-[320px] shadow-lg rounded-md border bg-background dark:bg-brand-dark-card overflow-hidden"
+      className={`w-[320px] shadow-lg rounded-md border bg-background dark:bg-brand-dark-card overflow-hidden ${descriptor.minimized ? 'h-auto' : ''}`}
       onClick={(e) => {
         // If minimized and clicked anywhere except buttons, expand it
         if (descriptor.minimized && !(e.target as HTMLElement).closest('button')) {
@@ -65,7 +65,7 @@ export function ChatWindow({ descriptor }: Props) {
         }
       }}
     >
-      <div className={`flex items-center justify-between px-3 py-2 border-b dark:border-brand-dark-border ${descriptor.minimized ? 'cursor-pointer' : ''}`}>
+      <div className={`flex items-center justify-between px-3 py-2 ${descriptor.minimized ? 'border-b-0 cursor-pointer' : 'border-b dark:border-brand-dark-border'}`}>
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm truncate max-w-[180px]">{displayTitle}</span>
           {descriptor.unreadCount > 0 && (

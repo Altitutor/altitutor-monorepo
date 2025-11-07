@@ -6,15 +6,6 @@ import type { Database } from '@altitutor/shared';
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
-  // Legacy redirects
-  if (pathname === '/dashboard') {
-    return NextResponse.redirect(new URL('/admin/dashboard', origin));
-  }
-  if (pathname.startsWith('/dashboard/')) {
-    const rest = pathname.replace('/dashboard', '');
-    return NextResponse.redirect(new URL(`/admin/dashboard${rest}`, origin));
-  }
-
   const res = NextResponse.next();
   const supabase = createMiddlewareClient<Database>({ req, res });
   const {
@@ -27,7 +18,12 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  const isProtected = pathname.startsWith('/admin') || pathname.startsWith('/tutor') || pathname === '/';
+  // Determine tutor app URL based on environment
+  const tutorAppUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://tutor.altitutor.com'
+    : 'http://localhost:3002';
+
+  const isProtected = !pathname.startsWith('/login') && !pathname.startsWith('/forgot-password') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/invite') && !pathname.startsWith('/auth') && pathname !== '/';
   if (!session && isProtected) {
     return NextResponse.redirect(new URL('/login', origin));
   }
@@ -42,23 +38,23 @@ export async function middleware(req: NextRequest) {
 
   const role = staff?.role;
 
-  if (pathname === '/') {
-    const home = role === 'TUTOR' ? '/tutor/dashboard' : '/admin/dashboard';
-    return NextResponse.redirect(new URL(home, origin));
+  // Only allow ADMINSTAFF - redirect TUTOR to tutor app
+  if (role === 'TUTOR') {
+    return NextResponse.redirect(new URL(tutorAppUrl));
   }
 
-  if (pathname.startsWith('/admin') && role === 'TUTOR') {
-    return NextResponse.redirect(new URL('/tutor/dashboard', origin));
+  // Block non-staff users
+  if (!staff || role !== 'ADMINSTAFF') {
+    return NextResponse.redirect(new URL('/login?error=access_denied', origin));
   }
-  if (pathname.startsWith('/tutor') && role === 'ADMINSTAFF') {
-    return NextResponse.redirect(new URL('/admin/dashboard', origin));
+
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', origin));
   }
 
   return res;
 }
 
 export const config = {
-  matcher: ['/', '/admin/:path*', '/tutor/:path*', '/dashboard', '/dashboard/:path*', '/api/:path*'],
+  matcher: ['/', '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };
-
-

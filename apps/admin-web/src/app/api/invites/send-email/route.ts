@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     if (type === 'staff') {
       const result = await supabase
         .from('staff')
-        .select('id, first_name, last_name, email, invite_token')
+        .select('id, first_name, last_name, email, role, invite_token')
         .eq('id', id)
         .single();
       record = result.data;
@@ -97,12 +97,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine the base URL and redirect path
-    const baseUrl = type === 'staff' 
-      ? (process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3000')
-      : (process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001');
+    // Determine invite URL based on role (for staff) or type (for students)
+    let inviteUrl: string;
+    const isDev = process.env.NODE_ENV === 'development';
     
-    const inviteUrl = `${baseUrl}/invite/${token}`;
+    if (type === 'staff') {
+      // For staff, check their role to determine which app to send them to
+      const staffRole = (record as any).role;
+      if (staffRole === 'TUTOR') {
+        const baseUrl = isDev ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+        inviteUrl = `${baseUrl}/invite/${token}`;
+      } else {
+        const baseUrl = isDev ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.altitutor.com');
+        inviteUrl = `${baseUrl}/invite/${token}`;
+      }
+    } else {
+      const baseUrl = isDev ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+      inviteUrl = `${baseUrl}/invite/${token}`;
+    }
 
     // Send email using Supabase's email service
     // Note: For now, we'll use a simple approach. In production, you might want to use

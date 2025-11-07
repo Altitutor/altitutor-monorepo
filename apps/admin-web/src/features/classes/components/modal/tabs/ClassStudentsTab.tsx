@@ -4,7 +4,9 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
-import { Loader2, Users, Plus, X, Search, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import { Loader2, Users, Plus, X, Search, Calendar } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { ViewStudentModal } from '@/features/students';
 
@@ -14,8 +16,8 @@ interface ClassStudentsTabProps {
   allStudents: Tables<'students'>[];
   loadingStudents: boolean;
   onViewStudent?: (studentId: string) => void;
-  onEnrollStudent: (studentId: string) => void;
-  onRemoveStudent: (studentId: string) => void;
+  onEnrollStudent: (studentId: string, enrolledAt: Date) => void;
+  onRemoveStudent: (studentId: string, unenrolledAt?: Date) => void;
 }
 
 export function ClassStudentsTab({
@@ -32,27 +34,51 @@ export function ClassStudentsTab({
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Enrollment date dialog
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+  const [selectedStudentForEnroll, setSelectedStudentForEnroll] = useState<string | null>(null);
+  const [enrollmentDate, setEnrollmentDate] = useState<string>('');
+  
   // Modal state for student viewing
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  
+  // Helper to set midnight Adelaide time for a date
+  const getMidnightAdelaide = (dateString?: string): string => {
+    const date = dateString ? new Date(dateString) : new Date();
+    // Format as YYYY-MM-DD for date input
+    return date.toISOString().split('T')[0];
+  };
 
   const handleViewStudent = (studentId: string) => {
     setSelectedStudentId(studentId);
     setIsStudentModalOpen(true);
   };
 
-  const handleEnrollStudent = async (studentId: string) => {
-    setEnrollingStudents(prev => new Set(prev).add(studentId));
-    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
+  const openEnrollDialog = (studentId: string) => {
+    setSelectedStudentForEnroll(studentId);
+    setEnrollmentDate(getMidnightAdelaide());
+    setEnrollDialogOpen(true);
+    setIsAddPopoverOpen(false);
+  };
+  
+  const handleEnrollStudent = async () => {
+    if (!selectedStudentForEnroll) return;
+    
+    setEnrollingStudents(prev => new Set(prev).add(selectedStudentForEnroll));
+    setEnrollDialogOpen(false);
     
     try {
-      await onEnrollStudent(studentId);
+      // Convert date string to Date object at midnight Adelaide time
+      const enrollDate = new Date(enrollmentDate + 'T00:00:00');
+      await onEnrollStudent(selectedStudentForEnroll, enrollDate);
     } finally {
       setEnrollingStudents(prev => {
         const newSet = new Set(prev);
-        newSet.delete(studentId);
+        newSet.delete(selectedStudentForEnroll);
         return newSet;
       });
+      setSelectedStudentForEnroll(null);
     }
   };
 
@@ -124,7 +150,7 @@ export function ClassStudentsTab({
                         key={student.id}
                         variant="ghost"
                         className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => handleEnrollStudent(student.id)}
+                        onClick={() => openEnrollDialog(student.id)}
                         disabled={enrollingStudents.has(student.id)}
                       >
                         <div className="flex items-center justify-between w-full">
@@ -183,7 +209,7 @@ export function ClassStudentsTab({
                           key={student.id}
                           variant="ghost"
                           className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => handleEnrollStudent(student.id)}
+                          onClick={() => openEnrollDialog(student.id)}
                           disabled={enrollingStudents.has(student.id)}
                         >
                           <div className="flex items-center justify-between w-full">
@@ -282,6 +308,41 @@ export function ClassStudentsTab({
           </div>
         </ScrollArea>
       )}
+      
+      {/* Enrollment Date Dialog */}
+      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enroll Student</DialogTitle>
+            <DialogDescription>
+              Set the enrollment start date. The student will be added to all sessions from this date forward.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="enrollment-date">Enrollment Start Date</Label>
+              <Input
+                id="enrollment-date"
+                type="date"
+                value={enrollmentDate}
+                onChange={(e) => setEnrollmentDate(e.target.value)}
+                min={getMidnightAdelaide()}
+              />
+              <p className="text-sm text-muted-foreground">
+                Student will be enrolled in all future sessions starting from this date.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEnrollDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEnrollStudent}>
+              Enroll Student
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Student Modal */}
       {selectedStudentId && (

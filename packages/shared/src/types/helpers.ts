@@ -88,6 +88,21 @@ export type SessionWithRelations = Tables<'sessions'> & {
 };
 
 /**
+ * Class enrollment with audit trail information
+ */
+export type ClassEnrollmentWithAudit = Tables<'classes_students'> & {
+  enrolled_by_staff?: Tables<'staff'> | null;
+  unenrolled_by_staff?: Tables<'staff'> | null;
+};
+
+/**
+ * Student with enrollment details
+ */
+export type StudentWithEnrollment = Tables<'students'> & {
+  enrollment?: ClassEnrollmentWithAudit;
+};
+
+/**
  * Form data types - for when API receives partial data
  */
 export type StudentFormData = Omit<TablesInsert<'students'>, 'id' | 'created_at' | 'updated_at'> & {

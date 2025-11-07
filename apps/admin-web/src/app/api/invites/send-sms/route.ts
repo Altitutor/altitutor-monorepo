@@ -45,14 +45,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the record to get phone and verify token
-    let record: { id: string; first_name: string; last_name: string; invite_token: string | null } | null;
+    let record: { id: string; first_name: string; last_name: string; invite_token: string | null; role?: string } | null;
     let fetchError;
     let phoneNumber: string | null = null;
     
     if (type === 'staff') {
       const result = await supabase
         .from('staff')
-        .select('id, first_name, last_name, phone_number, invite_token')
+        .select('id, first_name, last_name, phone_number, role, invite_token')
         .eq('id', id)
         .single();
       record = result.data;
@@ -170,12 +170,24 @@ export async function POST(request: NextRequest) {
       conversationId = newConvo.id;
     }
 
-    // Determine the base URL
-    const baseUrl = type === 'staff' 
-      ? (process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3000')
-      : (process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001');
+    // Determine invite URL based on role (for staff) or type (for students)
+    let inviteUrl: string;
+    const isDev = process.env.NODE_ENV === 'development';
     
-    const inviteUrl = `${baseUrl}/invite/${token}`;
+    if (type === 'staff') {
+      // For staff, check their role to determine which app to send them to
+      const staffRole = record.role;
+      if (staffRole === 'TUTOR') {
+        const baseUrl = isDev ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+        inviteUrl = `${baseUrl}/invite/${token}`;
+      } else {
+        const baseUrl = isDev ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.altitutor.com');
+        inviteUrl = `${baseUrl}/invite/${token}`;
+      }
+    } else {
+      const baseUrl = isDev ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+      inviteUrl = `${baseUrl}/invite/${token}`;
+    }
 
     // Create message body
     const messageBody = `Hi ${record.first_name}, you've been invited to create your Altitutor account. Click here to get started: ${inviteUrl}`;

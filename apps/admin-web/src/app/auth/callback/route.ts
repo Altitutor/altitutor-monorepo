@@ -43,12 +43,26 @@ export async function GET(request: NextRequest) {
             .eq('user_id', session.user.id)
             .maybeSingle();
           const role = staff?.role as 'ADMINSTAFF' | 'TUTOR' | undefined;
-          const defaultHome = role === 'TUTOR' ? '/tutor/dashboard' : '/admin/dashboard';
+          
+          // Redirect TUTOR to tutor app
+          if (role === 'TUTOR') {
+            const tutorAppUrl = process.env.NODE_ENV === 'production' 
+              ? 'https://tutor.altitutor.com'
+              : 'http://localhost:3002';
+            return NextResponse.redirect(new URL(tutorAppUrl))
+          }
+          
+          // Only allow ADMINSTAFF to proceed
+          if (role !== 'ADMINSTAFF') {
+            return NextResponse.redirect(new URL('/login?error=access_denied', requestUrl.origin))
+          }
+          
+          const defaultHome = '/dashboard';
           const redirectUrl = next === '/' || next === '/dashboard' ? defaultHome : next;
           return NextResponse.redirect(new URL(redirectUrl, requestUrl.origin))
         } catch (e) {
-          // Fallback to admin home on error
-          return NextResponse.redirect(new URL('/admin/dashboard', requestUrl.origin))
+          // Fallback to dashboard on error
+          return NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
         }
       }
     } catch (err) {

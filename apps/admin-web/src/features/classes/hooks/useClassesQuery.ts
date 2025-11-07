@@ -151,8 +151,18 @@ export function useEnrollStudent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ classId, studentId }: { classId: string; studentId: string }) =>
-      classesApi.enrollStudent(classId, studentId),
+    mutationFn: ({ 
+      classId, 
+      studentId, 
+      enrolledAt, 
+      staffId 
+    }: { 
+      classId: string; 
+      studentId: string; 
+      enrolledAt: Date; 
+      staffId: string 
+    }) =>
+      classesApi.enrollStudent(classId, studentId, enrolledAt, staffId),
     onSuccess: (_, { classId, studentId }) => {
       // Invalidate class details to refetch with new student
       queryClient.invalidateQueries({ queryKey: classesKeys.detail(classId) });
@@ -168,8 +178,18 @@ export function useUnenrollStudent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ classId, studentId }: { classId: string; studentId: string }) =>
-      classesApi.unenrollStudent(classId, studentId),
+    mutationFn: ({ 
+      classId, 
+      studentId, 
+      staffId, 
+      unenrolledAt 
+    }: { 
+      classId: string; 
+      studentId: string; 
+      staffId: string; 
+      unenrolledAt?: Date 
+    }) =>
+      classesApi.unenrollStudent(classId, studentId, staffId, unenrolledAt),
     onSuccess: (_, { classId, studentId }) => {
       // Invalidate class details to refetch without the student
       queryClient.invalidateQueries({ queryKey: classesKeys.detail(classId) });

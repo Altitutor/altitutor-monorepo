@@ -1,0 +1,1 @@
+export type { Tables, Enums, TablesInsert, TablesUpdate } from '@altitutor/shared';

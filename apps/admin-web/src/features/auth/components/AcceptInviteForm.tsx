@@ -128,11 +128,12 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
 
           // Determine redirect based on role
           const redirectPath = inviteData?.data?.role === 'TUTOR' 
-            ? '/tutor/dashboard' 
-            : '/admin/dashboard';
+            ? (process.env.NODE_ENV === 'production' ? 'https://tutor.altitutor.com' : 'http://localhost:3002')
+            : '/dashboard';
 
+          // Use full page redirect to ensure cookies are properly set on the server
           setTimeout(() => {
-            router.push(redirectPath);
+            window.location.href = redirectPath;
           }, 2000);
         } catch (signInErr) {
           console.error('Auto-login error:', signInErr);

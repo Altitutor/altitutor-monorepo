@@ -1,0 +1,1 @@
+export type { Tables } from '@altitutor/shared';

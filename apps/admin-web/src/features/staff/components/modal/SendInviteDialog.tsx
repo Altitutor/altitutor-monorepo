@@ -12,6 +12,7 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { invitesApi } from '@/features/auth/api/invites';
+import { getInviteUrlForStaff } from '@/shared/utils/invites';
 import type { Tables } from '@altitutor/shared';
 
 interface SendInviteDialogProps {
@@ -54,9 +55,8 @@ export function SendInviteDialog({
       });
       setToken(result.token);
       
-      // Build the invite URL
-      const baseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3000';
-      const url = `${baseUrl}/invite/${result.token}`;
+      // Build the invite URL based on staff role
+      const url = getInviteUrlForStaff(result.token, staffMember.role);
       setInviteUrl(url);
     } catch (error) {
       console.error('Failed to generate token:', error);

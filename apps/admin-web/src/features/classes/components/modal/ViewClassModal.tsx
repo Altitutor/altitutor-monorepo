@@ -6,6 +6,7 @@ import { classesApi } from "../../api";
 import { subjectsApi } from '@/features/subjects/api';
 import { studentsApi } from '@/features/students/api';
 import { staffApi } from "@/features/staff/api";
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
@@ -39,6 +40,7 @@ export function ViewClassModal({
   const [activeTab, setActiveTab] = useState('info');
   
   const { toast } = useToast();
+  const { data: currentStaff } = useCurrentStaff();
 
   // Fetch class data using the optimized method
   useEffect(() => {
@@ -151,11 +153,11 @@ export function ViewClassModal({
   };
 
   // Handle student enrollment
-  const handleEnrollStudent = async (studentId: string) => {
-    if (!classData) return;
+  const handleEnrollStudent = async (studentId: string, enrolledAt: Date) => {
+    if (!classData || !currentStaff) return;
     
     try {
-      await classesApi.enrollStudent(classData.id, studentId);
+      await classesApi.enrollStudent(classData.id, studentId, enrolledAt, currentStaff.id);
       await refreshClassStudents(); // Reload class with updated students
       toast({
         title: 'Success',
@@ -172,11 +174,11 @@ export function ViewClassModal({
   };
 
   // Handle student removal
-  const handleRemoveStudent = async (studentId: string) => {
-    if (!classData) return;
+  const handleRemoveStudent = async (studentId: string, unenrolledAt?: Date) => {
+    if (!classData || !currentStaff) return;
     
     try {
-      await classesApi.unenrollStudent(classData.id, studentId);
+      await classesApi.unenrollStudent(classData.id, studentId, currentStaff.id, unenrolledAt);
       await refreshClassStudents(); // Reload class with updated students
       toast({
         title: 'Success',

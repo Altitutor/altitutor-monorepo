@@ -83,55 +83,6 @@ export function useStaffSubjects(staffId: string) {
 }
 
 // Mutations
-export function useCreateStaff() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ data, password }: { data: TablesInsert<'staff'>; password: string }) => {
-      // Convert data to the expected format for createStaff
-      const staffData: TablesInsert<'staff'> = {
-        id: data.id,
-        first_name: data.first_name || '',
-        last_name: data.last_name || '',
-        email: data.email || '',
-        role: data.role || 'TUTOR',
-        status: data.status || 'TRIAL',
-        phone_number: data.phone_number || null,
-        office_key_number: data.office_key_number || null,
-        has_parking_remote: data.has_parking_remote || null,
-        availability_monday: data.availability_monday || false,
-        availability_tuesday: data.availability_tuesday || false,
-        availability_wednesday: data.availability_wednesday || false,
-        availability_thursday: data.availability_thursday || false,
-        availability_friday: data.availability_friday || false,
-        availability_saturday_am: data.availability_saturday_am || false,
-        availability_saturday_pm: data.availability_saturday_pm || false,
-        availability_sunday_am: data.availability_sunday_am || false,
-        availability_sunday_pm: data.availability_sunday_pm || false,
-        notes: data.notes || null,
-        user_id: data.user_id || null,
-        created_at: data.created_at || null,
-        updated_at: data.updated_at || null,
-      };
-      return staffApi.createStaff(staffData, password);
-    },
-    onSuccess: (result) => {
-      // Invalidate and refetch staff lists
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
-      
-      // Optimistically add the new staff member to the cache
-      queryClient.setQueryData(staffKeys.withSubjects(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          staff: [...(old.staff || []), result.staff],
-          staffSubjects: { ...old.staffSubjects, [result.staff.id]: [] },
-        };
-      });
-    },
-  });
-}
-
 export function useInviteStaff() {
   const queryClient = useQueryClient();
 

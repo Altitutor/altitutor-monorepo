@@ -343,17 +343,21 @@ export const studentsApi = {
       
       if (studentSubjectsError) throw studentSubjectsError;
       
-      // Get all student-class enrollments with class and subject details
+      // Get all student-class enrollments with class and subject details (current and future)
       const { data: enrollmentsData, error: enrollmentsError } = await supabase
         .from('classes_students')
         .select(`
           student_id,
+          enrolled_at,
+          enrolled_by,
+          unenrolled_at,
+          unenrolled_by,
           class:classes(
             *,
             subject_details:subjects(*)
           )
         `)
-        .eq('status', 'ACTIVE');
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
       
       if (enrollmentsError) throw enrollmentsError;
       
@@ -437,11 +441,11 @@ export const studentsApi = {
       if (sid && subj) studentSubjects[sid].push(subj);
     });
 
-    // Classes mapping (active enrollments) with subject information for these students
+    // Classes mapping (current and future enrollments) with subject information for these students
     const { data: csData, error: csError } = await supabase
       .from('classes_students')
-      .select('student_id, class:classes(*, subject_details:subjects(*))')
-      .eq('status', 'ACTIVE')
+      .select('student_id, enrolled_at, enrolled_by, unenrolled_at, unenrolled_by, class:classes(*, subject_details:subjects(*))')
+      .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`)
       .in('student_id', studentIds);
     if (csError) throw csError;
     csData?.forEach((row: any) => {
