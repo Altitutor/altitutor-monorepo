@@ -99,23 +99,19 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Create a verification PaymentIntent for $0.50 AUD
-    // This will be refunded automatically by the webhook when it succeeds
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: 50, // $0.50 in cents
-      currency: 'aud',
+    // Create a SetupIntent for card verification (no charge)
+    // This is Stripe's recommended way to save payment methods
+    const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
-      setup_future_usage: 'off_session',
-      description: 'Card verification - will be refunded',
+      payment_method_types: ['card'],
       metadata: {
-        type: 'verification',
         student_id: studentId,
       },
     });
 
     return json({
-      client_secret: paymentIntent.client_secret,
-      payment_intent_id: paymentIntent.id,
+      client_secret: setupIntent.client_secret,
+      setup_intent_id: setupIntent.id,
     });
   } catch (e: any) {
     console.error('[card-setup] error', e?.message || e);

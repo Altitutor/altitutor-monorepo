@@ -33,6 +33,108 @@ Deno.serve(async (req: Request) => {
 
   try {
     switch (event.type) {
+      case 'setup_intent.succeeded': {
+        const si = event.data.object as any;
+        const paymentMethodId = si.payment_method as string;
+        const customerId = si.customer as string;
+        const studentId = si.metadata?.student_id;
+
+        if (!paymentMethodId || !customerId) {
+          console.error('[webhook] missing payment_method or customer in setup_intent');
+          return json({ received: true });
+        }
+
+        try {
+          // Retrieve payment method details from Stripe
+          const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+          const card = (pm as any)?.card || {};
+
+          // Check if student already has payment methods
+          const { data: existingMethods } = await supabase
+            .from('student_payment_methods')
+            .select('id')
+            .eq('student_id', studentId);
+
+          const isFirstPaymentMethod = !existingMethods || existingMethods.length === 0;
+
+          // Insert the new payment method
+          const { error: insertErr } = await supabase
+            .from('student_payment_methods')
+            .insert({
+              student_id: studentId,
+              stripe_payment_method_id: paymentMethodId,
+              is_default: isFirstPaymentMethod, // Set as default if it's the first one
+              card_brand: card.brand || 'unknown',
+              card_last4: card.last4 || '0000',
+              card_exp_month: card.exp_month || 1,
+              card_exp_year: card.exp_year || new Date().getFullYear() + 5,
+              card_country: card.country || null,
+            });
+
+          if (insertErr) {
+            console.error('[webhook] student_payment_methods insert error', insertErr);
+          } else {
+            console.log('[webhook] payment method saved successfully');
+          }
+        } catch (e: any) {
+          console.error('[webhook] setup_intent handler error', e?.message || e);
+        }
+
+        return json({ received: true });
+      }
+
+      case 'payment_method.detached': {
+        const pm = event.data.object as any;
+        const paymentMethodId = pm.id as string;
+
+        if (!paymentMethodId) {
+          console.error('[webhook] missing payment_method id in payment_method.detached');
+          return json({ received: true });
+        }
+
+        try {
+          // Get the payment method to check if it was default
+          const { data: paymentMethod } = await supabase
+            .from('student_payment_methods')
+            .select('student_id, is_default')
+            .eq('stripe_payment_method_id', paymentMethodId)
+            .maybeSingle();
+
+          // Delete the payment method
+          const { error: deleteErr } = await supabase
+            .from('student_payment_methods')
+            .delete()
+            .eq('stripe_payment_method_id', paymentMethodId);
+
+          if (deleteErr) {
+            console.error('[webhook] student_payment_methods delete error', deleteErr);
+            return json({ received: true });
+          }
+
+          // If this was the default, promote another payment method to default
+          if (paymentMethod?.is_default && paymentMethod?.student_id) {
+            const { data: otherMethods } = await supabase
+              .from('student_payment_methods')
+              .select('id')
+              .eq('student_id', paymentMethod.student_id)
+              .limit(1);
+
+            if (otherMethods && otherMethods.length > 0) {
+              await supabase
+                .from('student_payment_methods')
+                .update({ is_default: true })
+                .eq('id', otherMethods[0].id);
+            }
+          }
+
+          console.log('[webhook] payment method detached successfully');
+        } catch (e: any) {
+          console.error('[webhook] payment_method.detached handler error', e?.message || e);
+        }
+
+        return json({ received: true });
+      }
+
       case 'payment_intent.succeeded': {
         const pi = event.data.object as any;
         const metadata = pi.metadata || {};
@@ -50,35 +152,14 @@ Deno.serve(async (req: Request) => {
           receipt_url = charge.receipt_url || null;
         }
 
-        // Verification microcharge: refund and mark verified
+        // Legacy verification microcharge handling (deprecated - now using SetupIntent)
+        // Kept for backward compatibility with old payment intents
         if (metadata?.type === 'verification') {
+          console.warn('[webhook] Received legacy verification payment_intent - SetupIntent should be used instead');
           try {
             await stripe.refunds.create({ payment_intent: pi.id, reason: 'requested_by_customer' });
           } catch (e) {
             console.warn('[webhook] refund verification failed (non-fatal)', e?.message || e);
-          }
-
-          // Save default payment method and card meta
-          const paymentMethodId = pi.payment_method as string | undefined;
-          if (paymentMethodId) {
-            try {
-              const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
-              const card = (pm as any)?.card || {};
-              const updates: any = {
-                default_payment_method_id: paymentMethodId,
-                card_brand: card.brand || null,
-                card_last4: card.last4 || null,
-                card_country: card.country || null,
-                verified_at: new Date().toISOString(),
-              };
-              const { error: upErr } = await supabase
-                .from('students_billing')
-                .update(updates)
-                .eq('stripe_customer_id', pi.customer);
-              if (upErr) console.error('[webhook] students_billing update error', upErr);
-            } catch (e) {
-              console.error('[webhook] fetch PM failed', e?.message || e);
-            }
           }
           return json({ received: true });
         }
