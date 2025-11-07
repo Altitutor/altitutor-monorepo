@@ -44,7 +44,7 @@ export function ClassCard({
   const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
   const staffNames = staff.map(s => `${s.first_name} ${s.last_name}`).join(', ');
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasEnrollmentContext = enrollment && (onChangeClass || onUnenroll);
+  const hasMenuActions = onChangeClass || onUnenroll;
   
   // Get discipline color for the card
   const disciplineColor = subject?.discipline
@@ -56,7 +56,7 @@ export function ClassCard({
 
   return (
     <div
-      className={`relative p-3 border-2 rounded-lg transition-colors ${borderColorClass} ${
+      className={`relative p-3 border rounded-lg transition-colors ${borderColorClass} ${
         isSelecting
           ? isSelected
             ? 'bg-primary/5 border-primary'
@@ -93,7 +93,7 @@ export function ClassCard({
               )}
             </div>
             
-            {hasEnrollmentContext && (
+            {hasMenuActions && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
@@ -129,31 +129,34 @@ export function ClassCard({
           
           {/* Staff */}
           {staff.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-2">
-              <span className="font-medium">Tutor:</span> {staffNames}
-            </p>
+            <div className="mt-2">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Tutor:</p>
+              <div className="flex flex-wrap gap-1">
+                {staff.map((staffMember) => (
+                  <span
+                    key={staffMember.id}
+                    className="text-xs px-2 py-0.5 bg-muted rounded"
+                  >
+                    {staffMember.first_name} {staffMember.last_name}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
           
           {/* Students */}
           {students.length > 0 && (
             <div className="mt-2">
-              <p className="text-xs font-medium text-muted-foreground mb-1">
-                Students: {students.length}
-              </p>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Students:</p>
               <div className="flex flex-wrap gap-1">
-                {students.slice(0, 5).map((student) => (
+                {students.map((student) => (
                   <span
                     key={student.id}
                     className="text-xs px-2 py-0.5 bg-muted rounded"
                   >
-                    {student.first_name} {student.last_name.charAt(0)}.
+                    {student.first_name} {student.last_name}
                   </span>
                 ))}
-                {students.length > 5 && (
-                  <span className="text-xs px-2 py-0.5 bg-muted rounded">
-                    +{students.length - 5} more
-                  </span>
-                )}
               </div>
             </div>
           )}

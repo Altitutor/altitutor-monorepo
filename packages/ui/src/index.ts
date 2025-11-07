@@ -30,3 +30,4 @@ export * from './components/tabs';
 export * from './components/textarea';
 export * from './components/tooltip';
 export * from './components/use-toast';
+export * from './lib/enum-colors';

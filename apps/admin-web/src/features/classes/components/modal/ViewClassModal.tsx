@@ -152,46 +152,10 @@ export function ViewClassModal({
     }
   };
 
-  // Handle student enrollment
-  const handleEnrollStudent = async (studentId: string, enrolledAt: Date) => {
-    if (!classData || !currentStaff) return;
-    
-    try {
-      await classesApi.enrollStudent(classData.id, studentId, enrolledAt, currentStaff.id);
-      await refreshClassStudents(); // Reload class with updated students
-      toast({
-        title: 'Success',
-        description: 'Student enrolled successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to enroll student:', err);
-      toast({
-        title: 'Enrollment failed',
-        description: 'There was an error enrolling the student. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Handle student removal
-  const handleRemoveStudent = async (studentId: string, unenrolledAt?: Date) => {
-    if (!classData || !currentStaff) return;
-    
-    try {
-      await classesApi.unenrollStudent(classData.id, studentId, currentStaff.id, unenrolledAt);
-      await refreshClassStudents(); // Reload class with updated students
-      toast({
-        title: 'Success',
-        description: 'Student removed successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to remove student:', err);
-      toast({
-        title: 'Removal failed',
-        description: 'There was an error removing the student. Please try again.',
-        variant: 'destructive',
-      });
-    }
+  // Refresh students data after enrollment changes
+  const handleStudentsUpdated = async () => {
+    await refreshClassStudents();
+    onClassUpdated(); // Notify parent of changes
   };
 
   // Handle staff assignment
@@ -311,11 +275,12 @@ export function ViewClassModal({
             <TabsContent value="students" className="mt-4">
               <ClassStudentsTab
                 classData={classData}
+                classSubject={subject || undefined}
+                classStaff={classStaff}
                 classStudents={classStudents}
                 allStudents={allStudents}
                 loadingStudents={loadingStudents}
-                onEnrollStudent={handleEnrollStudent}
-                onRemoveStudent={handleRemoveStudent}
+                onStudentsUpdated={handleStudentsUpdated}
               />
             </TabsContent>
             

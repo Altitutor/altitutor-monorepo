@@ -1,348 +1,285 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@altitutor/ui";
-import { Label } from "@altitutor/ui";
-import { Loader2, Users, Plus, X, Search, Calendar } from "lucide-react";
-import { cn } from "@/shared/utils";
+import { Loader2, Users, Plus } from "lucide-react";
 import { ViewStudentModal } from '@/features/students';
+import { StudentCard } from '@/shared/components/StudentCard';
+import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/shared/components/modals';
+import { classesApi } from '@/shared/api';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useToast } from "@altitutor/ui";
 
 interface ClassStudentsTabProps {
   classData: Tables<'classes'>;
+  classSubject?: Tables<'subjects'>;
+  classStaff: Tables<'staff'>[];
   classStudents: Tables<'students'>[];
   allStudents: Tables<'students'>[];
   loadingStudents: boolean;
   onViewStudent?: (studentId: string) => void;
-  onEnrollStudent: (studentId: string, enrolledAt: Date) => void;
-  onRemoveStudent: (studentId: string, unenrolledAt?: Date) => void;
+  onStudentsUpdated?: () => void;
 }
 
 export function ClassStudentsTab({
   classData,
+  classSubject,
+  classStaff,
   classStudents,
   allStudents,
   loadingStudents,
   onViewStudent,
-  onEnrollStudent,
-  onRemoveStudent
+  onStudentsUpdated
 }: ClassStudentsTabProps) {
-  const [enrollingStudents, setEnrollingStudents] = useState<Set<string>>(new Set());
-  const [removingStudents, setRemovingStudents] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Enrollment date dialog
-  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
-  const [selectedStudentForEnroll, setSelectedStudentForEnroll] = useState<string | null>(null);
-  const [enrollmentDate, setEnrollmentDate] = useState<string>('');
+  const { toast } = useToast();
+  const { data: currentStaff } = useCurrentStaff();
+  const [studentSubjects, setStudentSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for student viewing
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   
-  // Helper to set midnight Adelaide time for a date
-  const getMidnightAdelaide = (dateString?: string): string => {
-    const date = dateString ? new Date(dateString) : new Date();
-    // Format as YYYY-MM-DD for date input
-    return date.toISOString().split('T')[0];
-  };
+  // Modal states for enrollment workflows
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
+  const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
+  
+  // Fetch student subjects
+  useEffect(() => {
+    const fetchStudentSubjects = async () => {
+      if (classStudents.length === 0) return;
+      
+      try {
+        const { studentSubjects: subjectsData } = await import('@/features/students/api').then(m => 
+          m.studentsApi.getDetailsForStudentIds(classStudents.map(s => s.id))
+        );
+        setStudentSubjects(subjectsData);
+      } catch (err) {
+        console.error('Error fetching student subjects:', err);
+      }
+    };
+    
+    fetchStudentSubjects();
+  }, [classStudents]);
 
+  // Modal handlers
   const handleViewStudent = (studentId: string) => {
     setSelectedStudentId(studentId);
     setIsStudentModalOpen(true);
   };
 
-  const openEnrollDialog = (studentId: string) => {
-    setSelectedStudentForEnroll(studentId);
-    setEnrollmentDate(getMidnightAdelaide());
-    setEnrollDialogOpen(true);
-    setIsAddPopoverOpen(false);
+  const openEnrollModal = () => {
+    setIsEnrollModalOpen(true);
   };
-  
-  const handleEnrollStudent = async () => {
-    if (!selectedStudentForEnroll) return;
-    
-    setEnrollingStudents(prev => new Set(prev).add(selectedStudentForEnroll));
-    setEnrollDialogOpen(false);
-    
-    try {
-      // Convert date string to Date object at midnight Adelaide time
-      const enrollDate = new Date(enrollmentDate + 'T00:00:00');
-      await onEnrollStudent(selectedStudentForEnroll, enrollDate);
-    } finally {
-      setEnrollingStudents(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(selectedStudentForEnroll);
-        return newSet;
-      });
-      setSelectedStudentForEnroll(null);
+
+  const openChangeClassModal = (studentId: string) => {
+    const student = classStudents.find(s => s.id === studentId);
+    if (student) {
+      setSelectedStudent(student);
+      setIsChangeClassModalOpen(true);
     }
   };
 
-  const handleRemoveStudent = async (studentId: string) => {
-    setRemovingStudents(prev => new Set(prev).add(studentId));
-    
-    try {
-      await onRemoveStudent(studentId);
-    } finally {
-      setRemovingStudents(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(studentId);
-        return newSet;
-      });
+  const openUnenrollModal = (studentId: string) => {
+    const student = classStudents.find(s => s.id === studentId);
+    if (student) {
+      setSelectedStudent(student);
+      setIsUnenrollModalOpen(true);
     }
   };
 
-  const availableStudents = allStudents.filter(student => 
-    !classStudents.some(classStudent => classStudent.id === student.id)
-  );
+  // Handle enrollment
+  const handleEnroll = async (params: {
+    studentId: string;
+    classId: string;
+    enrolledAt: Date;
+    staffId: string;
+  }) => {
+    try {
+      await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
+      onStudentsUpdated?.();
+      toast({
+        title: 'Success',
+        description: 'Student enrolled successfully.',
+      });
+    } catch (err) {
+      console.error('Failed to enroll student:', err);
+      toast({
+        title: 'Enrollment failed',
+        description: 'There was an error enrolling the student. Please try again.',
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  };
 
-  const filteredAvailableStudents = availableStudents.filter(student => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      student.first_name.toLowerCase().includes(query) ||
-      student.last_name.toLowerCase().includes(query) ||
-      (student.email && student.email.toLowerCase().includes(query))
-    );
-  });
+  // Handle change class
+  const handleChangeClass = async (params: {
+    studentId: string;
+    oldClassId: string;
+    newClassId: string;
+    changeoverDate: Date;
+    staffId: string;
+  }) => {
+    try {
+      await classesApi.changeClass(params);
+      onStudentsUpdated?.();
+      toast({
+        title: 'Success',
+        description: 'Student moved to new class successfully.',
+      });
+    } catch (err) {
+      console.error('Failed to change class:', err);
+      toast({
+        title: 'Change failed',
+        description: 'There was an error changing the class. Please try again.',
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  };
+
+  // Handle unenrollment
+  const handleUnenroll = async (params: {
+    studentId: string;
+    classId: string;
+    unenrolledAt: Date;
+    reason: string;
+    staffId: string;
+  }) => {
+    try {
+      await classesApi.unenrollStudentWithReason(params);
+      onStudentsUpdated?.();
+      toast({
+        title: 'Success',
+        description: 'Student unenrolled successfully.',
+      });
+    } catch (err) {
+      console.error('Failed to unenroll student:', err);
+      toast({
+        title: 'Unenrollment failed',
+        description: 'There was an error unenrolling the student. Please try again.',
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  };
+
+  // Fetch all students for enrollment modal
+  const fetchStudentsForEnrollment = async () => {
+    return allStudents;
+  };
+
+  // Fetch all classes for change class modal
+  const fetchClassesForChange = async () => {
+    const { classes, classSubjects: allClassSubjects, classStaff: allClassStaff, classStudents: allClassStudents } = await classesApi.getAllClassesWithDetails();
+    return classes.map(c => ({
+      ...c,
+      subject: allClassSubjects[c.id],
+      staff: allClassStaff[c.id] || [],
+      students: allClassStudents[c.id] || []
+    }));
+  };
+
+  if (!currentStaff) {
+    return null;
+  }
 
   return (
-    <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
-      <div className="flex items-center gap-2">
-        <h3 className="text-base font-medium">Students ({classStudents.length})</h3>
-        
-        {/* Show currently enrolling students */}
-        {enrollingStudents.size > 0 && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Adding {enrollingStudents.size} student{enrollingStudents.size > 1 ? 's' : ''}...</span>
+    <>
+      <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-medium">Students ({classStudents.length})</h3>
+          
+          <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2" onClick={openEnrollModal}>
+            <Plus className="h-4 w-4" />
+            <span>Add Student</span>
+          </Button>
+        </div>
+      
+        {loadingStudents ? (
+          <div className="flex-1 flex justify-center items-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        )}
-        
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Student</span>
+        ) : classStudents.length === 0 ? (
+          <div className="flex-1 flex flex-col justify-center items-center">
+            <Users className="h-12 w-12 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground mb-4">No students enrolled</p>
+            <Button variant="outline" onClick={openEnrollModal}>
+              <Plus className="h-4 w-4 mr-2" />
+              Enroll a student
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[300px]" align="end">
-            <div className="p-3">
-              <Input
-                placeholder="Search students..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-3"
-              />
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1">
-                  {filteredAvailableStudents.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No students match your search' : 'No available students found'}
-                    </div>
-                  ) : (
-                    filteredAvailableStudents.map(student => (
-                      <Button
-                        key={student.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => openEnrollDialog(student.id)}
-                        disabled={enrollingStudents.has(student.id)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">{student.first_name} {student.last_name}</div>
-                            {student.email && (
-                              <div className="text-xs text-muted-foreground">{student.email}</div>
-                            )}
-                          </div>
-                          {enrollingStudents.has(student.id) && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
-      
-      {loadingStudents ? (
-        <div className="flex-1 flex justify-center items-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : classStudents.length === 0 && enrollingStudents.size === 0 ? (
-        <div className="flex-1 flex flex-col justify-center items-center">
-          <Users className="h-12 w-12 text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground mb-4">No students enrolled</p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Enroll a student
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]" align="center">
-              <div className="p-3">
-                <Input
-                  placeholder="Search students..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
-                    {filteredAvailableStudents.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        No students found
-                      </div>
-                    ) : (
-                      filteredAvailableStudents.map(student => (
-                        <Button
-                          key={student.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => openEnrollDialog(student.id)}
-                          disabled={enrollingStudents.has(student.id)}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col items-start">
-                      <div className="font-medium">{student.first_name} {student.last_name}</div>
-                            {student.email && (
-                              <div className="text-xs text-muted-foreground">{student.email}</div>
-                            )}
-                            </div>
-                            {enrollingStudents.has(student.id) && (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      ) : (
-        <ScrollArea className="flex-1">
-          <div className="space-y-2">
-            {/* Show currently enrolling students at the top */}
-            {Array.from(enrollingStudents).map(studentId => {
-              const student = allStudents.find(s => s.id === studentId);
-              if (!student) return null;
-              
-              return (
-                <div 
-                  key={`enrolling-${student.id}`}
-                  className="flex items-center justify-between p-3 rounded-md border border-dashed bg-muted/50"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium text-muted-foreground">
-                      {student.first_name} {student.last_name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Enrolling...</div>
-                  </div>
-                  
-                  <div className="flex space-x-1">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                </div>
-              );
-            })}
-            
-            {/* Show enrolled students */}
-            {classStudents
-              .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
-              .map((student) => (
-              <div 
-                key={student.id} 
-                className={cn(
-                  "flex items-center justify-between p-3 rounded-md border",
-                  removingStudents.has(student.id) && "opacity-50"
-                )}
-              >
-                <div className="flex-1">
-                  <div className="font-medium">
-                    {student.first_name} {student.last_name}
-                  </div>
-                  {student.email && (
-                    <div className="text-xs text-muted-foreground">{student.email}</div>
-                  )}
-                </div>
-                
-                <div className="flex space-x-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleViewStudent(student.id)}
-                    title="View Student"
-                    disabled={removingStudents.has(student.id)}
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleRemoveStudent(student.id)}
-                    title="Remove Student"
-                    disabled={removingStudents.has(student.id)}
-                  >
-                    {removingStudents.has(student.id) ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <X className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ))}
           </div>
-        </ScrollArea>
-      )}
-      
-      {/* Enrollment Date Dialog */}
-      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enroll Student</DialogTitle>
-            <DialogDescription>
-              Set the enrollment start date. The student will be added to all sessions from this date forward.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
+        ) : (
+          <ScrollArea className="flex-1">
             <div className="space-y-2">
-              <Label htmlFor="enrollment-date">Enrollment Start Date</Label>
-              <Input
-                id="enrollment-date"
-                type="date"
-                value={enrollmentDate}
-                onChange={(e) => setEnrollmentDate(e.target.value)}
-                min={getMidnightAdelaide()}
-              />
-              <p className="text-sm text-muted-foreground">
-                Student will be enrolled in all future sessions starting from this date.
-              </p>
+              {/* Show enrolled students */}
+              {classStudents
+                .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
+                .map((student) => (
+                  <StudentCard
+                    key={student.id}
+                    student={student}
+                    subjects={studentSubjects[student.id] || []}
+                    onClick={() => handleViewStudent(student.id)}
+                    onChangeClass={() => openChangeClassModal(student.id)}
+                    onUnenroll={() => openUnenrollModal(student.id)}
+                  />
+                ))}
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEnrollDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEnrollStudent}>
-              Enroll Student
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ScrollArea>
+        )}
+      </div>
+
+      {/* Enrollment Modals */}
+      <EnrollStudentModal
+        isOpen={isEnrollModalOpen}
+        onClose={() => setIsEnrollModalOpen(false)}
+        context="class"
+        class={classData}
+        classSubject={classSubject}
+        classStaff={classStaff}
+        enrolledStudentIds={classStudents.map(s => s.id)}
+        onFetchStudents={fetchStudentsForEnrollment}
+        onEnroll={handleEnroll}
+        currentStaffId={currentStaff.id}
+      />
+
+      {selectedStudent && (
+        <ChangeClassModal
+          isOpen={isChangeClassModalOpen}
+          onClose={() => {
+            setIsChangeClassModalOpen(false);
+            setSelectedStudent(null);
+          }}
+          student={selectedStudent}
+          studentSubjects={studentSubjects[selectedStudent.id] || []}
+          oldClass={classData}
+          oldClassSubject={classSubject}
+          oldClassStaff={classStaff}
+          onFetchClasses={fetchClassesForChange}
+          onChange={handleChangeClass}
+          currentStaffId={currentStaff.id}
+        />
+      )}
+
+      {selectedStudent && (
+        <UnenrollStudentModal
+          isOpen={isUnenrollModalOpen}
+          onClose={() => {
+            setIsUnenrollModalOpen(false);
+            setSelectedStudent(null);
+          }}
+          student={selectedStudent}
+          studentSubjects={studentSubjects[selectedStudent.id] || []}
+          class={classData}
+          classSubject={classSubject}
+          classStaff={classStaff}
+          onUnenroll={handleUnenroll}
+          currentStaffId={currentStaff.id}
+        />
+      )}
       
       {/* Student Modal */}
       {selectedStudentId && (
@@ -356,9 +293,10 @@ export function ClassStudentsTab({
           onStudentUpdated={() => {
             // Refresh would be handled by parent component
             // since we don't have direct access to refresh function here
+            onStudentsUpdated?.();
           }}
         />
       )}
-    </div>
+    </>
   );
 } 

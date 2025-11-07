@@ -35,7 +35,7 @@ export function StudentCard({
   isSelected = false
 }: StudentCardProps) {
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasEnrollmentContext = enrollment && (onChangeClass || onUnenroll);
+  const hasMenuActions = onChangeClass || onUnenroll;
 
   return (
     <div
@@ -77,7 +77,7 @@ export function StudentCard({
             </div>
           </div>
           
-          {hasEnrollmentContext && (
+          {hasMenuActions && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 

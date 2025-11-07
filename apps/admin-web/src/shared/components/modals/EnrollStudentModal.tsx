@@ -1,19 +1,23 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
-import { Loader2, Search, ChevronLeft, ChevronRight, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { Checkbox } from '@altitutor/ui';
+import { Loader2, Search, ChevronLeft, ChevronRight, AlertTriangle, Calendar as CalendarIcon, Filter, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { StudentCard } from '../StudentCard';
 import { ClassCard } from '../ClassCard';
 import { calculateFirstSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
 import { getEnrollmentConflicts, getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { getDayOfWeek } from '@/shared/utils/datetime';
+import { formatSubjectDisplay } from '@/shared/utils';
 import { cn } from '@/shared/utils';
 
 type EnrollmentContext = 'class' | 'student';
@@ -99,30 +103,31 @@ export function EnrollStudentModal({
 
   // Reset state when modal opens/closes
   useEffect(() => {
-    if (isOpen) {
-      setStep(1);
-      setSelectedStudentId(null);
-      setSelectedClassId(null);
-      setEnrollmentDate(new Date().toISOString().split('T')[0]);
-      setSearchQuery('');
-      setConflicts({ sameSubjectWarning: null, timeOverlapWarnings: [] });
-      
-      // Set default filters based on context
-      if (context === 'class' && classSubject) {
-        if (classSubject.year_level) {
-          setYearLevelFilters([classSubject.year_level]);
-        }
-        setSubjectFilters([classSubject.id]);
-      } else if (context === 'student' && student) {
-        if (student.year_level) {
-          setYearLevelFilters([student.year_level]);
-        }
-        // For students, filter by subjects with no enrollment (will be handled in filtering logic)
-        const studentSubjectIds = studentSubjects.map(s => s.id);
-        setSubjectFilters(studentSubjectIds);
+    if (!isOpen) return;
+    
+    setStep(1);
+    setSelectedStudentId(null);
+    setSelectedClassId(null);
+    setEnrollmentDate(new Date().toISOString().split('T')[0]);
+    setSearchQuery('');
+    setConflicts({ sameSubjectWarning: null, timeOverlapWarnings: [] });
+    
+    // Set default filters based on context
+    if (context === 'class' && classSubject) {
+      if (classSubject.year_level) {
+        setYearLevelFilters([classSubject.year_level]);
       }
+      setSubjectFilters([classSubject.id]);
+    } else if (context === 'student' && student) {
+      if (student.year_level) {
+        setYearLevelFilters([student.year_level]);
+      }
+      // For students, filter by subjects with no enrollment (will be handled in filtering logic)
+      const studentSubjectIds = studentSubjects.map(s => s.id);
+      setSubjectFilters(studentSubjectIds);
     }
-  }, [isOpen, context, classSubject, student, studentSubjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Fetch data when modal opens
   useEffect(() => {
@@ -164,7 +169,7 @@ export function EnrollStudentModal({
       if (enrolledStudentIds.includes(s.id)) return false;
       
       // Year level filter
-      if (yearLevelFilters.length > 0 && !yearLevelFilters.includes(s.year_level)) {
+      if (yearLevelFilters.length > 0 && s.year_level && !yearLevelFilters.includes(s.year_level)) {
         return false;
       }
       
@@ -221,6 +226,75 @@ export function EnrollStudentModal({
     });
   }, [classes, enrolledClassIds, yearLevelFilters, subjectFilters, dayFilters, searchQuery, context]);
 
+  // Get available filter options
+  const availableYearLevels = useMemo(() => {
+    const levels = new Set<number>();
+    if (context === 'class') {
+      students.forEach(s => s.year_level && levels.add(s.year_level));
+    } else {
+      classes.forEach(c => c.subject?.year_level && levels.add(c.subject.year_level));
+    }
+    return Array.from(levels).sort((a, b) => a - b);
+  }, [students, classes, context]);
+
+  const availableSubjects = useMemo(() => {
+    const subjectMap = new Map<string, Tables<'subjects'>>();
+    if (context === 'class') {
+      students.forEach(s => {
+        s.subjects?.forEach(sub => {
+          if (!subjectMap.has(sub.id)) {
+            subjectMap.set(sub.id, sub);
+          }
+        });
+      });
+    } else {
+      classes.forEach(c => {
+        if (c.subject && !subjectMap.has(c.subject.id)) {
+          subjectMap.set(c.subject.id, c.subject);
+        }
+      });
+    }
+    return Array.from(subjectMap.values());
+  }, [students, classes, context]);
+
+  const availableDays = useMemo(() => {
+    if (context !== 'student') return [];
+    const days = new Set<number>();
+    classes.forEach(c => days.add(c.day_of_week));
+    return Array.from(days).sort((a, b) => a - b);
+  }, [classes, context]);
+
+  // Filter handlers
+  const toggleYearLevel = (level: number) => {
+    setYearLevelFilters(prev => 
+      prev.includes(level) 
+        ? prev.filter(l => l !== level)
+        : [...prev, level]
+    );
+  };
+
+  const toggleSubject = (subjectId: string) => {
+    setSubjectFilters(prev => 
+      prev.includes(subjectId) 
+        ? prev.filter(id => id !== subjectId)
+        : [...prev, subjectId]
+    );
+  };
+
+  const toggleDay = (day: number) => {
+    setDayFilters(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
+  };
+
+  const clearFilters = () => {
+    setYearLevelFilters([]);
+    setSubjectFilters([]);
+    setDayFilters([]);
+  };
+
   const handleNext = () => {
     if (step === 1 && (selectedStudentId || selectedClassId)) {
       setStep(2);
@@ -267,8 +341,11 @@ export function EnrollStudentModal({
     : classes.find(c => c.id === selectedClassId);
 
   // Calculate first session date
-  const firstSessionDate = selectedClass && enrollmentDate
-    ? calculateFirstSessionDate(selectedClass, getMidnightAdelaide(new Date(enrollmentDate)))
+  const firstSessionDate = selectedClass && enrollmentDate && selectedClass.day_of_week !== undefined && selectedClass.start_time
+    ? calculateFirstSessionDate(
+        { day_of_week: selectedClass.day_of_week, start_time: selectedClass.start_time },
+        getMidnightAdelaide(new Date(enrollmentDate))
+      )
     : null;
 
   return (
@@ -278,6 +355,11 @@ export function EnrollStudentModal({
           <DialogTitle>
             {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
           </DialogTitle>
+          <DialogDescription>
+            {context === 'class' 
+              ? 'Select a student to enroll in this class. They will be added to all future sessions.'
+              : 'Select a class to enroll the student in. They will be added to all future sessions.'}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Step 1: Select Student or Class */}
@@ -296,17 +378,104 @@ export function EnrollStudentModal({
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="text-xs">
-                Year Levels: {yearLevelFilters.length || 'All'}
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                Subjects: {subjectFilters.length || 'All'}
-              </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Filter className="h-3 w-3" />
+                <span>Filters:</span>
+              </div>
+              
+              {/* Year Level Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                    Year Level {yearLevelFilters.length > 0 && `(${yearLevelFilters.length})`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56" align="start">
+                  <div className="space-y-2">
+                    <div className="font-medium text-sm">Year Levels</div>
+                    <ScrollArea className="max-h-60">
+                      <div className="space-y-2">
+                        {availableYearLevels.map(level => (
+                          <label key={level} className="flex items-center space-x-2 cursor-pointer">
+                            <Checkbox
+                              checked={yearLevelFilters.includes(level)}
+                              onCheckedChange={() => toggleYearLevel(level)}
+                            />
+                            <span className="text-sm">Year {level}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Subject Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                    Subject {subjectFilters.length > 0 && `(${subjectFilters.length})`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64" align="start">
+                  <div className="space-y-2">
+                    <div className="font-medium text-sm">Subjects</div>
+                    <ScrollArea className="max-h-60">
+                      <div className="space-y-2">
+                        {availableSubjects.map(subject => (
+                          <label key={subject.id} className="flex items-center space-x-2 cursor-pointer">
+                            <Checkbox
+                              checked={subjectFilters.includes(subject.id)}
+                              onCheckedChange={() => toggleSubject(subject.id)}
+                            />
+                            <span className="text-sm">{formatSubjectDisplay(subject)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Day Filter (only for student context) */}
               {context === 'student' && (
-                <Badge variant="outline" className="text-xs">
-                  Days: {dayFilters.length || 'All'}
-                </Badge>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs">
+                      Day {dayFilters.length > 0 && `(${dayFilters.length})`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56" align="start">
+                    <div className="space-y-2">
+                      <div className="font-medium text-sm">Days</div>
+                      <div className="space-y-2">
+                        {availableDays.map(day => (
+                          <label key={day} className="flex items-center space-x-2 cursor-pointer">
+                            <Checkbox
+                              checked={dayFilters.includes(day)}
+                              onCheckedChange={() => toggleDay(day)}
+                            />
+                            <span className="text-sm">{getDayOfWeek(day)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+              
+              {/* Clear Filters */}
+              {(yearLevelFilters.length > 0 || subjectFilters.length > 0 || dayFilters.length > 0) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 text-xs" 
+                  onClick={clearFilters}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
               )}
             </div>
 
@@ -326,7 +495,7 @@ export function EnrollStudentModal({
                       <StudentCard
                         key={s.id}
                         student={s}
-                        subjects={s.subjects}
+                        subjects={s.subjects || []}
                         isSelecting
                         isSelected={selectedStudentId === s.id}
                         onClick={() => setSelectedStudentId(s.id)}
@@ -347,7 +516,7 @@ export function EnrollStudentModal({
                         class={c}
                         subject={c.subject}
                         staff={c.staff || []}
-                        students={c.students}
+                        students={c.students || []}
                         isSelecting
                         isSelected={selectedClassId === c.id}
                         onClick={() => setSelectedClassId(c.id)}
@@ -391,8 +560,8 @@ export function EnrollStudentModal({
                 <div>
                   <Label className="text-xs text-muted-foreground">Student</Label>
                   <StudentCard
-                    student={selectedStudent}
-                    subjects={selectedStudent.subjects || studentSubjects}
+                    student={selectedStudent as Tables<'students'>}
+                    subjects={('subjects' in selectedStudent ? (selectedStudent as any).subjects : studentSubjects) || []}
                   />
                 </div>
               )}
@@ -401,10 +570,10 @@ export function EnrollStudentModal({
                 <div>
                   <Label className="text-xs text-muted-foreground">Class</Label>
                   <ClassCard
-                    class={selectedClass}
-                    subject={selectedClass.subject}
-                    staff={selectedClass.staff || classStaff}
-                    students={selectedClass.students}
+                    class={selectedClass as Tables<'classes'>}
+                    subject={('subject' in selectedClass ? (selectedClass as any).subject : classSubject) as any}
+                    staff={('staff' in selectedClass ? (selectedClass as any).staff : classStaff) || []}
+                    students={('students' in selectedClass ? (selectedClass as any).students : []) || []}
                   />
                 </div>
               )}

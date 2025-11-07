@@ -225,8 +225,6 @@ export const studentsApi = {
           last_name: data.last_name,
           email: data.email ?? undefined,
           phone: data.phone,
-          parent_first_name: (data as any).parent_first_name,
-          parent_last_name: (data as any).parent_last_name,
           status: data.status,
           curriculum: (data as any).curriculum,
           year_level: (data as any).year_level,

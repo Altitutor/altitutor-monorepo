@@ -527,6 +527,136 @@ export const classesApi = {
       throw error;
     }
   },
+
+  /**
+   * Change a student from one class to another atomically
+   * This unenrolls from the old class and enrolls in the new class in a single operation
+   */
+  changeClass: async (params: {
+    studentId: string;
+    oldClassId: string;
+    newClassId: string;
+    changeoverDate: Date;
+    staffId: string;
+  }): Promise<void> => {
+    try {
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      // Get the enrollment record with enrolled_at
+      const { data: oldEnrollment, error: fetchError } = await supabase
+        .from('classes_students')
+        .select('id, enrolled_at')
+        .eq('class_id', params.oldClassId)
+        .eq('student_id', params.studentId)
+        .is('unenrolled_at', null)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      if (!oldEnrollment) throw new Error('Old class enrollment not found');
+      
+      // Ensure unenrolled_at is strictly after enrolled_at to satisfy constraint
+      let unenrolledAt = new Date(params.changeoverDate);
+      const enrolledAt = new Date(oldEnrollment.enrolled_at);
+      if (unenrolledAt <= enrolledAt) {
+        // Add 1 second to ensure it's strictly after
+        unenrolledAt = new Date(enrolledAt.getTime() + 1000);
+      }
+      
+      // Unenroll from old class
+      const { error: unenrollError } = await supabase
+        .from('classes_students')
+        .update({ 
+          unenrolled_at: unenrolledAt.toISOString(),
+          unenrolled_by: params.staffId 
+        })
+        .eq('id', oldEnrollment.id);
+      
+      if (unenrollError) throw unenrollError;
+      
+      // Enroll in new class
+      const payload: TablesInsert<'classes_students'> = {
+        id: crypto.randomUUID(),
+        class_id: params.newClassId,
+        student_id: params.studentId,
+        enrolled_at: params.changeoverDate.toISOString(),
+        enrolled_by: params.staffId,
+      };
+      
+      const { error: enrollError } = await supabase
+        .from('classes_students')
+        .insert(payload);
+      
+      if (enrollError) throw enrollError;
+    } catch (error) {
+      console.error('Error changing class:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Unenroll a student from a class with a reason note
+   */
+  unenrollStudentWithReason: async (params: {
+    classId: string;
+    studentId: string;
+    unenrolledAt: Date;
+    reason: string;
+    staffId: string;
+  }): Promise<void> => {
+    try {
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      // Get the enrollment record with enrolled_at
+      const { data: enrollment, error: fetchError } = await supabase
+        .from('classes_students')
+        .select('id, enrolled_at')
+        .eq('class_id', params.classId)
+        .eq('student_id', params.studentId)
+        .is('unenrolled_at', null)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      if (!enrollment) throw new Error('Enrollment not found');
+      
+      // Ensure unenrolled_at is strictly after enrolled_at to satisfy constraint
+      let unenrolledAt = new Date(params.unenrolledAt);
+      const enrolledAt = new Date(enrollment.enrolled_at);
+      if (unenrolledAt <= enrolledAt) {
+        // Add 1 second to ensure it's strictly after
+        unenrolledAt = new Date(enrolledAt.getTime() + 1000);
+      }
+      
+      // Unenroll the student
+      const { error: unenrollError } = await supabase
+        .from('classes_students')
+        .update({ 
+          unenrolled_at: unenrolledAt.toISOString(),
+          unenrolled_by: params.staffId 
+        })
+        .eq('id', enrollment.id);
+      
+      if (unenrollError) throw unenrollError;
+      
+      // Create note with the reason
+      if (params.reason) {
+        const notePayload = {
+          target_type: 'classes_students',
+          target_id: enrollment.id,
+          note: params.reason,
+          created_by: params.staffId,
+        };
+        
+        const { error: noteError } = await supabase
+          .from('notes')
+          .insert(notePayload);
+        
+        if (noteError) throw noteError;
+      }
+    } catch (error) {
+      console.error('Error unenrolling student with reason:', error);
+      throw error;
+    }
+  },
   
   /**
    * Assign a staff member to a class
