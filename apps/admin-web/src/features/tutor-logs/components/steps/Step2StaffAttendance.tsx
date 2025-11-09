@@ -65,7 +65,7 @@ export function Step2StaffAttendance({
     };
 
     fetchSessionStaff();
-  }, [sessionId]);
+  }, [sessionId, currentStaffId, staffAttendance.length, onUpdate]);
 
   const handleAttendanceChange = (staffId: string, attended: boolean) => {
     const updated = staffAttendance.map((sa) =>

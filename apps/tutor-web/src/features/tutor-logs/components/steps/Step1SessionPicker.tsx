@@ -43,7 +43,7 @@ export function Step1SessionPicker({
         Select a session to log. Only past or current sessions are shown.
       </p>
       <div className="grid gap-3 max-h-[500px] overflow-y-auto">
-        {sessions.map((session) => {
+        {sessions.map((session: any) => {
           const isSelected = session.id === selectedSessionId;
           const startDate = session.start_at ? new Date(session.start_at) : null;
           const endDate = session.end_at ? new Date(session.end_at) : null;

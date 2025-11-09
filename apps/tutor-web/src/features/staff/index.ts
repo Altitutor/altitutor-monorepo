@@ -1,5 +1,5 @@
-// Components
-export * from './components';
+// Components - removed for tutors (they can't view/edit other staff)
+// export * from './components';
 
 // Hooks
 export * from './hooks';

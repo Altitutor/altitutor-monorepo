@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard, MessageSquarePlus } from 'lucide-react';
 import { Button } from '@altitutor/ui';
-import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle } from 'lucide-react';
@@ -101,7 +100,6 @@ const navItems: NavItem[] = [
 
 function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProps) {
   const pathname = usePathname();
-  const { user } = useAuthStore();
   
   return (
     <div 

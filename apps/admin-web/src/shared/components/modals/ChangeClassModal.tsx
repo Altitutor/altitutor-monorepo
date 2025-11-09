@@ -8,7 +8,7 @@ import { Label } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { Loader2, Search, ChevronLeft, ChevronRight, AlertTriangle, Calendar as CalendarIcon, ArrowRight } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { StudentCard } from '../StudentCard';
 import { ClassCard } from '../ClassCard';
 import { calculateFirstSessionDate, calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
@@ -26,11 +26,7 @@ interface ChangeClassModalProps {
   oldClassStaff?: Tables<'staff'>[];
   
   // Available classes to switch to
-  onFetchClasses: () => Promise<Array<Tables<'classes'> & { 
-    subject?: Tables<'subjects'>; 
-    staff?: Tables<'staff'>[];
-    students?: Tables<'students'>[];
-  }>>;
+  onFetchClasses: () => Promise<ClassWithExpandedSubject[]>;
   
   // Change class handler
   onChange: (params: {
@@ -66,11 +62,7 @@ export function ChangeClassModal({
   const [isChanging, setIsChanging] = useState(false);
   
   // Data state
-  const [classes, setClasses] = useState<Array<Tables<'classes'> & { 
-    subject?: Tables<'subjects'>; 
-    staff?: Tables<'staff'>[];
-    students?: Tables<'students'>[];
-  }>>([]);
+  const [classes, setClasses] = useState<ClassWithExpandedSubject[]>([]);
   
   // Conflicts
   const [timeOverlapWarning, setTimeOverlapWarning] = useState<string | null>(null);

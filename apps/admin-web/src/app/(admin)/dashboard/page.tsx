@@ -24,7 +24,7 @@ interface TodayClassesProps {
   onClassClick: (classId: string) => void;
 }
 
-function TodayClassesView({ classes, classSubjects, classStudents, classStaff, onClassClick }: TodayClassesProps) {
+function TodayClassesView({ classes, classSubjects, classStudents, onClassClick }: TodayClassesProps) {
   const today = new Date();
   const currentDayOfWeek = today.getDay();
   

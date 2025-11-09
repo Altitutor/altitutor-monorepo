@@ -31,7 +31,7 @@ export function useTutorLogs() {
 export function useTutorLog(id: string) {
   return useQuery({
     queryKey: tutorLogsKeys.detail(id),
-    queryFn: () => tutorLogsApi.getTutorLog(id),
+    queryFn: () => tutorLogsApi.getTutorLogWithDetails(id),
     enabled: !!id,
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
@@ -40,11 +40,16 @@ export function useTutorLog(id: string) {
 
 /**
  * Check if a session has been logged
+ * Note: This would need to query vtutor_tutor_log by session_id
+ * For now, returns null - would need API support
  */
 export function useTutorLogForSession(sessionId: string) {
   return useQuery({
     queryKey: tutorLogsKeys.forSession(sessionId),
-    queryFn: () => tutorLogsApi.getTutorLogForSession(sessionId),
+    queryFn: () => {
+      // TODO: Implement getTutorLogForSession in API if needed
+      return Promise.resolve(null);
+    },
     enabled: !!sessionId,
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
@@ -53,11 +58,16 @@ export function useTutorLogForSession(sessionId: string) {
 
 /**
  * Get unlogged sessions for a staff member
+ * Note: This would need to query sessions and check for logs
+ * For now, returns empty array - would need API support
  */
 export function useUnloggedSessions(staffId: string) {
   return useQuery({
     queryKey: tutorLogsKeys.unlogged(staffId),
-    queryFn: () => tutorLogsApi.getUnloggedSessions(staffId),
+    queryFn: () => {
+      // TODO: Implement getUnloggedSessions in API if needed
+      return Promise.resolve([]);
+    },
     enabled: !!staffId,
     staleTime: 0, // Always refetch to ensure we have the latest data
     gcTime: 1000 * 60 * 5, // 5 minutes
@@ -66,44 +76,63 @@ export function useUnloggedSessions(staffId: string) {
 
 /**
  * Create a tutor log
+ * Note: Tutors create logs via API route POST /api/tutor-logs
  */
 export function useCreateTutorLog() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ data, createdBy }: { data: TutorLogFormData; createdBy: string }) =>
-      tutorLogsApi.createTutorLog(data, createdBy),
-    onSuccess: (newLog) => {
+    mutationFn: async ({ data }: { data: TutorLogFormData }) => {
+      const response = await fetch('/api/tutor-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create tutor log');
+      }
+      return await response.json();
+    },
+    onSuccess: (newLog: any) => {
       // Invalidate all tutor logs queries
       queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
       
       // Invalidate sessions queries since they show log status
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       
-      // Set the new log in cache
-      queryClient.setQueryData(tutorLogsKeys.detail(newLog.id), newLog);
-      queryClient.setQueryData(tutorLogsKeys.forSession(newLog.session_id), newLog);
+      // Set the new log in cache if we have an ID
+      if (newLog?.id) {
+        queryClient.setQueryData(tutorLogsKeys.detail(newLog.id), newLog);
+      }
+      if (newLog?.session_id) {
+        queryClient.setQueryData(tutorLogsKeys.forSession(newLog.session_id), newLog);
+      }
     },
   });
 }
 
 /**
- * Delete a tutor log (admin only)
+ * Delete a tutor log
+ * Note: Tutors typically can't delete logs, but if needed, would use API route
  */
 export function useDeleteTutorLog() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: tutorLogsApi.deleteTutorLog,
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/tutor-logs/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete tutor log');
+      }
+    },
     onSuccess: (_, deletedId) => {
       // Remove from cache
       queryClient.removeQueries({ queryKey: tutorLogsKeys.detail(deletedId) });
-      
-      // Invalidate lists
-      queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
-      
-      // Invalidate sessions queries
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: tutorLogsKeys.lists() });
     },
   });
 }

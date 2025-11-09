@@ -6,7 +6,7 @@ import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, Users, Plus, X, Search, Check } from "lucide-react";
 import { cn } from "@/shared/utils";
-import { ViewStudentModal } from '@/features/students';
+// import { ViewStudentModal } from '@/features/students'; // TODO: Tutor-web doesn't have students feature
 
 interface ClassStudentsTabProps {
   classData: Tables<'classes'>;
@@ -283,8 +283,8 @@ export function ClassStudentsTab({
         </ScrollArea>
       )}
       
-      {/* Student Modal */}
-      {selectedStudentId && (
+      {/* Student Modal - TODO: Tutor-web doesn't have students feature */}
+      {/* {selectedStudentId && (
         <ViewStudentModal
           studentId={selectedStudentId}
           isOpen={isStudentModalOpen}
@@ -297,7 +297,7 @@ export function ClassStudentsTab({
             // since we don't have direct access to refresh function here
           }}
         />
-      )}
+      )} */}
     </div>
   );
 } 

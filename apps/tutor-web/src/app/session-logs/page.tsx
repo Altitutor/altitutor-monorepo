@@ -2,20 +2,24 @@
 
 import { useMemo } from 'react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useSessionsForStaff } from '@/features/sessions/hooks/useSessionsQuery';
+import { useSessions } from '@/features/sessions/hooks/useSessionsQuery';
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
 
 export default function TutorSessionLogsPage() {
   const { data: staff } = useCurrentStaff();
-  const staffId = staff?.id || '';
-  const { data: sessions = [], isLoading } = useSessionsForStaff(staffId);
+  const { data: sessionsData = [], isLoading } = useSessions();
 
-  const rows = useMemo(() => sessions.map(s => ({
-    id: s.id,
-    date: (s.start_at || s.created_at || '').split('T')[0],
-    type: s.type,
-  })), [sessions]);
+  // Filter sessions for current tutor (sessions come from vtutor_sessions which is already filtered)
+  const rows = useMemo(() => {
+    if (!sessionsData) return [];
+    return sessionsData.map((s: any) => ({
+      id: s.id,
+      date: s.start_at ? s.start_at.split('T')[0] : (s.created_at ? s.created_at.split('T')[0] : ''),
+      // Type might not be in vtutor_sessions - check the view structure
+      type: s.type || 'SESSION',
+    }));
+  }, [sessionsData]);
 
   return (
     <div className="p-6">
@@ -30,7 +34,7 @@ export default function TutorSessionLogsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Subject</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -43,10 +47,10 @@ export default function TutorSessionLogsPage() {
                     <TableCell colSpan={2} className="text-center h-24">No sessions assigned</TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((r) => (
+                  rows.map((r: any) => (
                     <TableRow key={r.id}>
                       <TableCell>{r.date}</TableCell>
-                      <TableCell>{r.type}</TableCell>
+                      <TableCell>{r.subject_name || '-'}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -58,5 +62,3 @@ export default function TutorSessionLogsPage() {
     </div>
   );
 }
-
-

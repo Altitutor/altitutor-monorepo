@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Button, Card } from '@altitutor/ui';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { usePrecreateSessions } from '../hooks/usePrecreateSessions';
-import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
+import { useSessions } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
@@ -16,7 +16,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const { mutate: precreate } = usePrecreateSessions();
-  const { data } = useSessionsWithDetails({ rangeStart: format(weekStart, 'yyyy-MM-dd'), rangeEnd: format(weekEnd, 'yyyy-MM-dd') });
+  const { data: sessions = [] } = useSessions();
 
   // Precreate a bit ahead/behind for smoothness
   const preStart = format(addDays(weekStart, -7), 'yyyy-MM-dd');
@@ -30,36 +30,34 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
   const slotHeight = 60; // px per hour
 
-  const getDaySessions = (d: Date): Tables<'sessions'>[] => {
-    const sessions = ((data?.sessions as Tables<'sessions'>[]) || [])
+  const getDaySessions = (d: Date): any[] => {
+    return (sessions as any[])
       .filter((s: any) => s.start_at && isSameDay(new Date(s.start_at), d));
-    return sessions as Tables<'sessions'>[];
   };
 
   const getDisplayLabel = (s: any): string => {
-    const cls: any = (data as any)?.classesById?.[s.class_id];
-    const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-    if (!cls || !subj) return s.type === 'CLASS' ? 'Class' : 'Meeting';
-    const parts: string[] = [];
-    if (subj.curriculum) parts.push(String(subj.curriculum));
-    if (subj.year_level != null) parts.push(String(subj.year_level));
-    if (subj.name) parts.push(subj.name);
-    if (cls.level) parts.push(String(cls.level));
-    return parts.join(' ');
+    // vtutor_sessions view has flattened subject fields
+    if (s.subject_name) {
+      const parts: string[] = [];
+      if (s.subject_curriculum) parts.push(String(s.subject_curriculum));
+      if (s.subject_year_level != null) parts.push(String(s.subject_year_level));
+      if (s.subject_name) parts.push(s.subject_name);
+      if (s.class_level) parts.push(String(s.class_level));
+      return parts.join(' ');
+    }
+    return s.type === 'CLASS' ? 'Class' : 'Meeting';
   };
 
   const getSessionColorClasses = (s: any): string => {
-    const cls: any = (data as any)?.classesById?.[s.class_id];
-    const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-    if (!subj) {
+    if (!s.subject_curriculum && !s.subject_discipline) {
       return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
     }
-    if (subj.discipline) {
-      const disciplineColor = getSubjectDisciplineColor(subj.discipline);
+    if (s.subject_discipline) {
+      const disciplineColor = getSubjectDisciplineColor(s.subject_discipline);
       return `${disciplineColor} border-2 dark:bg-opacity-80`;
     }
-    if (subj.curriculum) {
-      const curriculumColor = getSubjectCurriculumColor(subj.curriculum);
+    if (s.subject_curriculum) {
+      const curriculumColor = getSubjectCurriculumColor(s.subject_curriculum);
       return `${curriculumColor} border-2 dark:bg-opacity-80`;
     }
     return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';

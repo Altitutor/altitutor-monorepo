@@ -119,7 +119,6 @@ export async function POST(request: NextRequest) {
     // Send email using Supabase's email service
     // Note: For now, we'll use a simple approach. In production, you might want to use
     // a custom email template or a service like SendGrid/Resend
-    const emailSubject = `You're invited to join Altitutor`;
     const emailBody = `
       <h2>Hello ${record.first_name} ${record.last_name},</h2>
       <p>You've been invited to create your Altitutor account.</p>
@@ -134,12 +133,7 @@ export async function POST(request: NextRequest) {
     // This is a placeholder - you'll need to implement actual email sending
     
     // TODO: Implement proper email sending with a service like Resend or SendGrid
-    // For now, we'll just log and return success
-    console.log('Would send email to:', record.email);
-    console.log('Email body:', emailBody);
-    console.log('Invite URL:', inviteUrl);
-
-    // Since we don't have a real email service set up yet, we'll just return the URL
+    // For now, we'll just return success
     // In production, you would actually send the email here
     return NextResponse.json({ 
       success: true, 

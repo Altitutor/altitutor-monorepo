@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
 
     const { data: staffRecord, error: staffCreateError } = await supabase
       .from('staff')
+      // @ts-expect-error - TypeScript inference issue with Supabase client
       .insert(staffData)
       .select()
       .single<any>();

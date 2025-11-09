@@ -119,16 +119,13 @@ export async function getContactIdByRelatedId(relatedId: string, type: 'student'
     console.error('[getContactIdByRelatedId] Error:', error);
     throw error;
   }
-  console.log('[getContactIdByRelatedId]', type, relatedId, '-> contact ID:', data?.id);
   return data?.id || null;
 }
 
 // Helper to GET EXISTING conversation for student/staff/parent (does NOT create)
 export async function getExistingConversationForRelated(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
-  console.log('[getExistingConversationForRelated] Start:', type, relatedId);
   const contactId = await getContactIdByRelatedId(relatedId, type);
   if (!contactId) {
-    console.log('[getExistingConversationForRelated] No contact found for', type, relatedId);
     return null;
   }
   
@@ -147,7 +144,6 @@ export async function getExistingConversationForRelated(relatedId: string, type:
     // fallback to any owned number
     const { data: anyOwned } = await supabase.from('owned_numbers').select('id').limit(1).maybeSingle();
     if (!anyOwned?.id) {
-      console.log('[getExistingConversationForRelated] No owned numbers configured');
       return null;
     }
     const ownedId = anyOwned.id;
@@ -162,7 +158,6 @@ export async function getExistingConversationForRelated(relatedId: string, type:
       .limit(1)
       .maybeSingle();
     
-    console.log('[getExistingConversationForRelated] Result conversation ID:', existing?.id || null);
     return existing?.id || null;
   }
   
@@ -176,20 +171,16 @@ export async function getExistingConversationForRelated(relatedId: string, type:
     .limit(1)
     .maybeSingle();
   
-  console.log('[getExistingConversationForRelated] Result conversation ID:', existing?.id || null);
   return existing?.id || null;
 }
 
 // Helper to ensure conversation for student/staff/parent (CREATES if needed)
 export async function ensureConversationForRelated(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
-  console.log('[ensureConversationForRelated] Start:', type, relatedId);
   const contactId = await getContactIdByRelatedId(relatedId, type);
   if (!contactId) {
-    console.log('[ensureConversationForRelated] No contact found for', type, relatedId);
     return null;
   }
   const conversationId = await ensureConversationForContact(contactId);
-  console.log('[ensureConversationForRelated] Result conversation ID:', conversationId);
   return conversationId;
 }
 

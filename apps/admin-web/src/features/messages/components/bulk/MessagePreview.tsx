@@ -132,7 +132,7 @@ export function MessagePreview({
       : selectedRecipient.id;
 
     const student = students.find(s => s.id === studentId);
-    if (!student) return message;
+    if (!student || !studentId) return message;
 
     const classes = studentClasses[studentId] || [];
     return replaceVariables(message, student, classes);

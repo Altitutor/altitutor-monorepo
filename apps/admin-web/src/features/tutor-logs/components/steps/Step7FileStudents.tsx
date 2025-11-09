@@ -78,7 +78,7 @@ export function Step7FileStudents({
     };
 
     fetchData();
-  }, []);
+  }, [onUpdate, topicFiles, topics]);
 
   const handleRemoveStudent = (fileId: string, studentId: string) => {
     onUpdate(

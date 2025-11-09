@@ -58,7 +58,7 @@ export function Step5TopicStudents({
     };
 
     fetchData();
-  }, []);
+  }, [attendedStudentIds, onUpdate, topics]);
 
   const handleRemoveStudent = (topicId: string, studentId: string) => {
     onUpdate(

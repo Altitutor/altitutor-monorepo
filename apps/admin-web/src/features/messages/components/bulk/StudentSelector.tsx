@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Plus, Calendar as CalendarIcon } from 'lucide-react';
-import { Button, Badge, ScrollArea, Calendar, Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { X, Plus } from 'lucide-react';
+import { Button, ScrollArea } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { StudentCard } from '@/shared/components/StudentCard';
 import type { Tables } from '@altitutor/shared';
@@ -196,22 +196,12 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
 
         {filterType === 'session' && (
           <div className="flex gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="flex-1 justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <input
+              type="date"
+              value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+              onChange={(e) => setSelectedDate(e.target.value ? new Date(e.target.value) : undefined)}
+              className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
             <Button
               onClick={handleAddByFilter}
               disabled={!selectedDate || isLoading}

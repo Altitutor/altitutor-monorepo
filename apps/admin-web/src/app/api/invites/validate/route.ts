@@ -4,13 +4,10 @@ import type { Database } from '@altitutor/shared';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[STAFF INVITE VALIDATE] Route hit!');
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
-    console.log('[STAFF INVITE VALIDATE] Token:', token);
 
     if (!token) {
-      console.log('[STAFF INVITE VALIDATE] No token provided');
       return NextResponse.json(
         { error: 'Missing token parameter' },
         { status: 400 }
@@ -28,17 +25,13 @@ export async function GET(request: NextRequest) {
         }
       }
     );
-    console.log('[STAFF INVITE VALIDATE] Supabase admin client created');
 
     // Check if token exists in staff table
-    console.log('[STAFF INVITE VALIDATE] Querying staff table...');
     const { data: staffMember, error: staffError } = await supabaseAdmin
       .from('staff')
       .select('id, first_name, last_name, email, role, invite_token')
       .eq('invite_token', token)
       .maybeSingle();
-
-    console.log('[STAFF INVITE VALIDATE] Query result:', { staffMember, staffError });
 
     if (staffError) {
       console.error('[STAFF INVITE VALIDATE] Error validating staff invite token:', staffError);
@@ -49,7 +42,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (staffMember) {
-      console.log('[STAFF INVITE VALIDATE] Staff member found! Returning success');
       return NextResponse.json({
         valid: true,
         type: 'staff',
@@ -64,7 +56,6 @@ export async function GET(request: NextRequest) {
     }
 
     // If not found in staff, token is invalid for this endpoint
-    console.log('[STAFF INVITE VALIDATE] No staff member found with this token');
     return NextResponse.json(
       { valid: false, error: 'Invalid or expired token' },
       { status: 404 }

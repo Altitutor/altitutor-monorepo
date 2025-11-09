@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface StaffCreateData {
@@ -324,7 +324,7 @@ export const staffApi = {
   },
 
   // Get all staff with their subjects and classes (optimized query)
-  getAllStaffWithSubjects: async (): Promise<{ staff: Tables<'staff'>[]; subjects: unknown[]; staffClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> })[]>; classSubjects: Record<string, Tables<'subjects'>> }> => {
+  getAllStaffWithSubjects: async (): Promise<{ staff: Tables<'staff'>[]; subjects: unknown[]; staffClasses: Record<string, ClassWithExpandedSubject[]>; classSubjects: Record<string, Tables<'subjects'>> }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
@@ -356,7 +356,7 @@ export const staffApi = {
 
       // Transform and organize the data
       const staff = (staffData ?? []) as Tables<'staff'>[];
-      const staffClasses: Record<string, (Tables<'classes'> & { subjectDetails?: Tables<'subjects'> })[]> = {};
+      const staffClasses: Record<string, ClassWithExpandedSubject[]> = {};
       const classSubjects: Record<string, Tables<'subjects'>> = {};
 
       // Initialize arrays for all staff
@@ -371,11 +371,15 @@ export const staffApi = {
           if (!staffClasses[assignment.staff_id]) {
             staffClasses[assignment.staff_id] = [];
           }
-          const cls: Tables<'classes'> & { subjectDetails?: Tables<'subjects'> } = {
+          const cls: ClassWithExpandedSubject = {
             ...classWithSubject,
-            subjectDetails: classWithSubject.subject_details
+            subject: classWithSubject.subject_details
           };
           delete (cls as any).subject_details;
+          delete (cls as any).subject; // Remove the string subject field
+          if (classWithSubject.subject_details) {
+            (cls as any).subject = classWithSubject.subject_details;
+          }
           staffClasses[assignment.staff_id].push(cls);
           
           // Store subject by class ID for easy lookup

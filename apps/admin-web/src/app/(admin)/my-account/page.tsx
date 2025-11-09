@@ -15,7 +15,7 @@ export default function MyAccountPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { data: staffRecord, isLoading: staffLoading } = useCurrentStaff();
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   useEffect(() => {
     if (!staffRecord && user) {

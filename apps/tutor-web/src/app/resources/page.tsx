@@ -1,7 +1,7 @@
 'use client';
 
 import { TopicsHierarchy } from '@/features/topics/components';
-import { useTopics } from '@/features/topics/hooks';
+import { useTopicsBySubject } from '@/features/topics/hooks';
 import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
@@ -10,7 +10,12 @@ import { formatSubjectDisplay } from '@/shared/utils';
 export default function TutorResourcesPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const { data: subjects = [] } = useSubjects();
-  const { data: allTopics = [] } = useTopics();
+  const { data: allTopics = [] } = useTopicsBySubject(selectedSubjectId);
+  
+  // Filter topics to ensure they match the expected type
+  const filteredTopics = allTopics.filter((t: any): t is any => 
+    t && typeof t.id === 'string' && typeof t.name === 'string'
+  );
   
   return (
     <div className="p-6">
@@ -24,9 +29,15 @@ export default function TutorResourcesPage() {
             <SelectValue placeholder="Select a subject" />
           </SelectTrigger>
           <SelectContent>
-            {subjects.map((subject) => (
+            {subjects.map((subject: any) => (
               <SelectItem key={subject.id} value={subject.id}>
-                {formatSubjectDisplay(subject)}
+                {formatSubjectDisplay({
+                  name: subject.name,
+                  curriculum: subject.curriculum,
+                  discipline: subject.discipline,
+                  level: subject.level,
+                  year_level: subject.year_level,
+                } as any)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -38,7 +49,7 @@ export default function TutorResourcesPage() {
           subjectId={selectedSubjectId}
           showAddTopic={false}
           showAddResource={false}
-          allTopics={allTopics}
+          allTopics={filteredTopics as any}
         />
       </div>
     </div>

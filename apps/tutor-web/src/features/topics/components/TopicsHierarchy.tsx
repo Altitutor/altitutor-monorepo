@@ -113,7 +113,7 @@ export function TopicNode({
           {/* Topic Files */}
           {topicFiles.length > 0 && (
             <div className="space-y-2 mb-2">
-              {topicFiles.map((tf) => {
+              {topicFiles.map((tf: any) => {
                 const fileCode = deriveTopicFileCode(tf, topic.code, tf.type);
                 // Get the full topic record to access subject_id
                 const fullTopic = allTopics.find(t => t.id === topic.id);

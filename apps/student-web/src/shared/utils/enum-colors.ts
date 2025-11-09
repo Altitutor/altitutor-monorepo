@@ -2,7 +2,7 @@
 type StudentStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED';
 type StaffRole = 'ADMIN' | 'TUTOR' | 'ADMINSTAFF';
 type StaffStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL';
-type SubjectCurriculum = 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE';
+export type SubjectCurriculum = 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE';
 type SubjectDiscipline = 'MATHEMATICS' | 'SCIENCE' | 'HUMANITIES' | 'ENGLISH' | 'ART' | 'LANGUAGE' | 'MEDICINE';
 type ClassStatus = 'ACTIVE' | 'INACTIVE' | 'FULL';
 type EnrollmentStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED' | 'TRIAL';

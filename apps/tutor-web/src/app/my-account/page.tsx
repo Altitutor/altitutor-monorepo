@@ -85,8 +85,8 @@ export default function MyAccountPage() {
             
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Role</span>
-              <Badge variant={staffRecord?.role === 'ADMINSTAFF' ? 'default' : 'secondary'}>
-                {staffRecord?.role || 'Loading...'}
+              <Badge variant={(staffRecord as any)?.role === 'ADMINSTAFF' || (staffRecord as any)?.role === 'ADMIN' ? 'default' : 'secondary'}>
+                {(staffRecord as any)?.role || 'Loading...'}
               </Badge>
             </div>
             
@@ -135,13 +135,13 @@ export default function MyAccountPage() {
                 
                 <Separator />
                 
-                {staffRecord.phone_number && (
+                {staffRecord.phone && (
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Phone</span>
                       <div className="flex items-center gap-2">
                         <Phone className="h-4 w-4 text-gray-400" />
-                        <span className="font-medium">{staffRecord.phone_number}</span>
+                        <span className="font-medium">{staffRecord.phone}</span>
                       </div>
                     </div>
                     <Separator />
@@ -160,7 +160,7 @@ export default function MyAccountPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Staff Since</span>
                   <span className="text-sm">
-                    {new Date(staffRecord.created_at || '').toLocaleDateString()}
+                    {staffRecord.created_at ? new Date(staffRecord.created_at).toLocaleDateString() : '-'}
                   </span>
                 </div>
                 

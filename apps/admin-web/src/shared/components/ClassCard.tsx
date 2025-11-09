@@ -4,14 +4,14 @@ import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { SUBJECT_DISCIPLINE_COLORS } from '@altitutor/ui';
 import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
 import { formatSubjectDisplay } from '@/shared/utils';
 
 interface ClassCardProps {
-  class: Tables<'classes'>;
+  class: Tables<'classes'> | ClassWithExpandedSubject;
   subject?: Tables<'subjects'>;
   staff: Tables<'staff'>[];
   students?: Tables<'students'>[];

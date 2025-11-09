@@ -80,7 +80,7 @@ export function Step3StudentAttendance({
     };
 
     fetchData();
-  }, [sessionId]);
+  }, [sessionId, studentAttendance.length, onUpdate]);
 
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) =>

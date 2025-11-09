@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Button } from '@altitutor/ui';
 import { Download, Loader2, Edit, Printer } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
@@ -169,11 +170,15 @@ export function FileCard({
                     title={filename}
                   />
                 ) : isImage ? (
-                  <img
-                    src={previewUrl}
-                    alt={filename}
-                    className="max-w-full h-auto mx-auto"
-                  />
+                  <div className="relative w-full h-[70vh] flex items-center justify-center">
+                    <Image
+                      src={previewUrl}
+                      alt={filename}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  </div>
                 ) : (
                   <div className="text-center py-12">
                     <Icon className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />

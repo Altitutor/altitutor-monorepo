@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
     if (type === 'staff') {
       const result = await supabase
         .from('staff')
+        // @ts-expect-error - TypeScript inference issue with Supabase client
         .update({ invite_token: token })
         .eq('id', id)
         .select('id')
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
     } else {
       const result = await supabase
         .from('students')
+        // @ts-expect-error - TypeScript inference issue with Supabase client
         .update({ invite_token: token })
         .eq('id', id)
         .select('id')

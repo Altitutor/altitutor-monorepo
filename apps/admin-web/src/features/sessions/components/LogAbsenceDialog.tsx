@@ -309,10 +309,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
                   : 'TBD',
                 subject: currentSession.subject?.name || 'Unknown',
                 class: currentSession.class?.level || '',
-                curriculum: currentSession.subject?.curriculum,
+                curriculum: currentSession.subject?.curriculum ?? undefined,
                 yearLevel: currentSession.subject?.year_level?.toString(),
                 subjectName: currentSession.subject?.name,
-                level: currentSession.subject?.level,
+                level: currentSession.subject?.level ?? undefined,
               }}
               onActionSelected={handleActionSelected}
               onBack={() => {

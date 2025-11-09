@@ -56,7 +56,7 @@ export function ClassesTable({ onClassClick }: ClassesTableProps) {
     return (
       c.subject_name?.toLowerCase().includes(searchLower) ||
       c.room?.toLowerCase().includes(searchLower) ||
-      DAYS[c.day_of_week - 1]?.toLowerCase().includes(searchLower)
+      (c.day_of_week !== null && DAYS[c.day_of_week - 1]?.toLowerCase().includes(searchLower))
     );
   });
 
@@ -75,18 +75,21 @@ export function ClassesTable({ onClassClick }: ClassesTableProps) {
         <TableBody>
           {filteredClasses.map((classItem) => (
             <TableRow 
-              key={classItem.enrollment_id}
+              key={classItem.enrollment_id || ''}
               className={cn(
                 "cursor-pointer",
                 onClassClick && "hover:bg-muted/50"
               )}
-              onClick={() => onClassClick?.(classItem.class_id)}
+              onClick={() => classItem.class_id && onClassClick?.(classItem.class_id)}
             >
               <TableCell className="font-medium">
-                {getDayShortName(classItem.day_of_week)}
+                {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
               </TableCell>
               <TableCell>
-                {formatTime(classItem.start_time)} - {formatTime(classItem.end_time)}
+                {classItem.start_time && classItem.end_time 
+                  ? `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
+                  : '-'
+                }
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">

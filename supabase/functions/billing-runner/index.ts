@@ -76,7 +76,15 @@ Deno.serve(async (_req: Request) => {
 
     const { data: billingRows, error: billErr } = await supabase
       .from('students_billing')
-      .select('student_id, stripe_customer_id, default_payment_method_id, card_country');
+      .select(`
+        student_id,
+        stripe_customer_id,
+        payment_methods:student_payment_methods!inner(
+          stripe_payment_method_id,
+          card_country
+        )
+      `)
+      .eq('student_payment_methods.is_default', true);
     if (billErr) throw billErr;
     const billingByStudent: Record<string, any> = {};
     for (const b of billingRows || []) billingByStudent[b.student_id] = b;
@@ -121,9 +129,10 @@ Deno.serve(async (_req: Request) => {
       if (netCents <= 0) continue;
 
       const billing = billingByStudent[row.student_id];
-      if (!billing?.stripe_customer_id || !billing?.default_payment_method_id) continue;
+      const defaultPM = billing?.payment_methods?.[0];
+      if (!billing?.stripe_customer_id || !defaultPM?.stripe_payment_method_id) continue;
 
-      const isIntl = (billing.card_country && billing.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
+      const isIntl = (defaultPM.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
       const grossCents = grossUp(netCents, !!isIntl, FEE_PERCENT_DOM, FEE_PERCENT_INTL, FEE_FIXED_CENTS);
 
       // Ensure no duplicate payment exists
@@ -158,7 +167,7 @@ Deno.serve(async (_req: Request) => {
           amount: grossCents,
           currency: 'aud',
           customer: billing.stripe_customer_id,
-          payment_method: billing.default_payment_method_id,
+          payment_method: defaultPM.stripe_payment_method_id,
           off_session: true,
           confirm: true,
           description: `Session charge for ${session.start_at}`,

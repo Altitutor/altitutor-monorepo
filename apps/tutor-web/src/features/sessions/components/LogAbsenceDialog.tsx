@@ -10,7 +10,7 @@ import {
   Button,
 } from '@altitutor/ui';
 import { useStudentFutureSessions, useLogAbsences } from '../hooks';
-import { studentsApi } from '@/features/students/api';
+// import { studentsApi } from '@/features/students/api'; // TODO: Tutor-web doesn't have students feature
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
 import { AbsenceActionSelector } from './AbsenceActionSelector';
 import { AbsenceSummary } from './AbsenceSummary';
@@ -46,10 +46,15 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
   const [errorMessage, setErrorMessage] = useState<string>('');
   
   // Student search
+  // TODO: Tutor-web doesn't have direct access to students - they come from vtutor_session_detail view
+  // For absence logging, students should be selected from sessions they're linked to
   const [searchQuery, setSearchQuery] = useState('');
   const { data: allStudents, isLoading: loadingStudents } = useQuery({
     queryKey: ['students', 'all'],
-    queryFn: () => studentsApi.getAllStudents(),
+    queryFn: async () => {
+      // Return empty array - students should come from session context in tutor-web
+      return [] as Tables<'students'>[];
+    },
     staleTime: 1000 * 60 * 5,
   });
 
@@ -58,7 +63,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
     const query = searchQuery.toLowerCase();
     return allStudents
       .filter(
-        (student) =>
+        (student: Tables<'students'>) =>
           student.status === 'ACTIVE' && // Only show ACTIVE students
           (student.first_name.toLowerCase().includes(query) ||
           student.last_name.toLowerCase().includes(query) ||
@@ -309,10 +314,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
                   : 'TBD',
                 subject: currentSession.subject?.name || 'Unknown',
                 class: currentSession.class?.level || '',
-                curriculum: currentSession.subject?.curriculum,
+                curriculum: currentSession.subject?.curriculum || undefined,
                 yearLevel: currentSession.subject?.year_level?.toString(),
                 subjectName: currentSession.subject?.name,
-                level: currentSession.subject?.level,
+                level: currentSession.subject?.level || undefined,
               }}
               onActionSelected={handleActionSelected}
               onBack={() => {

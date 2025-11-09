@@ -83,6 +83,16 @@ export type ClassWithRelations = Tables<'classes'> & {
   }>;
 };
 
+/**
+ * Class with expanded subject object (instead of just subject_id string)
+ * This properly handles the type conflict when overriding subject: string with subject?: Tables<'subjects'>
+ */
+export type ClassWithExpandedSubject = Omit<Tables<'classes'>, 'subject'> & {
+  subject?: Tables<'subjects'>;
+  staff?: Tables<'staff'>[];
+  students?: Tables<'students'>[];
+};
+
 export type SessionWithRelations = Tables<'sessions'> & {
   classes: ClassWithRelations | null;
 };

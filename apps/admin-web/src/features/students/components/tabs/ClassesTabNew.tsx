@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Tables } from "@altitutor/shared";
+import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { Loader2, Plus, Grid3X3, Calendar } from "lucide-react";
 import { classesApi } from '@/shared/api';
@@ -205,25 +205,31 @@ export function ClassesTabNew({
   };
 
   // Fetch all classes for enrollment modal
-  const fetchClassesForEnrollment = async () => {
+  const fetchClassesForEnrollment = async (): Promise<ClassWithExpandedSubject[]> => {
     const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
-    return classes.map(c => ({
-      ...c,
-      subject: classSubjects[c.id],
-      staff: classStaff[c.id] || [],
-      students: classStudents[c.id] || []
-    }));
+    return classes.map(c => {
+      const { subject, ...rest } = c;
+      return {
+        ...rest,
+        subject: classSubjects[c.id],
+        staff: classStaff[c.id] || [],
+        students: classStudents[c.id] || []
+      } as ClassWithExpandedSubject;
+    });
   };
 
   // Fetch all classes for change class modal
-  const fetchClassesForChange = async () => {
+  const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
     const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
-    return classes.map(c => ({
-      ...c,
-      subject: classSubjects[c.id],
-      staff: classStaff[c.id] || [],
-      students: classStudents[c.id] || []
-    }));
+    return classes.map(c => {
+      const { subject, ...rest } = c;
+      return {
+        ...rest,
+        subject: classSubjects[c.id],
+        staff: classStaff[c.id] || [],
+        students: classStudents[c.id] || []
+      } as ClassWithExpandedSubject;
+    });
   };
 
   if (!currentStaff) {

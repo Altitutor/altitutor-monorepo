@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Tables } from "@altitutor/shared";
+import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
@@ -240,23 +240,31 @@ export function ClassesTab({
   };
 
   // Fetch all classes for enrollment modal
-  const fetchClassesForEnrollment = async () => {
-    return allClasses.map(c => ({
-      ...c.class,
-      subject: c.subject,
-      staff: c.staff,
-      students: c.students || []
-    }));
+  const fetchClassesForEnrollment = async (): Promise<ClassWithExpandedSubject[]> => {
+    const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
+    return classes.map(c => {
+      const { subject, ...rest } = c;
+      return {
+        ...rest,
+        subject: classSubjects[c.id],
+        staff: classStaff[c.id] || [],
+        students: classStudents[c.id] || []
+      } as ClassWithExpandedSubject;
+    });
   };
 
   // Fetch all classes for change class modal
-  const fetchClassesForChange = async () => {
-    return allClasses.map(c => ({
-      ...c.class,
-      subject: c.subject,
-      staff: c.staff,
-      students: c.students || []
-    }));
+  const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
+    const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
+    return classes.map(c => {
+      const { subject, ...rest } = c;
+      return {
+        ...rest,
+        subject: classSubjects[c.id],
+        staff: classStaff[c.id] || [],
+        students: classStudents[c.id] || []
+      } as ClassWithExpandedSubject;
+    });
   };
 
   if (loading) {

@@ -108,7 +108,7 @@ export function AbsenceSummary({
             {isCredit ? (
               renderSessionCard(null, '', true)
             ) : (
-              renderSessionCard(targetSession, 'Rescheduled Session')
+              renderSessionCard(targetSession || null, 'Rescheduled Session')
             )}
           </div>
         );

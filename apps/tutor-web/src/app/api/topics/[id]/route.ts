@@ -63,12 +63,16 @@ export async function PATCH(
       );
     }
     
+    // Type assertion for view result (views aren't in generated types)
+    type TopicAccess = { id: string; subject_id: string; parent_id: string | null };
+    const topic = topicAccess as TopicAccess;
+    
     // If changing parent_id, validate it
     if (body.parent_id !== undefined) {
       const newParentId = body.parent_id === 'none' ? null : body.parent_id;
       
       // Only validate if actually changing parent
-      if (newParentId !== topicAccess.parent_id) {
+      if (newParentId !== topic.parent_id) {
         if (newParentId) {
           const { data: parentAccess, error: parentError } = await userClient
             .from('vtutor_topics')
@@ -91,7 +95,11 @@ export async function PATCH(
             );
           }
           
-          if (parentAccess.subject_id !== topicAccess.subject_id) {
+          // Type assertion for parent access
+          type ParentAccess = { id: string; subject_id: string };
+          const parent = parentAccess as ParentAccess;
+          
+          if (parent.subject_id !== topic.subject_id) {
             return NextResponse.json(
               { error: 'Parent topic must be in the same subject' },
               { status: 400 }
@@ -105,12 +113,12 @@ export async function PATCH(
           ? await serviceClient
               .from('topics')
               .select('index')
-              .eq('subject_id', topicAccess.subject_id)
+              .eq('subject_id', topic.subject_id)
               .eq('parent_id', newParentId)
           : await serviceClient
               .from('topics')
               .select('index')
-              .eq('subject_id', topicAccess.subject_id)
+              .eq('subject_id', topic.subject_id)
               .is('parent_id', null);
         
         if (siblingsError) {

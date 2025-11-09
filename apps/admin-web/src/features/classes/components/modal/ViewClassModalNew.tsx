@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -7,7 +7,7 @@ import { subjectsApi } from '@/features/subjects/api';
 import { studentsApi } from '@/features/students/api';
 import { staffApi } from "@/features/staff/api";
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesUpdate, ClassWithExpandedSubject } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTabNew } from './tabs/ClassStudentsTabNew';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
@@ -32,11 +32,9 @@ export function ViewClassModalNew({
   const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
   const [classStudents, setClassStudents] = useState<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[]; enrollment?: any }>>([]);
   const [classStaff, setClassStaff] = useState<Tables<'staff'>[]>([]);
-  const [allStudents, setAllStudents] = useState<Tables<'students'>[]>([]);
   const [allStaff, setAllStaff] = useState<Tables<'staff'>[]>([]);
+  const [allStudents, setAllStudents] = useState<Tables<'students'>[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-  const [loadingStaff, setLoadingStaff] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
   
@@ -45,29 +43,12 @@ export function ViewClassModalNew({
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> & { subjects?: Tables<'subjects'>[] } | null>(null);
-  const [selectedStudentEnrollment, setSelectedStudentEnrollment] = useState<any>(null);
   
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
 
-  // Fetch class data using the optimized method
-  useEffect(() => {
-    if (isOpen && classId) {
-      fetchClassData();
-      fetchAllData();
-    } else {
-      // Reset state when closing
-      setClassData(null);
-      setSubject(null);
-      setClassStudents([]);
-      setClassStaff([]);
-      setIsEditing(false);
-      setActiveTab('info');
-    }
-  }, [isOpen, classId]);
-
   // Optimized fetch that gets all data in one efficient call
-  const fetchClassData = async () => {
+  const fetchClassData = useCallback(async () => {
     if (!classId) return;
     
     try {
@@ -104,10 +85,10 @@ export function ViewClassModalNew({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [classId, toast]);
 
   // Fetch reference data lazily for pickers
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       const [subjectsPage, studentsPage, staffPage] = await Promise.all([
         subjectsApi.list({ search: '', limit: 100, offset: 0 }),
@@ -125,7 +106,23 @@ export function ViewClassModalNew({
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
+
+  // Fetch class data using the optimized method
+  useEffect(() => {
+    if (isOpen && classId) {
+      fetchClassData();
+      fetchAllData();
+    } else {
+      // Reset state when closing
+      setClassData(null);
+      setSubject(null);
+      setClassStudents([]);
+      setClassStaff([]);
+      setIsEditing(false);
+      setActiveTab('info');
+    }
+  }, [isOpen, classId, fetchClassData, fetchAllData]);
 
   // Update class handler
   const handleClassUpdate = async (data: ClassInfoFormData) => {
@@ -312,22 +309,25 @@ export function ViewClassModalNew({
 
   // Fetch all students with their subjects for enrollment modal
   const fetchStudentsForEnrollment = async () => {
-    const { students: allStudents, studentSubjects } = await studentsApi.getAllStudentsWithSubjectsAndClasses();
-    return allStudents.map(s => ({
+    const { students: allStudents, studentSubjects } = await studentsApi.getAllStudentsWithDetails();
+    return allStudents.map((s: Tables<'students'>) => ({
       ...s,
       subjects: studentSubjects[s.id] || []
     }));
   };
 
   // Fetch all classes for change class modal
-  const fetchClassesForChange = async () => {
-    const { classes, classSubjects, classStaff } = await classesApi.getAllClassesWithDetails();
-    return classes.map(c => ({
-      ...c,
-      subject: classSubjects[c.id],
-      staff: classStaff[c.id] || [],
-      students: []
-    }));
+  const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
+    const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
+    return classes.map(c => {
+      const { subject, ...rest } = c;
+      return {
+        ...rest,
+        subject: classSubjects[c.id],
+        staff: classStaff[c.id] || [],
+        students: classStudents[c.id] || []
+      } as ClassWithExpandedSubject;
+    });
   };
 
   // Early return if no class data loaded
@@ -389,7 +389,7 @@ export function ViewClassModalNew({
                   classSubject={subject || undefined}
                   classStaff={classStaff}
                   classStudents={classStudents}
-                  loadingStudents={loadingStudents}
+                  loadingStudents={false}
                   onAddStudent={openEnrollModal}
                   onChangeClass={openChangeClassModal}
                   onUnenroll={openUnenrollModal}
@@ -401,7 +401,7 @@ export function ViewClassModalNew({
                   classData={classData}
                   classStaff={classStaff}
                   allStaff={allStaff}
-                  loadingStaff={loadingStaff}
+                  loadingStaff={false}
                   onAssignStaff={handleAssignStaff}
                   onRemoveStaff={handleRemoveStaff}
                 />

@@ -3,11 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { classesApi } from "../../api";
-import { subjectsApi } from '@/features/subjects/api';
-import { studentsApi } from '@/features/students/api';
-import { staffApi } from "@/features/staff/api";
-import type { Tables, TablesUpdate } from '@altitutor/shared';
-import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
+import { ClassInfoTab } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
 
@@ -18,62 +14,50 @@ interface ViewClassModalProps {
   onClassUpdated: () => void;
 }
 
+/**
+ * ViewClassModal for tutor-web
+ * 
+ * IMPORTANT: Tutors can only VIEW class details, not edit them.
+ * All data comes from vtutor_class_detail view which includes students and staff as JSON arrays.
+ */
 export function ViewClassModal({ 
   isOpen, 
   classId, 
   onClose, 
   onClassUpdated 
 }: ViewClassModalProps) {
-  // State
-  const [classData, setClassData] = useState<Tables<'classes'> | null>(null);
-  const [subject, setSubject] = useState<Tables<'subjects'> | null>(null);
-  const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [classStudents, setClassStudents] = useState<Tables<'students'>[]>([]);
-  const [classStaff, setClassStaff] = useState<Tables<'staff'>[]>([]);
-  const [allStudents, setAllStudents] = useState<Tables<'students'>[]>([]);
-  const [allStaff, setAllStaff] = useState<Tables<'staff'>[]>([]);
+  // State - using view structure
+  const [classDetail, setClassDetail] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-  const [loadingStaff, setLoadingStaff] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
   
   const { toast } = useToast();
 
-  // Fetch class data using the optimized method
+  // Fetch class data from vtutor_class_detail view
   useEffect(() => {
     if (isOpen && classId) {
       fetchClassData();
-      fetchAllData();
     } else {
       // Reset state when closing
-      setClassData(null);
-      setSubject(null);
-      setClassStudents([]);
-      setClassStaff([]);
-      setIsEditing(false);
+      setClassDetail(null);
       setActiveTab('info');
     }
   }, [isOpen, classId]);
 
-  // Optimized fetch that gets all data in one efficient call
   const fetchClassData = async () => {
     if (!classId) return;
     
     try {
       setIsLoading(true);
       
-      // Use the targeted method for single class instead of fetching all classes
-      const { class: currentClass, subject: subjectData, students, staff } = await classesApi.getClassWithDetails(classId);
+      // Get class details from vtutor_class_detail view
+      const detail = await classesApi.getClassWithDetails(classId);
       
-      if (!currentClass) {
-        throw new Error('Class not found');
+      if (!detail) {
+        throw new Error('Class not found or you do not have access to it');
       }
       
-      setClassData(currentClass);
-      setClassStudents(students);
-      setClassStaff(staff);
-      setSubject(subjectData);
+      setClassDetail(detail);
     } catch (err) {
       console.error('Failed to fetch class:', err);
       toast({
@@ -86,180 +70,8 @@ export function ViewClassModal({
     }
   };
 
-  // Fetch reference data lazily for pickers with small page size
-  const fetchAllData = async () => {
-    try {
-      const [subjectsPage, studentsPage, staffPage] = await Promise.all([
-        subjectsApi.list({ search: '', limit: 50, offset: 0 }),
-        studentsApi.list({ search: '', limit: 50, offset: 0 }),
-        staffApi.list({ search: '', limit: 50, offset: 0 }),
-      ]);
-      setSubjects(subjectsPage.subjects);
-      setAllStudents(studentsPage.students);
-      setAllStaff(staffPage.staff);
-    } catch (err) {
-      console.error('Failed to fetch reference data:', err);
-      toast({
-        title: 'Warning',
-        description: 'Some data may not be available for editing.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Update class handler
-  const handleClassUpdate = async (data: ClassInfoFormData) => {
-    if (!classData) return;
-    
-    try {
-      setIsLoading(true);
-      
-      const updateData: TablesUpdate<'classes'> = {
-        level: data.level,
-        day_of_week: data.dayOfWeek,
-        start_time: data.startTime,
-        end_time: data.endTime,
-        status: data.status,
-        subject_id: data.subjectId || null,
-        room: data.room || null,
-      };
-      await classesApi.updateClass(classData.id, updateData);
-      
-      // Refetch class
-      await fetchClassData();
-      
-      // Reset edit mode
-      setIsEditing(false);
-      
-      // Notify parent of update
-      onClassUpdated();
-      
-      toast({
-        title: 'Class updated',
-        description: 'Class has been updated successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to update class:', err);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the class. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle student enrollment
-  const handleEnrollStudent = async (studentId: string) => {
-    if (!classData) return;
-    
-    try {
-      await classesApi.enrollStudent(classData.id, studentId);
-      await refreshClassStudents(); // Reload class with updated students
-      toast({
-        title: 'Success',
-        description: 'Student enrolled successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to enroll student:', err);
-      toast({
-        title: 'Enrollment failed',
-        description: 'There was an error enrolling the student. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Handle student removal
-  const handleRemoveStudent = async (studentId: string) => {
-    if (!classData) return;
-    
-    try {
-      await classesApi.unenrollStudent(classData.id, studentId);
-      await refreshClassStudents(); // Reload class with updated students
-      toast({
-        title: 'Success',
-        description: 'Student removed successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to remove student:', err);
-      toast({
-        title: 'Removal failed',
-        description: 'There was an error removing the student. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Handle staff assignment
-  const handleAssignStaff = async (staffId: string) => {
-    if (!classData) return;
-    
-    try {
-      await classesApi.assignStaff(classData.id, staffId);
-      await refreshClassStaff(); // Reload class with updated staff
-      toast({
-        title: 'Success',
-        description: 'Staff assigned successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to assign staff:', err);
-      toast({
-        title: 'Assignment failed',
-        description: 'There was an error assigning the staff. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Handle staff removal
-  const handleRemoveStaff = async (staffId: string) => {
-    if (!classData) return;
-    
-    try {
-      await classesApi.unassignStaff(classData.id, staffId);
-      await refreshClassStaff(); // Reload class with updated staff
-      toast({
-        title: 'Success',
-        description: 'Staff removed successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to remove staff:', err);
-      toast({
-        title: 'Removal failed',
-        description: 'There was an error removing the staff. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Fast refresh for just students after enrollment/removal
-  const refreshClassStudents = async () => {
-    if (!classId) return;
-    
-    try {
-      const { students } = await classesApi.getClassWithDetails(classId);
-      setClassStudents(students);
-    } catch (err) {
-      console.error('Failed to refresh students:', err);
-    }
-  };
-
-  // Fast refresh for just staff after assignment/removal
-  const refreshClassStaff = async () => {
-    if (!classId) return;
-    
-    try {
-      const { staff } = await classesApi.getClassWithDetails(classId);
-      setClassStaff(staff);
-    } catch (err) {
-      console.error('Failed to refresh staff:', err);
-    }
-  };
-
   // Early return if no class data loaded
-  if (!classData) {
+  if (!classDetail) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent>
@@ -270,6 +82,35 @@ export function ViewClassModal({
       </Sheet>
     );
   }
+
+  // Parse students and staff from JSON arrays
+  const students = Array.isArray(classDetail.students) ? classDetail.students : [];
+  const staff = Array.isArray(classDetail.staff) ? classDetail.staff : [];
+
+  // Build class object for compatibility
+  const classData = {
+    id: classDetail.class_id,
+    day_of_week: classDetail.day_of_week,
+    start_time: classDetail.start_time,
+    end_time: classDetail.end_time,
+    room: classDetail.room,
+    level: classDetail.class_level,
+    status: classDetail.class_status,
+    subject_id: classDetail.subject_id,
+    created_at: classDetail.created_at,
+    updated_at: classDetail.updated_at,
+  };
+
+  // Build subject object from flattened fields
+  const subject = classDetail.subject_id ? {
+    id: classDetail.subject_id,
+    name: classDetail.subject_name,
+    curriculum: classDetail.subject_curriculum,
+    discipline: classDetail.subject_discipline,
+    level: classDetail.subject_level,
+    color: classDetail.subject_color,
+    year_level: classDetail.subject_year_level,
+  } : null;
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -295,36 +136,36 @@ export function ViewClassModal({
             
             <TabsContent value="info" className="mt-4">
               <ClassInfoTab
-                classData={classData}
-                subject={subject}
-                subjects={subjects}
-                isEditing={isEditing}
+                classData={classData as any}
+                subject={subject as any}
+                subjects={[]} // Not needed for view-only
+                isEditing={false} // Tutors can't edit
                 isLoading={isLoading}
-                onEdit={() => setIsEditing(true)}
-                onCancelEdit={() => setIsEditing(false)}
-                onSubmit={handleClassUpdate}
+                onEdit={() => {}} // No-op
+                onCancelEdit={() => {}} // No-op
+                onSubmit={async () => {}} // No-op - tutors can't update classes
               />
             </TabsContent>
             
             <TabsContent value="students" className="mt-4">
               <ClassStudentsTab
-                classData={classData}
-                classStudents={classStudents}
-                allStudents={allStudents}
-                loadingStudents={loadingStudents}
-                onEnrollStudent={handleEnrollStudent}
-                onRemoveStudent={handleRemoveStudent}
+                classData={classData as any}
+                classStudents={students}
+                allStudents={students} // Students come from view only
+                loadingStudents={isLoading}
+                onEnrollStudent={async () => {}} // No-op - tutors can't enroll students
+                onRemoveStudent={async () => {}} // No-op - tutors can't remove students
               />
             </TabsContent>
             
             <TabsContent value="staff" className="mt-4">
               <ClassStaffTab
-                classData={classData}
-                classStaff={classStaff}
-                allStaff={allStaff}
-                loadingStaff={loadingStaff}
-                onAssignStaff={handleAssignStaff}
-                onRemoveStaff={handleRemoveStaff}
+                classData={classData as any}
+                classStaff={staff}
+                allStaff={[]} // Not needed for view-only
+                loadingStaff={isLoading}
+                onAssignStaff={async () => {}} // No-op - tutors can't assign staff
+                onRemoveStaff={async () => {}} // No-op - tutors can't remove staff
               />
             </TabsContent>
           </Tabs>
@@ -332,4 +173,4 @@ export function ViewClassModal({
       </SheetContent>
     </Sheet>
   );
-} 
+}

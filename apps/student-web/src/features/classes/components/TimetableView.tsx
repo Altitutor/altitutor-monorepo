@@ -4,6 +4,7 @@ import { Card } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
+import type { SubjectCurriculum } from '@/shared/utils/enum-colors';
 
 interface Class {
   class_id: string;
@@ -12,7 +13,7 @@ interface Class {
   end_time: string;
   room: string | null;
   subject_name: string;
-  subject_curriculum: string;
+  subject_curriculum: SubjectCurriculum | string | null;
   enrollment_status: string;
 }
 
@@ -111,7 +112,7 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
   // Get color for class based on curriculum
   const getClassColor = (cls: Class): string => {
     if (cls.subject_curriculum) {
-      const curriculumColor = getSubjectCurriculumColor(cls.subject_curriculum);
+      const curriculumColor = getSubjectCurriculumColor(cls.subject_curriculum as SubjectCurriculum | null);
       return `${curriculumColor} border-2 dark:bg-opacity-80`;
     }
     return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';

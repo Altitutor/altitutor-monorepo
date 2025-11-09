@@ -51,7 +51,22 @@ export default function ClassesPage() {
           <ClassesTable onClassClick={(classId) => setSelectedClassId(classId)} />
         ) : (
           <TimetableView 
-            classes={classes || []} 
+            classes={(classes || []).filter((c): c is NonNullable<typeof c> & { class_id: string; day_of_week: number; start_time: string; end_time: string } => 
+              c !== null && 
+              c.class_id !== null && 
+              c.day_of_week !== null && 
+              c.start_time !== null && 
+              c.end_time !== null
+            ).map(c => ({
+              class_id: c.class_id!,
+              day_of_week: c.day_of_week!,
+              start_time: c.start_time!,
+              end_time: c.end_time!,
+              room: c.room,
+              subject_name: c.subject_name || '',
+              subject_curriculum: c.subject_curriculum,
+              enrollment_status: c.enrollment_status || ''
+            }))} 
             onClassClick={(classId) => setSelectedClassId(classId)} 
           />
         )}

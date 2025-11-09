@@ -5,7 +5,7 @@ export { useDebounce } from './useDebounce';
 // Repository hook removed under Option A
 
 // Re-export all feature hooks
-export * from '@/features/students/hooks';
+// export * from '@/features/students/hooks'; // TODO: Tutor-web doesn't have students feature
 export * from '@/features/staff/hooks';
 export * from '@/features/sessions/hooks';
 export * from '@/features/classes/hooks';

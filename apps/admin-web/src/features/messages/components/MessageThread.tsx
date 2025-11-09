@@ -40,12 +40,9 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
   useEffect(() => {
     // realtime subscription for this conversation's messages
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    // Debug: mark subscription lifecycle
-    console.debug('[MessageThread] subscribe', { conversationId });
     const channel = supabase
       .channel(`messages-${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload: any) => {
-        console.debug('[MessageThread] messages INSERT', { newId: (payload as any)?.new?.id });
         // Patch cache with new message for instant rendering
         qc.setQueryData(['messages', conversationId], (old: any) => {
           if (!old?.pages) return old;
@@ -62,7 +59,6 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload: any) => {
-        console.debug('[MessageThread] messages UPDATE', { id: (payload as any)?.new?.id, status: (payload as any)?.new?.status });
         // Patch cache with updated message
         qc.setQueryData(['messages', conversationId], (old: any) => {
           if (!old?.pages) return old;
@@ -74,15 +70,11 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
           return { ...old, pages };
         });
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${conversationId}` }, (payload: any) => {
-        console.debug('[MessageThread] conversations update', { eventType: (payload as any)?.eventType, id: (payload as any)?.new?.id });
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${conversationId}` }, () => {
         qc.invalidateQueries({ queryKey: ['messages', conversationId] });
       })
-      .subscribe((status: string, err: any) => {
-        console.debug('[MessageThread] subscription status', { conversationId, status, err: err?.message || null });
-      });
+      .subscribe();
     return () => {
-      console.debug('[MessageThread] unsubscribe', { conversationId });
       supabase.removeChannel(channel);
     };
   }, [conversationId, qc]);
@@ -92,7 +84,7 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
     if (last?.id) {
       markRead.mutate({ conversationId, lastMessageId: last.id });
     }
-  }, [data, conversationId]);
+  }, [data, conversationId, markRead]);
 
   // Auto-scroll to bottom on initial load and when new messages arrive
   useEffect(() => {

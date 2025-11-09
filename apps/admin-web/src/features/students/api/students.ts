@@ -1,6 +1,5 @@
-import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -409,12 +408,12 @@ export const studentsApi = {
     studentIds: string[]
   ): Promise<{ 
     studentSubjects: Record<string, Tables<'subjects'>[]>;
-    studentClasses: Record<string, (Tables<'classes'> & { subjectDetails?: Tables<'subjects'> })[]>;
+    studentClasses: Record<string, ClassWithExpandedSubject[]>;
     classSubjects: Record<string, Tables<'subjects'>>;
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const studentSubjects: Record<string, Tables<'subjects'>[]> = {};
-    const studentClasses: Record<string, (Tables<'classes'> & { subjectDetails?: Tables<'subjects'> })[]> = {};
+    const studentClasses: Record<string, ClassWithExpandedSubject[]> = {};
     const classSubjects: Record<string, Tables<'subjects'>> = {};
 
     if (!studentIds.length) {
@@ -450,11 +449,15 @@ export const studentsApi = {
       const sid = row.student_id as string;
       const classWithSubject = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
       if (sid && classWithSubject) {
-        const cls: Tables<'classes'> & { subjectDetails?: Tables<'subjects'> } = {
+        const cls: ClassWithExpandedSubject = {
           ...classWithSubject,
-          subjectDetails: classWithSubject.subject_details
+          subject: classWithSubject.subject_details
         };
         delete (cls as any).subject_details;
+        delete (cls as any).subject; // Remove the string subject field
+        if (classWithSubject.subject_details) {
+          (cls as any).subject = classWithSubject.subject_details;
+        }
         studentClasses[sid].push(cls);
         
         // Store subject by class ID for easy lookup
@@ -483,7 +486,7 @@ export const studentsApi = {
   }): Promise<{ 
     students: Tables<'students'>[];
     studentSubjects: Record<string, Tables<'subjects'>[]>;
-    studentClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> })[]>;
+    studentClasses: Record<string, ClassWithExpandedSubject[]>;
     classSubjects: Record<string, Tables<'subjects'>>;
     total: number;
   }> => {

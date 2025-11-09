@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Dispatch, SetStateAction, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, Dispatch, SetStateAction, useMemo, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -16,9 +15,7 @@ import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
-  Grid3X3,
-  Plus,
-  RefreshCw
+  Grid3X3
 } from 'lucide-react';
 import { useClassesWithDetails } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
@@ -40,9 +37,6 @@ interface ClassesTableProps {
 type ViewMode = 'table' | 'timetable';
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
-  const router = useRouter();
-  
-  // React Query hook for data fetching
   const { 
     data, 
     isLoading, 
@@ -144,7 +138,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     });
     
     return result;
-  }, [classes, searchTerm, dayFilter, classSubjects]);
+  }, [classes, searchTerm, dayFilter, classSubjects, getSubjectDisplay]);
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {

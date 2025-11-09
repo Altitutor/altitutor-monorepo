@@ -77,16 +77,16 @@ export function StaffDetailsTab({
   addSubjectButton
 }: StaffDetailsTabProps) {
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any, // Type mismatch between react-hook-form versions
     defaultValues: {
       firstName: staffMember.first_name || '',
       lastName: staffMember.last_name || '',
       email: staffMember.email || '',
       phoneNumber: staffMember.phone_number || '',
-      role: staffMember.role,
-      status: staffMember.status,
+      role: (staffMember.role === 'ADMIN' ? 'ADMINSTAFF' : staffMember.role) as 'TUTOR' | 'ADMINSTAFF',
+      status: staffMember.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL',
       officeKeyNumber: staffMember.office_key_number || null,
-      hasParkingRemote: staffMember.has_parking_remote || 'NONE',
+      hasParkingRemote: (staffMember.has_parking_remote || 'NONE') as 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null,
       availability_monday: staffMember.availability_monday || false,
       availability_tuesday: staffMember.availability_tuesday || false,
       availability_wednesday: staffMember.availability_wednesday || false,
@@ -103,7 +103,7 @@ export function StaffDetailsTab({
     <>
       {/* Edit Mode with Sticky Footer */}
       <div className="flex-1 overflow-y-auto px-1">
-        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
+        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6 pb-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
@@ -515,12 +515,12 @@ export function StaffDetailsTab({
             
             <div className="text-sm font-medium">Role:</div>
             <div>
-              <StaffRoleBadge value={staffMember.role} />
+              <StaffRoleBadge value={(staffMember.role === 'ADMIN' ? 'ADMINSTAFF' : staffMember.role) as 'TUTOR' | 'ADMINSTAFF' | 'ADMIN' | null} />
             </div>
             
             <div className="text-sm font-medium">Status:</div>
             <div>
-              <StaffStatusBadge value={staffMember.status} />
+              <StaffStatusBadge value={staffMember.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
             </div>
           </div>
           

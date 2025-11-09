@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { Loader2, Search, ChevronLeft, ChevronRight, AlertTriangle, Calendar as CalendarIcon, Filter, X } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { StudentCard } from '../StudentCard';
 import { ClassCard } from '../ClassCard';
 import { calculateFirstSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
@@ -40,11 +40,7 @@ interface EnrollStudentModalProps {
   
   // Data fetching
   onFetchStudents?: () => Promise<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[] }>>;
-  onFetchClasses?: () => Promise<Array<Tables<'classes'> & { 
-    subject?: Tables<'subjects'>; 
-    staff?: Tables<'staff'>[];
-    students?: Tables<'students'>[];
-  }>>;
+  onFetchClasses?: () => Promise<ClassWithExpandedSubject[]>;
   
   // Enrollment handler
   onEnroll: (params: {
@@ -89,11 +85,7 @@ export function EnrollStudentModal({
   
   // Data state
   const [students, setStudents] = useState<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[] }>>([]);
-  const [classes, setClasses] = useState<Array<Tables<'classes'> & { 
-    subject?: Tables<'subjects'>; 
-    staff?: Tables<'staff'>[];
-    students?: Tables<'students'>[];
-  }>>([]);
+  const [classes, setClasses] = useState<ClassWithExpandedSubject[]>([]);
   
   // Conflicts
   const [conflicts, setConflicts] = useState<{
@@ -336,8 +328,14 @@ export function EnrollStudentModal({
     ? student 
     : students.find(s => s.id === selectedStudentId);
   
-  const selectedClass = context === 'class'
-    ? { ...classData, subject: classSubject, staff: classStaff }
+  const selectedClass: ClassWithExpandedSubject | undefined = context === 'class'
+    ? classData ? {
+        ...classData,
+        subject: classSubject,
+        staff: classStaff,
+        students: []
+      } as ClassWithExpandedSubject
+    : undefined
     : classes.find(c => c.id === selectedClassId);
 
   // Calculate first session date
@@ -570,10 +568,10 @@ export function EnrollStudentModal({
                 <div>
                   <Label className="text-xs text-muted-foreground">Class</Label>
                   <ClassCard
-                    class={selectedClass as Tables<'classes'>}
-                    subject={('subject' in selectedClass ? (selectedClass as any).subject : classSubject) as any}
-                    staff={('staff' in selectedClass ? (selectedClass as any).staff : classStaff) || []}
-                    students={('students' in selectedClass ? (selectedClass as any).students : []) || []}
+                    class={selectedClass}
+                    subject={selectedClass.subject}
+                    staff={selectedClass.staff || []}
+                    students={selectedClass.students || []}
                   />
                 </div>
               )}

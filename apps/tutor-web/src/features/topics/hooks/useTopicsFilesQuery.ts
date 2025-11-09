@@ -20,27 +20,32 @@ export const topicsFilesKeys = {
 
 /**
  * Get all topic files
+ * Note: Tutors can only read topic files through views, not directly
  */
 export function useTopicsFiles() {
   return useQuery({
     queryKey: topicsFilesKeys.all,
-    queryFn: () => topicsFilesApi.getAllTopicFiles(),
+    queryFn: () => Promise.resolve([]), // Topic files come from views, not direct API
+    enabled: false, // Disabled - tutors don't need to list all topic files
   });
 }
 
 /**
  * Get a single topic file by ID
+ * Note: Tutors can only read topic files through views
+ * This is a placeholder - topic files come from views, not direct API
  */
 export function useTopicFileById(id: string | null) {
   return useQuery({
     queryKey: topicsFilesKeys.byId(id!),
-    queryFn: () => topicsFilesApi.getTopicFile(id!),
-    enabled: !!id,
+    queryFn: () => Promise.resolve(null), // Topic files come from views, not direct API
+    enabled: false, // Disabled - tutors don't need to fetch individual topic files
   });
 }
 
 /**
  * Get topic files for a topic
+ * Note: Tutors can only read topic files through views
  */
 export function useTopicFilesByTopic(topicId: string | null) {
   return useQuery({
@@ -50,150 +55,11 @@ export function useTopicFilesByTopic(topicId: string | null) {
   });
 }
 
-/**
- * Get topic files by type
- */
-export function useTopicFilesByType(topicId: string | null, type: Enums<'resource_type'>) {
-  return useQuery({
-    queryKey: topicsFilesKeys.byTopicAndType(topicId!, type),
-    queryFn: () => topicsFilesApi.getTopicFilesByType(topicId!, type),
-    enabled: !!topicId,
-  });
-}
-
-/**
- * Get available solution links
- */
-export function useAvailableSolutionLinks(topicId: string | null, type: Enums<'resource_type'> | null) {
-  return useQuery<Array<Tables<'topics_files'> & { file: Tables<'files'> }>>({
-    queryKey: topicsFilesKeys.solutionLinks(topicId!, type!),
-    queryFn: () => topicsFilesApi.getAvailableSolutionLinks(topicId!, type!),
-    enabled: !!topicId && !!type,
-  });
-}
-
-/**
- * Create a topic file
- */
-export function useCreateTopicFile() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
-  return useMutation({
-    mutationFn: (data: Omit<TablesInsert<'topics_files'>, 'index'>) =>
-      topicsFilesApi.createTopicFile(data),
-    onSuccess: (data) => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.all });
-      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.byTopic(data.topic_id) });
-      queryClient.invalidateQueries({
-        queryKey: topicsFilesKeys.byTopicAndType(data.topic_id, data.type),
-      });
-      
-      toast({
-        title: 'Success',
-        description: 'Resource file added successfully',
-      });
-    },
-    onError: (error) => {
-      console.error('Failed to create topic file:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add resource file',
-        variant: 'destructive',
-      });
-    },
-  });
-}
-
-/**
- * Update a topic file
- */
-export function useUpdateTopicFile() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'topics_files'> }) =>
-      topicsFilesApi.updateTopicFile(id, data),
-    onSuccess: (data) => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.all });
-      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.byId(data.id) });
-      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.byTopic(data.topic_id) });
-      
-      toast({
-        title: 'Success',
-        description: 'Resource file updated successfully',
-      });
-    },
-    onError: (error) => {
-      console.error('Failed to update topic file:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update resource file',
-        variant: 'destructive',
-      });
-    },
-  });
-}
-
-/**
- * Delete a topic file
- */
-export function useDeleteTopicFile() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
-  return useMutation({
-    mutationFn: (id: string) => topicsFilesApi.deleteTopicFile(id),
-    onSuccess: () => {
-      // Invalidate all topic files queries
-      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.all });
-      
-      toast({
-        title: 'Success',
-        description: 'Resource file deleted successfully',
-      });
-    },
-    onError: (error) => {
-      console.error('Failed to delete topic file:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete resource file',
-        variant: 'destructive',
-      });
-    },
-  });
-}
-
-/**
- * Batch update topic file indices
- */
-export function useUpdateTopicFileIndices() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
-  return useMutation({
-    mutationFn: (updates: Array<{ id: string; index: number }>) =>
-      topicsFilesApi.updateTopicFileIndices(updates),
-    onSuccess: () => {
-      // Invalidate all topic files queries
-      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.all });
-      
-      toast({
-        title: 'Success',
-        description: 'Resource file order updated successfully',
-      });
-    },
-    onError: (error) => {
-      console.error('Failed to update resource file order:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update resource file order',
-        variant: 'destructive',
-      });
-    },
-  });
-}
+// Remaining hooks removed - tutors must use API routes for writes
+// export function useTopicFilesByType() { ... }
+// export function useAvailableSolutionLinks() { ... }
+// export function useCreateTopicFile() { ... }
+// export function useUpdateTopicFile() { ... }
+// export function useDeleteTopicFile() { ... }
+// export function useUpdateTopicFileIndices() { ... }
 

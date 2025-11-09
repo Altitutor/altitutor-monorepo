@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -73,7 +73,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     return subj ? subj.name : '-';
   };
 
-  const getClassDisplay = (session: Tables<'sessions'>) => {
+  const getClassDisplay = useCallback((session: Tables<'sessions'>) => {
     const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
     const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
     const parts: string[] = [];
@@ -82,7 +82,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     if (subj?.name) parts.push(subj.name);
     if (cls?.level) parts.push(String(cls.level));
     return parts.join(' ');
-  };
+  }, [classesById, subjectsById]);
 
   const getClassShortDisplay = (session: Tables<'sessions'>) => {
     const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
@@ -177,7 +177,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     }
     
     return result;
-  }, [allSessions, data, searchTerm, typeFilter, sortField, sortDirection, studentId, staffId, classId, limit]);
+  }, [allSessions, data, searchTerm, typeFilter, sortField, sortDirection, studentId, staffId, classId, limit, rangeStart, rangeEnd, getClassDisplay]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

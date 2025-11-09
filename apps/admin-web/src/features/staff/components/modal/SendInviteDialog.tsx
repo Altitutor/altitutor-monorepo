@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -39,14 +39,7 @@ export function SendInviteDialog({
   const hasEmail = !!staffMember.email;
   const hasPhone = !!staffMember.phone_number;
 
-  // Generate token when modal opens (or reuse existing one)
-  useEffect(() => {
-    if (isOpen && !token) {
-      handleGenerateToken();
-    }
-  }, [isOpen]);
-
-  const handleGenerateToken = async () => {
+  const handleGenerateToken = useCallback(async () => {
     try {
       setIsGenerating(true);
       const result = await invitesApi.generateInviteToken({
@@ -68,7 +61,14 @@ export function SendInviteDialog({
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [staffMember.id, staffMember.role, toast]);
+
+  // Generate token when modal opens (or reuse existing one)
+  useEffect(() => {
+    if (isOpen && !token) {
+      handleGenerateToken();
+    }
+  }, [isOpen, token, handleGenerateToken]);
 
   const handleCopyUrl = async () => {
     if (!inviteUrl) return;

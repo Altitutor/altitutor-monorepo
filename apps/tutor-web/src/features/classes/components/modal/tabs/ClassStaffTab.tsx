@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, UserCheck, Plus, X, Search } from "lucide-react";
 import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { cn } from "@/shared/utils";
-import { ViewStaffModal } from '@/features/staff';
+// import { ViewStaffModal } from '@/features/staff'; // Tutors can't view other staff - removed
 
 interface ClassStaffTabProps {
   classData: Tables<'classes'>;
@@ -297,7 +297,8 @@ export function ClassStaffTab({
       )}
       
       {/* Staff Modal */}
-      {selectedStaffId && (
+      {/* Staff Modal - removed for tutors */}
+      {/* {selectedStaffId && (
         <ViewStaffModal
           staffId={selectedStaffId}
           isOpen={isStaffModalOpen}
@@ -310,7 +311,7 @@ export function ClassStaffTab({
             // since we don't have direct access to refresh function here
           }}
         />
-      )}
+      )} */}
     </div>
   );
 } 

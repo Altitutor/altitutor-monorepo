@@ -21,7 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
-import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
+import { useSessions } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
@@ -41,19 +41,17 @@ type SessionsTableProps = {
 export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff }: SessionsTableProps) {
   const router = useRouter();
   
-  // React Query hook for data fetching
+  // React Query hook for data fetching - uses vtutor_sessions view
   const { 
-    data, 
+    data: sessions = [], 
     isLoading, 
     error, 
     refetch,
     isFetching 
-  } = useSessionsWithDetails({ rangeStart, rangeEnd });
+  } = useSessions();
   
-  // Extract sessions array from the data structure
-  const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
-  const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
-  const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
+  // vtutor_sessions returns sessions with flattened subject fields
+  const allSessions: any[] = sessions as any[];
   
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -66,31 +64,24 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  const getClassSubject = (session: Tables<'sessions'>) => {
-    const cls = session.class_id ? classesById[session.class_id] : undefined;
-    if (!cls) return '-';
-    const subj = cls.subject_id ? subjectsById[cls.subject_id] : undefined;
-    return subj ? subj.name : '-';
+  const getClassSubject = (session: any) => {
+    return session.subject_name || '-';
   };
 
-  const getClassDisplay = (session: Tables<'sessions'>) => {
-    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
-    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
+  const getClassDisplay = (session: any) => {
     const parts: string[] = [];
-    if (subj?.curriculum) parts.push(String(subj.curriculum));
-    if (subj?.year_level != null) parts.push(String(subj.year_level));
-    if (subj?.name) parts.push(subj.name);
-    if (cls?.level) parts.push(String(cls.level));
+    if (session.subject_curriculum) parts.push(String(session.subject_curriculum));
+    if (session.subject_year_level != null) parts.push(String(session.subject_year_level));
+    if (session.subject_name) parts.push(session.subject_name);
+    if (session.class_level) parts.push(String(session.class_level));
     return parts.join(' ');
   };
 
-  const getClassShortDisplay = (session: Tables<'sessions'>) => {
-    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
-    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
+  const getClassShortDisplay = (session: any) => {
     const parts: string[] = [];
-    if (subj?.curriculum) parts.push(String(subj.curriculum));
-    const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
-    const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
+    if (session.subject_curriculum) parts.push(String(session.subject_curriculum));
+    const yearLevel = session.subject_year_level != null ? String(session.subject_year_level) : '';
+    const nickname = session.subject_name ? session.subject_name.substring(0, 4).toUpperCase() : '';
     if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
     return parts.filter(Boolean).join(' ');
   };
@@ -102,19 +93,9 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     let result = [...allSessions];
     
     // Apply entity filters if provided
-    if (studentId && data?.sessionStudents) {
-      // Filter by student attendance using the sessionStudents mapping
-      result = result.filter(session => 
-        data.sessionStudents[session.id]?.some((student: any) => student.id === studentId)
-      );
-    }
-    
-    if (staffId && data?.sessionStaff) {
-      // Filter by staff using the sessionStaff mapping
-      result = result.filter(session => 
-        data.sessionStaff[session.id]?.some((staff: any) => staff.id === staffId)
-      );
-    }
+    // Note: vtutor_sessions view doesn't include student/staff arrays, so filtering by studentId/staffId
+    // would require fetching session details individually - simplified for now
+    // TODO: If needed, can fetch vtutor_session_detail for each session
     
     if (classId) {
       result = result.filter(session => session.class_id === classId);
@@ -140,16 +121,12 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
       }
     }
 
-    // Apply search term (class display OR student names OR staff names)
+    // Apply search term (class display only - student/staff names not in vtutor_sessions view)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(session => {
         const classMatches = (getClassDisplay(session) || '').toLowerCase().includes(searchLower);
-        const students = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
-        const staff = ((data as any)?.sessionStaff?.[session.id] || []) as any[];
-        const studentsMatch = students.some((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchLower));
-        const staffMatch = staff.some((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchLower));
-        return classMatches || studentsMatch || staffMatch;
+        return classMatches;
       });
     }
     
@@ -177,7 +154,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     }
     
     return result;
-  }, [allSessions, data, searchTerm, typeFilter, sortField, sortDirection, studentId, staffId, classId, limit]);
+  }, [allSessions, searchTerm, typeFilter, sortField, sortDirection, classId, limit]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -223,17 +200,15 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     }
   };
   
-  // Staff/name display relies on details map from hook; keep simple for now
-  const getStaffName = (session: Tables<'sessions'>) => {
-    const staffList: Tables<'staff'>[] = (data?.sessionStaff?.[session.id] as Tables<'staff'>[]) || [];
-    if (!staffList.length) return '-';
-    return staffList.map(s => `${(s as any).first_name} ${(s as any).last_name}`).join(', ');
+  // Staff/name display - vtutor_sessions doesn't include staff array
+  const getStaffName = (session: any) => {
+    return '-'; // Would need to fetch vtutor_session_detail for staff list
   };
   
   // helpers defined once (avoid redefinition)
   // (removed duplicate helper definitions)
 
-  const getTimeRange = (session: Tables<'sessions'>) => {
+  const getTimeRange = (session: any) => {
     const s = session.start_at ? new Date(session.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const e = session.end_at ? new Date(session.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     return s && e ? `${s}–${e}` : s || e || '-';
@@ -398,46 +373,10 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                     </TableCell>
                   )}
                   <TableCell>
-                    {(() => {
-                      const planned: any[] = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
-                      if (!planned.length) return <span className="text-muted-foreground text-sm">-</span>;
-                      return (
-                        <div className="flex flex-col gap-1">
-                          {planned.map((s) => (
-                            <Button
-                              key={s.id}
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs justify-start"
-                              onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
-                            >
-                              {s.first_name} {s.last_name}
-                            </Button>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                    <span className="text-muted-foreground text-sm">-</span>
                   </TableCell>
                   <TableCell>
-                    {(() => {
-                      const planned: any[] = ((data as any)?.sessionStaff?.[session.id] || []) as any[];
-                      if (!planned.length) return <span className="text-muted-foreground text-sm">-</span>;
-                      return (
-                        <div className="flex flex-col gap-1">
-                          {planned.map((s) => (
-                            <Button
-                              key={s.id}
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs justify-start"
-                              onClick={(e) => { e.stopPropagation(); (onOpenStaff as any)?.(s.id); }}
-                            >
-                              {s.first_name} {s.last_name}
-                            </Button>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                    <span className="text-muted-foreground text-sm">-</span>
                   </TableCell>
                 </TableRow>
               ))

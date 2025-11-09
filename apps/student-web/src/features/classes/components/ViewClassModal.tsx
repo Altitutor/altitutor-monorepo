@@ -77,11 +77,18 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                   <CardContent className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{getDayShortName(classDetails.day_of_week)}</span>
+                      <span className="font-medium">
+                        {classDetails.day_of_week !== null ? getDayShortName(classDetails.day_of_week) : '-'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{formatTime(classDetails.start_time)} - {formatTime(classDetails.end_time)}</span>
+                      <span>
+                        {classDetails.start_time && classDetails.end_time
+                          ? `${formatTime(classDetails.start_time)} - ${formatTime(classDetails.end_time)}`
+                          : '-'
+                        }
+                      </span>
                     </div>
                     {classDetails.room && (
                       <div className="flex items-center gap-2 text-sm">
@@ -93,7 +100,9 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                 </Card>
 
                 {/* Students in Class */}
-                {classDetails.students && classDetails.students.length > 0 && (
+                {classDetails.students && 
+                 Array.isArray(classDetails.students) && 
+                 classDetails.students.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Students</CardTitle>
@@ -127,7 +136,9 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                 )}
 
                 {/* Staff Teaching */}
-                {classDetails.staff && classDetails.staff.length > 0 && (
+                {classDetails.staff && 
+                 Array.isArray(classDetails.staff) && 
+                 classDetails.staff.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Teachers</CardTitle>
@@ -144,7 +155,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                               <p className="text-sm font-medium">
                                 {staffMember.first_name} {staffMember.last_name}
                               </p>
-                              {staffMember.subjects && staffMember.subjects.length > 0 && (
+                              {staffMember.subjects && Array.isArray(staffMember.subjects) && staffMember.subjects.length > 0 && (
                                 <p className="text-xs text-muted-foreground">
                                   Teaches: {staffMember.subjects.join(', ')}
                                 </p>

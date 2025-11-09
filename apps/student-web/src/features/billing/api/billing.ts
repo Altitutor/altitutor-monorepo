@@ -3,6 +3,8 @@ import type { Database } from '@altitutor/shared';
 
 const supabase = createClientComponentClient<Database>();
 
+type StudentRow = Database['public']['Tables']['students']['Row'];
+
 export const billingApi = {
   /**
    * Get billing info from vstudent_billing view
@@ -25,13 +27,16 @@ export const billingApi = {
     if (!user) throw new Error('User not authenticated');
 
     // Get student ID first
-    const { data: studentData } = await supabase
+    const { data: studentData, error: studentError } = await supabase
       .from('students')
       .select('id')
       .eq('user_id', user.id)
       .single();
 
+    if (studentError) throw studentError;
     if (!studentData) throw new Error('Student not found');
+
+    const studentId = (studentData as Pick<StudentRow, 'id'>).id;
 
     const { data, error } = await supabase
       .from('payments')
@@ -44,7 +49,7 @@ export const billingApi = {
           subject:subjects(name)
         )
       `)
-      .eq('student_id', studentData.id)
+      .eq('student_id', studentId)
       .order('created_at', { ascending: false });
     
     if (error) throw error;

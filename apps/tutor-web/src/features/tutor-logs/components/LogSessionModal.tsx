@@ -79,7 +79,6 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     try {
       await createMutation.mutateAsync({
         data: formData as TutorLogFormData,
-        createdBy: selectedStaffId,
       });
       onClose();
     } catch (error) {

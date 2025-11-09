@@ -34,7 +34,7 @@ export default function SessionsPage() {
   useEffect(() => {
     if (!day) return;
     precreate({ start_date: day, end_date: day });
-  }, [day]);
+  }, [day, precreate]);
 
   // Listen for events fired from SessionModal to open student/staff/topic/file modals
   useEffect(() => {

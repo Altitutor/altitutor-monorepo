@@ -12,7 +12,7 @@ import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { StudentAvatar } from './StudentAvatar';
 import { AttendanceCell } from './AttendanceCell';
 import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
+// import { ViewStudentModal } from '@/features/students/components/ViewStudentModal'; // TODO: Tutor-web doesn't have students feature
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -32,20 +32,20 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       if (!isOpen || !sessionId) return;
       setIsLoading(true);
       try {
-        const result = await sessionsApi.getSessionWithTutorLog(sessionId);
+        // Use getSessionWithDetails which returns data from vtutor_session_detail view
+        const result = await sessionsApi.getSessionWithDetails(sessionId);
         setData(result);
         
-        // Fetch all topics for the subject to derive topic codes
-        if (result.session?.class?.subject?.id) {
-          const supabaseClient = (await import('@/shared/lib/supabase/client')).getSupabaseClient() as SupabaseClient<Database>;
-          const { data: topicsData } = await supabaseClient
-            .from('topics')
-            .select('*')
-            .eq('subject_id', result.session.class.subject.id)
-            .order('index', { ascending: true });
-          
-          console.log('Fetched topics for subject:', result.session.class.subject.id, topicsData);
-          setAllTopics(topicsData || []);
+        // Topics should come from vtutor_topics view
+        if (result?.subject_id) {
+          const { topicsApi } = await import('@/features/topics/api');
+          const topicsData = await topicsApi.getTopicsBySubject(result.subject_id);
+          console.log('Fetched topics for subject:', result.subject_id, topicsData);
+          // Filter to ensure valid topics
+          const validTopics = (topicsData || []).filter((t: any): t is any => 
+            t && typeof t.id === 'string' && typeof t.name === 'string'
+          );
+          setAllTopics(validTopics as any);
         }
       } catch (error) {
         console.error('Failed to load session:', error);
@@ -446,8 +446,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       </SheetContent>
     </Sheet>
     
-    {/* Student Modal */}
-    {selectedStudentId && (
+    {/* Student Modal - TODO: Tutor-web doesn't have students feature */}
+    {/* {selectedStudentId && (
       <ViewStudentModal
         isOpen={isStudentModalOpen}
         onClose={() => {
@@ -459,7 +459,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           // Optionally refresh session data
         }}
       />
-    )}
+    )} */}
   </>
   );
 }

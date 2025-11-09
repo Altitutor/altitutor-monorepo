@@ -2,24 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import type { Tables, Database } from '@altitutor/shared';
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@altitutor/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+type PaymentMethod = Tables<'student_payment_methods'>;
+
 export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
-  const [billing, setBilling] = useState<Tables<'students_billing'> | null>(null as any);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
       const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-        .from('students_billing')
+        .from('student_payment_methods')
         .select('*')
         .eq('student_id', student.id)
-        .maybeSingle();
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      setBilling((data as any) || null);
+      setPaymentMethods(data || []);
     } finally {
       setLoading(false);
     }
@@ -30,48 +33,74 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id]);
 
-  const handleRemoveMethod = async () => {
-    if (!billing) return;
-    // For MVP, clear default_payment_method_id; a full solution would call Stripe to detach
+  const handleRemoveMethod = async (methodId: string, isDefault: boolean) => {
+    if (isDefault) {
+      alert('Cannot remove default payment method. Student must set a different card as default first.');
+      return;
+    }
+
+    if (!confirm('Remove this payment method?')) return;
+
     const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('students_billing')
-      .update({ default_payment_method_id: null, card_brand: null, card_last4: null, card_country: null })
-      .eq('student_id', student.id);
-    if (error) return;
+      .from('student_payment_methods')
+      .delete()
+      .eq('id', methodId);
+    
+    if (error) {
+      alert('Failed to remove payment method');
+      return;
+    }
     load();
   };
-
-  // Setting default would be via student flow; for admin, we only allow clearing for now
 
   return (
     <div className="space-y-4">
       <div className="text-sm text-muted-foreground">
-        Manage the student's saved payment method. For security, card details are not stored here—only Stripe references.
+        View the student's saved payment methods. For security, full card details are not stored here—only Stripe references.
+        Students manage their payment methods via the student portal.
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Default Payment Method</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div>Loading…</div>
-            ) : billing?.default_payment_method_id ? (
-              <div className="space-y-2">
-                <div className="text-sm">Brand: {billing.card_brand || '-'}</div>
-                <div className="text-sm">Last4: {billing.card_last4 || '-'}</div>
-                <div className="text-sm">Country: {billing.card_country || '-'}</div>
-                <div className="text-sm">Verified: {billing.verified_at ? new Date(billing.verified_at as unknown as string).toLocaleString() : '-'}</div>
-                <div className="text-xs text-muted-foreground break-all">PM: {billing.default_payment_method_id}</div>
-                <Button variant="outline" onClick={handleRemoveMethod}>Remove</Button>
-              </div>
-            ) : (
-              <div className="text-sm">No default payment method on file.</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {loading ? (
+        <div>Loading…</div>
+      ) : paymentMethods.length === 0 ? (
+        <div className="text-sm text-muted-foreground">No payment methods on file.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {paymentMethods.map((method) => (
+            <Card key={method.id}>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="capitalize">{method.card_brand}</span>
+                  {method.is_default && (
+                    <Badge variant="default">Default</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="text-sm">Last 4: ****{method.card_last4}</div>
+                  <div className="text-sm">
+                    Expires: {method.card_exp_month}/{method.card_exp_year}
+                  </div>
+                  <div className="text-sm">Country: {method.card_country || '-'}</div>
+                  <div className="text-xs text-muted-foreground break-all">
+                    ID: {method.stripe_payment_method_id.substring(0, 20)}...
+                  </div>
+                  {!method.is_default && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleRemoveMethod(method.id, method.is_default)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

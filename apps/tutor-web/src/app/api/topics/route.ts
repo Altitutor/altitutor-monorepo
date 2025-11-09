@@ -93,7 +93,11 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      if (parentAccess.subject_id !== body.subject_id) {
+      // Type assertion for view result (views aren't in generated types)
+      type ParentAccess = { id: string; subject_id: string };
+      const parent = parentAccess as ParentAccess;
+      
+      if (parent.subject_id !== body.subject_id) {
         return NextResponse.json(
           { error: 'Parent topic must be in the same subject' },
           { status: 400 }

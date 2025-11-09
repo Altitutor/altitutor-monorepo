@@ -24,7 +24,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
 
   useEffect(() => {
     precreate({ start_date: preStart, end_date: preEnd });
-  }, [preStart, preEnd]);
+  }, [preStart, preEnd, precreate]);
 
   // Time grid similar to classes timetable
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours

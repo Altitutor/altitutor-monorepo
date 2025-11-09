@@ -17,18 +17,17 @@ import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
   Grid3X3,
-  Plus,
   RefreshCw
 } from 'lucide-react';
-import { useClassesWithDetails } from '../hooks/useClassesQuery';
+import { useClasses } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils/enum-colors';
-import { AddClassModal } from './AddClassModal';
-import { EditClassModal } from './EditClassModal';
+// import { AddClassModal } from './AddClassModal'; // TODO: Tutors can't create classes - removed
+// import { EditClassModal } from './EditClassModal'; // TODO: Tutors can't edit classes - removed
 import { ViewClassModal } from './modal';
-import { ViewStaffModal } from '@/features/staff';
-import { ViewStudentModal } from '@/features/students';
+// import { ViewStaffModal } from '@/features/staff'; // Tutors can't view other staff - removed
+// import { ViewStudentModal } from '@/features/students'; // TODO: Tutor-web doesn't have students feature
 import { TimetableView } from './TimetableView';
 import { formatTime } from '@/shared/utils/datetime';
 // import { useVirtualizer } from '@tanstack/react-virtual';
@@ -42,34 +41,47 @@ type ViewMode = 'table' | 'timetable';
 export function ClassesTable({ addModalState }: ClassesTableProps) {
   const router = useRouter();
   
-  // React Query hook for data fetching
+  // React Query hook for data fetching - uses vtutor_classes view
   const { 
-    data, 
+    data: classesData, 
     isLoading, 
     error, 
     refetch,
     isFetching 
-  } = useClassesWithDetails();
+  } = useClasses();
 
-  const classes: Tables<'classes'>[] = (data?.classes as Tables<'classes'>[]) || [];
-  const classSubjects: Record<string, Tables<'subjects'>> = (data?.classSubjects as Record<string, Tables<'subjects'>>) || {};
-  const classStudents: Record<string, Tables<'students'>[]> = (data?.classStudents as Record<string, Tables<'students'>[]>) || {};
-  const classStaff: Record<string, Tables<'staff'>[]> = (data?.classStaff as Record<string, Tables<'staff'>[]>) || {};
+  // vtutor_classes returns classes with flattened subject fields
+  const classes = (classesData || []) as any[];
+  
+  // Build subject objects from flattened fields for compatibility
+  const classSubjects: Record<string, any> = {};
+  classes.forEach((cls: any) => {
+    if (cls.subject_id) {
+      classSubjects[cls.id] = {
+        id: cls.subject_id,
+        name: cls.subject_name,
+        curriculum: cls.subject_curriculum,
+        discipline: cls.subject_discipline,
+        level: cls.subject_level,
+        color: cls.subject_color,
+        year_level: cls.subject_year_level,
+      };
+    }
+  });
+  
+  // Students and staff are not in vtutor_classes - they're in vtutor_class_detail
+  // These will be fetched when viewing individual class details
+  const classStudents: Record<string, any[]> = {};
+  const classStaff: Record<string, any[]> = {};
   
   // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
   const [dayFilter, setDayFilter] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   
-  // Modal states - manage internally and use external state only when provided
-  const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Modal states - tutors can only view, not edit
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<Tables<'classes'> | null>(null);
-
-  // Use external modal state if provided, otherwise use internal state
-  const isAddModalOpen = addModalState ? addModalState[0] : internalAddModalOpen;
-  const setIsAddModalOpen = addModalState ? addModalState[1] : setInternalAddModalOpen;
+  const [selectedClass, setSelectedClass] = useState<any | null>(null);
 
   // Cross-feature modal states
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -166,15 +178,17 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   
 
-  const getClassStudents = (classId: string): Tables<'students'>[] => {
+  // Note: Students and staff are not available in list view
+  // They're only available when viewing individual class details via vtutor_class_detail
+  const getClassStudents = (classId: string): any[] => {
     return classStudents[classId] || [];
   };
 
-  const getClassStaff = (classId: string): Tables<'staff'>[] => {
+  const getClassStaff = (classId: string): any[] => {
     return classStaff[classId] || [];
   };
   
-  const handleClassClick = (cls: Tables<'classes'>) => {
+  const handleClassClick = (cls: any) => {
     setSelectedClass(cls);
     setIsDetailModalOpen(true);
   };
@@ -248,7 +262,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           </div>
         </div>
         
-        <SkeletonTable rows={8} columns={6} />
+        <SkeletonTable rows={8} columns={5} />
         
         <div className="text-sm text-muted-foreground">
           Loading classes...
@@ -389,14 +403,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                 <TableHead>
                   Subject
                 </TableHead>
-                <TableHead>Students</TableHead>
-                <TableHead>Staff</TableHead>
+                <TableHead>Room</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredClasses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">
+                  <TableCell colSpan={5} className="text-center h-24">
                     {isLoading ? (
                       "Loading classes..."
                     ) : searchTerm || dayFilter.length < 7 ? (
@@ -432,43 +446,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                           <span className="hidden 2xl:inline">{getSubjectDisplay(cls)}</span>
                         </Badge>
                       </TableCell>
+                      <TableCell>{cls.room || '-'}</TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {getClassStudents(cls.id).length === 0 ? (
-                            <span className="text-muted-foreground text-sm">No students</span>
-                          ) : (
-                            getClassStudents(cls.id).map((student) => (
-                              <Button
-                                key={student.id}
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs justify-start"
-                                onClick={(e) => handleStudentClick(student.id, e)}
-                              >
-                                {student.first_name} {student.last_name}
-                              </Button>
-                            ))
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {getClassStaff(cls.id).length === 0 ? (
-                            <span className="text-muted-foreground text-sm">No staff</span>
-                          ) : (
-                            getClassStaff(cls.id).map((staff) => (
-                              <Button
-                                key={staff.id}
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs justify-start"
-                                onClick={(e) => handleStaffClick(staff.id, e)}
-                              >
-                                {staff.first_name} {staff.last_name}
-                              </Button>
-                            ))
-                          )}
-                        </div>
+                        <Badge className={getStatusBadgeColor(cls.status)}>
+                          {cls.status}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   );
@@ -494,26 +476,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         {isFetching && <span className="ml-2">(Refreshing...)</span>}
       </div>
 
-      {/* Add Class Modal */}
-      <AddClassModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onClassAdded={() => {
-          refetch();
-        }}
-      />
-
-      {/* Edit Class Modal */}
-      {selectedClass && (
-        <EditClassModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          onClassUpdated={handleClassUpdated}
-          classData={selectedClass}
-        />
-      )}
-
-      {/* Class Detail Modal */}
+      {/* Class Detail Modal - Tutors can only view, not edit */}
       {selectedClass && (
         <ViewClassModal 
           isOpen={isDetailModalOpen}
@@ -524,7 +487,8 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       )}
       
       {/* Staff Modal */}
-      {selectedStaffId && (
+      {/* Staff Modal - removed for tutors */}
+      {/* {selectedStaffId && (
         <ViewStaffModal
           staffId={selectedStaffId}
           isOpen={isStaffModalOpen}
@@ -537,10 +501,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             refetch();
           }}
         />
-      )}
+      )} */}
       
-      {/* Student Modal */}
-      <ViewStudentModal
+      {/* Student Modal - TODO: Tutor-web doesn't have students feature */}
+      {/* <ViewStudentModal
         studentId={selectedStudentId}
         isOpen={isStudentModalOpen}
         onClose={() => {
@@ -551,7 +515,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           // Refresh class data to show updated student information
           refetch();
         }}
-      />
+      /> */}
     </div>
   );
 } 

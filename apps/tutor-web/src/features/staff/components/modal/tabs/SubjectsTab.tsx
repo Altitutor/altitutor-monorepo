@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
 import { formatSubjectDisplay } from "@/shared/utils";
 import { cn } from "@/shared/utils";
-import { ViewSubjectModal } from '@/features/subjects';
+// import { ViewSubjectModal } from '@/features/subjects'; // Tutors can't view subjects modal - removed
 
 interface SubjectsTabProps {
   staffMember: Tables<'staff'>;
@@ -269,8 +269,8 @@ export function SubjectsTab({
         </ScrollArea>
       )}
       
-      {/* Subject Modal */}
-      {selectedSubjectId && (
+      {/* Subject Modal - removed for tutors */}
+      {/* {selectedSubjectId && (
         <ViewSubjectModal
           subjectId={selectedSubjectId}
           isOpen={isSubjectModalOpen}
@@ -283,7 +283,7 @@ export function SubjectsTab({
             // since we don't have direct access to refresh function here
           }}
         />
-      )}
+      )} */}
     </div>
   );
 } 

@@ -35,19 +35,25 @@ Deno.serve(async (_req: Request) => {
       if (last && now - last < waitHrs * 3600 * 1000) continue;
 
       // Load billing
-      const { data: bill } = await supabase
+      const { data: billing } = await supabase
         .from('students_billing')
-        .select('stripe_customer_id, default_payment_method_id')
+        .select(`
+          stripe_customer_id,
+          payment_methods:student_payment_methods!inner(stripe_payment_method_id)
+        `)
         .eq('student_id', p.student_id)
+        .eq('student_payment_methods.is_default', true)
         .maybeSingle();
-      if (!bill?.stripe_customer_id || !bill?.default_payment_method_id) continue;
+      
+      const defaultPM = billing?.payment_methods?.[0]?.stripe_payment_method_id;
+      if (!billing?.stripe_customer_id || !defaultPM) continue;
 
       try {
         const pi = await stripe.paymentIntents.create({
           amount: p.amount_cents,
           currency: (p.currency || 'AUD').toLowerCase(),
-          customer: bill.stripe_customer_id,
-          payment_method: bill.default_payment_method_id,
+          customer: billing.stripe_customer_id,
+          payment_method: defaultPM,
           off_session: true,
           confirm: true,
           metadata: { type: 'retry', payment_id: p.id, sessions_students_id: p.sessions_students_id },

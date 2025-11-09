@@ -32,6 +32,31 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
   try {
+    // Check for duplicate event (idempotency)
+    const { data: existingEvent } = await supabase
+      .from('stripe_webhook_events')
+      .select('id, processed')
+      .eq('stripe_event_id', event.id)
+      .maybeSingle();
+
+    if (existingEvent?.processed) {
+      console.log('[webhook] Event already processed:', event.id);
+      return json({ received: true, already_processed: true });
+    }
+
+    // Log the webhook event
+    const { error: logErr } = await supabase.from('stripe_webhook_events').insert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+      event_data: event,
+      processed: false
+    });
+
+    if (logErr) {
+      console.error('[webhook] Failed to log event:', logErr);
+      // Continue processing even if logging fails
+    }
+
     switch (event.type) {
       case 'setup_intent.succeeded': {
         const si = event.data.object as any;
@@ -80,6 +105,10 @@ Deno.serve(async (req: Request) => {
           console.error('[webhook] setup_intent handler error', e?.message || e);
         }
 
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
         return json({ received: true });
       }
 
@@ -132,6 +161,10 @@ Deno.serve(async (req: Request) => {
           console.error('[webhook] payment_method.detached handler error', e?.message || e);
         }
 
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
         return json({ received: true });
       }
 
@@ -161,6 +194,10 @@ Deno.serve(async (req: Request) => {
           } catch (e) {
             console.warn('[webhook] refund verification failed (non-fatal)', e?.message || e);
           }
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('stripe_event_id', event.id);
           return json({ received: true });
         }
 
@@ -181,6 +218,10 @@ Deno.serve(async (req: Request) => {
             .eq('sessions_students_id', metadata.sessions_students_id);
           if (payErr) console.error('[webhook] payments update error', payErr);
         }
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
         return json({ received: true });
       }
 
@@ -195,14 +236,153 @@ Deno.serve(async (req: Request) => {
             .eq('sessions_students_id', metadata.sessions_students_id);
           if (updErr) console.error('[webhook] payments fail update error', updErr);
         }
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'charge.refunded': {
+        const charge = event.data.object as any;
+        
+        // Update payment record to refunded status
+        const { error: refundErr } = await supabase
+          .from('payments')
+          .update({ 
+            status: 'refunded',
+            refunded_at: new Date().toISOString()
+          })
+          .eq('stripe_charge_id', charge.id);
+        
+        if (refundErr) console.error('[webhook] refund update error', refundErr);
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'customer.source.expiring': {
+        const source = event.data.object as any;
+        const paymentMethodId = source.id;
+        
+        try {
+          // Get student info for SMS notification
+          const { data: pm } = await supabase
+            .from('student_payment_methods')
+            .select('student_id, is_default')
+            .eq('stripe_payment_method_id', paymentMethodId)
+            .maybeSingle();
+          
+          if (!pm || !pm.is_default) {
+            await supabase
+              .from('stripe_webhook_events')
+              .update({ processed: true, processed_at: new Date().toISOString() })
+              .eq('stripe_event_id', event.id);
+            return json({ received: true });
+          }
+          
+          // Get student's contact info
+          const { data: contact } = await supabase
+            .from('contacts')
+            .select('id, phone_e164')
+            .eq('student_id', pm.student_id)
+            .maybeSingle();
+          
+          if (!contact?.phone_e164) {
+            await supabase
+              .from('stripe_webhook_events')
+              .update({ processed: true, processed_at: new Date().toISOString() })
+              .eq('stripe_event_id', event.id);
+            return json({ received: true });
+          }
+          
+          // Get owned number for SMS
+          const { data: ownedNum } = await supabase
+            .from('owned_numbers')
+            .select('id')
+            .eq('is_default', true)
+            .maybeSingle();
+          
+          if (!ownedNum) {
+            await supabase
+              .from('stripe_webhook_events')
+              .update({ processed: true, processed_at: new Date().toISOString() })
+              .eq('stripe_event_id', event.id);
+            return json({ received: true });
+          }
+          
+          // Find or create conversation
+          let convoId: string | undefined;
+          const { data: existing } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('contact_id', contact.id)
+            .eq('owned_number_id', ownedNum.id)
+            .maybeSingle();
+          
+          if (existing) {
+            convoId = existing.id;
+          } else {
+            const { data: newConvo } = await supabase
+              .from('conversations')
+              .insert({ contact_id: contact.id, owned_number_id: ownedNum.id, status: 'OPEN' })
+              .select('id')
+              .single();
+            convoId = newConvo?.id;
+          }
+          
+          if (!convoId) {
+            await supabase
+              .from('stripe_webhook_events')
+              .update({ processed: true, processed_at: new Date().toISOString() })
+              .eq('stripe_event_id', event.id);
+            return json({ received: true });
+          }
+          
+          // Queue SMS
+          const expMonth = source.exp_month;
+          const expYear = source.exp_year;
+          const body = `Your payment card ending in ${source.last4} expires ${expMonth}/${expYear}. Please update your payment method in the student portal to avoid payment issues.`;
+          
+          await supabase.from('messages').insert({
+            conversation_id: convoId,
+            body,
+            direction: 'OUTGOING',
+            status: 'QUEUED'
+          });
+          
+          console.log('[webhook] Card expiry SMS queued for student', pm.student_id);
+        } catch (e: any) {
+          console.error('[webhook] customer.source.expiring handler error', e?.message || e);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
         return json({ received: true });
       }
 
       default:
+        // Mark event as processed for unknown/unhandled event types
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
         return json({ received: true });
     }
   } catch (e: any) {
     console.error('[webhook] handler error', e?.message || e);
+    
+    // Log error to webhook events table
+    await supabase
+      .from('stripe_webhook_events')
+      .update({ error_message: String(e?.message || e) })
+      .eq('stripe_event_id', event.id);
+    
     return json({ error: 'handler_error' }, 500);
   }
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Loader2, Users, Plus } from "lucide-react";
@@ -172,14 +172,17 @@ export function ClassStudentsTab({
   };
 
   // Fetch all classes for change class modal
-  const fetchClassesForChange = async () => {
+  const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
     const { classes, classSubjects: allClassSubjects, classStaff: allClassStaff, classStudents: allClassStudents } = await classesApi.getAllClassesWithDetails();
-    return classes.map(c => ({
-      ...c,
-      subject: allClassSubjects[c.id],
-      staff: allClassStaff[c.id] || [],
-      students: allClassStudents[c.id] || []
-    }));
+    return classes.map(c => {
+      const { subject, ...rest } = c;
+      return {
+        ...rest,
+        subject: allClassSubjects[c.id],
+        staff: allClassStaff[c.id] || [],
+        students: allClassStudents[c.id] || []
+      } as ClassWithExpandedSubject;
+    });
   };
 
   if (!currentStaff) {
@@ -237,7 +240,7 @@ export function ClassStudentsTab({
         isOpen={isEnrollModalOpen}
         onClose={() => setIsEnrollModalOpen(false)}
         context="class"
-        class={classData}
+        classData={classData}
         classSubject={classSubject}
         classStaff={classStaff}
         enrolledStudentIds={classStudents.map(s => s.id)}

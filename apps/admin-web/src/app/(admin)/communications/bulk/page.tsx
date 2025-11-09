@@ -17,7 +17,7 @@ type Step = 'select' | 'compose' | 'options' | 'preview' | 'success';
 export default function BulkMessagingPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { sendBulkMessages, isLoading: isSending, progress } = useBulkSend();
+  const { sendBulkMessages, isLoading: isSending } = useBulkSend();
 
   const [step, setStep] = useState<Step>('select');
   const [selectedStudents, setSelectedStudents] = useState<Tables<'students'>[]>([]);
