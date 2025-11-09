@@ -44,10 +44,6 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setError(null);
     
     try {
-      // Get subject name if a subject is selected
-      const selectedSubject = subjects?.find(s => s.id === subjectId);
-      const subjectName = selectedSubject?.name || 'No Subject';
-      
       const payload: TablesInsert<'classes'> = {
         id: crypto.randomUUID(),
         level: level,
@@ -55,7 +51,6 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         start_time: startTime,
         end_time: endTime,
         status: 'ACTIVE',
-        subject: subjectName,
         subject_id: subjectId || null,
         room: room || null,
       };

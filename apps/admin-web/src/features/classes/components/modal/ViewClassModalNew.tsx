@@ -320,9 +320,8 @@ export function ViewClassModalNew({
   const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
     const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
     return classes.map(c => {
-      const { subject, ...rest } = c;
       return {
-        ...rest,
+        ...c,
         subject: classSubjects[c.id],
         staff: classStaff[c.id] || [],
         students: classStudents[c.id] || []

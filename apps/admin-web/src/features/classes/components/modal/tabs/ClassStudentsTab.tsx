@@ -175,9 +175,8 @@ export function ClassStudentsTab({
   const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
     const { classes, classSubjects: allClassSubjects, classStaff: allClassStaff, classStudents: allClassStudents } = await classesApi.getAllClassesWithDetails();
     return classes.map(c => {
-      const { subject, ...rest } = c;
       return {
-        ...rest,
+        ...c,
         subject: allClassSubjects[c.id],
         staff: allClassStaff[c.id] || [],
         students: allClassStudents[c.id] || []
