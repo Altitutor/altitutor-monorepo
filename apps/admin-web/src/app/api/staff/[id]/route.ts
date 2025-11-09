@@ -24,7 +24,7 @@ export async function PATCH(
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (staffError || !currentUserStaff || currentUserStaff.role !== 'ADMINSTAFF') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -47,7 +47,7 @@ export async function PATCH(
       .from('staff')
       .select('user_id, email')
       .eq('id', staffId)
-      .single();
+      .single<{ user_id: string | null; email: string }>();
 
     if (fetchError || !currentStaff) {
       return NextResponse.json(

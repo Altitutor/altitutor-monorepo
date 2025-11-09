@@ -1,24 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
 import { CreditCard, Plus, Loader2 } from 'lucide-react';
-import { useBilling } from '../hooks';
-import { formatDate } from '@/shared/utils';
+import { usePaymentMethods } from '../hooks/usePaymentMethods';
+import { AddPaymentMethodModal } from './AddPaymentMethodModal';
+import { PaymentMethodsList } from './PaymentMethodsList';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 export function PaymentMethodCard() {
-  const { data: billing, isLoading } = useBilling();
-  const [isUpdating, setIsUpdating] = useState(false);
+  const { data: billing, isLoading } = usePaymentMethods();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user } = useAuthStore();
 
-  const handleUpdatePaymentMethod = async () => {
-    setIsUpdating(true);
-    // TODO: Implement payment method update flow
-    // This will involve creating a Stripe setup intent and opening the payment modal
-    console.log('Update payment method clicked');
-    setIsUpdating(false);
-  };
+  // Get student ID from billing data
+  const studentId = billing?.student_id;
 
   if (isLoading) {
     return (
@@ -28,44 +24,19 @@ export function PaymentMethodCard() {
     );
   }
 
-  const hasPaymentMethod = billing?.stripe_payment_method_id;
+  const paymentMethods = billing?.payment_methods || [];
+  const hasPaymentMethods = paymentMethods.length > 0;
 
   return (
     <div className="space-y-4">
-      {hasPaymentMethod ? (
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-muted rounded-lg">
-              <CreditCard className="h-6 w-6" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <p className="font-medium">
-                  {billing.stripe_payment_method_brand?.toUpperCase() || 'Card'} 
-                  {billing.stripe_payment_method_last4 && ` •••• ${billing.stripe_payment_method_last4}`}
-                </p>
-                {billing.stripe_payment_method_verified_at && (
-                  <Badge variant="outline" className="text-xs">
-                    Verified
-                  </Badge>
-                )}
-              </div>
-              {billing.stripe_payment_method_verified_at && (
-                <p className="text-sm text-muted-foreground">
-                  Verified on {formatDate(billing.stripe_payment_method_verified_at)}
-                </p>
-              )}
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            onClick={handleUpdatePaymentMethod}
-            disabled={isUpdating}
-          >
-            {isUpdating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Update
+      {hasPaymentMethods ? (
+        <>
+          <PaymentMethodsList paymentMethods={paymentMethods} />
+          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Another Payment Method
           </Button>
-        </div>
+        </>
       ) : (
         <div className="text-center py-8 space-y-4">
           <div className="flex justify-center">
@@ -79,12 +50,19 @@ export function PaymentMethodCard() {
               Add a payment method to enable automatic billing for your sessions
             </p>
           </div>
-          <Button onClick={handleUpdatePaymentMethod} disabled={isUpdating}>
-            {isUpdating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          <Button onClick={() => setIsModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Payment Method
           </Button>
         </div>
+      )}
+
+      {studentId && (
+        <AddPaymentMethodModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          studentId={studentId}
+        />
       )}
     </div>
   );

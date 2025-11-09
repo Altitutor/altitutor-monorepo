@@ -70,8 +70,7 @@ export function StudentAccountTab({
           <Button
             variant="outline"
             onClick={onPasswordResetRequest}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            disabled={isLoading || hasPasswordResetLinkSent || !(student.email || student.student_email)}
+            disabled={isLoading || hasPasswordResetLinkSent || !student.email}
             className="justify-start w-fit"
           >
                 {isLoading ? (
@@ -92,8 +91,7 @@ export function StudentAccountTab({
                 )}
               </Button>
           
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {!(student.email || student.student_email) && (
+          {!student.email && (
             <p className="text-sm text-orange-600">
               No email address set. Please add a student email in the Details tab.
             </p>
@@ -103,8 +101,7 @@ export function StudentAccountTab({
         {hasPasswordResetLinkSent && (
           <>
             <p className="text-sm text-green-600">
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              A password reset link has been sent to {student.email || student.student_email}.
+              A password reset link has been sent to {student.email}.
               The student needs to check their email to set a new password.
             </p>
           </>

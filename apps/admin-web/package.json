@@ -1,8 +1,8 @@
 {
-  "name": "altitutor-admin-app",
+  "name": "admin-web",
   "version": "0.1.0",
   "description": "A comprehensive CRM system for Altitutor's administrative staff",
-  "author": "Vibe coder",
+  "author": "Matthew Chua",
   "private": true,
   "scripts": {
     "dev": "next dev",

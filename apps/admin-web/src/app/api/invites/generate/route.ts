@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (staffError || !staffData || (staffData.role !== 'ADMIN' && staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -46,13 +46,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if the staff/student already has an account
-    let existingRecord;
+    let existingRecord: { id: string; user_id: string | null };
     if (type === 'staff') {
       const { data: staffRecord, error: fetchError } = await supabase
         .from('staff')
         .select('id, user_id')
         .eq('id', id)
-        .single();
+        .single<{ id: string; user_id: string | null }>();
       
       if (fetchError) {
         return NextResponse.json(
@@ -61,13 +61,13 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      existingRecord = staffRecord;
+      existingRecord = staffRecord!;
     } else {
       const { data: studentRecord, error: fetchError } = await supabase
         .from('students')
         .select('id, user_id')
         .eq('id', id)
-        .single();
+        .single<{ id: string; user_id: string | null }>();
       
       if (fetchError) {
         return NextResponse.json(
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      existingRecord = studentRecord;
+      existingRecord = studentRecord!;
     }
 
     // Don't generate invite if they already have an account
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     const token = randomUUID();
 
     // Update the respective table with the invite token
-    let data;
+    let data: { id: string } | null = null;
     let error;
     
     if (type === 'staff') {
@@ -99,8 +99,8 @@ export async function POST(request: NextRequest) {
         .from('staff')
         .update({ invite_token: token })
         .eq('id', id)
-        .select()
-        .single();
+        .select('id')
+        .single<{ id: string }>();
       data = result.data;
       error = result.error;
     } else {
@@ -108,8 +108,8 @@ export async function POST(request: NextRequest) {
         .from('students')
         .update({ invite_token: token })
         .eq('id', id)
-        .select()
-        .single();
+        .select('id')
+        .single<{ id: string }>();
       data = result.data;
       error = result.error;
     }

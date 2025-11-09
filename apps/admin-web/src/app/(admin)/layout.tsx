@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard, MessageSquarePlus } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { cn, navHoverStyles } from '@/shared/utils/index';
@@ -77,6 +77,11 @@ const navItems: NavItem[] = [
     title: 'Communications',
     href: '/communications',
     icon: MessageCircle,
+  },
+  {
+    title: 'Bulk Messaging',
+    href: '/communications/bulk',
+    icon: MessageSquarePlus,
   },
   {
     type: 'heading',

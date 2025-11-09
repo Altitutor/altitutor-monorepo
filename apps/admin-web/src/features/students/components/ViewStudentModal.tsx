@@ -233,8 +233,7 @@ export function ViewStudentModal({
 
   // Handle password reset request
   const handlePasswordResetRequest = async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!student || !(student.email || student.student_email)) {
+    if (!student || !student.email) {
       toast({
         title: "Error",
         description: "No email address found for this student.",
@@ -246,7 +245,7 @@ export function ViewStudentModal({
     try {
       setLoadingAccountUpdate(true);
       // TODO: Implement password reset API call
-      // await authApi.requestPasswordReset(student.email || student.student_email);
+      // await authApi.requestPasswordReset(student.email);
       
       setHasPasswordResetLinkSent(true);
       

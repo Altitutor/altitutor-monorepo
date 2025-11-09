@@ -24,7 +24,7 @@ export async function PATCH(
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (staffError || !currentUserStaff || currentUserStaff.role !== 'ADMINSTAFF') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -43,11 +43,11 @@ export async function PATCH(
     const body = await request.json();
 
     // Get current student record to get user_id for auth update
-    const { data: currentStudent, error: fetchError } = await supabase
+    const { data: currentStudent, error: fetchError} = await supabase
       .from('students')
       .select('user_id, email')
       .eq('id', studentId)
-      .single();
+      .single<{ user_id: string | null; email: string }>();
 
     if (fetchError || !currentStudent) {
       return NextResponse.json(

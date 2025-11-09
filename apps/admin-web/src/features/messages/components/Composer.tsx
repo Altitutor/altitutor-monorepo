@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useSendMessage } from '../api/mutations';
+import { MessageTemplatesPicker } from './MessageTemplatesPicker';
+import type { Tables } from '@altitutor/shared';
 
 interface Props {
   conversationId: string | null;
@@ -60,9 +62,20 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
       setText(body);
     }
   };
+  const handleTemplateSelect = (template: Tables<'message_templates'>) => {
+    setText(template.content);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
   return (
     <div className="border-t p-2 dark:border-brand-dark-border">
       <div className="flex items-start gap-2">
+        <MessageTemplatesPicker 
+          onSelect={handleTemplateSelect}
+          disabled={send.isPending}
+        />
         <textarea
           ref={textareaRef}
           className="flex-1 text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px]"

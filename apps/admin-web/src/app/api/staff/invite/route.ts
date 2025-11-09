@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (staffError || !currentUserStaff || currentUserStaff.role !== 'ADMINSTAFF') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       .from('staff')
       .insert(staffData)
       .select()
-      .single();
+      .single<any>();
 
     if (staffCreateError) {
       // Clean up the auth user if staff creation fails

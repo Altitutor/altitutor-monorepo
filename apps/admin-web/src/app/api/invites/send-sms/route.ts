@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (staffError || !staffData || (staffData.role !== 'ADMIN' && staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         .from('staff')
         .select('id, first_name, last_name, phone_number, role, invite_token')
         .eq('id', id)
-        .single();
+        .single<{ id: string; first_name: string; last_name: string; phone_number: string | null; role: string; invite_token: string | null }>();
       record = result.data;
       fetchError = result.error;
       phoneNumber = result.data?.phone_number ?? null;
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         .from('students')
         .select('id, first_name, last_name, phone, invite_token')
         .eq('id', id)
-        .single();
+        .single<{ id: string; first_name: string; last_name: string; phone: string | null; invite_token: string | null }>();
       record = result.data;
       fetchError = result.error;
       phoneNumber = result.data?.phone ?? null;
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       .select('id, phone_e164')
       .eq(type === 'staff' ? 'staff_id' : 'student_id', id)
       .eq('phone_e164', phoneNumber)
-      .maybeSingle();
+      .maybeSingle<{ id: string; phone_e164: string }>();
 
     let contactId = contact?.id;
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         .from('contacts')
         .insert(contactData)
         .select('id')
-        .single();
+        .single<{ id: string }>();
 
       if (createContactError || !newContact) {
         console.error('Failed to create contact:', createContactError);
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       .from('owned_numbers')
       .select('id, phone_e164')
       .limit(1)
-      .single();
+      .single<{ id: string; phone_e164: string }>();
 
     if (ownedError || !ownedNumber) {
       console.error('No owned number found:', ownedError);
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       .select('id')
       .eq('contact_id', contactId)
       .eq('owned_number_id', ownedNumber.id)
-      .maybeSingle();
+      .maybeSingle<{ id: string }>();
 
     if (existingConvo) {
       conversationId = existingConvo.id;
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
           owned_number_id: ownedNumber.id,
         })
         .select('id')
-        .single();
+        .single<{ id: string }>();
 
       if (convoCreateError || !newConvo) {
         console.error('Failed to create conversation:', convoCreateError);
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
       })
       .select('id')
-      .single();
+      .single<{ id: string }>();
 
     if (messageError || !message) {
       console.error('Failed to create message:', messageError);

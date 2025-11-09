@@ -24,7 +24,7 @@ export async function DELETE(
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (staffError || !currentUserStaff || currentUserStaff.role !== 'ADMINSTAFF') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -46,7 +46,7 @@ export async function DELETE(
       .from('staff')
       .select('user_id')
       .eq('id', staffId)
-      .single();
+      .single<{ user_id: string | null }>();
 
     if (fetchError) {
       return NextResponse.json(

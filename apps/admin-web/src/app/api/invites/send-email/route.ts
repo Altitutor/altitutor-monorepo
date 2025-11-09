@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (staffError || !staffData || (staffData.role !== 'ADMIN' && staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the record to get email and verify token
-    let record;
+    let record: { id: string; first_name: string; last_name: string; email: string; invite_token: string | null; role?: string } | null;
     let fetchError;
     
     if (type === 'staff') {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         .from('staff')
         .select('id, first_name, last_name, email, role, invite_token')
         .eq('id', id)
-        .single();
+        .single<{ id: string; first_name: string; last_name: string; email: string; role: string; invite_token: string | null }>();
       record = result.data;
       fetchError = result.error;
     } else {
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         .from('students')
         .select('id, first_name, last_name, email, invite_token')
         .eq('id', id)
-        .single();
+        .single<{ id: string; first_name: string; last_name: string; email: string; invite_token: string | null }>();
       record = result.data;
       fetchError = result.error;
     }

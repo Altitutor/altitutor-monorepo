@@ -67,10 +67,8 @@ export function DetailsTab({
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
     lastName: student.last_name || '',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    email: (student.email || student.student_email || '') as string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    phone: (student.phone || student.student_phone || '') as string,
+    email: student.email || '',
+    phone: student.phone || '',
     school: (student.school || '') as string,
     curriculum: (student.curriculum as Enums<'subject_curriculum'>) || undefined,
     yearLevel: student.year_level || undefined,
@@ -361,12 +359,10 @@ export function DetailsTab({
         <div>{student.last_name || '-'}</div>
         
         <div className="text-sm font-medium">Student Email:</div>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <div>{student.email || student.student_email || '-'}</div>
+        <div>{student.email || '-'}</div>
         
         <div className="text-sm font-medium">Student Phone:</div>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <div>{student.phone || student.student_phone || '-'}</div>
+        <div>{student.phone || '-'}</div>
         
         <div className="text-sm font-medium">School:</div>
         <div>{student.school || '-'}</div>
