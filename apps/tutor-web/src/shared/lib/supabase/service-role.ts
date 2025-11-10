@@ -8,6 +8,9 @@ import type { Database } from '@altitutor/shared';
  * in API routes with proper authorization checks.
  * 
  * NEVER expose this client or the service role key to the client-side.
+ * 
+ * Note: SUPABASE_SERVICE_ROLE_KEY is automatically derived from SUPABASE_SECRET_KEY
+ * by the deployment scripts for backward compatibility.
  */
 export function getServiceRoleClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

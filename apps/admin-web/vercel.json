@@ -1,0 +1,7 @@
+{
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm turbo run build --filter=admin-web",
+  "devCommand": "cd ../.. && pnpm turbo run dev --filter=admin-web"
+}
+
+

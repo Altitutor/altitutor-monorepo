@@ -2,17 +2,27 @@ import { createClient } from '@supabase/supabase-js';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 
-// Environment variable validation
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_URL');
-}
+// Environment variable validation - only check at runtime, not during build
+function validateEnvVars() {
+  if (typeof window === 'undefined') {
+    // Server-side: only validate if we're actually running (not during build)
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return; // Skip validation during build
+    }
+  }
+  
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_URL');
+  }
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  }
 }
 
 // Create a server client on demand (never in the browser) to avoid duplicate GoTrue instances
 function createServerClient() {
+  validateEnvVars();
   return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -35,6 +45,12 @@ const globalForSupabase = globalThis as unknown as {
 };
 
 function getBrowserClient() {
+  // Skip validation during build phase
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    // Return a dummy client during build
+    return createClientComponentClient<Database>();
+  }
+  
   if (!globalForSupabase.__supabaseClient) {
     globalForSupabase.__supabaseClient = createClientComponentClient<Database>();
   }

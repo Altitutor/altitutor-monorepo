@@ -7,6 +7,21 @@ import type { Database } from '@altitutor/shared';
  * Uses @supabase/ssr for better TypeScript support
  */
 export function createClient() {
+  // Skip validation during build phase
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    // Return a dummy client during build to avoid errors
+    return createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
+      {
+        cookies: {
+          getAll: () => [],
+          setAll: () => {},
+        },
+      }
+    );
+  }
+
   const cookieStore = cookies();
 
   return createServerClient<Database>(

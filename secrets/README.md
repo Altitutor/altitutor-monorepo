@@ -108,6 +108,7 @@ Secrets used across **all environments** (dev and prod). Use sparingly.
 - Third-party API keys that are the same in dev/prod
 - Service credentials shared across environments
 - Non-environment-specific configuration
+- `VERCEL_TOKEN` - Vercel API token for deployment scripts (optional, can also be set as environment variable)
 
 ### `.env.development`
 Secrets for **development/preview environments**.
@@ -136,20 +137,26 @@ Secrets for **production environment**.
 ## 🎯 Where Secrets Go
 
 ### GitHub Actions
-- **Repository secrets**: Shared secrets from `.env.shared`
+- **Repository secrets**: Shared secrets from `.env.shared` (e.g., `SUPABASE_ACCESS_TOKEN` if same for both environments)
 - **Environment: development**: Secrets from `.env.development` (excluding `NEXT_PUBLIC_*`)
+  - `SUPABASE_PROJECT_ID` (dev project)
+  - `SUPABASE_DB_PASSWORD` (dev database password)
+  - `SUPABASE_ACCESS_TOKEN` (if different from shared)
 - **Environment: production**: Secrets from `.env.production` (excluding `NEXT_PUBLIC_*`)
+  - `SUPABASE_PROJECT_ID` (prod project)
+  - `SUPABASE_DB_PASSWORD` (prod database password)
+  - `SUPABASE_ACCESS_TOKEN` (if different from shared)
 
-**Why:** GitHub Actions uses these for CI/CD workflows, database migrations, and automated tasks.
+**Why:** GitHub Actions uses these for CI/CD workflows, database migrations, and automated tasks. The workflow automatically selects the correct environment based on the branch (develop → development, main → production).
 
 ### Vercel
 - **Preview environment**: Client-side vars from `.env.development` (`NEXT_PUBLIC_*`)
 - **Production environment**: Client-side vars from `.env.production` (`NEXT_PUBLIC_*`)
 
 **Apps deployed:**
-- `altitutor-admin-dashboard` (apps/admin-web)
-- `altitutor-student-dashboard` (apps/student-web)
-- `altitutor-tutor-dashboard` (apps/tutor-web)
+- `altitutor-admin-web` (apps/admin-web)
+- `altitutor-student-web` (apps/student-web)
+- `altitutor-tutor-web` (apps/tutor-web)
 
 **Why:** Vercel needs client-side environment variables at build time. Only `NEXT_PUBLIC_*` variables are exposed to the browser.
 
@@ -157,11 +164,24 @@ Secrets for **production environment**.
 - **Development**: Secrets needed by edge functions from `.env.shared` and `.env.development`
 - **Production**: Secrets needed by edge functions from `.env.shared` and `.env.production`
 
-**Auto-provided (no need to set):**
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_DB_URL`
+**Auto-provided by Supabase (no need to set):**
+- `SUPABASE_URL` - Automatically available to edge functions
+- `SUPABASE_ANON_KEY` - Automatically available to edge functions
+- `SUPABASE_SERVICE_ROLE_KEY` - Automatically available to edge functions
+
+**Not used by edge functions:**
+- `SUPABASE_DB_URL` - Edge functions use `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` instead
+
+**Secrets actually deployed to edge functions:**
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_API_KEY_SID`
+- `TWILIO_API_KEY_SECRET`
+- `TWILIO_VERIFY_SIGNATURE`
+- `TWILIO_PUBLIC_URL_INBOUND`
+- `TWILIO_PUBLIC_URL_STATUS` (or `TWILIO_PUBLIC_URL` as fallback)
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
 
 **Why:** Edge functions need access to third-party APIs (Stripe, Twilio, etc.) to process payments, send SMS, etc.
 
@@ -179,18 +199,18 @@ fi
 
 ### Vercel (`deploy-vercel.sh`)
 ```bash
-# Only includes NEXT_PUBLIC_* and Supabase public keys
-if [[ "$key" =~ ^NEXT_PUBLIC_ ]] || [[ "$key" =~ ^(SUPABASE_URL|SUPABASE_ANON_KEY)$ ]]; then
+# Only includes NEXT_PUBLIC_* variables (client-side/build-time vars)
+if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
     deploy_vercel_secret "$key" "$value" "$project" "preview"
 fi
 ```
 
 ### Supabase (`deploy-supabase.sh`)
 ```bash
-# Only includes API keys/secrets needed by edge functions
-# Customize this regex based on your needs:
-if [[ "$key" =~ ^(TWILIO_|STRIPE_SECRET_|RESEND_|SENDGRID_).*$ ]]; then
-    deploy_supabase_secret "$key" "$value" "$project_ref" "production"
+# Only includes API keys/secrets actually used by edge functions
+# Deploys: TWILIO_*, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]]; then
+    deploy_supabase_secret "$key" "$value" "$project_ref" "development"
 fi
 ```
 
@@ -202,17 +222,20 @@ After deployment, verify secrets are set:
 
 ### GitHub Actions
 ```bash
-gh secret list --repo your-org/altitutor-monorepo
-gh secret list --repo your-org/altitutor-monorepo --env development
-gh secret list --repo your-org/altitutor-monorepo --env production
+# List repository-level secrets
+gh secret list --repo matthewchua/altitutor-monorepo
+
+# List environment-specific secrets
+gh secret list --repo matthewchua/altitutor-monorepo --env development
+gh secret list --repo matthewchua/altitutor-monorepo --env production
 ```
 
 ### Vercel
 ```bash
-# List environment variables for a project
-vercel env ls --project altitutor-admin-dashboard
-vercel env ls --project altitutor-student-dashboard
-vercel env ls --project altitutor-tutor-dashboard
+# List environment variables for each project
+vercel env ls --project altitutor-admin-web
+vercel env ls --project altitutor-student-web
+vercel env ls --project altitutor-tutor-web
 ```
 
 ### Supabase
@@ -242,8 +265,9 @@ Log in to each service:
 - Run `vercel projects ls` to see available projects
 
 ### "No auth token" (Vercel)
-- Run `vercel login` and authenticate
+- Run `vercel login` and authenticate (if CLI auth is working)
 - Alternatively, set `VERCEL_TOKEN` environment variable with your token
+- Or add `VERCEL_TOKEN=your_token_here` to `.env.shared` (recommended for deployment scripts)
 
 ### Secrets not updating
 - Vercel and GitHub cache secrets. Redeploy or restart to see changes.

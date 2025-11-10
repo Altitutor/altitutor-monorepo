@@ -76,6 +76,81 @@ print_summary() {
     fi
 }
 
+# Function to derive environment variables from base secrets
+# This function takes a parsed env file and outputs derived variables
+derive_env_vars() {
+    local env_file=$1
+    local project_ref=""
+    local publishable_key=""
+    local secret_key=""
+    local stripe_publishable=""
+    
+    # Read base values from env file
+    while IFS='=' read -r key value; do
+        case "$key" in
+            SUPABASE_PROJECT_REF|SUPABASE_PROJECT_ID)
+                project_ref="$value"
+                ;;
+            SUPABASE_PUBLISHABLE_KEY)
+                publishable_key="$value"
+                ;;
+            SUPABASE_SECRET_KEY)
+                secret_key="$value"
+                ;;
+            STRIPE_PUBLISHABLE_KEY)
+                stripe_publishable="$value"
+                ;;
+        esac
+    done < <(parse_env_file "$env_file")
+    
+    # Derive NEXT_PUBLIC_SUPABASE_URL from project ref
+    if [ -n "$project_ref" ]; then
+        echo "NEXT_PUBLIC_SUPABASE_URL=https://${project_ref}.supabase.co"
+    fi
+    
+    # Derive NEXT_PUBLIC_SUPABASE_ANON_KEY from publishable key
+    # Also support SUPABASE_PUBLISHABLE_KEY -> SUPABASE_ANON_KEY for backward compatibility
+    if [ -n "$publishable_key" ]; then
+        echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${publishable_key}"
+        echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${publishable_key}"
+        # For backward compatibility with code that uses SUPABASE_SERVICE_ROLE_KEY
+        echo "SUPABASE_ANON_KEY=${publishable_key}"
+    fi
+    
+    # Derive SUPABASE_SERVICE_ROLE_KEY from secret key
+    # Also support SUPABASE_SECRET_KEY -> SUPABASE_SERVICE_ROLE_KEY for backward compatibility
+    if [ -n "$secret_key" ]; then
+        echo "SUPABASE_SERVICE_ROLE_KEY=${secret_key}"
+        # For backward compatibility
+        echo "SUPABASE_SECRET_KEY=${secret_key}"
+    fi
+    
+    # Derive NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY from STRIPE_PUBLISHABLE_KEY
+    if [ -n "$stripe_publishable" ]; then
+        echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${stripe_publishable}"
+    fi
+    
+    # Derive TWILIO_PUBLIC_URL_* from NEXT_PUBLIC_SUPABASE_URL
+    if [ -n "$project_ref" ]; then
+        local supabase_url="https://${project_ref}.supabase.co"
+        echo "TWILIO_PUBLIC_URL_INBOUND=${supabase_url}/functions/v1/twilio-inbound"
+        echo "TWILIO_PUBLIC_URL_STATUS=${supabase_url}/functions/v1/twilio-status"
+    fi
+}
+
+# Function to get a specific env var value from a file
+get_env_value() {
+    local env_file=$1
+    local key=$2
+    while IFS='=' read -r env_key env_value; do
+        if [ "$env_key" = "$key" ]; then
+            echo "$env_value"
+            return 0
+        fi
+    done < <(parse_env_file "$env_file")
+    return 1
+}
+
 
 
 

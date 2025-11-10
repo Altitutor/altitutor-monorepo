@@ -34,6 +34,9 @@ export function getServerSupabaseClient() {
 /**
  * Admin client with service role key (full access)
  * Use ONLY in secure API routes, never in client code
+ * 
+ * Note: SUPABASE_SERVICE_ROLE_KEY is automatically derived from SUPABASE_SECRET_KEY
+ * by the deployment scripts for backward compatibility.
  */
 export function getServerSupabaseAdmin() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {

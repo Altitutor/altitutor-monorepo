@@ -14,10 +14,27 @@ SECRETS_DIR="$(dirname "$SCRIPT_DIR")"
 # Source common utilities
 source "$SCRIPT_DIR/common.sh"
 
+# Load VERCEL_TOKEN from .env.shared if it exists
+if [ -f "$SECRETS_DIR/.env.shared" ]; then
+    # Extract VERCEL_TOKEN from .env.shared and export it
+    # Read directly from file, skipping comments and empty lines
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+        # Skip empty lines and comments
+        [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+        # Remove leading/trailing whitespace and quotes
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+        if [ "$key" = "VERCEL_TOKEN" ] && [ -n "$value" ]; then
+            export VERCEL_TOKEN="$value"
+            break
+        fi
+    done < "$SECRETS_DIR/.env.shared"
+fi
+
 # Vercel configuration - UPDATE THESE FOR YOUR SETUP
-VERCEL_ADMIN_PROJECT="altitutor-admin-dashboard"
-VERCEL_STUDENT_PROJECT="altitutor-student-dashboard"
-VERCEL_TUTOR_PROJECT="altitutor-tutor-dashboard"
+VERCEL_ADMIN_PROJECT="altitutor-admin-web"
+VERCEL_STUDENT_PROJECT="altitutor-student-web"
+VERCEL_TUTOR_PROJECT="altitutor-tutor-web"
 
 # Get team ID from Vercel CLI or set manually
 # Run: vercel teams list
@@ -34,6 +51,13 @@ check_command "vercel" "Install with: npm install -g vercel" || exit 1
 check_command "jq" "Install with: brew install jq" || exit 1
 check_env_file "$SECRETS_DIR/.env.development" || exit 1
 check_env_file "$SECRETS_DIR/.env.production" || exit 1
+
+# Verify Vercel token is loaded
+if [ -n "$VERCEL_TOKEN" ]; then
+    echo -e "${GREEN}✓ Vercel token loaded from .env.shared${NC}"
+else
+    echo -e "${YELLOW}⚠ Vercel token not found in .env.shared, will try CLI auth${NC}"
+fi
 
 echo -e "${GREEN}✓ All prerequisite checks passed${NC}"
 echo ""
@@ -151,14 +175,19 @@ deploy_vercel_secret() {
 echo -e "${BLUE}1. Deploying Development Secrets (Preview)${NC}"
 echo -e "${YELLOW}Vercel Preview Environment:${NC}"
 
-while IFS='=' read -r key value; do
-    # Deploy NEXT_PUBLIC_* and other client-side/build-time vars
-    if [[ "$key" =~ ^NEXT_PUBLIC_ ]] || [[ "$key" =~ ^(SUPABASE_URL|SUPABASE_ANON_KEY)$ ]]; then
+# Combine base env vars with derived vars
+{
+    parse_env_file "$SECRETS_DIR/.env.development"
+    parse_env_file "$SECRETS_DIR/.env.shared"
+    derive_env_vars "$SECRETS_DIR/.env.development"
+} | while IFS='=' read -r key value; do
+    # Deploy NEXT_PUBLIC_* variables (including derived ones)
+    if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
     fi
-done < <(parse_env_file "$SECRETS_DIR/.env.development")
+done
 
 echo ""
 
@@ -169,14 +198,19 @@ echo ""
 echo -e "${BLUE}2. Deploying Production Secrets${NC}"
 echo -e "${YELLOW}Vercel Production Environment:${NC}"
 
-while IFS='=' read -r key value; do
-    # Deploy NEXT_PUBLIC_* and other client-side/build-time vars
-    if [[ "$key" =~ ^NEXT_PUBLIC_ ]] || [[ "$key" =~ ^(SUPABASE_URL|SUPABASE_ANON_KEY)$ ]]; then
+# Combine base env vars with derived vars
+{
+    parse_env_file "$SECRETS_DIR/.env.production"
+    parse_env_file "$SECRETS_DIR/.env.shared"
+    derive_env_vars "$SECRETS_DIR/.env.production"
+} | while IFS='=' read -r key value; do
+    # Deploy NEXT_PUBLIC_* variables (including derived ones)
+    if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
     fi
-done < <(parse_env_file "$SECRETS_DIR/.env.production")
+done
 
 echo ""
 

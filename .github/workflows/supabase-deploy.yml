@@ -27,23 +27,10 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
 
-      - name: Select project (branch → project)
-        id: project
-        run: |
-          if [ "${{ github.ref_name }}" = "develop" ]; then
-            echo "project=${{ secrets.SUPABASE_DEV_PROJECT_ID }}" >> $GITHUB_OUTPUT
-          else
-            echo "project=${{ secrets.SUPABASE_PROD_PROJECT_ID }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Export CLI env (PROJECT_ID, DB_PASSWORD)
         run: |
-          echo "SUPABASE_PROJECT_ID=${{ steps.project.outputs.project }}" >> $GITHUB_ENV
-          if [ "${{ github.ref_name }}" = "develop" ]; then
-            echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DEV_DB_PASSWORD }}" >> $GITHUB_ENV
-          else
-            echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_PROD_DB_PASSWORD }}" >> $GITHUB_ENV
-          fi
+          echo "SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DB_PASSWORD }}" >> $GITHUB_ENV
 
       - name: Link project
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
