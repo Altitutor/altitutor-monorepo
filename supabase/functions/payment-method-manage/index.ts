@@ -32,26 +32,32 @@ Deno.serve(async (req: Request) => {
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   
-  // Create client with user's JWT (from Authorization header)
+  // Create service role client for database operations (bypasses RLS)
+  const supabaseService = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false }
+  });
+
+  // Create client with user's JWT for auth verification
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return json({ error: 'Missing authorization header' }, 401);
   
-  const supabase = createClient(supabaseUrl, supabaseKey, {
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false }
   });
 
   try {
     // Verify user is authenticated and get student_id
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
       return json({ error: 'Unauthorized' }, 401);
     }
 
-    // Get student record
-    const { data: student, error: studentError } = await supabase
+    // Get student record using service role client
+    const { data: student, error: studentError } = await supabaseService
       .from('students')
       .select('id')
       .eq('user_id', user.id)
@@ -67,8 +73,8 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Missing action or paymentMethodId' }, 400);
     }
 
-    // Verify the payment method belongs to this student
-    const { data: paymentMethod, error: pmError } = await supabase
+    // Verify the payment method belongs to this student (using service role client)
+    const { data: paymentMethod, error: pmError } = await supabaseService
       .from('student_payment_methods')
       .select('*')
       .eq('id', paymentMethodId)
@@ -81,13 +87,13 @@ Deno.serve(async (req: Request) => {
 
     if (action === 'set_default') {
       // Unset all other default payment methods for this student
-      await supabase
+      await supabaseService
         .from('student_payment_methods')
         .update({ is_default: false })
         .eq('student_id', student.id);
 
       // Set this one as default
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseService
         .from('student_payment_methods')
         .update({ is_default: true })
         .eq('id', paymentMethodId)
@@ -104,7 +110,7 @@ Deno.serve(async (req: Request) => {
       // Prevent deletion of the default payment method
       if (paymentMethod.is_default) {
         // Check if there are other payment methods
-        const { data: otherMethods, error: countError } = await supabase
+        const { data: otherMethods, error: countError } = await supabaseService
           .from('student_payment_methods')
           .select('id')
           .eq('student_id', student.id)
@@ -122,7 +128,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Get customer ID for detaching from Stripe
-      const { data: billing, error: billingError } = await supabase
+      const { data: billing, error: billingError } = await supabaseService
         .from('students_billing')
         .select('stripe_customer_id')
         .eq('student_id', student.id)
@@ -141,7 +147,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Delete from database (webhook will also try, but that's idempotent)
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await supabaseService
         .from('student_payment_methods')
         .delete()
         .eq('id', paymentMethodId)
@@ -166,6 +172,9 @@ Deno.serve(async (req: Request) => {
     }, 500);
   }
 });
+
+
+
 
 
 

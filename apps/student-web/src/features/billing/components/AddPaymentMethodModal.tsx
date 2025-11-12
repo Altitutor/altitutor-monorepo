@@ -7,9 +7,17 @@ import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStri
 import { Loader2, CreditCard } from 'lucide-react';
 import { useCreateSetupIntent, usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useToast } from '@altitutor/ui';
+import { useQueryClient } from '@tanstack/react-query';
 
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+// Use pre-loaded Stripe instance from usePreWarmBilling
+// This ensures Stripe.js is already loaded when modal opens
+let stripePromise: Promise<any> | null = null;
+function getStripePromise() {
+  if (!stripePromise) {
+    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+  }
+  return stripePromise;
+}
 
 interface AddPaymentMethodModalProps {
   isOpen: boolean;
@@ -17,16 +25,18 @@ interface AddPaymentMethodModalProps {
   studentId: string;
 }
 
-function PaymentForm({ onSuccess, onCancel, clientSecret }: { 
+function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: { 
   onSuccess: () => void; 
   onCancel: () => void;
   clientSecret: string;
+  studentId: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Detect dark mode dynamically
   const isDarkMode = typeof window !== 'undefined' && 
@@ -80,11 +90,49 @@ function PaymentForm({ onSuccess, onCancel, clientSecret }: {
       }
 
       if (setupIntent && setupIntent.status === 'succeeded') {
+        // Optimistically update the UI with a skeleton payment method
+        // The real-time subscription will update it with actual data when webhook processes
+        const optimisticPaymentMethod = {
+          id: `temp-${Date.now()}`,
+          stripe_payment_method_id: setupIntent.payment_method as string,
+          is_default: false, // Will be set by webhook if it's the first one
+          card_brand: 'card',
+          card_last4: '••••',
+          card_exp_month: 0,
+          card_exp_year: 0,
+          card_country: null,
+          created_at: new Date().toISOString(),
+        };
+
+        // Optimistically add to cache - ensure we handle null payment_methods
+        queryClient.setQueryData(['payment-methods'], (old: any) => {
+          if (!old) {
+            // If no data exists, create a minimal structure
+            return {
+              student_id: studentId,
+              stripe_customer_id: '',
+              payment_methods: [optimisticPaymentMethod],
+              default_payment_method: null,
+            };
+          }
+          
+          const existingMethods = Array.isArray(old.payment_methods) ? old.payment_methods : [];
+          return {
+            ...old,
+            payment_methods: [...existingMethods, optimisticPaymentMethod],
+          };
+        });
+
         toast({
           title: 'Success',
           description: 'Payment method added successfully',
         });
-        onSuccess();
+        
+        // Don't close immediately - let user see the optimistic update
+        // The real-time subscription will update it with real data
+        setTimeout(() => {
+          onSuccess();
+        }, 1000);
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
@@ -162,6 +210,18 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
 
   // Fetch setup intent when modal opens
   useEffect(() => {
+    if (!studentId) {
+      if (isOpen) {
+        toast({
+          title: 'Error',
+          description: 'Student ID not found. Please refresh the page.',
+          variant: 'destructive',
+        });
+        onClose();
+      }
+      return;
+    }
+
     if (isOpen && !clientSecret && !isLoading) {
       setIsLoading(true);
       createSetupIntent.mutate(studentId, {
@@ -225,11 +285,12 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
         )}
 
         {!isLoading && clientSecret && (
-          <Elements stripe={stripePromise} options={elementsOptions}>
+          <Elements stripe={getStripePromise()} options={elementsOptions}>
             <PaymentForm 
               onSuccess={handleSuccess} 
               onCancel={handleCancel}
               clientSecret={clientSecret}
+              studentId={studentId}
             />
           </Elements>
         )}
