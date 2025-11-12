@@ -43,6 +43,19 @@ Deno.serve(async (req: Request) => {
     });
     return json({ error: 'Stripe env not configured' }, 500);
   }
+  
+  // Validate webhook secret format - must start with whsec_
+  if (!STRIPE_WEBHOOK_SECRET.startsWith('whsec_')) {
+    console.error('[webhook] Invalid webhook secret format - must start with whsec_', {
+      secretPrefix: STRIPE_WEBHOOK_SECRET.substring(0, 10),
+      secretLength: STRIPE_WEBHOOK_SECRET.length,
+    });
+    return json({ 
+      error: 'Invalid webhook secret format', 
+      details: 'Webhook secret must start with whsec_. Please check your Supabase secrets match the Stripe Dashboard signing secret exactly.' 
+    }, 500);
+  }
+  
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
   const sig = req.headers.get('stripe-signature') || '';
@@ -69,7 +82,9 @@ Deno.serve(async (req: Request) => {
   
   let event: any;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, STRIPE_WEBHOOK_SECRET);
+    // Use constructEventAsync for Deno/Supabase Edge Functions
+    // constructEvent() uses synchronous crypto which isn't allowed in Deno
+    event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET);
     console.log('[webhook] Signature verified successfully', { eventType: event.type, eventId: event.id });
   } catch (err: any) {
     console.error('[webhook] signature verify failed', {
