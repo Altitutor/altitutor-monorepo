@@ -12,19 +12,6 @@ function json(resp: any, status = 200) {
 }
 
 Deno.serve(async (req: Request) => {
-  // Log all incoming requests for debugging - this should catch EVERY request
-  const headersObj: Record<string, string> = {};
-  req.headers.forEach((value, key) => {
-    headersObj[key] = value;
-  });
-  
-  console.log('[webhook] ====== REQUEST RECEIVED ======');
-  console.log('[webhook] Method:', req.method);
-  console.log('[webhook] URL:', req.url);
-  console.log('[webhook] Headers:', JSON.stringify(headersObj, null, 2));
-  console.log('[webhook] Has Body:', !!req.body);
-  console.log('[webhook] ===============================');
-
   // Health check endpoint
   if (req.method === 'GET' || (req.method === 'POST' && req.url.includes('health'))) {
     return json({ 
@@ -60,11 +47,7 @@ Deno.serve(async (req: Request) => {
 
   const sig = req.headers.get('stripe-signature') || '';
   if (!sig) {
-    console.error('[webhook] Missing stripe-signature header', {
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries()),
-    });
+    console.error('[webhook] Missing stripe-signature header');
     return json({ error: 'Missing stripe-signature header' }, 400);
   }
 
@@ -72,32 +55,13 @@ Deno.serve(async (req: Request) => {
   // Important: Don't parse as JSON before signature verification
   const rawBody = await req.text();
   
-  console.log('[webhook] Attempting signature verification', {
-    signatureLength: sig.length,
-    bodyLength: rawBody.length,
-    bodyPreview: rawBody.substring(0, 100),
-    webhookSecretLength: STRIPE_WEBHOOK_SECRET?.length,
-    webhookSecretPrefix: STRIPE_WEBHOOK_SECRET?.substring(0, 10),
-  });
-  
   let event: any;
   try {
     // Use constructEventAsync for Deno/Supabase Edge Functions
     // constructEvent() uses synchronous crypto which isn't allowed in Deno
     event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET);
-    console.log('[webhook] Signature verified successfully', { eventType: event.type, eventId: event.id });
   } catch (err: any) {
-    console.error('[webhook] signature verify failed', {
-      error: err?.message || err,
-      errorType: err?.type,
-      errorCode: err?.code,
-      hasSignature: !!sig,
-      signatureLength: sig.length,
-      bodyLength: rawBody.length,
-      webhookSecretPrefix: STRIPE_WEBHOOK_SECRET?.substring(0, 10),
-      webhookSecretLength: STRIPE_WEBHOOK_SECRET?.length,
-      signaturePreview: sig.substring(0, 50),
-    });
+    console.error('[webhook] Signature verification failed:', err?.message || err);
     return json({ error: 'invalid signature', details: err?.message || 'Unknown error' }, 400);
   }
 
@@ -114,7 +78,6 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingEvent?.processed) {
-      console.log('[webhook] Event already processed:', event.id);
       return json({ received: true, already_processed: true });
     }
 
@@ -138,19 +101,7 @@ Deno.serve(async (req: Request) => {
         const customerId = si.customer as string;
         const studentId = si.metadata?.student_id;
 
-        console.log('[webhook] setup_intent.succeeded received', {
-          paymentMethodId,
-          customerId,
-          studentId,
-          setupIntentId: si.id,
-          metadata: si.metadata,
-        });
-
         if (!paymentMethodId || !customerId) {
-          console.error('[webhook] missing payment_method or customer in setup_intent', {
-            hasPaymentMethod: !!paymentMethodId,
-            hasCustomer: !!customerId,
-          });
           await supabase
             .from('stripe_webhook_events')
             .update({ processed: true, processed_at: new Date().toISOString(), error_message: 'Missing payment_method or customer' })
@@ -159,9 +110,6 @@ Deno.serve(async (req: Request) => {
         }
 
         if (!studentId) {
-          console.error('[webhook] missing student_id in setup_intent metadata', {
-            metadata: si.metadata,
-          });
           await supabase
             .from('stripe_webhook_events')
             .update({ processed: true, processed_at: new Date().toISOString(), error_message: 'Missing student_id in metadata' })
@@ -174,13 +122,6 @@ Deno.serve(async (req: Request) => {
           const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
           const card = (pm as any)?.card || {};
 
-          console.log('[webhook] Retrieved payment method details', {
-            cardBrand: card.brand,
-            cardLast4: card.last4,
-            cardExpMonth: card.exp_month,
-            cardExpYear: card.exp_year,
-          });
-
           // Check if student already has payment methods
           const { data: existingMethods, error: queryErr } = await supabase
             .from('student_payment_methods')
@@ -188,20 +129,13 @@ Deno.serve(async (req: Request) => {
             .eq('student_id', studentId);
 
           if (queryErr) {
-            console.error('[webhook] Error querying existing payment methods', queryErr);
+            console.error('[webhook] Error querying existing payment methods:', queryErr);
           }
 
           const isFirstPaymentMethod = !existingMethods || existingMethods.length === 0;
 
-          console.log('[webhook] Inserting payment method', {
-            studentId,
-            paymentMethodId,
-            isFirstPaymentMethod,
-            existingMethodsCount: existingMethods?.length || 0,
-          });
-
           // Insert the new payment method
-          const { data: insertedData, error: insertErr } = await supabase
+          const { error: insertErr } = await supabase
             .from('student_payment_methods')
             .insert({
               student_id: studentId,
@@ -212,27 +146,13 @@ Deno.serve(async (req: Request) => {
               card_exp_month: card.exp_month || 1,
               card_exp_year: card.exp_year || new Date().getFullYear() + 5,
               card_country: card.country || null,
-            })
-            .select();
+            });
 
           if (insertErr) {
-            console.error('[webhook] student_payment_methods insert error', {
-              error: insertErr,
-              code: insertErr.code,
-              message: insertErr.message,
-              details: insertErr.details,
-              hint: insertErr.hint,
-            });
-          } else {
-            console.log('[webhook] payment method saved successfully', {
-              insertedId: insertedData?.[0]?.id,
-            });
+            console.error('[webhook] Failed to save payment method:', insertErr);
           }
         } catch (e: any) {
-          console.error('[webhook] setup_intent handler error', {
-            error: e?.message || e,
-            stack: e?.stack,
-          });
+          console.error('[webhook] setup_intent handler error:', e?.message || e);
         }
 
         await supabase
@@ -247,7 +167,6 @@ Deno.serve(async (req: Request) => {
         const paymentMethodId = pm.id as string;
 
         if (!paymentMethodId) {
-          console.error('[webhook] missing payment_method id in payment_method.detached');
           return json({ received: true });
         }
 
@@ -266,7 +185,7 @@ Deno.serve(async (req: Request) => {
             .eq('stripe_payment_method_id', paymentMethodId);
 
           if (deleteErr) {
-            console.error('[webhook] student_payment_methods delete error', deleteErr);
+            console.error('[webhook] Failed to delete payment method:', deleteErr);
             return json({ received: true });
           }
 
@@ -285,10 +204,8 @@ Deno.serve(async (req: Request) => {
                 .eq('id', otherMethods[0].id);
             }
           }
-
-          console.log('[webhook] payment method detached successfully');
         } catch (e: any) {
-          console.error('[webhook] payment_method.detached handler error', e?.message || e);
+          console.error('[webhook] payment_method.detached handler error:', e?.message || e);
         }
 
         await supabase

@@ -4,8 +4,19 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 function json(resp: any, status = 200) {
-  return new Response(JSON.stringify(resp), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(resp), { 
+    status, 
+    headers: { 
+      'Content-Type': 'application/json',
+      ...corsHeaders 
+    } 
+  });
 }
 
 function startEndForTomorrow(now = new Date()) {
@@ -21,14 +32,87 @@ function grossUp(net: number, isInternational: boolean, percentDomestic: number,
   return Math.round((net + fixedCents) / (1 - percent));
 }
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+  
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
   if (!STRIPE_SECRET_KEY) return json({ error: 'Stripe key not configured' }, 500);
-  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
-
+  
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  
+  // Parse request body for test mode and date override
+  let testMode = false;
+  let dateOverride: string | null = null;
+  let isServiceRole = false;
+  
+  try {
+    const authHeader = req.headers.get('authorization');
+    const apiKey = req.headers.get('apikey');
+    
+    // Check if this is a service role request (cron job or direct service call)
+    if (apiKey === supabaseServiceKey || authHeader?.includes(supabaseServiceKey)) {
+      isServiceRole = true;
+    }
+    
+    // Parse request body if it exists (only for POST requests)
+    if (req.method === 'POST') {
+      try {
+        const bodyText = await req.text();
+        if (bodyText) {
+          const body = JSON.parse(bodyText);
+          testMode = body.testMode === true;
+          dateOverride = body.date || null;
+        }
+      } catch {
+        // Body parsing failed, continue with defaults
+      }
+    }
+    
+    // Security check: Test mode can only be triggered by authenticated admin staff
+    if (testMode && !isServiceRole) {
+      // Create a client with the user's auth token to verify admin status
+      const userAuthHeader = authHeader?.replace('Bearer ', '');
+      if (!userAuthHeader) {
+        return json({ error: 'Unauthorized: Authentication required for test mode' }, 401);
+      }
+      
+      const userSupabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: `Bearer ${userAuthHeader}` } }
+      });
+      
+      // Verify user is ADMINSTAFF
+      const { data: { user } } = await userSupabase.auth.getUser();
+      if (!user) {
+        return json({ error: 'Unauthorized: Invalid authentication' }, 401);
+      }
+      
+      const { data: staff } = await userSupabase
+        .from('staff')
+        .select('role, status')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (!staff || staff.role !== 'ADMINSTAFF' || staff.status !== 'ACTIVE') {
+        return json({ error: 'Unauthorized: Admin access required for test mode' }, 403);
+      }
+    }
+    
+    // Production mode: Only allow service role (cron jobs)
+    if (!testMode && !isServiceRole) {
+      return json({ error: 'Unauthorized: Production billing can only be triggered by cron jobs' }, 403);
+    }
+    
+  } catch (authErr: any) {
+    return json({ error: 'Authentication error', message: authErr?.message }, 401);
+  }
+
+  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
 
   try {
     // Load fee settings from DB
@@ -45,9 +129,26 @@ Deno.serve(async (_req: Request) => {
     const FEE_FIXED_CENTS = Number(settingsMap.fee_fixed_cents || '30');
     const DOMESTIC_COUNTRY = (settingsMap.domestic_country || 'AU').toUpperCase();
 
-    const { startIso, endIso } = startEndForTomorrow(new Date());
+    // Determine date range: use override if provided, otherwise tomorrow (production) or today (test)
+    let targetDate: Date;
+    if (dateOverride) {
+      targetDate = new Date(dateOverride);
+    } else if (testMode) {
+      // In test mode, process today's sessions by default
+      targetDate = new Date();
+    } else {
+      // Production mode: process tomorrow's sessions
+      targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+    
+    const { startIso, endIso } = (() => {
+      const start = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
+      const end = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+      return { startIso: start.toISOString(), endIso: end.toISOString() };
+    })();
 
-    // Find sessions for tomorrow
+    // Find sessions for target date
     const { data: sessions, error: sessErr } = await supabase
       .from('sessions')
       .select('id, start_at, subject_id')
@@ -55,7 +156,15 @@ Deno.serve(async (_req: Request) => {
       .lte('start_at', endIso);
     if (sessErr) throw sessErr;
 
-    if (!sessions?.length) return json({ ok: true, processed: 0 });
+    if (!sessions?.length) {
+      return json({ 
+        ok: true, 
+        processed: 0, 
+        testMode,
+        dateRange: { start: startIso, end: endIso },
+        message: `No sessions found for ${testMode ? 'today' : 'tomorrow'}`
+      });
+    }
 
     // Load attending students and subject pricing
     const sessionIds = sessions.map((s: any) => s.id);
@@ -74,20 +183,24 @@ Deno.serve(async (_req: Request) => {
     const subjectById: Record<string, any> = {};
     for (const sub of subjects || []) subjectById[sub.id] = sub;
 
+    // Get billing info with default payment method using optimized view (single query with JOIN)
     const { data: billingRows, error: billErr } = await supabase
-      .from('students_billing')
-      .select(`
-        student_id,
-        stripe_customer_id,
-        payment_methods:student_payment_methods!inner(
-          stripe_payment_method_id,
-          card_country
-        )
-      `)
-      .eq('student_payment_methods.is_default', true);
+      .from('vadmin_billing_with_payment_methods')
+      .select('student_id, stripe_customer_id, stripe_payment_method_id, card_country');
     if (billErr) throw billErr;
+    
+    // Build map of student_id -> billing info with default payment method
     const billingByStudent: Record<string, any> = {};
-    for (const b of billingRows || []) billingByStudent[b.student_id] = b;
+    for (const b of billingRows || []) {
+      billingByStudent[b.student_id] = {
+        student_id: b.student_id,
+        stripe_customer_id: b.stripe_customer_id,
+        payment_methods: b.stripe_payment_method_id ? [{
+          stripe_payment_method_id: b.stripe_payment_method_id,
+          card_country: b.card_country
+        }] : []
+      };
+    }
 
     // Parent emails
     const { data: parentsJoin } = await supabase
@@ -162,6 +275,8 @@ Deno.serve(async (_req: Request) => {
       }
 
       try {
+        // NOTE: Test mode currently charges Stripe for end-to-end testing
+        // TODO: Remove test mode Stripe charging before production deployment
         const receiptEmail = parentEmailByStudent[row.student_id] || studentEmailById[row.student_id];
         const pi = await stripe.paymentIntents.create({
           amount: grossCents,
@@ -170,13 +285,16 @@ Deno.serve(async (_req: Request) => {
           payment_method: defaultPM.stripe_payment_method_id,
           off_session: true,
           confirm: true,
-          description: `Session charge for ${session.start_at}`,
+          description: testMode 
+            ? `TEST MODE - Session charge for ${session.start_at}` 
+            : `Session charge for ${session.start_at}`,
           receipt_email: receiptEmail,
           metadata: {
             type: 'session_charge',
             student_id: row.student_id,
             session_id: row.session_id,
             sessions_students_id: row.id,
+            test_mode: testMode ? 'true' : 'false',
           },
         }, { idempotencyKey: pay.id });
 
@@ -188,7 +306,7 @@ Deno.serve(async (_req: Request) => {
         if (updErr) console.error('[runner] update payment after PI', updErr);
         paymentsCreated.push(pay.id);
       } catch (e: any) {
-        console.error('[runner] PI create failed', e?.message || e);
+        console.error('[runner] payment processing failed', e?.message || e);
         await supabase
           .from('payments')
           .update({ status: 'failed', failure_message: String(e?.message || e) })
@@ -196,9 +314,17 @@ Deno.serve(async (_req: Request) => {
       }
     }
 
-    return json({ ok: true, created: paymentsCreated.length });
+    return json({ 
+      ok: true, 
+      created: paymentsCreated.length,
+      testMode,
+      dateRange: { start: startIso, end: endIso },
+      message: testMode 
+        ? `Test mode: Created ${paymentsCreated.length} payment records and charged Stripe (TEST MODE - remove before production)` 
+        : `Created ${paymentsCreated.length} payment records`
+    });
   } catch (e: any) {
     console.error('[runner] error', e?.message || e);
-    return json({ error: 'runner_error' }, 500);
+    return json({ error: 'runner_error', message: e?.message || String(e), testMode }, 500);
   }
 });
