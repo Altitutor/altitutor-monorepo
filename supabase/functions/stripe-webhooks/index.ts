@@ -12,6 +12,23 @@ function json(resp: any, status = 200) {
 }
 
 Deno.serve(async (req: Request) => {
+  // Log all incoming requests for debugging
+  console.log('[webhook] Request received', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries()),
+    hasBody: !!req.body,
+  });
+
+  // Health check endpoint
+  if (req.method === 'GET' || (req.method === 'POST' && req.url.includes('health'))) {
+    return json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      function: 'stripe-webhooks',
+    });
+  }
+
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
   const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')?.trim();
   if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
@@ -25,7 +42,11 @@ Deno.serve(async (req: Request) => {
 
   const sig = req.headers.get('stripe-signature') || '';
   if (!sig) {
-    console.error('[webhook] Missing stripe-signature header');
+    console.error('[webhook] Missing stripe-signature header', {
+      method: req.method,
+      url: req.url,
+      headers: Object.fromEntries(req.headers.entries()),
+    });
     return json({ error: 'Missing stripe-signature header' }, 400);
   }
 
