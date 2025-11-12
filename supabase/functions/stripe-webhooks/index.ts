@@ -14,17 +14,40 @@ function json(resp: any, status = 200) {
 Deno.serve(async (req: Request) => {
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
   const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')?.trim();
-  if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) return json({ error: 'Stripe env not configured' }, 500);
+  if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
+    console.error('[webhook] Missing Stripe environment variables', {
+      hasSecretKey: !!STRIPE_SECRET_KEY,
+      hasWebhookSecret: !!STRIPE_WEBHOOK_SECRET,
+    });
+    return json({ error: 'Stripe env not configured' }, 500);
+  }
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
   const sig = req.headers.get('stripe-signature') || '';
-  const rawBody = await req.text();
+  if (!sig) {
+    console.error('[webhook] Missing stripe-signature header');
+    return json({ error: 'Missing stripe-signature header' }, 400);
+  }
+
+  // Read raw body as array buffer first to ensure exact bytes
+  const arrayBuffer = await req.arrayBuffer();
+  const rawBody = new TextDecoder().decode(arrayBuffer);
+  
   let event: any;
   try {
     event = stripe.webhooks.constructEvent(rawBody, sig, STRIPE_WEBHOOK_SECRET);
+    console.log('[webhook] Signature verified successfully', { eventType: event.type, eventId: event.id });
   } catch (err: any) {
-    console.error('[webhook] signature verify failed', err?.message || err);
-    return json({ error: 'invalid signature' }, 400);
+    console.error('[webhook] signature verify failed', {
+      error: err?.message || err,
+      errorType: err?.type,
+      hasSignature: !!sig,
+      signatureLength: sig.length,
+      bodyLength: rawBody.length,
+      webhookSecretPrefix: STRIPE_WEBHOOK_SECRET?.substring(0, 6),
+      webhookSecretLength: STRIPE_WEBHOOK_SECRET?.length,
+    });
+    return json({ error: 'invalid signature', details: err?.message || 'Unknown error' }, 400);
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -64,8 +87,34 @@ Deno.serve(async (req: Request) => {
         const customerId = si.customer as string;
         const studentId = si.metadata?.student_id;
 
+        console.log('[webhook] setup_intent.succeeded received', {
+          paymentMethodId,
+          customerId,
+          studentId,
+          setupIntentId: si.id,
+          metadata: si.metadata,
+        });
+
         if (!paymentMethodId || !customerId) {
-          console.error('[webhook] missing payment_method or customer in setup_intent');
+          console.error('[webhook] missing payment_method or customer in setup_intent', {
+            hasPaymentMethod: !!paymentMethodId,
+            hasCustomer: !!customerId,
+          });
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString(), error_message: 'Missing payment_method or customer' })
+            .eq('stripe_event_id', event.id);
+          return json({ received: true });
+        }
+
+        if (!studentId) {
+          console.error('[webhook] missing student_id in setup_intent metadata', {
+            metadata: si.metadata,
+          });
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString(), error_message: 'Missing student_id in metadata' })
+            .eq('stripe_event_id', event.id);
           return json({ received: true });
         }
 
@@ -74,16 +123,34 @@ Deno.serve(async (req: Request) => {
           const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
           const card = (pm as any)?.card || {};
 
+          console.log('[webhook] Retrieved payment method details', {
+            cardBrand: card.brand,
+            cardLast4: card.last4,
+            cardExpMonth: card.exp_month,
+            cardExpYear: card.exp_year,
+          });
+
           // Check if student already has payment methods
-          const { data: existingMethods } = await supabase
+          const { data: existingMethods, error: queryErr } = await supabase
             .from('student_payment_methods')
             .select('id')
             .eq('student_id', studentId);
 
+          if (queryErr) {
+            console.error('[webhook] Error querying existing payment methods', queryErr);
+          }
+
           const isFirstPaymentMethod = !existingMethods || existingMethods.length === 0;
 
+          console.log('[webhook] Inserting payment method', {
+            studentId,
+            paymentMethodId,
+            isFirstPaymentMethod,
+            existingMethodsCount: existingMethods?.length || 0,
+          });
+
           // Insert the new payment method
-          const { error: insertErr } = await supabase
+          const { data: insertedData, error: insertErr } = await supabase
             .from('student_payment_methods')
             .insert({
               student_id: studentId,
@@ -94,15 +161,27 @@ Deno.serve(async (req: Request) => {
               card_exp_month: card.exp_month || 1,
               card_exp_year: card.exp_year || new Date().getFullYear() + 5,
               card_country: card.country || null,
-            });
+            })
+            .select();
 
           if (insertErr) {
-            console.error('[webhook] student_payment_methods insert error', insertErr);
+            console.error('[webhook] student_payment_methods insert error', {
+              error: insertErr,
+              code: insertErr.code,
+              message: insertErr.message,
+              details: insertErr.details,
+              hint: insertErr.hint,
+            });
           } else {
-            console.log('[webhook] payment method saved successfully');
+            console.log('[webhook] payment method saved successfully', {
+              insertedId: insertedData?.[0]?.id,
+            });
           }
         } catch (e: any) {
-          console.error('[webhook] setup_intent handler error', e?.message || e);
+          console.error('[webhook] setup_intent handler error', {
+            error: e?.message || e,
+            stack: e?.stack,
+          });
         }
 
         await supabase
