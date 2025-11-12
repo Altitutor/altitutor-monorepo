@@ -12,13 +12,18 @@ function json(resp: any, status = 200) {
 }
 
 Deno.serve(async (req: Request) => {
-  // Log all incoming requests for debugging
-  console.log('[webhook] Request received', {
-    method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries()),
-    hasBody: !!req.body,
+  // Log all incoming requests for debugging - this should catch EVERY request
+  const headersObj: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    headersObj[key] = value;
   });
+  
+  console.log('[webhook] ====== REQUEST RECEIVED ======');
+  console.log('[webhook] Method:', req.method);
+  console.log('[webhook] URL:', req.url);
+  console.log('[webhook] Headers:', JSON.stringify(headersObj, null, 2));
+  console.log('[webhook] Has Body:', !!req.body);
+  console.log('[webhook] ===============================');
 
   // Health check endpoint
   if (req.method === 'GET' || (req.method === 'POST' && req.url.includes('health'))) {
@@ -50,9 +55,17 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Missing stripe-signature header' }, 400);
   }
 
-  // Read raw body as array buffer first to ensure exact bytes
-  const arrayBuffer = await req.arrayBuffer();
-  const rawBody = new TextDecoder().decode(arrayBuffer);
+  // Read raw body as text - Stripe's constructEvent accepts string
+  // Important: Don't parse as JSON before signature verification
+  const rawBody = await req.text();
+  
+  console.log('[webhook] Attempting signature verification', {
+    signatureLength: sig.length,
+    bodyLength: rawBody.length,
+    bodyPreview: rawBody.substring(0, 100),
+    webhookSecretLength: STRIPE_WEBHOOK_SECRET?.length,
+    webhookSecretPrefix: STRIPE_WEBHOOK_SECRET?.substring(0, 10),
+  });
   
   let event: any;
   try {
@@ -62,11 +75,13 @@ Deno.serve(async (req: Request) => {
     console.error('[webhook] signature verify failed', {
       error: err?.message || err,
       errorType: err?.type,
+      errorCode: err?.code,
       hasSignature: !!sig,
       signatureLength: sig.length,
       bodyLength: rawBody.length,
-      webhookSecretPrefix: STRIPE_WEBHOOK_SECRET?.substring(0, 6),
+      webhookSecretPrefix: STRIPE_WEBHOOK_SECRET?.substring(0, 10),
       webhookSecretLength: STRIPE_WEBHOOK_SECRET?.length,
+      signaturePreview: sig.substring(0, 50),
     });
     return json({ error: 'invalid signature', details: err?.message || 'Unknown error' }, 400);
   }
