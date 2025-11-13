@@ -1,62 +1,97 @@
 -- ========================
--- FIX ALL RLS PERFORMANCE: Cache is_adminstaff_active() calls across ALL tables
+-- FIX ALL RLS PERFORMANCE: Cache is_adminstaff_active() calls across ALL remaining tables
 -- ========================
 -- 
--- Problem: Migration 20251021000007 created policies on all RLS-enabled tables
--- using is_adminstaff_active() WITHOUT caching, causing performance issues
+-- Problem: Many tables still have policies using is_adminstaff_active() WITHOUT SELECT caching
+-- Migration 20251114000003 fixed some tables, but most still need fixing
 --
--- Solution: Recreate ALL those policies with cached function calls
--- This migration dynamically updates ALL tables that have the standard ADMINSTAFF policies
+-- Solution: Update all remaining policies to wrap function calls in (SELECT ...)
+-- This applies to policies created by migration 20251021000007_admin_only_rls.sql
 --
--- Impact: Massive performance improvement across entire database
+-- Impact: Massive performance improvement - reduces function calls from per-row to per-query
 
 DO $$
 DECLARE 
   r record;
+  policy_exists boolean;
+  current_qual text;
 BEGIN
-  -- Loop through all tables with RLS enabled
+  -- Loop through all tables with "ADMINSTAFF active can X" policies
   FOR r IN (
-    SELECT c.relname AS tablename
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public' 
-      AND c.relkind = 'r' 
-      AND c.relrowsecurity
+    SELECT DISTINCT tablename
+    FROM pg_policies
+    WHERE schemaname = 'public' 
+      AND policyname LIKE 'ADMINSTAFF active can %'
+      AND qual::text = 'is_adminstaff_active()'  -- Only fix uncached ones
   ) LOOP
     BEGIN
-      -- Drop and recreate SELECT policy with cached function call
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'ADMINSTAFF active can select', r.tablename);
-      EXECUTE format(
-        'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING ((SELECT public.is_adminstaff_active()))',
-        'ADMINSTAFF active can select', r.tablename
-      );
+      -- Fix SELECT policy
+      EXECUTE format('
+        DROP POLICY IF EXISTS %I ON public.%I;
+        CREATE POLICY %I ON public.%I 
+          FOR SELECT TO authenticated 
+          USING ((SELECT public.is_adminstaff_active()));
+      ', 'ADMINSTAFF active can select', r.tablename, 
+         'ADMINSTAFF active can select', r.tablename);
 
-      -- Drop and recreate INSERT policy with cached function call
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'ADMINSTAFF active can insert', r.tablename);
-      EXECUTE format(
-        'CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK ((SELECT public.is_adminstaff_active()))',
-        'ADMINSTAFF active can insert', r.tablename
-      );
+      -- Fix INSERT policy  
+      EXECUTE format('
+        DROP POLICY IF EXISTS %I ON public.%I;
+        CREATE POLICY %I ON public.%I 
+          FOR INSERT TO authenticated 
+          WITH CHECK ((SELECT public.is_adminstaff_active()));
+      ', 'ADMINSTAFF active can insert', r.tablename,
+         'ADMINSTAFF active can insert', r.tablename);
 
-      -- Drop and recreate UPDATE policy with cached function call
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'ADMINSTAFF active can update', r.tablename);
-      EXECUTE format(
-        'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING ((SELECT public.is_adminstaff_active())) WITH CHECK ((SELECT public.is_adminstaff_active()))',
-        'ADMINSTAFF active can update', r.tablename
-      );
+      -- Fix UPDATE policy
+      EXECUTE format('
+        DROP POLICY IF EXISTS %I ON public.%I;
+        CREATE POLICY %I ON public.%I 
+          FOR UPDATE TO authenticated 
+          USING ((SELECT public.is_adminstaff_active())) 
+          WITH CHECK ((SELECT public.is_adminstaff_active()));
+      ', 'ADMINSTAFF active can update', r.tablename,
+         'ADMINSTAFF active can update', r.tablename);
 
-      -- Drop and recreate DELETE policy with cached function call
-      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'ADMINSTAFF active can delete', r.tablename);
-      EXECUTE format(
-        'CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING ((SELECT public.is_adminstaff_active()))',
-        'ADMINSTAFF active can delete', r.tablename
-      );
+      -- Fix DELETE policy
+      EXECUTE format('
+        DROP POLICY IF EXISTS %I ON public.%I;
+        CREATE POLICY %I ON public.%I 
+          FOR DELETE TO authenticated 
+          USING ((SELECT public.is_adminstaff_active()));
+      ', 'ADMINSTAFF active can delete', r.tablename,
+         'ADMINSTAFF active can delete', r.tablename);
 
       RAISE NOTICE 'Updated RLS policies for table: %', r.tablename;
       
     EXCEPTION
       WHEN OTHERS THEN
         RAISE NOTICE 'Skipped table % due to error: %', r.tablename, SQLERRM;
+    END;
+  END LOOP;
+
+  -- Also fix any "ADMINSTAFF full access to X" policies that are still uncached
+  FOR r IN (
+    SELECT tablename, policyname
+    FROM pg_policies
+    WHERE schemaname = 'public' 
+      AND policyname LIKE 'ADMINSTAFF full access to %'
+      AND (qual::text = 'is_adminstaff_active()' OR with_check::text = 'is_adminstaff_active()')
+  ) LOOP
+    BEGIN
+      EXECUTE format('
+        DROP POLICY IF EXISTS %I ON public.%I;
+        CREATE POLICY %I ON public.%I 
+          FOR ALL TO authenticated 
+          USING ((SELECT public.is_adminstaff_active())) 
+          WITH CHECK ((SELECT public.is_adminstaff_active()));
+      ', r.policyname, r.tablename, r.policyname, r.tablename);
+      
+      RAISE NOTICE 'Updated policy: % on table %', r.policyname, r.tablename;
+      
+    EXCEPTION
+      WHEN OTHERS THEN
+        RAISE NOTICE 'Skipped policy % on table % due to error: %', r.policyname, r.tablename, SQLERRM;
     END;
   END LOOP;
 END $$;
