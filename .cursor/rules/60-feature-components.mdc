@@ -1,0 +1,72 @@
+---
+description: React component best practices for feature modules
+globs:
+  - 'apps/*/src/features/**/components/*.tsx'
+---
+
+# Feature Components
+
+## Component Structure
+
+- Keep business logic in hooks/utils (not in components)
+- Use TypeScript for all component props
+- Handle loading and error states appropriately
+- Keep components focused and small (< 200 lines ideally)
+- Prefer composition over prop drilling
+
+## Props & Types
+
+- Define proper TypeScript interfaces for props
+- Use discriminated unions for variant props
+- Avoid optional props when possible - be explicit
+- Document complex props with JSDoc comments
+
+## State Management
+
+- Keep state as local as possible
+- Use Zustand for global client state (when needed)
+- Prefer React Query for server state
+- Use React Context for theme, auth, and cross-cutting concerns
+- Avoid prop drilling - use context or state management when appropriate
+
+## React Best Practices
+
+- Use functional components exclusively
+- Prefer composition over inheritance
+- Follow rules of hooks
+- Use React.memo() judiciously (only when proven necessary)
+- Implement proper error boundaries
+
+## Styling (Tailwind CSS)
+
+- Use Tailwind CSS utility classes
+- Follow mobile-first responsive design
+- Use `@altitutor/ui` components from shared package when available
+- Leverage `clsx` or `cn()` utility for conditional classes
+- Use Radix UI primitives for accessible components
+
+## Display Utilities
+
+- **Always use formatter utilities for consistent display:**
+  - Classes: `formatClassName()` or `formatClassShortName()`
+  - Subjects: `formatSubjectDisplay()` or `formatSubjectShortName()`
+  - Import from `shared/utils`
+- **Always use enum color utilities for badges and status displays:**
+  - Import color helpers from `shared/utils/enum-colors` or `@altitutor/ui`
+  - Use functions like `getStudentStatusColor()`, `getSubjectCurriculumColor()`, etc.
+  - Never hardcode badge colors - use the centralized color mappings
+
+## Accessibility
+
+- Use semantic HTML
+- Ensure keyboard navigation works
+- Add proper ARIA labels where needed
+- Test with screen readers
+- Maintain color contrast ratios (WCAG AA minimum)
+
+## Performance
+
+- Implement virtualization for long lists (react-virtual)
+- Optimize images using Next.js Image component
+- Use dynamic imports for code splitting when appropriate
+- Avoid unnecessary re-renders

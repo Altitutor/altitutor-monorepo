@@ -1,0 +1,97 @@
+---
+description: Development workflow, quality checks, and best practices
+alwaysApply: true
+---
+
+# Development Workflow
+
+## Before Committing - Quality Checks
+
+Run these commands in order before committing:
+
+1. **Typecheck**: `pnpm typecheck`
+   - Fix all TypeScript errors
+   - Ensure strict type safety
+
+2. **Lint**: `pnpm lint`
+   - Fix all linting errors
+   - Follow ESLint rules
+
+3. **Build**: `pnpm build`
+   - Ensure no build errors
+   - Verify production build works
+
+4. **Test**: `pnpm test`
+   - Run relevant tests
+   - Ensure all tests pass
+
+## Git Practices
+
+- Write clear, descriptive commit messages
+- Keep commits atomic and focused
+- Use conventional commit format when possible:
+  - `feat:` for new features
+  - `fix:` for bug fixes
+  - `refactor:` for code refactoring
+  - `test:` for test additions/changes
+  - `docs:` for documentation changes
+- Use feature branches for development
+- Create pull requests for review
+- Don't commit commented-out code
+- Don't commit `console.log` statements in production code
+
+## CI/CD Pipeline
+
+- All deployments go through GitHub Actions
+- Never apply migrations manually to dev/prod
+- Never push functions directly to Supabase
+- Ensure all checks pass before merging
+- Use feature branches and pull requests
+
+## Research & Documentation
+
+- **Use context7 MCP or available tools to reference official documentation**
+- Look up best practices before implementing new patterns
+- Consult framework documentation for proper usage
+- Don't create `.md` files for summaries/documentation unless explicitly requested
+
+## Feature Implementation Workflow
+
+1. **Research first**: Look up official documentation and best practices
+2. **Plan the architecture**: Consider separation of concerns, reusability, testability
+3. **Write the code**: Follow patterns established in the codebase
+4. **Write tests**: Unit tests and E2E tests as appropriate
+5. **Verify quality**: Run typecheck → lint → build → test
+6. **Review**: Self-review before requesting peer review
+
+## Code Quality Principles
+
+- **Code quality > speed**: Write maintainable, readable code
+- **Readability > cleverness**: Prefer clear code over clever tricks
+- **Type safety prevents bugs**: Use TypeScript properly
+- **Tests provide confidence**: Write comprehensive tests
+- **Security is non-negotiable**: Follow security best practices
+
+## Error Handling
+
+- Use proper error boundaries in React
+- Return user-friendly error messages
+- Log errors appropriately (client vs server)
+- Don't expose sensitive information in error messages
+- Handle all error cases explicitly
+
+## Security
+
+- Validate all user inputs (client AND server-side)
+- Never trust client-side data
+- Implement proper CSRF protection
+- Use environment variables for sensitive data
+- Follow principle of least privilege for RLS policies
+- Test security policies thoroughly
+
+## Documentation Standards
+
+- **No unsolicited documentation**: Don't create `.md` files unless explicitly requested
+- Use JSDoc comments for public APIs and complex functions
+- Keep README files up-to-date when adding new features
+- Document non-obvious code with inline comments

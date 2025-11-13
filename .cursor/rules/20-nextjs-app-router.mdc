@@ -1,0 +1,43 @@
+---
+description: Next.js 14 App Router patterns and best practices
+globs:
+  - 'apps/*/src/app/**/*.tsx'
+  - 'apps/*/src/app/**/*.ts'
+---
+
+# Next.js 14 App Router
+
+## Server Components (Default)
+
+- Use Server Components by default (async components for data fetching)
+- Only add `'use client'` directive when necessary:
+  - Component uses React hooks (useState, useEffect, etc.)
+  - Component needs browser APIs
+  - Component has interactivity/event handlers
+- Keep Server Components async for data fetching
+- Minimize client boundaries - pass data from Server to Client Components via props
+
+## Data Fetching
+
+- Use `fetch()` directly in Server Components with appropriate cache options:
+  - `cache: 'force-cache'` for static data (default)
+  - `cache: 'no-store'` for dynamic data
+  - `next: { revalidate: N }` for ISR
+- Colocate data fetching with components when possible
+- For client-side data fetching, always use React Query (see React Query rules)
+
+## Route Files
+
+- Use `loading.tsx` for loading states
+- Use `error.tsx` for error boundaries
+- API routes: `app/api/*/route.ts`
+  - Implement proper error handling and status codes
+  - Validate inputs using Zod schemas
+  - Return consistent response formats
+  - Use middleware for auth checks
+
+## Server Actions
+
+- Use Server Actions for mutations when appropriate
+- Always validate inputs in Server Actions
+- Handle errors gracefully

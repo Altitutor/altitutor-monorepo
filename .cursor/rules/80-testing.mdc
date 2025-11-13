@@ -1,0 +1,85 @@
+---
+description: Testing practices for unit tests, integration tests, and E2E tests
+globs:
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/*.spec.ts'
+  - '**/*.spec.tsx'
+---
+
+# Testing
+
+## Testing Requirements
+
+- **Write tests for all new features and bug fixes**
+- Test before committing code
+- Ensure all tests pass before creating pull requests
+- Don't skip or disable tests without good reason
+
+## Test Types
+
+**Unit Tests:**
+- Use Jest + React Testing Library
+- Test individual components and functions in isolation
+- Mock external dependencies
+- Focus on component behavior, not implementation details
+
+**Integration Tests:**
+- Test feature workflows end-to-end
+- Test React Query hooks with proper QueryClient wrapper
+- Verify API integration works correctly
+
+**E2E Tests:**
+- Use Playwright for end-to-end testing
+- Test critical user workflows
+- Test across different browsers when needed
+
+## Test File Naming
+
+- Unit/integration tests: `*.test.ts` or `*.test.tsx`
+- E2E tests: Follow Playwright conventions
+- Colocate tests with the code they test when possible
+
+## Testing Best Practices
+
+- Test behavior, not implementation
+- Use React Testing Library best practices:
+  - Query by role, label, or text (not by class or id)
+  - Test user interactions, not component internals
+- Mock external dependencies appropriately
+- Test error scenarios and edge cases
+- Keep tests maintainable and readable
+- Use descriptive test names
+
+## React Query Testing
+
+```typescript
+import { renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  })
+  return ({ children }) => (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  )
+}
+
+test('useStudents returns student data', async () => {
+  const { result } = renderHook(() => useStudents(), {
+    wrapper: createWrapper()
+  })
+  
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data).toHaveLength(5)
+})
+```
+
+## RLS Policy Testing
+
+- Test RLS policies using SQL test files in `scripts/tests/`
+- Verify access control for different roles
+- Test both allowed and denied scenarios

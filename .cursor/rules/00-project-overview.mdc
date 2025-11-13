@@ -1,0 +1,49 @@
+---
+description: Altitutor Monorepo structure and architecture overview
+alwaysApply: true
+---
+
+# Altitutor Monorepo Overview
+
+## Project Structure
+
+This is a pnpm-based Turborepo monorepo with three Next.js applications:
+- `apps/admin-web`: Admin CRM system (port 3000)
+- `apps/student-web`: Student-facing portal (port 3001)
+- `apps/tutor-web`: Tutor-facing portal (port 3002)
+- `packages/shared`: Shared types and utilities
+- `packages/ui`: Shared UI components
+
+## Feature-First Architecture
+
+Each application follows **feature-first architecture**:
+- Organize by feature (e.g., `features/students/`, `features/billing/`)
+- Colocate components, hooks, API calls, types, and mappers within features
+- Structure:
+  ```
+  features/
+    [feature-name]/
+      api/           # API client functions
+      components/    # Feature-specific components
+      hooks/         # React Query hooks and custom hooks
+      types/         # TypeScript types
+      mappers/       # Data transformation functions
+      index.ts       # Public exports
+  ```
+
+## Separation of Concerns
+
+- **Never mix business logic with UI components**
+- Extract business logic to:
+  - Custom hooks (for stateful logic)
+  - Utility functions (for pure transformations)
+  - Service/API layer (for data fetching)
+- Components should focus on rendering and user interaction
+- Keep components small and focused (< 200 lines ideally)
+
+## File Naming Conventions
+
+- React components: PascalCase (e.g., `StudentTable.tsx`)
+- Utilities, hooks: camelCase (e.g., `useStudents.ts`, `formatDate.ts`)
+- Types/interfaces: PascalCase (e.g., `StudentProfile.ts`)
+- Constants: UPPER_SNAKE_CASE in files named `constants.ts`

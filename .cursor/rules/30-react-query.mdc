@@ -1,0 +1,61 @@
+---
+description: React Query (TanStack Query v5) data fetching patterns
+globs:
+  - 'apps/*/src/features/**/hooks/*.ts'
+  - 'apps/*/src/features/**/hooks/*.tsx'
+---
+
+# React Query (TanStack Query v5)
+
+## Data Fetching Rule
+
+- **Use React Query for ALL client-side data fetching operations**
+- Never use useEffect for data fetching - use React Query instead
+
+## Hook Patterns
+
+- Create custom hooks in `features/*/hooks/` that encapsulate query logic
+- Use `useQuery` for GET operations
+- Use `useMutation` for POST/PUT/DELETE operations
+- Return typed data with proper error handling
+
+## Query Keys
+
+- Define proper query keys using arrays: `['resource', id, filters]`
+- Use consistent naming conventions for query keys
+- Example:
+  ```typescript
+  ['students'] // all students
+  ['students', studentId] // single student
+  ['students', { status: 'active' }] // filtered students
+  ```
+
+## Best Practices
+
+- Implement optimistic updates for better UX
+- Use `queryClient.invalidateQueries()` after mutations to refetch data
+- Leverage `enabled` option for dependent queries
+- Configure appropriate `staleTime` and `cacheTime` based on data freshness needs
+- Implement proper retry logic and error handling
+
+## Example Pattern
+
+```typescript
+export function useStudents() {
+  return useQuery({
+    queryKey: ['students'],
+    queryFn: async () => {
+      const response = await fetch('/api/students')
+      if (!response.ok) throw new Error('Failed to fetch students')
+      return response.json()
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+```
+
+## Testing
+
+- Test React Query hooks with proper QueryClient wrapper
+- Mock API calls in tests
+- Test loading, success, and error states

@@ -1,0 +1,63 @@
+---
+description: API client layer patterns and data fetching separation
+globs:
+  - 'apps/*/src/features/**/api/*.ts'
+---
+
+# API Client Layer
+
+## Separation of Concerns
+
+- **No UI logic in API layer** - pure data fetching only
+- Keep API functions focused on HTTP communication
+- Extract to service/API layer for reusability
+- Document complex API calls with JSDoc comments
+
+## Return Types
+
+- Always return typed data (no `any`)
+- Define proper TypeScript interfaces for API responses
+- Use consistent response formats across all endpoints
+- Handle errors appropriately and return meaningful error messages
+
+## Error Handling
+
+- Use consistent error format across all API calls
+- Throw proper errors with context
+- Don't expose sensitive information in error messages
+- Log errors appropriately (client vs server)
+
+## Example Pattern
+
+```typescript
+// features/students/api/students.ts
+
+import type { Student, StudentCreateInput } from '../types'
+
+export async function fetchStudents(): Promise<Student[]> {
+  const response = await fetch('/api/students')
+  if (!response.ok) {
+    throw new Error(`Failed to fetch students: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+export async function createStudent(data: StudentCreateInput): Promise<Student> {
+  const response = await fetch('/api/students', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to create student: ${response.statusText}`)
+  }
+  return response.json()
+}
+```
+
+## Data Mappers
+
+- Use mapper functions to transform data
+- Keep raw API responses separate from UI data structures
+- Transform data at the boundary (API → Domain)
+- Document transformation logic

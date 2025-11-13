@@ -1,0 +1,117 @@
+---
+description: Shared utility functions for formatting and display consistency
+globs:
+  - 'apps/*/src/shared/utils/*.ts'
+  - 'apps/*/src/shared/utils/*.tsx'
+  - 'packages/ui/src/lib/*.ts'
+---
+
+# Shared Utilities
+
+## Formatter Functions
+
+Use centralized formatter functions for consistent display across the application.
+
+### Subject Display
+
+```typescript
+import { formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils'
+
+// Full display: "SACE 12 Mathematics Stage 2"
+const fullName = formatSubjectDisplay(subject)
+
+// Short display: "SACE 12MATH"
+const shortName = formatSubjectShortName(subject)
+```
+
+### Class Display
+
+```typescript
+import { formatClassName, formatClassShortName } from '@/shared/utils'
+
+// Full display: "SACE 12 Mathematics Mon 2:00 PM - 4:00 PM"
+const fullName = formatClassName(classData, subject)
+
+// Short display: "SACE 12MATH Mon 2:00 PM"
+const shortName = formatClassShortName(classData, subject)
+```
+
+## Enum Color Utilities
+
+**Always use centralized color mappings** - never hardcode badge colors.
+
+### Available Color Functions
+
+```typescript
+import {
+  getStudentStatusColor,
+  getStaffRoleColor,
+  getStaffStatusColor,
+  getSubjectCurriculumColor,
+  getSubjectDisciplineColor,
+  getClassStatusColor,
+  getEnrollmentStatusColor,
+  getAbsenceTypeColor,
+  getMeetingTypeColor,
+  getSessionTypeColor,
+  getMessageStatusColor,
+  getBooleanColor,
+  getParkingRemoteColor,
+} from '@/shared/utils/enum-colors'
+// or from '@altitutor/ui' for shared package
+```
+
+### Usage in Components
+
+```typescript
+import { Badge } from '@altitutor/ui'
+import { getSubjectCurriculumColor } from '@/shared/utils/enum-colors'
+
+function SubjectBadge({ subject }) {
+  return (
+    <Badge className={getSubjectCurriculumColor(subject.curriculum)}>
+      {subject.curriculum}
+    </Badge>
+  )
+}
+```
+
+### Color Consistency Rules
+
+- Import color utilities from `shared/utils/enum-colors` or `@altitutor/ui`
+- Never hardcode badge colors like `className="bg-blue-100 text-blue-800"`
+- Use the getter functions which handle null/undefined cases
+- All status badges should use the centralized color mappings
+- Fallback to gray colors is handled automatically
+
+## Generic Utilities
+
+### `cn()` - Class Name Merger
+
+```typescript
+import { cn } from '@/shared/utils'
+
+// Combines and merges Tailwind classes intelligently
+<div className={cn('base-class', isActive && 'active-class', className)} />
+```
+
+### Date Formatting
+
+```typescript
+import { formatDate, formatDateTime, formatTime } from '@/shared/utils'
+
+const dateStr = formatDate(new Date()) // "Jan 15, 2024"
+const dateTimeStr = formatDateTime(new Date()) // "Jan 15, 2024, 2:30 PM"
+const timeStr = formatTime("14:30:00") // "2:30 PM"
+```
+
+## Creating New Utilities
+
+When adding new utility functions:
+- Place in appropriate file in `shared/utils/`
+- Export from `shared/utils/index.ts`
+- Keep utilities pure (no side effects)
+- Add TypeScript types
+- Include JSDoc comments
+- Consider null/undefined cases
+- Add to this documentation

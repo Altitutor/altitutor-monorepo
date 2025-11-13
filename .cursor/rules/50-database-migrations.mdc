@@ -1,0 +1,68 @@
+---
+description: Database migration creation and testing workflow
+globs:
+  - 'supabase/migrations/*.sql'
+---
+
+# Database Migrations
+
+## Migration Creation
+
+- **Always use Supabase CLI**: 
+  ```bash
+  supabase migration new <migration_name>
+  ```
+- **Never manually create migration files**
+- Use descriptive snake_case names for migrations
+
+## Testing Migrations
+
+- **Always test locally first before committing**:
+  ```bash
+  supabase db reset
+  ```
+- Test with realistic data volumes
+- Verify that migrations can run successfully
+- Check that RLS policies work as expected after migration
+
+## Migration Best Practices
+
+- Include clear comments explaining what the migration does
+- Consider rollback scenarios for complex migrations
+- Document any manual steps required
+- Test migrations thoroughly with realistic data
+- Keep migrations atomic and focused
+
+## CI/CD - CRITICAL
+
+- **Never apply migrations directly to dev/prod**
+- All database changes go through CI/CD pipeline
+- Never push functions directly to Supabase
+- Use feature branches and pull requests
+- Ensure all checks pass before merging
+
+## Migration Structure
+
+```sql
+-- Migration: Add payment_attempts table
+-- Description: Track billing payment attempts with status and metadata
+-- Author: [Your Name]
+-- Date: YYYY-MM-DD
+
+-- Create table
+CREATE TABLE payment_attempts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- ... columns ...
+);
+
+-- Enable RLS
+ALTER TABLE payment_attempts ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Admin staff can view all payment attempts"
+  ON payment_attempts FOR SELECT
+  TO authenticated
+  USING ((select auth.uid()) IN (
+    SELECT user_id FROM staff WHERE role = 'ADMINSTAFF'
+  ));
+```

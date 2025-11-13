@@ -1,0 +1,28 @@
+---
+description: TypeScript best practices and type safety rules
+alwaysApply: true
+---
+
+# TypeScript Rules
+
+## Strict Type Safety
+
+- **Never use `any` type** - use `unknown` if type is truly unknown, then narrow with type guards
+- Define proper types/interfaces for all data structures
+- Use strict TypeScript configuration
+- Leverage type inference where possible to reduce verbosity
+- Use discriminated unions for complex state
+- Define return types for functions, especially public APIs
+
+## Type Checking
+
+- **Always run `pnpm typecheck` after making TypeScript changes**
+- Fix all type errors before committing
+- Ensure no type errors in build process
+
+## Zod Integration
+
+- Use Zod for runtime validation when needed
+- Define Zod schemas in `features/*/validations/` or colocated with components
+- Leverage Zod's `.parse()` for type-safe validation
+- Use `react-hook-form` with `@hookform/resolvers/zod` for form validation

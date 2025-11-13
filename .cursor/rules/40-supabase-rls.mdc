@@ -1,0 +1,51 @@
+---
+description: Supabase Row Level Security (RLS) policies and database access patterns
+alwaysApply: true
+---
+
+# Supabase & Row Level Security
+
+## RLS Policies - CRITICAL
+
+### Access Control by Role
+
+**ADMINSTAFF Role:**
+- Direct access to all base tables
+- Full read/write permissions
+
+**TUTOR Role (staff with `role = 'TUTOR'`):**
+- **Read only through `vtutor_*` views**
+- **Write only through API endpoints** (never direct table access)
+- No direct access to base tables
+
+**STUDENT Role:**
+- **Read only through `vstudent_*` views**
+- **Write only through API endpoints** (never direct table access)
+- No direct access to base tables
+
+### RLS Best Practices
+
+- Always wrap RLS functions in SELECT for performance:
+  ```sql
+  -- ❌ Bad (called per row)
+  auth.uid() = user_id
+  
+  -- ✅ Good (cached)
+  (select auth.uid()) = user_id
+  ```
+- Use security definer functions for complex authorization logic
+- Test RLS policies thoroughly before deploying
+- Document RLS policies with clear comments
+
+## Development Database
+
+- Use **Supabase MCP tools** to connect to remote development database (dev sandbox)
+- Generate types after schema changes: `pnpm db:types`
+- Keep local Supabase instance running on default ports: 55321-55324
+
+## Environment Management
+
+- Three environments: local, development (remote), production
+- Use `.env.local` for local development
+- Use `.env.remote` for testing against remote dev database
+- Never commit secrets or API keys
