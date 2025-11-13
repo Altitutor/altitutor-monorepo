@@ -39,3 +39,4 @@ CREATE POLICY "ADMINSTAFF active can delete"
   TO authenticated
   USING (public.is_adminstaff_active());
 
+

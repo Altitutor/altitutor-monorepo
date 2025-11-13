@@ -15,3 +15,4 @@ DROP TABLE IF EXISTS public.payments CASCADE;
 COMMENT ON SCHEMA public IS 'Successfully migrated from payments to payment_attempts table';
 
 
+

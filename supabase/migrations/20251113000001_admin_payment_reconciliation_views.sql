@@ -162,3 +162,4 @@ COMMENT ON VIEW public.vadmin_stuck_payment_attempts IS
   'Admin view: Payment attempts stuck in pending/processing for > 24 hours (need reconciliation with Stripe)';
 
 
+
