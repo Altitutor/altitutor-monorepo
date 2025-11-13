@@ -243,26 +243,48 @@ Deno.serve(async (req: Request) => {
 
       const billing = billingByStudent[row.student_id];
       const defaultPM = billing?.payment_methods?.[0];
-      if (!billing?.stripe_customer_id || !defaultPM?.stripe_payment_method_id) continue;
-
-      const isIntl = (defaultPM.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
+      
+      const isIntl = (defaultPM?.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
       const grossCents = grossUp(netCents, !!isIntl, FEE_PERCENT_DOM, FEE_PERCENT_INTL, FEE_FIXED_CENTS);
 
-      // Ensure no duplicate payment exists
-      const { data: existing } = await supabase
-        .from('payments')
-        .select('id')
+      // Check for existing payment attempts (skip if already processed)
+      const { data: existingAttempts } = await supabase
+        .from('payment_attempts')
+        .select('attempt_number')
         .eq('sessions_students_id', row.id)
+        .order('attempt_number', { ascending: false })
+        .limit(1)
         .maybeSingle();
-      if (existing?.id) continue;
+      if (existingAttempts) continue;  // Already has attempts
 
-      // Create pending payment record first (id used as idempotency key)
-      const { data: pay, error: insErr } = await supabase
-        .from('payments')
+      // Track skipped obligations (audit trail for manual follow-up)
+      if (!billing?.stripe_customer_id || !defaultPM?.stripe_payment_method_id) {
+        await supabase.from('payment_attempts').insert({
+          sessions_students_id: row.id,
+          student_id: row.student_id,
+          session_id: row.session_id,
+          attempt_number: 1,
+          amount_cents: grossCents,
+          currency: subject.currency || 'AUD',
+          status: 'failed',
+          failure_code: !billing?.stripe_customer_id 
+            ? 'no_billing_account' 
+            : 'no_payment_method',
+          failure_message: !billing?.stripe_customer_id
+            ? 'Student has no billing account configured'
+            : 'Student has no default payment method',
+        });
+        continue;
+      }
+
+      // Create pending payment attempt record first (id used as idempotency key)
+      const { data: attempt, error: insErr } = await supabase
+        .from('payment_attempts')
         .insert({
           sessions_students_id: row.id,
           student_id: row.student_id,
           session_id: row.session_id,
+          attempt_number: 1,
           amount_cents: grossCents,
           currency: subject.currency || 'AUD',
           status: 'pending',
@@ -270,7 +292,7 @@ Deno.serve(async (req: Request) => {
         .select('*')
         .single();
       if (insErr) {
-        console.error('[runner] insert payment failed', insErr);
+        console.error('[runner] insert payment attempt failed', insErr);
         continue;
       }
 
@@ -294,23 +316,35 @@ Deno.serve(async (req: Request) => {
             student_id: row.student_id,
             session_id: row.session_id,
             sessions_students_id: row.id,
+            attempt_number: 1,
             test_mode: testMode ? 'true' : 'false',
           },
-        }, { idempotencyKey: pay.id });
+        }, { idempotencyKey: attempt.id });
 
         const latestChargeId = pi.latest_charge as string | undefined;
         const { error: updErr } = await supabase
-          .from('payments')
+          .from('payment_attempts')
           .update({ status: pi.status || 'processing', stripe_payment_intent_id: pi.id, stripe_charge_id: latestChargeId || null })
-          .eq('id', pay.id);
-        if (updErr) console.error('[runner] update payment after PI', updErr);
-        paymentsCreated.push(pay.id);
+          .eq('id', attempt.id);
+        if (updErr) console.error('[runner] update payment attempt after PI', updErr);
+        paymentsCreated.push(attempt.id);
       } catch (e: any) {
         console.error('[runner] payment processing failed', e?.message || e);
+        
+        // Extract failure_code from Stripe error
+        const failureCode = e?.code 
+          || e?.payment_intent?.last_payment_error?.code 
+          || 'unknown_error';
+        const failureMessage = e?.message || String(e);
+        
         await supabase
-          .from('payments')
-          .update({ status: 'failed', failure_message: String(e?.message || e) })
-          .eq('id', pay.id);
+          .from('payment_attempts')
+          .update({ 
+            status: 'failed', 
+            failure_code: failureCode,
+            failure_message: failureMessage 
+          })
+          .eq('id', attempt.id);
       }
     }
 

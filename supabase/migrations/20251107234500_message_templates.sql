@@ -16,61 +16,31 @@ CREATE INDEX IF NOT EXISTS idx_message_templates_is_active ON message_templates(
 -- Enable RLS
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies: Admin and Staff can read/write templates
-CREATE POLICY "Admin and Staff can view templates"
+-- RLS Policies: Use standard ADMINSTAFF active pattern
+CREATE POLICY "ADMINSTAFF active can select"
   ON message_templates
   FOR SELECT
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM staff
-      WHERE staff.user_id = auth.uid()
-      AND staff.role IN ('ADMIN', 'STAFF')
-    )
-  );
+  USING (public.is_adminstaff_active());
 
-CREATE POLICY "Admin and Staff can create templates"
+CREATE POLICY "ADMINSTAFF active can insert"
   ON message_templates
   FOR INSERT
   TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM staff
-      WHERE staff.user_id = auth.uid()
-      AND staff.role IN ('ADMIN', 'STAFF')
-    )
-  );
+  WITH CHECK (public.is_adminstaff_active());
 
-CREATE POLICY "Admin and Staff can update templates"
+CREATE POLICY "ADMINSTAFF active can update"
   ON message_templates
   FOR UPDATE
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM staff
-      WHERE staff.user_id = auth.uid()
-      AND staff.role IN ('ADMIN', 'STAFF')
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM staff
-      WHERE staff.user_id = auth.uid()
-      AND staff.role IN ('ADMIN', 'STAFF')
-    )
-  );
+  USING (public.is_adminstaff_active())
+  WITH CHECK (public.is_adminstaff_active());
 
-CREATE POLICY "Admin and Staff can delete templates"
+CREATE POLICY "ADMINSTAFF active can delete"
   ON message_templates
   FOR DELETE
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM staff
-      WHERE staff.user_id = auth.uid()
-      AND staff.role IN ('ADMIN', 'STAFF')
-    )
-  );
+  USING (public.is_adminstaff_active());
 
 -- Add trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_message_templates_updated_at()
@@ -85,11 +55,5 @@ CREATE TRIGGER update_message_templates_updated_at_trigger
   BEFORE UPDATE ON message_templates
   FOR EACH ROW
   EXECUTE FUNCTION update_message_templates_updated_at();
-
-
-
-
-
-
 
 

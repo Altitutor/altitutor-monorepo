@@ -248,23 +248,20 @@ Deno.serve(async (req: Request) => {
           return json({ received: true });
         }
 
-        // Session charge success
-        if (metadata?.sessions_students_id) {
-          const updates: any = {
+        // Session charge success - match by PI ID (handles retries correctly)
+        const { error: payErr } = await supabase
+          .from('payment_attempts')
+          .update({
             status: 'succeeded',
-            stripe_payment_intent_id: pi.id,
             stripe_charge_id: latestChargeId || null,
             charged_at: new Date().toISOString(),
             fee_cents,
             net_cents,
             receipt_url,
-          };
-          const { error: payErr } = await supabase
-            .from('payments')
-            .update(updates)
-            .eq('sessions_students_id', metadata.sessions_students_id);
-          if (payErr) console.error('[webhook] payments update error', payErr);
-        }
+          })
+          .eq('stripe_payment_intent_id', pi.id);
+        if (payErr) console.error('[webhook] payment_attempts update error', payErr);
+        
         await supabase
           .from('stripe_webhook_events')
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -275,14 +272,20 @@ Deno.serve(async (req: Request) => {
       case 'payment_intent.payment_failed': {
         const pi = event.data.object as any;
         const metadata = pi.metadata || {};
+        const failure_code = pi.last_payment_error?.code || 'unknown_error';
         const failure_message = pi.last_payment_error?.message || 'payment_failed';
-        if (metadata?.sessions_students_id) {
-          const { error: updErr } = await supabase
-            .from('payments')
-            .update({ status: 'failed', failure_message })
-            .eq('sessions_students_id', metadata.sessions_students_id);
-          if (updErr) console.error('[webhook] payments fail update error', updErr);
-        }
+        
+        // Update payment attempt by PI ID (handles retries correctly)
+        const { error: updErr } = await supabase
+          .from('payment_attempts')
+          .update({ 
+            status: 'failed',
+            failure_code: failure_code,
+            failure_message: failure_message 
+          })
+          .eq('stripe_payment_intent_id', pi.id);
+        if (updErr) console.error('[webhook] payment_attempts fail update error', updErr);
+        
         await supabase
           .from('stripe_webhook_events')
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -293,9 +296,9 @@ Deno.serve(async (req: Request) => {
       case 'charge.refunded': {
         const charge = event.data.object as any;
         
-        // Update payment record to refunded status
+        // Update payment attempt to refunded status
         const { error: refundErr } = await supabase
-          .from('payments')
+          .from('payment_attempts')
           .update({ 
             status: 'refunded',
             refunded_at: new Date().toISOString()

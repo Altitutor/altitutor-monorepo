@@ -21,55 +21,136 @@ Deno.serve(async (_req: Request) => {
     const backoffHours = [0, 6, 24];
     const now = Date.now();
 
-    const { data: failed, error: failErr } = await supabase
-      .from('payments')
-      .select('id, amount_cents, currency, retry_count, last_retry_at, student_id, sessions_students_id')
+    // Query latest failed attempts (not all attempts)
+    const { data: failedAttempts, error: failErr } = await supabase
+      .from('payment_attempts')
+      .select('*')
       .eq('status', 'failed')
-      .lt('retry_count', 3);
+      .order('created_at', { ascending: true });
     if (failErr) throw failErr;
 
-    let attempted = 0;
-    for (const p of failed || []) {
-      const last = p.last_retry_at ? new Date(p.last_retry_at).getTime() : 0;
-      const waitHrs = backoffHours[p.retry_count] ?? 24;
-      if (last && now - last < waitHrs * 3600 * 1000) continue;
+    // Group by sessions_students_id to get latest attempt
+    const attemptsBySession = new Map();
+    for (const attempt of failedAttempts || []) {
+      const existing = attemptsBySession.get(attempt.sessions_students_id);
+      if (!existing || attempt.attempt_number > existing.attempt_number) {
+        attemptsBySession.set(attempt.sessions_students_id, attempt);
+      }
+    }
 
-      // Load billing
+    let attempted = 0;
+    for (const [_, latestAttempt] of attemptsBySession) {
+      // Check if max retries exceeded
+      if (latestAttempt.attempt_number >= 3) continue;
+      
+      // Apply backoff
+      const waitHrs = backoffHours[latestAttempt.attempt_number - 1] ?? 24;
+      const elapsed = Date.now() - new Date(latestAttempt.created_at).getTime();
+      if (elapsed < waitHrs * 3600 * 1000) continue;
+      
+      // Check if latest attempt has PI - verify status with Stripe first
+      if (latestAttempt.stripe_payment_intent_id) {
+        try {
+          const pi = await stripe.paymentIntents.retrieve(latestAttempt.stripe_payment_intent_id);
+          if (pi.status === 'succeeded') {
+            // Webhook was delayed - update attempt to succeeded
+            await supabase.from('payment_attempts')
+              .update({ status: 'succeeded', charged_at: new Date().toISOString() })
+              .eq('id', latestAttempt.id);
+            continue;
+          }
+          if (pi.status === 'processing') {
+            // Still processing - don't retry yet
+            continue;
+          }
+        } catch (e) {
+          console.error('[retry] Failed to verify PI status:', e);
+        }
+      }
+      
+      // Load billing info
       const { data: billing } = await supabase
         .from('students_billing')
         .select(`
           stripe_customer_id,
-          payment_methods:student_payment_methods!inner(stripe_payment_method_id)
+          payment_methods:student_payment_methods!inner(stripe_payment_method_id, card_country)
         `)
-        .eq('student_id', p.student_id)
+        .eq('student_id', latestAttempt.student_id)
         .eq('student_payment_methods.is_default', true)
         .maybeSingle();
       
-      const defaultPM = billing?.payment_methods?.[0]?.stripe_payment_method_id;
-      if (!billing?.stripe_customer_id || !defaultPM) continue;
-
+      const defaultPM = billing?.payment_methods?.[0];
+      if (!billing?.stripe_customer_id || !defaultPM?.stripe_payment_method_id) {
+        // Create failed attempt for missing billing
+        await supabase.from('payment_attempts').insert({
+          sessions_students_id: latestAttempt.sessions_students_id,
+          student_id: latestAttempt.student_id,
+          session_id: latestAttempt.session_id,
+          attempt_number: latestAttempt.attempt_number + 1,
+          amount_cents: latestAttempt.amount_cents,
+          currency: latestAttempt.currency,
+          status: 'failed',
+          failure_code: !billing?.stripe_customer_id ? 'no_billing_account' : 'no_payment_method',
+          failure_message: !billing?.stripe_customer_id
+            ? 'Student has no billing account'
+            : 'Student has no payment method',
+        });
+        continue;
+      }
+      
       try {
+        // Create new payment intent
         const pi = await stripe.paymentIntents.create({
-          amount: p.amount_cents,
-          currency: (p.currency || 'AUD').toLowerCase(),
+          amount: latestAttempt.amount_cents,
+          currency: (latestAttempt.currency || 'AUD').toLowerCase(),
           customer: billing.stripe_customer_id,
-          payment_method: defaultPM,
+          payment_method: defaultPM.stripe_payment_method_id,
           off_session: true,
           confirm: true,
-          metadata: { type: 'retry', payment_id: p.id, sessions_students_id: p.sessions_students_id },
-        }, { idempotencyKey: `retry_${p.id}_${p.retry_count + 1}` });
-
-        const status = pi.status || 'processing';
-        await supabase
-          .from('payments')
-          .update({ status, stripe_payment_intent_id: pi.id, last_retry_at: new Date().toISOString(), retry_count: p.retry_count + 1 })
-          .eq('id', p.id);
+          metadata: { 
+            type: 'retry',
+            original_attempt_id: latestAttempt.id,
+            sessions_students_id: latestAttempt.sessions_students_id,
+            attempt_number: latestAttempt.attempt_number + 1,
+          },
+        }, { 
+          idempotencyKey: `retry_${latestAttempt.sessions_students_id}_${latestAttempt.attempt_number + 1}` 
+        });
+        
+        // Create new attempt record
+        const { data: newAttempt } = await supabase
+          .from('payment_attempts')
+          .insert({
+            sessions_students_id: latestAttempt.sessions_students_id,
+            student_id: latestAttempt.student_id,
+            session_id: latestAttempt.session_id,
+            attempt_number: latestAttempt.attempt_number + 1,
+            amount_cents: latestAttempt.amount_cents,
+            currency: latestAttempt.currency,
+            stripe_payment_intent_id: pi.id,
+            stripe_charge_id: pi.latest_charge as string | null,
+            status: pi.status || 'processing',
+          })
+          .select()
+          .single();
+        
         attempted++;
       } catch (e: any) {
-        await supabase
-          .from('payments')
-          .update({ last_retry_at: new Date().toISOString(), retry_count: p.retry_count + 1, failure_message: String(e?.message || e) })
-          .eq('id', p.id);
+        const failureCode = e?.code 
+          || e?.payment_intent?.last_payment_error?.code 
+          || 'unknown_error';
+        
+        await supabase.from('payment_attempts').insert({
+          sessions_students_id: latestAttempt.sessions_students_id,
+          student_id: latestAttempt.student_id,
+          session_id: latestAttempt.session_id,
+          attempt_number: latestAttempt.attempt_number + 1,
+          amount_cents: latestAttempt.amount_cents,
+          currency: latestAttempt.currency,
+          status: 'failed',
+          failure_code: failureCode,
+          failure_message: String(e?.message || e),
+        });
       }
     }
 
@@ -79,6 +160,3 @@ Deno.serve(async (_req: Request) => {
     return json({ error: 'retry_error' }, 500);
   }
 });
-
-
-
