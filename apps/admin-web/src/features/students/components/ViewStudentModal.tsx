@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
-import { Button as UIButton } from '@altitutor/ui';
 import { useToast } from "@altitutor/ui";
 import { studentsApi } from '../api';
-import { subjectsApi } from '@/features/subjects/api';
+import { useStudentDetails, useUpdateStudent, studentsKeys } from '../hooks/useStudentsQuery';
+import { useSubjects } from '@/features/subjects';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { 
@@ -48,13 +49,20 @@ export function ViewStudentModal({
   onStudentUpdated
 }: ViewStudentModalProps) {
   const { toast } = useToast();
-  const [student, setStudent] = useState<Tables<'students'> | null>(null);
-  const [studentSubjects, setStudentSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [loadingStudent, setLoadingStudent] = useState(false);
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [parents, setParents] = useState<any[]>([]);
+  const queryClient = useQueryClient();
+  
+  // Use React Query hooks for data fetching
+  const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
+  const { data: allSubjects = [] } = useSubjects();
+  const updateStudentMutation = useUpdateStudent();
+  
+  // Extract data from studentDetails
+  const student = studentDetails?.student || null;
+  const studentSubjects = studentDetails?.subjects || [];
+  const parents = studentDetails?.parents || [];
+  const upcomingSessions = studentDetails?.upcomingSessions || [];
+  const billingStatus = studentDetails?.billingStatus;
+  
   const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Edit states for each tab
@@ -85,85 +93,19 @@ export function ViewStudentModal({
   const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
   const [subjectsToRemove, setSubjectsToRemove] = useState<string[]>([]);
 
-  // Load student data
-  const loadStudent = async () => {
-    if (!studentId) return;
-    
-    try {
-      setLoadingStudent(true);
-      // Use the optimized method that gets both student and subjects efficiently
-      const { student: studentData, subjects: subjectsData } = await studentsApi.getStudentWithSubjects(studentId);
-      setStudent(studentData || null);
-      setStudentSubjects(subjectsData);
-      
-      // Also fetch parents
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: parentsData, error: parentsError } = await supabase
-        .from('parents_students')
-        .select('parents!inner(id,first_name,last_name,email,phone)')
-        .eq('student_id', studentId);
-      
-      if (parentsError) {
-        console.error('Failed to fetch parents:', parentsError);
-      }
-      
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setParents(parentsData?.map((ps: any) => ps.parents).filter(Boolean) || []);
-      
-      // Get existing conversation ID for messages tab (don't create new one)
-      const convId = await getExistingConversationForRelated(studentId, 'student');
+  // Get existing conversation ID for messages tab when modal opens
+  useEffect(() => {
+    if (isOpen && studentId) {
+      getExistingConversationForRelated(studentId, 'student').then((convId) => {
       if (process.env.NODE_ENV !== 'production') {
         // eslint-disable-next-line no-console
         console.log('[ViewStudentModal] Existing conversation ID for student', studentId, ':', convId);
       }
       setConversationId(convId);
-    } catch (error) {
-      console.error('Failed to load student:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load student details. Please try again.",
-        variant: "destructive",
       });
-    } finally {
-      setLoadingStudent(false);
-    }
-  };
-
-  // Load subjects
-  const loadSubjects = async () => {
-    if (!studentId) return;
-    
-    try {
-      setLoadingSubjects(true);
-      // Just load all subjects for assignment dropdown
-      const allSubjectsData = await subjectsApi.getAllSubjects();
-      setAllSubjects(allSubjectsData);
-    } catch (error) {
-      console.error('Failed to load subjects:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load subjects. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingSubjects(false);
-    }
-  };
-
-  // Initialize data when modal opens, cleanup when it closes
-  useEffect(() => {
-    if (isOpen && studentId) {
-      loadStudent(); // This now loads both student and subjects
-      loadSubjects(); // This loads all subjects for dropdown
     } else if (!isOpen) {
-      // Reset state when closing
-      setStudent(null);
-      setStudentSubjects([]);
-      setParents([]);
       setConversationId(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, studentId]);
 
   // Reset edit states when modal closes
@@ -196,7 +138,7 @@ export function ViewStudentModal({
     try {
       setLoadingDetailsUpdate(true);
       const payload = mapDetailsFormToStudentUpdate(data);
-      const updatedStudent = await studentsApi.updateStudent(student.id, payload);
+      await updateStudentMutation.mutateAsync({ id: student.id, data: payload });
       
       // Apply subject changes
       for (const subjectId of subjectsToAdd) {
@@ -210,10 +152,11 @@ export function ViewStudentModal({
       setSubjectsToAdd([]);
       setSubjectsToRemove([]);
       
-      setStudent(updatedStudent);
+      // Invalidate student details query to refetch with updated subjects
+      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(student.id) });
+      
       setIsEditingDetails(false);
       onStudentUpdated();
-      await loadStudent(); // Reload to get updated subjects
       
       toast({
         title: "Success",
@@ -349,7 +292,7 @@ export function ViewStudentModal({
               </SheetHeader>
           
           <div className="flex-1 overflow-hidden flex flex-col px-6 pb-6">
-            <Tabs defaultValue="details" className="flex flex-col h-full">
+            <Tabs defaultValue="details" className="flex flex-col h-full min-h-0">
             <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="classes">Classes</TabsTrigger>
@@ -359,7 +302,7 @@ export function ViewStudentModal({
               <TabsTrigger value="billing">Billing</TabsTrigger>
               </TabsList>
             
-            <div className="flex-1 overflow-hidden mt-4">
+            <div className="flex-1 min-h-0 overflow-hidden mt-4">
               <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <DetailsTab
                   student={student}
@@ -369,7 +312,7 @@ export function ViewStudentModal({
                   onCancelEdit={handleCancelEditDetails}
                   onSubmit={handleDetailsSubmit}
                   studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                  loadingSubjects={loadingSubjects}
+                  loadingSubjects={false}
                   onRemoveSubject={handleRemoveSubject}
                   onViewSubject={handleViewSubject}
                   addSubjectButton={
@@ -379,44 +322,13 @@ export function ViewStudentModal({
                       onSelectSubject={handleAssignSubject}
                     />
                   }
+                  parents={!isEditingDetails ? parents : []}
+                  onViewParent={(parentId) => {
+                    setSelectedParentId(parentId);
+                    setParentModalDefaultTab('messages');
+                    setParentModalOpen(true);
+                  }}
                 />
-                
-                {/* Parents Section */}
-                {!isEditingDetails && parents.length > 0 && (
-                  <div className="mt-6 space-y-2">
-                    <h3 className="text-lg font-medium">Parents</h3>
-                    <div className="space-y-2">
-                      {parents.map((parent) => (
-                        <div 
-                          key={parent.id} 
-                          className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => {
-                            setSelectedParentId(parent.id);
-                            setParentModalDefaultTab('messages');
-                            setParentModalOpen(true);
-                          }}
-                        >
-                          <div>
-                            <p className="font-medium">{parent.first_name} {parent.last_name}</p>
-                            <p className="text-sm text-muted-foreground">{parent.email || parent.phone_e164}</p>
-                          </div>
-                          <UIButton
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedParentId(parent.id);
-                              setParentModalDefaultTab('messages');
-                              setParentModalOpen(true);
-                            }}
-                          >
-                            Message
-                          </UIButton>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </TabsContent>
               
               <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
@@ -437,7 +349,7 @@ export function ViewStudentModal({
                 />
               </TabsContent>
 
-              <TabsContent value="messages" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <TabsContent value="messages" className="h-full min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <MessagesTabContent 
                   conversationId={conversationId}
                   title={`${student.first_name} ${student.last_name}`}
@@ -471,7 +383,7 @@ export function ViewStudentModal({
           setParentModalDefaultTab('students');
         }}
         parentId={selectedParentId}
-        onParentUpdated={loadStudent}
+        onParentUpdated={onStudentUpdated}
         defaultTab={parentModalDefaultTab}
       />
       
@@ -484,9 +396,7 @@ export function ViewStudentModal({
             setSelectedSubjectId(null);
           }}
           subjectId={selectedSubjectId}
-          onSubjectUpdated={() => {
-            loadStudent();
-          }}
+          onSubjectUpdated={onStudentUpdated}
         />
       )}
       

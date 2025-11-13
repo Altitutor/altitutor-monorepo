@@ -10,8 +10,10 @@ import { Separator } from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
 import { StudentStatusBadge } from "@altitutor/ui";
 import { Pencil, X, Check, Loader2 } from 'lucide-react';
-import { getSubjectCurriculumColor, getStudentStatusColor, getSubjectIcon } from '@/shared/utils';
+import { getSubjectCurriculumColor, getStudentStatusColor, formatSubjectShortName } from '@/shared/utils';
 import { PhoneInput } from '@/shared/components/PhoneInput';
+import { ParentCard } from '@/shared/components/ParentCard';
+import { useParentStudents } from '../../hooks/useStudentsQuery';
 
 export interface DetailsFormData {
   // Student details
@@ -49,6 +51,9 @@ interface DetailsTabProps {
   onRemoveSubject?: (subjectId: string) => void;
   onViewSubject?: (subjectId: string) => void;
   addSubjectButton?: React.ReactNode;
+  // Parents props
+  parents?: Tables<'parents'>[];
+  onViewParent?: (parentId: string) => void;
 }
 
 export function DetailsTab({
@@ -62,8 +67,14 @@ export function DetailsTab({
   loadingSubjects = false,
   onRemoveSubject,
   onViewSubject,
-  addSubjectButton
+  addSubjectButton,
+  parents = [],
+  onViewParent
 }: DetailsTabProps) {
+  // Fetch students for each parent using React Query
+  const parentIds = parents.map(p => p.id);
+  const { data: parentStudents = {} } = useParentStudents(parentIds, !isEditing && parents.length > 0);
+
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
     lastName: student.last_name || '',
@@ -204,7 +215,48 @@ export function DetailsTab({
                 </Select>
               </div>
 
-              
+              {/* Subjects Field */}
+              <div>
+                <Label>Subjects</Label>
+                <div className="space-y-2">
+                  {studentSubjects.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {studentSubjects.map((subject) => {
+                        const shortName = formatSubjectShortName(subject);
+                        const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                        return (
+                          <Badge
+                            key={subject.id}
+                            className={`${colorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
+                            onClick={(e) => {
+                              // Don't trigger view if clicking the X button
+                              if ((e.target as HTMLElement).closest('.remove-subject-btn')) {
+                                return;
+                              }
+                              onViewSubject?.(subject.id);
+                            }}
+                          >
+                            <span>{shortName}</span>
+                            {onRemoveSubject && (
+                              <button
+                                type="button"
+                                className="remove-subject-btn ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveSubject(subject.id);
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {addSubjectButton}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -258,67 +310,6 @@ export function DetailsTab({
           </Card>
 
         </form>
-
-        {/* Subjects Section - Edit Mode */}
-        <Card className="mt-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Subjects</CardTitle>
-              {addSubjectButton}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loadingSubjects ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : studentSubjects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No subjects assigned to this student</p>
-            ) : (
-              <div className="space-y-2">
-                {studentSubjects.map((subject) => {
-                  const Icon = getSubjectIcon(subject.discipline);
-                  const subjectDisplay = [
-                    subject.curriculum,
-                    subject.year_level ? `Year ${subject.year_level}` : '',
-                    subject.name
-                  ].filter(Boolean).join(' ');
-                  
-                  return (
-                    <div
-                      key={subject.id}
-                      className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => onViewSubject?.(subject.id)}
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium">{subjectDisplay}</div>
-                          {subject.level && (
-                            <p className="text-xs text-muted-foreground">{subject.level}</p>
-                          )}
-                        </div>
-                      </div>
-                      {onRemoveSubject && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveSubject(subject.id);
-                          }}
-                          className="flex-shrink-0"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
         </div>
 
         {/* Sticky Footer with Buttons */}
@@ -393,6 +384,29 @@ export function DetailsTab({
             {student.status}
           </Badge>
         </div>
+        
+        <div className="text-sm font-medium">Subjects:</div>
+        <div>
+          {studentSubjects.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {studentSubjects.map((subject) => {
+                const shortName = formatSubjectShortName(subject);
+                const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                return (
+                  <Badge
+                    key={subject.id}
+                    className={`${colorClass} cursor-pointer hover:opacity-80`}
+                    onClick={() => onViewSubject?.(subject.id)}
+                  >
+                    {shortName}
+                  </Badge>
+                );
+              })}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">No subjects assigned</span>
+          )}
+        </div>
       </div>
 
       <Separator className="my-6" />
@@ -444,47 +458,22 @@ export function DetailsTab({
 
       <Separator className="my-6" />
 
-      {/* Subjects Section - View Only */}
+      {/* Parents Section */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">Subjects</h3>
-        </div>
-        
-        {loadingSubjects ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : studentSubjects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No subjects assigned to this student</p>
-        ) : (
+        <h3 className="text-lg font-semibold mb-3">Parents</h3>
+        {parents.length > 0 ? (
           <div className="space-y-2">
-            {studentSubjects.map((subject) => {
-              const Icon = getSubjectIcon(subject.discipline);
-              const subjectDisplay = [
-                subject.curriculum,
-                subject.year_level ? `Year ${subject.year_level}` : '',
-                subject.name
-              ].filter(Boolean).join(' ');
-              
-              return (
-                <div
-                  key={subject.id}
-                  className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => onViewSubject?.(subject.id)}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">{subjectDisplay}</div>
-                      {subject.level && (
-                        <p className="text-xs text-muted-foreground">{subject.level}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {parents.map((parent) => (
+              <ParentCard
+                key={parent.id}
+                parent={parent}
+                students={parentStudents[parent.id] || []}
+                onClick={() => onViewParent?.(parent.id)}
+              />
+            ))}
           </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No parents assigned to this student</p>
         )}
       </div>
     </div>

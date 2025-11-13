@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { billingApi, type PaymentRow } from '@/features/billing';
+import { billingApi, type PaymentAttemptRow } from '@/features/billing';
+import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 
 export default function PaymentsPage() {
-  const [rows, setRows] = useState<PaymentRow[]>([]);
+  const [rows, setRows] = useState<PaymentAttemptRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<'ALL' | PaymentRow['status']>('ALL');
+  const [status, setStatus] = useState<'ALL' | PaymentAttemptRow['status']>('ALL');
   const [q, setQ] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -15,7 +16,7 @@ export default function PaymentsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await billingApi.listPayments({ status, q, from, to });
+      const data = await billingApi.listPaymentAttempts({ status, q, from, to });
       setRows(data);
     } finally {
       setLoading(false);
@@ -52,6 +53,8 @@ export default function PaymentsPage() {
         </div>
       </div>
 
+      <TestBillingRunner />
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -59,8 +62,10 @@ export default function PaymentsPage() {
               <TableHead>Date</TableHead>
               <TableHead>Session</TableHead>
               <TableHead>Student</TableHead>
+              <TableHead>Attempt</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Failure Code</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -69,8 +74,10 @@ export default function PaymentsPage() {
                 <TableCell>{p.created_at ? new Date(p.created_at as unknown as string).toLocaleString() : '-'}</TableCell>
                 <TableCell className="font-mono text-xs">{p.session_id}</TableCell>
                 <TableCell className="font-mono text-xs">{p.student_id}</TableCell>
+                <TableCell>{p.attempt_number}</TableCell>
                 <TableCell>{`$${(p.amount_cents/100).toFixed(2)} ${p.currency}`}</TableCell>
                 <TableCell>{p.status}</TableCell>
+                <TableCell className="font-mono text-xs">{p.failure_code || '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -3,11 +3,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { classesApi } from "../../api";
-import { subjectsApi } from '@/features/subjects/api';
-import { studentsApi } from '@/features/students/api';
-import { staffApi } from "@/features/staff/api";
+import { useClassDetails } from '../../hooks/useClassesQuery';
+import { useSubjects } from '@/features/subjects';
+import { useStudents } from '@/features/students/hooks/useStudentsQuery';
+import { useStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useUpdateClass } from '../../hooks/useClassesQuery';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import type { Tables, TablesUpdate, ClassWithExpandedSubject } from '@altitutor/shared';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTabNew } from './tabs/ClassStudentsTabNew';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
@@ -26,15 +28,20 @@ export function ViewClassModalNew({
   onClose, 
   onClassUpdated 
 }: ViewClassModalNewProps) {
-  // State
-  const [classData, setClassData] = useState<Tables<'classes'> | null>(null);
-  const [subject, setSubject] = useState<Tables<'subjects'> | null>(null);
-  const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [classStudents, setClassStudents] = useState<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[]; enrollment?: any }>>([]);
-  const [classStaff, setClassStaff] = useState<Tables<'staff'>[]>([]);
-  const [allStaff, setAllStaff] = useState<Tables<'staff'>[]>([]);
-  const [allStudents, setAllStudents] = useState<Tables<'students'>[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Use React Query hooks for data fetching
+  const { data: classDetails, isLoading } = useClassDetails(classId || '', isOpen && !!classId);
+  const { data: allSubjects = [] } = useSubjects();
+  const { data: allStudentsData = [] } = useStudents();
+  const { data: allStaffData = [] } = useStaff();
+  const updateClassMutation = useUpdateClass();
+  
+  // Extract data from classDetails
+  const classData = classDetails?.class || null;
+  const subject = classDetails?.subject || null;
+  const classStudents = classDetails?.students || [];
+  const classStaff = classDetails?.staff || [];
+  const upcomingSessions = classDetails?.upcomingSessions || [];
+  
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
   
@@ -47,90 +54,19 @@ export function ViewClassModalNew({
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
 
-  // Optimized fetch that gets all data in one efficient call
-  const fetchClassData = useCallback(async () => {
-    if (!classId) return;
-    
-    try {
-      setIsLoading(true);
-      
-      // Use the targeted method for single class
-      const { class: currentClass, subject: subjectData, students, staff } = await classesApi.getClassWithDetails(classId);
-      
-      if (!currentClass) {
-        throw new Error('Class not found');
-      }
-      
-      setClassData(currentClass);
-      setClassStaff(staff);
-      setSubject(subjectData);
-      
-      // Fetch student details with their subjects
-      const { studentSubjects } = await studentsApi.getDetailsForStudentIds(students.map(s => s.id));
-      
-      const studentsWithSubjects = students.map(s => ({
-        ...s,
-        subjects: studentSubjects[s.id] || [],
-        enrollment: {} // You'd fetch enrollment details here
-      }));
-      
-      setClassStudents(studentsWithSubjects);
-    } catch (err) {
-      console.error('Failed to fetch class:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to load class details.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [classId, toast]);
-
-  // Fetch reference data lazily for pickers
-  const fetchAllData = useCallback(async () => {
-    try {
-      const [subjectsPage, studentsPage, staffPage] = await Promise.all([
-        subjectsApi.list({ search: '', limit: 100, offset: 0 }),
-        studentsApi.list({ search: '', limit: 100, offset: 0 }),
-        staffApi.list({ search: '', limit: 100, offset: 0 }),
-      ]);
-      setSubjects(subjectsPage.subjects);
-      setAllStudents(studentsPage.students);
-      setAllStaff(staffPage.staff);
-    } catch (err) {
-      console.error('Failed to fetch reference data:', err);
-      toast({
-        title: 'Warning',
-        description: 'Some data may not be available for editing.',
-        variant: 'destructive',
-      });
-    }
-  }, [toast]);
-
-  // Fetch class data using the optimized method
+  // Reset states when modal closes
   useEffect(() => {
-    if (isOpen && classId) {
-      fetchClassData();
-      fetchAllData();
-    } else {
-      // Reset state when closing
-      setClassData(null);
-      setSubject(null);
-      setClassStudents([]);
-      setClassStaff([]);
+    if (!isOpen) {
       setIsEditing(false);
       setActiveTab('info');
     }
-  }, [isOpen, classId, fetchClassData, fetchAllData]);
+  }, [isOpen]);
 
   // Update class handler
   const handleClassUpdate = async (data: ClassInfoFormData) => {
     if (!classData) return;
     
     try {
-      setIsLoading(true);
-      
       const updateData: TablesUpdate<'classes'> = {
         level: data.level,
         day_of_week: data.dayOfWeek,
@@ -140,16 +76,14 @@ export function ViewClassModalNew({
         subject_id: data.subjectId || null,
         room: data.room || null,
       };
-      await classesApi.updateClass(classData.id, updateData);
-      
-      // Refetch class
-      await fetchClassData();
+      await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
       
       // Reset edit mode
       setIsEditing(false);
       
       // Notify parent of update
       onClassUpdated();
+      // React Query will automatically refetch via invalidation
       
       toast({
         title: 'Class updated',
@@ -162,8 +96,6 @@ export function ViewClassModalNew({
         description: 'There was an error updating the class. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -176,7 +108,7 @@ export function ViewClassModalNew({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      await fetchClassData(); // Reload
+      // React Query will automatically refetch via invalidation
       toast({
         title: 'Success',
         description: 'Student enrolled successfully.',
@@ -202,7 +134,7 @@ export function ViewClassModalNew({
   }) => {
     try {
       await classesApi.changeClass(params);
-      await fetchClassData(); // Reload
+      // React Query will automatically refetch via invalidation
       toast({
         title: 'Success',
         description: 'Student moved to new class successfully.',
@@ -228,7 +160,7 @@ export function ViewClassModalNew({
   }) => {
     try {
       await classesApi.unenrollStudentWithReason(params);
-      await fetchClassData(); // Reload
+      // React Query will automatically refetch via invalidation
       toast({
         title: 'Success',
         description: 'Student unenrolled successfully.',
@@ -250,7 +182,7 @@ export function ViewClassModalNew({
     
     try {
       await classesApi.assignStaff(classData.id, staffId);
-      await fetchClassData(); // Reload
+      // React Query will automatically refetch via invalidation
       toast({
         title: 'Success',
         description: 'Staff assigned successfully.',
@@ -271,7 +203,7 @@ export function ViewClassModalNew({
     
     try {
       await classesApi.unassignStaff(classData.id, staffId);
-      await fetchClassData(); // Reload
+      // React Query will automatically refetch via invalidation
       toast({
         title: 'Success',
         description: 'Staff removed successfully.',
@@ -309,24 +241,15 @@ export function ViewClassModalNew({
 
   // Fetch all students with their subjects for enrollment modal
   const fetchStudentsForEnrollment = async () => {
-    const { students: allStudents, studentSubjects } = await studentsApi.getAllStudentsWithDetails();
-    return allStudents.map((s: Tables<'students'>) => ({
-      ...s,
-      subjects: studentSubjects[s.id] || []
-    }));
+    // Use the existing allStudentsData from useStudents hook
+    return allStudentsData;
   };
 
   // Fetch all classes for change class modal
-  const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
-    const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
-    return classes.map(c => {
-      return {
-        ...c,
-        subject: classSubjects[c.id],
-        staff: classStaff[c.id] || [],
-        students: classStudents[c.id] || []
-      } as ClassWithExpandedSubject;
-    });
+  const fetchClassesForChange = async () => {
+    // Simplified: just fetch basic classes for the modal
+    const classes = await classesApi.getAllClasses();
+    return classes;
   };
 
   // Early return if no class data loaded
@@ -373,9 +296,9 @@ export function ViewClassModalNew({
                 <ClassInfoTab
                   classData={classData}
                   subject={subject}
-                  subjects={subjects}
+                  subjects={allSubjects}
                   isEditing={isEditing}
-                  isLoading={isLoading}
+                  isLoading={isLoading || updateClassMutation.isPending}
                   onEdit={() => setIsEditing(true)}
                   onCancelEdit={() => setIsEditing(false)}
                   onSubmit={handleClassUpdate}
@@ -399,7 +322,7 @@ export function ViewClassModalNew({
                 <ClassStaffTab
                   classData={classData}
                   classStaff={classStaff}
-                  allStaff={allStaff}
+                  allStaff={allStaffData}
                   loadingStaff={false}
                   onAssignStaff={handleAssignStaff}
                   onRemoveStaff={handleRemoveStaff}

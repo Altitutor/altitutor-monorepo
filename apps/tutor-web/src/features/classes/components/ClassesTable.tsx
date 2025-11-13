@@ -22,7 +22,7 @@ import {
 import { useClasses } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
-import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils/enum-colors';
+import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils';
 // import { AddClassModal } from './AddClassModal'; // TODO: Tutors can't create classes - removed
 // import { EditClassModal } from './EditClassModal'; // TODO: Tutors can't edit classes - removed
 import { ViewClassModal } from './modal';

@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
+import type { Database } from '@altitutor/shared';
 import { billingApi } from '../api';
+
+type PaymentAttempt = Database['public']['Views']['vstudent_payment_attempts']['Row'];
 
 export function useBilling() {
   return useQuery({
@@ -9,7 +12,7 @@ export function useBilling() {
 }
 
 export function usePayments() {
-  return useQuery({
+  return useQuery<PaymentAttempt[]>({
     queryKey: ['student', 'payments'],
     queryFn: billingApi.getPayments,
   });

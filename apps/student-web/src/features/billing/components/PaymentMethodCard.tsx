@@ -13,8 +13,9 @@ export function PaymentMethodCard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { user } = useAuthStore();
 
-  // Get student ID from billing data
-  const studentId = billing?.student_id;
+  // Get student ID from user metadata (more reliable than waiting for billing data)
+  // Fallback to billing data if user metadata is not available
+  const studentId = user?.user_metadata?.student_id || billing?.student_id;
 
   if (isLoading) {
     return (
@@ -24,7 +25,26 @@ export function PaymentMethodCard() {
     );
   }
 
-  const paymentMethods = billing?.payment_methods || [];
+  // Handle payment_methods - could be array or JSON string from database
+  let paymentMethods: any[] = [];
+  if (billing?.payment_methods) {
+    if (Array.isArray(billing.payment_methods)) {
+      paymentMethods = billing.payment_methods;
+    } else if (typeof billing.payment_methods === 'string') {
+      try {
+        paymentMethods = JSON.parse(billing.payment_methods);
+      } catch {
+        paymentMethods = [];
+      }
+    }
+  }
+  
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[PaymentMethodCard] Billing data:', billing);
+    console.log('[PaymentMethodCard] Payment methods:', paymentMethods);
+  }
+  
   const hasPaymentMethods = paymentMethods.length > 0;
 
   return (
@@ -32,7 +52,12 @@ export function PaymentMethodCard() {
       {hasPaymentMethods ? (
         <>
           <PaymentMethodsList paymentMethods={paymentMethods} />
-          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="w-full">
+          <Button 
+            onClick={() => setIsModalOpen(true)} 
+            variant="outline" 
+            className="w-full"
+            disabled={!studentId}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Another Payment Method
           </Button>
@@ -50,20 +75,22 @@ export function PaymentMethodCard() {
               Add a payment method to enable automatic billing for your sessions
             </p>
           </div>
-          <Button onClick={() => setIsModalOpen(true)}>
+          <Button 
+            onClick={() => setIsModalOpen(true)}
+            disabled={!studentId}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Payment Method
           </Button>
         </div>
       )}
 
-      {studentId && (
-        <AddPaymentMethodModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          studentId={studentId}
-        />
-      )}
+      {/* Always render modal, but it will handle missing studentId internally */}
+      <AddPaymentMethodModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        studentId={studentId || ''}
+      />
     </div>
   );
 }

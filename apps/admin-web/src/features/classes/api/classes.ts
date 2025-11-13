@@ -19,6 +19,108 @@ export const classesApi = {
   },
   
   /**
+   * Minimal fields for table display only
+   * Returns: id, name, day_of_week, start_time, end_time, level, room
+   * WITH: subject(name, discipline, curriculum)
+   * WITH: student count only (not full student records)
+   */
+  listMinimal: async (params?: {
+    dayOfWeek?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    classes: (Tables<'classes'> & {
+      subject?: { name: string; discipline: string | null; curriculum: string | null };
+      studentCount?: number;
+    })[];
+    total: number;
+  }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { dayOfWeek, limit = 100, offset = 0 } = params || {};
+
+    // Query classes with subject details only
+    let query = supabase
+      .from('classes')
+      .select(
+        `
+        id,
+        name,
+        day_of_week,
+        start_time,
+        end_time,
+        level,
+        room,
+        subjects(name, discipline, curriculum)
+        `,
+        { count: 'exact' }
+      );
+
+    if (dayOfWeek !== undefined) {
+      query = query.eq('day_of_week', dayOfWeek);
+    }
+
+    query = query.order('start_time', { ascending: true });
+    const from = offset;
+    const to = Math.max(offset + limit - 1, offset);
+    query = query.range(from, to);
+
+    const { data: classesData, count, error } = await query;
+    if (error) throw error;
+
+    const classes = classesData ?? [];
+    
+    // Fetch student counts for all classes in a separate query
+    if (classes.length > 0) {
+      const classIds = classes.map((c: any) => c.id);
+      const { data: enrollmentsData, error: enrollmentsError } = await supabase
+        .from('classes_students')
+        .select('class_id, unenrolled_at')
+        .in('class_id', classIds)
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
+      
+      if (enrollmentsError) throw enrollmentsError;
+      
+      // Count students per class
+      const studentCountMap: Record<string, number> = {};
+      classIds.forEach(id => {
+        studentCountMap[id] = 0;
+      });
+      
+      (enrollmentsData ?? []).forEach((enrollment: any) => {
+        if (enrollment.class_id) {
+          studentCountMap[enrollment.class_id]++;
+        }
+      });
+      
+      // Transform data to include subject and student count
+      const transformedClasses = classes.map((cls: any) => {
+        const subject = cls.subjects || null;
+        return {
+          ...cls,
+          subject: subject ? { name: subject.name, discipline: subject.discipline, curriculum: subject.curriculum } : undefined,
+          studentCount: studentCountMap[cls.id] || 0,
+        };
+      });
+      
+      return {
+        classes: transformedClasses as unknown as (Tables<'classes'> & {
+          subject?: { name: string; discipline: string | null; curriculum: string | null };
+          studentCount?: number;
+        })[],
+        total: count ?? 0,
+      };
+    }
+
+    return {
+      classes: classes as unknown as (Tables<'classes'> & {
+        subject?: { name: string; discipline: string | null; curriculum: string | null };
+        studentCount?: number;
+      })[],
+      total: count ?? 0,
+    };
+  },
+  
+  /**
    * Get all classes with their associated subject, students, and staff in optimized single queries
    * This solves the N+1 query problem for the classes table
    */
@@ -324,6 +426,88 @@ export const classesApi = {
       
     } catch (error) {
       console.error('Error getting class with details:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Get full class details for modal view
+   * Returns: class, subject, students (with subjects), staff, upcoming sessions
+   */
+  getClassDetails: async (classId: string): Promise<{
+    class: Tables<'classes'> | null;
+    subject: Tables<'subjects'> | null;
+    students: (Tables<'students'> & { subjects?: Tables<'subjects'>[] })[];
+    staff: Tables<'staff'>[];
+    upcomingSessions: Tables<'sessions'>[];
+  }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    try {
+      // Get base class details
+      const baseDetails = await classesApi.getClassWithDetails(classId);
+      
+      if (!baseDetails.class) {
+        return {
+          class: null,
+          subject: null,
+          students: [],
+          staff: [],
+          upcomingSessions: [],
+        };
+      }
+
+      // Get student subjects for enrolled students
+      const studentIds = baseDetails.students.map(s => s.id);
+      const studentSubjectsMap: Record<string, Tables<'subjects'>[]> = {};
+      
+      if (studentIds.length > 0) {
+        const { data: subjectsData, error: subjectsError } = await supabase
+          .from('students_subjects')
+          .select('student_id, subject_details:subjects(*)')
+          .in('student_id', studentIds);
+        
+        if (subjectsError) throw subjectsError;
+        
+        studentIds.forEach(id => {
+          studentSubjectsMap[id] = [];
+        });
+        
+        (subjectsData ?? []).forEach((row: any) => {
+          const sid = row.student_id as string;
+          const subj = row.subject_details as Tables<'subjects'> | null;
+          if (sid && subj && studentSubjectsMap[sid]) {
+            studentSubjectsMap[sid].push(subj);
+          }
+        });
+      }
+
+      // Get upcoming sessions for this class (next 5)
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('class_id', classId)
+        .gte('start_at', new Date().toISOString())
+        .order('start_at', { ascending: true })
+        .limit(5);
+      
+      if (sessionsError) throw sessionsError;
+
+      // Combine students with their subjects
+      const studentsWithSubjects = baseDetails.students.map(student => ({
+        ...student,
+        subjects: studentSubjectsMap[student.id] || [],
+      }));
+
+      return {
+        class: baseDetails.class,
+        subject: baseDetails.subject,
+        students: studentsWithSubjects,
+        staff: baseDetails.staff,
+        upcomingSessions: (sessionsData ?? []) as Tables<'sessions'>[],
+      };
+    } catch (error) {
+      console.error('Error getting class details:', error);
       throw error;
     }
   },

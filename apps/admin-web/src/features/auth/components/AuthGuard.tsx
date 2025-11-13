@@ -19,17 +19,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Skip auth check for public paths
     if (isPublicPath(pathname)) {
-      // If user is authenticated and trying to access login page, redirect to role home
+      // If user is authenticated and trying to access login page, redirect immediately
       if (user && pathname === '/login') {
-        // Let middleware/root handle precise role redirect; send to root
-        router.push('/');
+        // Redirect directly to dashboard for faster navigation
+        router.replace('/dashboard');
       }
       return;
     }
 
     // For protected routes
     if (!user && !loading) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [user, loading, pathname, router]);
 

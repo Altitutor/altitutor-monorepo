@@ -52,7 +52,7 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
       <div className="container mx-auto px-4 h-full flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <div className="h-12 flex items-center">
+          <div className="h-12 flex items-center gap-1">
             <Image 
               src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
               alt="Altitutor Admin" 
@@ -61,6 +61,16 @@ export function Navbar() {
               priority
               className="object-contain"
             />
+            <span 
+              className="text-brand-lightBlue font-normal leading-none"
+              style={{ 
+                fontFamily: 'Calibri, "Segoe UI", system-ui, -apple-system, sans-serif',
+                fontSize: '28px',
+                letterSpacing: '-0.02em'
+              }}
+            >
+              admin
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-4">

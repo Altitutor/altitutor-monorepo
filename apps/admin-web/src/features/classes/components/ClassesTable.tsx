@@ -20,7 +20,7 @@ import {
 import { useClassesWithDetails } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
-import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils/enum-colors';
+import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
 import { ViewClassModal } from './modal';
@@ -280,7 +280,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             <Input
               placeholder="Search subject or level..."
               className="pl-8"
-              value={searchTerm}
+              value={searchTerm || ''}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
@@ -431,9 +431,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                           {getClassStudents(cls.id).length === 0 ? (
                             <span className="text-muted-foreground text-sm">No students</span>
                           ) : (
-                            getClassStudents(cls.id).map((student) => (
+                            getClassStudents(cls.id).map((student, studentIndex) => (
                               <Button
-                                key={student.id}
+                                key={`${cls.id}-${student.id}-${studentIndex}`}
                                 variant="link"
                                 size="sm"
                                 className="h-auto p-0 text-xs justify-start"
@@ -450,9 +450,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                           {getClassStaff(cls.id).length === 0 ? (
                             <span className="text-muted-foreground text-sm">No staff</span>
                           ) : (
-                            getClassStaff(cls.id).map((staff) => (
+                            getClassStaff(cls.id).map((staff, staffIndex) => (
                               <Button
-                                key={staff.id}
+                                key={`${cls.id}-${staff.id}-${staffIndex}`}
                                 variant="link"
                                 size="sm"
                                 className="h-auto p-0 text-xs justify-start"

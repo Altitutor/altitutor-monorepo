@@ -7,14 +7,38 @@ export const classesKeys = {
   all: ['classes'] as const,
   lists: () => [...classesKeys.all, 'list'] as const,
   list: (filters: string) => [...classesKeys.lists(), { filters }] as const,
+  minimal: (params?: any) => [...classesKeys.all, 'minimal', params] as const,
   details: () => [...classesKeys.all, 'detail'] as const,
   detail: (id: string) => [...classesKeys.details(), id] as const,
+  detailFull: (id: string) => [...classesKeys.detail(id), 'details'] as const,
   withDetails: () => [...classesKeys.all, 'withDetails'] as const,
   withStudents: () => [...classesKeys.all, 'withStudents'] as const,
   forStaffWithDetails: (staffId: string) => [...classesKeys.all, 'forStaffWithDetails', staffId] as const,
 };
 
+// For table display - minimal data
+export function useClassesMinimal(params?: { dayOfWeek?: number; limit?: number; offset?: number }) {
+  return useQuery({
+    queryKey: classesKeys.minimal(params),
+    queryFn: () => classesApi.listMinimal(params),
+    staleTime: 1000 * 30, // 30s
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+// For modal - full details
+export function useClassDetails(classId: string, enabled = true) {
+  return useQuery({
+    queryKey: classesKeys.detailFull(classId),
+    queryFn: () => classesApi.getClassDetails(classId),
+    enabled: enabled && !!classId,
+    staleTime: 1000 * 60 * 2, // 2min
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 // Get all classes with details
+// DEPRECATED: Use useClassesMinimal() + useClassDetails() instead
 export function useClassesWithDetails() {
   return useQuery({
     queryKey: classesKeys.withDetails(),
@@ -73,19 +97,9 @@ export function useCreateClass() {
 
   return useMutation({
     mutationFn: classesApi.createClass,
-    onSuccess: (newClass) => {
-      // Invalidate and refetch classes lists
-      queryClient.invalidateQueries({ queryKey: classesKeys.all });
-      
-      // Optimistically add the new class to the cache
-      queryClient.setQueryData(classesKeys.withDetails(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          classes: [...(old.classes || []), newClass],
-          classStudents: { ...old.classStudents, [newClass.id]: [] },
-        };
-      });
+    onSuccess: () => {
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['classes', 'minimal'] });
     },
   });
 }
@@ -97,25 +111,14 @@ export function useUpdateClass() {
     mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'classes'> }) =>
       classesApi.updateClass(id, data),
     onSuccess: (updatedClass, { id }) => {
-      // Update the class in all relevant caches
-      queryClient.setQueryData(classesKeys.detail(id), (old: any) => {
+      // Update specific entity in cache
+      queryClient.setQueryData(classesKeys.detailFull(id), (old: any) => {
         if (!old) return old;
         return { ...old, class: updatedClass };
       });
 
-      // Update in the main classes list
-      queryClient.setQueryData(classesKeys.withDetails(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          classes: old.classes.map((cls: Tables<'classes'>) =>
-            cls.id === id ? updatedClass : cls
-          ),
-        };
-      });
-
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: classesKeys.all });
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['classes', 'minimal'] });
     },
   });
 }
@@ -126,23 +129,11 @@ export function useDeleteClass() {
   return useMutation({
     mutationFn: classesApi.deleteClass,
     onSuccess: (_, deletedId) => {
-      // Remove from all caches
-      queryClient.removeQueries({ queryKey: classesKeys.detail(deletedId) });
+      // Remove from detail cache
+      queryClient.removeQueries({ queryKey: classesKeys.detailFull(deletedId) });
       
-      // Remove from lists
-      queryClient.setQueryData(classesKeys.withDetails(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          classes: old.classes.filter((cls: Tables<'classes'>) => cls.id !== deletedId),
-          classStudents: Object.fromEntries(
-            Object.entries(old.classStudents).filter(([id]) => id !== deletedId)
-          ),
-        };
-      });
-
-      // Invalidate all class queries
-      queryClient.invalidateQueries({ queryKey: classesKeys.all });
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['classes', 'minimal'] });
     },
   });
 }
@@ -163,13 +154,11 @@ export function useEnrollStudent() {
       staffId: string 
     }) =>
       classesApi.enrollStudent(classId, studentId, enrolledAt, staffId),
-    onSuccess: (_, { classId, studentId }) => {
-      // Invalidate class details to refetch with new student
-      queryClient.invalidateQueries({ queryKey: classesKeys.detail(classId) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.withDetails() });
-      
-      // Also invalidate student queries since they show class information
-      queryClient.invalidateQueries({ queryKey: ['students'] });
+    onSuccess: (_, { classId }) => {
+      // Invalidate specific class details
+      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classId) });
+      // Also invalidate students minimal list since enrollment changed
+      queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
     },
   });
 }
@@ -190,13 +179,11 @@ export function useUnenrollStudent() {
       unenrolledAt?: Date 
     }) =>
       classesApi.unenrollStudent(classId, studentId, staffId, unenrolledAt),
-    onSuccess: (_, { classId, studentId }) => {
-      // Invalidate class details to refetch without the student
-      queryClient.invalidateQueries({ queryKey: classesKeys.detail(classId) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.withDetails() });
-      
-      // Also invalidate student queries since they show class information
-      queryClient.invalidateQueries({ queryKey: ['students'] });
+    onSuccess: (_, { classId }) => {
+      // Invalidate specific class details
+      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classId) });
+      // Also invalidate students minimal list since enrollment changed
+      queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
     },
   });
 } 

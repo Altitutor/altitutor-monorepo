@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -8,9 +9,12 @@ import { useToast } from "@altitutor/ui";
 import { Loader2, Calendar, Plus, Grid3X3 } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { ViewClassModal, ClassCard, TimetableView } from '@/features/classes';
+import { ViewClassModal, TimetableView } from '@/features/classes';
+import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { formatTime } from '@/shared/utils/datetime';
+import { useStaffClasses, type StaffClass } from '@/features/staff/hooks/useStaffClasses';
+import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
 
 type ViewMode = 'table' | 'timetable';
 
@@ -19,22 +23,45 @@ interface ClassesTabProps {
   onStaffUpdated?: () => void;
 }
 
-interface StaffClass {
-  class: Tables<'classes'>;
-  subject?: Tables<'subjects'>;
-  staff: Tables<'staff'>[];
-  studentCount: number;
-}
+// Sort classes by day of week, then by start time
+const sortClasses = (classes: StaffClass[]): StaffClass[] => {
+  return [...classes].sort((a, b) => {
+    const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
+    const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
+    
+    if (dayA !== dayB) {
+      return dayA - dayB;
+    }
+    
+    return a.class.start_time.localeCompare(b.class.start_time);
+  });
+};
 
 export function ClassesTab({
   staff,
   onStaffUpdated
 }: ClassesTabProps) {
   const { toast } = useToast();
-  const [classes, setClasses] = useState<StaffClass[]>([]);
-  const [allClasses, setAllClasses] = useState<StaffClass[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  
+  // Use React Query hooks for data fetching
+  const { data: classesData = [], isLoading, error } = useStaffClasses(staff.id);
+  const { data: allClassesWithDetailsData } = useClassesWithDetails();
+  
+  // Transform all classes data to StaffClass format
+  const allClasses = useMemo(() => {
+    if (!allClassesWithDetailsData) return [];
+    const { classes, classSubjects, classStaff, classStudents } = allClassesWithDetailsData;
+    return sortClasses(classes.map(cls => ({
+      class: cls,
+      subject: classSubjects[cls.id],
+      staff: classStaff[cls.id] || [],
+      studentCount: (classStudents[cls.id] || []).length
+    })));
+  }, [allClassesWithDetailsData]);
+  
+  const classes = useMemo(() => sortClasses(classesData), [classesData]);
+  
   const [assigningClasses, setAssigningClasses] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,68 +82,6 @@ export function ClassesTab({
     timetableStaff[c.class.id] = c.staff;
   });
 
-  useEffect(() => {
-    loadStaffClasses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staff.id]);
-
-  const loadStaffClasses = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Get all classes with details
-      const { classes: allClassesData, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
-      
-      // Create StaffClass objects for all classes
-      const allClassesWithDetails: StaffClass[] = [];
-      const staffClasses: StaffClass[] = [];
-      
-      for (const cls of allClassesData) {
-        const subject = classSubjects[cls.id];
-        const assignedStaff = classStaff[cls.id] || [];
-        const enrolledStudents = classStudents[cls.id] || [];
-        const studentCount = enrolledStudents.length;
-        const isAssigned = assignedStaff.some(assignedStaffMember => assignedStaffMember.id === staff.id);
-        
-        const classWithDetails = {
-          class: cls,
-          subject,
-          staff: assignedStaff,
-          studentCount
-        };
-        
-        allClassesWithDetails.push(classWithDetails);
-        
-        if (isAssigned) {
-          staffClasses.push(classWithDetails);
-        }
-      }
-      
-      // Sort by day of week, then by start time
-      const sortClasses = (classes: StaffClass[]) => {
-        return classes.sort((a, b) => {
-          const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
-          const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
-          
-          if (dayA !== dayB) {
-            return dayA - dayB;
-          }
-          
-          return a.class.start_time.localeCompare(b.class.start_time);
-        });
-      };
-      
-      setClasses(sortClasses([...staffClasses]));
-      setAllClasses(sortClasses([...allClassesWithDetails]));
-    } catch (err) {
-      console.error('Error loading staff classes:', err);
-      setError('Failed to load classes');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Handle class assignment
   const handleAssignClass = async (classId: string) => {
     setAssigningClasses(prev => new Set(prev).add(classId));
@@ -124,7 +89,9 @@ export function ClassesTab({
     
     try {
       await classesApi.assignStaff(classId, staff.id);
-      await loadStaffClasses(); // Reload classes
+      // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] });
+      await queryClient.invalidateQueries({ queryKey: ['classes', 'withDetails'] });
       onStaffUpdated?.(); // Notify parent of changes
       
       toast({
@@ -183,7 +150,7 @@ export function ClassesTab({
     return '-';
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -195,8 +162,8 @@ export function ClassesTab({
     return (
       <div className="flex-1 flex justify-center items-center">
         <div className="text-center">
-          <p className="text-red-500 mb-2">{error}</p>
-          <Button variant="outline" onClick={loadStaffClasses}>
+          <p className="text-red-500 mb-2">Failed to load classes</p>
+          <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] })}>
             Try Again
           </Button>
         </div>
@@ -373,7 +340,6 @@ export function ClassesTab({
                   class={classData.class}
                   subject={classData.subject}
                   staff={classData.staff}
-                  isEnrolling={true}
                 />
               );
             })}
@@ -437,7 +403,8 @@ export function ClassesTab({
           }}
           onClassUpdated={() => {
             // Refresh staff classes when class is updated
-            loadStaffClasses();
+            queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] });
+            queryClient.invalidateQueries({ queryKey: ['classes', 'withDetails'] });
           }}
         />
       )}

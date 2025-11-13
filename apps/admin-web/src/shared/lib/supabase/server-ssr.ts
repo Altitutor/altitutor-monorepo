@@ -44,6 +44,9 @@ export function createClient() {
           }
         },
       },
+      cookieOptions: {
+        name: 'admin-auth',
+      },
     }
   );
 }

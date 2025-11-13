@@ -2,58 +2,61 @@
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { messagesKeys } from './queryKeys';
 
 const PAGE_SIZE = 30;
 
 export function useConversations() {
   return useQuery({
-    queryKey: ['conversations'],
+    queryKey: messagesKeys.conversations(),
     queryFn: async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      // Get current user's staff ID for read tracking
-      const { data: user } = await supabase.auth.getUser();
-      const userId = user?.user?.id;
+      const supabase = getSupabaseClient() as any;
       
-      // Fetch conversations with last message and read status
-      const { data, error } = await (supabase as any)
+      // Fetch conversations with nested data
+      const { data, error } = await supabase
         .from('conversations')
         .select(`
-          id, 
-          status, 
-          last_message_at, 
-          last_message_id,
-          assigned_staff_id, 
-          contact_id, 
-          owned_number_id, 
-          contacts(id, phone_e164, contact_type, students(id, first_name, last_name), parents(id, first_name, last_name, parents_students(students(id, first_name, last_name))), staff(id, first_name, last_name)), 
+          id, status, last_message_at, last_message_id,
+          assigned_staff_id, contact_id, owned_number_id,
+          contacts!inner(
+            id, phone_e164, contact_type, student_id, parent_id, staff_id,
+            students(id, first_name, last_name),
+            parents(id, first_name, last_name),
+            staff(id, first_name, last_name)
+          ),
           owned_numbers(id, phone_e164, label),
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
-        .order('last_message_at', { ascending: false });
+        .order('last_message_at', { ascending: false })
+        .limit(100);
+      
       if (error) throw error;
       
-      // For each conversation, fetch the last message to get its direction
-      const conversationsWithLastMessage = await Promise.all((data || []).map(async (conv: any) => {
-        if (conv.last_message_id) {
-          const { data: lastMsg, error: msgError } = await supabase
-            .from('messages')
-            .select('id, direction')
-            .eq('id', conv.last_message_id)
-            .single();
-          
-          if (msgError) {
-            console.error('[useConversations] Failed to fetch last message for conversation', conv.id, msgError);
-          }
-          
-          return { ...conv, messages: lastMsg };
-        }
-        return conv;
-      }));
+      // Batch fetch last messages
+      const messageIds = (data || [])
+        .map((conv: any) => conv.last_message_id)
+        .filter(Boolean);
       
-      return conversationsWithLastMessage;
+      let messageMap = new Map();
+      if (messageIds.length > 0) {
+        const { data: messages } = await supabase
+          .from('messages')
+          .select('id, direction')
+          .in('id', messageIds);
+        
+        if (messages) {
+          messageMap = new Map(messages.map((m: any) => [m.id, m]));
+        }
+      }
+      
+      // Attach last message to each conversation
+      return (data || []).map((conv: any) => ({
+        ...conv,
+        messages: conv.last_message_id ? messageMap.get(conv.last_message_id) || null : null
+      }));
     },
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnWindowFocus: false, // Realtime handles updates
   });
 }
 
@@ -61,31 +64,70 @@ type Page = { items: any[]; nextCursor?: string };
 
 export function useMessages(conversationId: string) {
   return useInfiniteQuery({
-    queryKey: ['messages', conversationId],
+    queryKey: messagesKeys.messages(conversationId),
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage: Page | undefined) => lastPage?.nextCursor,
     queryFn: async ({ pageParam }) => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const supabase = getSupabaseClient() as any;
+      
       let query = supabase
         .from('messages')
         .select('*, staff:created_by_staff_id(id, first_name, last_name)')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
+      
       if (pageParam) {
         query = query.lt('created_at', pageParam);
       }
+      
       const { data, error } = await query;
       if (error) throw error;
-      const nextCursor = data && data.length === PAGE_SIZE ? (data[data.length - 1] as any).created_at : undefined;
-      const page: Page = { items: (data as any) || [], nextCursor };
-      return page;
+      
+      const nextCursor = data && data.length === PAGE_SIZE 
+        ? (data[data.length - 1] as any).created_at 
+        : undefined;
+      
+      return { items: data || [], nextCursor };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: !!conversationId,
+    staleTime: 1000 * 60, // 1 minute
+    retry: 1, // Only retry once instead of 3 times
+    refetchOnWindowFocus: false, // Realtime handles updates
+  });
+}
+
+export function useConversationDetails(conversationId: string | null) {
+  return useQuery({
+    queryKey: messagesKeys.conversationInfo(conversationId || ''),
+    queryFn: async () => {
+      if (!conversationId) return null;
+      
+      const supabase = getSupabaseClient() as any;
+      const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          contacts (
+            id, phone_e164, contact_type,
+            students (id, first_name, last_name),
+            parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
+            staff (id, first_name, last_name)
+          )
+        `)
+        .eq('id', conversationId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!conversationId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
 
 export async function ensureConversationForContact(contactId: string): Promise<string> {
-  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+  const supabase = (getSupabaseClient() as any);
   // Find default owned number
   const { data: owned, error: ownedErr } = await supabase
     .from('owned_numbers')
@@ -108,7 +150,7 @@ export async function ensureConversationForContact(contactId: string): Promise<s
 
 // Helper to get contact ID from student/staff/parent ID
 export async function getContactIdByRelatedId(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
-  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+  const supabase = (getSupabaseClient() as any);
   const field = type === 'student' ? 'student_id' : type === 'staff' ? 'staff_id' : 'parent_id';
   const { data, error } = await supabase
     .from('contacts')
@@ -129,7 +171,7 @@ export async function getExistingConversationForRelated(relatedId: string, type:
     return null;
   }
   
-  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+  const supabase = (getSupabaseClient() as any);
   
   // Get default owned number
   const { data: owned } = await supabase
@@ -185,7 +227,7 @@ export async function ensureConversationForRelated(relatedId: string, type: 'stu
 }
 
 async function ensureConversation(contactId: string, ownedNumberId: string): Promise<string> {
-  const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+  const supabase = (getSupabaseClient() as any);
   // Try find active
   const { data: existing, error: findErr } = await supabase
     .from('conversations')

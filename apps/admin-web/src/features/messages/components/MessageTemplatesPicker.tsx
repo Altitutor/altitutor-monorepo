@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { FileText, Plus } from 'lucide-react';
 import { Button, Popover, PopoverContent, PopoverTrigger, ScrollArea } from '@altitutor/ui';
 import { useMessageTemplates } from '../api/templates';
@@ -12,6 +13,7 @@ interface MessageTemplatesPickerProps {
 }
 
 export function MessageTemplatesPicker({ onSelect, disabled }: MessageTemplatesPickerProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const { data: templates = [], isLoading } = useMessageTemplates();
 
@@ -50,7 +52,14 @@ export function MessageTemplatesPicker({ onSelect, disabled }: MessageTemplatesP
             <p className="text-sm text-muted-foreground mb-3">
               No templates yet
             </p>
-            <Button variant="outline" size="sm" disabled>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setOpen(false);
+                router.push('/communications/templates');
+              }}
+            >
               <Plus className="h-3 w-3 mr-1" />
               Create Template
             </Button>
@@ -77,6 +86,9 @@ export function MessageTemplatesPicker({ onSelect, disabled }: MessageTemplatesP
     </Popover>
   );
 }
+
+
+
 
 
 

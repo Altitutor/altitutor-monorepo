@@ -7,15 +7,54 @@ export const studentsKeys = {
   all: ['students'] as const,
   lists: () => [...studentsKeys.all, 'list'] as const,
   list: (filters: string) => [...studentsKeys.lists(), { filters }] as const,
+  minimal: (params: any) => [...studentsKeys.all, 'minimal', params] as const,
   details: () => [...studentsKeys.all, 'detail'] as const,
   detail: (id: string) => [...studentsKeys.details(), id] as const,
+  detailFull: (id: string) => [...studentsKeys.detail(id), 'details'] as const,
   withDetails: () => [...studentsKeys.all, 'withDetails'] as const,
   withSubjects: () => [...studentsKeys.all, 'withSubjects'] as const,
   byStatus: (status: Tables<'students'>['status']) => [...studentsKeys.all, 'byStatus', status] as const,
   count: () => [...studentsKeys.all, 'count'] as const,
 };
 
+// For table display - minimal data
+export function useStudentsMinimal(params: UseStudentsListParams) {
+  const {
+    search = '',
+    statuses = [],
+    curriculums = [],
+    yearLevels = [],
+    subjectIds = [],
+    page = 1,
+    pageSize = 20,
+    orderBy = 'last_name',
+    ascending = true,
+  } = params || {};
+
+  const offset = (Math.max(page, 1) - 1) * pageSize;
+
+  return useQuery({
+    queryKey: studentsKeys.minimal({ search, statuses, curriculums, yearLevels, subjectIds, page, pageSize, orderBy, ascending }),
+    queryFn: () => studentsApi.listMinimal({ search, statuses, curriculums, yearLevels, subjectIds, limit: pageSize, offset, orderBy, ascending }),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 3, // 3 minutes - students list changes infrequently
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+// For modal - full details
+export function useStudentDetails(studentId: string, enabled = true) {
+  return useQuery({
+    queryKey: studentsKeys.detailFull(studentId),
+    queryFn: () => studentsApi.getStudentDetails(studentId),
+    enabled: enabled && !!studentId,
+    staleTime: 1000 * 60 * 5, // 5 minutes - individual student details are stable
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 // Get all students with details (subjects and classes)
+// DEPRECATED: Use useStudentsMinimal() + useStudentDetails() instead
 export function useStudentsWithDetails() {
   return useQuery({
     queryKey: studentsKeys.withDetails(),
@@ -67,12 +106,13 @@ export function useStudentsList(params: UseStudentsListParams) {
     queryKey: [...studentsKeys.lists(), 'paged', { search, statuses, curriculums, yearLevels, subjectIds, page, pageSize, orderBy, ascending }],
     queryFn: () => studentsApi.list({ search, statuses, curriculums, yearLevels, subjectIds, limit: pageSize, offset, orderBy, ascending }),
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 30, // 30s for list pages
+    staleTime: 1000 * 60 * 3, // 3 minutes - reduce refetch frequency
     gcTime: 1000 * 60 * 5,
   });
 }
 
 // Current page students + details (subjects/classes) for visible rows
+// DEPRECATED: Use useStudentsMinimal() instead
 export function useStudentsPageWithDetails(params: UseStudentsListParams) {
   const {
     search = '',
@@ -91,7 +131,7 @@ export function useStudentsPageWithDetails(params: UseStudentsListParams) {
     queryKey: [...studentsKeys.lists(), 'paged-with-details', { search, statuses, curriculums, yearLevels, subjectIds, page, pageSize, orderBy, ascending }],
     queryFn: () => studentsApi.getStudentsWithDetailsPage({ search, statuses, curriculums, yearLevels, subjectIds, limit: pageSize, offset, orderBy, ascending }),
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 60 * 3, // 3 minutes
     gcTime: 1000 * 60 * 5,
   });
 }
@@ -148,20 +188,9 @@ export function useCreateStudent() {
 
   return useMutation({
     mutationFn: studentsApi.createStudent,
-    onSuccess: (newStudent) => {
-      // Invalidate and refetch students lists
-      queryClient.invalidateQueries({ queryKey: studentsKeys.all });
-      
-      // Optimistically add the new student to the cache
-      queryClient.setQueryData(studentsKeys.withDetails(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          students: [...(old.students || []), newStudent],
-          studentSubjects: { ...old.studentSubjects, [newStudent.id]: [] },
-          studentClasses: { ...old.studentClasses, [newStudent.id]: [] },
-        };
-      });
+    onSuccess: () => {
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
     },
   });
 }
@@ -173,25 +202,14 @@ export function useUpdateStudent() {
     mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'students'> }) =>
       studentsApi.updateStudent(id, data),
     onSuccess: (updatedStudent, { id }) => {
-      // Update the student in all relevant caches
-      queryClient.setQueryData(studentsKeys.detail(id), (old: any) => {
+      // Update specific entity in cache
+      queryClient.setQueryData(studentsKeys.detailFull(id), (old: any) => {
         if (!old) return old;
         return { ...old, student: updatedStudent };
       });
 
-      // Update in the main students list
-      queryClient.setQueryData(studentsKeys.withDetails(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          students: old.students.map((student: Tables<'students'>) =>
-            student.id === id ? updatedStudent : student
-          ),
-        };
-      });
-
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: studentsKeys.all });
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
     },
   });
 }
@@ -202,26 +220,11 @@ export function useDeleteStudent() {
   return useMutation({
     mutationFn: studentsApi.deleteStudent,
     onSuccess: (_, deletedId) => {
-      // Remove from all caches
-      queryClient.removeQueries({ queryKey: studentsKeys.detail(deletedId) });
+      // Remove from detail cache
+      queryClient.removeQueries({ queryKey: studentsKeys.detailFull(deletedId) });
       
-      // Remove from lists
-      queryClient.setQueryData(studentsKeys.withDetails(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          students: old.students.filter((student: Tables<'students'>) => student.id !== deletedId),
-          studentSubjects: Object.fromEntries(
-            Object.entries(old.studentSubjects).filter(([id]) => id !== deletedId)
-          ),
-          studentClasses: Object.fromEntries(
-            Object.entries(old.studentClasses).filter(([id]) => id !== deletedId)
-          ),
-        };
-      });
-
-      // Invalidate all student queries
-      queryClient.invalidateQueries({ queryKey: studentsKeys.all });
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
     },
   });
 }
@@ -232,11 +235,9 @@ export function useAssignSubjectToStudent() {
   return useMutation({
     mutationFn: ({ studentId, subjectId }: { studentId: string; subjectId: string }) =>
       studentsApi.assignSubjectToStudent(studentId, subjectId),
-    onSuccess: (_, { studentId, subjectId }) => {
-      // Invalidate student details to refetch with new subject
-      queryClient.invalidateQueries({ queryKey: studentsKeys.detail(studentId) });
-      queryClient.invalidateQueries({ queryKey: studentsKeys.withDetails() });
-      queryClient.invalidateQueries({ queryKey: studentsKeys.withSubjects() });
+    onSuccess: (_, { studentId }) => {
+      // Invalidate specific student details
+      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
     },
   });
 }
@@ -247,11 +248,22 @@ export function useRemoveSubjectFromStudent() {
   return useMutation({
     mutationFn: ({ studentId, subjectId }: { studentId: string; subjectId: string }) =>
       studentsApi.removeSubjectFromStudent(studentId, subjectId),
-    onSuccess: (_, { studentId, subjectId }) => {
-      // Invalidate student details to refetch without the subject
-      queryClient.invalidateQueries({ queryKey: studentsKeys.detail(studentId) });
-      queryClient.invalidateQueries({ queryKey: studentsKeys.withDetails() });
-      queryClient.invalidateQueries({ queryKey: studentsKeys.withSubjects() });
+    onSuccess: (_, { studentId }) => {
+      // Invalidate specific student details
+      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
     },
+  });
+}
+
+/**
+ * Get students for multiple parents
+ */
+export function useParentStudents(parentIds: string[], enabled = true) {
+  return useQuery({
+    queryKey: ['parents', 'students', parentIds.sort().join(',')],
+    queryFn: () => studentsApi.getParentStudents(parentIds),
+    enabled: enabled && parentIds.length > 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 } 

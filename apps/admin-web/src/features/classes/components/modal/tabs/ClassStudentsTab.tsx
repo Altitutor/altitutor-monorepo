@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
@@ -9,6 +10,7 @@ import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/sh
 import { classesApi } from '@/shared/api';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useToast } from "@altitutor/ui";
+import { classesKeys } from '../../../hooks/useClassesQuery';
 
 interface ClassStudentsTabProps {
   classData: Tables<'classes'>;
@@ -33,6 +35,7 @@ export function ClassStudentsTab({
 }: ClassStudentsTabProps) {
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
+  const queryClient = useQueryClient();
   const [studentSubjects, setStudentSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for student viewing
@@ -98,6 +101,9 @@ export function ClassStudentsTab({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
+      // Invalidate class details and classes list
+      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.classId) });
+      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
       onStudentsUpdated?.();
       toast({
         title: 'Success',
@@ -124,6 +130,10 @@ export function ClassStudentsTab({
   }) => {
     try {
       await classesApi.changeClass(params);
+      // Invalidate both old and new class details, and classes list
+      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.oldClassId) });
+      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.newClassId) });
+      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
       onStudentsUpdated?.();
       toast({
         title: 'Success',
@@ -150,6 +160,9 @@ export function ClassStudentsTab({
   }) => {
     try {
       await classesApi.unenrollStudentWithReason(params);
+      // Invalidate class details and classes list
+      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(params.classId) });
+      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
       onStudentsUpdated?.();
       toast({
         title: 'Success',
@@ -190,7 +203,7 @@ export function ClassStudentsTab({
 
   return (
     <>
-      <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
+      <div className="flex-1 min-h-0 flex flex-col space-y-4">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-medium">Students ({classStudents.length})</h3>
           
@@ -214,8 +227,8 @@ export function ClassStudentsTab({
             </Button>
           </div>
         ) : (
-          <ScrollArea className="flex-1">
-            <div className="space-y-2">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-2 pr-4">
               {/* Show enrolled students */}
               {classStudents
                 .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))

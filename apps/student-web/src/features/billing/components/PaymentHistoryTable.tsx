@@ -11,10 +11,12 @@ import {
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, Download } from 'lucide-react';
+import type { Database } from '@altitutor/shared';
 import { usePayments } from '../hooks';
 import { formatDateTime } from '@/shared/utils';
 
 type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'refunded';
+type PaymentAttempt = Database['public']['Views']['vstudent_payment_attempts']['Row'];
 
 const getStatusVariant = (status: PaymentStatus): 'default' | 'secondary' | 'destructive' => {
   switch (status) {
@@ -74,40 +76,46 @@ export function PaymentHistoryTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {payments.map((payment: any) => (
-            <TableRow key={payment.id}>
+          {payments.map((payment, index) => (
+            <TableRow key={payment.id || `payment-${index}`}>
               <TableCell>
-                {formatDateTime(payment.created_at)}
+                {payment.created_at ? formatDateTime(payment.created_at) : '-'}
               </TableCell>
               <TableCell className="font-medium">
-                {formatAmount(payment.amount)}
+                {payment.amount_cents ? formatAmount(payment.amount_cents) : '-'}
               </TableCell>
               <TableCell>
-                <Badge variant={getStatusVariant(payment.status)}>
-                  {payment.status}
-                </Badge>
+                {payment.status ? (
+                  <Badge variant={getStatusVariant(payment.status as PaymentStatus)}>
+                    {payment.status}
+                  </Badge>
+                ) : (
+                  '-'
+                )}
               </TableCell>
               <TableCell>
-                {payment.session?.subject?.name ? (
+                {payment.subject_name ? (
                   <div className="text-sm">
-                    <p className="font-medium">{payment.session.subject.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatDateTime(payment.session.start_at)}
-                    </p>
+                    <p className="font-medium">{payment.subject_name}</p>
+                    {payment.session_start_at && (
+                      <p className="text-muted-foreground text-xs">
+                        {formatDateTime(payment.session_start_at)}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   '-'
                 )}
               </TableCell>
               <TableCell>
-                {payment.stripe_receipt_url ? (
+                {payment.receipt_url ? (
                   <Button
                     variant="ghost"
                     size="sm"
                     asChild
                   >
                     <a 
-                      href={payment.stripe_receipt_url} 
+                      href={payment.receipt_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
                     >

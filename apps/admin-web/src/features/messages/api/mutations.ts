@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
+import { messagesKeys } from './queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -55,21 +56,23 @@ export function useSendMessage() {
       return created.id as string;
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ['messages', vars.conversationId] });
-      qc.invalidateQueries({ queryKey: ['conversations'] });
+      qc.invalidateQueries({ queryKey: messagesKeys.messages(vars.conversationId) });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
     },
   });
 }
 
 export function useMarkRead() {
   const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
   return useMutation({
     mutationFn: async (args: { conversationId: string; lastMessageId: string }) => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      // Use auth store user ID instead of calling auth.getUser() to avoid excessive auth requests
       const { data: staff } = await supabase
         .from('staff')
         .select('id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
+        .eq('user_id', user?.id || '')
         .maybeSingle();
       if (!staff?.id) return;
       await supabase
@@ -82,7 +85,7 @@ export function useMarkRead() {
         }, { onConflict: 'conversation_id,staff_id' });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['conversations'] });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
     },
   });
 }
@@ -98,7 +101,7 @@ export function useMarkUnread() {
         .eq('conversation_id', conversationId);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['conversations'] });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
     },
   });
 }

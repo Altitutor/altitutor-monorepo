@@ -56,8 +56,7 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
   return (
     <div className="space-y-4">
       <div className="text-sm text-muted-foreground">
-        View the student's saved payment methods. For security, full card details are not stored here—only Stripe references.
-        Students manage their payment methods via the student portal.
+        View the student's saved payment methods.
       </div>
 
       {loading ? (

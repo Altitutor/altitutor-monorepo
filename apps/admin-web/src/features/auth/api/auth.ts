@@ -1,7 +1,6 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest } from '../types';
 
 export const authApi = {
@@ -43,10 +42,9 @@ export const authApi = {
       throw new Error('This method must be called from the browser');
     }
     
-    // Use client component client for better auth handling
-    const supabase = createClientComponentClient<Database>();
+    const supabase = getSupabaseClient();
     
-    const { error } = await supabase.auth.resetPasswordForEmail(
+    const { error } = await (supabase as SupabaseClient<Database>).auth.resetPasswordForEmail(
       data.email,
       {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -67,11 +65,10 @@ export const authApi = {
    */
   confirmPasswordReset: async (data: PasswordResetConfirmRequest) => {
     try {
-      // Use client component client for proper auth context
-      const supabase = createClientComponentClient<Database>();
+      const supabase = getSupabaseClient();
 
       // First, check if we have a valid session from the reset token
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await (supabase as SupabaseClient<Database>).auth.getSession();
       
       if (sessionError) {
         console.error('Session error during password reset:', sessionError);
@@ -83,7 +80,7 @@ export const authApi = {
       }
 
       // Update the user's password
-      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+      const { data: updateData, error: updateError } = await (supabase as SupabaseClient<Database>).auth.updateUser({
         password: data.password
       });
       

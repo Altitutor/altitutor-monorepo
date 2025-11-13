@@ -3,8 +3,7 @@
 import { Card } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
-import { getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
-import type { SubjectCurriculum } from '@/shared/utils/enum-colors';
+import { getSubjectCurriculumColor, type SubjectCurriculum } from '@/shared/utils';
 
 interface Class {
   class_id: string;

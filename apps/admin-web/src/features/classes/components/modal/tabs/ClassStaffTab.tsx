@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
-import { Loader2, UserCheck, Plus, X, Search } from "lucide-react";
+import { Loader2, UserCheck, Plus } from "lucide-react";
 import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { cn } from "@/shared/utils";
 import { ViewStaffModal } from '@/features/staff';
+import { StaffCard } from '@/shared/components/StaffCard';
 
 interface ClassStaffTabProps {
   classData: Tables<'classes'>;
@@ -32,10 +33,41 @@ export function ClassStaffTab({
   const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [staffSubjects, setStaffSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for staff viewing
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+
+  // Fetch subjects for all staff members
+  useEffect(() => {
+    const fetchStaffSubjects = async () => {
+      if (classStaff.length === 0) return;
+      
+      try {
+        const { staffApi } = await import('@/features/staff/api');
+        const subjectsMap: Record<string, Tables<'subjects'>[]> = {};
+        
+        await Promise.all(
+          classStaff.map(async (staff) => {
+            try {
+              const subjects = await staffApi.getStaffSubjects(staff.id);
+              subjectsMap[staff.id] = subjects as Tables<'subjects'>[];
+            } catch (err) {
+              console.error(`Error fetching subjects for staff ${staff.id}:`, err);
+              subjectsMap[staff.id] = [];
+            }
+          })
+        );
+        
+        setStaffSubjects(subjectsMap);
+      } catch (err) {
+        console.error('Error fetching staff subjects:', err);
+      }
+    };
+    
+    fetchStaffSubjects();
+  }, [classStaff]);
 
   const handleViewStaff = (staffId: string) => {
     setSelectedStaffId(staffId);
@@ -86,7 +118,7 @@ export function ClassStaffTab({
   });
 
   return (
-    <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
+    <div className="flex-1 min-h-0 flex flex-col space-y-4">
       <div className="flex items-center gap-2">
         <h3 className="text-base font-medium">Staff ({classStaff.length})</h3>
         
@@ -216,8 +248,8 @@ export function ClassStaffTab({
           </Popover>
         </div>
       ) : (
-        <ScrollArea className="flex-1">
-          <div className="space-y-2">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="space-y-2 pr-4">
             {/* Show currently assigning staff at the top */}
             {Array.from(assigningStaff).map(staffId => {
               const staff = allStaff.find(s => s.id === staffId);
@@ -246,52 +278,15 @@ export function ClassStaffTab({
             {classStaff
               .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
               .map((staff) => (
-              <div 
-                key={staff.id} 
-                className={cn(
-                  "flex items-center justify-between p-3 rounded-md border",
-                  removingStaff.has(staff.id) && "opacity-50"
-                )}
-              >
-                <div className="flex-1">
-                    <div className="font-medium">
-                    {staff.first_name} {staff.last_name}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <StaffRoleBadge value={staff.role as any} />
-                    <StaffStatusBadge value={staff.status as any} />
-                  </div>
-                  {staff.email && (
-                    <div className="text-sm text-muted-foreground mt-1">{staff.email}</div>
-                  )}
-                </div>
-                
-                <div className="flex space-x-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleViewStaff(staff.id)}
-                    title="View Staff"
-                    disabled={removingStaff.has(staff.id)}
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleRemoveStaff(staff.id)}
-                    title="Remove Staff"
-                    disabled={removingStaff.has(staff.id)}
-                  >
-                    {removingStaff.has(staff.id) ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <X className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ))}
+                <StaffCard
+                  key={staff.id}
+                  staff={staff}
+                  subjects={staffSubjects[staff.id] || []}
+                  onClick={() => handleViewStaff(staff.id)}
+                  onViewStaff={() => handleViewStaff(staff.id)}
+                  onRemoveStaff={() => handleRemoveStaff(staff.id)}
+                />
+              ))}
           </div>
         </ScrollArea>
       )}

@@ -6,7 +6,28 @@ export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, value, onChange, ...props }, ref) => {
+    // If onChange is provided, the input MUST be controlled from the start
+    // Always ensure value is a string (never undefined) when controlled to prevent warnings
+    const hasOnChange = onChange !== undefined;
+    
+    // When onChange is provided, ALWAYS set value prop to a string (never undefined)
+    // This ensures React sees it as controlled from the very first render
+    // Only allow uncontrolled if neither value nor onChange is provided
+    const inputProps: React.InputHTMLAttributes<HTMLInputElement> = {
+      ...props,
+    };
+    
+    if (hasOnChange) {
+      // When onChange exists, always set value to ensure controlled behavior
+      inputProps.value = String(value ?? '');
+      inputProps.onChange = onChange;
+    } else if (value !== undefined) {
+      // If value is provided without onChange, still ensure it's a string
+      inputProps.value = String(value ?? '');
+    }
+    // If neither value nor onChange is provided, leave inputProps.value undefined (uncontrolled)
+    
     return (
       <input
         type={type}
@@ -15,7 +36,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
-        {...props}
+        {...inputProps}
       />
     )
   }

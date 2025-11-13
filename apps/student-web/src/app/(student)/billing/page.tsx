@@ -2,8 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import { PaymentMethodCard, PaymentHistoryTable } from '@/features/billing/components';
+import { usePreWarmBilling } from '@/features/billing/hooks/usePreWarmBilling';
 
 export default function BillingPage() {
+  // Pre-warm Stripe.js and setup intent when page loads
+  usePreWarmBilling();
+
   return (
     <div className="p-6 space-y-6">
       <div>

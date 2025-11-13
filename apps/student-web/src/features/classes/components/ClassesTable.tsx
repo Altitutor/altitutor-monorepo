@@ -12,7 +12,7 @@ import {
 import { Badge } from "@altitutor/ui";
 import { useStudentClasses } from '../hooks';
 import { cn, formatSubjectDisplay } from '@/shared/utils';
-import { getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
+import { getSubjectCurriculumColor } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { Loader2 } from 'lucide-react';
 

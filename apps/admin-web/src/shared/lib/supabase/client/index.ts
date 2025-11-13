@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 
 // Environment variable validation - only check at runtime, not during build
@@ -20,65 +20,63 @@ function validateEnvVars() {
   }
 }
 
-// Create a server client on demand (never in the browser) to avoid duplicate GoTrue instances
-function createServerClient() {
-  validateEnvVars();
-  return createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    }
-  );
-}
-
-// Server-only admin client has been moved to src/shared/lib/supabase/server/admin.ts
-
-// Memoized browser client to avoid multiple GoTrueClient instances
-// Use globalThis to persist across Fast Refresh/HMR boundaries
-const globalForSupabase = globalThis as unknown as {
-  __supabaseClient?: ReturnType<typeof createClientComponentClient<Database>>;
-};
+// Memoized browser client instance to prevent multiple instances
+// Uses unique cookie name 'admin-auth' to prevent collision with other apps
+let browserClientInstance: ReturnType<typeof createBrowserClient<Database>> | null = null;
 
 function getBrowserClient() {
+  // Return memoized instance if it exists
+  if (browserClientInstance) {
+    return browserClientInstance;
+  }
+
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build
-    return createClientComponentClient<Database>();
+    browserClientInstance = createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
+      {
+        cookieOptions: {
+          name: 'admin-auth',
+        },
+        isSingleton: true,
+      }
+    );
+    return browserClientInstance;
   }
   
-  if (!globalForSupabase.__supabaseClient) {
-    globalForSupabase.__supabaseClient = createClientComponentClient<Database>();
-  }
-  return globalForSupabase.__supabaseClient;
+  validateEnvVars();
+  
+  // Use isSingleton: true to ensure only one instance per URL+key combination
+  // This is the recommended approach for Next.js App Router
+  browserClientInstance = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookieOptions: {
+        name: 'admin-auth',
+      },
+      isSingleton: true,
+    }
+  );
+  return browserClientInstance;
 }
 
 /**
  * Get the appropriate Supabase client based on environment
- * - Browser: Returns client component client with cookie handling (memoized)
- * - Server: Returns server client
+ * - Browser: Returns browser client with cookie handling (memoized, uses 'admin-auth' cookie)
+ * - Server (SSR): Returns browser client (will be replaced on hydration)
  */
-export function getSupabaseClient() {
-  if (typeof window !== 'undefined') {
-    return getBrowserClient();
-  }
-  // Server-side: create a fresh client per call (safe for SSR)
-  return createServerClient();
+export function getSupabaseClient(): SupabaseClient<Database> {
+    return getBrowserClient() as unknown as SupabaseClient<Database>;
 }
 
 /**
  * Hook for React components to get a properly configured client
- * This function can be called during SSR but will return the appropriate client
+ * Safe to call in client components during SSR - will return browser client
+ * that gets properly initialized after hydration
  */
-export function useSupabaseClient() {
-  // During SSR or server context, return a server client instance
-  // During client hydration/runtime, return the memoized client
-  if (typeof window === 'undefined') {
-    return createServerClient();
-  }
-  return getBrowserClient();
+export function useSupabaseClient(): SupabaseClient<Database> {
+  return getBrowserClient() as unknown as SupabaseClient<Database>;
 }

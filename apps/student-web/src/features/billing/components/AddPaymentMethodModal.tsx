@@ -90,37 +90,59 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
       }
 
       if (setupIntent && setupIntent.status === 'succeeded') {
-        // Optimistically update the UI with a skeleton payment method
-        // The real-time subscription will update it with actual data when webhook processes
+        const paymentMethodId = setupIntent.payment_method as string;
+        
+        // Optimistically update the UI with a placeholder payment method
+        // The webhook will save it to the database, and the real-time subscription
+        // will update it with the actual card details (brand, last4, expiry, etc.)
         const optimisticPaymentMethod = {
-          id: `temp-${Date.now()}`,
-          stripe_payment_method_id: setupIntent.payment_method as string,
+          id: `temp-${paymentMethodId}`, // Use payment method ID so we can match/replace it later
+          stripe_payment_method_id: paymentMethodId,
           is_default: false, // Will be set by webhook if it's the first one
-          card_brand: 'card',
-          card_last4: '••••',
-          card_exp_month: 0,
-          card_exp_year: 0,
+          card_brand: 'card', // Placeholder - will be replaced by real-time subscription
+          card_last4: '••••', // Placeholder - will be replaced by real-time subscription
+          card_exp_month: 0, // Placeholder - will be replaced by real-time subscription
+          card_exp_year: 0, // Placeholder - will be replaced by real-time subscription
           card_country: null,
           created_at: new Date().toISOString(),
         };
 
         // Optimistically add to cache - ensure we handle null payment_methods
         queryClient.setQueryData(['payment-methods'], (old: any) => {
+          console.log('[AddPaymentMethod] Optimistic update - old data:', old);
+          
           if (!old) {
             // If no data exists, create a minimal structure
-            return {
+            const newData = {
               student_id: studentId,
               stripe_customer_id: '',
               payment_methods: [optimisticPaymentMethod],
               default_payment_method: null,
             };
+            console.log('[AddPaymentMethod] Created new data structure:', newData);
+            return newData;
           }
           
-          const existingMethods = Array.isArray(old.payment_methods) ? old.payment_methods : [];
-          return {
+          // Handle payment_methods - could be array or JSON string
+          let existingMethods: any[] = [];
+          if (old.payment_methods) {
+            if (Array.isArray(old.payment_methods)) {
+              existingMethods = old.payment_methods;
+            } else if (typeof old.payment_methods === 'string') {
+              try {
+                existingMethods = JSON.parse(old.payment_methods);
+              } catch {
+                existingMethods = [];
+              }
+            }
+          }
+          
+          const updatedData = {
             ...old,
             payment_methods: [...existingMethods, optimisticPaymentMethod],
           };
+          console.log('[AddPaymentMethod] Updated data:', updatedData);
+          return updatedData;
         });
 
         toast({
@@ -128,11 +150,9 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
           description: 'Payment method added successfully',
         });
         
-        // Don't close immediately - let user see the optimistic update
-        // The real-time subscription will update it with real data
-        setTimeout(() => {
-          onSuccess();
-        }, 1000);
+        // Close modal immediately - optimistic update is already in cache
+        // Real-time subscription will update with actual data when webhook processes
+        onSuccess();
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
@@ -205,7 +225,6 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const createSetupIntent = useCreateSetupIntent();
-  const { refetch: refetchPaymentMethods } = usePaymentMethods();
   const { toast } = useToast();
 
   // Fetch setup intent when modal opens
@@ -249,9 +268,10 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
 
   const handleSuccess = useCallback(() => {
     setClientSecret(null);
-    refetchPaymentMethods();
+    // Don't refetch here - let the real-time subscription handle the update
+    // The optimistic update is already in the cache
     onClose();
-  }, [refetchPaymentMethods, onClose]);
+  }, [onClose]);
 
   const handleCancel = useCallback(() => {
     setClientSecret(null);

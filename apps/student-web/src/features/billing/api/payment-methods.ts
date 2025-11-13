@@ -89,8 +89,33 @@ export const paymentMethodsApi = {
     if (!data?.success) {
       throw new Error(data?.error || 'Failed to delete payment method');
     }
+  },
+
+  /**
+   * Get payment method details from Stripe
+   */
+  getPaymentMethodDetails: async (paymentMethodId: string): Promise<{
+    card_brand: string;
+    card_last4: string;
+    card_exp_month: number;
+    card_exp_year: number;
+    card_country: string | null;
+  }> => {
+    const { data, error } = await supabase.functions.invoke('get-payment-method', {
+      body: { paymentMethodId }
+    });
+    
+    if (error) throw error;
+    if (!data) {
+      throw new Error('Failed to get payment method details');
+    }
+    
+    return data;
   }
 };
+
+
+
 
 
 

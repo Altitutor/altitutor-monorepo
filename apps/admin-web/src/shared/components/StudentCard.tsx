@@ -1,6 +1,6 @@
 'use client';
 
-import { User, Calendar, Clock, MoreVertical } from 'lucide-react';
+import { Calendar, Clock, MoreVertical } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
@@ -8,6 +8,7 @@ import type { Tables } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { SUBJECT_DISCIPLINE_COLORS } from '@altitutor/ui';
 import { formatDate } from '@/shared/utils/datetime';
+import { formatSubjectShortName } from '@/shared/utils';
 
 interface StudentCardProps {
   student: Tables<'students'>;
@@ -36,6 +37,7 @@ export function StudentCard({
 }: StudentCardProps) {
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
   const hasMenuActions = onChangeClass || onUnenroll;
+  const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase();
 
   return (
     <div
@@ -51,8 +53,8 @@ export function StudentCard({
       onClick={isSelecting || onClick ? onClick : undefined}
     >
       <div className="flex-shrink-0">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-          <User className="h-5 w-5 text-muted-foreground" />
+        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
+          {initials}
         </div>
       </div>
       
@@ -125,7 +127,7 @@ export function StudentCard({
                   variant="secondary"
                   className={`text-xs px-2 py-0.5 ${colorClass}`}
                 >
-                  {subject.name}
+                  {formatSubjectShortName(subject)}
                 </Badge>
               );
             })}

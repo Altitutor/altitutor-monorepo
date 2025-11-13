@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tutorLogsApi } from '../api/tutor-logs';
+import { sessionsKeys } from '../../sessions/hooks/useSessionsQuery';
 import type { TutorLogFormData } from '../types';
 
 // Query Keys
@@ -59,7 +60,7 @@ export function useUnloggedSessions(staffId: string) {
     queryKey: tutorLogsKeys.unlogged(staffId),
     queryFn: () => tutorLogsApi.getUnloggedSessions(staffId),
     enabled: !!staffId,
-    staleTime: 0, // Always refetch to ensure we have the latest data
+    staleTime: 1000 * 60 * 2, // 2 minutes - reduce constant refetching
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -77,8 +78,8 @@ export function useCreateTutorLog() {
       // Invalidate all tutor logs queries
       queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
       
-      // Invalidate sessions queries since they show log status
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      // Invalidate sessions queries since they show log status (using proper key constants)
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
       
       // Set the new log in cache
       queryClient.setQueryData(tutorLogsKeys.detail(newLog.id), newLog);
@@ -102,8 +103,8 @@ export function useDeleteTutorLog() {
       // Invalidate lists
       queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
       
-      // Invalidate sessions queries
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      // Invalidate sessions queries (using proper key constants)
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
     },
   });
 }

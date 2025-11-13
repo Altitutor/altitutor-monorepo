@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useChatStore } from '../state/chatStore';
 import { ChatWindow } from './ChatWindow';
@@ -20,6 +20,18 @@ export function ChatDock() {
   const queryClient = useQueryClient();
 
   const isMessagesPage = pathname?.startsWith('/communications');
+
+  // Extract function references using useRef to prevent re-subscriptions
+  const hasWindowRef = useRef(hasWindow);
+  const openWindowRef = useRef(openWindow);
+  const incrementUnreadRef = useRef(incrementUnread);
+
+  // Update refs on every render to always have latest functions
+  useEffect(() => {
+    hasWindowRef.current = hasWindow;
+    openWindowRef.current = openWindow;
+    incrementUnreadRef.current = incrementUnread;
+  });
 
   useEffect(() => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -41,10 +53,10 @@ export function ChatDock() {
             console.error('[ChatDock] Failed to mark conversation as unread', error);
           }
           
-          if (!hasWindow(row.conversation_id)) {
-            openWindow({ conversationId: row.conversation_id, title: 'New message' });
+          if (!hasWindowRef.current(row.conversation_id)) {
+            openWindowRef.current({ conversationId: row.conversation_id, title: 'New message' });
           } else {
-            incrementUnread(row.conversation_id);
+            incrementUnreadRef.current(row.conversation_id);
           }
           toast({ title: 'New message', description: row.body });
         }
@@ -57,7 +69,8 @@ export function ChatDock() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [hasWindow, openWindow, incrementUnread, toast, queryClient]);
+    // Only depend on stable references
+  }, [toast, queryClient]);
 
   if (isMessagesPage) return null;
 

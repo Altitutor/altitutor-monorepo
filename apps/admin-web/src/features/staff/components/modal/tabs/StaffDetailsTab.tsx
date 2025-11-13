@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Badge } from "@altitutor/ui";
 import { StaffRoleBadge, StaffStatusBadge, BooleanBadge } from "@altitutor/ui";
@@ -6,13 +6,14 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
-import { Loader2, Pencil, X } from "lucide-react";
+import { Loader2, Pencil, X, Check } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getSubjectIcon } from '@/shared/utils';
+import { formatSubjectShortName, getSubjectCurriculumColor } from '@/shared/utils';
 
 // Form schema for staff details
 const formSchema = z.object({
@@ -80,543 +81,495 @@ export function StaffDetailsTab({
     // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
     resolver: zodResolver(formSchema),
     defaultValues: {
-      firstName: staffMember.first_name || '',
-      lastName: staffMember.last_name || '',
-      email: staffMember.email || '',
-      phoneNumber: staffMember.phone_number || '',
-      role: (staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : undefined,
-      status: (staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : undefined,
-      officeKeyNumber: staffMember.office_key_number || null,
-      hasParkingRemote: (staffMember.has_parking_remote === 'VIRTUAL' || staffMember.has_parking_remote === 'PHYSICAL' || staffMember.has_parking_remote === 'NONE') ? staffMember.has_parking_remote : 'NONE',
-      availability_monday: staffMember.availability_monday || false,
-      availability_tuesday: staffMember.availability_tuesday || false,
-      availability_wednesday: staffMember.availability_wednesday || false,
-      availability_thursday: staffMember.availability_thursday || false,
-      availability_friday: staffMember.availability_friday || false,
-      availability_saturday_am: staffMember.availability_saturday_am || false,
-      availability_saturday_pm: staffMember.availability_saturday_pm || false,
-      availability_sunday_am: staffMember.availability_sunday_am || false,
-      availability_sunday_pm: staffMember.availability_sunday_pm || false,
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      role: undefined,
+      status: undefined,
+      officeKeyNumber: null,
+      hasParkingRemote: 'NONE' as const,
+      availability_monday: false,
+      availability_tuesday: false,
+      availability_wednesday: false,
+      availability_thursday: false,
+      availability_friday: false,
+      availability_saturday_am: false,
+      availability_saturday_pm: false,
+      availability_sunday_am: false,
+      availability_sunday_pm: false,
     },
   });
+
+  const hasResetRef = useRef(false);
+
+  // Reset form values when entering edit mode - only once per edit session
+  useEffect(() => {
+    if (isEditing && !hasResetRef.current) {
+      form.reset({
+        firstName: staffMember.first_name || '',
+        lastName: staffMember.last_name || '',
+        email: staffMember.email || '',
+        phoneNumber: staffMember.phone_number || '',
+        role: (staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : undefined,
+        status: (staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : undefined,
+        officeKeyNumber: staffMember.office_key_number || null,
+        hasParkingRemote: (staffMember.has_parking_remote === 'VIRTUAL' || staffMember.has_parking_remote === 'PHYSICAL' || staffMember.has_parking_remote === 'NONE') ? staffMember.has_parking_remote : 'NONE',
+        availability_monday: staffMember.availability_monday || false,
+        availability_tuesday: staffMember.availability_tuesday || false,
+        availability_wednesday: staffMember.availability_wednesday || false,
+        availability_thursday: staffMember.availability_thursday || false,
+        availability_friday: staffMember.availability_friday || false,
+        availability_saturday_am: staffMember.availability_saturday_am || false,
+        availability_saturday_pm: staffMember.availability_saturday_pm || false,
+        availability_sunday_am: staffMember.availability_sunday_am || false,
+        availability_sunday_pm: staffMember.availability_sunday_pm || false,
+      });
+      hasResetRef.current = true;
+    } else if (!isEditing) {
+      // Reset the flag when exiting edit mode
+      hasResetRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, staffMember.id]); // form is stable, don't include it
 
   return isEditing ? (
     <>
       {/* Edit Mode with Sticky Footer */}
       <div className="flex-1 overflow-y-auto px-1">
-        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6 pb-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input 
-                id="firstName" 
-                {...form.register('firstName')} 
-                disabled={isLoading} 
-              />
-              {form.formState.errors.firstName && (
-                <p className="text-sm text-red-500">{form.formState.errors.firstName.message}</p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input 
-                id="lastName" 
-                {...form.register('lastName')} 
-                disabled={isLoading} 
-              />
-              {form.formState.errors.lastName && (
-                <p className="text-sm text-red-500">{form.formState.errors.lastName.message}</p>
-              )}
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              {...form.register('email')} 
-              disabled={isLoading} 
-            />
-            {form.formState.errors.email && (
-              <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="phoneNumber">Phone Number</Label>
-            <Input 
-              id="phoneNumber" 
-              {...form.register('phoneNumber')} 
-              disabled={isLoading} 
-              placeholder="e.g. +12345678901"
-            />
-            {form.formState.errors.phoneNumber && (
-              <p className="text-sm text-red-500">{form.formState.errors.phoneNumber.message}</p>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="officeKeyNumber">Office Key Number</Label>
-              <Input
-                id="officeKeyNumber"
-                type="number"
-                {...form.register('officeKeyNumber', { 
-                  setValueAs: (v) => {
-                    if (v === '' || v === null || v === undefined) return null;
-                    const parsed = parseInt(v, 10);
-                    return isNaN(parsed) ? null : parsed;
-                  }
-                })}
-                disabled={isLoading}
-                placeholder="Enter key number"
-              />
-              {form.formState.errors.officeKeyNumber && (
-                <p className="text-sm text-red-500">{form.formState.errors.officeKeyNumber.message}</p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="hasParkingRemote">Parking Remote</Label>
-              <Controller
-                control={form.control}
-                name="hasParkingRemote"
-                render={({ field }) => (
-                  <Select
-                    disabled={isLoading}
-                    value={field.value || 'NONE'}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger id="hasParkingRemote">
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="VIRTUAL">Virtual</SelectItem>
-                      <SelectItem value="PHYSICAL">Physical</SelectItem>
-                      <SelectItem value="NONE">None</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {form.formState.errors.hasParkingRemote && (
-                <p className="text-sm text-red-500">{form.formState.errors.hasParkingRemote.message}</p>
-              )}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Controller
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isLoading}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={'TUTOR'}>Tutor</SelectItem>
-                      <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Controller
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isLoading}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                      <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                      <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Availability</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_monday"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_monday" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
+        <form 
+          id="staff-edit-form" 
+          onSubmit={form.handleSubmit(onSubmit as any)} 
+          className="space-y-6 pb-6"
+        >
+          {/* Staff Details Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Staff Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Controller
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <Input 
+                        id="firstName" 
+                        {...field}
+                        disabled={isLoading} 
+                        required
+                      />
+                    )}
+                  />
+                  {form.formState.errors.firstName && (
+                    <p className="text-sm text-red-500">{form.formState.errors.firstName.message}</p>
                   )}
-                />
-                <Label htmlFor="availability_monday">Monday</Label>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_tuesday"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_tuesday" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
+                </div>
+                
+                <div>
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Controller
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <Input 
+                        id="lastName" 
+                        {...field}
+                        disabled={isLoading} 
+                        required
+                      />
+                    )}
+                  />
+                  {form.formState.errors.lastName && (
+                    <p className="text-sm text-red-500">{form.formState.errors.lastName.message}</p>
                   )}
-                />
-                <Label htmlFor="availability_tuesday">Tuesday</Label>
+                </div>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_wednesday"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_wednesday" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Controller
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        {...field}
+                        disabled={isLoading} 
+                      />
+                    )}
+                  />
+                  {form.formState.errors.email && (
+                    <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
                   )}
-                />
-                <Label htmlFor="availability_wednesday">Wednesday</Label>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_thursday"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_thursday" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
+                </div>
+                
+                <div>
+                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                  <Controller
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <Input 
+                        id="phoneNumber" 
+                        {...field}
+                        value={field.value ?? ''}
+                        disabled={isLoading} 
+                        placeholder="e.g. +12345678901"
+                      />
+                    )}
+                  />
+                  {form.formState.errors.phoneNumber && (
+                    <p className="text-sm text-red-500">{form.formState.errors.phoneNumber.message}</p>
                   )}
-                />
-                <Label htmlFor="availability_thursday">Thursday</Label>
+                </div>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_friday"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_friday" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="officeKeyNumber">Office Key Number</Label>
+                  <Controller
+                    control={form.control}
+                    name="officeKeyNumber"
+                    render={({ field }) => (
+                      <Input
+                        id="officeKeyNumber"
+                        type="number"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          field.onChange(value === '' || value === null || value === undefined ? null : parseInt(value, 10));
+                        }}
+                        disabled={isLoading}
+                        placeholder="Enter key number"
+                      />
+                    )}
+                  />
+                  {form.formState.errors.officeKeyNumber && (
+                    <p className="text-sm text-red-500">{form.formState.errors.officeKeyNumber.message}</p>
                   )}
-                />
-                <Label htmlFor="availability_friday">Friday</Label>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_saturday_am"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_saturday_am" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
+                </div>
+                
+                <div>
+                  <Label htmlFor="hasParkingRemote">Parking Remote</Label>
+                  <Controller
+                    control={form.control}
+                    name="hasParkingRemote"
+                    render={({ field }) => (
+                      <Select
+                        disabled={isLoading}
+                        value={field.value || 'NONE'}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger id="hasParkingRemote">
+                          <SelectValue placeholder="Select option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="VIRTUAL">Virtual</SelectItem>
+                          <SelectItem value="PHYSICAL">Physical</SelectItem>
+                          <SelectItem value="NONE">None</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {form.formState.errors.hasParkingRemote && (
+                    <p className="text-sm text-red-500">{form.formState.errors.hasParkingRemote.message}</p>
                   )}
-                />
-                <Label htmlFor="availability_saturday_am">Saturday AM</Label>
+                </div>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_saturday_pm"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_saturday_pm" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="role">Role</Label>
+                  <Controller
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <Select 
+                        disabled={isLoading}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={'TUTOR'}>Tutor</SelectItem>
+                          <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Controller
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <Select 
+                        disabled={isLoading}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={'ACTIVE'}>Active</SelectItem>
+                          <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
+                          <SelectItem value={'TRIAL'}>Trial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Subjects Field */}
+              <div>
+                <Label>Subjects</Label>
+                <div className="space-y-2">
+                  {staffSubjects.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {staffSubjects.map((subject) => {
+                        const shortName = formatSubjectShortName(subject);
+                        const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                        return (
+                          <Badge
+                            key={subject.id}
+                            className={`${colorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
+                            onClick={(e) => {
+                              // Don't trigger view if clicking the X button
+                              if ((e.target as HTMLElement).closest('.remove-subject-btn')) {
+                                return;
+                              }
+                              onViewSubject?.(subject.id);
+                            }}
+                          >
+                            <span>{shortName}</span>
+                            {onRemoveSubject && (
+                              <button
+                                type="button"
+                                className="remove-subject-btn ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveSubject(subject.id);
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Badge>
+                        );
+                      })}
+                    </div>
                   )}
-                />
-                <Label htmlFor="availability_saturday_pm">Saturday PM</Label>
+                  {addSubjectButton}
+                </div>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_sunday_am"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_sunday_am" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
-                  )}
-                />
-                <Label htmlFor="availability_sunday_am">Sunday AM</Label>
+            </CardContent>
+          </Card>
+
+          {/* Availability Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Availability</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h4 className="font-medium">Weekdays</h4>
+                  {[
+                    { key: 'availability_monday', label: 'Monday' },
+                    { key: 'availability_tuesday', label: 'Tuesday' },
+                    { key: 'availability_wednesday', label: 'Wednesday' },
+                    { key: 'availability_thursday', label: 'Thursday' },
+                    { key: 'availability_friday', label: 'Friday' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Controller
+                        control={form.control}
+                        name={key as keyof FormData}
+                        render={({ field }) => (
+                          <Checkbox 
+                            id={key} 
+                            checked={field.value as boolean}
+                            onCheckedChange={field.onChange}
+                            disabled={isLoading}
+                          />
+                        )}
+                      />
+                      <Label htmlFor={key}>{label}</Label>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-medium">Weekends</h4>
+                  {[
+                    { key: 'availability_saturday_am', label: 'Saturday AM' },
+                    { key: 'availability_saturday_pm', label: 'Saturday PM' },
+                    { key: 'availability_sunday_am', label: 'Sunday AM' },
+                    { key: 'availability_sunday_pm', label: 'Sunday PM' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Controller
+                        control={form.control}
+                        name={key as keyof FormData}
+                        render={({ field }) => (
+                          <Checkbox 
+                            id={key} 
+                            checked={field.value as boolean}
+                            onCheckedChange={field.onChange}
+                            disabled={isLoading}
+                          />
+                        )}
+                      />
+                      <Label htmlFor={key}>{label}</Label>
+                    </div>
+                  ))}
+                </div>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                  control={form.control}
-                  name="availability_sunday_pm"
-                  render={({ field }) => (
-                    <Checkbox 
-                      id="availability_sunday_pm" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isLoading}
-                    />
-                  )}
-                />
-                <Label htmlFor="availability_sunday_pm">Sunday PM</Label>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
         </form>
-
-        {/* Subjects Section - Edit Mode */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold">Subjects</h3>
-            {addSubjectButton}
-          </div>
-          
-          {loadingSubjects ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : staffSubjects.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No subjects assigned to this staff member</p>
-          ) : (
-            <div className="space-y-2">
-              {staffSubjects.map((subject) => {
-                const Icon = getSubjectIcon(subject.discipline);
-                const subjectDisplay = [
-                  subject.curriculum,
-                  subject.year_level ? `Year ${subject.year_level}` : '',
-                  subject.name
-                ].filter(Boolean).join(' ');
-                
-                return (
-                  <div
-                    key={subject.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => onViewSubject?.(subject.id)}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium">{subjectDisplay}</div>
-                        {subject.level && (
-                          <p className="text-xs text-muted-foreground">{subject.level}</p>
-                        )}
-                      </div>
-                    </div>
-                    {onRemoveSubject && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveSubject(subject.id);
-                        }}
-                        className="flex-shrink-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Sticky Footer with Buttons */}
       <div className="flex-shrink-0 border-t bg-background p-4 flex justify-end space-x-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancelEdit}
-          disabled={isLoading}
-        >
+        <Button type="button" variant="outline" onClick={onCancelEdit} disabled={isLoading}>
+          <X className="h-4 w-4 mr-2" />
           Cancel
         </Button>
-        <Button 
-          type="submit"
-          form="staff-edit-form"
-          disabled={isLoading}
-        >
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Changes
+        <Button type="submit" form="staff-edit-form" disabled={isLoading}>
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4 mr-2" />
+          )}
+          {isLoading ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </>
   ) : (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Staff Information</h3>
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          </div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Staff Information</h3>
+        <Button variant="outline" size="sm" onClick={onEdit}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div className="text-sm font-medium">First Name:</div>
-            <div>{staffMember.first_name || '-'}</div>
-            
-            <div className="text-sm font-medium">Last Name:</div>
-            <div>{staffMember.last_name || '-'}</div>
-            
-            <div className="text-sm font-medium">Email:</div>
-            <div>{staffMember.email || '-'}</div>
-            
-            <div className="text-sm font-medium">Phone Number:</div>
-            <div>{staffMember.phone_number || '-'}</div>
-            
-            <div className="text-sm font-medium">Office Key Number:</div>
-            <div>{staffMember.office_key_number || '-'}</div>
-            
-            <div className="text-sm font-medium">Parking Remote:</div>
-            <div>{staffMember.has_parking_remote || 'None'}</div>
-            
-            <div className="text-sm font-medium">Role:</div>
-            <div>
-              <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <div className="text-sm font-medium">First Name:</div>
+        <div>{staffMember.first_name || '-'}</div>
+        
+        <div className="text-sm font-medium">Last Name:</div>
+        <div>{staffMember.last_name || '-'}</div>
+        
+        <div className="text-sm font-medium">Email:</div>
+        <div>{staffMember.email || '-'}</div>
+        
+        <div className="text-sm font-medium">Phone Number:</div>
+        <div>{staffMember.phone_number || '-'}</div>
+        
+        <div className="text-sm font-medium">Office Key Number:</div>
+        <div>{staffMember.office_key_number || '-'}</div>
+        
+        <div className="text-sm font-medium">Parking Remote:</div>
+        <div>{staffMember.has_parking_remote || 'None'}</div>
+        
+        <div className="text-sm font-medium">Role:</div>
+        <div>
+          <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
+        </div>
+        
+        <div className="text-sm font-medium">Status:</div>
+        <div>
+          <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
+        </div>
+        
+        <div className="text-sm font-medium">Subjects:</div>
+        <div>
+          {staffSubjects.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {staffSubjects.map((subject) => {
+                const shortName = formatSubjectShortName(subject);
+                const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                return (
+                  <Badge
+                    key={subject.id}
+                    className={`${colorClass} cursor-pointer hover:opacity-80`}
+                    onClick={() => onViewSubject?.(subject.id)}
+                  >
+                    {shortName}
+                  </Badge>
+                );
+              })}
             </div>
-            
-            <div className="text-sm font-medium">Status:</div>
-            <div>
-              <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
-            </div>
-          </div>
-          
-          <Separator className="my-6" />
-          
-          {/* Availability Section */}
+          ) : (
+            <span className="text-muted-foreground">No subjects assigned</span>
+          )}
+        </div>
+      </div>
+
+      <Separator className="my-6" />
+
+      {/* Availability Section */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Availability</h3>
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <h3 className="text-lg font-semibold mb-4">Availability</h3>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-medium mb-3">Weekdays</h4>
-                <div className="space-y-2">
-                  {([
-                    { key: 'availability_monday' as const, label: 'Monday' },
-                    { key: 'availability_tuesday' as const, label: 'Tuesday' },
-                    { key: 'availability_wednesday' as const, label: 'Wednesday' },
-                    { key: 'availability_thursday' as const, label: 'Thursday' },
-                    { key: 'availability_friday' as const, label: 'Friday' },
-                  ] as const).map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${staffMember[key] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className={`text-sm ${staffMember[key] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {label}
-                      </span>
-                    </div>
-                  ))}
+            <h4 className="font-medium mb-3">Weekdays</h4>
+            <div className="space-y-2">
+              {[
+                { key: 'availability_monday', label: 'Monday' },
+                { key: 'availability_tuesday', label: 'Tuesday' },
+                { key: 'availability_wednesday', label: 'Wednesday' },
+                { key: 'availability_thursday', label: 'Thursday' },
+                { key: 'availability_friday', label: 'Friday' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
                 </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-3">Weekends</h4>
-                <div className="space-y-2">
-                  {([
-                    { key: 'availability_saturday_am' as const, label: 'Saturday AM' },
-                    { key: 'availability_saturday_pm' as const, label: 'Saturday PM' },
-                    { key: 'availability_sunday_am' as const, label: 'Sunday AM' },
-                    { key: 'availability_sunday_pm' as const, label: 'Sunday PM' },
-                  ] as const).map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${staffMember[key] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className={`text-sm ${staffMember[key] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          <Separator className="my-6" />
-
-          {/* Subjects Section - View Only */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Subjects</h3>
+            <h4 className="font-medium mb-3">Weekends</h4>
+            <div className="space-y-2">
+              {[
+                { key: 'availability_saturday_am', label: 'Saturday AM' },
+                { key: 'availability_saturday_pm', label: 'Saturday PM' },
+                { key: 'availability_sunday_am', label: 'Sunday AM' },
+                { key: 'availability_sunday_pm', label: 'Sunday PM' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
+                </div>
+              ))}
             </div>
-            
-            {loadingSubjects ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : staffSubjects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No subjects assigned to this staff member</p>
-            ) : (
-              <div className="space-y-2">
-                {staffSubjects.map((subject) => {
-                  const Icon = getSubjectIcon(subject.discipline);
-                  const subjectDisplay = [
-                    subject.curriculum,
-                    subject.year_level ? `Year ${subject.year_level}` : '',
-                    subject.name
-                  ].filter(Boolean).join(' ');
-                  
-                  return (
-                    <div
-                      key={subject.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => onViewSubject?.(subject.id)}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium">{subjectDisplay}</div>
-                          {subject.level && (
-                            <p className="text-xs text-muted-foreground">{subject.level}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
+        </div>
+      </div>
+
+      <Separator className="my-6" />
     </div>
   );
 }

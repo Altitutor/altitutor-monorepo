@@ -2,7 +2,7 @@
 type StudentStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED';
 type StaffRole = 'ADMIN' | 'TUTOR' | 'ADMINSTAFF';
 type StaffStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL';
-type SubjectCurriculum = 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE';
+export type SubjectCurriculum = 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE';
 type SubjectDiscipline = 'MATHEMATICS' | 'SCIENCE' | 'HUMANITIES' | 'ENGLISH' | 'ART' | 'LANGUAGE' | 'MEDICINE';
 type ClassStatus = 'ACTIVE' | 'INACTIVE' | 'FULL';
 type EnrollmentStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED' | 'TRIAL';
@@ -52,10 +52,10 @@ export const SUBJECT_CURRICULUM_COLORS: Record<SubjectCurriculum, BadgeColorClas
 
 // Subject Discipline Colors
 export const SUBJECT_DISCIPLINE_COLORS: Record<SubjectDiscipline, BadgeColorClass> = {
-  MATHEMATICS: 'bg-indigo-100 text-indigo-800',
-  SCIENCE: 'bg-emerald-100 text-emerald-800',
+  MATHEMATICS: 'bg-orange-100 text-orange-800',
+  SCIENCE: 'bg-green-100 text-green-800',
   HUMANITIES: 'bg-amber-100 text-amber-800',
-  ENGLISH: 'bg-rose-100 text-rose-800',
+  ENGLISH: 'bg-yellow-100 text-yellow-800',
   ART: 'bg-pink-100 text-pink-800',
   LANGUAGE: 'bg-cyan-100 text-cyan-800',
   MEDICINE: 'bg-red-100 text-red-800',

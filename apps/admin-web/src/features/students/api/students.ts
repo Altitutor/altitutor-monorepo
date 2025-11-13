@@ -99,6 +99,285 @@ export const studentsApi = {
     if (error) throw error;
     return { students: (data ?? []) as unknown as Tables<'students'>[], total: count ?? 0 };
   },
+  
+  /**
+   * Minimal fields for table display only
+   * Returns: id, first_name, last_name, status, curriculum, year_level, school
+   * WITH nested classes: id, name, day_of_week, start_time
+   */
+  listMinimal: async (params: {
+    search?: string;
+    statuses?: Tables<'students'>['status'][];
+    curriculums?: string[];
+    yearLevels?: number[];
+    subjectIds?: string[];
+    limit?: number;
+    offset?: number;
+    orderBy?: keyof Tables<'students'>;
+    ascending?: boolean;
+  }): Promise<{ students: (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[]; total: number }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const {
+      search = '',
+      statuses = [],
+      curriculums = [],
+      yearLevels = [],
+      subjectIds = [],
+      limit = 20,
+      offset = 0,
+      orderBy = 'last_name',
+      ascending = true,
+    } = params || {};
+
+    // First, get the student IDs matching filters (same logic as list())
+    let studentIds: string[] | null = null;
+    if (subjectIds && subjectIds.length > 0) {
+      const { data: studentsSubjectsData, error: ssError } = await supabase
+        .from('students_subjects')
+        .select('student_id')
+        .in('subject_id', subjectIds);
+      
+      if (ssError) throw ssError;
+      studentIds = Array.from(new Set(studentsSubjectsData?.map(ss => ss.student_id) || []));
+      if (studentIds.length === 0) {
+        return { students: [], total: 0 };
+      }
+    }
+
+    // Build base query with minimal fields only
+    let query = supabase
+      .from('students')
+      .select(
+        'id, first_name, last_name, status, curriculum, year_level, school',
+        { count: 'exact' }
+      );
+
+    // Apply filters
+    const trimmed = search.trim();
+    if (trimmed.length > 0) {
+      const q = `%${trimmed}%`;
+      query = query.or(`first_name.ilike.${q},last_name.ilike.${q},school.ilike.${q}`);
+    }
+
+    if (statuses && statuses.length > 0) {
+      query = query.in('status', statuses);
+    }
+    if (curriculums && curriculums.length > 0) {
+      query = query.in('curriculum', curriculums);
+    }
+    if (yearLevels && yearLevels.length > 0) {
+      query = query.in('year_level', yearLevels);
+    }
+    if (studentIds) {
+      query = query.in('id', studentIds);
+    }
+
+    query = query.order(orderBy as string, { ascending });
+    const from = offset;
+    const to = Math.max(offset + limit - 1, offset);
+    query = query.range(from, to);
+
+    const { data: studentsData, count, error } = await query;
+    if (error) throw error;
+
+    const students = studentsData ?? [];
+
+    // Fetch classes for these students - use same pattern as staff table
+    if (students.length > 0) {
+      const studentIds = students.map((s: any) => s.id);
+      
+      // Get all student-class enrollments with class details AND subject information (like staff table does)
+      const { data: enrollmentsData, error: enrollmentsError } = await supabase
+        .from('classes_students')
+        .select(`
+          student_id,
+          unenrolled_at,
+          class:classes(*, subject_details:subjects(*))
+        `)
+        .in('student_id', studentIds);
+      
+      if (enrollmentsError) throw enrollmentsError;
+      
+      // Filter to current/future enrollments only
+      const activeEnrollments = (enrollmentsData ?? []).filter((e: any) => 
+        !e.unenrolled_at || new Date(e.unenrolled_at) > new Date()
+      );
+      
+      // Build student -> classes map with subject data
+      const studentClassesMap: Record<string, Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }>> = {};
+      studentIds.forEach(id => {
+        studentClassesMap[id] = [];
+      });
+      
+      activeEnrollments.forEach((enrollment: any) => {
+        const classWithSubject = enrollment.class;
+        if (classWithSubject && enrollment.student_id) {
+          studentClassesMap[enrollment.student_id].push({
+            id: classWithSubject.id,
+            day_of_week: classWithSubject.day_of_week,
+            start_time: classWithSubject.start_time,
+            level: classWithSubject.level,
+            subject: classWithSubject.subject_details || null,
+          });
+        }
+      });
+      
+      // Attach classes to students
+      const studentsWithClasses = students.map((student: any) => ({
+        ...student,
+        classes: studentClassesMap[student.id] || [],
+      }));
+      
+      return {
+        students: studentsWithClasses as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
+        total: count ?? 0,
+      };
+    }
+
+    // No students
+    return {
+      students: students as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
+      total: count ?? 0
+    };
+  },
+  
+  /**
+   * Get full student details for modal view
+   * Returns: student, subjects, classes, parents, upcoming sessions, billing status
+   * Single optimized query using Supabase joins
+   */
+  getStudentDetails: async (studentId: string): Promise<{
+    student: Tables<'students'> | null;
+    subjects: Tables<'subjects'>[];
+    classes: ClassWithExpandedSubject[];
+    parents: Tables<'parents'>[];
+    upcomingSessions: Tables<'sessions'>[];
+    billingStatus: {
+      balance: number;
+      hasPaymentMethod: boolean;
+    } | null;
+  }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    try {
+      // Get student with all related data in optimized queries
+      const [studentResult, subjectsResult, classesResult, parentsResult, sessionsResult, billingResult] = await Promise.all([
+        // Student record
+        supabase
+          .from('students')
+          .select('*')
+          .eq('id', studentId)
+          .single(),
+        
+        // Subjects
+        supabase
+          .from('students_subjects')
+          .select('subject_details:subjects(*)')
+          .eq('student_id', studentId),
+        
+        // Current and future classes with subject details
+        supabase
+          .from('classes_students')
+          .select(`
+            class:classes(
+              *,
+              subject_details:subjects(*)
+            )
+          `)
+          .eq('student_id', studentId)
+          .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`),
+        
+        // Parents
+        supabase
+          .from('parents_students')
+          .select('parent_details:parents(*)')
+          .eq('student_id', studentId),
+        
+        // Upcoming sessions (next 5) - fetch from sessions directly with student filter
+        supabase
+          .from('sessions_students')
+          .select('sessions!inner(*)')
+          .eq('student_id', studentId),
+        
+        // Billing status (check if student has payment method)
+        supabase
+          .from('students')
+          .select('id')
+          .eq('id', studentId)
+          .single(),
+      ]);
+
+      if (studentResult.error && studentResult.error.code !== 'PGRST116') {
+        throw studentResult.error;
+      }
+      if (subjectsResult.error) throw subjectsResult.error;
+      if (classesResult.error) throw classesResult.error;
+      if (parentsResult.error) throw parentsResult.error;
+      if (sessionsResult.error) throw sessionsResult.error;
+
+      const student = studentResult.data as Tables<'students'> | null;
+      if (!student) {
+        return {
+          student: null,
+          subjects: [],
+          classes: [],
+          parents: [],
+          upcomingSessions: [],
+          billingStatus: null,
+        };
+      }
+
+      // Transform subjects
+      const subjects = (subjectsResult.data ?? [])
+        .map((row: any) => row.subject_details)
+        .filter(Boolean) as Tables<'subjects'>[];
+
+      // Transform classes
+      const classes: ClassWithExpandedSubject[] = (classesResult.data ?? [])
+        .map((row: any) => {
+          const cls = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
+          if (!cls) return null;
+          const classWithSubject: ClassWithExpandedSubject = {
+            ...cls,
+            subject: cls.subject_details,
+          };
+          delete (classWithSubject as any).subject_details;
+          return classWithSubject;
+        })
+        .filter(Boolean) as ClassWithExpandedSubject[];
+
+      // Transform parents
+      const parents = (parentsResult.data ?? [])
+        .map((row: any) => row.parent_details)
+        .filter(Boolean) as Tables<'parents'>[];
+
+      // Sessions - transform from sessions_students join, filter and sort client-side
+      const upcomingSessions = (sessionsResult.data ?? [])
+        .map((row: any) => row.sessions)
+        .filter((s: any) => s && s.start_at && new Date(s.start_at) >= new Date())
+        .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
+        .slice(0, 5) as Tables<'sessions'>[];
+
+      // Billing status - simplified for now (can be enhanced later)
+      const billingStatus = {
+        balance: 0, // TODO: Calculate from billing records
+        hasPaymentMethod: false, // TODO: Check payment methods
+      };
+
+      return {
+        student,
+        subjects,
+        classes,
+        parents,
+        upcomingSessions,
+        billingStatus,
+      };
+    } catch (error) {
+      console.error('Error getting student details:', error);
+      throw error;
+    }
+  },
+  
   /**
    * Get all students
    */
@@ -494,5 +773,37 @@ export const studentsApi = {
     const ids = students.map(s => s.id);
     const { studentSubjects, studentClasses, classSubjects } = await studentsApi.getDetailsForStudentIds(ids);
     return { students, studentSubjects, studentClasses, classSubjects, total };
+  },
+
+  /**
+   * Get students for multiple parents
+   */
+  getParentStudents: async (parentIds: string[]): Promise<Record<string, Tables<'students'>[]>> => {
+    if (parentIds.length === 0) return {};
+    
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    const { data, error } = await supabase
+      .from('parents_students')
+      .select(`
+        parent_id,
+        students (*)
+      `)
+      .in('parent_id', parentIds);
+
+    if (error) throw error;
+
+    // Group students by parent_id
+    const grouped: Record<string, Tables<'students'>[]> = {};
+    data?.forEach((item: any) => {
+      if (item.students) {
+        if (!grouped[item.parent_id]) {
+          grouped[item.parent_id] = [];
+        }
+        grouped[item.parent_id].push(item.students);
+      }
+    });
+
+    return grouped;
   },
 }; 

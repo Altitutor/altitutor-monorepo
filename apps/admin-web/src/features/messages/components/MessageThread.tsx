@@ -10,6 +10,7 @@ import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import { messagesKeys } from '../api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -28,12 +29,20 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isInitialLoad = useRef(true);
   const prevConversationId = useRef(conversationId);
+  const lastMarkedMessageId = useRef<string | null>(null);
+  const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Reset initial load flag when conversation changes
   useEffect(() => {
     if (prevConversationId.current !== conversationId) {
       isInitialLoad.current = true;
       prevConversationId.current = conversationId;
+      lastMarkedMessageId.current = null; // Reset when conversation changes
+      // Cancel any pending markRead calls
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+        markReadTimeoutRef.current = null;
+      }
     }
   }, [conversationId]);
 
@@ -44,7 +53,7 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
       .channel(`messages-${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload: any) => {
         // Patch cache with new message for instant rendering
-        qc.setQueryData(['messages', conversationId], (old: any) => {
+        qc.setQueryData(messagesKeys.messages(conversationId), (old: any) => {
           if (!old?.pages) return old;
           const newItem = (payload as any).new;
           const pages = [...old.pages];
@@ -60,7 +69,7 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload: any) => {
         // Patch cache with updated message
-        qc.setQueryData(['messages', conversationId], (old: any) => {
+        qc.setQueryData(messagesKeys.messages(conversationId), (old: any) => {
           if (!old?.pages) return old;
           const updatedItem = (payload as any).new;
           const pages = old.pages.map((page: any) => ({
@@ -71,7 +80,7 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${conversationId}` }, () => {
-        qc.invalidateQueries({ queryKey: ['messages', conversationId] });
+        qc.invalidateQueries({ queryKey: messagesKeys.messages(conversationId) });
       })
       .subscribe();
     return () => {
@@ -79,11 +88,39 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
     };
   }, [conversationId, qc]);
 
+  // Mark conversation as read - debounced and only when last message changes
   useEffect(() => {
     const last = data?.pages?.flatMap(p => p.items)?.[0];
-    if (last?.id) {
-      markRead.mutate({ conversationId, lastMessageId: last.id });
+    const lastMessageId = last?.id;
+    const currentConversationId = conversationId; // Capture for closure
+    
+    // Only mark as read if:
+    // 1. We have a last message ID
+    // 2. It's different from what we last marked
+    if (lastMessageId && lastMessageId !== lastMarkedMessageId.current) {
+      // Cancel any pending markRead calls
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+      }
+      
+      // Debounce markRead to avoid excessive calls when switching conversations quickly
+      markReadTimeoutRef.current = setTimeout(() => {
+        // Double-check we're still on the same conversation
+        if (prevConversationId.current === currentConversationId) {
+          markRead.mutate({ conversationId: currentConversationId, lastMessageId });
+          lastMarkedMessageId.current = lastMessageId;
+        }
+        markReadTimeoutRef.current = null;
+      }, 500); // 500ms debounce
     }
+    
+    // Cleanup timeout on unmount or conversation change
+    return () => {
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+        markReadTimeoutRef.current = null;
+      }
+    };
   }, [data, conversationId, markRead]);
 
   // Auto-scroll to bottom on initial load and when new messages arrive

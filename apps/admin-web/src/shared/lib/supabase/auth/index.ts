@@ -1,4 +1,3 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -50,9 +49,29 @@ export function setupAuthListener() {
   const supabase = getSupabaseClient();
   
   const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      const user = session?.user ?? null;
+    (event, session) => {
+      // For SIGNED_OUT events, set user to null
+      if (event === 'SIGNED_OUT') {
+        useAuthStore.getState().setUser(null);
+        useAuthStore.getState().setLoading(false);
+        return;
+      }
+      
+      // For other events, validate the user against the server
+      // This prevents using potentially tampered session data from cookies
+      if (session) {
+        supabase.auth.getUser().then(({ data: { user }, error }) => {
+          if (error || !user) {
+            console.error('Error validating user:', error);
+            useAuthStore.getState().setUser(null);
+          } else {
       useAuthStore.getState().setUser(user as User);
+          }
+        });
+      } else {
+        useAuthStore.getState().setUser(null);
+      }
+      
       useAuthStore.getState().setLoading(false);
     }
   );

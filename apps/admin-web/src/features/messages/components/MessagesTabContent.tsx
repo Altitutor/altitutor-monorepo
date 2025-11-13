@@ -38,7 +38,7 @@ export function MessagesTabContent({
   };
 
   return (
-    <div className="flex flex-col h-full border rounded-md">
+    <div className="flex flex-col flex-1 min-h-0 border rounded-md">
       <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
         <div className="font-medium text-sm">Messages</div>
         <UIButton
@@ -56,7 +56,7 @@ export function MessagesTabContent({
       </div>
       {conversationId ? (
         <>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             <MessageThread conversationId={conversationId} />
           </div>
           <div className="flex-shrink-0">

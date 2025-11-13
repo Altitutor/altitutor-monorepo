@@ -7,7 +7,7 @@ import { usePrecreateSessions } from '../hooks/usePrecreateSessions';
 import { useSessions } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
+import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils';
 
 type Props = { onOpenSession?: (id: string) => void };
 

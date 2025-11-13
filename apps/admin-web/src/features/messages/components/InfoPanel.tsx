@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Skeleton, useToast } from "@altitutor/ui";
+import { Loader2 } from "lucide-react";
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { messagesKeys } from '../api/queryKeys';
 
 // Student tabs and components
 import { 
@@ -15,7 +17,9 @@ import {
   StudentAccountTab,
   DetailsFormData
 } from '@/features/students/components/tabs';
+import { ParentDetailsTab } from '@/features/students/components/tabs/ParentDetailsTab';
 import { StudentBillingTab } from '@/features/students/components/StudentBillingTab';
+import { StudentSessionsTab } from '@/features/students/components/StudentSessionsTab';
 import { ViewSubjectModal, SubjectSearchPopover } from '@/features/subjects/components';
 import { studentsApi } from '@/features/students/api';
 import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
@@ -28,6 +32,7 @@ import {
   ClassesTab as StaffClassesTab,
   AccountTab as StaffAccountTab
 } from '@/features/staff/components/modal/tabs';
+import { StudentsTab as StaffStudentsTab } from '@/features/staff/components/modal/tabs/StudentsTab';
 import { staffApi } from '@/features/staff/api';
 import { subjectsApi } from '@/features/subjects/api';
 
@@ -41,6 +46,7 @@ interface InfoPanelProps {
 export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<string>('details');
   
   // State for student editing and subject viewing
   const [isEditingStudent, setIsEditingStudent] = useState(false);
@@ -78,12 +84,14 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     fetchSubjects();
   }, []);
   
-  // Fetch conversation with contact details
+  // Base query - only fetch contact info (lightweight, no nested subjects)
+  const queryKey = conversationId ? messagesKeys.conversationContact(conversationId) : ['conversation-contact'];
   const { data: conversation, isLoading } = useQuery({
-    queryKey: ['conversation-info', conversationId],
+    queryKey,
     queryFn: async () => {
       if (!conversationId) return null;
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -95,101 +103,86 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
             student_id,
             parent_id,
             staff_id,
-            students (*),
+            students (
+              id, first_name, last_name, email, phone, status, year_level, curriculum
+            ),
             parents (
-              *,
+              id, first_name, last_name, email, phone,
               parents_students (
-                students (*)
+                students (
+                  id, first_name, last_name, email, phone, status, year_level, curriculum
+                )
               )
             ),
-            staff (*)
+            staff (
+              id, first_name, last_name, email, phone_number, role, status
+            )
           )
         `)
         .eq('id', conversationId)
         .maybeSingle();
+      
       if (error) throw error;
-      
-      // If we have a student contact, fetch their subjects separately
-      if (data?.contacts?.student_id) {
-        const { data: subjectsData, error: subjectsError } = await supabase
-          .from('students_subjects')
-          .select('subjects(*)')
-          .eq('student_id', data.contacts.student_id);
-        
-        if (subjectsError) {
-          console.error('Error fetching student subjects:', subjectsError);
-        }
-        
-        if (subjectsData && data.contacts.students) {
-          const subjects = subjectsData
-            .map((row: any) => row.subjects)
-            .filter(Boolean);
-          (data.contacts.students as any).subjects = subjects;
-        }
-      }
-      
-      // If we have a staff contact, fetch their subjects separately
-      if (data?.contacts?.staff_id) {
-        const { data: subjectsData, error: subjectsError } = await supabase
-          .from('staff_subjects')
-          .select('subjects(*)')
-          .eq('staff_id', data.contacts.staff_id);
-        
-        if (subjectsError) {
-          console.error('Error fetching staff subjects:', subjectsError);
-        }
-        
-        if (subjectsData && data.contacts.staff) {
-          const subjects = subjectsData
-            .map((row: any) => row.subjects)
-            .filter(Boolean);
-          (data.contacts.staff as any).subjects = subjects;
-        }
-      }
-      
-      // If we have a parent contact, fetch subjects for all their students
-      if (data?.contacts?.parent_id && data?.contacts?.parents?.parents_students) {
-        const studentIds = data.contacts.parents.parents_students
-          .map((ps: any) => ps.students?.id)
-          .filter(Boolean);
-        
-        if (studentIds.length > 0) {
-          const { data: allSubjectsData, error: subjectsError } = await supabase
-            .from('students_subjects')
-            .select('student_id, subjects(*)')
-            .in('student_id', studentIds);
-          
-          if (subjectsError) {
-            console.error('Error fetching parent students subjects:', subjectsError);
-          }
-          
-          if (allSubjectsData) {
-            // Create a map of student_id -> subjects
-            const subjectsMap: Record<string, any[]> = {};
-            allSubjectsData.forEach((row: any) => {
-              if (!subjectsMap[row.student_id]) {
-                subjectsMap[row.student_id] = [];
-              }
-              const subject = row.subjects;
-              if (subject && subject.id) {
-                subjectsMap[row.student_id].push(subject);
-              }
-            });
-            
-            // Attach subjects to each student
-            data.contacts.parents.parents_students.forEach((ps: any) => {
-              if (ps.students && subjectsMap[ps.students.id]) {
-                ps.students.subjects = subjectsMap[ps.students.id];
-              }
-            });
-          }
-        }
-      }
-      
       return data;
     },
     enabled: !!conversationId,
   });
+  
+  // Fetch subjects only when Details tab is active and we have a student/staff
+  const baseContact = conversation?.contacts;
+  const baseContactType = baseContact?.contact_type;
+  const studentId = baseContactType === 'STUDENT' ? baseContact?.student_id : null;
+  const staffId = baseContactType === 'STAFF' ? baseContact?.staff_id : null;
+  
+  // Subjects query - only when viewing Details tab
+  const studentSubjectsQueryKey = conversationId && studentId ? messagesKeys.conversationSubjects(conversationId, 'student') : ['conversation-subjects'];
+  const { data: studentSubjectsData } = useQuery({
+    queryKey: studentSubjectsQueryKey,
+    queryFn: async () => {
+      if (!studentId) return null;
+      
+      const supabase = getSupabaseClient() as any;
+      const { data, error } = await supabase
+        .from('students_subjects')
+        .select('subject_details:subjects(*)')
+        .eq('student_id', studentId);
+      
+      if (error) throw error;
+      return (data || []).map((row: any) => row.subject_details).filter(Boolean) as Tables<'subjects'>[];
+    },
+    enabled: !!conversationId && activeTab === 'details' && !!studentId,
+  });
+  
+  const staffSubjectsQueryKey = conversationId && staffId ? messagesKeys.conversationSubjects(conversationId, 'staff') : ['conversation-subjects'];
+  const { data: staffSubjectsData } = useQuery({
+    queryKey: staffSubjectsQueryKey,
+    queryFn: async () => {
+      if (!staffId) return null;
+      
+      const supabase = getSupabaseClient() as any;
+      const { data, error } = await supabase
+        .from('staff_subjects')
+        .select('subject_details:subjects(*)')
+        .eq('staff_id', staffId);
+      
+      if (error) throw error;
+      return (data || []).map((row: any) => row.subject_details).filter(Boolean) as Tables<'subjects'>[];
+    },
+    enabled: !!conversationId && activeTab === 'details' && !!staffId,
+  });
+  
+  // Attach subjects to contact data for rendering
+  const conversationWithSubjects = useMemo(() => {
+    if (!conversation) return null;
+    const result = { ...conversation };
+    if (result.contacts?.students && studentSubjectsData) {
+      (result.contacts.students as any).subjects = studentSubjectsData;
+    }
+    if (result.contacts?.staff && staffSubjectsData) {
+      (result.contacts.staff as any).subjects = staffSubjectsData;
+    }
+    return result;
+  }, [conversation, studentSubjectsData, staffSubjectsData]);
 
   if (!conversationId) {
     return (
@@ -260,7 +253,11 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
         
         setIsEditingStudent(false);
         // Refetch conversation data to get updated student info
-        queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
+        if (conversationId) {
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'student') });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'staff') });
+        }
         
         toast({
           title: "Success",
@@ -313,59 +310,69 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
             <p className="text-sm text-muted-foreground">Student</p>
           </div>
           <div className="p-4 overflow-y-auto flex-1 min-h-0">
-            <Tabs defaultValue="details">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+              <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="classes">Classes</TabsTrigger>
                 <TabsTrigger value="account">Account</TabsTrigger>
+                <TabsTrigger value="sessions">Sessions</TabsTrigger>
                 <TabsTrigger value="billing">Billing</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="details" className="mt-4">
-                <StudentDetailsTab
-                  student={student}
-                  isEditing={isEditingStudent}
-                  isLoading={isLoadingStudentUpdate}
-                  onEdit={handleStartEditStudent}
-                  onCancelEdit={handleCancelEditStudent}
-                  onSubmit={handleStudentEdit}
-                  studentSubjects={isEditingStudent ? tempStudentSubjects : studentSubjects}
-                  loadingSubjects={false}
-                  onRemoveSubject={handleRemoveSubjectFromStudent}
-                  onViewSubject={handleViewSubject}
-                  addSubjectButton={
-                    <SubjectSearchPopover
-                      allSubjects={allSubjects}
-                      selectedSubjects={isEditingStudent ? tempStudentSubjects : studentSubjects}
-                      onSelectSubject={handleAssignSubjectToStudent}
-                    />
-                  }
-                />
-              </TabsContent>
-              
-              <TabsContent value="classes" className="mt-4">
-                <StudentClassesTab
-                  student={student}
-                  onStudentUpdated={() => {
-                    queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
-                  }}
-                />
-              </TabsContent>
-              
-              <TabsContent value="account" className="mt-4">
-                <StudentAccountTab
-                  student={student}
-                  isLoading={false}
-                  hasPasswordResetLinkSent={false}
-                  isDeleting={false}
-                  onPasswordResetRequest={async () => {}}
-                  onDelete={async () => {}}
-                />
-              </TabsContent>
-              
-              <TabsContent value="billing" className="mt-4">
-                <StudentBillingTab student={student} />
-              </TabsContent>
+              <div className="flex-1 min-h-0 overflow-hidden mt-4">
+                <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StudentDetailsTab
+                    student={student as any}
+                    isEditing={isEditingStudent}
+                    isLoading={isLoadingStudentUpdate}
+                    onEdit={handleStartEditStudent}
+                    onCancelEdit={handleCancelEditStudent}
+                    onSubmit={handleStudentEdit}
+                    studentSubjects={isEditingStudent ? tempStudentSubjects : studentSubjects}
+                    loadingSubjects={false}
+                    onRemoveSubject={handleRemoveSubjectFromStudent}
+                    onViewSubject={handleViewSubject}
+                    addSubjectButton={
+                      <SubjectSearchPopover
+                        allSubjects={allSubjects}
+                        selectedSubjects={isEditingStudent ? tempStudentSubjects : studentSubjects}
+                        onSelectSubject={handleAssignSubjectToStudent}
+                      />
+                    }
+                  />
+                </TabsContent>
+                
+                <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StudentClassesTab
+                    student={student as any}
+                    onStudentUpdated={() => {
+                      if (conversationId) {
+                        queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
+                      }
+                      queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
+                    }}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StudentAccountTab
+                    student={student as any}
+                    isLoading={false}
+                    hasPasswordResetLinkSent={false}
+                    isDeleting={false}
+                    onPasswordResetRequest={async () => {}}
+                    onDelete={async () => {}}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="sessions" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StudentSessionsTab student={student as any} />
+                </TabsContent>
+                
+                <TabsContent value="billing" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StudentBillingTab student={student as any} />
+                </TabsContent>
+              </div>
             </Tabs>
           </div>
         </div>
@@ -380,7 +387,11 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
             }}
             subjectId={selectedSubjectId}
             onSubjectUpdated={() => {
-              queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
+              if (conversationId) {
+                queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
+                queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'student') });
+                queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'staff') });
+              }
             }}
           />
         )}
@@ -443,7 +454,11 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
         setStaffSubjectsToRemove([]);
         
         setIsEditingStaff(false);
-        queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
+        if (conversationId) {
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'student') });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'staff') });
+        }
         
         toast({
           title: "Success",
@@ -497,51 +512,67 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
             <p className="text-sm text-muted-foreground">Staff</p>
           </div>
           <div className="p-4 overflow-y-auto flex-1 min-h-0">
-            <Tabs defaultValue="details">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+              <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="classes">Classes</TabsTrigger>
+                <TabsTrigger value="students">Students</TabsTrigger>
                 <TabsTrigger value="account">Account</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="details" className="mt-4">
-                <StaffDetailsTab
-                  staffMember={staff}
-                  isEditing={isEditingStaff}
-                  isLoading={isLoadingStaffUpdate}
-                  onEdit={handleStartEditStaff}
-                  onCancelEdit={handleCancelEditStaff}
-                  onSubmit={handleStaffEdit}
-                  staffSubjects={isEditingStaff ? tempStaffSubjects : staffSubjects}
-                  loadingSubjects={false}
-                  onRemoveSubject={handleRemoveSubjectFromStaff}
-                  onViewSubject={handleViewSubjectStaff}
-                  addSubjectButton={
-                    <SubjectSearchPopover
-                      allSubjects={allSubjects}
-                      selectedSubjects={isEditingStaff ? tempStaffSubjects : staffSubjects}
-                      onSelectSubject={(subject) => handleAssignSubjectToStaff(subject.id)}
-                    />
-                  }
-                />
-              </TabsContent>
-              
-              <TabsContent value="classes" className="mt-4">
-                <StaffClassesTab
-                  staff={staff}
-                />
-              </TabsContent>
-              
-              <TabsContent value="account" className="mt-4">
-                <StaffAccountTab
-                  staffMember={staff}
-                  isLoading={false}
-                  hasPasswordResetLinkSent={false}
-                  onPasswordResetRequest={async () => {}}
-                  onDelete={async () => {}}
-                  isDeleting={false}
-                />
-              </TabsContent>
+              <div className="flex-1 min-h-0 overflow-hidden mt-4">
+                <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StaffDetailsTab
+                    staffMember={staff as any}
+                    isEditing={isEditingStaff}
+                    isLoading={isLoadingStaffUpdate}
+                    onEdit={handleStartEditStaff}
+                    onCancelEdit={handleCancelEditStaff}
+                    onSubmit={handleStaffEdit}
+                    staffSubjects={isEditingStaff ? tempStaffSubjects : staffSubjects}
+                    loadingSubjects={false}
+                    onRemoveSubject={handleRemoveSubjectFromStaff}
+                    onViewSubject={handleViewSubjectStaff}
+                    addSubjectButton={
+                      <SubjectSearchPopover
+                        allSubjects={allSubjects}
+                        selectedSubjects={isEditingStaff ? tempStaffSubjects : staffSubjects}
+                        onSelectSubject={(subject) => handleAssignSubjectToStaff(subject.id)}
+                      />
+                    }
+                  />
+                </TabsContent>
+                
+                <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StaffClassesTab
+                    staff={staff as any}
+                    onStaffUpdated={() => {
+                      if (conversationId) {
+                        queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
+                      }
+                      queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] });
+                    }}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="students" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StaffStudentsTab
+                    staffId={staff.id}
+                    isOpen={true}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <StaffAccountTab
+                    staffMember={staff as any}
+                    isLoading={false}
+                    hasPasswordResetLinkSent={false}
+                    onPasswordResetRequest={async () => {}}
+                    onDelete={async () => {}}
+                    isDeleting={false}
+                  />
+                </TabsContent>
+              </div>
             </Tabs>
           </div>
         </div>
@@ -556,7 +587,11 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
             }}
             subjectId={selectedSubjectId}
             onSubjectUpdated={() => {
-              queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
+              if (conversationId) {
+                queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
+                queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'student') });
+                queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'staff') });
+              }
             }}
           />
         )}
@@ -566,204 +601,34 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
 
   // PARENT contact
   if (contactType === 'PARENT' && contact.parents) {
-    const parent = contact.parents;
-    const students = parent.parents_students?.map((ps: any) => ps.students).filter(Boolean) || [];
+    const parent = contact.parents as any;
+    const students = (parent.parents_students || []).map((ps: any) => ps.students).filter(Boolean) || [];
     
     return (
-      <>
       <div className={`border-l dark:border-brand-dark-border flex flex-col ${className}`}>
         <div className="p-4 border-b dark:border-brand-dark-border flex-shrink-0">
           <h3 className="font-semibold">{parent.first_name} {parent.last_name}</h3>
           <p className="text-sm text-muted-foreground">Parent</p>
         </div>
         <div className="p-4 overflow-y-auto flex-1 min-h-0">
-          {/* Parent details */}
-          <div className="mb-6 space-y-2">
-            <div className="text-sm">
-              <span className="font-medium text-muted-foreground">Email:</span>{' '}
-              <span>{parent.email || '-'}</span>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+            <TabsList className="grid w-full grid-cols-1 flex-shrink-0">
+              <TabsTrigger value="details">Details</TabsTrigger>
+            </TabsList>
+            
+            <div className="flex-1 min-h-0 overflow-hidden mt-4">
+              <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                <ParentDetailsTab
+                  parent={parent}
+                  studentIds={students.map((s: any) => s.id)}
+                  students={students}
+                  onViewStudent={() => {}} // No-op in InfoPanel context
+                />
+              </TabsContent>
             </div>
-            <div className="text-sm">
-              <span className="font-medium text-muted-foreground">Phone:</span>{' '}
-              <span>{parent.phone || '-'}</span>
-            </div>
-            <div className="text-sm">
-              <span className="font-medium text-muted-foreground">Students:</span>{' '}
-              <span>{students.map((s: any) => `${s.first_name} ${s.last_name}`).join(', ')}</span>
-            </div>
-          </div>
-          
-          {/* Student tabs */}
-          {students.length > 0 && (
-            <Tabs defaultValue={students[0].id}>
-              <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${Math.min(students.length, 3)}, minmax(0, 1fr))` }}>
-                {students.map((student: any) => (
-                  <TabsTrigger key={student.id} value={student.id}>
-                    {student.first_name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              
-              {students.map((student: any) => {
-                const studentSubjects = student.subjects || [];
-                
-                const handleStartEditStudent = () => {
-                  setTempStudentSubjects([...studentSubjects]);
-                  setStudentSubjectsToAdd([]);
-                  setStudentSubjectsToRemove([]);
-                  setIsEditingStudent(true);
-                };
-                
-                const handleCancelEditStudent = () => {
-                  setTempStudentSubjects([]);
-                  setStudentSubjectsToAdd([]);
-                  setStudentSubjectsToRemove([]);
-                  setIsEditingStudent(false);
-                };
-                
-                const handleStudentEdit = async (data: DetailsFormData) => {
-                  try {
-                    setIsLoadingStudentUpdate(true);
-                    const payload = mapDetailsFormToStudentUpdate(data);
-                    await studentsApi.updateStudent(student.id, payload);
-                    
-                    // Apply subject changes
-                    for (const subjectId of studentSubjectsToAdd) {
-                      await studentsApi.assignSubjectToStudent(student.id, subjectId);
-                    }
-                    for (const subjectId of studentSubjectsToRemove) {
-                      await studentsApi.removeSubjectFromStudent(student.id, subjectId);
-                    }
-                    
-                    // Clear temporary subject changes
-                    setStudentSubjectsToAdd([]);
-                    setStudentSubjectsToRemove([]);
-                    
-                    setIsEditingStudent(false);
-                    queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
-                    
-                    toast({
-                      title: "Success",
-                      description: "Student details updated successfully.",
-                    });
-                  } catch (error) {
-                    console.error('Failed to update student:', error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to update student details. Please try again.",
-                      variant: "destructive",
-                    });
-                  } finally {
-                    setIsLoadingStudentUpdate(false);
-                  }
-                };
-                
-                const handleAssignSubjectToStudent = (subject: Tables<'subjects'>) => {
-                  if (!subject) return;
-                  
-                  setTempStudentSubjects(prev => [...prev, subject]);
-                  
-                  if (studentSubjectsToRemove.includes(subject.id)) {
-                    setStudentSubjectsToRemove(prev => prev.filter(id => id !== subject.id));
-                  } else {
-                    setStudentSubjectsToAdd(prev => [...prev, subject.id]);
-                  }
-                };
-                
-                const handleRemoveSubjectFromStudent = (subjectId: string) => {
-                  setTempStudentSubjects(prev => prev.filter(s => s.id !== subjectId));
-                  
-                  if (studentSubjectsToAdd.includes(subjectId)) {
-                    setStudentSubjectsToAdd(prev => prev.filter(id => id !== subjectId));
-                  } else {
-                    setStudentSubjectsToRemove(prev => [...prev, subjectId]);
-                  }
-                };
-                
-                const handleViewSubject = (subjectId: string) => {
-                  setSelectedSubjectId(subjectId);
-                  setIsSubjectModalOpen(true);
-                };
-                
-                return (
-                  <TabsContent key={student.id} value={student.id}>
-                    <Tabs defaultValue="details" className="mt-4">
-                      <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="details">Details</TabsTrigger>
-                        <TabsTrigger value="classes">Classes</TabsTrigger>
-                        <TabsTrigger value="account">Account</TabsTrigger>
-                        <TabsTrigger value="billing">Billing</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="details" className="mt-4">
-                        <StudentDetailsTab
-                          student={student}
-                          isEditing={isEditingStudent}
-                          isLoading={isLoadingStudentUpdate}
-                          onEdit={handleStartEditStudent}
-                          onCancelEdit={handleCancelEditStudent}
-                          onSubmit={handleStudentEdit}
-                          studentSubjects={isEditingStudent ? tempStudentSubjects : studentSubjects}
-                          loadingSubjects={false}
-                          onRemoveSubject={handleRemoveSubjectFromStudent}
-                          onViewSubject={handleViewSubject}
-                          addSubjectButton={
-                            <SubjectSearchPopover
-                              allSubjects={allSubjects}
-                              selectedSubjects={isEditingStudent ? tempStudentSubjects : studentSubjects}
-                              onSelectSubject={handleAssignSubjectToStudent}
-                            />
-                          }
-                        />
-                      </TabsContent>
-                      
-                      <TabsContent value="classes" className="mt-4">
-                        <StudentClassesTab
-                          student={student}
-                          onStudentUpdated={() => {
-                            queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
-                          }}
-                        />
-                      </TabsContent>
-                      
-                      <TabsContent value="account" className="mt-4">
-                        <StudentAccountTab
-                          student={student}
-                          isLoading={false}
-                          hasPasswordResetLinkSent={false}
-                          isDeleting={false}
-                          onPasswordResetRequest={async () => {}}
-                          onDelete={async () => {}}
-                        />
-                      </TabsContent>
-                      
-                      <TabsContent value="billing" className="mt-4">
-                        <StudentBillingTab student={student} />
-                      </TabsContent>
-                    </Tabs>
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
-          )}
+          </Tabs>
         </div>
       </div>
-        
-        {/* Subject Modal */}
-        {selectedSubjectId && (
-          <ViewSubjectModal
-            isOpen={isSubjectModalOpen}
-            onClose={() => {
-              setIsSubjectModalOpen(false);
-              setSelectedSubjectId(null);
-            }}
-            subjectId={selectedSubjectId}
-            onSubjectUpdated={() => {
-              queryClient.invalidateQueries({ queryKey: ['conversation-info', conversationId] });
-            }}
-          />
-        )}
-      </>
     );
   }
 
@@ -771,14 +636,15 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
   return (
     <div className={`border-l dark:border-brand-dark-border p-6 ${className}`}>
       <div className="space-y-2">
-        <h3 className="font-semibold">{contact.phone_e164 || 'Unknown Contact'}</h3>
-        <p className="text-sm text-muted-foreground">{contact.contact_type}</p>
+        <h3 className="font-semibold">{contact?.phone_e164 || 'Unknown Contact'}</h3>
+        <p className="text-sm text-muted-foreground">{contact?.contact_type}</p>
         <div className="text-sm">
           <span className="font-medium text-muted-foreground">Phone:</span>{' '}
-          <span>{contact.phone_e164}</span>
+          <span>{contact?.phone_e164}</span>
         </div>
       </div>
     </div>
   );
 }
+
 

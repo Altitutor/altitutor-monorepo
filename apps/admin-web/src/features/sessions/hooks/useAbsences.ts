@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { absencesApi } from '../api';
+import { sessionsKeys } from './useSessionsQuery';
 import type {
   AbsenceOperation,
   LogAbsencesResponse,
@@ -57,14 +58,9 @@ export function useLogAbsences() {
           });
         });
 
-        // Invalidate sessions queries
+        // Invalidate sessions queries using proper key constants
         queryClient.invalidateQueries({
-          queryKey: ['sessions'],
-        });
-
-        // Invalidate sessions with details
-        queryClient.invalidateQueries({
-          queryKey: ['sessionsWithDetails'],
+          queryKey: sessionsKeys.all,
         });
       }
     },

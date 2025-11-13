@@ -19,7 +19,7 @@ export function useSessionsWithDetails(args?: { rangeStart?: string; rangeEnd?: 
   return useQuery({
     queryKey: [...sessionsKeys.withDetails(), args?.rangeStart ?? null, args?.rangeEnd ?? null],
     queryFn: () => sessionsApi.getAllSessionsWithDetails(args),
-    staleTime: 1000 * 60 * 1, // 1 minute - sessions change frequently
+    staleTime: 1000 * 60 * 3, // 3 minutes - balance freshness with request volume
     gcTime: 1000 * 60 * 3, // 3 minutes
   });
 }

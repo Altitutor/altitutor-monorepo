@@ -3,7 +3,7 @@ import type { Database } from '@altitutor/shared';
 
 const supabase = createClientComponentClient<Database>();
 
-type StudentRow = Database['public']['Tables']['students']['Row'];
+type PaymentAttempt = Database['public']['Views']['vstudent_payment_attempts']['Row'];
 
 export const billingApi = {
   /**
@@ -20,40 +20,24 @@ export const billingApi = {
   },
   
   /**
-   * Get payment history
+   * Get payment attempts history (replaces getPayments)
+   * Uses vstudent_payment_attempts view which follows the vstudent_* pattern
    */
-  getPayments: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    // Get student ID first
-    const { data: studentData, error: studentError } = await supabase
-      .from('students')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (studentError) throw studentError;
-    if (!studentData) throw new Error('Student not found');
-
-    const studentId = (studentData as Pick<StudentRow, 'id'>).id;
-
+  getPaymentAttempts: async (): Promise<PaymentAttempt[]> => {
     const { data, error } = await supabase
-      .from('payments')
-      .select(`
-        *,
-        session:sessions(
-          id,
-          type,
-          start_at,
-          subject:subjects(name)
-        )
-      `)
-      .eq('student_id', studentId)
+      .from('vstudent_payment_attempts')
+      .select('*')
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Get payments (alias for getPaymentAttempts for backward compatibility)
+   * Transforms payment attempts to match expected payment structure
+   */
+  getPayments: async (): Promise<PaymentAttempt[]> => {
+    return billingApi.getPaymentAttempts();
   }
 };
-

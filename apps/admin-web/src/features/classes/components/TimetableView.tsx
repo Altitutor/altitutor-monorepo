@@ -4,7 +4,7 @@ import { Card } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
-import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils/enum-colors';
+import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils';
 
 interface TimetableViewProps {
   classes: Tables<'classes'>[];

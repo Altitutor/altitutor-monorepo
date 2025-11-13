@@ -11,15 +11,39 @@ export const staffKeys = {
   all: ['staff'] as const,
   lists: () => [...staffKeys.all, 'list'] as const,
   list: (filters: string) => [...staffKeys.lists(), { filters }] as const,
+  minimal: (params: any) => [...staffKeys.all, 'minimal', params] as const,
   details: () => [...staffKeys.all, 'detail'] as const,
   detail: (id: string) => [...staffKeys.details(), id] as const,
+  detailFull: (id: string) => [...staffKeys.detail(id), 'details'] as const,
   withSubjects: () => [...staffKeys.all, 'withSubjects'] as const,
   current: () => [...staffKeys.all, 'current'] as const,
   byRole: (role: StaffRole) => [...staffKeys.all, 'byRole', role] as const,
   byStatus: (status: StaffStatus) => [...staffKeys.all, 'byStatus', status] as const,
 };
 
+// For table display - minimal data
+export function useStaffMinimal(params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }) {
+  return useQuery({
+    queryKey: staffKeys.minimal(params),
+    queryFn: () => staffApi.listMinimal(params || {}),
+    staleTime: 1000 * 30, // 30s
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+// For modal - full details
+export function useStaffDetails(staffId: string, enabled = true) {
+  return useQuery({
+    queryKey: staffKeys.detailFull(staffId),
+    queryFn: () => staffApi.getStaffDetails(staffId),
+    enabled: enabled && !!staffId,
+    staleTime: 1000 * 60 * 2, // 2min
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 // Get all staff with subjects (optimized query)
+// DEPRECATED: Use useStaffMinimal() + useStaffDetails() instead
 export function useStaffWithSubjects() {
   return useQuery({
     queryKey: staffKeys.withSubjects(),
@@ -88,19 +112,9 @@ export function useInviteStaff() {
 
   return useMutation({
     mutationFn: staffApi.inviteStaff,
-    onSuccess: (result) => {
-      // Invalidate and refetch staff lists
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
-      
-      // Optimistically add the new staff member to the cache
-      queryClient.setQueryData(staffKeys.withSubjects(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          staff: [...(old.staff || []), result.staff],
-          staffSubjects: { ...old.staffSubjects, [result.staff.id]: [] },
-        };
-      });
+    onSuccess: () => {
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['staff', 'minimal'] });
     },
   });
 }
@@ -112,25 +126,14 @@ export function useUpdateStaff() {
     mutationFn: ({ id, data }: { id: string; data: Partial<Staff> }) =>
       staffApi.updateStaff(id, data),
     onSuccess: (updatedStaff, { id }) => {
-      // Update the staff member in all relevant caches
-      queryClient.setQueryData(staffKeys.detail(id), (old: any) => {
+      // Update specific entity in cache
+      queryClient.setQueryData(staffKeys.detailFull(id), (old: any) => {
         if (!old) return old;
         return { ...old, staff: updatedStaff };
       });
 
-      // Update in the main staff list
-      queryClient.setQueryData(staffKeys.withSubjects(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          staff: old.staff.map((staff: Staff) =>
-            staff.id === id ? updatedStaff : staff
-          ),
-        };
-      });
-
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['staff', 'minimal'] });
     },
   });
 }
@@ -141,23 +144,11 @@ export function useDeleteStaff() {
   return useMutation({
     mutationFn: staffApi.deleteStaff,
     onSuccess: (_, deletedId) => {
-      // Remove from all caches
-      queryClient.removeQueries({ queryKey: staffKeys.detail(deletedId) });
+      // Remove from detail cache
+      queryClient.removeQueries({ queryKey: staffKeys.detailFull(deletedId) });
       
-      // Remove from lists
-      queryClient.setQueryData(staffKeys.withSubjects(), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          staff: old.staff.filter((staff: Staff) => staff.id !== deletedId),
-          staffSubjects: Object.fromEntries(
-            Object.entries(old.staffSubjects).filter(([id]) => id !== deletedId)
-          ),
-        };
-      });
-
-      // Invalidate all staff queries
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
+      // Invalidate ONLY entity's minimal list
+      queryClient.invalidateQueries({ queryKey: ['staff', 'minimal'] });
     },
   });
 }
@@ -168,13 +159,9 @@ export function useAssignSubjectToStaff() {
   return useMutation({
     mutationFn: ({ staffId, subjectId }: { staffId: string; subjectId: string }) =>
       staffApi.assignSubjectToStaff(staffId, subjectId),
-    onSuccess: (_, { staffId, subjectId }) => {
-      // Invalidate staff details to refetch with new subject
-      queryClient.invalidateQueries({ queryKey: staffKeys.detail(staffId) });
-      queryClient.invalidateQueries({ queryKey: staffKeys.withSubjects() });
-      
-      // Also invalidate class queries since staff assignments affect classes
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
+    onSuccess: (_, { staffId }) => {
+      // Invalidate specific staff details
+      queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
     },
   });
 }
@@ -185,13 +172,52 @@ export function useRemoveSubjectFromStaff() {
   return useMutation({
     mutationFn: ({ staffId, subjectId }: { staffId: string; subjectId: string }) =>
       staffApi.removeSubjectFromStaff(staffId, subjectId),
-    onSuccess: (_, { staffId, subjectId }) => {
-      // Invalidate staff details to refetch without the subject
-      queryClient.invalidateQueries({ queryKey: staffKeys.detail(staffId) });
-      queryClient.invalidateQueries({ queryKey: staffKeys.withSubjects() });
-      
-      // Also invalidate class queries since staff assignments affect classes
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
+    onSuccess: (_, { staffId }) => {
+      // Invalidate specific staff details
+      queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
     },
+  });
+}
+
+// Get students taught by a staff member (via their classes) with their subjects
+export function useStaffStudents(staffId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...staffKeys.detail(staffId), 'students'],
+    queryFn: async () => {
+      const { classesApi } = await import('@/features/classes/api');
+      const { studentsApi } = await import('@/features/students/api');
+      const { classStudents } = await classesApi.getClassesForStaffWithDetails(staffId);
+      
+      // Get all unique students from all classes
+      const studentMap = new Map<string, Tables<'students'>>();
+      Object.values(classStudents).forEach(students => {
+        students.forEach(student => {
+          if (!studentMap.has(student.id)) {
+            studentMap.set(student.id, student);
+          }
+        });
+      });
+      
+      const students = Array.from(studentMap.values());
+      
+      // Fetch subjects for all students in parallel
+      if (students.length > 0) {
+        const studentIds = students.map(s => s.id);
+        const { studentSubjects } = await studentsApi.getDetailsForStudentIds(studentIds);
+        
+        return {
+          students,
+          studentSubjects
+        };
+      }
+      
+      return {
+        students: [],
+        studentSubjects: {}
+      };
+    },
+    enabled: enabled && !!staffId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
   });
 } 

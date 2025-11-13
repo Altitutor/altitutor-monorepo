@@ -11,7 +11,6 @@ import {
   TableHeader, 
   TableRow,
   Badge,
-  Button,
   useToast
 } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -22,20 +21,20 @@ type PaymentStatus = 'pending' | 'processing' | 'succeeded' | 'failed' | 'refund
 interface SessionRow {
   sessionsStudentsId: string;
   session: SessionWithDetails;
-  payment: {
+  paymentAttempts: {
     id: string;
+    attempt_number: number;
     amount_cents: number;
     status: PaymentStatus;
     stripe_payment_intent_id: string | null;
     charged_at: string | null;
-  } | null;
+  }[];
 }
 
 export function StudentSessionsTab({ student }: { student: Tables<'students'> }) {
   const { toast } = useToast();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [chargingSessionId, setChargingSessionId] = useState<string | null>(null);
 
   const loadSessions = async () => {
     setLoading(true);
@@ -83,30 +82,33 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
         return;
       }
 
-      // Get payment information for these sessions
+      // Get payment attempts for these sessions
       const sessionsStudentsIds = sessionsStudents?.map((ss: any) => ss.id) || [];
       
-      let paymentsMap: Record<string, any> = {};
+      const attemptsMap: Record<string, any[]> = {};
       if (sessionsStudentsIds.length > 0) {
-        const { data: payments, error: paymentsError } = await supabase
-          .from('payments')
-          .select('id, sessions_students_id, amount_cents, status, stripe_payment_intent_id, charged_at')
-          .in('sessions_students_id', sessionsStudentsIds);
+        const { data: attempts, error: attemptsError } = await supabase
+          .from('payment_attempts')
+          .select('id, sessions_students_id, attempt_number, amount_cents, status, stripe_payment_intent_id, charged_at')
+          .in('sessions_students_id', sessionsStudentsIds)
+          .order('attempt_number', { ascending: false });
 
-        if (paymentsError) {
-          console.error('Error fetching payments:', paymentsError);
+        if (attemptsError) {
+          console.error('Error fetching payment attempts:', attemptsError);
         } else {
-          paymentsMap = (payments || []).reduce((acc: any, p: any) => {
-            acc[p.sessions_students_id] = p;
-            return acc;
-          }, {});
+          for (const attempt of attempts || []) {
+            if (!attemptsMap[attempt.sessions_students_id]) {
+              attemptsMap[attempt.sessions_students_id] = [];
+            }
+            attemptsMap[attempt.sessions_students_id].push(attempt);
+          }
         }
       }
 
       // Transform the data
       const sessionRows: SessionRow[] = (sessionsStudents || []).map((ss: any) => {
         const sessionData = ss.sessions;
-        const payment = paymentsMap[ss.id] || null;
+        const paymentAttempts = attemptsMap[ss.id] || [];
         
         return {
           sessionsStudentsId: ss.id,
@@ -117,7 +119,7 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
               subject: sessionData.classes.subjects || undefined
             } : undefined
           },
-          payment
+          paymentAttempts
         };
       });
 
@@ -133,51 +135,6 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
     loadSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id]);
-
-  const handleTestCharge = async (sessionsStudentsId: string) => {
-    setChargingSessionId(sessionsStudentsId);
-    try {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/billing-test-charge`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ sessionsStudentsId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'Failed to charge session');
-      }
-
-      toast({
-        title: 'Success',
-        description: `Payment initiated successfully. Status: ${data.status}`,
-      });
-
-      // Reload sessions to update payment status
-      await loadSessions();
-    } catch (error) {
-      console.error('Failed to charge session:', error);
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to charge session',
-        variant: 'destructive',
-      });
-    } finally {
-      setChargingSessionId(null);
-    }
-  };
 
   const formatAmount = (amountCents: number) => {
     return `$${(amountCents / 100).toFixed(2)}`;
@@ -244,7 +201,6 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
             <TableHead>Class</TableHead>
             <TableHead className="text-right">Amount</TableHead>
             <TableHead>Payment Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -268,23 +224,20 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
                 </div>
               </TableCell>
               <TableCell className="text-right">
-                {row.payment ? formatAmount(row.payment.amount_cents) : '-'}
+                {row.paymentAttempts.length > 0 ? formatAmount(row.paymentAttempts[0].amount_cents) : '-'}
               </TableCell>
               <TableCell>
-                {row.payment ? getStatusBadge(row.payment.status) : (
+                {row.paymentAttempts.length > 0 ? (
+                  <div>
+                    {getStatusBadge(row.paymentAttempts[0].status)}
+                    {row.paymentAttempts[0].attempt_number > 1 && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Attempt {row.paymentAttempts[0].attempt_number})
+                      </span>
+                    )}
+                  </div>
+                ) : (
                   <Badge variant="outline">Not Billed</Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                {!row.payment && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleTestCharge(row.sessionsStudentsId)}
-                    disabled={chargingSessionId === row.sessionsStudentsId}
-                  >
-                    {chargingSessionId === row.sessionsStudentsId ? 'Charging...' : 'Test Charge'}
-                  </Button>
                 )}
               </TableCell>
             </TableRow>

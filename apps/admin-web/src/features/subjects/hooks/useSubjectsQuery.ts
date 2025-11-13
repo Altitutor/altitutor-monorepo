@@ -119,7 +119,7 @@ export function useUpdateSubject() {
     mutationFn: ({ id, data }: { id: string; data: TablesUpdate<'subjects'> }) =>
       subjectsApi.updateSubject(id, data),
     onSuccess: (updatedSubject, { id }) => {
-      // Update the subject in the detail cache
+      // Update specific subject in cache
       queryClient.setQueryData(subjectsKeys.detail(id), updatedSubject);
 
       // Update in the main subjects list
@@ -130,13 +130,9 @@ export function useUpdateSubject() {
         );
       });
 
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: subjectsKeys.all });
-      
-      // Also invalidate staff and student queries since subject changes affect them
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
+      // Only invalidate subject lists - don't invalidate staff/students/classes
+      // They'll refetch when needed via their own queries
+      queryClient.invalidateQueries({ queryKey: subjectsKeys.lists() });
     },
   });
 }
@@ -147,7 +143,7 @@ export function useDeleteSubject() {
   return useMutation({
     mutationFn: subjectsApi.deleteSubject,
     onSuccess: (_, deletedId) => {
-      // Remove from all caches
+      // Remove from detail cache
       queryClient.removeQueries({ queryKey: subjectsKeys.detail(deletedId) });
       
       // Remove from lists
@@ -156,13 +152,8 @@ export function useDeleteSubject() {
         return old.filter((subject) => subject.id !== deletedId);
       });
 
-      // Invalidate all subject queries
-      queryClient.invalidateQueries({ queryKey: subjectsKeys.all });
-      
-      // Also invalidate staff and student queries since subject deletion affects them
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
+      // Only invalidate subject lists - don't invalidate staff/students/classes
+      queryClient.invalidateQueries({ queryKey: subjectsKeys.lists() });
     },
   });
 } 

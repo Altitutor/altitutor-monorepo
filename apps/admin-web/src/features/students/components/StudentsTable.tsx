@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName, formatClassName, formatClassShortName } from '@/shared/utils/index';
-import { getStudentStatusColor, getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils/enum-colors';
+import { getStudentStatusColor, getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
 import { 
@@ -42,7 +42,7 @@ import {
   PopoverTrigger,
 } from "@altitutor/ui";
 import { ViewClassModal } from '@/features/classes';
-import { useStudentsPageWithDetails } from '../hooks/useStudentsQuery';
+import { useStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
@@ -73,7 +73,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
     isFetching,
     error,
     refetch,
-  } = useStudentsPageWithDetails({
+  } = useStudentsMinimal({
     search: searchTerm,
     statuses: statusFilters,
     curriculums: curriculumFilters,
@@ -88,11 +88,8 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
   // Get all subjects for the filter dropdown
   const { data: allSubjects = [] } = useSubjects();
 
-  const students: Tables<'students'>[] = (data as any)?.students || [];
-  const studentSubjects: Record<string, Tables<'subjects'>[]> = (data as any)?.studentSubjects || {};
-  const studentClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> })[]> = (data as any)?.studentClasses || {};
-  const classSubjects: Record<string, Tables<'subjects'>> = (data as any)?.classSubjects || {};
-  const total = (data as any)?.total || 0;
+  const students = data?.students || [];
+  const total = data?.total || 0;
 
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -224,6 +221,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
             <Input
               placeholder="Search students..."
               className="pl-8"
+              value=""
               disabled
             />
           </div>
@@ -283,7 +281,7 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
           <Input
             placeholder="Search students..."
             className="pl-8"
-            value={searchTerm}
+            value={searchTerm || ''}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
@@ -463,8 +461,8 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
               </TableRow>
             ) : (
               filteredStudents.map((student, index) => {
-                const subjects = studentSubjects[student.id] || [];
-                const classes = studentClasses[student.id] || [];
+                // Classes are now nested in the student object from minimal query
+                const classes = (student as any).classes || [];
                 return (
                   <TableRow
                     key={student.id}
@@ -473,19 +471,19 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                     onClick={() => handleStudentClick(student.id)}
                   >
                     <TableCell>
-                      <Badge className={cn("text-xs", getStudentStatusColor(student.status as Tables<'students'>['status']))}>
+                      <Badge className={cn("text-xs", getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'))}>
                         {student.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1 items-center">
                         {student.curriculum ? (
-                          <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as Tables<'students'>['curriculum']))}>
+                          <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE'))}>
                             {student.curriculum}
                           </Badge>
                         ) : null}
                         {student.year_level ? (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="outline" className="text-xs bg-transparent">
                             Year {student.year_level}
                           </Badge>
                         ) : null}
@@ -504,24 +502,29 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
                       {classes.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {classes
-                            .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
-                            .map((cls) => (
-                              <Button
-                                key={cls.id}
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs justify-start whitespace-nowrap"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleClassClick(cls.id);
-                                }}
-                                title={formatClassName(cls, cls.subject)}
-                              >
-                                {/* Default to short names, only show full on 2xl+ screens */}
-                                <span className="2xl:hidden">{formatClassShortName(cls, cls.subject)}</span>
-                                <span className="hidden 2xl:inline">{formatClassName(cls, cls.subject)}</span>
-                              </Button>
-                            ))}
+                            .sort((a: { day_of_week: number; start_time: string }, b: { day_of_week: number; start_time: string }) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
+                            .map((cls: { id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }) => {
+                              // Use utility to format the class short name (includes subject short name)
+                              const shortName = formatClassShortName(cls as any, cls.subject || null);
+                              // Use utility for full name (hover tooltip)
+                              const longName = formatClassName(cls as any, cls.subject || null);
+                              
+                              return (
+                                <Button
+                                  key={cls.id}
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 text-xs justify-start whitespace-nowrap"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleClassClick(cls.id);
+                                  }}
+                                  title={longName}
+                                >
+                                  <span>{shortName}</span>
+                                </Button>
+                              );
+                            })}
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">No classes</span>

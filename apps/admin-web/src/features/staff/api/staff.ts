@@ -84,6 +84,125 @@ export const staffApi = {
     return { staff: (data ?? []) as Tables<'staff'>[], total: count ?? 0 };
   },
 
+  /**
+   * Minimal fields for table display only
+   * Returns: id, first_name, last_name, role, status, phone, email
+   * No subjects, no classes
+   */
+  listMinimal: async (params: { search?: string; role?: string; status?: string; limit?: number; offset?: number }): Promise<{ staff: Tables<'staff'>[]; total: number }> => {
+    const { search = '', role, status, limit = 20, offset = 0 } = params || {};
+    let query = (getSupabaseClient() as SupabaseClient<Database>)
+      .from('staff')
+      .select('id, first_name, last_name, role, status, phone_number, email', { count: 'exact' })
+      .order('last_name', { ascending: true });
+
+    const trimmed = search.trim();
+    if (trimmed.length > 0) {
+      const q = `%${trimmed}%`;
+      query = query.or(`first_name.ilike.${q},last_name.ilike.${q},email.ilike.${q}`);
+    }
+
+    if (role) query = query.eq('role', role);
+    if (status) query = query.eq('status', status);
+
+    const { data, count, error } = await query.range(offset, Math.max(offset + limit - 1, offset));
+    if (error) throw error;
+    return { staff: (data ?? []) as Tables<'staff'>[], total: count ?? 0 };
+  },
+
+  /**
+   * Get full staff details for modal view
+   * Returns: staff, subjects, classes, upcoming sessions
+   */
+  getStaffDetails: async (staffId: string): Promise<{
+    staff: Tables<'staff'> | null;
+    subjects: Tables<'subjects'>[];
+    classes: ClassWithExpandedSubject[];
+    upcomingSessions: Tables<'sessions'>[];
+  }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    try {
+      // Get staff record
+      const staff = await staffApi.getById(staffId);
+      if (!staff) {
+        return {
+          staff: null,
+          subjects: [],
+          classes: [],
+          upcomingSessions: [],
+        };
+      }
+
+      // Get all related data in parallel
+      const [subjectsResult, classesResult, sessionsResult] = await Promise.all([
+        // Subjects taught by this staff
+        supabase
+          .from('staff_subjects')
+          .select('subject_details:subjects(*)')
+          .eq('staff_id', staffId),
+        
+        // Classes assigned to this staff (current and future)
+        supabase
+          .from('classes_staff')
+          .select(`
+            class:classes(
+              *,
+              subject_details:subjects(*)
+            )
+          `)
+          .eq('staff_id', staffId)
+          .eq('status', 'ACTIVE'),
+        
+        // Upcoming sessions (next 5) - fetch from sessions_staff join
+        supabase
+          .from('sessions_staff')
+          .select('sessions!inner(*)')
+          .eq('staff_id', staffId),
+      ]);
+
+      if (subjectsResult.error) throw subjectsResult.error;
+      if (classesResult.error) throw classesResult.error;
+      if (sessionsResult.error) throw sessionsResult.error;
+
+      // Transform subjects
+      const subjects = (subjectsResult.data ?? [])
+        .map((row: any) => row.subject_details)
+        .filter(Boolean) as Tables<'subjects'>[];
+
+      // Transform classes
+      const classes: ClassWithExpandedSubject[] = (classesResult.data ?? [])
+        .map((row: any) => {
+          const cls = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
+          if (!cls) return null;
+          const classWithSubject: ClassWithExpandedSubject = {
+            ...cls,
+            subject: cls.subject_details,
+          };
+          delete (classWithSubject as any).subject_details;
+          return classWithSubject;
+        })
+        .filter(Boolean) as ClassWithExpandedSubject[];
+
+      // Sessions - transform from sessions_staff join, filter and sort client-side
+      const upcomingSessions = (sessionsResult.data ?? [])
+        .map((row: any) => row.sessions)
+        .filter((s: any) => s && s.start_at && new Date(s.start_at) >= new Date())
+        .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
+        .slice(0, 5) as Tables<'sessions'>[];
+
+      return {
+        staff,
+        subjects,
+        classes,
+        upcomingSessions,
+      };
+    } catch (error) {
+      console.error('Error getting staff details:', error);
+      throw error;
+    }
+  },
+
   // Back-compat alias
   getStaff: async (id: string): Promise<Tables<'staff'> | null> => {
     return staffApi.getById(id);

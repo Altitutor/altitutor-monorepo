@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Session } from '@supabase/supabase-js';
-import { User } from '@supabase/auth-helpers-nextjs';
+import { Session, User } from '@supabase/supabase-js';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import type { Database } from '@altitutor/shared';
@@ -24,14 +23,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setUser, setLoading } = useAuthStore();
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session (already validated by middleware)
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('Error getting session:', error);
+        setSession(null);
+        setUser(null);
+      } else if (session) {
+        setSession(session);
+        setUser(session.user);
+      } else {
+        setSession(null);
+        setUser(null);
       }
-      
-      setSession(session);
-      setUser(session?.user || null);
       setIsLoading(false);
       setLoading(false);
     });
@@ -43,10 +47,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // eslint-disable-next-line no-console
           console.log('Auth state changed:', { event: _event, hasSession: !!session });
         }
-        setSession(session);
-        setUser(session?.user || null);
-        setIsLoading(false);
-        setLoading(false);
+        
+        // For SIGNED_OUT events, set user to null immediately
+        if (_event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setIsLoading(false);
+          setLoading(false);
+          return;
+        }
+        
+        // For events with a session, use session user directly
+        // Only validate if session user is missing (shouldn't happen, but safety check)
+        if (session) {
+          setSession(session);
+          // Use session.user directly - it's already validated by Supabase
+          // Only call getUser() if session.user is missing (edge case)
+          if (session.user) {
+            setUser(session.user);
+          } else {
+            // Fallback: only validate if session.user is missing
+            supabase.auth.getUser().then(({ data: { user }, error }) => {
+              if (error || !user) {
+                console.error('User validation failed in auth change:', error);
+                setSession(null);
+                setUser(null);
+              } else {
+                setUser(user);
+              }
+            });
+          }
+          setIsLoading(false);
+          setLoading(false);
+        } else {
+          setSession(null);
+          setUser(null);
+          setIsLoading(false);
+          setLoading(false);
+        }
       }
     );
 

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -14,6 +15,8 @@ import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/sh
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { formatTime } from '@/shared/utils/datetime';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useStudentClasses, useAllClassesForStudent, type StudentClass } from '@/features/students/hooks/useStudentClasses';
+import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 
 type ViewMode = 'table' | 'timetable';
 
@@ -22,25 +25,37 @@ interface ClassesTabProps {
   onStudentUpdated?: () => void;
 }
 
-interface StudentClass {
-  class: Tables<'classes'>;
-  subject?: Tables<'subjects'>;
-  staff: Tables<'staff'>[];
-  students?: Tables<'students'>[];
-  studentCount: number;
-}
+// Sort classes by day of week, then by start time
+const sortClasses = (classes: StudentClass[]): StudentClass[] => {
+  return [...classes].sort((a, b) => {
+    const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
+    const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
+    
+    if (dayA !== dayB) {
+      return dayA - dayB;
+    }
+    
+    return a.class.start_time.localeCompare(b.class.start_time);
+  });
+};
 
 export function ClassesTab({
   student,
   onStudentUpdated
 }: ClassesTabProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
-  const [classes, setClasses] = useState<StudentClass[]>([]);
-  const [allClasses, setAllClasses] = useState<StudentClass[]>([]);
-  const [studentSubjects, setStudentSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Use React Query hooks for data fetching
+  const { data: classesData = [], isLoading, error } = useStudentClasses(student.id);
+  const { data: allClassesData = [] } = useAllClassesForStudent(student.id);
+  const { data: studentWithSubjects } = useStudentWithSubjects(student.id);
+  
+  const studentSubjects = studentWithSubjects?.subjects || [];
+  const classes = useMemo(() => sortClasses(classesData), [classesData]);
+  const allClasses = useMemo(() => sortClasses(allClassesData), [allClassesData]);
+  
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   
   // Modal state for class viewing
@@ -63,75 +78,6 @@ export function ClassesTab({
     }
     timetableStaff[c.class.id] = c.staff;
   });
-
-  useEffect(() => {
-    loadStudentClasses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [student.id]);
-
-  const loadStudentClasses = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Get all classes with details
-      const { classes: allClassesData, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
-      
-      // Get student subjects
-      const { studentSubjects: subjectsData } = await import('@/features/students/api').then(m => 
-        m.studentsApi.getDetailsForStudentIds([student.id])
-      );
-      setStudentSubjects(subjectsData[student.id] || []);
-      
-      // Create StudentClass objects for all classes
-      const allClassesWithDetails: StudentClass[] = [];
-      const studentClasses: StudentClass[] = [];
-      
-      for (const cls of allClassesData) {
-        const subject = classSubjects[cls.id];
-        const staff = classStaff[cls.id] || [];
-        const enrolledStudents = classStudents[cls.id] || [];
-        const studentCount = enrolledStudents.length;
-        const isEnrolled = enrolledStudents.some(enrolledStudent => enrolledStudent.id === student.id);
-        
-        const classWithDetails = {
-          class: cls,
-          subject,
-          staff,
-          students: enrolledStudents,
-          studentCount
-        };
-        
-        allClassesWithDetails.push(classWithDetails);
-        
-        if (isEnrolled) {
-          studentClasses.push(classWithDetails);
-        }
-      }
-      
-      // Sort by day of week, then by start time
-      const sortClasses = (classes: StudentClass[]) => {
-        return classes.sort((a, b) => {
-          const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
-          const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
-          
-          if (dayA !== dayB) {
-            return dayA - dayB;
-          }
-          
-          return a.class.start_time.localeCompare(b.class.start_time);
-        });
-      };
-      
-      setClasses(sortClasses([...studentClasses]));
-      setAllClasses(sortClasses([...allClassesWithDetails]));
-    } catch (err) {
-      console.error('Error loading student classes:', err);
-      setError('Failed to load classes');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Modal handlers
   const handleClassClick = (classId: string) => {
@@ -168,7 +114,9 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      await loadStudentClasses();
+      // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
+      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -195,7 +143,9 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.changeClass(params);
-      await loadStudentClasses();
+      // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
+      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -222,7 +172,9 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.unenrollStudentWithReason(params);
-      await loadStudentClasses();
+      // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
+      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -265,7 +217,7 @@ export function ClassesTab({
     });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -277,8 +229,8 @@ export function ClassesTab({
     return (
       <div className="flex-1 flex justify-center items-center">
         <div className="text-center">
-          <p className="text-red-500 mb-2">{error}</p>
-          <Button variant="outline" onClick={loadStudentClasses}>
+          <p className="text-red-500 mb-2">Failed to load classes</p>
+          <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] })}>
             Try Again
           </Button>
         </div>
@@ -328,7 +280,7 @@ export function ClassesTab({
       <div className="flex-1 h-full flex flex-col space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-medium">Enrolled Classes ({classes.length})</h3>
+            <h3 className="text-base font-medium">Enrolled Classes</h3>
           </div>
           
           <div className="flex items-center gap-2">
@@ -426,7 +378,8 @@ export function ClassesTab({
             }}
             onClassUpdated={() => {
               // Refresh student classes when class is updated
-              loadStudentClasses();
+              queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
+              queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
             }}
           />
         )}

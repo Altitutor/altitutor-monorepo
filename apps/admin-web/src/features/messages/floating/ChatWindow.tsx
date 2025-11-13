@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X, Minus } from 'lucide-react';
 import { useChatStore, ChatWindowDescriptor } from '../state/chatStore';
 import { MessageThread } from '../components/MessageThread';
@@ -19,6 +19,14 @@ export function ChatWindow({ descriptor }: Props) {
   const closeWindow = useChatStore(s => s.closeWindow);
   const minimizeWindow = useChatStore(s => s.minimizeWindow);
   const updateWindowTitle = useChatStore(s => s.updateWindowTitle);
+
+  // Use ref to stabilize function reference and prevent unnecessary re-renders
+  const updateWindowTitleRef = useRef(updateWindowTitle);
+
+  // Update ref on every render to always have latest function
+  useEffect(() => {
+    updateWindowTitleRef.current = updateWindowTitle;
+  });
 
   // Fetch conversation to get contact details
   const { data: conversation } = useQuery({
@@ -49,9 +57,9 @@ export function ChatWindow({ descriptor }: Props) {
   useEffect(() => {
     if (conversation) {
       const contactName = formatContactName(conversation);
-      updateWindowTitle(descriptor.conversationId, contactName);
+      updateWindowTitleRef.current(descriptor.conversationId, contactName);
     }
-  }, [conversation, descriptor.conversationId, updateWindowTitle]);
+  }, [conversation, descriptor.conversationId]);
 
   const displayTitle = conversation ? formatContactName(conversation) : (descriptor.title || 'Loading...');
 

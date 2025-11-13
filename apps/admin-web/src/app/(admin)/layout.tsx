@@ -83,6 +83,11 @@ const navItems: NavItem[] = [
     icon: MessageSquarePlus,
   },
   {
+    title: 'Templates',
+    href: '/communications/templates',
+    icon: FileText,
+  },
+  {
     type: 'heading',
     title: 'FINANCIAL',
   },

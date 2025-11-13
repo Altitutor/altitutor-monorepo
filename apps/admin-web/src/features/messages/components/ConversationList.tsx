@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
 import { Badge } from '@altitutor/ui';
+import { messagesKeys } from '../api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -26,7 +27,7 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
     const channel = supabase
       .channel('conversations-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-        qc.invalidateQueries({ queryKey: ['conversations'] });
+        qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
       })
       .subscribe();
     return () => {

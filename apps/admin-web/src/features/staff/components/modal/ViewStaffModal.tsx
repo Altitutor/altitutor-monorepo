@@ -4,16 +4,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from '@altitutor/ui';
 import { staffApi } from "../../api";
-import { subjectsApi } from '@/features/subjects/api';
+import { useStaffDetails } from '../../hooks/useStaffQuery';
+import { useSubjects } from '@/features/subjects';
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { AccountTab } from './tabs/AccountTab';
+import { StudentsTab } from './tabs/StudentsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
+import { useQueryClient } from '@tanstack/react-query';
+import { staffKeys } from '../../hooks/useStaffQuery';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -28,13 +32,20 @@ export function ViewStaffModal({
   onClose, 
   onStaffUpdated 
 }: ViewStaffModalProps) {
-  // State
-  const [staffMember, setStaffMember] = useState<Tables<'staff'> | null>(null);
-  const [staffSubjects, setStaffSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Hooks
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // React Query hooks - fetch data only when modal is open and staffId exists
+  const { data: staffData, isLoading, error } = useStaffDetails(staffId || '', isOpen && !!staffId);
+  const { data: allSubjects = [] } = useSubjects();
+  
+  // Extract data from hook
+  const staffMember = staffData?.staff || null;
+  const staffSubjects = staffData?.subjects || [];
+  
+  // Local state
   const [isDeleting, setIsDeleting] = useState(false);
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
@@ -49,93 +60,39 @@ export function ViewStaffModal({
   const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
   const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
   const [subjectsToRemove, setSubjectsToRemove] = useState<string[]>([]);
-  
-  const { toast } = useToast();
 
   // Set base URL for password reset
   useEffect(() => {
     setBaseUrl(window.location.origin);
   }, []);
 
-  // Fetch staff data
+  // Reset state when modal closes
   useEffect(() => {
-    if (isOpen && staffId) {
-      fetchStaffMember();
-      fetchAllSubjects();
-    } else {
-      // Reset state when closing
-      setStaffMember(null);
-      setStaffSubjects([]);
-      setAllSubjects([]);
+    if (!isOpen) {
       setIsEditing(false);
       setHasPasswordResetLinkSent(false);
       setActiveTab('details');
+      setTempStaffSubjects([]);
+      setSubjectsToAdd([]);
+      setSubjectsToRemove([]);
     }
-  }, [isOpen, staffId]);
-
-  // Fetch staff member data
-  const fetchStaffMember = async () => {
-    if (!staffId) return;
-    
-    try {
-      setIsLoading(true);
+  }, [isOpen]);
       
-      // Use the optimized method that gets both staff and subjects efficiently
-      const { staff: staffData, subjects: subjectsData } = await staffApi.getStaffWithSubjects(staffId);
-      setStaffMember(staffData || null);
-      setStaffSubjects(subjectsData as Tables<'subjects'>[]);
-      
-      // Get existing conversation ID for messages tab (don't create new one)
-      const convId = await getExistingConversationForRelated(staffId, 'staff');
+  // Fetch conversation ID when staff data loads
+  useEffect(() => {
+    if (staffMember && staffId) {
+      getExistingConversationForRelated(staffId, 'staff').then(convId => {
       console.log('[ViewStaffModal] Existing conversation ID for staff', staffId, ':', convId);
       setConversationId(convId);
-    } catch (err) {
-      console.error('Failed to fetch staff:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to load staff member details.',
-        variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
-
-  // Fetch staff subjects
-  const fetchStaffSubjects = async (id: string) => {
-    try {
-      setLoadingSubjects(true);
-      const subjects = await staffApi.getStaffSubjects(id);
-      setStaffSubjects((subjects as any) as Tables<'subjects'>[]);
-    } catch (err) {
-      console.error('Failed to fetch staff subjects:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to load staff subjects.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingSubjects(false);
-    }
-  };
-
-  // Fetch all subjects for assignment
-  const fetchAllSubjects = async () => {
-    try {
-      const subjects = await subjectsApi.getAllSubjects();
-      setAllSubjects((subjects as any) as Tables<'subjects'>[]);
-    } catch (err) {
-      console.error('Failed to fetch subjects:', err);
-    }
-  };
+  }, [staffMember, staffId]);
 
   // Update staff handler
   const handleStaffUpdate = async (data: StaffDetailsFormData) => {
     if (!staffMember) return;
     
     try {
-      setIsLoading(true);
-      
       // Map form data to staff update
       await staffApi.updateStaff(staffMember.id, {
         first_name: data.firstName,
@@ -170,8 +127,9 @@ export function ViewStaffModal({
       setSubjectsToAdd([]);
       setSubjectsToRemove([]);
       
-      // Refetch staff
-      await fetchStaffMember();
+      // Invalidate queries to refetch
+      await queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffMember.id) });
+      await queryClient.invalidateQueries({ queryKey: staffKeys.minimal({}) });
       
       // Reset edit mode
       setIsEditing(false);
@@ -190,8 +148,6 @@ export function ViewStaffModal({
         description: 'There was an error updating the staff member. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -235,8 +191,6 @@ export function ViewStaffModal({
     }
     
     try {
-      setIsLoading(true);
-      
       const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.resetPasswordForEmail(
         staffMember.email,
         {
@@ -259,8 +213,6 @@ export function ViewStaffModal({
         description: 'There was an error resetting the password. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -344,9 +296,10 @@ export function ViewStaffModal({
                   onValueChange={setActiveTab}
                   className="flex flex-col h-full"
                 >
-                  <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
+                  <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
+                    <TabsTrigger value="students">Students</TabsTrigger>
                     <TabsTrigger value="account">Account</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                   </TabsList>
@@ -361,7 +314,7 @@ export function ViewStaffModal({
                       onCancelEdit={handleCancelEdit}
                       onSubmit={handleStaffUpdate}
                       staffSubjects={isEditing ? tempStaffSubjects : staffSubjects}
-                      loadingSubjects={loadingSubjects}
+                      loadingSubjects={isLoading}
                       onRemoveSubject={handleRemoveSubject}
                       onViewSubject={handleViewSubject}
                       addSubjectButton={
@@ -378,6 +331,13 @@ export function ViewStaffModal({
                       <ClassesTab
                         staff={staffMember}
                         onStaffUpdated={onStaffUpdated}
+                      />
+                    </TabsContent>
+                    
+                    <TabsContent value="students" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                      <StudentsTab
+                        staffId={staffId || ''}
+                        isOpen={isOpen}
                       />
                     </TabsContent>
                     
@@ -419,7 +379,9 @@ export function ViewStaffModal({
           }}
           subjectId={selectedSubjectId}
           onSubjectUpdated={() => {
-            fetchStaffMember();
+            if (staffId) {
+              queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
+            }
           }}
         />
       )}

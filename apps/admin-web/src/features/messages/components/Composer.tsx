@@ -1,9 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
-import type { Tables } from '@altitutor/shared';
+import { replaceVariables } from '../utils/variableReplacer';
+import { getStudentClasses } from '../api/bulk';
+import { messagesKeys } from '../api/queryKeys';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Props {
   conversationId: string | null;
@@ -16,6 +22,40 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Fetch conversation data to get student/parent info for variable replacement
+  const { data: conversationData } = useQuery({
+    queryKey: conversationId ? messagesKeys.conversationInfo(conversationId) : ['conversation-for-template'],
+    queryFn: async () => {
+      if (!conversationId) return null;
+      
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          contacts (
+            id,
+            contact_type,
+            students (id, first_name, last_name),
+            parents (
+              id,
+              first_name,
+              last_name,
+              parents_students (
+                students (id, first_name, last_name)
+              )
+            )
+          )
+        `)
+        .eq('id', conversationId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!conversationId,
+  });
 
   // Update conversationId if prop changes
   useEffect(() => {
@@ -62,8 +102,49 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
       setText(body);
     }
   };
-  const handleTemplateSelect = (template: Tables<'message_templates'>) => {
-    setText(template.content);
+  const handleTemplateSelect = async (template: Tables<'message_templates'>) => {
+    let content = template.content;
+    
+    // Try to replace variables if we have conversation data
+    if (conversationData?.contacts) {
+      const contact = conversationData.contacts;
+      
+      // Check if it's a student contact
+      if (contact.contact_type === 'STUDENT' && contact.students) {
+        const student = contact.students as Tables<'students'>;
+        try {
+          // Fetch student classes
+          const classes = await getStudentClasses(student.id);
+          // Replace variables with actual data
+          content = replaceVariables(template.content, student, classes);
+        } catch (error) {
+          console.error('Error fetching student classes for template:', error);
+          // Fall back to template with placeholders if we can't fetch classes
+        }
+      }
+      // Check if it's a parent contact - use their first student
+      else if (contact.contact_type === 'PARENT' && contact.parents) {
+        const parent = contact.parents as any;
+        const parentStudents = parent.parents_students || [];
+        if (parentStudents.length > 0) {
+          const firstStudent = parentStudents[0]?.students;
+          if (firstStudent) {
+            const student = firstStudent as Tables<'students'>;
+            try {
+              // Fetch student classes
+              const classes = await getStudentClasses(student.id);
+              // Replace variables with actual data
+              content = replaceVariables(template.content, student, classes);
+            } catch (error) {
+              console.error('Error fetching student classes for template:', error);
+              // Fall back to template with placeholders if we can't fetch classes
+            }
+          }
+        }
+      }
+    }
+    
+    setText(content);
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
