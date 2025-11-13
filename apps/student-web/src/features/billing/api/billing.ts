@@ -1,7 +1,10 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 
-const supabase = createClientComponentClient<Database>();
+// Lazy client creation to avoid issues during static generation
+function getSupabaseClient() {
+  return createClientComponentClient<Database>();
+}
 
 type PaymentAttempt = Database['public']['Views']['vstudent_payment_attempts']['Row'];
 
@@ -10,6 +13,7 @@ export const billingApi = {
    * Get billing info from vstudent_billing view
    */
   getBilling: async () => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vstudent_billing')
       .select('*')
@@ -24,6 +28,7 @@ export const billingApi = {
    * Uses vstudent_payment_attempts view which follows the vstudent_* pattern
    */
   getPaymentAttempts: async (): Promise<PaymentAttempt[]> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vstudent_payment_attempts')
       .select('*')

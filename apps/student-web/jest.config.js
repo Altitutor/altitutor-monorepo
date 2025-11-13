@@ -12,6 +12,7 @@ const config = {
     '^.+\\.(t|j)sx?$': ['@swc/jest'],
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  passWithNoTests: true,
 };
 
 module.exports = config; 

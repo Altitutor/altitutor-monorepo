@@ -1,7 +1,10 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 
-const supabase = createClientComponentClient<Database>();
+// Lazy client creation to avoid issues during static generation
+function getSupabaseClient() {
+  return createClientComponentClient<Database>();
+}
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 type StudentRow = Database['public']['Tables']['students']['Row'];
@@ -32,6 +35,7 @@ export const profileApi = {
    * Get profile from vstudent_profile view
    */
   getProfile: async (): Promise<StudentProfile | null> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vstudent_profile')
       .select('*')
@@ -45,6 +49,7 @@ export const profileApi = {
    * Update profile (direct write to students table)
    */
   updateProfile: async (updates: StudentProfileUpdate): Promise<StudentRow> => {
+    const supabase = getSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 

@@ -1,7 +1,10 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 
-const supabase = createClientComponentClient<Database>();
+// Lazy client creation to avoid issues during static generation
+function getSupabaseClient() {
+  return createClientComponentClient<Database>();
+}
 
 export interface PaymentMethodData {
   id: string;
@@ -29,6 +32,7 @@ export const paymentMethodsApi = {
    * Get all payment methods for current student from vstudent_billing view
    */
   getPaymentMethods: async (): Promise<BillingData | null> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vstudent_billing')
       .select('*')
@@ -42,6 +46,7 @@ export const paymentMethodsApi = {
    * Create a SetupIntent for adding a new payment method
    */
   createSetupIntent: async (studentId: string): Promise<{ client_secret: string; setup_intent_id: string }> => {
+    const supabase = getSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -61,6 +66,7 @@ export const paymentMethodsApi = {
    * Set a payment method as default
    */
   setDefaultPaymentMethod: async (paymentMethodId: string): Promise<void> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.functions.invoke('payment-method-manage', {
       body: {
         action: 'set_default',
@@ -78,6 +84,7 @@ export const paymentMethodsApi = {
    * Delete a payment method
    */
   deletePaymentMethod: async (paymentMethodId: string): Promise<void> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.functions.invoke('payment-method-manage', {
       body: {
         action: 'delete',
@@ -101,6 +108,7 @@ export const paymentMethodsApi = {
     card_exp_year: number;
     card_country: string | null;
   }> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.functions.invoke('get-payment-method', {
       body: { paymentMethodId }
     });

@@ -1,7 +1,10 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 
-const supabase = createClientComponentClient<Database>();
+// Lazy client creation to avoid issues during static generation
+function getSupabaseClient() {
+  return createClientComponentClient<Database>();
+}
 
 type StudentClass = Database['public']['Views']['vstudent_classes']['Row'];
 type StudentClassDetail = Database['public']['Views']['vstudent_class_detail']['Row'];
@@ -11,6 +14,7 @@ export const classesApi = {
    * List all classes for the current student
    */
   list: async (): Promise<StudentClass[]> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vstudent_classes')
       .select('*')
@@ -24,6 +28,7 @@ export const classesApi = {
    * Get single class details with participants
    */
   getDetails: async (classId: string): Promise<StudentClassDetail> => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vstudent_class_detail')
       .select('*')
@@ -38,6 +43,7 @@ export const classesApi = {
    * Get sessions for a specific class
    */
   getSessions: async (classId: string) => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vstudent_sessions')
       .select('*')

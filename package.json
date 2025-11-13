@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "checkall": "turbo run lint && turbo run typecheck && turbo run test && turbo run build",
     "db:types": "pnpm exec supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build",
     "db:types:remote": "pnpm exec supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build"
   },

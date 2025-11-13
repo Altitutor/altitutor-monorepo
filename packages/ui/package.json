@@ -14,7 +14,7 @@
     "dev": "tsc -p tsconfig.json -w --preserveWatchOutput",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest"
+    "test": "jest --passWithNoTests"
   },
   "repository": {
     "type": "git",
