@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
+import { ScrollArea, Button } from "@altitutor/ui";
 import { Loader2, Users, Plus } from "lucide-react";
 import { ViewStudentModal } from '@/features/students';
 import { StudentCard } from '@/shared/components/StudentCard';
@@ -11,6 +10,8 @@ import { classesApi } from '@/shared/api';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useToast } from "@altitutor/ui";
 import { classesKeys } from '../../../hooks/useClassesQuery';
+import { useChatStore } from '@/features/messages/state/chatStore';
+import { ensureConversationForRelated } from '@/features/messages/api/queries';
 
 interface ClassStudentsTabProps {
   classData: Tables<'classes'>;
@@ -30,12 +31,13 @@ export function ClassStudentsTab({
   classStudents,
   allStudents,
   loadingStudents,
-  onViewStudent,
+  onViewStudent: _onViewStudent,
   onStudentsUpdated
 }: ClassStudentsTabProps) {
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
   const queryClient = useQueryClient();
+  const openWindow = useChatStore(s => s.openWindow);
   const [studentSubjects, setStudentSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for student viewing
@@ -179,6 +181,23 @@ export function ClassStudentsTab({
     }
   };
 
+  // Handle message student
+  const handleMessageStudent = async (studentId: string) => {
+    try {
+      const conversationId = await ensureConversationForRelated(studentId, 'student');
+      if (conversationId) {
+        openWindow({ conversationId, title: 'Student' });
+      }
+    } catch (error) {
+      console.error('Failed to open conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open conversation. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Fetch all students for enrollment modal
   const fetchStudentsForEnrollment = async () => {
     return allStudents;
@@ -240,6 +259,7 @@ export function ClassStudentsTab({
                     onClick={() => handleViewStudent(student.id)}
                     onChangeClass={() => openChangeClassModal(student.id)}
                     onUnenroll={() => openUnenrollModal(student.id)}
+                    onMessage={() => handleMessageStudent(student.id)}
                   />
                 ))}
             </div>

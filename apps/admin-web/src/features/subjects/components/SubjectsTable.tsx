@@ -17,28 +17,40 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
   Filter,
-  X
+  X,
+  Palette,
+  Loader2
 } from 'lucide-react';
 import { useSubjects } from '../hooks/useSubjectsQuery';
 import type { Tables, Enums } from '@altitutor/shared';
-import { cn } from '@/shared/utils/index';
-import { SubjectCurriculumBadge } from '@altitutor/ui';
+import { cn, getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
+import { useElementSize } from '@/shared/hooks/useElementSize';
 import { ViewSubjectModal } from './ViewSubjectModal';
+import { subjectsApi } from '../api';
+import { useToast } from '@altitutor/ui';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 
 interface SubjectsTableProps {
   onRefresh?: number;
   onViewSubject?: (subjectId: string) => void;
 }
 
-export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) {
-  const router = useRouter();
+export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSubject }: SubjectsTableProps) {
+  const _router = useRouter();
   
   // React Query hook for data fetching
   const { 
@@ -49,6 +61,9 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     isFetching 
   } = useSubjects();
 
+  // Track table width for responsive display
+  const [tableRef, tableSize] = useElementSize<HTMLDivElement>();
+
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [curriculumFilters, setCurriculumFilters] = useState<Enums<'subject_curriculum'>[]>([]);
@@ -57,7 +72,15 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [_isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  // Select mode state
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(new Set());
+  const [isBulkColorDialogOpen, setIsBulkColorDialogOpen] = useState(false);
+  const [bulkColor, setBulkColor] = useState<string>('#000000');
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const { toast } = useToast();
 
   // Filter toggle handlers
   const toggleCurriculumFilter = (curriculum: Enums<'subject_curriculum'>) => {
@@ -88,14 +111,19 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     
     let result = [...subjects];
     
-    // Apply search term
+    // Apply search term - search by full name or short name
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      result = result.filter(subject => 
-        subject.name.toLowerCase().includes(searchLower) ||
-        String(subject.year_level).includes(searchLower) ||
-        (subject.level && subject.level.toLowerCase().includes(searchLower))
-      );
+      result = result.filter(subject => {
+        const fullName = formatSubjectDisplay(subject).toLowerCase();
+        const shortName = formatSubjectShortName(subject).toLowerCase();
+        const subjectName = subject.name.toLowerCase();
+        return (
+          fullName.includes(searchLower) ||
+          shortName.includes(searchLower) ||
+          subjectName.includes(searchLower)
+        );
+      });
     }
     
     // Apply curriculum filter
@@ -143,32 +171,81 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
     }
   };
   
-  const handleSubjectClick = (id: string) => {
-    if (onViewSubject) {
-      onViewSubject(id);
+  const handleSubjectClick = (id: string, e?: React.MouseEvent) => {
+    // Don't open modal if clicking checkbox or in select mode
+    if (isSelectMode || (e?.target as HTMLElement)?.closest('input[type="checkbox"]')) {
+      return;
+    }
+    if (_onViewSubject) {
+      _onViewSubject(id);
     } else {
       setSelectedSubjectId(id);
       setIsViewModalOpen(true);
     }
   };
+
+  const handleSelectSubject = (id: string, checked: boolean) => {
+    setSelectedSubjectIds(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(id);
+      } else {
+        newSet.delete(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedSubjectIds(new Set(filteredSubjects.map(s => s.id)));
+    } else {
+      setSelectedSubjectIds(new Set());
+    }
+  };
+
+  const handleBulkColorChange = async () => {
+    if (selectedSubjectIds.size === 0) return;
+    
+    try {
+      setIsBulkUpdating(true);
+      const colorToSet = bulkColor === '#000000' ? null : bulkColor;
+      await subjectsApi.bulkUpdateColors(Array.from(selectedSubjectIds), colorToSet);
+      
+      toast({
+        title: "Colors updated",
+        description: `Updated color for ${selectedSubjectIds.size} subject${selectedSubjectIds.size > 1 ? 's' : ''}.`,
+      });
+      
+      setIsBulkColorDialogOpen(false);
+      setSelectedSubjectIds(new Set());
+      setIsSelectMode(false);
+      refetch();
+    } catch (error) {
+      console.error('Failed to update colors:', error);
+      toast({
+        title: "Update failed",
+        description: "There was an error updating subject colors. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
   
-  const handleViewSubject = (id: string, e: React.MouseEvent) => {
+  const _handleViewSubject = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedSubjectId(id);
     setIsViewModalOpen(true);
   };
 
-  const handleEditSubject = (id: string, e: React.MouseEvent) => {
+  const _handleEditSubject = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedSubjectId(id);
     setIsEditModalOpen(true);
   };
 
   const handleSubjectUpdated = () => {
-    refetch();
-  };
-
-  const handleRefresh = () => {
     refetch();
   };
 
@@ -231,6 +308,42 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
           />
         </div>
         <div className="flex space-x-2 items-center">
+          {/* Select Mode Toggle */}
+          <Button
+            variant={isSelectMode ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => {
+              setIsSelectMode(!isSelectMode);
+              if (isSelectMode) {
+                setSelectedSubjectIds(new Set());
+              }
+            }}
+          >
+            {isSelectMode ? (
+              <>
+                <X className="h-4 w-4 mr-2" />
+                Cancel Selection
+              </>
+            ) : (
+              <>
+                <Palette className="h-4 w-4 mr-2" />
+                Select Subjects
+              </>
+            )}
+          </Button>
+
+          {/* Bulk Color Change Button */}
+          {isSelectMode && selectedSubjectIds.size > 0 && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsBulkColorDialogOpen(true)}
+            >
+              <Palette className="h-4 w-4 mr-2" />
+              Change Color ({selectedSubjectIds.size})
+            </Button>
+          )}
+
           {/* Clear Filters */}
           {activeFiltersCount > 0 && (
             <Button 
@@ -299,24 +412,18 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border" ref={tableRef}>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('curriculum')}>
-                Curriculum
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'curriculum' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('year_level')}>
-                Year Level
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'year_level' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
+              {isSelectMode && (
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={filteredSubjects.length > 0 && filteredSubjects.every(s => selectedSubjectIds.has(s.id))}
+                    onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                  />
+                </TableHead>
+              )}
               <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
                 Subject Name
                 <ArrowUpDown className={cn(
@@ -324,19 +431,13 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
                   sortField === 'name' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('level')}>
-                Level
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'level' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
+              <TableHead className="text-right">Color</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSubjects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center h-24">
+                <TableCell colSpan={isSelectMode ? 3 : 2} className="text-center h-24">
                   {isLoading ? (
                     "Loading subjects..."
                   ) : searchTerm || activeFiltersCount > 0 ? (
@@ -347,20 +448,51 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
                 </TableCell>
               </TableRow>
             ) : (
-              filteredSubjects.map((subject) => (
-                <TableRow 
-                  key={subject.id} 
-                  className="cursor-pointer"
-                  onClick={() => handleSubjectClick(subject.id)}
-                >
-                  <TableCell>
-                    <SubjectCurriculumBadge value={subject.curriculum} />
-                  </TableCell>
-                  <TableCell>{subject.year_level || '-'}</TableCell>
-                  <TableCell className="font-medium">{subject.name}</TableCell>
-                  <TableCell>{subject.level || '-'}</TableCell>
-                </TableRow>
-              ))
+              filteredSubjects.map((subject) => {
+                const isSelected = selectedSubjectIds.has(subject.id);
+                const subjectColorHex = getSubjectColorHex(subject);
+                // Show full name if table width >= 600px, otherwise show short name
+                const showFullName = tableSize.width >= 600;
+                const displayName = showFullName 
+                  ? formatSubjectDisplay(subject) 
+                  : formatSubjectShortName(subject);
+                return (
+                  <TableRow 
+                    key={subject.id} 
+                    className={cn(
+                      !isSelectMode && "cursor-pointer",
+                      isSelected && "bg-muted/50"
+                    )}
+                    onClick={(e) => handleSubjectClick(subject.id, e)}
+                  >
+                    {isSelectMode && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => handleSelectSubject(subject.id, checked === true)}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="font-medium" title={formatSubjectDisplay(subject)}>
+                      {displayName}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {subjectColorHex ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <div
+                            className="w-6 h-6 rounded border border-gray-300"
+                            style={{ backgroundColor: subjectColorHex }}
+                            title={subjectColorHex}
+                          />
+                          <span className="text-xs text-muted-foreground">{subjectColorHex}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -379,6 +511,72 @@ export function SubjectsTable({ onRefresh, onViewSubject }: SubjectsTableProps) 
         subjectId={selectedSubjectId}
         onSubjectUpdated={handleSubjectUpdated}
       />
+
+      {/* Bulk Color Change Dialog */}
+      <Dialog open={isBulkColorDialogOpen} onOpenChange={setIsBulkColorDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Color for {selectedSubjectIds.size} Subject{selectedSubjectIds.size > 1 ? 's' : ''}</DialogTitle>
+            <DialogDescription>
+              Select a color to apply to all selected subjects. Leave as black (#000000) to clear the color.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="color"
+                  value={bulkColor}
+                  onChange={(e) => setBulkColor(e.target.value)}
+                  className="h-10 w-20 cursor-pointer"
+                />
+                <Input
+                  type="text"
+                  placeholder="#000000"
+                  value={bulkColor}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    if (value === '') {
+                      setBulkColor('#000000');
+                    } else if (/^#[0-9A-Fa-f]{6}$/i.test(value)) {
+                      setBulkColor(value.toUpperCase());
+                    } else {
+                      setBulkColor(value);
+                    }
+                  }}
+                  className="flex-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Hex color code (e.g., #FF5733). Set to #000000 to clear color.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkColorDialogOpen(false)}
+              disabled={isBulkUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkColorChange}
+              disabled={isBulkUpdating}
+            >
+              {isBulkUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Colors'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

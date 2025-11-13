@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { Loader2 } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { classesApi } from "../../api";
-import { useClassDetails, classesKeys } from '../../hooks/useClassesQuery';
+import { useClassDetails, classesKeys, useDeleteClass } from '../../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useUpdateClass } from '../../hooks/useClassesQuery';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { formatClassName } from '@/shared/utils';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
@@ -41,14 +43,16 @@ export function ViewClassModal({
   const subject = classDetails?.subject || null;
   const classStudents = classDetails?.students || [];
   const classStaff = classDetails?.staff || [];
-  const upcomingSessions = classDetails?.upcomingSessions || [];
+  const _upcomingSessions = classDetails?.upcomingSessions || [];
   
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const { toast } = useToast();
-  const { data: currentStaff } = useCurrentStaff();
+  const { data: _currentStaff } = useCurrentStaff();
   const queryClient = useQueryClient();
+  const deleteClassMutation = useDeleteClass();
 
   // Reset states when modal closes
   useEffect(() => {
@@ -74,12 +78,14 @@ export function ViewClassModal({
       };
       await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
       
+      // Invalidate class details to refetch full data including subject relationship
+      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
+      
       // Reset edit mode
       setIsEditing(false);
       
       // Notify parent of update
       onClassUpdated();
-      // React Query will automatically refetch via invalidation
       
       toast({
         title: 'Class updated',
@@ -143,11 +149,36 @@ export function ViewClassModal({
     }
   };
 
+  // Handle class deletion
+  const handleDeleteClass = async () => {
+    if (!classData) return;
+    
+    try {
+      setIsDeleting(true);
+      await deleteClassMutation.mutateAsync(classData.id);
+      onClose();
+      onClassUpdated();
+      toast({
+        title: 'Class deleted',
+        description: 'Class has been deleted successfully.',
+      });
+    } catch (err) {
+      console.error('Failed to delete class:', err);
+      toast({
+        title: 'Delete failed',
+        description: 'There was an error deleting the class. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Early return if no class data loaded
   if (!classData) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent>
+        <SheetContent className="w-[800px]">
           <SheetHeader>
             <SheetTitle>Loading class...</SheetTitle>
           </SheetHeader>
@@ -158,43 +189,52 @@ export function ViewClassModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="overflow-y-auto max-w-md">
-        <SheetHeader>
-          <SheetTitle>
-            Class Details
-          </SheetTitle>
-          <SheetDescription className="text-lg font-medium">
-            {formatClassName(classData, subject)}
-          </SheetDescription>
-        </SheetHeader>
-        
-        <div className="mt-6">
-          <Tabs 
-            defaultValue="details" 
-            value={activeTab} 
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="w-full">
-              <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-              <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
-              <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
-            </TabsList>
+      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[800px]">
+        <Tabs 
+          defaultValue="details" 
+          value={activeTab} 
+          onValueChange={setActiveTab}
+          className="flex flex-col h-full min-h-0"
+        >
+          {/* Sticky Header */}
+          <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+            <SheetHeader className="px-6 pt-6 pb-4">
+              <SheetTitle>
+                {isEditing ? 'Edit Class' : 'Class Details'}
+              </SheetTitle>
+              <SheetDescription className="text-lg font-medium">
+                {formatClassName(classData, subject)}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="px-6 pb-4">
+              <TabsList className="w-full">
+                <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+                <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
+                <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
+              </TabsList>
+            </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-6">
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <ClassInfoTab
+                    classData={classData}
+                    subject={subject}
+                    subjects={allSubjects}
+                    isEditing={isEditing}
+                    isLoading={isLoading}
+                    onEdit={() => setIsEditing(true)}
+                    onCancelEdit={() => setIsEditing(false)}
+                    onSubmit={handleClassUpdate}
+                    onDelete={isEditing ? handleDeleteClass : undefined}
+                    isDeleting={isDeleting}
+                  />
+                </TabsContent>
             
-            <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <ClassInfoTab
-                classData={classData}
-                subject={subject}
-                subjects={allSubjects}
-                isEditing={isEditing}
-                isLoading={isLoading}
-                onEdit={() => setIsEditing(true)}
-                onCancelEdit={() => setIsEditing(false)}
-                onSubmit={handleClassUpdate}
-              />
-            </TabsContent>
-            
-            <TabsContent value="students" className="mt-4">
+            <TabsContent value="students" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
               <ClassStudentsTab
                 classData={classData}
                 classSubject={subject || undefined}
@@ -206,18 +246,46 @@ export function ViewClassModal({
               />
             </TabsContent>
             
-            <TabsContent value="staff" className="mt-4">
-              <ClassStaffTab
-                classData={classData}
-                classStaff={classStaff}
-                allStaff={allStaffData}
-                loadingStaff={false}
-                onAssignStaff={handleAssignStaff}
-                onRemoveStaff={handleRemoveStaff}
-              />
-            </TabsContent>
-          </Tabs>
-        </div>
+                <TabsContent value="staff" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                  <ClassStaffTab
+                    classData={classData}
+                    classStaff={classStaff}
+                    allStaff={allStaffData}
+                    loadingStaff={false}
+                    onAssignStaff={handleAssignStaff}
+                    onRemoveStaff={handleRemoveStaff}
+                  />
+                </TabsContent>
+              </div>
+            </div>
+          </div>
+        </Tabs>
+        
+        {/* Sticky Footer with Buttons */}
+        {classData && isEditing && activeTab === 'details' && (
+          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+            <div className="flex w-full justify-end">
+              <div className="flex space-x-2">
+                <Button variant="outline" type="button" onClick={() => setIsEditing(false)} disabled={isLoading}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => {
+                    const form = document.getElementById('class-edit-form') as HTMLFormElement;
+                    if (form) {
+                      form.requestSubmit();
+                    }
+                  }}
+                >
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

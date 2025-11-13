@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useAuth } from '@/features/auth/providers/AuthProvider';
-import { Button } from '@altitutor/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 
 export function SessionTest() {
@@ -52,16 +51,6 @@ export function SessionTest() {
             <p><strong>Auth Storage:</strong> {typeof window !== 'undefined' && localStorage.getItem('auth-storage') ? '✅ Found' : '❌ Not found'}</p>
             <p><strong>Supabase Session:</strong> {typeof window !== 'undefined' && localStorage.getItem('sb-ysfslbdcacpbemodkwtl-auth-token') ? '✅ Found' : '❌ Not found'}</p>
           </div>
-        </div>
-        
-        <div className="border-t pt-4 flex gap-2">
-          <Button 
-            onClick={() => window.location.reload()} 
-            variant="outline" 
-            size="sm"
-          >
-            Refresh Page
-          </Button>
         </div>
       </CardContent>
     </Card>

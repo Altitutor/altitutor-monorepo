@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import type { Database } from '@altitutor/shared';
 
 export async function POST(request: NextRequest) {
   try {

@@ -8,7 +8,7 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 export default function HomePage() {
   const router = useRouter();
   const { user, loading } = useAuthStore();
-  const { data: _staff } = useCurrentStaff();
+  useCurrentStaff(); // Prefetch staff data
 
   useEffect(() => {
     if (!loading && user) {

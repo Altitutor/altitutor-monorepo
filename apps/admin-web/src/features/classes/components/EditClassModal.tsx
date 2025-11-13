@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-import { Textarea } from '@altitutor/ui';
 import { useUpdateClass } from '../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import type { Tables, TablesUpdate } from '@altitutor/shared';

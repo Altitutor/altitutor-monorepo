@@ -20,11 +20,11 @@ interface SubjectsTabProps {
 }
 
 export function SubjectsTab({
-  staffMember,
+  staffMember: _staffMember,
   staffSubjects,
   allSubjects,
   loadingSubjects,
-  onViewSubject,
+  onViewSubject: _onViewSubject,
   onAssignSubject,
   onRemoveSubject
 }: SubjectsTabProps) {

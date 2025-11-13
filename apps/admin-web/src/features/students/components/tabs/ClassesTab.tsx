@@ -9,7 +9,7 @@ import { useToast } from "@altitutor/ui";
 import { Loader2, Calendar, Plus, Grid3X3 } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { ViewClassModal, TimetableView } from '@/features/classes';
+import { ViewClassModal, CalendarView } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/shared/components/modals';
 import { getDayOfWeek } from '@/shared/utils/datetime';
@@ -72,11 +72,13 @@ export function ClassesTab({
   const timetableClasses = classes.map(c => c.class);
   const timetableSubjects: Record<string, Tables<'subjects'>> = {};
   const timetableStaff: Record<string, Tables<'staff'>[]> = {};
+  const timetableStudents: Record<string, Tables<'students'>[]> = {};
   classes.forEach(c => {
     if (c.subject) {
       timetableSubjects[c.class.id] = c.subject;
     }
     timetableStaff[c.class.id] = c.staff;
+    timetableStudents[c.class.id] = c.students || [];
   });
 
   // Modal handlers
@@ -358,10 +360,11 @@ export function ClassesTab({
           </ScrollArea>
         ) : (
           <div className="flex-1 overflow-hidden">
-            <TimetableView
+            <CalendarView
               classes={timetableClasses}
               classSubjects={timetableSubjects}
               classStaff={timetableStaff}
+              classStudents={timetableStudents}
               onClassClick={(cls) => handleClassClick(cls.id)}
             />
           </div>

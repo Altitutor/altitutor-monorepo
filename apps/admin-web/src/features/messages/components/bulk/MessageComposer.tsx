@@ -6,6 +6,7 @@ import { Button, Textarea, ScrollArea } from '@altitutor/ui';
 import { MessageTemplatesPicker } from '../MessageTemplatesPicker';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
 
 interface MessageComposerProps {
@@ -28,6 +29,7 @@ export function MessageComposer({
     Record<string, Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>>
   >({});
   const [isLoadingClasses, setIsLoadingClasses] = useState(false);
+  const { data: currentStaff } = useCurrentStaff();
 
   const currentStudent = students[previewIndex];
 
@@ -59,8 +61,12 @@ export function MessageComposer({
     onMessageChange(template.content);
   };
 
+  const senderName = currentStaff 
+    ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+    : null;
+
   const previewMessage = currentStudent && studentClasses[currentStudent.id]
-    ? replaceVariables(message, currentStudent, studentClasses[currentStudent.id] || [])
+    ? replaceVariables(message, currentStudent, studentClasses[currentStudent.id] || [], senderName)
     : message;
 
   const handlePrevious = () => {
@@ -76,7 +82,7 @@ export function MessageComposer({
       <div className="p-6 border-b">
         <h2 className="text-xl font-semibold">Compose Message</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Write your message using variables like {'{first_name}'}, {'{last_name}'}, {'{classes}'}
+          Write your message using variables like {'{first_name}'}, {'{last_name}'}, {'{classes}'}, {'{sender_name}'}
         </p>
       </div>
 
@@ -98,6 +104,7 @@ export function MessageComposer({
             <p>• {'{first_name}'} - Student's first name</p>
             <p>• {'{last_name}'} - Student's last name</p>
             <p>• {'{classes}'} - Student's enrolled classes (formatted list)</p>
+            <p>• {'{sender_name}'} - Name of the currently logged in staff member</p>
           </div>
         </div>
 

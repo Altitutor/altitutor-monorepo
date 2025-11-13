@@ -9,7 +9,7 @@ import { useToast } from "@altitutor/ui";
 import { Loader2, Calendar, Plus, Grid3X3 } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { ViewClassModal, TimetableView } from '@/features/classes';
+import { ViewClassModal, CalendarView } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { formatTime } from '@/shared/utils/datetime';
@@ -383,7 +383,7 @@ export function ClassesTab({
         </ScrollArea>
       ) : (
         <div className="flex-1 overflow-hidden">
-          <TimetableView
+          <CalendarView
             classes={timetableClasses}
             classSubjects={timetableSubjects}
             classStaff={timetableStaff}

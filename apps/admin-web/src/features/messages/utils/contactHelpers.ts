@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database, Tables, TablesInsert } from '@altitutor/shared';
+import type { Database, TablesInsert } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ensureConversationForRelated } from '../api/queries';
 

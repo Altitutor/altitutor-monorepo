@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -40,7 +40,7 @@ export function ViewClassModalNew({
   const subject = classDetails?.subject || null;
   const classStudents = classDetails?.students || [];
   const classStaff = classDetails?.staff || [];
-  const upcomingSessions = classDetails?.upcomingSessions || [];
+  const _upcomingSessions = classDetails?.upcomingSessions || [];
   
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('info');

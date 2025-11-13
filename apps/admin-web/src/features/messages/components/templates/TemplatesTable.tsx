@@ -31,7 +31,7 @@ import {
 } from '@altitutor/ui';
 import { Search, ArrowUpDown, MoreVertical, Edit, Copy, Trash2 } from 'lucide-react';
 import { useMessageTemplates, useDeleteTemplate, useCreateTemplate } from '../../api/templates';
-import { formatRelativeDate, truncatePreview } from '../../utils/templateHelpers';
+import { truncatePreview } from '../../utils/templateHelpers';
 import { useToast } from '@altitutor/ui';
 import { CreateEditTemplateDialog } from './CreateEditTemplateDialog';
 import type { Tables } from '@altitutor/shared';
@@ -44,7 +44,7 @@ interface TemplatesTableProps {
 
 type SortField = 'name' | 'created_at';
 
-export function TemplatesTable({ onRefresh }: TemplatesTableProps) {
+export function TemplatesTable({ onRefresh: _onRefresh }: TemplatesTableProps) {
   const { data: templates, isLoading, refetch } = useMessageTemplates();
   const deleteMutation = useDeleteTemplate();
   const createMutation = useCreateTemplate();

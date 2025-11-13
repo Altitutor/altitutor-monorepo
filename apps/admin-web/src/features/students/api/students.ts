@@ -156,7 +156,115 @@ export const studentsApi = {
     const trimmed = search.trim();
     if (trimmed.length > 0) {
       const q = `%${trimmed}%`;
-      query = query.or(`first_name.ilike.${q},last_name.ilike.${q},school.ilike.${q}`);
+      // Search across concatenated first_name + last_name, individual fields, school, and classes
+      // First, get student IDs that match class names (short or full)
+      let studentIdsFromClasses: string[] = [];
+      
+      // Search in classes: join classes_students -> classes -> subjects
+      // We need to search in formatted class names, so we'll check:
+      // - subject short name (curriculum + year_level + discipline + name abbreviation)
+      // - subject full name
+      // - class day + time
+      const { data: classEnrollmentsData, error: classSearchError } = await supabase
+        .from('classes_students')
+        .select(`
+          student_id,
+          class:classes(
+            day_of_week,
+            start_time,
+            end_time,
+            subject_details:subjects(
+              curriculum,
+              year_level,
+              discipline,
+              name,
+              name_abbreviation
+            )
+          )
+        `)
+        .is('unenrolled_at', null);
+      
+      const searchLower = trimmed.toLowerCase();
+      
+      if (!classSearchError && classEnrollmentsData) {
+        const matchingStudentIds = new Set<string>();
+        
+        // Day name utility for formatting
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        classEnrollmentsData.forEach((enrollment: any) => {
+          const cls = enrollment.class;
+          const subject = cls?.subject_details;
+          
+          if (cls && subject) {
+            // Build class short name: curriculum + year_level + discipline + name_abbreviation + day + time
+            const shortNameParts: string[] = [];
+            if (subject.curriculum) shortNameParts.push(subject.curriculum);
+            if (subject.year_level != null) shortNameParts.push(String(subject.year_level));
+            if (subject.discipline) shortNameParts.push(subject.discipline);
+            if (subject.name_abbreviation) shortNameParts.push(subject.name_abbreviation);
+            if (cls.day_of_week != null && cls.day_of_week >= 0 && cls.day_of_week <= 6) {
+              shortNameParts.push(dayNames[cls.day_of_week]);
+            }
+            if (cls.start_time) {
+              // Format time as HH:MM (simple format for search)
+              shortNameParts.push(cls.start_time.substring(0, 5));
+            }
+            const shortName = shortNameParts.join(' ').toLowerCase();
+            
+            // Build class full name: curriculum + year_level + name + day + time
+            const fullNameParts: string[] = [];
+            if (subject.curriculum) fullNameParts.push(subject.curriculum);
+            if (subject.year_level != null) fullNameParts.push(String(subject.year_level));
+            if (subject.name) fullNameParts.push(subject.name);
+            if (cls.day_of_week != null && cls.day_of_week >= 0 && cls.day_of_week <= 6) {
+              fullNameParts.push(dayNames[cls.day_of_week]);
+            }
+            if (cls.start_time) {
+              fullNameParts.push(cls.start_time.substring(0, 5));
+            }
+            const fullName = fullNameParts.join(' ').toLowerCase();
+            
+            // Check if search term matches short name or full name
+            if (shortName.includes(searchLower) || fullName.includes(searchLower)) {
+              matchingStudentIds.add(enrollment.student_id);
+            }
+          }
+        });
+        
+        studentIdsFromClasses = Array.from(matchingStudentIds);
+      }
+      
+      // Search in student names (concatenated) and school
+      // First get IDs matching individual fields or school
+      const { data: nameSearchData, error: nameSearchError } = await supabase
+        .from('students')
+        .select('id, first_name, last_name, school')
+        .or(`first_name.ilike.${q},last_name.ilike.${q},school.ilike.${q}`);
+      
+      if (nameSearchError) throw nameSearchError;
+      
+      // Filter for concatenated name matches and school matches
+      const studentIdsFromNames = (nameSearchData || [])
+        .filter((s: any) => {
+          const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim().toLowerCase();
+          const schoolMatch = (s.school || '').toLowerCase().includes(searchLower);
+          return fullName.includes(searchLower) || 
+                 (s.first_name || '').toLowerCase().includes(searchLower) ||
+                 (s.last_name || '').toLowerCase().includes(searchLower) ||
+                 schoolMatch;
+        })
+        .map((s: any) => s.id);
+      
+      // Combine student IDs from both searches
+      const allMatchingStudentIds = Array.from(new Set([...studentIdsFromNames, ...studentIdsFromClasses]));
+      
+      if (allMatchingStudentIds.length > 0) {
+        query = query.in('id', allMatchingStudentIds);
+      } else {
+        // No matches, return empty result
+        return { students: [], total: 0 };
+      }
     }
 
     if (statuses && statuses.length > 0) {
@@ -805,5 +913,106 @@ export const studentsApi = {
     });
 
     return grouped;
+  },
+
+  /**
+   * Get count of active students (ACTIVE or TRIAL status)
+   */
+  getActiveStudentsCount: async (): Promise<number> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { count, error } = await supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['ACTIVE', 'TRIAL']);
+    
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  /**
+   * Get all parents
+   */
+  getAllParents: async (): Promise<Tables<'parents'>[]> => {
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('parents').select('*');
+    if (error) throw error;
+    return (data ?? []) as Tables<'parents'>[];
+  },
+
+  /**
+   * Assign a student to a parent
+   */
+  assignStudentToParent: async (parentId: string, studentId: string): Promise<Tables<'parents_students'>> => {
+    try {
+      // Check if the assignment already exists
+      const { data: existing, error: existingError } = await (getSupabaseClient() as SupabaseClient<Database>)
+        .from('parents_students')
+        .select('id')
+        .eq('parent_id', parentId)
+        .eq('student_id', studentId);
+      if (existingError) throw existingError;
+      if ((existing ?? []).length) return existing[0] as Tables<'parents_students'>;
+      
+      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+        .from('parents_students')
+        .insert({ parent_id: parentId, student_id: studentId })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as Tables<'parents_students'>;
+    } catch (error) {
+      console.error('Error assigning student to parent:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove a student from a parent
+   */
+  removeStudentFromParent: async (parentId: string, studentId: string): Promise<void> => {
+    try {
+      const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
+        .from('parents_students')
+        .delete()
+        .eq('parent_id', parentId)
+        .eq('student_id', studentId);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error removing student from parent:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Assign a parent to a student (alias for assignStudentToParent)
+   */
+  assignParentToStudent: async (studentId: string, parentId: string): Promise<Tables<'parents_students'>> => {
+    return studentsApi.assignStudentToParent(parentId, studentId);
+  },
+
+  /**
+   * Remove a parent from a student (alias for removeStudentFromParent)
+   */
+  removeParentFromStudent: async (studentId: string, parentId: string): Promise<void> => {
+    return studentsApi.removeStudentFromParent(parentId, studentId);
+  },
+
+  /**
+   * Update a parent
+   */
+  updateParent: async (id: string, data: TablesUpdate<'parents'>): Promise<Tables<'parents'>> => {
+    try {
+      const { data: updated, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+        .from('parents')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return updated as Tables<'parents'>;
+    } catch (error) {
+      console.error('Error updating parent:', error);
+      throw new Error(`Failed to update parent: ${error instanceof Error ? error.message : error}`);
+    }
   },
 }; 

@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -22,7 +21,6 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),

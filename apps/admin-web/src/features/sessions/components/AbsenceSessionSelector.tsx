@@ -1,6 +1,6 @@
 'use client';
 
-import { Checkbox, Button } from '@altitutor/ui';
+import { Checkbox } from '@altitutor/ui';
 import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import type { StudentSession } from '../types/absence';
 import { Calendar, BookOpen } from 'lucide-react';

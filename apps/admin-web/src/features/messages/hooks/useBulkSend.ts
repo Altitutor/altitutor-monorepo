@@ -42,14 +42,17 @@ export function useBulkSend() {
     };
 
     try {
-      // Get staff ID
+      // Get staff ID and name
       const { data: staffRow } = await supabase
         .from('staff')
-        .select('id')
+        .select('id, first_name, last_name')
         .eq('user_id', user?.id || '')
         .maybeSingle();
 
       const staffId = staffRow?.id || null;
+      const senderName = staffRow 
+        ? `${staffRow.first_name || ''} ${staffRow.last_name || ''}`.trim() 
+        : null;
 
       // 1. Create/ensure contacts and conversations for all students and parents
       const studentIds = students.map(s => s.id);
@@ -101,7 +104,7 @@ export function useBulkSend() {
         if (!conversationId || !student.phone) continue;
 
         const classes = studentClassesMap[student.id] || [];
-        const personalizedMessage = replaceVariables(message, student, classes);
+        const personalizedMessage = replaceVariables(message, student, classes, senderName);
 
         messages.push({
           conversationId,
@@ -141,7 +144,7 @@ export function useBulkSend() {
           if (!student) continue;
 
           const classes = studentClassesMap[studentId] || [];
-          const personalizedMessage = replaceVariables(message, student, classes);
+          const personalizedMessage = replaceVariables(message, student, classes, senderName);
 
           messages.push({
             conversationId,

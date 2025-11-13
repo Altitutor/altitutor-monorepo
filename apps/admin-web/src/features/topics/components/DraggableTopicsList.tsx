@@ -18,7 +18,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button } from '@altitutor/ui';
 import { GripVertical } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { deriveTopicCode } from '../utils/codes';

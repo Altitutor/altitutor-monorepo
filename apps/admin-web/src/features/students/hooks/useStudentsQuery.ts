@@ -182,6 +182,16 @@ export function useStudentsCount() {
   });
 }
 
+// Active students count (ACTIVE or TRIAL status)
+export function useActiveStudentsCount() {
+  return useQuery({
+    queryKey: [...studentsKeys.all, 'activeCount'],
+    queryFn: () => studentsApi.getActiveStudentsCount(),
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
 // Mutations
 export function useCreateStudent() {
   const queryClient = useQueryClient();

@@ -96,6 +96,19 @@ export const subjectsApi = {
     if (error) throw error;
   },
 
+  /**
+   * Bulk update subject colors
+   */
+  bulkUpdateColors: async (subjectIds: string[], color: string | null): Promise<Tables<'subjects'>[]> => {
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('subjects')
+      .update({ color })
+      .in('id', subjectIds)
+      .select();
+    if (error) throw error;
+    return (data ?? []) as Tables<'subjects'>[];
+  },
+
   // Removed redundant direct getter alias
 
   /**

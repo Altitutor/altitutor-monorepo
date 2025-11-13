@@ -19,23 +19,13 @@ import {
   Search, 
   ArrowUpDown,
   Filter,
-  Plus,
-  RefreshCw,
   X
 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSubjectDisplay, formatSubjectShortName, formatClassName, formatClassShortName } from '@/shared/utils/index';
-import { getStudentStatusColor, getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils';
+import { cn, formatSubjectDisplay, formatClassName, formatClassShortName } from '@/shared/utils/index';
+import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@altitutor/ui";
 import { 
   Popover,
   PopoverContent,
@@ -45,7 +35,6 @@ import { ViewClassModal } from '@/features/classes';
 import { useStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 // import { useVirtualizer } from '@tanstack/react-virtual';
-import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 
 interface StudentsTableProps {
   onRefresh?: number;
@@ -53,8 +42,8 @@ interface StudentsTableProps {
   addModalState?: [boolean, (open: boolean) => void];
 }
 
-export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: StudentsTableProps = {}) {
-  const router = useRouter();
+export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStudentSelect, addModalState: _addModalState }: StudentsTableProps = {}) {
+  const _router = useRouter();
   
   // Local UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -130,10 +119,10 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
 
   // Refetch when onRefresh prop changes
   useEffect(() => {
-    if (onRefresh) {
+    if (_onRefresh) {
       refetch();
     }
-  }, [onRefresh, refetch]);
+  }, [_onRefresh, refetch]);
 
   // Filter toggle handlers
   const toggleStatusFilter = (status: Tables<'students'>['status']) => {
@@ -230,10 +219,6 @@ export function StudentsTable({ onRefresh, onStudentSelect, addModalState }: Stu
             <Button variant="outline" size="sm" disabled>
               <Filter className="h-4 w-4 mr-2" />
               Filters
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
             </Button>
           </div>
         </div>

@@ -17,8 +17,7 @@ import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
-  CalendarIcon,
-  RefreshCw
+  CalendarIcon
 } from 'lucide-react';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
@@ -39,7 +38,7 @@ type SessionsTableProps = {
 };
 
 export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff }: SessionsTableProps) {
-  const router = useRouter();
+  const _router = useRouter();
   
   // React Query hook for data fetching
   const { 
@@ -47,7 +46,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     isLoading, 
     error, 
     refetch,
-    isFetching 
+    isFetching: _isFetching 
   } = useSessionsWithDetails({ rangeStart, rangeEnd });
   
   // Extract sessions array from the data structure
@@ -66,7 +65,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  const getClassSubject = (session: Tables<'sessions'>) => {
+  const _getClassSubject = (session: Tables<'sessions'>) => {
     const cls = session.class_id ? classesById[session.class_id] : undefined;
     if (!cls) return '-';
     const subj = cls.subject_id ? subjectsById[cls.subject_id] : undefined;
@@ -188,10 +187,6 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     }
   };
   
-  const handleRefresh = () => {
-    refetch();
-  };
-  
   const getSessionTypeBadgeColor = (type: string) => {
     switch (type) {
       case 'CLASS':
@@ -224,7 +219,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   };
   
   // Staff/name display relies on details map from hook; keep simple for now
-  const getStaffName = (session: Tables<'sessions'>) => {
+  const _getStaffName = (session: Tables<'sessions'>) => {
     const staffList: Tables<'staff'>[] = (data?.sessionStaff?.[session.id] as Tables<'staff'>[]) || [];
     if (!staffList.length) return '-';
     return staffList.map(s => `${(s as any).first_name} ${(s as any).last_name}`).join(', ');
@@ -263,10 +258,6 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                 disabled
               />
             </div>
-            <Button variant="outline" size="sm" disabled className="flex items-center">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
           </div>
         )}
         
@@ -306,19 +297,6 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               value={searchTerm ?? ''}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
-          
-          <div className="flex space-x-2 items-center">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefresh} 
-              className="flex items-center"
-              disabled={isFetching}
-            >
-              <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
-              Refresh
-            </Button>
           </div>
         </div>
       )}

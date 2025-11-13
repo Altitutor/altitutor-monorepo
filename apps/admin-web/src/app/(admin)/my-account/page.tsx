@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
+export const dynamic = 'force-dynamic';
+
 export default function MyAccountPage() {
   const router = useRouter();
   const { user } = useAuthStore();

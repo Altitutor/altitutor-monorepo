@@ -3,13 +3,14 @@ import { formatClassName } from '@/shared/utils';
 
 /**
  * Replace template variables with actual student data
- * Supports: {first_name}, {last_name}, {classes}
+ * Supports: {first_name}, {last_name}, {classes}, {sender_name}
  * Variables are case-insensitive
  */
 export function replaceVariables(
   template: string,
   student: Tables<'students'>,
-  classes: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>
+  classes: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>,
+  senderName?: string | null
 ): string {
   let result = template;
 
@@ -30,6 +31,9 @@ export function replaceVariables(
     : 'No classes enrolled';
 
   result = result.replace(/\{classes\}/gi, classesText);
+
+  // Replace {sender_name} (case insensitive)
+  result = result.replace(/\{sender_name\}/gi, senderName || '');
 
   return result;
 }
@@ -53,13 +57,18 @@ export const TEMPLATE_VARIABLES = [
     description: 'Student\'s enrolled classes (formatted list)',
     example: '- SACE 12 Mathematics Mon 2:00 PM - 4:00 PM\n- SACE 12 Physics Wed 3:00 PM - 5:00 PM',
   },
+  {
+    name: 'sender_name',
+    description: 'Name of the currently logged in staff member',
+    example: 'Jane Doe',
+  },
 ] as const;
 
 /**
  * Check if a template contains any variables
  */
 export function hasVariables(template: string): boolean {
-  return /\{(first_name|last_name|classes)\}/gi.test(template);
+  return /\{(first_name|last_name|classes|sender_name)\}/gi.test(template);
 }
 
 

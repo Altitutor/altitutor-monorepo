@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@altitutor/shared'
@@ -10,7 +10,29 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, options)
+              })
+            } catch {
+              // Called from Server Component
+            }
+          },
+        },
+        cookieOptions: {
+          name: 'student-auth',
+        },
+      }
+    )
     
     try {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
@@ -22,7 +44,10 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.session) {
-        console.log('Successfully exchanged code for session')
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.log('Successfully exchanged code for session')
+        }
         // For password reset flow, check if this is a recovery session
         const session = data.session
         const isRecoverySession = session.user?.recovery_sent_at || session.user?.email_change_sent_at

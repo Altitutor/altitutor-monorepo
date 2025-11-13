@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button, useToast, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { Loader2, Play, Calendar } from 'lucide-react';
+import { Loader2, Play } from 'lucide-react';
 
 export function TestBillingRunner() {
   const { toast } = useToast();

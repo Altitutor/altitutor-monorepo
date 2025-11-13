@@ -25,6 +25,7 @@ import { useCreateTemplate, useUpdateTemplate } from '../../api/templates';
 import { getSampleStudents } from '../../utils/templateHelpers';
 import { getStudentClasses } from '../../api/bulk';
 import { replaceVariables } from '../../utils/variableReplacer';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
 
 interface CreateEditTemplateDialogProps {
@@ -43,6 +44,7 @@ export function CreateEditTemplateDialog({
   const { toast } = useToast();
   const createMutation = useCreateTemplate();
   const updateMutation = useUpdateTemplate();
+  const { data: currentStaff } = useCurrentStaff();
   
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
@@ -213,9 +215,13 @@ export function CreateEditTemplateDialog({
   const previewMessage = useMemo(() => {
     if (!selectedStudent || !content) return content;
     
+    const senderName = currentStaff 
+      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+      : null;
+    
     const classes = studentClasses[selectedStudent.id] || [];
-    return replaceVariables(content, selectedStudent, classes);
-  }, [content, selectedStudent, studentClasses]);
+    return replaceVariables(content, selectedStudent, classes, senderName);
+  }, [content, selectedStudent, studentClasses, currentStaff]);
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const characterCount = content.length;
@@ -254,7 +260,7 @@ export function CreateEditTemplateDialog({
                 ref={contentTextareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}..."
+                placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}, {sender_name}..."
                 className="flex-1 min-h-[300px] resize-none"
                 disabled={isLoading}
               />
@@ -288,6 +294,15 @@ export function CreateEditTemplateDialog({
                     disabled={isLoading}
                   >
                     {'{classes}'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleInsertVariable('sender_name')}
+                    disabled={isLoading}
+                  >
+                    {'{sender_name}'}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">

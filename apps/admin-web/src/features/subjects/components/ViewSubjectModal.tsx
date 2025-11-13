@@ -14,17 +14,12 @@ import {
 import { Button } from "@altitutor/ui";
 import { 
   AlertTriangle,
-  BookOpen,
-  FileText,
-  Info,
   Loader2,
   Pencil,
-  Users,
-  UserCog,
   Trash2
 } from 'lucide-react';
 import { subjectsApi } from '../api';
-import type { Tables, Enums, TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import {
   Form,
   FormControl,
@@ -75,6 +70,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   
@@ -94,6 +91,11 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     curriculum: z.enum(['SACE','IB','PRESACE','PRIMARY','MEDICINE']).nullable(),
     discipline: z.enum(['MATHEMATICS','SCIENCE','HUMANITIES','ENGLISH','ART','LANGUAGE','MEDICINE']).nullable(),
     level: z.string().nullable(),
+    color: z.union([
+      z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex code (e.g., #FF5733)"),
+      z.literal(''),
+      z.null(),
+    ]).transform((val) => val === '' ? null : val).nullable(),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -104,6 +106,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       curriculum: null,
       discipline: null,
       level: null,
+      color: null,
     },
   });
 
@@ -113,6 +116,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     } else {
       setSubject(null);
       setError(null);
+      setIsEditing(false);
     }
   }, [isOpen, subjectId]);
 
@@ -124,6 +128,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         curriculum: subject.curriculum as any,
         discipline: subject.discipline as any,
         level: subject.level,
+        color: subject.color || null,
       });
     }
   }, [subject, form]);
@@ -158,6 +163,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         curriculum: subject.curriculum,
         discipline: subject.discipline,
         level: subject.level,
+        color: subject.color || null,
       });
     }
     setIsEditing(false);
@@ -174,6 +180,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         curriculum: values.curriculum as any,
         discipline: values.discipline as any,
         level: values.level,
+        color: values.color || null,
       };
       
       const updated = await subjectsApi.updateSubject(subject.id, updatedData);
@@ -213,6 +220,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         description: `${subject.name} has been deleted successfully.`,
       });
       
+      setDeleteConfirmText('');
+      setIsDeleteDialogOpen(false);
       onClose();
       
       if (onSubjectUpdated) {
@@ -230,7 +239,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     }
   };
 
-  const navigateTo = (path: string) => {
+  const _navigateTo = (path: string) => {
     router.push(path);
     onClose();
   };
@@ -240,41 +249,42 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       <Sheet open={isOpen} onOpenChange={(isOpen) => {
         if (!isOpen) onClose();
       }}>
-        <SheetContent className="h-full max-h-[100vh] overflow-auto">
-          <SheetHeader className="mb-6">
-            <SheetTitle className="text-xl">
-              {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
-            </SheetTitle>
-            {!loading && subject && (
-              <SheetDescription className="text-lg font-medium">
-                {subject.name}
-              </SheetDescription>
-            )}
-          </SheetHeader>
+        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0">
+          <div className="flex-1 overflow-y-auto p-6">
+            <SheetHeader className="mb-6">
+              <SheetTitle className="text-xl">
+                {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
+              </SheetTitle>
+              {!loading && subject && (
+                <SheetDescription className="text-lg font-medium">
+                  {subject.name}
+                </SheetDescription>
+              )}
+            </SheetHeader>
 
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Loading subject details...</span>
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-lg font-semibold">Error Loading Subject</h3>
-            <p className="text-muted-foreground">{error}</p>
-            <Button 
-              variant="outline" 
-              className="mt-4"
-              onClick={() => subjectId && loadSubject(subjectId)}
-            >
-              Try Again
-            </Button>
-          </div>
-        ) : subject ? (
-          <div className="space-y-8">
-            {isEditing ? (
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Loading subject details...</span>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+                <h3 className="text-lg font-semibold">Error Loading Subject</h3>
+                <p className="text-muted-foreground">{error}</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => subjectId && loadSubject(subjectId)}
+                >
+                  Try Again
+                </Button>
+              </div>
+            ) : subject ? (
+              <div className="space-y-8">
+                {isEditing ? (
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
                     control={form.control}
                     name="name"
@@ -386,6 +396,118 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="color"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Color</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-3">
+                            <Input
+                              type="color"
+                              {...field}
+                              value={field.value || '#000000'}
+                              onChange={(e) => field.onChange(e.target.value || null)}
+                              className="h-10 w-20 cursor-pointer"
+                            />
+                            <Input
+                              type="text"
+                              placeholder="#000000"
+                              value={field.value || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === '') {
+                                  field.onChange(null);
+                                } else {
+                                  field.onChange(value);
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const value = e.target.value.trim();
+                                if (value === '') {
+                                  field.onChange(null);
+                                } else if (!/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                                  // If invalid format, try to fix it or clear
+                                  if (value.startsWith('#') && /^#[0-9A-Fa-f]{0,6}$/i.test(value)) {
+                                    // Partial valid input, keep as is for now
+                                    field.onChange(value);
+                                  } else {
+                                    // Invalid, clear it
+                                    field.onChange(null);
+                                  }
+                                }
+                              }}
+                              className="flex-1"
+                            />
+                          </div>
+                        </FormControl>
+                        <FormDescription>Hex color code (e.g., #FF5733)</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Separator className="my-6" />
+
+                  <div className="pt-4">
+                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+                      setIsDeleteDialogOpen(open);
+                      if (!open) {
+                        setDeleteConfirmText('');
+                      }
+                    }}>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" type="button" className="flex items-center w-full">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Subject
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the subject
+                            "{subject.name}" and all associated data from the database.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="py-4">
+                          <FormItem>
+                            <FormLabel>
+                              Type <strong>{subject.name}</strong> to confirm deletion
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                placeholder={subject.name}
+                                value={deleteConfirmText}
+                                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                className="mt-2"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleDeleteSubject}
+                            disabled={isDeleting || deleteConfirmText !== subject.name}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isDeleting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              'Delete'
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </form>
               </Form>
             ) : (
@@ -409,6 +531,21 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                   
                   <div className="text-sm font-medium">Level:</div>
                   <div>{subject.level || '-'}</div>
+                  
+                  <div className="text-sm font-medium">Color:</div>
+                  <div className="flex items-center gap-2">
+                    {subject.color ? (
+                      <>
+                        <div
+                          className="w-6 h-6 rounded border border-gray-300"
+                          style={{ backgroundColor: subject.color }}
+                        />
+                        <span className="text-sm">{subject.color}</span>
+                      </>
+                    ) : (
+                      '-'
+                    )}
+                  </div>
                   
                 </div>
                 
@@ -439,73 +576,35 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
             )}
           </div>
         ) : null}
+          </div>
         
-        {/* Action buttons at the bottom */}
+          {/* Action buttons at the bottom - sticky footer */}
         {!loading && subject && (
-          <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
-            <div className="flex w-full justify-between">
+          <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+            <div className="flex w-full justify-end">
               {isEditing ? (
-                <>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" type="button" className="flex items-center">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the subject
-                          "{subject.name}" and all associated data from the database.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={handleDeleteSubject}
-                          disabled={isDeleting}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Deleting...
-                            </>
-                          ) : (
-                            'Delete'
-                          )}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-
-                  <div className="flex space-x-2">
-                    <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="button"
-                      disabled={loading}
-                      onClick={form.handleSubmit(onSubmit)}
-                    >
-                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save Changes
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Button 
-                    variant="outline" 
-                    className="flex items-center" 
-                    onClick={handleEditClick}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
+                <div className="flex space-x-2">
+                  <Button variant="outline" type="button" onClick={handleCancelEdit}>
+                    Cancel
                   </Button>
-                </>
+                  <Button 
+                    type="button"
+                    disabled={loading}
+                    onClick={form.handleSubmit(onSubmit)}
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="flex items-center" 
+                  onClick={handleEditClick}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
               )}
             </div>
           </SheetFooter>

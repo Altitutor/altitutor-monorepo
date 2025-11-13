@@ -5,8 +5,7 @@ import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { SUBJECT_DISCIPLINE_COLORS } from '@altitutor/ui';
-import { formatSubjectShortName } from '@/shared/utils';
+import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 
 interface StaffCardProps {
   staff: Tables<'staff'>;
@@ -15,11 +14,13 @@ interface StaffCardProps {
   
   // Optional actions
   onRemoveStaff?: () => void;
-  onViewStaff?: () => void;
+  onMessage?: () => void;
   
   // Visual states
   isSelecting?: boolean;
   isSelected?: boolean;
+  showSubjects?: boolean;
+  showActions?: boolean;
 }
 
 export function StaffCard({
@@ -27,11 +28,13 @@ export function StaffCard({
   subjects = [],
   onClick,
   onRemoveStaff,
-  onViewStaff,
+  onMessage,
   isSelecting = false,
-  isSelected = false
+  isSelected = false,
+  showSubjects = true,
+  showActions = true
 }: StaffCardProps) {
-  const hasMenuActions = onRemoveStaff || onViewStaff;
+  const hasMenuActions = showActions && (onRemoveStaff || onMessage);
   const initials = `${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}`.toUpperCase();
   const roleDisplay = staff.role === 'TUTOR' ? 'Tutor' : staff.role === 'ADMINSTAFF' ? 'Admin Staff' : staff.role || '';
 
@@ -80,12 +83,12 @@ export function StaffCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {onViewStaff && (
+                {onMessage && (
                   <DropdownMenuItem onClick={(e) => {
                     e.stopPropagation();
-                    onViewStaff();
+                    onMessage();
                   }}>
-                    View Staff
+                    Message
                   </DropdownMenuItem>
                 )}
                 {onRemoveStaff && (
@@ -102,18 +105,18 @@ export function StaffCard({
         </div>
         
         {/* Subjects */}
-        {subjects.length > 0 && (
+        {showSubjects && subjects.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {subjects.map((subject) => {
-              const colorClass = subject.discipline 
-                ? SUBJECT_DISCIPLINE_COLORS[subject.discipline as keyof typeof SUBJECT_DISCIPLINE_COLORS] 
-                : 'bg-gray-100 text-gray-800';
+              const { style, textColorClass } = getSubjectColorStyle(subject);
+              const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
               
               return (
                 <Badge
                   key={subject.id}
                   variant="secondary"
-                  className={`text-xs px-2 py-0.5 ${colorClass}`}
+                  className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
+                  style={style.backgroundColor ? style : undefined}
                 >
                   {formatSubjectShortName(subject)}
                 </Badge>

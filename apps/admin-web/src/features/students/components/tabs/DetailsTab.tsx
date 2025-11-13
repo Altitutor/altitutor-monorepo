@@ -4,13 +4,22 @@ import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
-import { StudentStatusBadge } from "@altitutor/ui";
-import { Pencil, X, Check, Loader2 } from 'lucide-react';
-import { getSubjectCurriculumColor, getStudentStatusColor, formatSubjectShortName } from '@/shared/utils';
+import { Pencil, Loader2, Trash2, X } from 'lucide-react';
+import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor, formatSubjectShortName } from '@/shared/utils';
 import { PhoneInput } from '@/shared/components/PhoneInput';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
@@ -45,6 +54,8 @@ interface DetailsTabProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: DetailsFormData) => void;
+  onDelete?: () => void;
+  isDeleting?: boolean;
   // Subjects props
   studentSubjects?: Tables<'subjects'>[];
   loadingSubjects?: boolean;
@@ -54,26 +65,35 @@ interface DetailsTabProps {
   // Parents props
   parents?: Tables<'parents'>[];
   onViewParent?: (parentId: string) => void;
+  onRemoveParent?: (parentId: string) => void;
+  addParentButton?: React.ReactNode;
 }
 
 export function DetailsTab({
   student,
   isEditing,
-  isLoading,
+  isLoading: _isLoading,
   onEdit,
-  onCancelEdit,
+  onCancelEdit: _onCancelEdit,
   onSubmit,
+  onDelete,
+  isDeleting = false,
   studentSubjects = [],
-  loadingSubjects = false,
+  loadingSubjects: _loadingSubjects = false,
   onRemoveSubject,
   onViewSubject,
   addSubjectButton,
   parents = [],
-  onViewParent
+  onViewParent,
+  onRemoveParent,
+  addParentButton,
 }: DetailsTabProps) {
   // Fetch students for each parent using React Query
   const parentIds = parents.map(p => p.id);
   const { data: parentStudents = {} } = useParentStudents(parentIds, !isEditing && parents.length > 0);
+
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
@@ -105,17 +125,12 @@ export function DetailsTab({
   };
 
   if (isEditing) {
+    const studentFullName = `${student.first_name} ${student.last_name}`;
+    
     return (
       <>
-        {/* Edit Mode with Sticky Footer */}
-        <div className="flex-1 overflow-y-auto px-1">
-          <form id="student-edit-form" onSubmit={handleSubmit} className="space-y-6 pb-6">
-          {/* Student Details Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Student Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <div className="flex-1 overflow-y-auto">
+          <form id="student-edit-form" onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName">First Name *</Label>
@@ -223,11 +238,13 @@ export function DetailsTab({
                     <div className="flex flex-wrap gap-2">
                       {studentSubjects.map((subject) => {
                         const shortName = formatSubjectShortName(subject);
-                        const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                        const { style, textColorClass } = getSubjectColorStyle(subject);
+                        const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                         return (
                           <Badge
                             key={subject.id}
-                            className={`${colorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
+                            className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
+                            style={style.backgroundColor ? style : undefined}
                             onClick={(e) => {
                               // Don't trigger view if clicking the X button
                               if ((e.target as HTMLElement).closest('.remove-subject-btn')) {
@@ -257,76 +274,161 @@ export function DetailsTab({
                   {addSubjectButton}
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Availability Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Availability</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h4 className="font-medium">Weekdays</h4>
-                  {[
-                    { key: 'availability_monday', label: 'Monday' },
-                    { key: 'availability_tuesday', label: 'Tuesday' },
-                    { key: 'availability_wednesday', label: 'Wednesday' },
-                    { key: 'availability_thursday', label: 'Thursday' },
-                    { key: 'availability_friday', label: 'Friday' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={key}
-                        checked={formData[key as keyof DetailsFormData] as boolean}
-                        onCheckedChange={(checked) => handleInputChange(key as keyof DetailsFormData, checked)}
-                      />
-                      <Label htmlFor={key}>{label}</Label>
-                    </div>
-                  ))}
-                </div>
+              <Separator className="my-6" />
 
-                <div className="space-y-3">
-                  <h4 className="font-medium">Weekends</h4>
-                  {[
-                    { key: 'availability_saturday_am', label: 'Saturday AM' },
-                    { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                    { key: 'availability_sunday_am', label: 'Sunday AM' },
-                    { key: 'availability_sunday_pm', label: 'Sunday PM' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={key}
-                        checked={formData[key as keyof DetailsFormData] as boolean}
-                        onCheckedChange={(checked) => handleInputChange(key as keyof DetailsFormData, checked)}
-                      />
-                      <Label htmlFor={key}>{label}</Label>
+              {/* Parents Section */}
+              <div>
+                <Label>Parents</Label>
+                <div className="space-y-2 mt-2">
+                  {parents.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {parents.map((parent) => (
+                        <div key={parent.id} className="flex items-center gap-1">
+                          <Badge
+                            variant="outline"
+                            className="cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1"
+                            onClick={() => onViewParent?.(parent.id)}
+                          >
+                            <span>{parent.first_name} {parent.last_name}</span>
+                            {onRemoveParent && (
+                              <button
+                                type="button"
+                                className="remove-parent-btn ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveParent(parent.id);
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No parents assigned to this student</p>
+                  )}
+                  {addParentButton}
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-        </form>
-        </div>
+              <Separator className="my-6" />
 
-        {/* Sticky Footer with Buttons */}
-        <div className="flex-shrink-0 border-t bg-background p-4 flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={onCancelEdit} disabled={isLoading}>
-            <X className="h-4 w-4 mr-2" />
-            Cancel
-          </Button>
-          <Button type="submit" form="student-edit-form" disabled={isLoading}>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Check className="h-4 w-4 mr-2" />
-            )}
-            {isLoading ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
+              {/* Availability Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Availability</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Weekdays</h4>
+                    {[
+                      { key: 'availability_monday', label: 'Monday' },
+                      { key: 'availability_tuesday', label: 'Tuesday' },
+                      { key: 'availability_wednesday', label: 'Wednesday' },
+                      { key: 'availability_thursday', label: 'Thursday' },
+                      { key: 'availability_friday', label: 'Friday' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={key}
+                          checked={formData[key as keyof DetailsFormData] as boolean}
+                          onCheckedChange={(checked) => handleInputChange(key as keyof DetailsFormData, checked)}
+                        />
+                        <Label htmlFor={key}>{label}</Label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Weekends</h4>
+                    {[
+                      { key: 'availability_saturday_am', label: 'Saturday AM' },
+                      { key: 'availability_saturday_pm', label: 'Saturday PM' },
+                      { key: 'availability_sunday_am', label: 'Sunday AM' },
+                      { key: 'availability_sunday_pm', label: 'Sunday PM' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={key}
+                          checked={formData[key as keyof DetailsFormData] as boolean}
+                          onCheckedChange={(checked) => handleInputChange(key as keyof DetailsFormData, checked)}
+                        />
+                        <Label htmlFor={key}>{label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {onDelete && (
+                <>
+                  <Separator className="my-6" />
+                  <div className="pt-4">
+                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+                      setIsDeleteDialogOpen(open);
+                      if (!open) {
+                        setDeleteConfirmText('');
+                      }
+                    }}>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" type="button" className="flex items-center w-full">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Student
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the student
+                            "{studentFullName}" and all associated data from the database.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="py-4">
+                          <div className="space-y-2">
+                            <Label>
+                              Type <strong>{studentFullName}</strong> to confirm deletion
+                            </Label>
+                            <Input
+                              type="text"
+                              placeholder={studentFullName}
+                              value={deleteConfirmText}
+                              onChange={(e) => setDeleteConfirmText(e.target.value)}
+                              className="mt-2"
+                            />
+                          </div>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => {
+                              if (onDelete) {
+                                onDelete();
+                                setIsDeleteDialogOpen(false);
+                                setDeleteConfirmText('');
+                              }
+                            }}
+                            disabled={isDeleting || deleteConfirmText !== studentFullName}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isDeleting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              'Delete'
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </>
+              )}
+            </form>
+          </div>
       </>
     );
   }
@@ -391,11 +493,13 @@ export function DetailsTab({
             <div className="flex flex-wrap gap-2">
               {studentSubjects.map((subject) => {
                 const shortName = formatSubjectShortName(subject);
-                const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                const { style, textColorClass } = getSubjectColorStyle(subject);
+                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                 return (
                   <Badge
                     key={subject.id}
-                    className={`${colorClass} cursor-pointer hover:opacity-80`}
+                    className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80`}
+                    style={style.backgroundColor ? style : undefined}
                     onClick={() => onViewSubject?.(subject.id)}
                   >
                     {shortName}

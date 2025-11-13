@@ -4,11 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
-import { Skeleton, useToast } from "@altitutor/ui";
+import { Skeleton, useToast, Button } from "@altitutor/ui";
 import { Loader2 } from "lucide-react";
-import type { Database, Tables } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { messagesKeys } from '../api/queryKeys';
+import type { Tables } from '@altitutor/shared';
 
 // Student tabs and components
 import { 
@@ -28,7 +27,6 @@ import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/stude
 import { 
   StaffDetailsTab,
   StaffDetailsFormData,
-  SubjectsTab as StaffSubjectsTab,
   ClassesTab as StaffClassesTab,
   AccountTab as StaffAccountTab
 } from '@/features/staff/components/modal/tabs';
@@ -171,8 +169,8 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     enabled: !!conversationId && activeTab === 'details' && !!staffId,
   });
   
-  // Attach subjects to contact data for rendering
-  const conversationWithSubjects = useMemo(() => {
+  // Attach subjects to contact data for rendering (unused but kept for potential future use)
+  const _conversationWithSubjects = useMemo(() => {
     if (!conversation) return null;
     const result = { ...conversation };
     if (result.contacts?.students && studentSubjectsData) {
@@ -359,9 +357,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                     student={student as any}
                     isLoading={false}
                     hasPasswordResetLinkSent={false}
-                    isDeleting={false}
                     onPasswordResetRequest={async () => {}}
-                    onDelete={async () => {}}
                   />
                 </TabsContent>
                 
@@ -375,6 +371,32 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
               </div>
             </Tabs>
           </div>
+          
+          {/* Sticky Footer with Buttons */}
+          {student && isEditingStudent && (
+            <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+              <div className="flex w-full justify-end">
+                <div className="flex space-x-2">
+                  <Button variant="outline" type="button" onClick={handleCancelEditStudent} disabled={isLoadingStudentUpdate}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="button"
+                    disabled={isLoadingStudentUpdate}
+                    onClick={() => {
+                      const form = document.getElementById('student-edit-form') as HTMLFormElement;
+                      if (form) {
+                        form.requestSubmit();
+                      }
+                    }}
+                  >
+                    {isLoadingStudentUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Subject Modal */}
@@ -568,13 +590,37 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                     isLoading={false}
                     hasPasswordResetLinkSent={false}
                     onPasswordResetRequest={async () => {}}
-                    onDelete={async () => {}}
-                    isDeleting={false}
                   />
                 </TabsContent>
               </div>
             </Tabs>
           </div>
+          
+          {/* Sticky Footer with Buttons */}
+          {staff && isEditingStaff && (
+            <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+              <div className="flex w-full justify-end">
+                <div className="flex space-x-2">
+                  <Button variant="outline" type="button" onClick={handleCancelEditStaff} disabled={isLoadingStaffUpdate}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="button"
+                    disabled={isLoadingStaffUpdate}
+                    onClick={() => {
+                      const form = document.getElementById('staff-edit-form') as HTMLFormElement;
+                      if (form) {
+                        form.requestSubmit();
+                      }
+                    }}
+                  >
+                    {isLoadingStaffUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Subject Modal */}

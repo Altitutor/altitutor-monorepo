@@ -21,9 +21,9 @@ interface ClassStudentsTabNewProps {
 }
 
 export function ClassStudentsTabNew({
-  classData,
-  classSubject,
-  classStaff = [],
+  classData: _classData,
+  classSubject: _classSubject,
+  classStaff: _classStaff = [],
   classStudents,
   loadingStudents,
   onAddStudent,

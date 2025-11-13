@@ -3,6 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from '@altitutor/ui';
+import { Loader2 } from 'lucide-react';
 import { staffApi } from "../../api";
 import { useStaffDetails } from '../../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
@@ -37,7 +38,7 @@ export function ViewStaffModal({
   const queryClient = useQueryClient();
   
   // React Query hooks - fetch data only when modal is open and staffId exists
-  const { data: staffData, isLoading, error } = useStaffDetails(staffId || '', isOpen && !!staffId);
+  const { data: staffData, isLoading } = useStaffDetails(staffId || '', isOpen && !!staffId);
   const { data: allSubjects = [] } = useSubjects();
   
   // Extract data from hook
@@ -51,6 +52,7 @@ export function ViewStaffModal({
   const [activeTab, setActiveTab] = useState('details');
   const [baseUrl, setBaseUrl] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loadingStaffUpdate, setLoadingStaffUpdate] = useState(false);
   
   // Subject modal state
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -75,6 +77,7 @@ export function ViewStaffModal({
       setTempStaffSubjects([]);
       setSubjectsToAdd([]);
       setSubjectsToRemove([]);
+      setLoadingStaffUpdate(false);
     }
   }, [isOpen]);
       
@@ -82,19 +85,24 @@ export function ViewStaffModal({
   useEffect(() => {
     if (staffMember && staffId) {
       getExistingConversationForRelated(staffId, 'staff').then(convId => {
-      console.log('[ViewStaffModal] Existing conversation ID for staff', staffId, ':', convId);
-      setConversationId(convId);
+        setConversationId(convId);
       });
     }
   }, [staffMember, staffId]);
 
   // Update staff handler
   const handleStaffUpdate = async (data: StaffDetailsFormData) => {
-    if (!staffMember) return;
+    console.log('[ViewStaffModal] handleStaffUpdate called with data:', data);
+    if (!staffMember) {
+      console.error('[ViewStaffModal] handleStaffUpdate: staffMember is null');
+      return;
+    }
     
     try {
+      console.log('[ViewStaffModal] Starting staff update...');
+      setLoadingStaffUpdate(true);
       // Map form data to staff update
-      await staffApi.updateStaff(staffMember.id, {
+      const updateData = {
         first_name: data.firstName,
         last_name: data.lastName,
         // Email can be null or empty string
@@ -113,7 +121,13 @@ export function ViewStaffModal({
         availability_saturday_pm: data.availability_saturday_pm,
         availability_sunday_am: data.availability_sunday_am,
         availability_sunday_pm: data.availability_sunday_pm
+      };
+      console.log('[ViewStaffModal] Calling staffApi.updateStaff with:', {
+        id: staffMember.id,
+        data: updateData
       });
+      await staffApi.updateStaff(staffMember.id, updateData);
+      console.log('[ViewStaffModal] Staff update API call completed');
       
       // Apply subject changes
       for (const subjectId of subjectsToAdd) {
@@ -134,20 +148,24 @@ export function ViewStaffModal({
       // Reset edit mode
       setIsEditing(false);
       
-      // Notify parent of update
-      onStaffUpdated();
-      
+      console.log('[ViewStaffModal] Staff update successful, showing toast');
       toast({
         title: 'Staff updated',
         description: 'Staff member has been updated successfully.',
       });
+      
+      // Notify parent of update
+      console.log('[ViewStaffModal] Calling onStaffUpdated');
+      onStaffUpdated();
     } catch (err) {
-      console.error('Failed to update staff:', err);
+      console.error('[ViewStaffModal] Failed to update staff:', err);
       toast({
         title: 'Update failed',
         description: 'There was an error updating the staff member. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setLoadingStaffUpdate(false);
     }
   };
 
@@ -271,48 +289,55 @@ export function ViewStaffModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none h-full flex flex-col p-0">
+        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none h-full max-h-[100vh] flex flex-col p-0">
           {!staffMember ? (
-            <div className="flex justify-center items-center h-full">
+            <div className="flex justify-center items-center h-full p-6">
               <div className="text-muted-foreground">
                 {isLoading ? 'Loading...' : ''}
               </div>
             </div>
           ) : (
-            <>
-              <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
-                <SheetTitle>
-                  Staff Member Details
-                </SheetTitle>
-                <SheetDescription className="text-lg font-medium">
-                  {staffMember.first_name} {staffMember.last_name}
-                </SheetDescription>
-              </SheetHeader>
-          
-              <div className="flex-1 overflow-hidden flex flex-col px-6 pb-6">
-                <Tabs 
-                  defaultValue="details" 
-                  value={activeTab} 
-                  onValueChange={setActiveTab}
-                  className="flex flex-col h-full"
-                >
-                  <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
+            <Tabs 
+              defaultValue="details" 
+              value={activeTab} 
+              onValueChange={setActiveTab}
+              className="flex flex-col h-full min-h-0"
+            >
+              {/* Sticky Header */}
+              <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+                <SheetHeader className="px-6 pt-6 pb-4">
+                  <SheetTitle>
+                    {isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
+                  </SheetTitle>
+                  <SheetDescription className="text-lg font-medium">
+                    {staffMember.first_name} {staffMember.last_name}
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="px-6 pb-4">
+                  <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="students">Students</TabsTrigger>
                     <TabsTrigger value="account">Account</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                   </TabsList>
-                
-                  <div className="flex-1 overflow-hidden mt-4">
+                </div>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <div className="p-6">
+                  <div className="flex-1 overflow-hidden">
                   <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                     <StaffDetailsTab
                       staffMember={staffMember}
                       isEditing={isEditing}
-                      isLoading={isLoading}
+                      isLoading={loadingStaffUpdate}
                       onEdit={handleStartEdit}
                       onCancelEdit={handleCancelEdit}
                       onSubmit={handleStaffUpdate}
+                      onDelete={isEditing ? handleDelete : undefined}
+                      isDeleting={isDeleting}
                       staffSubjects={isEditing ? tempStaffSubjects : staffSubjects}
                       loadingSubjects={isLoading}
                       onRemoveSubject={handleRemoveSubject}
@@ -347,24 +372,64 @@ export function ViewStaffModal({
                         isLoading={isLoading}
                         hasPasswordResetLinkSent={hasPasswordResetLinkSent}
                         onPasswordResetRequest={handlePasswordResetRequest}
-                        onDelete={handleDelete}
-                        isDeleting={isDeleting}
                       />
                     </TabsContent>
 
-                    <TabsContent value="messages" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                      <MessagesTabContent 
-                        conversationId={conversationId}
-                        title={`${staffMember.first_name} ${staffMember.last_name}`}
-                        onClose={onClose}
-                        relatedId={staffId || undefined}
-                        relatedType="staff"
-                      />
+                    <TabsContent value="messages" className="h-full overflow-hidden m-0 p-0 data-[state=active]:flex data-[state=active]:flex-col">
+                      <div className="h-full p-6">
+                        <MessagesTabContent 
+                          conversationId={conversationId}
+                          title={`${staffMember.first_name} ${staffMember.last_name}`}
+                          onClose={onClose}
+                          relatedId={staffId || undefined}
+                          relatedType="staff"
+                        />
+                      </div>
                     </TabsContent>
                   </div>
-                </Tabs>
+                </div>
               </div>
-            </>
+            </Tabs>
+          )}
+          
+          {/* Sticky Footer with Buttons */}
+          {staffMember && isEditing && activeTab === 'details' && (
+            <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+              <div className="flex w-full justify-end">
+                <div className="flex space-x-2">
+                  <UIButton variant="outline" type="button" onClick={handleCancelEdit} disabled={loadingStaffUpdate}>
+                    Cancel
+                  </UIButton>
+                  <UIButton 
+                    type="button"
+                    disabled={loadingStaffUpdate}
+                    onClick={() => {
+                      console.log('[ViewStaffModal] Save Changes button clicked, isLoading:', loadingStaffUpdate);
+                      const form = document.getElementById('staff-edit-form') as HTMLFormElement;
+                      console.log('[ViewStaffModal] Form element found:', form);
+                      if (form) {
+                        const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+                        console.log('[ViewStaffModal] Submit button found:', submitButton);
+                        if (submitButton) {
+                          console.log('[ViewStaffModal] Clicking submit button');
+                          submitButton.click();
+                          console.log('[ViewStaffModal] Submit button clicked');
+                        } else {
+                          console.log('[ViewStaffModal] No submit button found, calling form.requestSubmit()');
+                          form.requestSubmit();
+                          console.log('[ViewStaffModal] form.requestSubmit() called');
+                        }
+                      } else {
+                        console.error('[ViewStaffModal] Form element not found!');
+                      }
+                    }}
+                  >
+                    {loadingStaffUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </UIButton>
+                </div>
+              </div>
+            </div>
           )}
         </SheetContent>
       </Sheet>

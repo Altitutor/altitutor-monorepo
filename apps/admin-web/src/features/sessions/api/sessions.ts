@@ -22,8 +22,8 @@ export const sessionsApi = {
    */
   getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
-    sessionStudents: Record<string, Tables<'students'>[]>;
-    sessionStaff: Record<string, Tables<'staff'>[]>;
+    sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean }>>;
+    sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>;
     classesById: Record<string, Tables<'classes'>>;
     subjectsById: Record<string, Tables<'subjects'>>;
   }> => {
@@ -91,25 +91,31 @@ export const sessionsApi = {
         subjectsById[row.id] = row;
       }
 
-      // Build session students map (only those not marked as planned absence)
-      const sessionStudentsMap: Record<string, Tables<'students'>[]> = {};
+      // Build session students map (including all students with planned_absence status)
+      const sessionStudentsMap: Record<string, Array<Tables<'students'> & { planned_absence?: boolean }>> = {};
       sessionStudentsData?.forEach((row: any) => {
-        if (row.session_id && row.student && !row.planned_absence) {
+        if (row.session_id && row.student) {
           if (!sessionStudentsMap[row.session_id]) {
             sessionStudentsMap[row.session_id] = [];
           }
-          sessionStudentsMap[row.session_id].push(row.student as Tables<'students'>);
+          sessionStudentsMap[row.session_id].push({
+            ...(row.student as Tables<'students'>),
+            planned_absence: row.planned_absence || false
+          });
         }
       });
       
-      // Build session staff map (only those not marked as planned absence)
-      const sessionStaffMap: Record<string, Tables<'staff'>[]> = {};
+      // Build session staff map (including all staff with planned_absence status)
+      const sessionStaffMap: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>> = {};
       sessionStaffData?.forEach((row: any) => {
-        if (row.session_id && row.staff && !row.planned_absence) {
+        if (row.session_id && row.staff) {
           if (!sessionStaffMap[row.session_id]) {
             sessionStaffMap[row.session_id] = [];
           }
-          sessionStaffMap[row.session_id].push(row.staff as Tables<'staff'>);
+          sessionStaffMap[row.session_id].push({
+            ...(row.staff as Tables<'staff'>),
+            planned_absence: row.planned_absence || false
+          });
         }
       });
       

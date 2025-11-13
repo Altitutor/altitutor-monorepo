@@ -60,7 +60,7 @@ export function useConversations() {
   });
 }
 
-type Page = { items: any[]; nextCursor?: string };
+// Removed unused Page type
 
 export function useMessages(conversationId: string) {
   return useInfiniteQuery({

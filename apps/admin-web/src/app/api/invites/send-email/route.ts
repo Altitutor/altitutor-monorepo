@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import type { Database } from '@altitutor/shared';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 
 export async function POST(request: NextRequest) {
@@ -116,7 +115,7 @@ export async function POST(request: NextRequest) {
     // Send email using Supabase's email service
     // Note: For now, we'll use a simple approach. In production, you might want to use
     // a custom email template or a service like SendGrid/Resend
-    const emailBody = `
+    const _emailBody = `
       <h2>Hello ${record.first_name} ${record.last_name},</h2>
       <p>You've been invited to create your Altitutor account.</p>
       <p>Click the link below to set up your account:</p>

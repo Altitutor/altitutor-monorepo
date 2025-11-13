@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { Loader2 } from "lucide-react";
 import { studentsApi } from '../api';
 import { useStudentDetails, useUpdateStudent, studentsKeys } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables, Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Tables } from '@altitutor/shared';
 import { 
   DetailsTab,
   ClassesTab,
@@ -20,20 +21,10 @@ import { StudentSessionsTab } from './StudentSessionsTab';
 import { StudentBillingTab } from './StudentBillingTab';
 import { ViewSubjectModal, SubjectSearchPopover } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@altitutor/ui";
 import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
 import { ViewParentModal } from './ViewParentModal';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
+import { ParentSearchPopover } from './ParentSearchPopover';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -60,20 +51,20 @@ export function ViewStudentModal({
   const student = studentDetails?.student || null;
   const studentSubjects = studentDetails?.subjects || [];
   const parents = studentDetails?.parents || [];
-  const upcomingSessions = studentDetails?.upcomingSessions || [];
-  const billingStatus = studentDetails?.billingStatus;
+  const _upcomingSessions = studentDetails?.upcomingSessions || [];
+  const _billingStatus = studentDetails?.billingStatus;
   
   const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Edit states for each tab
   const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
   
   // Loading states for each tab
   const [loadingDetailsUpdate, setLoadingDetailsUpdate] = useState(false);
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
 
-  // Delete confirmation state
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  // Delete state
   const [loadingDelete, setLoadingDelete] = useState(false);
 
   // Password reset state
@@ -92,6 +83,19 @@ export function ViewStudentModal({
   const [tempStudentSubjects, setTempStudentSubjects] = useState<Tables<'subjects'>[]>([]);
   const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
   const [subjectsToRemove, setSubjectsToRemove] = useState<string[]>([]);
+
+  // Temporary parents state for editing (not saved until form submit)
+  const [tempStudentParents, setTempStudentParents] = useState<Tables<'parents'>[]>([]);
+  const [parentsToAdd, setParentsToAdd] = useState<string[]>([]);
+  const [parentsToRemove, setParentsToRemove] = useState<string[]>([]);
+
+  // Get all parents for the search popover
+  const [allParents, setAllParents] = useState<Tables<'parents'>[]>([]);
+  useEffect(() => {
+    if (isOpen && isEditingDetails) {
+      studentsApi.getAllParents().then(setAllParents).catch(console.error);
+    }
+  }, [isOpen, isEditingDetails]);
 
   // Get existing conversation ID for messages tab when modal opens
   useEffect(() => {
@@ -112,6 +116,7 @@ export function ViewStudentModal({
   useEffect(() => {
     if (!isOpen) {
       setIsEditingDetails(false);
+      setActiveTab('details');
     }
   }, [isOpen]);
 
@@ -120,6 +125,9 @@ export function ViewStudentModal({
     setTempStudentSubjects([...studentSubjects]);
     setSubjectsToAdd([]);
     setSubjectsToRemove([]);
+    setTempStudentParents([...parents]);
+    setParentsToAdd([]);
+    setParentsToRemove([]);
     setIsEditingDetails(true);
   };
 
@@ -148,11 +156,21 @@ export function ViewStudentModal({
         await studentsApi.removeSubjectFromStudent(student.id, subjectId);
       }
       
-      // Clear temporary subject changes
+      // Apply parent changes
+      for (const parentId of parentsToAdd) {
+        await studentsApi.assignParentToStudent(student.id, parentId);
+      }
+      for (const parentId of parentsToRemove) {
+        await studentsApi.removeParentFromStudent(student.id, parentId);
+      }
+      
+      // Clear temporary changes
       setSubjectsToAdd([]);
       setSubjectsToRemove([]);
+      setParentsToAdd([]);
+      setParentsToRemove([]);
       
-      // Invalidate student details query to refetch with updated subjects
+      // Invalidate student details query to refetch with updated subjects and parents
       queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(student.id) });
       
       setIsEditingDetails(false);
@@ -236,6 +254,34 @@ export function ViewStudentModal({
     }
   };
   
+  // Handle parent assignment (in edit mode - temporary)
+  const handleAssignParent = (parent: Tables<'parents'>) => {
+    if (!parent) return;
+    
+    // Add to temporary parents list
+    setTempStudentParents(prev => [...prev, parent]);
+    
+    // Track as added (unless it was previously marked for removal)
+    if (parentsToRemove.includes(parent.id)) {
+      setParentsToRemove(prev => prev.filter(id => id !== parent.id));
+    } else {
+      setParentsToAdd(prev => [...prev, parent.id]);
+    }
+  };
+
+  // Handle parent removal (in edit mode - temporary)
+  const handleRemoveParent = (parentId: string) => {
+    // Remove from temporary parents list
+    setTempStudentParents(prev => prev.filter(p => p.id !== parentId));
+    
+    // Track as removed (unless it was previously marked for addition)
+    if (parentsToAdd.includes(parentId)) {
+      setParentsToAdd(prev => prev.filter(id => id !== parentId));
+    } else {
+      setParentsToRemove(prev => [...prev, parentId]);
+    }
+  };
+
   // Handle viewing subject details
   const handleViewSubject = (subjectId: string) => {
     setSelectedSubjectId(subjectId);
@@ -249,7 +295,6 @@ export function ViewStudentModal({
     try {
       setLoadingDelete(true);
       await studentsApi.deleteStudent(student.id);
-      setShowDeleteDialog(false);
       onClose();
       onStudentUpdated();
       
@@ -273,63 +318,80 @@ export function ViewStudentModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none h-full flex flex-col p-0">
+        <SheetContent className="w-[600px] sm:w-[800px] sm:max-w-none h-full max-h-[100vh] flex flex-col p-0">
           {!student ? (
-            <div className="flex justify-center items-center h-full">
+            <div className="flex justify-center items-center h-full p-6">
               <div className="text-muted-foreground">
                 {loadingStudent ? 'Loading...' : ''}
               </div>
             </div>
           ) : (
-            <>
-              <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
-                <SheetTitle>
-                  Student Details
-                </SheetTitle>
-                <SheetDescription className="text-lg font-medium">
-                  {student.first_name} {student.last_name}
-                </SheetDescription>
-              </SheetHeader>
-          
-          <div className="flex-1 overflow-hidden flex flex-col px-6 pb-6">
-            <Tabs defaultValue="details" className="flex flex-col h-full min-h-0">
-            <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="classes">Classes</TabsTrigger>
-                <TabsTrigger value="account">Account</TabsTrigger>
-                <TabsTrigger value="messages">Messages</TabsTrigger>
-              <TabsTrigger value="sessions">Sessions</TabsTrigger>
-              <TabsTrigger value="billing">Billing</TabsTrigger>
-              </TabsList>
-            
-            <div className="flex-1 min-h-0 overflow-hidden mt-4">
-              <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <DetailsTab
-                  student={student}
-                  isEditing={isEditingDetails}
-                  isLoading={loadingDetailsUpdate}
-                  onEdit={handleStartEditDetails}
-                  onCancelEdit={handleCancelEditDetails}
-                  onSubmit={handleDetailsSubmit}
-                  studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                  loadingSubjects={false}
-                  onRemoveSubject={handleRemoveSubject}
-                  onViewSubject={handleViewSubject}
-                  addSubjectButton={
-                    <SubjectSearchPopover
-                      allSubjects={allSubjects}
-                      selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                      onSelectSubject={handleAssignSubject}
-                    />
-                  }
-                  parents={!isEditingDetails ? parents : []}
-                  onViewParent={(parentId) => {
-                    setSelectedParentId(parentId);
-                    setParentModalDefaultTab('messages');
-                    setParentModalOpen(true);
-                  }}
-                />
-              </TabsContent>
+            <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+              {/* Sticky Header */}
+              <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+                <SheetHeader className="px-6 pt-6 pb-4">
+                  <SheetTitle>
+                    {isEditingDetails ? 'Edit Student' : 'Student Details'}
+                  </SheetTitle>
+                  <SheetDescription className="text-lg font-medium">
+                    {student.first_name} {student.last_name}
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="px-6 pb-4">
+                  <TabsList className="grid w-full grid-cols-6">
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="classes">Classes</TabsTrigger>
+                    <TabsTrigger value="account">Account</TabsTrigger>
+                    <TabsTrigger value="messages">Messages</TabsTrigger>
+                    <TabsTrigger value="sessions">Sessions</TabsTrigger>
+                    <TabsTrigger value="billing">Billing</TabsTrigger>
+                  </TabsList>
+                </div>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <div className="p-6">
+                  <div className="flex-1 min-h-0">
+                      <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                        <DetailsTab
+                          student={student}
+                          isEditing={isEditingDetails}
+                          isLoading={loadingDetailsUpdate}
+                          onEdit={handleStartEditDetails}
+                          onCancelEdit={handleCancelEditDetails}
+                          onSubmit={handleDetailsSubmit}
+                          onDelete={isEditingDetails ? handleDeleteStudent : undefined}
+                          isDeleting={loadingDelete}
+                          studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
+                          loadingSubjects={false}
+                          onRemoveSubject={handleRemoveSubject}
+                          onViewSubject={handleViewSubject}
+                          addSubjectButton={
+                            <SubjectSearchPopover
+                              allSubjects={allSubjects}
+                              selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
+                              onSelectSubject={handleAssignSubject}
+                            />
+                          }
+                          parents={isEditingDetails ? tempStudentParents : parents}
+                          onViewParent={(parentId) => {
+                            setSelectedParentId(parentId);
+                            setParentModalDefaultTab('messages');
+                            setParentModalOpen(true);
+                          }}
+                          onRemoveParent={isEditingDetails ? handleRemoveParent : undefined}
+                          addParentButton={
+                            isEditingDetails ? (
+                              <ParentSearchPopover
+                                allParents={allParents}
+                                selectedParents={tempStudentParents}
+                                onSelectParent={handleAssignParent}
+                              />
+                            ) : undefined
+                          }
+                        />
+                      </TabsContent>
               
               <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <ClassesTab
@@ -343,20 +405,20 @@ export function ViewStudentModal({
                   student={student}
                   isLoading={loadingAccountUpdate}
                   hasPasswordResetLinkSent={hasPasswordResetLinkSent}
-                  isDeleting={loadingDelete}
                   onPasswordResetRequest={handlePasswordResetRequest}
-                  onDelete={handleDeleteStudent}
                 />
               </TabsContent>
 
-              <TabsContent value="messages" className="h-full min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <MessagesTabContent 
-                  conversationId={conversationId}
-                  title={`${student.first_name} ${student.last_name}`}
-                  onClose={onClose}
-                  relatedId={studentId || undefined}
-                  relatedType="student"
-                />
+              <TabsContent value="messages" className="h-full min-h-0 overflow-hidden m-0 p-0 data-[state=active]:flex data-[state=active]:flex-col">
+                <div className="h-full p-6">
+                  <MessagesTabContent 
+                    conversationId={conversationId}
+                    title={`${student.first_name} ${student.last_name}`}
+                    onClose={onClose}
+                    relatedId={studentId || undefined}
+                    relatedType="student"
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="sessions" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
@@ -365,11 +427,37 @@ export function ViewStudentModal({
 
               <TabsContent value="billing" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <StudentBillingTab student={student} />
-              </TabsContent>
+                      </TabsContent>
+                  </div>
+                </div>
+              </div>
+            </Tabs>
+          )}
+          
+          {/* Sticky Footer with Buttons */}
+          {student && isEditingDetails && activeTab === 'details' && (
+            <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+              <div className="flex w-full justify-end">
+                <div className="flex space-x-2">
+                  <Button variant="outline" type="button" onClick={handleCancelEditDetails} disabled={loadingDetailsUpdate}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="button"
+                    disabled={loadingDetailsUpdate}
+                    onClick={() => {
+                      const form = document.getElementById('student-edit-form') as HTMLFormElement;
+                      if (form) {
+                        form.requestSubmit();
+                      }
+                    }}
+                  >
+                    {loadingDetailsUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
             </div>
-          </Tabs>
-          </div>
-            </>
           )}
         </SheetContent>
       </Sheet>
@@ -400,28 +488,6 @@ export function ViewStudentModal({
         />
       )}
       
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Student</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {student?.first_name} {student?.last_name}? 
-              This action cannot be undone and will remove all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={loadingDelete}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteStudent}
-              disabled={loadingDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {loadingDelete ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 } 

@@ -1,13 +1,45 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient<Database>({ req, res });
+  let supabaseResponse = NextResponse.next({
+    request: req,
+  });
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            req.cookies.set(name, value);
+          });
+          supabaseResponse = NextResponse.next({
+            request: req,
+          });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, options);
+          });
+        },
+      },
+      cookieOptions: {
+        name: 'tutor-auth',
+      },
+    }
+  );
+
+  // IMPORTANT: Call getSession() to refresh session if needed
+  // Note: Using getSession() in middleware is acceptable per Supabase docs
+  // Middleware must be fast and can't call getUser() on every request
+  // Client-side validation happens in AuthProvider
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -15,7 +47,7 @@ export async function middleware(req: NextRequest) {
   // For API routes, we just refresh the session but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
-    return res;
+    return supabaseResponse;
   }
 
   // Public paths that don't require authentication
@@ -24,16 +56,21 @@ export async function middleware(req: NextRequest) {
   // If no session and trying to access protected route, redirect to login
   const isProtected = pathname !== '/' && !isPublicPath;
   if (!session && isProtected) {
-    return NextResponse.redirect(new URL('/login', origin));
+    const redirectResponse = NextResponse.redirect(new URL('/login', origin));
+    // Copy cookies from supabaseResponse to redirectResponse
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   // Allow public paths without session checks
   if (isPublicPath) {
-    return res;
+    return supabaseResponse;
   }
 
   // If no session on public paths or root, allow access
-  if (!session) return res;
+  if (!session) return supabaseResponse;
 
   // Check if user is in staff table (both ADMINSTAFF and TUTOR allowed)
   const { data: staff, error: staffError } = (await supabase
@@ -57,16 +94,27 @@ export async function middleware(req: NextRequest) {
   // Block students - if not in staff table, redirect to login
   if (!staff) {
     console.log('[TUTOR-WEB MIDDLEWARE] No staff record found, redirecting to login');
-    return NextResponse.redirect(new URL('/login?error=access_denied', origin));
+    const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
+    // Copy cookies from supabaseResponse to redirectResponse
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   const role = staff.role;
 
   if (pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', origin));
+    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
+    // Copy cookies from supabaseResponse to redirectResponse
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
-  return res;
+  // IMPORTANT: Return the supabaseResponse object to preserve cookie updates
+  return supabaseResponse;
 }
 
 export const config = {

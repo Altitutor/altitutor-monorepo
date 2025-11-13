@@ -1,17 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Tables, Enums } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
-import { Loader2, Pencil, X, Check } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@altitutor/ui";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getClassStatusColor, getSubjectCurriculumColor } from "@/shared/utils";
+import { getSubjectColorStyle } from "@/shared/utils";
 import { ClassStatusBadge } from "@altitutor/ui";
 import { formatSubjectDisplay } from "@/shared/utils";
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
@@ -38,6 +48,8 @@ interface ClassInfoTabProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: FormData) => Promise<void>;
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }
 
 export function ClassInfoTab({
@@ -47,9 +59,13 @@ export function ClassInfoTab({
   isEditing,
   isLoading,
   onEdit,
-  onCancelEdit,
-  onSubmit
+  onCancelEdit: _onCancelEdit,
+  onSubmit,
+  onDelete,
+  isDeleting = false
 }: ClassInfoTabProps) {
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(classInfoSchema),
     defaultValues: {
@@ -76,7 +92,7 @@ export function ClassInfoTab({
         startTime: classData.start_time || '',
         endTime: classData.end_time || '',
         status: (classData.status as any) || 'ACTIVE',
-        subjectId: classData.subject_id || '',
+        subjectId: classData.subject_id ?? undefined,
         room: classData.room || '',
       }, {
         keepDefaultValues: false
@@ -94,19 +110,12 @@ export function ClassInfoTab({
 
   return isEditing ? (
     <div className="flex flex-col h-full min-h-0">
-      {/* Edit Mode with Sticky Footer */}
-      <div className="flex-1 overflow-y-auto px-1 pt-4">
+      <div className="flex-1 overflow-y-auto">
         <form 
           id="class-edit-form" 
           onSubmit={form.handleSubmit(onSubmit)} 
-          className="space-y-6 pb-6"
+          className="space-y-6"
         >
-          {/* Class Details Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Class Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="level">Level *</Label>
@@ -257,6 +266,7 @@ export function ClassInfoTab({
               <div>
                 <Label htmlFor="subjectId">Subject</Label>
                 <Controller
+                  key={`subjectId-${editKey}`}
                   control={form.control}
                   name="subjectId"
                   render={({ field }) => (
@@ -284,27 +294,74 @@ export function ClassInfoTab({
                 )}
               </div>
 
-              
-            </CardContent>
-          </Card>
-        </form>
-      </div>
-
-      {/* Sticky Footer with Buttons */}
-      <div className="flex-shrink-0 border-t bg-background p-4 flex justify-end space-x-2 mt-auto">
-        <Button type="button" variant="outline" onClick={onCancelEdit} disabled={isLoading}>
-          <X className="h-4 w-4 mr-2" />
-          Cancel
-        </Button>
-        <Button type="submit" form="class-edit-form" disabled={isLoading}>
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Check className="h-4 w-4 mr-2" />
-          )}
-          {isLoading ? 'Saving...' : 'Save Changes'}
-        </Button>
-      </div>
+              {onDelete && (
+                <>
+                  <Separator className="my-6" />
+                  <div className="pt-4">
+                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+                      setIsDeleteDialogOpen(open);
+                      if (!open) {
+                        setDeleteConfirmText('');
+                      }
+                    }}>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" type="button" className="flex items-center w-full">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Class
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the class
+                            "{classData.level}" and all associated data from the database.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="py-4">
+                          <div className="space-y-2">
+                            <Label>
+                              Type <strong>{classData.level}</strong> to confirm deletion
+                            </Label>
+                            <Input
+                              type="text"
+                              placeholder={classData.level || undefined}
+                              value={deleteConfirmText}
+                              onChange={(e) => setDeleteConfirmText(e.target.value)}
+                              className="mt-2"
+                            />
+                          </div>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => {
+                              if (onDelete) {
+                                onDelete();
+                                setIsDeleteDialogOpen(false);
+                                setDeleteConfirmText('');
+                              }
+                            }}
+                            disabled={isDeleting || deleteConfirmText !== classData.level}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isDeleting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              'Delete'
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </>
+              )}
+            </form>
+          </div>
     </div>
   ) : (
     // View mode
@@ -336,11 +393,18 @@ export function ClassInfoTab({
         
         <div className="text-sm font-medium">Subject:</div>
         <div>
-          {subject ? (
-            <Badge className={getSubjectCurriculumColor(subject.curriculum as Enums<'subject_curriculum'>)}>
-              {formatSubjectDisplay(subject)}
-            </Badge>
-          ) : (
+          {subject ? (() => {
+            const { style, textColorClass } = getSubjectColorStyle(subject);
+            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+            return (
+              <Badge 
+                className={defaultClass || textColorClass}
+                style={style.backgroundColor ? style : undefined}
+              >
+                {formatSubjectDisplay(subject)}
+              </Badge>
+            );
+          })() : (
             '-'
           )}
         </div>

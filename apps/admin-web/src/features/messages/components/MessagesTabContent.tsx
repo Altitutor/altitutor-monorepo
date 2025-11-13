@@ -25,7 +25,7 @@ export function MessagesTabContent({
 }: MessagesTabContentProps) {
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
 
-  const handleFirstMessage = async (messageBody: string) => {
+  const handleFirstMessage = async (_messageBody: string) => {
     // Create conversation on first send
     if (!conversationId && relatedId && relatedType) {
       const newConvId = await ensureConversationForRelated(relatedId, relatedType);
@@ -38,8 +38,9 @@ export function MessagesTabContent({
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 border rounded-md">
-      <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0">
+    <div className="flex flex-col h-full min-h-0 border rounded-md overflow-hidden">
+      {/* Fixed Header */}
+      <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0 bg-background">
         <div className="font-medium text-sm">Messages</div>
         <UIButton
           size="sm"
@@ -54,21 +55,25 @@ export function MessagesTabContent({
           Pop out
         </UIButton>
       </div>
+      
+      {/* Scrollable Message Thread */}
       {conversationId ? (
         <>
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <MessageThread conversationId={conversationId} />
           </div>
-          <div className="flex-shrink-0">
+          {/* Fixed Footer with Composer */}
+          <div className="flex-shrink-0 border-t bg-background">
             <Composer conversationId={conversationId} />
           </div>
         </>
       ) : relatedId && relatedType ? (
         <>
-          <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center text-muted-foreground text-sm">
+          <div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center text-muted-foreground text-sm">
             No messages yet. Send a message to start a conversation.
           </div>
-          <div className="flex-shrink-0">
+          {/* Fixed Footer with Composer */}
+          <div className="flex-shrink-0 border-t bg-background">
             <Composer conversationId={null} onBeforeSend={handleFirstMessage} />
           </div>
         </>

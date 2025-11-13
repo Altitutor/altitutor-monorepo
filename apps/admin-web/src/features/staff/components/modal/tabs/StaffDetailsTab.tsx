@@ -1,19 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Badge } from "@altitutor/ui";
-import { StaffRoleBadge, StaffStatusBadge, BooleanBadge } from "@altitutor/ui";
+import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
-import { Loader2, Pencil, X, Check } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@altitutor/ui";
+import { Loader2, Pencil, Trash2, X } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { formatSubjectShortName, getSubjectCurriculumColor } from '@/shared/utils';
+import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { useToast } from "@altitutor/ui";
 
 // Form schema for staff details
 const formSchema = z.object({
@@ -56,6 +67,8 @@ interface StaffDetailsTabProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: FormData) => Promise<void>;
+  onDelete?: () => void;
+  isDeleting?: boolean;
   // Subjects props
   staffSubjects?: Tables<'subjects'>[];
   loadingSubjects?: boolean;
@@ -69,14 +82,19 @@ export function StaffDetailsTab({
   isEditing,
   isLoading,
   onEdit,
-  onCancelEdit,
+  onCancelEdit: _onCancelEdit,
   onSubmit,
+  onDelete,
+  isDeleting = false,
   staffSubjects = [],
-  loadingSubjects = false,
+  loadingSubjects: _loadingSubjects = false,
   onRemoveSubject,
   onViewSubject,
   addSubjectButton
 }: StaffDetailsTabProps) {
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const { toast } = useToast();
   const form = useForm<FormData>({
     // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
     resolver: zodResolver(formSchema),
@@ -85,8 +103,8 @@ export function StaffDetailsTab({
       lastName: '',
       email: '',
       phoneNumber: '',
-      role: undefined,
-      status: undefined,
+      role: staffMember?.role === 'TUTOR' || staffMember?.role === 'ADMINSTAFF' ? staffMember.role : undefined,
+      status: staffMember?.status === 'ACTIVE' || staffMember?.status === 'INACTIVE' || staffMember?.status === 'TRIAL' ? staffMember.status : undefined,
       officeKeyNumber: null,
       hasParkingRemote: 'NONE' as const,
       availability_monday: false,
@@ -106,48 +124,96 @@ export function StaffDetailsTab({
   // Reset form values when entering edit mode - only once per edit session
   useEffect(() => {
     if (isEditing && !hasResetRef.current) {
-      form.reset({
+      // Ensure role and status are properly set - they must be valid enum values
+      const role: 'TUTOR' | 'ADMINSTAFF' = (staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') 
+        ? staffMember.role 
+        : 'TUTOR'; // Default to TUTOR if invalid
+      const status: 'ACTIVE' | 'INACTIVE' | 'TRIAL' = (staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') 
+        ? staffMember.status 
+        : 'ACTIVE'; // Default to ACTIVE if invalid
+      
+      console.log('[StaffDetailsTab] Resetting form with values:', {
+        role,
+        status,
+        staffMemberRole: staffMember.role,
+        staffMemberStatus: staffMember.status
+      });
+      
+      const resetValues: FormData = {
         firstName: staffMember.first_name || '',
         lastName: staffMember.last_name || '',
         email: staffMember.email || '',
         phoneNumber: staffMember.phone_number || '',
-        role: (staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : undefined,
-        status: (staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : undefined,
+        role,
+        status,
         officeKeyNumber: staffMember.office_key_number || null,
-        hasParkingRemote: (staffMember.has_parking_remote === 'VIRTUAL' || staffMember.has_parking_remote === 'PHYSICAL' || staffMember.has_parking_remote === 'NONE') ? staffMember.has_parking_remote : 'NONE',
-        availability_monday: staffMember.availability_monday || false,
-        availability_tuesday: staffMember.availability_tuesday || false,
-        availability_wednesday: staffMember.availability_wednesday || false,
-        availability_thursday: staffMember.availability_thursday || false,
-        availability_friday: staffMember.availability_friday || false,
-        availability_saturday_am: staffMember.availability_saturday_am || false,
-        availability_saturday_pm: staffMember.availability_saturday_pm || false,
-        availability_sunday_am: staffMember.availability_sunday_am || false,
-        availability_sunday_pm: staffMember.availability_sunday_pm || false,
-      });
+        hasParkingRemote: ((staffMember.has_parking_remote === 'VIRTUAL' || staffMember.has_parking_remote === 'PHYSICAL' || staffMember.has_parking_remote === 'NONE') ? staffMember.has_parking_remote : 'NONE') as 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null,
+        availability_monday: !!staffMember.availability_monday,
+        availability_tuesday: !!staffMember.availability_tuesday,
+        availability_wednesday: !!staffMember.availability_wednesday,
+        availability_thursday: !!staffMember.availability_thursday,
+        availability_friday: !!staffMember.availability_friday,
+        availability_saturday_am: !!staffMember.availability_saturday_am,
+        availability_saturday_pm: !!staffMember.availability_saturday_pm,
+        availability_sunday_am: !!staffMember.availability_sunday_am,
+        availability_sunday_pm: !!staffMember.availability_sunday_pm,
+      };
+      console.log('[StaffDetailsTab] Calling form.reset with values:', resetValues);
+      form.reset(resetValues);
+      // Force a re-render by getting values after reset
+      setTimeout(() => {
+        console.log('[StaffDetailsTab] Form values after reset:', form.getValues());
+      }, 0);
       hasResetRef.current = true;
     } else if (!isEditing) {
       // Reset the flag when exiting edit mode
       hasResetRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, staffMember.id]); // form is stable, don't include it
+  }, [isEditing, staffMember.id, staffMember.role, staffMember.status]); // Include role and status in deps
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    console.log('[StaffDetailsTab] Form submit event triggered', e);
+    e.preventDefault();
+    console.log('[StaffDetailsTab] Calling form.handleSubmit');
+    console.log('[StaffDetailsTab] Form state:', {
+      isValid: form.formState.isValid,
+      errors: form.formState.errors,
+      values: form.getValues()
+    });
+    const result = form.handleSubmit(
+      (data) => {
+        console.log('[StaffDetailsTab] Form validation passed, data:', data);
+        onSubmit(data as unknown as FormData);
+      },
+      (errors) => {
+        console.error('[StaffDetailsTab] Form validation failed, errors:', errors);
+        // Show error toast with validation errors
+        const errorMessages = Object.entries(errors).map(([field, error]) => {
+          if (error && typeof error === 'object' && 'message' in error) {
+            return `${field}: ${error.message}`;
+          }
+          return `${field}: Invalid value`;
+        }).join('\n');
+        
+        toast({
+          title: 'Validation Error',
+          description: `Please fix the following errors:\n${errorMessages}`,
+          variant: 'destructive',
+        });
+      }
+    );
+    result(e);
+  };
 
   return isEditing ? (
     <>
-      {/* Edit Mode with Sticky Footer */}
-      <div className="flex-1 overflow-y-auto px-1">
+      <div className="flex-1 overflow-y-auto">
         <form 
           id="staff-edit-form" 
-          onSubmit={form.handleSubmit(onSubmit as any)} 
-          className="space-y-6 pb-6"
+          onSubmit={handleFormSubmit} 
+          className="space-y-6"
         >
-          {/* Staff Details Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Staff Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName">First Name *</Label>
@@ -289,11 +355,18 @@ export function StaffDetailsTab({
                   <Controller
                     control={form.control}
                     name="role"
-                    render={({ field }) => (
+                    render={({ field }) => {
+                      // Ensure we always pass a valid string or undefined (not empty string)
+                      const selectValue = field.value && (field.value === 'TUTOR' || field.value === 'ADMINSTAFF') ? field.value : undefined;
+                      console.log('[StaffDetailsTab] Role Select render - field.value:', field.value, 'selectValue:', selectValue);
+                      return (
                       <Select 
                         disabled={isLoading}
-                        value={field.value}
-                        onValueChange={field.onChange}
+                        value={selectValue}
+                        onValueChange={(value) => {
+                          console.log('[StaffDetailsTab] Role changed to:', value);
+                          field.onChange(value);
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select role" />
@@ -303,7 +376,8 @@ export function StaffDetailsTab({
                           <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
                         </SelectContent>
                       </Select>
-                    )}
+                      );
+                    }}
                   />
                 </div>
                 
@@ -312,11 +386,18 @@ export function StaffDetailsTab({
                   <Controller
                     control={form.control}
                     name="status"
-                    render={({ field }) => (
+                    render={({ field }) => {
+                      // Ensure we always pass a valid string or undefined (not empty string)
+                      const selectValue = field.value && (field.value === 'ACTIVE' || field.value === 'INACTIVE' || field.value === 'TRIAL') ? field.value : undefined;
+                      console.log('[StaffDetailsTab] Status Select render - field.value:', field.value, 'selectValue:', selectValue);
+                      return (
                       <Select 
                         disabled={isLoading}
-                        value={field.value}
-                        onValueChange={field.onChange}
+                        value={selectValue}
+                        onValueChange={(value) => {
+                          console.log('[StaffDetailsTab] Status changed to:', value);
+                          field.onChange(value);
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
@@ -327,7 +408,8 @@ export function StaffDetailsTab({
                           <SelectItem value={'TRIAL'}>Trial</SelectItem>
                         </SelectContent>
                       </Select>
-                    )}
+                      );
+                    }}
                   />
                 </div>
               </div>
@@ -340,11 +422,13 @@ export function StaffDetailsTab({
                     <div className="flex flex-wrap gap-2">
                       {staffSubjects.map((subject) => {
                         const shortName = formatSubjectShortName(subject);
-                        const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                        const { style, textColorClass } = getSubjectColorStyle(subject);
+                        const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                         return (
                           <Badge
                             key={subject.id}
-                            className={`${colorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
+                            className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
+                            style={style.backgroundColor ? style : undefined}
                             onClick={(e) => {
                               // Don't trigger view if clicking the X button
                               if ((e.target as HTMLElement).closest('.remove-subject-btn')) {
@@ -374,90 +458,139 @@ export function StaffDetailsTab({
                   {addSubjectButton}
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Availability Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Availability</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h4 className="font-medium">Weekdays</h4>
-                  {[
-                    { key: 'availability_monday', label: 'Monday' },
-                    { key: 'availability_tuesday', label: 'Tuesday' },
-                    { key: 'availability_wednesday', label: 'Wednesday' },
-                    { key: 'availability_thursday', label: 'Thursday' },
-                    { key: 'availability_friday', label: 'Friday' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Controller
-                        control={form.control}
-                        name={key as keyof FormData}
-                        render={({ field }) => (
-                          <Checkbox 
-                            id={key} 
-                            checked={field.value as boolean}
-                            onCheckedChange={field.onChange}
-                            disabled={isLoading}
-                          />
-                        )}
-                      />
-                      <Label htmlFor={key}>{label}</Label>
-                    </div>
-                  ))}
-                </div>
+              <Separator className="my-6" />
 
-                <div className="space-y-3">
-                  <h4 className="font-medium">Weekends</h4>
-                  {[
-                    { key: 'availability_saturday_am', label: 'Saturday AM' },
-                    { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                    { key: 'availability_sunday_am', label: 'Sunday AM' },
-                    { key: 'availability_sunday_pm', label: 'Sunday PM' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Controller
-                        control={form.control}
-                        name={key as keyof FormData}
-                        render={({ field }) => (
-                          <Checkbox 
-                            id={key} 
-                            checked={field.value as boolean}
-                            onCheckedChange={field.onChange}
-                            disabled={isLoading}
-                          />
-                        )}
-                      />
-                      <Label htmlFor={key}>{label}</Label>
-                    </div>
-                  ))}
+              {/* Availability Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Availability</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Weekdays</h4>
+                    {[
+                      { key: 'availability_monday', label: 'Monday' },
+                      { key: 'availability_tuesday', label: 'Tuesday' },
+                      { key: 'availability_wednesday', label: 'Wednesday' },
+                      { key: 'availability_thursday', label: 'Thursday' },
+                      { key: 'availability_friday', label: 'Friday' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Controller
+                          control={form.control}
+                          name={key as keyof FormData}
+                          render={({ field }) => (
+                            <Checkbox 
+                              id={key} 
+                              checked={field.value as boolean}
+                              onCheckedChange={field.onChange}
+                              disabled={isLoading}
+                            />
+                          )}
+                        />
+                        <Label htmlFor={key}>{label}</Label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Weekends</h4>
+                    {[
+                      { key: 'availability_saturday_am', label: 'Saturday AM' },
+                      { key: 'availability_saturday_pm', label: 'Saturday PM' },
+                      { key: 'availability_sunday_am', label: 'Sunday AM' },
+                      { key: 'availability_sunday_pm', label: 'Sunday PM' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Controller
+                          control={form.control}
+                          name={key as keyof FormData}
+                          render={({ field }) => (
+                            <Checkbox 
+                              id={key} 
+                              checked={field.value as boolean}
+                              onCheckedChange={field.onChange}
+                              disabled={isLoading}
+                            />
+                          )}
+                        />
+                        <Label htmlFor={key}>{label}</Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-        </form>
-      </div>
-
-      {/* Sticky Footer with Buttons */}
-      <div className="flex-shrink-0 border-t bg-background p-4 flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancelEdit} disabled={isLoading}>
-          <X className="h-4 w-4 mr-2" />
-          Cancel
-        </Button>
-        <Button type="submit" form="staff-edit-form" disabled={isLoading}>
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Check className="h-4 w-4 mr-2" />
-          )}
-          {isLoading ? 'Saving...' : 'Save Changes'}
-        </Button>
-      </div>
+              {onDelete && (
+                <>
+                  <Separator className="my-6" />
+                  <div className="pt-4">
+                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+                      setIsDeleteDialogOpen(open);
+                      if (!open) {
+                        setDeleteConfirmText('');
+                      }
+                    }}>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" type="button" className="flex items-center w-full">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Staff Member
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the staff member
+                            "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="py-4">
+                          <div className="space-y-2">
+                            <Label>
+                              Type <strong>{staffMember.first_name} {staffMember.last_name}</strong> to confirm deletion
+                            </Label>
+                            <Input
+                              type="text"
+                              placeholder={`${staffMember.first_name} ${staffMember.last_name}`}
+                              value={deleteConfirmText}
+                              onChange={(e) => setDeleteConfirmText(e.target.value)}
+                              className="mt-2"
+                            />
+                          </div>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => {
+                              if (onDelete) {
+                                onDelete();
+                                setIsDeleteDialogOpen(false);
+                                setDeleteConfirmText('');
+                              }
+                            }}
+                            disabled={isDeleting || deleteConfirmText !== `${staffMember.first_name} ${staffMember.last_name}`}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isDeleting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              'Delete'
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </>
+              )}
+            <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
+              Submit
+            </button>
+            </form>
+          </div>
     </>
   ) : (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
@@ -504,11 +637,13 @@ export function StaffDetailsTab({
             <div className="flex flex-wrap gap-2">
               {staffSubjects.map((subject) => {
                 const shortName = formatSubjectShortName(subject);
-                const colorClass = getSubjectCurriculumColor(subject.curriculum);
+                const { style, textColorClass } = getSubjectColorStyle(subject);
+                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                 return (
                   <Badge
                     key={subject.id}
-                    className={`${colorClass} cursor-pointer hover:opacity-80`}
+                    className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80`}
+                    style={style.backgroundColor ? style : undefined}
                     onClick={() => onViewSubject?.(subject.id)}
                   >
                     {shortName}

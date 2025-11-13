@@ -91,6 +91,26 @@ export function useClass(classId: string) {
   });
 }
 
+// Active classes count (ACTIVE status)
+export function useActiveClassesCount() {
+  return useQuery({
+    queryKey: [...classesKeys.all, 'activeCount'],
+    queryFn: () => classesApi.getActiveClassesCount(),
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
+// Current class enrollments count (unenrolled_at is null or in the future)
+export function useCurrentEnrollmentsCount() {
+  return useQuery({
+    queryKey: [...classesKeys.all, 'currentEnrollmentsCount'],
+    queryFn: () => classesApi.getCurrentEnrollmentsCount(),
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
 // Mutations
 export function useCreateClass() {
   const queryClient = useQueryClient();

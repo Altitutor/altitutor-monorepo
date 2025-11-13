@@ -8,6 +8,7 @@ import { replaceVariables } from '../utils/variableReplacer';
 import { getStudentClasses } from '../api/bulk';
 import { messagesKeys } from '../api/queryKeys';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -22,6 +23,7 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { data: currentStaff } = useCurrentStaff();
 
   // Fetch conversation data to get student/parent info for variable replacement
   const { data: conversationData } = useQuery({
@@ -105,6 +107,11 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
   const handleTemplateSelect = async (template: Tables<'message_templates'>) => {
     let content = template.content;
     
+    // Get sender name from current staff
+    const senderName = currentStaff 
+      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+      : null;
+    
     // Try to replace variables if we have conversation data
     if (conversationData?.contacts) {
       const contact = conversationData.contacts;
@@ -116,7 +123,7 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
           // Fetch student classes
           const classes = await getStudentClasses(student.id);
           // Replace variables with actual data
-          content = replaceVariables(template.content, student, classes);
+          content = replaceVariables(template.content, student, classes, senderName);
         } catch (error) {
           console.error('Error fetching student classes for template:', error);
           // Fall back to template with placeholders if we can't fetch classes
@@ -134,7 +141,7 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
               // Fetch student classes
               const classes = await getStudentClasses(student.id);
               // Replace variables with actual data
-              content = replaceVariables(template.content, student, classes);
+              content = replaceVariables(template.content, student, classes, senderName);
             } catch (error) {
               console.error('Error fetching student classes for template:', error);
               // Fall back to template with placeholders if we can't fetch classes

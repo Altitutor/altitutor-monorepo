@@ -9,28 +9,31 @@ import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { cn } from "@/shared/utils";
 import { ViewStaffModal } from '@/features/staff';
 import { StaffCard } from '@/shared/components/StaffCard';
+import { useChatStore } from '@/features/messages/state/chatStore';
+import { ensureConversationForRelated } from '@/features/messages/api/queries';
+import { useToast } from "@altitutor/ui";
 
 interface ClassStaffTabProps {
   classData: Tables<'classes'>;
   classStaff: Tables<'staff'>[];
   allStaff: Tables<'staff'>[];
   loadingStaff: boolean;
-  onViewStaff?: (staffId: string) => void;
   onAssignStaff: (staffId: string) => void;
   onRemoveStaff: (staffId: string) => void;
 }
 
 export function ClassStaffTab({
-  classData,
+  classData: _classData,
   classStaff,
   allStaff,
   loadingStaff,
-  onViewStaff,
   onAssignStaff,
   onRemoveStaff
 }: ClassStaffTabProps) {
+  const { toast } = useToast();
+  const openWindow = useChatStore(s => s.openWindow);
   const [assigningStaff, setAssigningStaff] = useState<Set<string>>(new Set());
-  const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
+  const [_removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [staffSubjects, setStaffSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
@@ -99,6 +102,23 @@ export function ClassStaffTab({
         const newSet = new Set(prev);
         newSet.delete(staffId);
         return newSet;
+      });
+    }
+  };
+
+  // Handle message staff
+  const handleMessageStaff = async (staffId: string) => {
+    try {
+      const conversationId = await ensureConversationForRelated(staffId, 'staff');
+      if (conversationId) {
+        openWindow({ conversationId, title: 'Staff' });
+      }
+    } catch (error) {
+      console.error('Failed to open conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open conversation. Please try again.',
+        variant: 'destructive',
       });
     }
   };
@@ -283,8 +303,8 @@ export function ClassStaffTab({
                   staff={staff}
                   subjects={staffSubjects[staff.id] || []}
                   onClick={() => handleViewStaff(staff.id)}
-                  onViewStaff={() => handleViewStaff(staff.id)}
                   onRemoveStaff={() => handleRemoveStaff(staff.id)}
+                  onMessage={() => handleMessageStaff(staff.id)}
                 />
               ))}
           </div>

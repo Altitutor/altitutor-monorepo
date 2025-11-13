@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
-import { Button, Card } from '@altitutor/ui';
+import type { CSSProperties } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { usePrecreateSessions } from '../hooks/usePrecreateSessions';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils';
+import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
+import { SessionsCard } from './SessionsCard';
+import { Button } from "@altitutor/ui";
 
 type Props = { onOpenSession?: (id: string) => void };
 
@@ -28,7 +30,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
 
   // Time grid similar to classes timetable
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
-  const slotHeight = 60; // px per hour
+  const slotHeight = 75; // px per hour
 
   const getDaySessions = (d: Date): Tables<'sessions'>[] => {
     const sessions = ((data?.sessions as Tables<'sessions'>[]) || [])
@@ -36,7 +38,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
     return sessions as Tables<'sessions'>[];
   };
 
-  const getDisplayLabel = (s: any): string => {
+  const _getDisplayLabel = (s: any): string => {
     const cls: any = (data as any)?.classesById?.[s.class_id];
     const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
     if (!cls || !subj) return s.type === 'CLASS' ? 'Class' : 'Meeting';
@@ -48,21 +50,21 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
     return parts.join(' ');
   };
 
-  const getSessionColorClasses = (s: any): string => {
+  const _getSessionColorClasses = (s: any): { className: string; style: CSSProperties } => {
     const cls: any = (data as any)?.classesById?.[s.class_id];
     const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
     if (!subj) {
-      return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
+      return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
     }
-    if (subj.discipline) {
-      const disciplineColor = getSubjectDisciplineColor(subj.discipline);
-      return `${disciplineColor} border-2 dark:bg-opacity-80`;
+    const subjectColorHex = getSubjectColorHex(subj);
+    const { textColorClass } = getSubjectColorStyle(subj);
+    if (subjectColorHex) {
+      return {
+        className: `${textColorClass} border-2 dark:bg-opacity-80`,
+        style: { backgroundColor: subjectColorHex, borderColor: subjectColorHex }
+      };
     }
-    if (subj.curriculum) {
-      const curriculumColor = getSubjectCurriculumColor(subj.curriculum);
-      return `${curriculumColor} border-2 dark:bg-opacity-80`;
-    }
-    return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
+    return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
   };
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -74,7 +76,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const now = new Date();
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
   const currentMinutesFromStart = minutesFromStart(now);
-  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
+  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 75);
 
   return (
     <div className="flex flex-col gap-3">
@@ -106,14 +108,14 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
           {/* Rows */}
           {slots.map((hour, idx) => (
             <div key={hour} className="contents">
-              <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[60px] flex items-center justify-center">
+              <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
                 {format(new Date(2000, 0, 1, hour, 0), 'h a')}
               </div>
-              {days.map((d, dayIdx) => {
+              {days.map((d, _dayIdx) => {
                 const isToday = isSameDay(d, now);
                 return (
                   <div key={`${d.toISOString()}-${hour}`} className={cn(
-                    "relative border-b border-r h-[60px]",
+                    "relative border-b border-r h-[75px]",
                     isToday ? "bg-blue-50/30 dark:bg-blue-900/10" : "bg-background"
                   )}>
                     {idx === 0 && (
@@ -163,19 +165,36 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             const top = Math.max(0, (minutesFromStart(sStart) / 60) * slotHeight);
                             const height = Math.max(30, (differenceInMinutes(sEnd, sStart) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
+                            
+                            const cls: any = (data as any)?.classesById?.[s.class_id];
+                            const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
+                            const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean }>;
+                            const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean }>;
+                            
+                            // Calculate actual pixel dimensions for smart sizing
+                            const cardHeight = Math.max(height, 45);
+                            // Estimate width: assume column is ~150-200px wide, calculate from percentage
+                            const estimatedColumnWidth = 180; // Approximate column width for week view
+                            const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
+                            
                             blocks.push(
                               <div
                                 key={s.id}
-                                className={cn('absolute cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] rounded p-2 border text-xs font-medium overflow-hidden', getSessionColorClasses(s))}
-                                style={{ top: `${top}px`, height: `${height}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
+                                className="absolute"
+                                style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
-                                <div className="font-semibold truncate text-xs leading-tight">
-                                  {getDisplayLabel(s)}
-                                </div>
-                                <div className="text-xs opacity-90 truncate leading-tight mt-1">
-                                  {format(new Date(s.start_at), 'HH:mm')} - {format(new Date(s.end_at), 'HH:mm')}
-                                </div>
+                                <SessionsCard
+                                  session={s}
+                                  classData={cls}
+                                  subject={subj}
+                                  staff={sessionStaff}
+                                  students={sessionStudents}
+                                  onClick={() => {}}
+                                  isCalendarView={true}
+                                  cardHeight={cardHeight}
+                                  cardWidth={cardWidth}
+                                />
                               </div>
                             );
                           });

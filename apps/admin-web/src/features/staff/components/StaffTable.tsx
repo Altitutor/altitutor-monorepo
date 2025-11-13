@@ -16,12 +16,13 @@ import { ViewClassModal } from '@/features/classes';
 import { StaffTableFilters } from './StaffTableFilters';
 import { StaffTableHeader } from './StaffTableHeader';
 import { StaffTableRow } from './StaffTableRow';
+import { formatClassShortName, formatClassName } from '@/shared/utils';
 
 interface StaffTableProps {
   onRefresh?: number;
 }
 
-export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProps = {}) {
+export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
   // React Query hook for data fetching
   const { 
     data, 
@@ -59,12 +60,28 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      result = result.filter(staff => 
-        (staff.first_name || '').toLowerCase().includes(searchLower) ||
-        (staff.last_name || '').toLowerCase().includes(searchLower) ||
-        staff.email?.toLowerCase().includes(searchLower) ||
-        staff.phone_number?.toLowerCase().includes(searchLower)
-      );
+      result = result.filter(staff => {
+        // Search in concatenated first_name + last_name
+        const fullName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim().toLowerCase();
+        const nameMatch = fullName.includes(searchLower) ||
+          (staff.first_name || '').toLowerCase().includes(searchLower) ||
+          (staff.last_name || '').toLowerCase().includes(searchLower);
+        
+        // Search in email and phone
+        const contactMatch = staff.email?.toLowerCase().includes(searchLower) ||
+          staff.phone_number?.toLowerCase().includes(searchLower);
+        
+        // Search in classes (short name and full name)
+        const staffClassesList = staffClasses[staff.id] || [];
+        const classMatch = staffClassesList.some(cls => {
+          const shortName = formatClassShortName(cls, cls.subject || classSubjects[cls.id]);
+          const fullClassName = formatClassName(cls, cls.subject || classSubjects[cls.id]);
+          return shortName.toLowerCase().includes(searchLower) ||
+            fullClassName.toLowerCase().includes(searchLower);
+        });
+        
+        return nameMatch || contactMatch || classMatch;
+      });
     }
     
     // Apply role filter
@@ -96,7 +113,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     });
     
     return result;
-  }, [staffMembers, searchTerm, roleFilters, statusFilters, sortField, sortDirection]);
+  }, [staffMembers, searchTerm, roleFilters, statusFilters, sortField, sortDirection, staffClasses, classSubjects]);
 
   // Event handlers
   const handleStaffClick = useCallback((id: string) => {
@@ -108,7 +125,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     refetch();
   }, [refetch]);
 
-  const handleAddStaffClick = useCallback(() => {
+  const _handleAddStaffClick = useCallback(() => {
     setIsAddModalOpen(true);
   }, []);
 
@@ -116,10 +133,6 @@ export const StaffTable = memo(function StaffTable({ onRefresh }: StaffTableProp
     setSelectedClassId(classId);
     setIsClassModalOpen(true);
   }, []);
-
-  const handleRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
 
   const handleSort = useCallback((field: keyof Tables<'staff'>) => {
     if (sortField === field) {

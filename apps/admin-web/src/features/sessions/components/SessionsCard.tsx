@@ -1,13 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
-import { Badge } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
+import { Users } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
-import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
 import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle, getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
@@ -20,17 +17,13 @@ function getInitials(firstName: string, lastName: string): string {
 }
 
 
-interface ClassCardProps {
-  class: Tables<'classes'> | ClassWithExpandedSubject;
+interface SessionsCardProps {
+  session: Tables<'sessions'>;
+  classData?: Tables<'classes'>;
   subject?: Tables<'subjects'>;
-  staff: Tables<'staff'>[];
-  students?: Tables<'students'>[];
+  staff: Array<Tables<'staff'> & { planned_absence?: boolean }>;
+  students?: Array<Tables<'students'> & { planned_absence?: boolean }>;
   onClick?: () => void;
-  
-  // Optional enrollment context (when displayed in a student context)
-  enrollment?: ClassEnrollmentWithAudit;
-  onChangeClass?: () => void;
-  onUnenroll?: () => void;
   
   // Visual states
   isSelecting?: boolean;
@@ -42,22 +35,20 @@ interface ClassCardProps {
   cardWidth?: number; // Width in pixels
 }
 
-export function ClassCard({
-  class: classData,
+export function SessionsCard({
+  session,
+  classData,
   subject,
-  staff,
+  staff = [],
   students = [],
   onClick,
-  enrollment,
-  onChangeClass,
-  onUnenroll,
   isSelecting = false,
   isSelected = false,
   compact: forceCompact = false,
   isCalendarView = false,
   cardHeight,
   cardWidth
-}: ClassCardProps) {
+}: SessionsCardProps) {
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
   
@@ -90,16 +81,16 @@ export function ClassCard({
   
   // Determine if we should use compact mode overall
   const shouldUseCompact = forceCompact || !iconVisible;
+  
   const subjectDisplay = shouldUseCompact && subject 
     ? formatSubjectShortName(subject) 
     : subject 
       ? formatSubjectDisplay(subject) 
-      : '-';
-  const day = getDayOfWeek(classData.day_of_week);
-  const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
-  const staffNames = staff.map(s => `${s.first_name} ${s.last_name}`).join(', ');
-  const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasMenuActions = onChangeClass || onUnenroll;
+      : session.type === 'CLASS' ? 'Class' : 'Meeting';
+  const day = classData ? getDayOfWeek(classData.day_of_week) : '';
+  const timeRange = session.start_at && session.end_at
+    ? `${formatTime(new Date(session.start_at).toTimeString().slice(0, 5))} - ${formatTime(new Date(session.end_at).toTimeString().slice(0, 5))}`
+    : '';
   
   // Get subject color for the card (border and icon only)
   const subjectColorHex = getSubjectColorHex(subject);
@@ -115,6 +106,7 @@ export function ClassCard({
 
   return (
     <div
+      ref={cardRef}
       className={cn(
         'relative border rounded-lg transition-colors h-full w-full overflow-hidden bg-card',
         shouldUseCompact ? 'p-1.5' : 'p-3',
@@ -172,54 +164,25 @@ export function ClassCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                {!shouldUseCompact && classData.level && (
+                {!shouldUseCompact && classData?.level && (
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1 truncate">
                 {isCalendarView ? (
-                  classData.room ? `Room: ${classData.room}` : ''
+                  classData?.room ? `Room: ${classData.room}` : ''
                 ) : (
                   <>
-                    {day} {timeRange}
-                    {classData.room && ` • Room: ${classData.room}`}
+                    {day && timeRange && (
+                      <>
+                        {day} {timeRange}
+                        {classData?.room && ` • Room: ${classData.room}`}
+                      </>
+                    )}
                   </>
                 )}
               </p>
             </div>
-            
-            {hasMenuActions && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 flex-shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {onChangeClass && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      onChangeClass();
-                    }}>
-                      Change Class
-                    </DropdownMenuItem>
-                  )}
-                  {onUnenroll && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      onUnenroll();
-                    }}>
-                      Unenroll Student
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
           
           {/* Staff */}
@@ -238,7 +201,9 @@ export function ClassCard({
                         shouldUseCompact 
                           ? 'text-[10px] px-1 py-0.5' 
                           : 'text-xs px-2 py-0.5',
-                        'bg-muted'
+                        staffMember.planned_absence
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                          : 'bg-muted'
                       )}
                     >
                       {display}
@@ -282,7 +247,9 @@ export function ClassCard({
                         shouldUseCompact 
                           ? 'text-[10px] px-1 py-0.5' 
                           : 'text-xs px-2 py-0.5',
-                        'bg-muted'
+                        student.planned_absence
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                          : 'bg-muted'
                       )}
                     >
                       {display}
@@ -307,22 +274,6 @@ export function ClassCard({
                   return badge;
                 })}
               </div>
-            </div>
-          )}
-          
-          {/* Enrollment Info */}
-          {enrollment && (
-            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              <span>
-                Enrolled: {formatDate(new Date(enrollment.enrolled_at))}
-              </span>
-              {isFutureEnrollment && (
-                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                  <Clock className="h-3 w-3 mr-1 inline" />
-                  Future
-                </Badge>
-              )}
             </div>
           )}
         </div>

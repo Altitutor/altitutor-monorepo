@@ -29,9 +29,9 @@ export const STUDENT_STATUS_COLORS: Record<StudentStatus, BadgeColorClass> = {
 
 // Staff Role Colors
 export const STAFF_ROLE_COLORS: Record<StaffRole, BadgeColorClass> = {
-  ADMIN: 'bg-purple-100 text-purple-800',
-  TUTOR: 'bg-blue-100 text-blue-800',
-  ADMINSTAFF: 'bg-indigo-100 text-indigo-800',
+  ADMIN: 'bg-gray-100 text-gray-800',
+  TUTOR: 'bg-gray-100 text-gray-800',
+  ADMINSTAFF: 'bg-gray-100 text-gray-800',
 };
 
 // Staff Status Colors
@@ -43,11 +43,11 @@ export const STAFF_STATUS_COLORS: Record<StaffStatus, BadgeColorClass> = {
 
 // Subject Curriculum Colors
 export const SUBJECT_CURRICULUM_COLORS: Record<SubjectCurriculum, BadgeColorClass> = {
-  SACE: 'bg-blue-100 text-blue-800',
-  IB: 'bg-purple-100 text-purple-800',
-  PRESACE: 'bg-green-100 text-green-800',
-  PRIMARY: 'bg-yellow-100 text-yellow-800',
-  MEDICINE: 'bg-red-100 text-red-800',
+  SACE: 'bg-gray-100 text-gray-800',
+  IB: 'bg-gray-100 text-gray-800',
+  PRESACE: 'bg-gray-100 text-gray-800',
+  PRIMARY: 'bg-gray-100 text-gray-800',
+  MEDICINE: 'bg-gray-100 text-gray-800',
 };
 
 // Subject Discipline Colors

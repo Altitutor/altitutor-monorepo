@@ -5,6 +5,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Button, ScrollArea, Alert, AlertDescription } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
@@ -41,6 +42,7 @@ export function MessagePreview({
     Record<string, Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>>
   >({});
   const [isLoading, setIsLoading] = useState(true);
+  const { data: currentStaff } = useCurrentStaff();
 
   // Load all recipients and their classes
   useEffect(() => {
@@ -134,8 +136,12 @@ export function MessagePreview({
     const student = students.find(s => s.id === studentId);
     if (!student || !studentId) return message;
 
+    const senderName = currentStaff 
+      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+      : null;
+
     const classes = studentClasses[studentId] || [];
-    return replaceVariables(message, student, classes);
+    return replaceVariables(message, student, classes, senderName);
   };
 
   return (

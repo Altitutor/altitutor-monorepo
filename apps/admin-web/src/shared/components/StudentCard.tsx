@@ -6,9 +6,8 @@ import { Button } from '@altitutor/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
-import { SUBJECT_DISCIPLINE_COLORS } from '@altitutor/ui';
 import { formatDate } from '@/shared/utils/datetime';
-import { formatSubjectShortName } from '@/shared/utils';
+import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 
 interface StudentCardProps {
   student: Tables<'students'>;
@@ -19,10 +18,13 @@ interface StudentCardProps {
   enrollment?: ClassEnrollmentWithAudit;
   onChangeClass?: () => void;
   onUnenroll?: () => void;
+  onMessage?: () => void;
   
   // Visual states
   isSelecting?: boolean;
   isSelected?: boolean;
+  showSubjects?: boolean;
+  showActions?: boolean;
 }
 
 export function StudentCard({
@@ -32,11 +34,14 @@ export function StudentCard({
   enrollment,
   onChangeClass,
   onUnenroll,
+  onMessage,
   isSelecting = false,
-  isSelected = false
+  isSelected = false,
+  showSubjects = true,
+  showActions = true
 }: StudentCardProps) {
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasMenuActions = onChangeClass || onUnenroll;
+  const hasMenuActions = showActions && (onChangeClass || onUnenroll || onMessage);
   const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase();
 
   return (
@@ -92,6 +97,14 @@ export function StudentCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {onMessage && (
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onMessage();
+                  }}>
+                    Message
+                  </DropdownMenuItem>
+                )}
                 {onChangeClass && (
                   <DropdownMenuItem onClick={(e) => {
                     e.stopPropagation();
@@ -114,18 +127,18 @@ export function StudentCard({
         </div>
         
         {/* Subjects */}
-        {subjects.length > 0 && (
+        {showSubjects && subjects.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {subjects.map((subject) => {
-              const colorClass = subject.discipline 
-                ? SUBJECT_DISCIPLINE_COLORS[subject.discipline as keyof typeof SUBJECT_DISCIPLINE_COLORS] 
-                : 'bg-gray-100 text-gray-800';
+              const { style, textColorClass } = getSubjectColorStyle(subject);
+              const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
               
               return (
                 <Badge
                   key={subject.id}
                   variant="secondary"
-                  className={`text-xs px-2 py-0.5 ${colorClass}`}
+                  className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
+                  style={style.backgroundColor ? style : undefined}
                 >
                   {formatSubjectShortName(subject)}
                 </Badge>

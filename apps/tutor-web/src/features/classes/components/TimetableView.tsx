@@ -4,7 +4,7 @@ import { Card } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
-import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils';
+import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
 
 interface TimetableViewProps {
   classes: Tables<'classes'>[];
@@ -186,26 +186,26 @@ export function TimetableView({
   };
 
   // Get color for class based on subject
-  const getClassColor = (classItem: Tables<'classes'>): string => {
+  const getClassColor = (classItem: Tables<'classes'>): { className: string; style: React.CSSProperties } => {
     if (!classSubjects || !classItem.subject_id) {
       // Default color for classes without subjects
-      return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
+      return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
     }
     
     const subject = classSubjects[classItem.id];
     if (subject) {
-      // Use discipline color first, fallback to curriculum color
-      if (subject.discipline) {
-        const disciplineColor = getSubjectDisciplineColor(subject.discipline);
-        return `${disciplineColor} border-2 dark:bg-opacity-80`;
-      } else if (subject.curriculum) {
-        const curriculumColor = getSubjectCurriculumColor(subject.curriculum);
-        return `${curriculumColor} border-2 dark:bg-opacity-80`;
+      const subjectColorHex = getSubjectColorHex(subject);
+      const { textColorClass } = getSubjectColorStyle(subject);
+      if (subjectColorHex) {
+        return {
+          className: `${textColorClass} border-2 dark:bg-opacity-80`,
+          style: { backgroundColor: subjectColorHex, borderColor: subjectColorHex }
+        };
       }
     }
     
     // Default color
-    return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
+    return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
   };
 
   

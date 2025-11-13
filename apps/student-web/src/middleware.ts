@@ -1,13 +1,45 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
 
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient<Database>({ req, res });
+  let supabaseResponse = NextResponse.next({
+    request: req,
+  });
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            req.cookies.set(name, value);
+          });
+          supabaseResponse = NextResponse.next({
+            request: req,
+          });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, options);
+          });
+        },
+      },
+      cookieOptions: {
+        name: 'student-auth',
+      },
+    }
+  );
+
+  // IMPORTANT: Call getSession() to refresh session if needed
+  // Note: Using getSession() in middleware is acceptable per Supabase docs
+  // Middleware must be fast and can't call getUser() on every request
+  // Client-side validation happens in AuthProvider
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -15,7 +47,7 @@ export async function middleware(req: NextRequest) {
   // For API routes, we just refresh the session but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
-    return res;
+    return supabaseResponse;
   }
 
   // Determine portal URLs based on environment
@@ -33,12 +65,17 @@ export async function middleware(req: NextRequest) {
 
   // If no session and trying to access protected route, redirect to login
   if (!session && !isPublicPath) {
-    return NextResponse.redirect(new URL('/login', origin));
+    const redirectResponse = NextResponse.redirect(new URL('/login', origin));
+    // Copy cookies from supabaseResponse to redirectResponse
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   // Allow public paths without further checks
   if (isPublicPath || !session) {
-    return res;
+    return supabaseResponse;
   }
 
   // Check if user is a student
@@ -77,25 +114,46 @@ export async function middleware(req: NextRequest) {
     const role = staff.role;
     if (role === 'ADMINSTAFF') {
       console.log('[STUDENT-WEB MIDDLEWARE] Staff member (ADMINSTAFF) detected, redirecting to admin portal');
-      return NextResponse.redirect(new URL('/admin/dashboard', adminPortalUrl));
+      const redirectResponse = NextResponse.redirect(new URL('/admin/dashboard', adminPortalUrl));
+      // Copy cookies from supabaseResponse to redirectResponse
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
     } else if (role === 'TUTOR') {
       console.log('[STUDENT-WEB MIDDLEWARE] Staff member (TUTOR) detected, redirecting to tutor portal');
-      return NextResponse.redirect(new URL('/dashboard', tutorPortalUrl));
+      const redirectResponse = NextResponse.redirect(new URL('/dashboard', tutorPortalUrl));
+      // Copy cookies from supabaseResponse to redirectResponse
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
     }
   }
 
   // If user is not a student, block access
   if (!student) {
     console.log('[STUDENT-WEB MIDDLEWARE] No student record found, redirecting to login with error');
-    return NextResponse.redirect(new URL('/login?error=access_denied', origin));
+    const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
+    // Copy cookies from supabaseResponse to redirectResponse
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   // Redirect root path to dashboard
   if (pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', origin));
+    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
+    // Copy cookies from supabaseResponse to redirectResponse
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
-  return res;
+  // IMPORTANT: Return the supabaseResponse object to preserve cookie updates
+  return supabaseResponse;
 }
 
 export const config = {

@@ -14,27 +14,23 @@ import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { 
-  Search, 
-  Grid3X3
+  Search
 } from 'lucide-react';
 import { useClassesWithDetails } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
-import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils';
+import { cn, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
 import { ViewClassModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { ViewStudentModal } from '@/features/students';
-import { TimetableView } from './TimetableView';
 import { formatTime } from '@/shared/utils/datetime';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface ClassesTableProps {
   addModalState?: [boolean, Dispatch<SetStateAction<boolean>>];
+  viewMode?: 'table';
 }
-
-type ViewMode = 'table' | 'timetable';
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
   const { 
@@ -52,8 +48,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   
   // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
-  const [dayFilter, setDayFilter] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [dayFilter, setDayFilter] = useState<number[]>([]);
   
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
@@ -89,16 +84,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return '-';
   };
 
-  const getSubjectBadgeClass = (classItem: Tables<'classes'>): string => {
+  const getSubjectBadgeStyle = (classItem: Tables<'classes'>): { style: React.CSSProperties; textColorClass: string; defaultClass: string } => {
     const subject = classSubjects[classItem.id];
-    if (!subject) return 'bg-gray-100 text-gray-800';
-    if ((subject as any).discipline) {
-      return getSubjectDisciplineColor((subject as any).discipline as any);
+    if (!subject) {
+      return { style: {}, textColorClass: 'text-gray-800', defaultClass: 'bg-gray-100 text-gray-800' };
     }
-    if ((subject as any).curriculum) {
-      return getSubjectCurriculumColor((subject as any).curriculum as any);
-    }
-    return 'bg-gray-100 text-gray-800';
+    const { style, textColorClass } = getSubjectColorStyle(subject as Tables<'subjects'>);
+    const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+    return { style, textColorClass, defaultClass };
   };
 
   // Memoized filtered and sorted classes
@@ -111,8 +104,35 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(cls => {
+        const subject = classSubjects[cls.id];
+        
+        // Search in subject short name
+        const subjectShortName = subject ? formatSubjectShortName(subject).toLowerCase() : '';
+        const subjectShortMatch = subjectShortName.includes(searchLower);
+        
+        // Search in subject long name (display name)
         const subjectDisplay = getSubjectDisplay(cls).toLowerCase();
-        return subjectDisplay.includes(searchLower);
+        const subjectLongMatch = subjectDisplay.includes(searchLower);
+        
+        // Search in student names (concatenated first_name + last_name)
+        const students = classStudents[cls.id] || [];
+        const studentMatch = students.some(student => {
+          const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim().toLowerCase();
+          return fullName.includes(searchLower) ||
+            (student.first_name || '').toLowerCase().includes(searchLower) ||
+            (student.last_name || '').toLowerCase().includes(searchLower);
+        });
+        
+        // Search in staff names (concatenated first_name + last_name)
+        const staff = classStaff[cls.id] || [];
+        const staffMatch = staff.some(staffMember => {
+          const fullName = `${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim().toLowerCase();
+          return fullName.includes(searchLower) ||
+            (staffMember.first_name || '').toLowerCase().includes(searchLower) ||
+            (staffMember.last_name || '').toLowerCase().includes(searchLower);
+        });
+        
+        return subjectShortMatch || subjectLongMatch || studentMatch || staffMatch;
       });
     }
     
@@ -138,9 +158,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     });
     
     return result;
-  }, [classes, searchTerm, dayFilter, classSubjects, getSubjectDisplay]);
+  }, [classes, searchTerm, dayFilter, classSubjects, classStudents, classStaff, getSubjectDisplay]);
 
-  const getStatusBadgeColor = (status: string) => {
+  const _getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'ACTIVE':
         return 'bg-green-100 text-green-800';
@@ -213,7 +233,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             <div className="relative w-64">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search subject or level..."
+                placeholder="Search by subject, student, or staff..."
                 className="pl-8"
                 value={""}
                 disabled
@@ -226,18 +246,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                   {day}
                 </Button>
               ))}
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-md border">
-              <Button variant="default" size="sm" disabled className="rounded-r-none">
-                Table
-              </Button>
-              <Button variant="ghost" size="sm" disabled className="rounded-l-none">
-                <Grid3X3 className="h-4 w-4 mr-1" />
-                Timetable
-              </Button>
             </div>
           </div>
         </div>
@@ -278,7 +286,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           <div className="relative w-64">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search subject or level..."
+              placeholder="Search by subject, student, or staff..."
               className="pl-8"
               value={searchTerm || ''}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -347,32 +355,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             )}
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-md border">
-            <Button 
-              variant={viewMode === 'table' ? 'default' : 'ghost'} 
-              size="sm"
-              onClick={() => setViewMode('table')}
-              className="rounded-r-none"
-            >
-              Table
-            </Button>
-            <Button 
-              variant={viewMode === 'timetable' ? 'default' : 'ghost'} 
-              size="sm"
-              onClick={() => setViewMode('timetable')}
-              className="rounded-l-none"
-            >
-              <Grid3X3 className="h-4 w-4 mr-1" />
-              Timetable
-            </Button>
-          </div>
-        </div>
       </div>
 
-      {viewMode === 'table' && (
-        <div className="rounded-md border" ref={parentRef}>
+      <div className="rounded-md border" ref={parentRef}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -415,7 +400,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       </TableCell>
                       <TableCell className="font-medium">
                         <Badge 
-                          className={cn("text-xs whitespace-nowrap", getSubjectBadgeClass(cls))}
+                          className={cn("text-xs whitespace-nowrap", (() => {
+                            const { textColorClass, defaultClass } = getSubjectBadgeStyle(cls);
+                            return defaultClass || textColorClass;
+                          })())}
+                          style={(() => {
+                            const { style } = getSubjectBadgeStyle(cls);
+                            return style.backgroundColor ? style : undefined;
+                          })()}
                           title={getSubjectDisplay(cls)}
                         >
                           {/* Default to short names, only show full on 2xl+ screens */}
@@ -470,18 +462,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
               )}
             </TableBody>
           </Table>
-        </div>
-      )}
-
-      {viewMode === 'timetable' && (
-        <TimetableView
-          classes={filteredClasses}
-          classSubjects={classSubjects}
-          classStudents={classStudents}
-          classStaff={classStaff}
-          onClassClick={handleClassClick}
-        />
-      )}
+      </div>
       
       <div className="text-sm text-muted-foreground">
         {filteredClasses.length} classes displayed

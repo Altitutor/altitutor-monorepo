@@ -922,4 +922,32 @@ export const classesApi = {
     if (error) throw error;
     return (data ?? []) as Tables<'classes'>[];
   },
+
+  /**
+   * Get count of active classes (ACTIVE status)
+   */
+  getActiveClassesCount: async (): Promise<number> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { count, error } = await supabase
+      .from('classes')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'ACTIVE');
+    
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  /**
+   * Get count of current class enrollments (unenrolled_at is null or in the future)
+   */
+  getCurrentEnrollmentsCount: async (): Promise<number> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { count, error } = await supabase
+      .from('classes_students')
+      .select('id', { count: 'exact', head: true })
+      .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
+    
+    if (error) throw error;
+    return count ?? 0;
+  },
 }; 

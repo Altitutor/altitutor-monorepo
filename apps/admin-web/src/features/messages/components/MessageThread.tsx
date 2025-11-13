@@ -193,11 +193,43 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
     );
   };
 
+  // Prevent scroll events from propagating to the page behind
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement;
+      const isScrollable = scrollHeight > clientHeight;
+      
+      if (!isScrollable) {
+        // If not scrollable, allow event to propagate to page
+        return;
+      }
+      
+      const isAtTop = scrollTop <= 0;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+      
+      // Always stop propagation to prevent page scrolling
+      e.stopPropagation();
+      
+      // Only prevent default when at boundaries to prevent overscroll
+      if ((e.deltaY > 0 && isAtBottom) || (e.deltaY < 0 && isAtTop)) {
+        e.preventDefault();
+      }
+    };
+
+    scrollElement.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      scrollElement.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex flex-col min-h-full">
       {/* Search bar */}
       {isSearching && (
-        <div className="p-3 border-b dark:border-brand-dark-border flex items-center gap-2">
+        <div className="p-3 border-b dark:border-brand-dark-border flex items-center gap-2 flex-shrink-0 bg-background sticky top-0 z-10">
           <Input
             placeholder="Search messages..."
             value={searchTerm}
@@ -211,7 +243,7 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
         </div>
       )}
       
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0">
         {hasNextPage && (
           <button className="text-xs text-blue-600 hover:underline mb-2" onClick={() => fetchNextPage()}>Load older messages</button>
         )}

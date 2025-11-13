@@ -5,8 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import type { Database } from '@altitutor/shared';
+import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -45,12 +44,13 @@ export function LoginForm() {
     },
   });
 
+  const supabase = useSupabaseClient();
+
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true);
     setError(null);
     
     try {
-      const supabase = createClientComponentClient<Database>();
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -64,11 +64,12 @@ export function LoginForm() {
         throw new Error('Authentication failed: No user or session data');
       }
 
-      // Redirect to dashboard on successful login
-      router.push('/dashboard');
+      // Redirect immediately after successful login
+      // Session is available right away, so we can navigate immediately
+      // Using replace to avoid adding to history and ensure clean navigation
+      router.replace('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
       setLoading(false);
     }
   };

@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { billingApi, type PaymentAttemptRow } from '@/features/billing';
 import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+
+export const dynamic = 'force-dynamic';
 
 export default function PaymentsPage() {
   const [rows, setRows] = useState<PaymentAttemptRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'ALL' | PaymentAttemptRow['status']>('ALL');
   const [q, setQ] = useState('');
   const [from, setFrom] = useState('');
@@ -49,7 +51,6 @@ export default function PaymentsPage() {
           </Select>
           <Input type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} />
           <Input type="datetime-local" value={to} onChange={e => setTo(e.target.value)} />
-          <Button variant="outline" onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Refresh'}</Button>
         </div>
       </div>
 

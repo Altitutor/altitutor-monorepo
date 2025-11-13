@@ -21,8 +21,7 @@ import {
 } from 'lucide-react';
 import { useClasses } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
-import { getSubjectCurriculumColor, getSubjectDisciplineColor } from '@/shared/utils';
+import { cn, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 // import { AddClassModal } from './AddClassModal'; // TODO: Tutors can't create classes - removed
 // import { EditClassModal } from './EditClassModal'; // TODO: Tutors can't edit classes - removed
 import { ViewClassModal } from './modal';
@@ -107,16 +106,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return '-';
   };
 
-  const getSubjectBadgeClass = (classItem: Tables<'classes'>): string => {
+  const getSubjectBadgeStyle = (classItem: Tables<'classes'>): { style: React.CSSProperties; textColorClass: string; defaultClass: string } => {
     const subject = classSubjects[classItem.id];
-    if (!subject) return 'bg-gray-100 text-gray-800';
-    if ((subject as any).discipline) {
-      return getSubjectDisciplineColor((subject as any).discipline as any);
+    if (!subject) {
+      return { style: {}, textColorClass: 'text-gray-800', defaultClass: 'bg-gray-100 text-gray-800' };
     }
-    if ((subject as any).curriculum) {
-      return getSubjectCurriculumColor((subject as any).curriculum as any);
-    }
-    return 'bg-gray-100 text-gray-800';
+    const { style, textColorClass } = getSubjectColorStyle(subject as Tables<'subjects'>);
+    const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+    return { style, textColorClass, defaultClass };
   };
 
   // Memoized filtered and sorted classes
@@ -435,7 +432,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       </TableCell>
                       <TableCell className="font-medium">
                         <Badge 
-                          className={cn("text-xs whitespace-nowrap", getSubjectBadgeClass(cls))}
+                          className={cn("text-xs whitespace-nowrap", (() => {
+                            const { textColorClass, defaultClass } = getSubjectBadgeStyle(cls);
+                            return defaultClass || textColorClass;
+                          })())}
+                          style={(() => {
+                            const { style } = getSubjectBadgeStyle(cls);
+                            return style.backgroundColor ? style : undefined;
+                          })()}
                           title={getSubjectDisplay(cls)}
                         >
                           {/* Default to short names, only show full on 2xl+ screens */}

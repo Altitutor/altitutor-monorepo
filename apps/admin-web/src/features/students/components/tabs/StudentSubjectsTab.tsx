@@ -24,7 +24,7 @@ export function StudentSubjectsTab({
   studentSubjects,
   allSubjects,
   loadingSubjects,
-  onViewSubject,
+  onViewSubject: _onViewSubject,
   onAssignSubject,
   onRemoveSubject
 }: StudentSubjectsTabProps) {
