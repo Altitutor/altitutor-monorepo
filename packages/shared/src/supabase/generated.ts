@@ -2706,6 +2706,38 @@ export type Database = {
       }
     }
     Views: {
+      vadmin_billing_with_payment_methods: {
+        Row: {
+          billing_created_at: string | null
+          billing_updated_at: string | null
+          card_brand: string | null
+          card_country: string | null
+          card_exp_month: number | null
+          card_exp_year: number | null
+          card_last4: string | null
+          is_default: boolean | null
+          payment_method_created_at: string | null
+          stripe_customer_id: string | null
+          stripe_payment_method_id: string | null
+          student_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_billing_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_billing_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vstudent_billing: {
         Row: {
           created_at: string | null
