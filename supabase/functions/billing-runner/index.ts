@@ -239,7 +239,32 @@ Deno.serve(async (req: Request) => {
         s.student_id === row.student_id && s.subject_id === session.subject_id && s.billing_type === subject.billing_type && (!s.effective_until || new Date(s.effective_until) > new Date())
       );
       if (activeSub) netCents = activeSub.price_cents;
-      if (netCents <= 0) continue;
+      
+      // Track zero-amount sessions (audit trail for manual review)
+      if (netCents <= 0) {
+        // Check if already tracked
+        const { data: existingSkipped } = await supabase
+          .from('payment_attempts')
+          .select('id')
+          .eq('sessions_students_id', row.id)
+          .maybeSingle();
+        if (!existingSkipped) {
+          await supabase.from('payment_attempts').insert({
+            sessions_students_id: row.id,
+            student_id: row.student_id,
+            session_id: row.session_id,
+            attempt_number: 1,
+            amount_cents: 0,
+            currency: subject.currency || 'AUD',
+            status: 'skipped',
+            failure_code: 'zero_amount',
+            failure_message: netCents === 0 
+              ? 'Session has zero fee (subject fee is $0.00 or fully subsidized)'
+              : `Session has negative fee: ${netCents} cents (subsidy exceeds subject fee)`,
+          });
+        }
+        continue;
+      }
 
       const billing = billingByStudent[row.student_id];
       const defaultPM = billing?.payment_methods?.[0];
