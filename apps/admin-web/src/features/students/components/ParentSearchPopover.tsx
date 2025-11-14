@@ -88,7 +88,7 @@ export function ParentSearchPopover({
                   <Button
                     key={parent.id}
                     variant="ghost"
-                    className="w-full justify-start h-auto p-3 hover:bg-accent hover:text-accent-foreground"
+                    className="w-full justify-start h-auto p-3"
                     onClick={() => handleSelectParent(parent)}
                   >
                     <div className="flex flex-col items-start w-full">

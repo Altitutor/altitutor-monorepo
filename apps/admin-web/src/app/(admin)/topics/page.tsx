@@ -116,7 +116,7 @@ export default function TopicsPage() {
                       <Button
                         key={subject.id}
                         variant="ghost"
-                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                        className="w-full justify-start h-auto p-2"
                         onClick={() => {
                           setSelectedSubjectId(subject.id);
                           setIsSubjectPopoverOpen(false);

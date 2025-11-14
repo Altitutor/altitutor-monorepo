@@ -140,7 +140,7 @@ export function StudentSubjectsTab({
                       <Button
                         key={subject.id}
                         variant="ghost"
-                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                        className="w-full justify-start h-auto p-2"
                         onClick={() => handleAssignSubject(subject.id)}
                         disabled={assigningSubjects.has(subject.id)}
                       >
@@ -196,7 +196,7 @@ export function StudentSubjectsTab({
                         <Button
                           key={subject.id}
                           variant="ghost"
-                          className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                          className="w-full justify-start h-auto p-2"
                           onClick={() => handleAssignSubject(subject.id)}
                           disabled={assigningSubjects.has(subject.id)}
                         >

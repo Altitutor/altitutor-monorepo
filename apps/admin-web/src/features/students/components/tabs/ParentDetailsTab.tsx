@@ -5,9 +5,10 @@ import { Separator } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, useToast } from "@altitutor/ui";
 import type { Tables } from "@altitutor/shared";
 import { StudentCard } from '@/shared/components/StudentCard';
-import { Loader2, Pencil, X } from 'lucide-react';
+import { Loader2, Pencil, X, Copy, Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { studentsApi } from '../../api/students';
 import { PhoneInput } from '@/shared/components/PhoneInput';
@@ -52,6 +53,7 @@ export function ParentDetailsTab({
   // Fetch subjects for all students in a single query
   const displayStudents = isEditing ? parentStudents : students;
   const displayStudentIds = isEditing ? parentStudents.map(s => s.id) : studentIds;
+  const { toast } = useToast();
   
   const { data: detailsData, isLoading: isLoadingSubjects } = useQuery({
     queryKey: ['parent-students-subjects', displayStudentIds.sort().join(',')],
@@ -68,6 +70,8 @@ export function ParentDetailsTab({
     email: parent.email || '',
     phone: parent.phone || '',
   });
+  
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +169,45 @@ export function ParentDetailsTab({
   }
 
   // View mode
+  const handleCopy = async (text: string, field: string) => {
+    if (!text || text === '-') return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast({
+        title: 'Copied!',
+        description: 'Copied to clipboard',
+      });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      toast({
+        title: 'Failed to copy',
+        description: 'Please try again',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const TruncatedText = ({ text, className = '' }: { text: string; className?: string }) => {
+    const displayText = text || '-';
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`truncate ${className}`} title={displayText}>
+              {displayText}
+            </div>
+          </TooltipTrigger>
+          {displayText !== '-' && (
+            <TooltipContent>
+              <p>{displayText}</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
       <div className="flex items-center justify-between">
@@ -179,16 +222,52 @@ export function ParentDetailsTab({
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         <div className="text-sm font-medium">First Name:</div>
-        <div>{parent.first_name || '-'}</div>
+        <div>
+          <TruncatedText text={parent.first_name || '-'} />
+        </div>
         
         <div className="text-sm font-medium">Last Name:</div>
-        <div>{parent.last_name || '-'}</div>
+        <div>
+          <TruncatedText text={parent.last_name || '-'} />
+        </div>
         
         <div className="text-sm font-medium">Email:</div>
-        <div>{parent.email || '-'}</div>
+        <div className="flex items-center gap-2">
+          <TruncatedText text={parent.email || '-'} className="flex-1 min-w-0" />
+          {parent.email && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 flex-shrink-0"
+              onClick={() => handleCopy(parent.email!, 'email')}
+            >
+              {copiedField === 'email' ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </Button>
+          )}
+        </div>
         
         <div className="text-sm font-medium">Phone:</div>
-        <div>{parent.phone || '-'}</div>
+        <div className="flex items-center gap-2">
+          <TruncatedText text={parent.phone || '-'} className="flex-1 min-w-0" />
+          {parent.phone && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 flex-shrink-0"
+              onClick={() => handleCopy(parent.phone!, 'phone')}
+            >
+              {copiedField === 'phone' ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Separator className="my-6" />

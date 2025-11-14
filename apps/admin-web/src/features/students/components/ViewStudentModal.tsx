@@ -14,7 +14,6 @@ import type { Tables } from '@altitutor/shared';
 import { 
   DetailsTab,
   ClassesTab,
-  StudentAccountTab,
   DetailsFormData
 } from './tabs';
 import { StudentSessionsTab } from './StudentSessionsTab';
@@ -338,10 +337,9 @@ export function ViewStudentModal({
                   </SheetDescription>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
-                    <TabsTrigger value="account">Account</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="billing">Billing</TabsTrigger>
@@ -350,86 +348,84 @@ export function ViewStudentModal({
               </div>
 
               {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto min-h-0">
-                <div className="p-6">
-                  <div className="flex-1 min-h-0">
-                      <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                        <DetailsTab
-                          student={student}
-                          isEditing={isEditingDetails}
-                          isLoading={loadingDetailsUpdate}
-                          onEdit={handleStartEditDetails}
-                          onCancelEdit={handleCancelEditDetails}
-                          onSubmit={handleDetailsSubmit}
-                          onDelete={isEditingDetails ? handleDeleteStudent : undefined}
-                          isDeleting={loadingDelete}
-                          studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                          loadingSubjects={false}
-                          onRemoveSubject={handleRemoveSubject}
-                          onViewSubject={handleViewSubject}
-                          addSubjectButton={
-                            <SubjectSearchPopover
-                              allSubjects={allSubjects}
-                              selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                              onSelectSubject={handleAssignSubject}
-                            />
-                          }
-                          parents={isEditingDetails ? tempStudentParents : parents}
-                          onViewParent={(parentId) => {
-                            setSelectedParentId(parentId);
-                            setParentModalDefaultTab('messages');
-                            setParentModalOpen(true);
-                          }}
-                          onRemoveParent={isEditingDetails ? handleRemoveParent : undefined}
-                          addParentButton={
-                            isEditingDetails ? (
-                              <ParentSearchPopover
-                                allParents={allParents}
-                                selectedParents={tempStudentParents}
-                                onSelectParent={handleAssignParent}
-                              />
-                            ) : undefined
-                          }
+              <div className="flex-1 min-h-0 relative">
+                <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    <DetailsTab
+                      student={student}
+                      isEditing={isEditingDetails}
+                      isLoading={loadingDetailsUpdate}
+                      onEdit={handleStartEditDetails}
+                      onCancelEdit={handleCancelEditDetails}
+                      onSubmit={handleDetailsSubmit}
+                      onDelete={isEditingDetails ? handleDeleteStudent : undefined}
+                      isDeleting={loadingDelete}
+                      studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
+                      loadingSubjects={false}
+                      onRemoveSubject={handleRemoveSubject}
+                      onViewSubject={handleViewSubject}
+                      addSubjectButton={
+                        <SubjectSearchPopover
+                          allSubjects={allSubjects}
+                          selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
+                          onSelectSubject={handleAssignSubject}
                         />
-                      </TabsContent>
-              
-              <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <ClassesTab
-                  student={student}
-                  onStudentUpdated={onStudentUpdated}
-                />
-              </TabsContent>
-              
-              <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <StudentAccountTab
-                  student={student}
-                  isLoading={loadingAccountUpdate}
-                  hasPasswordResetLinkSent={hasPasswordResetLinkSent}
-                  onPasswordResetRequest={handlePasswordResetRequest}
-                />
-              </TabsContent>
-
-              <TabsContent value="messages" className="h-full min-h-0 overflow-hidden m-0 p-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <div className="h-full p-6">
-                  <MessagesTabContent 
-                    conversationId={conversationId}
-                    title={`${student.first_name} ${student.last_name}`}
-                    onClose={onClose}
-                    relatedId={studentId || undefined}
-                    relatedType="student"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="sessions" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <StudentSessionsTab student={student} />
-              </TabsContent>
-
-              <TabsContent value="billing" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <StudentBillingTab student={student} />
-                      </TabsContent>
+                      }
+                      parents={isEditingDetails ? tempStudentParents : parents}
+                      onViewParent={(parentId) => {
+                        setSelectedParentId(parentId);
+                        setParentModalDefaultTab('messages');
+                        setParentModalOpen(true);
+                      }}
+                      onRemoveParent={isEditingDetails ? handleRemoveParent : undefined}
+                      addParentButton={
+                        isEditingDetails ? (
+                          <ParentSearchPopover
+                            allParents={allParents}
+                            selectedParents={tempStudentParents}
+                            onSelectParent={handleAssignParent}
+                          />
+                        ) : undefined
+                      }
+                      isLoadingAccount={loadingAccountUpdate}
+                      hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+                      onPasswordResetRequest={handlePasswordResetRequest}
+                    />
                   </div>
-                </div>
+                </TabsContent>
+              
+                <TabsContent value="classes" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    <ClassesTab
+                      student={student}
+                      onStudentUpdated={onStudentUpdated}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="messages" className="absolute inset-0 overflow-hidden m-0 p-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full p-6">
+                    <MessagesTabContent 
+                      conversationId={conversationId}
+                      title={`${student.first_name} ${student.last_name}`}
+                      onClose={onClose}
+                      relatedId={studentId || undefined}
+                      relatedType="student"
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full p-6">
+                    <StudentSessionsTab student={student} />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="billing" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full p-6">
+                    <StudentBillingTab student={student} />
+                  </div>
+                </TabsContent>
               </div>
             </Tabs>
           )}

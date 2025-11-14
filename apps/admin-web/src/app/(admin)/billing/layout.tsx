@@ -26,7 +26,7 @@ export default function BillingLayout({ children }: { children: React.ReactNode 
                   'px-3 py-2 text-sm font-medium rounded-md transition-colors',
                   pathname === tab.href
                     ? 'bg-brand-darkBlue text-white'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70'
                 )}
               >
                 {tab.label}

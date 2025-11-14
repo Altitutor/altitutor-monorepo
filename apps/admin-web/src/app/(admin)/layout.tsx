@@ -56,20 +56,6 @@ const navItems: NavItem[] = [
   },
   {
     type: 'heading',
-    title: 'RESOURCES',
-  },
-  {
-    title: 'Subjects',
-    href: '/subjects',
-    icon: Beaker,
-  },
-  {
-    title: 'Topics',
-    href: '/topics',
-    icon: Newspaper,
-  },
-  {
-    type: 'heading',
     title: 'COMMUNICATIONS',
   },
   {
@@ -100,6 +86,20 @@ const navItems: NavItem[] = [
     title: 'Reports',
     href: '/reports',
     icon: FileText,
+  },
+  {
+    type: 'heading',
+    title: 'RESOURCES',
+  },
+  {
+    title: 'Subjects',
+    href: '/subjects',
+    icon: Beaker,
+  },
+  {
+    title: 'Topics',
+    href: '/topics',
+    icon: Newspaper,
   },
 ];
 

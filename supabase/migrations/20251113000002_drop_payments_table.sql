@@ -18,3 +18,4 @@ COMMENT ON SCHEMA public IS 'Successfully migrated from payments to payment_atte
 
 
 
+

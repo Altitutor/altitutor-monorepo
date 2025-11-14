@@ -19,17 +19,22 @@ import { useEffect, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 
+// Lazy client creation to avoid issues during static generation
+function getSupabaseClient() {
+  return createClientComponentClient<Database>();
+}
+
 export function Navbar() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const [studentRecord, setStudentRecord] = useState<any>(null);
-  const supabase = createClientComponentClient<Database>();
 
   useEffect(() => {
     const loadStudent = async () => {
       if (!user) return;
       
+      const supabase = getSupabaseClient();
       const { data } = await supabase
         .from('students')
         .select('first_name, last_name')
@@ -40,7 +45,7 @@ export function Navbar() {
     };
 
     loadStudent();
-  }, [user, supabase]);
+  }, [user]);
 
   const handleLogout = async () => {
     try {

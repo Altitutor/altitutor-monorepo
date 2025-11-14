@@ -260,47 +260,45 @@ export function ViewParentModal({
               </div>
 
               {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto min-h-0">
-                <div className="px-6 pb-6 pt-0">
-                  <div className="flex-1 min-h-0 overflow-hidden">
-                    <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                      <ParentDetailsTab
-                        parent={parent}
-                        studentIds={students.map(s => s.id)}
-                        students={students}
-                        onViewStudent={handleStudentClick}
-                        isEditing={isEditingDetails}
-                        isLoading={loadingDetailsUpdate}
-                        onEdit={handleStartEditDetails}
-                        onCancelEdit={handleCancelEditDetails}
-                        onSubmit={handleDetailsSubmit}
-                        parentStudents={isEditingDetails ? tempParentStudents : students}
-                        onRemoveStudent={handleRemoveStudent}
-                        addStudentButton={
-                          isEditingDetails ? (
-                            <StudentSearchPopover
-                              allStudents={allStudents}
-                              selectedStudents={tempParentStudents}
-                              onSelectStudent={handleAssignStudent}
-                            />
-                          ) : undefined
-                        }
-                      />
-                    </TabsContent>
-
-                    <TabsContent value="messages" className="h-full min-h-0 overflow-hidden m-0 p-0 data-[state=active]:flex data-[state=active]:flex-col">
-                      <div className="h-full px-6 pb-6 pt-0">
-                        <MessagesTabContent 
-                          conversationId={conversationId}
-                          title={`${parent.first_name} ${parent.last_name}`}
-                          onClose={onClose}
-                          relatedId={parentId || undefined}
-                          relatedType="parent"
-                        />
-                      </div>
-                    </TabsContent>
+              <div className="flex-1 min-h-0 relative">
+                <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="px-6 pb-6 pt-0">
+                    <ParentDetailsTab
+                      parent={parent}
+                      studentIds={students.map(s => s.id)}
+                      students={students}
+                      onViewStudent={handleStudentClick}
+                      isEditing={isEditingDetails}
+                      isLoading={loadingDetailsUpdate}
+                      onEdit={handleStartEditDetails}
+                      onCancelEdit={handleCancelEditDetails}
+                      onSubmit={handleDetailsSubmit}
+                      parentStudents={isEditingDetails ? tempParentStudents : students}
+                      onRemoveStudent={handleRemoveStudent}
+                      addStudentButton={
+                        isEditingDetails ? (
+                          <StudentSearchPopover
+                            allStudents={allStudents}
+                            selectedStudents={tempParentStudents}
+                            onSelectStudent={handleAssignStudent}
+                          />
+                        ) : undefined
+                      }
+                    />
                   </div>
-                </div>
+                </TabsContent>
+
+                <TabsContent value="messages" className="absolute inset-0 overflow-hidden m-0 p-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full px-6 pb-6 pt-0">
+                    <MessagesTabContent 
+                      conversationId={conversationId}
+                      title={`${parent.first_name} ${parent.last_name}`}
+                      onClose={onClose}
+                      relatedId={parentId || undefined}
+                      relatedType="parent"
+                    />
+                  </div>
+                </TabsContent>
               </div>
             </Tabs>
           )}

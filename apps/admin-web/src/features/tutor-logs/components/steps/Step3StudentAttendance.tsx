@@ -222,7 +222,7 @@ export function Step3StudentAttendance({
                 key={student.id}
                 type="button"
                 onClick={() => handleAddStudent(student.id)}
-                className="w-full text-left p-2 hover:bg-accent rounded-md transition-colors flex justify-between items-center"
+                className="w-full text-left p-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded-md transition-colors flex justify-between items-center"
               >
                 <span>
                   {student.first_name} {student.last_name}

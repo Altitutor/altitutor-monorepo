@@ -13,7 +13,6 @@ import type { Tables } from '@altitutor/shared';
 import { 
   DetailsTab as StudentDetailsTab,
   ClassesTab as StudentClassesTab,
-  StudentAccountTab,
   DetailsFormData
 } from '@/features/students/components/tabs';
 import { ParentDetailsTab } from '@/features/students/components/tabs/ParentDetailsTab';
@@ -27,8 +26,7 @@ import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/stude
 import { 
   StaffDetailsTab,
   StaffDetailsFormData,
-  ClassesTab as StaffClassesTab,
-  AccountTab as StaffAccountTab
+  ClassesTab as StaffClassesTab
 } from '@/features/staff/components/modal/tabs';
 import { StudentsTab as StaffStudentsTab } from '@/features/staff/components/modal/tabs/StudentsTab';
 import { staffApi } from '@/features/staff/api';
@@ -303,21 +301,27 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     return (
       <>
         <div className={`border-l dark:border-brand-dark-border flex flex-col ${className}`}>
-          <div className="p-4 border-b dark:border-brand-dark-border flex-shrink-0">
-            <h3 className="font-semibold">{student.first_name} {student.last_name}</h3>
-            <p className="text-sm text-muted-foreground">Student</p>
-          </div>
-          <div className="p-4 overflow-y-auto flex-1 min-h-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
-              <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="classes">Classes</TabsTrigger>
-                <TabsTrigger value="account">Account</TabsTrigger>
-                <TabsTrigger value="sessions">Sessions</TabsTrigger>
-                <TabsTrigger value="billing">Billing</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex-1 min-h-0 overflow-hidden mt-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+            {/* Sticky Header */}
+            <div className="flex-shrink-0 border-b dark:border-brand-dark-border bg-background sticky top-0 z-10">
+              <div className="p-4 border-b dark:border-brand-dark-border">
+                <h3 className="font-semibold">{student.first_name} {student.last_name}</h3>
+                <p className="text-sm text-muted-foreground">Student</p>
+              </div>
+              <div className="p-4 pb-4">
+                <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
+                  <TabsTrigger value="details">Details</TabsTrigger>
+                  <TabsTrigger value="classes">Classes</TabsTrigger>
+                  <TabsTrigger value="sessions">Sessions</TabsTrigger>
+                  <TabsTrigger value="billing">Billing</TabsTrigger>
+                </TabsList>
+              </div>
+            </div>
+            
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-4">
+                <div className="flex-1 min-h-0">
                 <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                   <StudentDetailsTab
                     student={student as any}
@@ -337,6 +341,9 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                         onSelectSubject={handleAssignSubjectToStudent}
                       />
                     }
+                    isLoadingAccount={false}
+                    hasPasswordResetLinkSent={false}
+                    onPasswordResetRequest={async () => {}}
                   />
                 </TabsContent>
                 
@@ -352,15 +359,6 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                   />
                 </TabsContent>
                 
-                <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                  <StudentAccountTab
-                    student={student as any}
-                    isLoading={false}
-                    hasPasswordResetLinkSent={false}
-                    onPasswordResetRequest={async () => {}}
-                  />
-                </TabsContent>
-                
                 <TabsContent value="sessions" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                   <StudentSessionsTab student={student as any} />
                 </TabsContent>
@@ -368,35 +366,36 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                 <TabsContent value="billing" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                   <StudentBillingTab student={student as any} />
                 </TabsContent>
-              </div>
-            </Tabs>
-          </div>
-          
-          {/* Sticky Footer with Buttons */}
-          {student && isEditingStudent && (
-            <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-              <div className="flex w-full justify-end">
-                <div className="flex space-x-2">
-                  <Button variant="outline" type="button" onClick={handleCancelEditStudent} disabled={isLoadingStudentUpdate}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="button"
-                    disabled={isLoadingStudentUpdate}
-                    onClick={() => {
-                      const form = document.getElementById('student-edit-form') as HTMLFormElement;
-                      if (form) {
-                        form.requestSubmit();
-                      }
-                    }}
-                  >
-                    {isLoadingStudentUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
-                  </Button>
                 </div>
               </div>
             </div>
-          )}
+            
+            {/* Sticky Footer with Buttons */}
+            {student && isEditingStudent && (
+              <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+                <div className="flex w-full justify-end">
+                  <div className="flex space-x-2">
+                    <Button variant="outline" type="button" onClick={handleCancelEditStudent} disabled={isLoadingStudentUpdate}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="button"
+                      disabled={isLoadingStudentUpdate}
+                      onClick={() => {
+                        const form = document.getElementById('student-edit-form') as HTMLFormElement;
+                        if (form) {
+                          form.requestSubmit();
+                        }
+                      }}
+                    >
+                      {isLoadingStudentUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Tabs>
         </div>
         
         {/* Subject Modal */}
@@ -529,20 +528,26 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     return (
       <>
         <div className={`border-l dark:border-brand-dark-border flex flex-col ${className}`}>
-          <div className="p-4 border-b dark:border-brand-dark-border flex-shrink-0">
-            <h3 className="font-semibold">{staff.first_name} {staff.last_name}</h3>
-            <p className="text-sm text-muted-foreground">Staff</p>
-          </div>
-          <div className="p-4 overflow-y-auto flex-1 min-h-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
-              <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="classes">Classes</TabsTrigger>
-                <TabsTrigger value="students">Students</TabsTrigger>
-                <TabsTrigger value="account">Account</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex-1 min-h-0 overflow-hidden mt-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+            {/* Sticky Header */}
+            <div className="flex-shrink-0 border-b dark:border-brand-dark-border bg-background sticky top-0 z-10">
+              <div className="p-4 border-b dark:border-brand-dark-border">
+                <h3 className="font-semibold">{staff.first_name} {staff.last_name}</h3>
+                <p className="text-sm text-muted-foreground">Staff</p>
+              </div>
+              <div className="p-4 pb-4">
+                <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+                  <TabsTrigger value="details">Details</TabsTrigger>
+                  <TabsTrigger value="classes">Classes</TabsTrigger>
+                  <TabsTrigger value="students">Students</TabsTrigger>
+                </TabsList>
+              </div>
+            </div>
+            
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-4">
+                <div className="flex-1 min-h-0">
                 <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                   <StaffDetailsTab
                     staffMember={staff as any}
@@ -562,6 +567,9 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                         onSelectSubject={(subject) => handleAssignSubjectToStaff(subject.id)}
                       />
                     }
+                    isLoadingAccount={false}
+                    hasPasswordResetLinkSent={false}
+                    onPasswordResetRequest={async () => {}}
                   />
                 </TabsContent>
                 
@@ -584,43 +592,36 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                   />
                 </TabsContent>
                 
-                <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                  <StaffAccountTab
-                    staffMember={staff as any}
-                    isLoading={false}
-                    hasPasswordResetLinkSent={false}
-                    onPasswordResetRequest={async () => {}}
-                  />
-                </TabsContent>
-              </div>
-            </Tabs>
-          </div>
-          
-          {/* Sticky Footer with Buttons */}
-          {staff && isEditingStaff && (
-            <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-              <div className="flex w-full justify-end">
-                <div className="flex space-x-2">
-                  <Button variant="outline" type="button" onClick={handleCancelEditStaff} disabled={isLoadingStaffUpdate}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="button"
-                    disabled={isLoadingStaffUpdate}
-                    onClick={() => {
-                      const form = document.getElementById('staff-edit-form') as HTMLFormElement;
-                      if (form) {
-                        form.requestSubmit();
-                      }
-                    }}
-                  >
-                    {isLoadingStaffUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
-                  </Button>
                 </div>
               </div>
             </div>
-          )}
+            
+            {/* Sticky Footer with Buttons */}
+            {staff && isEditingStaff && (
+              <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+                <div className="flex w-full justify-end">
+                  <div className="flex space-x-2">
+                    <Button variant="outline" type="button" onClick={handleCancelEditStaff} disabled={isLoadingStaffUpdate}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="button"
+                      disabled={isLoadingStaffUpdate}
+                      onClick={() => {
+                        const form = document.getElementById('staff-edit-form') as HTMLFormElement;
+                        if (form) {
+                          form.requestSubmit();
+                        }
+                      }}
+                    >
+                      {isLoadingStaffUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Tabs>
         </div>
         
         {/* Subject Modal */}
@@ -652,17 +653,24 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     
     return (
       <div className={`border-l dark:border-brand-dark-border flex flex-col ${className}`}>
-        <div className="p-4 border-b dark:border-brand-dark-border flex-shrink-0">
-          <h3 className="font-semibold">{parent.first_name} {parent.last_name}</h3>
-          <p className="text-sm text-muted-foreground">Parent</p>
-        </div>
-        <div className="p-4 overflow-y-auto flex-1 min-h-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
-            <TabsList className="grid w-full grid-cols-1 flex-shrink-0">
-              <TabsTrigger value="details">Details</TabsTrigger>
-            </TabsList>
-            
-            <div className="flex-1 min-h-0 overflow-hidden mt-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+          {/* Sticky Header */}
+          <div className="flex-shrink-0 border-b dark:border-brand-dark-border bg-background sticky top-0 z-10">
+            <div className="p-4 border-b dark:border-brand-dark-border">
+              <h3 className="font-semibold">{parent.first_name} {parent.last_name}</h3>
+              <p className="text-sm text-muted-foreground">Parent</p>
+            </div>
+            <div className="p-4 pb-4">
+              <TabsList className="grid w-full grid-cols-1 flex-shrink-0">
+                <TabsTrigger value="details">Details</TabsTrigger>
+              </TabsList>
+            </div>
+          </div>
+          
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-4">
+              <div className="flex-1 min-h-0">
               <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
                 <ParentDetailsTab
                   parent={parent}
@@ -671,9 +679,10 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                   onViewStudent={() => {}} // No-op in InfoPanel context
                 />
               </TabsContent>
+              </div>
             </div>
-          </Tabs>
-        </div>
+          </div>
+        </Tabs>
       </div>
     );
   }

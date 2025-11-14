@@ -5,14 +5,23 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
 
+// Mark this page as dynamic to prevent static generation
+// This page requires Supabase client which needs environment variables
+export const dynamic = 'force-dynamic';
+
+// Lazy client creation to avoid issues during static generation
+function getSupabaseClient() {
+  return createClientComponentClient<Database>();
+}
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState<any>(null);
-  const supabase = createClientComponentClient<Database>();
 
   useEffect(() => {
     const loadData = async () => {
       try {
+        const supabase = getSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
@@ -29,7 +38,7 @@ export default function DashboardPage() {
     };
 
     loadData();
-  }, [supabase]);
+  }, []);
 
   if (loading) {
     return (

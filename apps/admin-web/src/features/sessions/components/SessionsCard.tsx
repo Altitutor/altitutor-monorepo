@@ -203,7 +203,7 @@ export function SessionsCard({
                           : 'text-xs px-2 py-0.5',
                         staffMember.planned_absence
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                          : 'bg-muted'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                       )}
                     >
                       {display}

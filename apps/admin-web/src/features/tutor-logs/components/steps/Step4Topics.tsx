@@ -123,14 +123,14 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
       return (
         <div key={topic.id}>
           <div
-            className="flex items-center gap-2 py-2 hover:bg-accent/50 rounded"
+            className="flex items-center gap-2 py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
             style={{ paddingLeft: `${depth * 20}px` }}
           >
             {hasChildren && (
               <button
                 type="button"
                 onClick={() => toggleExpanded(topic.id)}
-                className="p-1 hover:bg-accent rounded"
+                className="p-1 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
@@ -229,7 +229,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
                   key={topic.id}
                   type="button"
                   onClick={() => handleAddTopic(topic.id)}
-                  className="w-full text-left p-2 hover:bg-accent rounded-md transition-colors"
+                  className="w-full text-left p-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded-md transition-colors"
                 >
                   {topic.name}
                 </button>

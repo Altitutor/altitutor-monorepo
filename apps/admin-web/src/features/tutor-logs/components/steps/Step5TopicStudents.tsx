@@ -130,7 +130,7 @@ export function Step5TopicStudents({
                         key={studentId}
                         type="button"
                         onClick={() => handleAddStudent(topic.topicId, studentId)}
-                        className="px-2 py-1 border border-dashed rounded-md text-sm hover:bg-accent"
+                        className="px-2 py-1 border border-dashed rounded-md text-sm hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
                       >
                         + {student.first_name} {student.last_name}
                       </button>

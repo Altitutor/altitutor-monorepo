@@ -94,17 +94,17 @@ export default function CommunicationsPage() {
   };
   
   return (
-    <div className="p-0 h-full">
-      <div className="flex h-[calc(100vh-var(--navbar-height))]">
+    <div className="p-0 h-full overflow-hidden">
+      <div className="flex h-full">
         {/* Conversation List 
             - Mobile (< md): Full width when viewing list, hidden when viewing thread
-            - Medium (md-xl): Fixed 340px, always visible alongside messages
-            - Wide (xl+): Fixed 340px, always visible with info panel
+            - Medium (md-xl): Fixed 260px, always visible alongside messages
+            - Wide (xl+): Fixed 260px, always visible with info panel
         */}
         <div className={`
           flex-shrink-0
-          ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[340px]'}
-          md:w-[340px]
+          ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[260px]'}
+          md:w-[260px]
         `}>
           <ConversationList 
             activeConversationId={activeConversationId} 
@@ -150,9 +150,9 @@ export default function CommunicationsPage() {
         
         {/* Info Panel 
             - Hidden on mobile and medium (< xl)
-            - Shown on wide screens (xl+): 380px fixed width
+            - Shown on wide screens (xl+): 480px fixed width
         */}
-        <div className="hidden xl:flex xl:flex-col w-[380px] flex-shrink-0 min-h-0">
+        <div className="hidden xl:flex xl:flex-col w-[480px] flex-shrink-0 min-h-0">
           <InfoPanel conversationId={activeConversationId} className="flex-1 overflow-y-auto" />
         </div>
       </div>

@@ -16,13 +16,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  useToast,
 } from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
-import { Pencil, Loader2, Trash2, X } from 'lucide-react';
+import { Pencil, Loader2, Trash2, X, Copy, Check, Mail, UserPlus } from 'lucide-react';
 import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor, formatSubjectShortName } from '@/shared/utils';
 import { PhoneInput } from '@/shared/components/PhoneInput';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
+import { SendInviteDialog } from '../SendInviteDialog';
 
 export interface DetailsFormData {
   // Student details
@@ -67,6 +73,10 @@ interface DetailsTabProps {
   onViewParent?: (parentId: string) => void;
   onRemoveParent?: (parentId: string) => void;
   addParentButton?: React.ReactNode;
+  // Account props
+  isLoadingAccount?: boolean;
+  hasPasswordResetLinkSent?: boolean;
+  onPasswordResetRequest?: () => Promise<void>;
 }
 
 export function DetailsTab({
@@ -87,13 +97,19 @@ export function DetailsTab({
   onViewParent,
   onRemoveParent,
   addParentButton,
+  isLoadingAccount = false,
+  hasPasswordResetLinkSent = false,
+  onPasswordResetRequest,
 }: DetailsTabProps) {
   // Fetch students for each parent using React Query
   const parentIds = parents.map(p => p.id);
   const { data: parentStudents = {} } = useParentStudents(parentIds, !isEditing && parents.length > 0);
+  const { toast } = useToast();
 
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
@@ -361,6 +377,80 @@ export function DetailsTab({
                 </div>
               </div>
 
+              <Separator className="my-6" />
+
+              {/* Account Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Account</h3>
+                {!student.user_id ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      This student does not have an associated user account yet. Send them an invite to create one.
+                    </p>
+                    
+                    <Button
+                      variant="default"
+                      onClick={() => setInviteDialogOpen(true)}
+                      className="justify-start w-fit"
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Send Invite
+                    </Button>
+
+                    <SendInviteDialog
+                      isOpen={inviteDialogOpen}
+                      onClose={() => setInviteDialogOpen(false)}
+                      student={student}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Send a password reset link to this student's email address.
+                    </p>
+                    
+                    <div className="flex flex-col space-y-3">
+                      <Button
+                        variant="outline"
+                        onClick={onPasswordResetRequest}
+                        disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
+                        className="justify-start w-fit"
+                      >
+                        {isLoadingAccount ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending reset link...
+                          </>
+                        ) : hasPasswordResetLinkSent ? (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Reset link sent
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Send password reset email
+                          </>
+                        )}
+                      </Button>
+                  
+                      {!student.email && (
+                        <p className="text-sm text-orange-600">
+                          No email address set. Please add a student email above.
+                        </p>
+                      )}
+                    </div>
+                  
+                    {hasPasswordResetLinkSent && (
+                      <p className="text-sm text-green-600">
+                        A password reset link has been sent to {student.email}.
+                        The student needs to check their email to set a new password.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {onDelete && (
                 <>
                   <Separator className="my-6" />
@@ -434,6 +524,45 @@ export function DetailsTab({
   }
 
   // View mode
+  const handleCopy = async (text: string, field: string) => {
+    if (!text || text === '-') return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast({
+        title: 'Copied!',
+        description: 'Copied to clipboard',
+      });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      toast({
+        title: 'Failed to copy',
+        description: 'Please try again',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const TruncatedText = ({ text, className = '' }: { text: string; className?: string }) => {
+    const displayText = text || '-';
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`truncate ${className}`} title={displayText}>
+              {displayText}
+            </div>
+          </TooltipTrigger>
+          {displayText !== '-' && (
+            <TooltipContent>
+              <p>{displayText}</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
       <div className="flex items-center justify-between">
@@ -446,19 +575,57 @@ export function DetailsTab({
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         <div className="text-sm font-medium">First Name:</div>
-        <div>{student.first_name || '-'}</div>
+        <div>
+          <TruncatedText text={student.first_name || '-'} />
+        </div>
         
         <div className="text-sm font-medium">Last Name:</div>
-        <div>{student.last_name || '-'}</div>
+        <div>
+          <TruncatedText text={student.last_name || '-'} />
+        </div>
         
         <div className="text-sm font-medium">Student Email:</div>
-        <div>{student.email || '-'}</div>
+        <div className="flex items-center gap-2">
+          <TruncatedText text={student.email || '-'} className="flex-1 min-w-0" />
+          {student.email && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 flex-shrink-0"
+              onClick={() => handleCopy(student.email!, 'email')}
+            >
+              {copiedField === 'email' ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </Button>
+          )}
+        </div>
         
         <div className="text-sm font-medium">Student Phone:</div>
-        <div>{student.phone || '-'}</div>
+        <div className="flex items-center gap-2">
+          <TruncatedText text={student.phone || '-'} className="flex-1 min-w-0" />
+          {student.phone && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 flex-shrink-0"
+              onClick={() => handleCopy(student.phone!, 'phone')}
+            >
+              {copiedField === 'phone' ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </Button>
+          )}
+        </div>
         
         <div className="text-sm font-medium">School:</div>
-        <div>{student.school || '-'}</div>
+        <div>
+          <TruncatedText text={student.school || '-'} />
+        </div>
         
         <div className="text-sm font-medium">Curriculum:</div>
         <div>
@@ -578,6 +745,80 @@ export function DetailsTab({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No parents assigned to this student</p>
+        )}
+      </div>
+
+      <Separator className="my-6" />
+
+      {/* Account Section */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Account</h3>
+        {!student.user_id ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This student does not have an associated user account yet. Send them an invite to create one.
+            </p>
+            
+            <Button
+              variant="default"
+              onClick={() => setInviteDialogOpen(true)}
+              className="justify-start w-fit"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Send Invite
+            </Button>
+
+            <SendInviteDialog
+              isOpen={inviteDialogOpen}
+              onClose={() => setInviteDialogOpen(false)}
+              student={student}
+            />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Send a password reset link to this student's email address.
+            </p>
+            
+            <div className="flex flex-col space-y-3">
+              <Button
+                variant="outline"
+                onClick={onPasswordResetRequest}
+                disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
+                className="justify-start w-fit"
+              >
+                {isLoadingAccount ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending reset link...
+                  </>
+                ) : hasPasswordResetLinkSent ? (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Reset link sent
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Send password reset email
+                  </>
+                )}
+              </Button>
+          
+              {!student.email && (
+                <p className="text-sm text-orange-600">
+                  No email address set. Please add a student email above.
+                </p>
+              )}
+            </div>
+          
+            {hasPasswordResetLinkSent && (
+              <p className="text-sm text-green-600">
+                A password reset link has been sent to {student.email}.
+                The student needs to check their email to set a new password.
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>

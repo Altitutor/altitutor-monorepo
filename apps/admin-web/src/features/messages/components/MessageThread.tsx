@@ -226,7 +226,7 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
   }, []);
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Search bar */}
       {isSearching && (
         <div className="p-3 border-b dark:border-brand-dark-border flex items-center gap-2 flex-shrink-0 bg-background sticky top-0 z-10">

@@ -176,7 +176,7 @@ export function ClassStaffTab({
                       <Button
                         key={staff.id}
                         variant="ghost"
-                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                        className="w-full justify-start h-auto p-2"
                         onClick={() => handleAssignStaff(staff.id)}
                         disabled={assigningStaff.has(staff.id)}
                       >
@@ -239,7 +239,7 @@ export function ClassStaffTab({
                         <Button
                           key={staff.id}
                           variant="ghost"
-                          className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
+                          className="w-full justify-start h-auto p-2"
                           onClick={() => handleAssignStaff(staff.id)}
                           disabled={assigningStaff.has(staff.id)}
                         >

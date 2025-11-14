@@ -5,8 +5,9 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Calendar, Plus, Grid3X3 } from "lucide-react";
+import { Loader2, Calendar, Plus } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal, CalendarView } from '@/features/classes';
@@ -16,7 +17,7 @@ import { formatTime } from '@/shared/utils/datetime';
 import { useStaffClasses, type StaffClass } from '@/features/staff/hooks/useStaffClasses';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
 
-type ViewMode = 'table' | 'timetable';
+type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
   staff: Tables<'staff'>;
@@ -205,7 +206,7 @@ export function ClassesTab({
                       <Button
                         key={classData.class.id}
                         variant="ghost"
-                        className="w-full justify-start h-auto p-3 hover:bg-accent hover:text-accent-foreground"
+                        className="w-full justify-start h-auto p-3"
                         onClick={() => handleAssignClass(classData.class.id)}
                         disabled={assigningClasses.has(classData.class.id)}
                       >
@@ -238,7 +239,7 @@ export function ClassesTab({
     <div className="flex-1 h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-medium">Assigned Classes ({classes.length})</h3>
+          <h3 className="text-base font-medium">Classes ({classes.length})</h3>
           
           {/* Show currently assigning classes */}
           {assigningClasses.size > 0 && (
@@ -251,25 +252,12 @@ export function ClassesTab({
         
         <div className="flex items-center gap-2">
           {/* View Mode Selector */}
-          <div className="flex rounded-md border">
-            <Button 
-              variant={viewMode === 'table' ? 'default' : 'ghost'} 
-              size="sm"
-              onClick={() => setViewMode('table')}
-              className="rounded-r-none"
-            >
-              Table
-            </Button>
-            <Button 
-              variant={viewMode === 'timetable' ? 'default' : 'ghost'} 
-              size="sm"
-              onClick={() => setViewMode('timetable')}
-              className="rounded-l-none"
-            >
-              <Grid3X3 className="h-4 w-4 mr-1" />
-              Timetable
-            </Button>
-          </div>
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="table">Table</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            </TabsList>
+          </Tabs>
           
           <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
             <PopoverTrigger asChild>
@@ -297,7 +285,7 @@ export function ClassesTab({
                       <Button
                         key={classData.class.id}
                         variant="ghost"
-                        className="w-full justify-start h-auto p-3 hover:bg-accent hover:text-accent-foreground"
+                        className="w-full justify-start h-auto p-3"
                         onClick={() => handleAssignClass(classData.class.id)}
                         disabled={assigningClasses.has(classData.class.id)}
                       >
@@ -333,6 +321,7 @@ export function ClassesTab({
             {Array.from(assigningClasses).map(classId => {
               const classData = allClasses.find(c => c.class.id === classId);
               if (!classData) return null;
+              const students = allClassesWithDetailsData?.classStudents?.[classId] || [];
               
               return (
                 <ClassCard
@@ -340,6 +329,7 @@ export function ClassesTab({
                   class={classData.class}
                   subject={classData.subject}
                   staff={classData.staff}
+                  students={students}
                 />
               );
             })}
@@ -366,15 +356,19 @@ export function ClassesTab({
                 <div key={day}>
                   <h4 className="text-sm font-semibold mb-2">{day}</h4>
                   <div className="space-y-2">
-                    {classesByDay[day].map(staffClass => (
-                      <ClassCard
-                        key={staffClass.class.id}
-                        class={staffClass.class}
-                        subject={staffClass.subject}
-                        staff={staffClass.staff}
-                        onClick={() => handleClassClick(staffClass.class.id)}
-                      />
-                    ))}
+                    {classesByDay[day].map(staffClass => {
+                      const students = allClassesWithDetailsData?.classStudents?.[staffClass.class.id] || [];
+                      return (
+                        <ClassCard
+                          key={staffClass.class.id}
+                          class={staffClass.class}
+                          subject={staffClass.subject}
+                          staff={staffClass.staff}
+                          students={students}
+                          onClick={() => handleClassClick(staffClass.class.id)}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               ));
@@ -388,6 +382,7 @@ export function ClassesTab({
             classSubjects={timetableSubjects}
             classStaff={timetableStaff}
             onClassClick={(cls) => handleClassClick(cls.id)}
+            showFilters={false}
           />
         </div>
       )}

@@ -5,8 +5,9 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Calendar, Plus, Grid3X3 } from "lucide-react";
+import { Loader2, Calendar, Plus } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal, CalendarView } from '@/features/classes';
@@ -18,7 +19,7 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useStudentClasses, useAllClassesForStudent, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 
-type ViewMode = 'table' | 'timetable';
+type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
   student: Tables<'students'>;
@@ -287,25 +288,12 @@ export function ClassesTab({
           
           <div className="flex items-center gap-2">
             {/* View Mode Selector */}
-            <div className="flex rounded-md border">
-              <Button 
-                variant={viewMode === 'table' ? 'default' : 'ghost'} 
-                size="sm"
-                onClick={() => setViewMode('table')}
-                className="rounded-r-none"
-              >
-                Table
-              </Button>
-              <Button 
-                variant={viewMode === 'timetable' ? 'default' : 'ghost'} 
-                size="sm"
-                onClick={() => setViewMode('timetable')}
-                className="rounded-l-none"
-              >
-                <Grid3X3 className="h-4 w-4 mr-1" />
-                Timetable
-              </Button>
-            </div>
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+              <TabsList>
+                <TabsTrigger value="table">Table</TabsTrigger>
+                <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              </TabsList>
+            </Tabs>
             
             <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={openEnrollModal}>
               <Plus className="h-4 w-4" />
@@ -366,6 +354,7 @@ export function ClassesTab({
               classStaff={timetableStaff}
               classStudents={timetableStudents}
               onClassClick={(cls) => handleClassClick(cls.id)}
+              showFilters={false}
             />
           </div>
         )}

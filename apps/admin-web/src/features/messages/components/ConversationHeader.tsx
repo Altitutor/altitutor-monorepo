@@ -21,7 +21,7 @@ export function ConversationHeader({
   showBackButton = false
 }: Props) {
   return (
-    <div className="px-6 py-3 border-b dark:border-brand-dark-border flex items-center justify-between">
+    <div className="px-6 py-3 border-b dark:border-brand-dark-border flex items-center justify-between flex-shrink-0">
       <div className="flex items-center gap-2">
         {showBackButton && onBack && (
           <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">

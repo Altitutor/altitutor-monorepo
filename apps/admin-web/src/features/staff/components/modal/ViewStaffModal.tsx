@@ -12,7 +12,6 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { ClassesTab } from './tabs/ClassesTab';
-import { AccountTab } from './tabs/AccountTab';
 import { StudentsTab } from './tabs/StudentsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
@@ -314,21 +313,19 @@ export function ViewStaffModal({
                   </SheetDescription>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-5">
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="students">Students</TabsTrigger>
-                    <TabsTrigger value="account">Account</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                   </TabsList>
                 </div>
               </div>
 
               {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto min-h-0">
-                <div className="p-6">
-                  <div className="flex-1 overflow-hidden">
-                  <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="flex-1 min-h-0 relative">
+                <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
                     <StaffDetailsTab
                       staffMember={staffMember}
                       isEditing={isEditing}
@@ -349,45 +346,42 @@ export function ViewStaffModal({
                           onSelectSubject={(subject) => handleAssignSubject(subject.id)}
                         />
                       }
+                      isLoadingAccount={isLoading}
+                      hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+                      onPasswordResetRequest={handlePasswordResetRequest}
                     />
-                  </TabsContent>
-                    
-                    <TabsContent value="classes" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                      <ClassesTab
-                        staff={staffMember}
-                        onStaffUpdated={onStaffUpdated}
-                      />
-                    </TabsContent>
-                    
-                    <TabsContent value="students" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                      <StudentsTab
-                        staffId={staffId || ''}
-                        isOpen={isOpen}
-                      />
-                    </TabsContent>
-                    
-                    <TabsContent value="account" className="h-full overflow-y-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                      <AccountTab
-                        staffMember={staffMember}
-                        isLoading={isLoading}
-                        hasPasswordResetLinkSent={hasPasswordResetLinkSent}
-                        onPasswordResetRequest={handlePasswordResetRequest}
-                      />
-                    </TabsContent>
-
-                    <TabsContent value="messages" className="h-full overflow-hidden m-0 p-0 data-[state=active]:flex data-[state=active]:flex-col">
-                      <div className="h-full p-6">
-                        <MessagesTabContent 
-                          conversationId={conversationId}
-                          title={`${staffMember.first_name} ${staffMember.last_name}`}
-                          onClose={onClose}
-                          relatedId={staffId || undefined}
-                          relatedType="staff"
-                        />
-                      </div>
-                    </TabsContent>
                   </div>
-                </div>
+                </TabsContent>
+                    
+                <TabsContent value="classes" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    <ClassesTab
+                      staff={staffMember}
+                      onStaffUpdated={onStaffUpdated}
+                    />
+                  </div>
+                </TabsContent>
+                    
+                <TabsContent value="students" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full p-6">
+                    <StudentsTab
+                      staffId={staffId || ''}
+                      isOpen={isOpen}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="messages" className="absolute inset-0 overflow-hidden m-0 p-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full p-6">
+                    <MessagesTabContent 
+                      conversationId={conversationId}
+                      title={`${staffMember.first_name} ${staffMember.last_name}`}
+                      onClose={onClose}
+                      relatedId={staffId || undefined}
+                      relatedType="staff"
+                    />
+                  </div>
+                </TabsContent>
               </div>
             </Tabs>
           )}

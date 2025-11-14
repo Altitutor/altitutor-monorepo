@@ -158,7 +158,7 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
   };
 
   return (
-    <div className="border-t p-2 dark:border-brand-dark-border">
+    <div className="border-t p-2 dark:border-brand-dark-border flex-shrink-0">
       <div className="flex items-start gap-2">
         <MessageTemplatesPicker 
           onSelect={handleTemplateSelect}
@@ -167,7 +167,7 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
         <textarea
           ref={textareaRef}
           className="flex-1 text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px]"
-          placeholder="Type a message..."
+          placeholder="Message"
           value={text}
           onChange={(e) => handleTextChange(e.target.value)}
           onKeyDown={(e) => {

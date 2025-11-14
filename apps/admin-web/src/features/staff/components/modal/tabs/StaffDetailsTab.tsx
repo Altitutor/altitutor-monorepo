@@ -18,13 +18,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@altitutor/ui";
-import { Loader2, Pencil, Trash2, X } from "lucide-react";
+import { Loader2, Pencil, Trash2, X, Copy, Check, Mail, UserPlus } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 import { useToast } from "@altitutor/ui";
+import { SendInviteDialog } from '../SendInviteDialog';
 
 // Form schema for staff details
 const formSchema = z.object({
@@ -75,6 +80,10 @@ interface StaffDetailsTabProps {
   onRemoveSubject?: (subjectId: string) => void;
   onViewSubject?: (subjectId: string) => void;
   addSubjectButton?: React.ReactNode;
+  // Account props
+  isLoadingAccount?: boolean;
+  hasPasswordResetLinkSent?: boolean;
+  onPasswordResetRequest?: () => Promise<void>;
 }
 
 export function StaffDetailsTab({
@@ -90,10 +99,15 @@ export function StaffDetailsTab({
   loadingSubjects: _loadingSubjects = false,
   onRemoveSubject,
   onViewSubject,
-  addSubjectButton
+  addSubjectButton,
+  isLoadingAccount = false,
+  hasPasswordResetLinkSent = false,
+  onPasswordResetRequest
 }: StaffDetailsTabProps) {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const { toast } = useToast();
   const form = useForm<FormData>({
     // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
@@ -520,6 +534,80 @@ export function StaffDetailsTab({
                 </div>
               </div>
 
+              <Separator className="my-6" />
+
+              {/* Account Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Account</h3>
+                {!staffMember.user_id ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      This staff member does not have an associated user account yet. Send them an invite to create one.
+                    </p>
+                    
+                    <Button
+                      variant="default"
+                      onClick={() => setInviteDialogOpen(true)}
+                      className="justify-start w-fit"
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Send Invite
+                    </Button>
+
+                    <SendInviteDialog
+                      isOpen={inviteDialogOpen}
+                      onClose={() => setInviteDialogOpen(false)}
+                      staffMember={staffMember}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Send a password reset link to this staff member's email address.
+                    </p>
+                    
+                    <div className="flex flex-col space-y-3">
+                      <Button
+                        variant="outline"
+                        onClick={onPasswordResetRequest}
+                        disabled={isLoadingAccount || hasPasswordResetLinkSent || !staffMember.email}
+                        className="justify-start w-fit"
+                      >
+                        {isLoadingAccount ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending reset link...
+                          </>
+                        ) : hasPasswordResetLinkSent ? (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Reset link sent
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Send password reset email
+                          </>
+                        )}
+                      </Button>
+
+                      {!staffMember.email && (
+                        <p className="text-sm text-orange-600">
+                          No email address set. Please add an email above.
+                        </p>
+                      )}
+                    </div>
+                    
+                    {hasPasswordResetLinkSent && (
+                      <p className="text-sm text-green-600">
+                        A password reset link has been sent to {staffMember.email}.
+                        The staff member needs to check their email to set a new password.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {onDelete && (
                 <>
                   <Separator className="my-6" />
@@ -602,60 +690,143 @@ export function StaffDetailsTab({
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">First Name:</div>
-        <div>{staffMember.first_name || '-'}</div>
-        
-        <div className="text-sm font-medium">Last Name:</div>
-        <div>{staffMember.last_name || '-'}</div>
-        
-        <div className="text-sm font-medium">Email:</div>
-        <div>{staffMember.email || '-'}</div>
-        
-        <div className="text-sm font-medium">Phone Number:</div>
-        <div>{staffMember.phone_number || '-'}</div>
-        
-        <div className="text-sm font-medium">Office Key Number:</div>
-        <div>{staffMember.office_key_number || '-'}</div>
-        
-        <div className="text-sm font-medium">Parking Remote:</div>
-        <div>{staffMember.has_parking_remote || 'None'}</div>
-        
-        <div className="text-sm font-medium">Role:</div>
-        <div>
-          <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
-        </div>
-        
-        <div className="text-sm font-medium">Status:</div>
-        <div>
-          <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
-        </div>
-        
-        <div className="text-sm font-medium">Subjects:</div>
-        <div>
-          {staffSubjects.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {staffSubjects.map((subject) => {
-                const shortName = formatSubjectShortName(subject);
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                return (
-                  <Badge
-                    key={subject.id}
-                    className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80`}
-                    style={style.backgroundColor ? style : undefined}
-                    onClick={() => onViewSubject?.(subject.id)}
-                  >
-                    {shortName}
-                  </Badge>
-                );
-              })}
+      {(() => {
+        const handleCopy = async (text: string, field: string) => {
+          if (!text || text === '-') return;
+          try {
+            await navigator.clipboard.writeText(text);
+            setCopiedField(field);
+            toast({
+              title: 'Copied!',
+              description: 'Copied to clipboard',
+            });
+            setTimeout(() => setCopiedField(null), 2000);
+          } catch (error) {
+            toast({
+              title: 'Failed to copy',
+              description: 'Please try again',
+              variant: 'destructive',
+            });
+          }
+        };
+
+        const TruncatedText = ({ text, className = '' }: { text: string; className?: string }) => {
+          const displayText = text || '-';
+          return (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`truncate ${className}`} title={displayText}>
+                    {displayText}
+                  </div>
+                </TooltipTrigger>
+                {displayText !== '-' && (
+                  <TooltipContent>
+                    <p>{displayText}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          );
+        };
+
+        return (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div className="text-sm font-medium">First Name:</div>
+            <div>
+              <TruncatedText text={staffMember.first_name || '-'} />
             </div>
-          ) : (
-            <span className="text-muted-foreground">No subjects assigned</span>
-          )}
-        </div>
-      </div>
+            
+            <div className="text-sm font-medium">Last Name:</div>
+            <div>
+              <TruncatedText text={staffMember.last_name || '-'} />
+            </div>
+            
+            <div className="text-sm font-medium">Email:</div>
+            <div className="flex items-center gap-2">
+              <TruncatedText text={staffMember.email || '-'} className="flex-1 min-w-0" />
+              {staffMember.email && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 flex-shrink-0"
+                  onClick={() => handleCopy(staffMember.email!, 'email')}
+                >
+                  {copiedField === 'email' ? (
+                    <Check className="h-3 w-3" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
+            </div>
+            
+            <div className="text-sm font-medium">Phone Number:</div>
+            <div className="flex items-center gap-2">
+              <TruncatedText text={staffMember.phone_number || '-'} className="flex-1 min-w-0" />
+              {staffMember.phone_number && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 flex-shrink-0"
+                  onClick={() => handleCopy(staffMember.phone_number!, 'phone')}
+                >
+                  {copiedField === 'phone' ? (
+                    <Check className="h-3 w-3" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
+            </div>
+            
+            <div className="text-sm font-medium">Office Key Number:</div>
+            <div>
+              <TruncatedText text={staffMember.office_key_number?.toString() || '-'} />
+            </div>
+            
+            <div className="text-sm font-medium">Parking Remote:</div>
+            <div>
+              <TruncatedText text={staffMember.has_parking_remote || 'None'} />
+            </div>
+            
+            <div className="text-sm font-medium">Role:</div>
+            <div>
+              <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
+            </div>
+            
+            <div className="text-sm font-medium">Status:</div>
+            <div>
+              <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
+            </div>
+            
+            <div className="text-sm font-medium">Subjects:</div>
+            <div>
+              {staffSubjects.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {staffSubjects.map((subject) => {
+                    const shortName = formatSubjectShortName(subject);
+                    const { style, textColorClass } = getSubjectColorStyle(subject);
+                    const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                    return (
+                      <Badge
+                        key={subject.id}
+                        className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80`}
+                        style={style.backgroundColor ? style : undefined}
+                        onClick={() => onViewSubject?.(subject.id)}
+                      >
+                        {shortName}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="text-muted-foreground">No subjects assigned</span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       <Separator className="my-6" />
 
@@ -705,6 +876,78 @@ export function StaffDetailsTab({
       </div>
 
       <Separator className="my-6" />
+
+      {/* Account Section */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Account</h3>
+        {!staffMember.user_id ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This staff member does not have an associated user account yet. Send them an invite to create one.
+            </p>
+            
+            <Button
+              variant="default"
+              onClick={() => setInviteDialogOpen(true)}
+              className="justify-start w-fit"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Send Invite
+            </Button>
+
+            <SendInviteDialog
+              isOpen={inviteDialogOpen}
+              onClose={() => setInviteDialogOpen(false)}
+              staffMember={staffMember}
+            />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Send a password reset link to this staff member's email address.
+            </p>
+            
+            <div className="flex flex-col space-y-3">
+              <Button
+                variant="outline"
+                onClick={onPasswordResetRequest}
+                disabled={isLoadingAccount || hasPasswordResetLinkSent || !staffMember.email}
+                className="justify-start w-fit"
+              >
+                {isLoadingAccount ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending reset link...
+                  </>
+                ) : hasPasswordResetLinkSent ? (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Reset link sent
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Send password reset email
+                  </>
+                )}
+              </Button>
+
+              {!staffMember.email && (
+                <p className="text-sm text-orange-600">
+                  No email address set. Please add an email above.
+                </p>
+              )}
+            </div>
+            
+            {hasPasswordResetLinkSent && (
+              <p className="text-sm text-green-600">
+                A password reset link has been sent to {staffMember.email}.
+                The staff member needs to check their email to set a new password.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

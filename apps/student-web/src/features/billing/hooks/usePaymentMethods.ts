@@ -6,7 +6,10 @@ import type { Database } from '@altitutor/shared';
 import { paymentMethodsApi } from '../api/payment-methods';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 
-const supabase = createClientComponentClient<Database>();
+// Lazy client creation to avoid issues during static generation
+function getSupabaseClient() {
+  return createClientComponentClient<Database>();
+}
 
 export function usePaymentMethods() {
   const queryClient = useQueryClient();
@@ -26,6 +29,7 @@ export function usePaymentMethods() {
   useEffect(() => {
     if (!studentId) return;
 
+    const supabase = getSupabaseClient();
     const channel = supabase
       .channel(`payment-methods-${studentId}`)
       .on(

@@ -4,6 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import { PaymentMethodCard, PaymentHistoryTable } from '@/features/billing/components';
 import { usePreWarmBilling } from '@/features/billing/hooks/usePreWarmBilling';
 
+// Mark this page as dynamic to prevent static generation
+// This page requires Supabase client which needs environment variables
+export const dynamic = 'force-dynamic';
+
 export default function BillingPage() {
   // Pre-warm Stripe.js and setup intent when page loads
   usePreWarmBilling();

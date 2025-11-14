@@ -34,7 +34,7 @@ export default function TutorClassesPage() {
       <h1 className="text-3xl font-bold tracking-tight mb-6">My Classes</h1>
       <Card>
         <CardHeader>
-          <CardTitle>Assigned Classes</CardTitle>
+          <CardTitle>Classes</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
