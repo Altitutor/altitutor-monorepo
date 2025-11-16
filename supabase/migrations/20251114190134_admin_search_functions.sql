@@ -243,19 +243,18 @@ BEGIN
                   'curriculum', s.curriculum,
                   'year_level', s.year_level,
                   'name', s.name,
-                  'name_abbreviation', s.name_abbreviation,
                   'discipline', s.discipline,
                   'level', s.level,
                   'color', s.color
                 )
               )
+              ORDER BY c.day_of_week, c.start_time
             )
             FROM classes_students cs2
             JOIN classes c ON c.id = cs2.class_id
             LEFT JOIN subjects s ON s.id = c.subject_id
             WHERE cs2.student_id = ps.id 
               AND cs2.unenrolled_at IS NULL
-            ORDER BY c.day_of_week, c.start_time
           )
           ELSE '[]'::jsonb
         END
@@ -404,9 +403,9 @@ BEGIN
   IF p_include_relationships AND v_staff IS NOT NULL THEN
     -- Get staff IDs from result
     WITH staff_ids AS (
-      SELECT id::UUID
-      FROM jsonb_array_elements(v_staff) AS elem
-      WHERE elem->>'id' IS NOT NULL
+      SELECT (elem.value->>'id')::UUID AS id
+      FROM jsonb_array_elements(v_staff) AS elem(value)
+      WHERE elem.value->>'id' IS NOT NULL
     )
     -- Get class IDs for returned staff
     SELECT ARRAY_AGG(DISTINCT cs.class_id)
@@ -417,9 +416,9 @@ BEGIN
 
     -- Build staffClasses record
     WITH staff_ids AS (
-      SELECT id::UUID
-      FROM jsonb_array_elements(v_staff) AS elem
-      WHERE elem->>'id' IS NOT NULL
+      SELECT (elem.value->>'id')::UUID AS id
+      FROM jsonb_array_elements(v_staff) AS elem(value)
+      WHERE elem.value->>'id' IS NOT NULL
     )
     SELECT jsonb_object_agg(
       si.id::TEXT,
@@ -439,18 +438,17 @@ BEGIN
               'curriculum', s.curriculum,
               'year_level', s.year_level,
               'name', s.name,
-              'name_abbreviation', s.name_abbreviation,
               'discipline', s.discipline,
               'level', s.level,
               'color', s.color
             )
           )
+          ORDER BY c.day_of_week, c.start_time
         )
         FROM classes_staff cs2
         JOIN classes c ON c.id = cs2.class_id
         LEFT JOIN subjects s ON s.id = c.subject_id
         WHERE cs2.staff_id = si.id AND cs2.status = 'ACTIVE'
-        ORDER BY c.day_of_week, c.start_time
       )
     )
     INTO v_staff_classes
@@ -465,7 +463,6 @@ BEGIN
           'curriculum', s.curriculum,
           'year_level', s.year_level,
           'name', s.name,
-          'name_abbreviation', s.name_abbreviation,
           'discipline', s.discipline,
           'level', s.level,
           'color', s.color
@@ -629,9 +626,9 @@ BEGIN
   IF p_include_relationships AND v_classes IS NOT NULL THEN
     -- Build classSubjects record
     WITH class_ids AS (
-      SELECT id::UUID
-      FROM jsonb_array_elements(v_classes) AS elem
-      WHERE elem->>'id' IS NOT NULL
+      SELECT (elem.value->>'id')::UUID AS id
+      FROM jsonb_array_elements(v_classes) AS elem(value)
+      WHERE elem.value->>'id' IS NOT NULL
     )
     SELECT jsonb_object_agg(
       c.id::TEXT,
@@ -640,7 +637,6 @@ BEGIN
         'curriculum', s.curriculum,
         'year_level', s.year_level,
         'name', s.name,
-        'name_abbreviation', s.name_abbreviation,
         'discipline', s.discipline,
         'level', s.level,
         'color', s.color
@@ -653,9 +649,9 @@ BEGIN
 
     -- Build classStudents record
     WITH class_ids AS (
-      SELECT id::UUID
-      FROM jsonb_array_elements(v_classes) AS elem
-      WHERE elem->>'id' IS NOT NULL
+      SELECT (elem.value->>'id')::UUID AS id
+      FROM jsonb_array_elements(v_classes) AS elem(value)
+      WHERE elem.value->>'id' IS NOT NULL
     )
     SELECT jsonb_object_agg(
       ci.id::TEXT,
@@ -670,11 +666,11 @@ BEGIN
             'year_level', st.year_level,
             'school', st.school
           )
+          ORDER BY st.last_name, st.first_name
         )
         FROM classes_students cs
         JOIN students st ON st.id = cs.student_id
         WHERE cs.class_id = ci.id AND cs.unenrolled_at IS NULL
-        ORDER BY st.last_name, st.first_name
       )
     )
     INTO v_class_students
@@ -682,9 +678,9 @@ BEGIN
 
     -- Build classStaff record
     WITH class_ids AS (
-      SELECT id::UUID
-      FROM jsonb_array_elements(v_classes) AS elem
-      WHERE elem->>'id' IS NOT NULL
+      SELECT (elem.value->>'id')::UUID AS id
+      FROM jsonb_array_elements(v_classes) AS elem(value)
+      WHERE elem.value->>'id' IS NOT NULL
     )
     SELECT jsonb_object_agg(
       ci.id::TEXT,
@@ -699,11 +695,11 @@ BEGIN
             'email', st.email,
             'phone_number', st.phone_number
           )
+          ORDER BY st.last_name, st.first_name
         )
         FROM classes_staff cs
         JOIN staff st ON st.id = cs.staff_id
         WHERE cs.class_id = ci.id AND cs.status = 'ACTIVE'
-        ORDER BY st.last_name, st.first_name
       )
     )
     INTO v_class_staff

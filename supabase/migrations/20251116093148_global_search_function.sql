@@ -232,7 +232,6 @@ BEGIN
           'curriculum', subj.curriculum,
           'year_level', subj.year_level,
           'name', subj.name,
-          'name_abbreviation', subj.name_abbreviation,
           'discipline', subj.discipline,
           'level', subj.level,
           'color', subj.color
