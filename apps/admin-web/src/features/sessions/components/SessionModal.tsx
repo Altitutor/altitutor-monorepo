@@ -12,6 +12,7 @@ import { StudentAvatar } from './StudentAvatar';
 import { AttendanceCell } from './AttendanceCell';
 import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
@@ -32,6 +33,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const openWindow = useChatStore(s => s.openWindow);
 
   useEffect(() => {
@@ -81,7 +84,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   };
 
   const handleOpenStaff = (id: string) => {
-    window.dispatchEvent(new CustomEvent('open-staff-modal', { detail: { id } }));
+    setSelectedStaffId(id);
+    setIsStaffModalOpen(true);
   };
 
   const handleOpenTopic = (id: string) => {
@@ -295,9 +299,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                           <StudentCard
                             student={data.student}
                             onClick={() => {
-                              window.dispatchEvent(
-                                new CustomEvent('open-student-modal', { detail: { id: data.student.id } })
-                              );
+                              setSelectedStudentId(data.student.id);
+                              setIsStudentModalOpen(true);
                             }}
                             onMessage={() => handleMessageStudent(data.student.id)}
                             showSubjects={false}
@@ -484,6 +487,21 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           }}
           studentId={selectedStudentId}
           onStudentUpdated={() => {
+            // Optionally refresh session data
+          }}
+        />
+      )}
+
+      {/* Staff Modal */}
+      {selectedStaffId && (
+        <ViewStaffModal
+          isOpen={isStaffModalOpen}
+          onClose={() => {
+            setIsStaffModalOpen(false);
+            setSelectedStaffId(null);
+          }}
+          staffId={selectedStaffId}
+          onStaffUpdated={() => {
             // Optionally refresh session data
           }}
         />

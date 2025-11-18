@@ -249,7 +249,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       <Sheet open={isOpen} onOpenChange={(isOpen) => {
         if (!isOpen) onClose();
       }}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0">
+        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <SheetTitle className="text-xl">

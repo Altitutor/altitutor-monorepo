@@ -1,6 +1,7 @@
 import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatClassShortName, formatClassName } from '@/shared/utils';
 
 /**
  * Students API client for working with student data
@@ -129,6 +130,69 @@ export const studentsApi = {
       ascending = true,
     } = params || {};
 
+    const trimmed = search.trim();
+    
+    // Use RPC function when search term is provided
+    if (trimmed.length > 0) {
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+        p_search: trimmed,
+        p_statuses: statuses.length > 0 ? statuses : ['ACTIVE', 'TRIAL'],
+        p_include_relationships: true,
+        p_limit: limit,
+        p_offset: offset,
+        p_order_by: orderBy as string,
+        p_ascending: ascending,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return { students: [], total: 0 };
+
+      const rpcData = rpcResult as { students: any[]; total: number };
+      let students = (rpcData.students || []) as any[];
+
+      // Apply additional filters that RPC doesn't support (curriculums, yearLevels, subjectIds)
+      if (curriculums.length > 0) {
+        students = students.filter((s) => s.curriculum && curriculums.includes(s.curriculum));
+      }
+      if (yearLevels.length > 0) {
+        students = students.filter((s) => s.year_level && yearLevels.includes(s.year_level));
+      }
+      if (subjectIds.length > 0) {
+        // Filter by subject IDs - check if student has any of the requested subjects in their classes
+        students = students.filter((s) => {
+          const studentClasses = s.classes || [];
+          return studentClasses.some((cls: any) => cls.subject && subjectIds.includes(cls.subject.id));
+        });
+      }
+
+      // Transform RPC response to match expected format
+      const transformedStudents = students.map((s: any) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status,
+        curriculum: s.curriculum,
+        year_level: s.year_level,
+        school: s.school,
+        classes: (s.classes || []).map((cls: any) => ({
+          id: cls.id,
+          day_of_week: cls.day_of_week,
+          start_time: cls.start_time,
+          level: cls.level,
+          subject: cls.subject || null,
+        })),
+      }));
+
+      // Recalculate total after filtering (approximate - RPC total may be higher)
+      const total = transformedStudents.length < limit ? transformedStudents.length : rpcData.total;
+
+      return {
+        students: transformedStudents as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
+        total,
+      };
+    }
+
+    // No search term - use existing query logic
     // First, get the student IDs matching filters (same logic as list())
     let studentIds: string[] | null = null;
     if (subjectIds && subjectIds.length > 0) {
@@ -151,121 +215,6 @@ export const studentsApi = {
         'id, first_name, last_name, status, curriculum, year_level, school',
         { count: 'exact' }
       );
-
-    // Apply filters
-    const trimmed = search.trim();
-    if (trimmed.length > 0) {
-      const q = `%${trimmed}%`;
-      // Search across concatenated first_name + last_name, individual fields, school, and classes
-      // First, get student IDs that match class names (short or full)
-      let studentIdsFromClasses: string[] = [];
-      
-      // Search in classes: join classes_students -> classes -> subjects
-      // We need to search in formatted class names, so we'll check:
-      // - subject short name (curriculum + year_level + discipline + name abbreviation)
-      // - subject full name
-      // - class day + time
-      const { data: classEnrollmentsData, error: classSearchError } = await supabase
-        .from('classes_students')
-        .select(`
-          student_id,
-          class:classes(
-            day_of_week,
-            start_time,
-            end_time,
-            subject_details:subjects(
-              curriculum,
-              year_level,
-              discipline,
-              name,
-              name_abbreviation
-            )
-          )
-        `)
-        .is('unenrolled_at', null);
-      
-      const searchLower = trimmed.toLowerCase();
-      
-      if (!classSearchError && classEnrollmentsData) {
-        const matchingStudentIds = new Set<string>();
-        
-        // Day name utility for formatting
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        
-        classEnrollmentsData.forEach((enrollment: any) => {
-          const cls = enrollment.class;
-          const subject = cls?.subject_details;
-          
-          if (cls && subject) {
-            // Build class short name: curriculum + year_level + discipline + name_abbreviation + day + time
-            const shortNameParts: string[] = [];
-            if (subject.curriculum) shortNameParts.push(subject.curriculum);
-            if (subject.year_level != null) shortNameParts.push(String(subject.year_level));
-            if (subject.discipline) shortNameParts.push(subject.discipline);
-            if (subject.name_abbreviation) shortNameParts.push(subject.name_abbreviation);
-            if (cls.day_of_week != null && cls.day_of_week >= 0 && cls.day_of_week <= 6) {
-              shortNameParts.push(dayNames[cls.day_of_week]);
-            }
-            if (cls.start_time) {
-              // Format time as HH:MM (simple format for search)
-              shortNameParts.push(cls.start_time.substring(0, 5));
-            }
-            const shortName = shortNameParts.join(' ').toLowerCase();
-            
-            // Build class full name: curriculum + year_level + name + day + time
-            const fullNameParts: string[] = [];
-            if (subject.curriculum) fullNameParts.push(subject.curriculum);
-            if (subject.year_level != null) fullNameParts.push(String(subject.year_level));
-            if (subject.name) fullNameParts.push(subject.name);
-            if (cls.day_of_week != null && cls.day_of_week >= 0 && cls.day_of_week <= 6) {
-              fullNameParts.push(dayNames[cls.day_of_week]);
-            }
-            if (cls.start_time) {
-              fullNameParts.push(cls.start_time.substring(0, 5));
-            }
-            const fullName = fullNameParts.join(' ').toLowerCase();
-            
-            // Check if search term matches short name or full name
-            if (shortName.includes(searchLower) || fullName.includes(searchLower)) {
-              matchingStudentIds.add(enrollment.student_id);
-            }
-          }
-        });
-        
-        studentIdsFromClasses = Array.from(matchingStudentIds);
-      }
-      
-      // Search in student names (concatenated) and school
-      // First get IDs matching individual fields or school
-      const { data: nameSearchData, error: nameSearchError } = await supabase
-        .from('students')
-        .select('id, first_name, last_name, school')
-        .or(`first_name.ilike.${q},last_name.ilike.${q},school.ilike.${q}`);
-      
-      if (nameSearchError) throw nameSearchError;
-      
-      // Filter for concatenated name matches and school matches
-      const studentIdsFromNames = (nameSearchData || [])
-        .filter((s: any) => {
-          const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim().toLowerCase();
-          const schoolMatch = (s.school || '').toLowerCase().includes(searchLower);
-          return fullName.includes(searchLower) || 
-                 (s.first_name || '').toLowerCase().includes(searchLower) ||
-                 (s.last_name || '').toLowerCase().includes(searchLower) ||
-                 schoolMatch;
-        })
-        .map((s: any) => s.id);
-      
-      // Combine student IDs from both searches
-      const allMatchingStudentIds = Array.from(new Set([...studentIdsFromNames, ...studentIdsFromClasses]));
-      
-      if (allMatchingStudentIds.length > 0) {
-        query = query.in('id', allMatchingStudentIds);
-      } else {
-        // No matches, return empty result
-        return { students: [], total: 0 };
-      }
-    }
 
     if (statuses && statuses.length > 0) {
       query = query.in('status', statuses);

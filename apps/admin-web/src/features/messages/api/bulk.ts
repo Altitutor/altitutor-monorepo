@@ -1,9 +1,112 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatClassShortName, formatClassName } from '@/shared/utils';
 
 /**
- * Get students by subject ID
+ * Search active students by name and classes
+ * Returns students with phone and email fields
+ */
+export async function searchStudents(searchQuery: string, limit: number = 50): Promise<Tables<'students'>[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const trimmed = searchQuery.trim();
+  
+  if (trimmed.length === 0) {
+    return [];
+  }
+  
+  const searchLower = trimmed.toLowerCase();
+  
+  // First, get student IDs that match class names (short or full)
+  let studentIdsFromClasses: string[] = [];
+  
+  // Search in classes: join classes_students -> classes -> subjects
+  const { data: classEnrollmentsData, error: classSearchError } = await supabase
+    .from('classes_students')
+    .select(`
+      student_id,
+      class:classes(
+        day_of_week,
+        start_time,
+        end_time,
+        subject_details:subjects(
+          curriculum,
+          year_level,
+          discipline,
+          name,
+          name_abbreviation
+        )
+      )
+    `)
+    .is('unenrolled_at', null);
+  
+  if (!classSearchError && classEnrollmentsData) {
+    const matchingStudentIds = new Set<string>();
+    
+    classEnrollmentsData.forEach((enrollment: any) => {
+      const cls = enrollment.class;
+      const subject = cls?.subject_details;
+      
+      if (cls && subject) {
+        // Use utility functions to format class names consistently with UI
+        const shortName = formatClassShortName(cls, subject).toLowerCase();
+        const fullName = formatClassName(cls, subject).toLowerCase();
+        
+        // Check if search term matches short name or full name
+        if (shortName.includes(searchLower) || fullName.includes(searchLower)) {
+          matchingStudentIds.add(enrollment.student_id);
+        }
+      }
+    });
+    
+    studentIdsFromClasses = Array.from(matchingStudentIds);
+  }
+  
+  // Search in student names (concatenated) and school
+  const { data: nameSearchData, error: nameSearchError } = await supabase
+    .from('students')
+    .select('id, first_name, last_name, school')
+    .eq('status', 'ACTIVE')
+    .or(`first_name.ilike.%${trimmed}%,last_name.ilike.%${trimmed}%,school.ilike.%${trimmed}%`);
+  
+  if (nameSearchError) throw nameSearchError;
+  
+  // Filter for concatenated name matches and school matches
+  const studentIdsFromNames = (nameSearchData || [])
+    .filter((s: any) => {
+      const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim().toLowerCase();
+      const schoolMatch = (s.school || '').toLowerCase().includes(searchLower);
+      return fullName.includes(searchLower) || 
+             (s.first_name || '').toLowerCase().includes(searchLower) ||
+             (s.last_name || '').toLowerCase().includes(searchLower) ||
+             schoolMatch;
+    })
+    .map((s: any) => s.id);
+  
+  // Combine student IDs from both searches
+  const allMatchingStudentIds = Array.from(new Set([...studentIdsFromNames, ...studentIdsFromClasses]));
+  
+  if (allMatchingStudentIds.length === 0) {
+    return [];
+  }
+  
+  // Fetch full student records with phone and email
+  const { data: students, error } = await supabase
+    .from('students')
+    .select('*')
+    .in('id', allMatchingStudentIds)
+    .eq('status', 'ACTIVE')
+    .order('last_name', { ascending: true })
+    .order('first_name', { ascending: true })
+    .limit(limit);
+  
+  if (error) throw error;
+  
+  return (students || []) as Tables<'students'>[];
+}
+
+/**
+ * Get students by subject ID (active only, with phone and email)
  */
 export async function getStudentsBySubject(subjectId: string): Promise<Tables<'students'>[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -15,13 +118,14 @@ export async function getStudentsBySubject(subjectId: string): Promise<Tables<'s
   
   if (error) throw error;
   
+  // Filter to active students only and ensure phone/email are included
   return ((data || []) as any[])
     .map((item: any) => item.student)
-    .filter(Boolean) as Tables<'students'>[];
+    .filter((student: any) => student && student.status === 'ACTIVE') as Tables<'students'>[];
 }
 
 /**
- * Get students by class ID
+ * Get students by class ID (active only, with phone and email)
  */
 export async function getStudentsByClass(classId: string): Promise<Tables<'students'>[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -34,13 +138,14 @@ export async function getStudentsByClass(classId: string): Promise<Tables<'stude
   
   if (error) throw error;
   
+  // Filter to active students only
   return ((data || []) as any[])
     .map((item: any) => item.student)
-    .filter(Boolean) as Tables<'students'>[];
+    .filter((student: any) => student && student.status === 'ACTIVE') as Tables<'students'>[];
 }
 
 /**
- * Get students by year level
+ * Get students by year level (active only, with phone and email)
  */
 export async function getStudentsByYearLevel(yearLevel: number): Promise<Tables<'students'>[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -57,7 +162,7 @@ export async function getStudentsByYearLevel(yearLevel: number): Promise<Tables<
 }
 
 /**
- * Get students by session date
+ * Get students by session date (active only, with phone and email)
  */
 export async function getStudentsBySessionDate(date: string): Promise<Tables<'students'>[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -89,9 +194,10 @@ export async function getStudentsBySessionDate(date: string): Promise<Tables<'st
   
   if (ssError) throw ssError;
   
+  // Filter to active students only
   return ((sessionStudents || []) as any[])
     .map((item: any) => item.student)
-    .filter(Boolean) as Tables<'students'>[];
+    .filter((student: any) => student && student.status === 'ACTIVE') as Tables<'students'>[];
 }
 
 /**
@@ -125,6 +231,60 @@ export async function getStudentClasses(studentId: string): Promise<Array<{
       class: Tables<'classes'>;
       subject: Tables<'subjects'> | null;
     }>;
+}
+
+/**
+ * Get classes for multiple students (for table display)
+ * Returns a map of student ID to array of classes with subject details
+ */
+export async function getStudentsClasses(studentIds: string[]): Promise<Record<string, Array<{
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  level: string | null;
+  subject?: Tables<'subjects'> | null;
+}>>> {
+  if (studentIds.length === 0) return {};
+  
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  
+  // Get all student-class enrollments with class details AND subject information
+  const { data: enrollmentsData, error: enrollmentsError } = await supabase
+    .from('classes_students')
+    .select(`
+      student_id,
+      unenrolled_at,
+      class:classes(*, subject_details:subjects(*))
+    `)
+    .in('student_id', studentIds);
+  
+  if (enrollmentsError) throw enrollmentsError;
+  
+  // Filter to current/future enrollments only
+  const activeEnrollments = (enrollmentsData ?? []).filter((e: any) => 
+    !e.unenrolled_at || new Date(e.unenrolled_at) > new Date()
+  );
+  
+  // Build student -> classes map with subject data
+  const studentClassesMap: Record<string, Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }>> = {};
+  studentIds.forEach(id => {
+    studentClassesMap[id] = [];
+  });
+  
+  activeEnrollments.forEach((enrollment: any) => {
+    const classWithSubject = enrollment.class;
+    if (classWithSubject && enrollment.student_id) {
+      studentClassesMap[enrollment.student_id].push({
+        id: classWithSubject.id,
+        day_of_week: classWithSubject.day_of_week,
+        start_time: classWithSubject.start_time,
+        level: classWithSubject.level,
+        subject: classWithSubject.subject_details || null,
+      });
+    }
+  });
+  
+  return studentClassesMap;
 }
 
 /**

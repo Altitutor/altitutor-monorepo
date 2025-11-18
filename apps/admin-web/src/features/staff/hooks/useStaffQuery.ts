@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { staffApi } from '../api/staff';
 import type { Tables, TablesInsert } from '@altitutor/shared';
 type Staff = Tables<'staff'>;
@@ -22,11 +22,59 @@ export const staffKeys = {
 };
 
 // For table display - minimal data
+export interface UseStaffListParams {
+  search?: string;
+  role?: string;
+  status?: string;
+  roles?: string[];
+  statuses?: string[];
+  page?: number; // 1-based
+  pageSize?: number;
+  orderBy?: keyof Tables<'staff'>;
+  ascending?: boolean;
+}
+
+export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
+  const {
+    search = '',
+    role,
+    status,
+    roles = [],
+    statuses = [],
+    page = 1,
+    pageSize = 50,
+    orderBy = 'last_name',
+    ascending = true,
+  } = params;
+
+  const offset = (Math.max(page, 1) - 1) * pageSize;
+
+  return useQuery({
+    queryKey: staffKeys.minimal({ search, role, status, roles, statuses, page, pageSize, orderBy, ascending }),
+    queryFn: () =>
+      staffApi.listMinimal({
+        search,
+        role,
+        status,
+        roles,
+        statuses,
+        limit: pageSize,
+        offset,
+        orderBy,
+        ascending,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+// Legacy minimal hook (non-paginated)
 export function useStaffMinimal(params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }) {
   return useQuery({
     queryKey: staffKeys.minimal(params),
-    queryFn: () => staffApi.listMinimal(params || {}),
-    staleTime: 1000 * 30, // 30s
+    queryFn: () => staffApi.listMinimal({ ...(params || {}), limit: params?.limit ?? 50, offset: params?.offset ?? 0 }),
+    staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
   });
 }

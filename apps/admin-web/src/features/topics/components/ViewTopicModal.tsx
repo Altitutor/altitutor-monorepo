@@ -36,7 +36,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@altitutor/ui';
-import { formatSubjectDisplay } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import type { TablesUpdate } from '@altitutor/shared';
 import {
   useTopicById,
@@ -197,7 +197,7 @@ export function ViewTopicModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full w-full sm:max-w-[600px] flex flex-col p-0">
+        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
           <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <SheetTitle className="text-xl">
               {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
@@ -310,9 +310,18 @@ export function ViewTopicModal({
                     
                     <div className="text-sm font-medium">Subject:</div>
                     <div>
-                      {subject ? (
-                        <Badge variant="outline">{formatSubjectDisplay(subject)}</Badge>
-                      ) : (
+                      {subject ? (() => {
+                        const { style, textColorClass } = getSubjectColorStyle(subject);
+                        const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                        return (
+                          <Badge 
+                            className={defaultClass || textColorClass}
+                            style={style.backgroundColor ? style : undefined}
+                          >
+                            {formatSubjectDisplay(subject)}
+                          </Badge>
+                        );
+                      })() : (
                         'N/A'
                       )}
                     </div>

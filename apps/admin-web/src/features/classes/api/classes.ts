@@ -2,6 +2,16 @@ import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/sh
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+type MinimalClass = Pick<
+  Tables<'classes'>,
+  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level'
+> & {
+  subject?: Tables<'subjects'> | null;
+  studentCount?: number;
+  students?: Tables<'students'>[];
+  staff?: Tables<'staff'>[];
+};
+
 /**
  * Classes API client for working with class data
  */
@@ -25,41 +35,120 @@ export const classesApi = {
    * WITH: student count only (not full student records)
    */
   listMinimal: async (params?: {
-    dayOfWeek?: number;
+    search?: string;
+    dayOfWeek?: number | number[];
+    daysOfWeek?: number[];
     limit?: number;
     offset?: number;
+    orderBy?: keyof Tables<'classes'>;
+    ascending?: boolean;
   }): Promise<{
-    classes: (Tables<'classes'> & {
-      subject?: { name: string; discipline: string | null; curriculum: string | null };
-      studentCount?: number;
-    })[];
+    classes: MinimalClass[];
     total: number;
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    const { dayOfWeek, limit = 100, offset = 0 } = params || {};
+    const {
+      search = '',
+      dayOfWeek,
+      daysOfWeek = [],
+      limit = 50,
+      offset = 0,
+      orderBy = 'day_of_week',
+      ascending = true,
+    } = params || {};
 
-    // Query classes with subject details only
+    const trimmed = search.trim();
+    const dayFilters = Array.isArray(dayOfWeek)
+      ? dayOfWeek
+      : daysOfWeek.length > 0
+        ? daysOfWeek
+        : dayOfWeek !== undefined
+          ? [dayOfWeek]
+          : [];
+
+    // Use RPC function when search term is provided
+    if (trimmed.length > 0) {
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
+        p_search: trimmed,
+        p_statuses: ['ACTIVE'],
+        p_include_relationships: true,
+        p_limit: limit,
+        p_offset: offset,
+        p_order_by: orderBy as string,
+        p_ascending: ascending,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return { classes: [], total: 0 };
+
+      const rpcData = rpcResult as { classes: any[]; classSubjects: Record<string, any>; classStudents: Record<string, any[]>; classStaff: Record<string, any[]>; total: number };
+      let classes = (rpcData.classes || []) as any[];
+
+      // Apply day filter that RPC doesn't support
+      if (dayFilters.length > 0) {
+        classes = classes.filter((c) => c.day_of_week !== undefined && dayFilters.includes(c.day_of_week));
+      }
+
+      // Transform RPC response to match expected format
+      const transformedClasses = classes.map((cls: any) => {
+        const subject = rpcData.classSubjects?.[cls.id] || null;
+        const students = rpcData.classStudents?.[cls.id] || [];
+        const staff = rpcData.classStaff?.[cls.id] || [];
+        
+        return {
+          id: cls.id,
+          day_of_week: cls.day_of_week,
+          start_time: cls.start_time,
+          end_time: cls.end_time,
+          status: cls.status,
+          room: cls.room,
+          subject_id: cls.subject_id,
+          level: cls.level,
+          subject,
+          studentCount: students.length,
+          students,
+          staff,
+        };
+      }) as MinimalClass[];
+
+      // Recalculate total after filtering (approximate - RPC total may be higher)
+      const total = transformedClasses.length < limit ? transformedClasses.length : rpcData.total;
+
+      return {
+        classes: transformedClasses,
+        total,
+      };
+    }
+
+    // No search term - use existing query logic
     let query = supabase
       .from('classes')
       .select(
         `
         id,
-        name,
         day_of_week,
         start_time,
         end_time,
         level,
         room,
-        subjects(name, discipline, curriculum)
+        status,
+        subject_id,
+        subject_details:subjects(*)
         `,
         { count: 'exact' }
       );
 
-    if (dayOfWeek !== undefined) {
-      query = query.eq('day_of_week', dayOfWeek);
+    if (dayFilters.length === 1) {
+      query = query.eq('day_of_week', dayFilters[0]);
+    } else if (dayFilters.length > 1) {
+      query = query.in('day_of_week', dayFilters);
     }
 
-    query = query.order('start_time', { ascending: true });
+    query = query.order(orderBy as string, { ascending });
+    if (orderBy !== 'start_time') {
+      query = query.order('start_time', { ascending: true });
+    }
+
     const from = offset;
     const to = Math.max(offset + limit - 1, offset);
     query = query.range(from, to);
@@ -67,55 +156,76 @@ export const classesApi = {
     const { data: classesData, count, error } = await query;
     if (error) throw error;
 
-    const classes = classesData ?? [];
-    
-    // Fetch student counts for all classes in a separate query
-    if (classes.length > 0) {
-      const classIds = classes.map((c: any) => c.id);
-      const { data: enrollmentsData, error: enrollmentsError } = await supabase
-        .from('classes_students')
-        .select('class_id, unenrolled_at')
-        .in('class_id', classIds)
-        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
-      
-      if (enrollmentsError) throw enrollmentsError;
-      
-      // Count students per class
-      const studentCountMap: Record<string, number> = {};
-      classIds.forEach(id => {
-        studentCountMap[id] = 0;
-      });
-      
-      (enrollmentsData ?? []).forEach((enrollment: any) => {
-        if (enrollment.class_id) {
-          studentCountMap[enrollment.class_id]++;
-        }
-      });
-      
-      // Transform data to include subject and student count
-      const transformedClasses = classes.map((cls: any) => {
-        const subject = cls.subjects || null;
-        return {
-          ...cls,
-          subject: subject ? { name: subject.name, discipline: subject.discipline, curriculum: subject.curriculum } : undefined,
-          studentCount: studentCountMap[cls.id] || 0,
-        };
-      });
-      
-      return {
-        classes: transformedClasses as unknown as (Tables<'classes'> & {
-          subject?: { name: string; discipline: string | null; curriculum: string | null };
-          studentCount?: number;
-        })[],
-        total: count ?? 0,
-      };
+    const classes = (classesData ?? []) as (Tables<'classes'> & { subject_details?: Tables<'subjects'> })[];
+    if (classes.length === 0) {
+      return { classes: [], total: count ?? 0 };
     }
 
+    const classIds = classes.map((cls) => cls.id);
+    const nowIso = new Date().toISOString();
+
+    const [{ data: enrollmentsData, error: enrollmentsError }, { data: assignmentsData, error: assignmentsError }] = await Promise.all([
+      supabase
+        .from('classes_students')
+        .select(`
+          class_id,
+          unenrolled_at,
+          student:students(*)
+        `)
+        .in('class_id', classIds)
+        .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`),
+      supabase
+        .from('classes_staff')
+        .select(`
+          class_id,
+          staff:staff!class_assignments_staff_id_fkey(*)
+        `)
+        .in('class_id', classIds)
+        .eq('status', 'ACTIVE'),
+    ]);
+
+    if (enrollmentsError) throw enrollmentsError;
+    if (assignmentsError) throw assignmentsError;
+
+    const classStudentsMap: Record<string, Tables<'students'>[]> = {};
+    const studentCountMap: Record<string, number> = {};
+    classIds.forEach((id) => {
+      classStudentsMap[id] = [];
+      studentCountMap[id] = 0;
+    });
+
+    (enrollmentsData ?? []).forEach((enrollment: any) => {
+      if (enrollment.class_id && enrollment.student) {
+        classStudentsMap[enrollment.class_id].push(enrollment.student as Tables<'students'>);
+        studentCountMap[enrollment.class_id] += 1;
+      }
+    });
+
+    const classStaffMap: Record<string, Tables<'staff'>[]> = {};
+    classIds.forEach((id) => {
+      classStaffMap[id] = [];
+    });
+
+    (assignmentsData ?? []).forEach((assignment: any) => {
+      if (assignment.class_id && assignment.staff) {
+        classStaffMap[assignment.class_id].push(assignment.staff as Tables<'staff'>);
+      }
+    });
+
+    const transformedClasses = classes.map((cls) => {
+      const subject = cls.subject_details ?? null;
+      const { subject_details, ...rest } = cls as typeof cls & { subject_details?: Tables<'subjects'> };
+      return {
+        ...(rest as Tables<'classes'>),
+        subject,
+        studentCount: studentCountMap[cls.id] ?? 0,
+        students: classStudentsMap[cls.id] || [],
+        staff: classStaffMap[cls.id] || [],
+      } as MinimalClass;
+    }) as MinimalClass[];
+
     return {
-      classes: classes as unknown as (Tables<'classes'> & {
-        subject?: { name: string; discipline: string | null; curriculum: string | null };
-        studentCount?: number;
-      })[],
+      classes: transformedClasses,
       total: count ?? 0,
     };
   },

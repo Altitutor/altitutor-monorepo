@@ -26,7 +26,7 @@ export function useStudentsMinimal(params: UseStudentsListParams) {
     yearLevels = [],
     subjectIds = [],
     page = 1,
-    pageSize = 20,
+    pageSize = 50,
     orderBy = 'last_name',
     ascending = true,
   } = params || {};
@@ -95,7 +95,7 @@ export function useStudentsList(params: UseStudentsListParams) {
     yearLevels = [],
     subjectIds = [],
     page = 1,
-    pageSize = 20,
+    pageSize = 50,
     orderBy = 'last_name',
     ascending = true,
   } = params || {};
@@ -121,7 +121,7 @@ export function useStudentsPageWithDetails(params: UseStudentsListParams) {
     yearLevels = [],
     subjectIds = [],
     page = 1,
-    pageSize = 20,
+    pageSize = 50,
     orderBy = 'last_name',
     ascending = true,
   } = params || {};

@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { GlobalSearch } from '../GlobalSearch';
 
 export function Navbar() {
   const router = useRouter();
@@ -50,8 +51,8 @@ export function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
-      <div className="container mx-auto px-4 h-full flex justify-between items-center">
-        <div className="flex items-center gap-4">
+      <div className="container mx-auto px-4 h-full flex items-center gap-4">
+        <div className="flex items-center gap-3 min-w-[220px]">
           <div className="h-12 flex items-center gap-1">
             <Image 
               src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
@@ -73,7 +74,10 @@ export function Navbar() {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex-1 flex justify-center">
+          <GlobalSearch />
+        </div>
+        <div className="flex items-center gap-4 min-w-[220px] justify-end">
           <ThemeToggle />
           {user ? (
             <DropdownMenu>

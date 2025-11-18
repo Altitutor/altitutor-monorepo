@@ -32,6 +32,7 @@ import {
   PopoverTrigger,
 } from "@altitutor/ui";
 import { ViewClassModal } from '@/features/classes';
+import { TablePagination } from '@/shared/components/TablePagination';
 import { useStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 // import { useVirtualizer } from '@tanstack/react-virtual';
@@ -54,7 +55,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [sortField, setSortField] = useState<keyof Tables<'students'>>('status');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(50);
 
   const { 
     data,
@@ -123,6 +124,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       refetch();
     }
   }, [_onRefresh, refetch]);
+
+  // Reset to page 1 when search term or filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilters, curriculumFilters, yearLevelFilters, subjectFilters]);
 
   // Filter toggle handlers
   const toggleStatusFilter = (status: Tables<'students'>['status']) => {
@@ -523,16 +529,17 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         </Table>
       </div>
       
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div>
-          Page {page} of {Math.max(1, Math.ceil(total / pageSize))} • {total} total
-          {isFetching && <span className="ml-2">(Refreshing...)</span>}
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</Button>
-          <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / pageSize)} onClick={() => setPage(p => p + 1)}>Next</Button>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        isFetching={isFetching}
+        onPageChange={(newPage) => setPage(newPage)}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+      />
 
       {/* Add Student Modal */}
       <AddStudentModal 

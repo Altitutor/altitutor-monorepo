@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Dispatch, SetStateAction, useMemo, useRef } from 'react';
+import React, { useState, Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -16,7 +16,8 @@ import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search
 } from 'lucide-react';
-import { useClassesWithDetails } from '../hooks/useClassesQuery';
+import { TablePagination } from '@/shared/components/TablePagination';
+import { useClassesMinimalPaginated } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
@@ -33,22 +34,33 @@ interface ClassesTableProps {
 }
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dayFilter, setDayFilter] = useState<number[]>([]);
+
   const { 
     data, 
     isLoading, 
     error, 
     refetch,
     isFetching 
-  } = useClassesWithDetails();
+  } = useClassesMinimalPaginated({
+    search: searchTerm,
+    daysOfWeek: dayFilter,
+    page,
+    pageSize,
+    orderBy: 'day_of_week',
+    ascending: true,
+  });
 
-  const classes: Tables<'classes'>[] = (data?.classes as Tables<'classes'>[]) || [];
-  const classSubjects: Record<string, Tables<'subjects'>> = (data?.classSubjects as Record<string, Tables<'subjects'>>) || {};
-  const classStudents: Record<string, Tables<'students'>[]> = (data?.classStudents as Record<string, Tables<'students'>[]>) || {};
-  const classStaff: Record<string, Tables<'staff'>[]> = (data?.classStaff as Record<string, Tables<'staff'>[]>) || {};
-  
-  // Local state for UI
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dayFilter, setDayFilter] = useState<number[]>([]);
+  const classes: (Tables<'classes'> & {
+    subject?: Tables<'subjects'> | null;
+    students?: Tables<'students'>[];
+    staff?: Tables<'staff'>[];
+  })[] = (data?.classes as any) || [];
+  const total = data?.total ?? 0;
   
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
@@ -77,15 +89,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   };
 
   const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
-    const subject = classSubjects[classItem.id];
-    if (subject) {
-      return formatSubjectDisplay(subject);
-    }
-    return '-';
+    const subject = (classItem as any).subject as Tables<'subjects'> | null | undefined;
+    return subject ? formatSubjectDisplay(subject) : '-';
   };
 
   const getSubjectBadgeStyle = (classItem: Tables<'classes'>): { style: React.CSSProperties; textColorClass: string; defaultClass: string } => {
-    const subject = classSubjects[classItem.id];
+    const subject = (classItem as any).subject as Tables<'subjects'> | null | undefined;
     if (!subject) {
       return { style: {}, textColorClass: 'text-gray-800', defaultClass: 'bg-gray-100 text-gray-800' };
     }
@@ -94,71 +103,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return { style, textColorClass, defaultClass };
   };
 
-  // Memoized filtered and sorted classes
-  const filteredClasses = useMemo(() => {
-    if (!classes.length) return [];
-    
-    let result = [...classes];
-    
-    // Apply search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(cls => {
-        const subject = classSubjects[cls.id];
-        
-        // Search in subject short name
-        const subjectShortName = subject ? formatSubjectShortName(subject).toLowerCase() : '';
-        const subjectShortMatch = subjectShortName.includes(searchLower);
-        
-        // Search in subject long name (display name)
-        const subjectDisplay = getSubjectDisplay(cls).toLowerCase();
-        const subjectLongMatch = subjectDisplay.includes(searchLower);
-        
-        // Search in student names (concatenated first_name + last_name)
-        const students = classStudents[cls.id] || [];
-        const studentMatch = students.some(student => {
-          const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim().toLowerCase();
-          return fullName.includes(searchLower) ||
-            (student.first_name || '').toLowerCase().includes(searchLower) ||
-            (student.last_name || '').toLowerCase().includes(searchLower);
-        });
-        
-        // Search in staff names (concatenated first_name + last_name)
-        const staff = classStaff[cls.id] || [];
-        const staffMatch = staff.some(staffMember => {
-          const fullName = `${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim().toLowerCase();
-          return fullName.includes(searchLower) ||
-            (staffMember.first_name || '').toLowerCase().includes(searchLower) ||
-            (staffMember.last_name || '').toLowerCase().includes(searchLower);
-        });
-        
-        return subjectShortMatch || subjectLongMatch || studentMatch || staffMatch;
-      });
-    }
-    
-    // Apply day filter (multi-select)
-    if (dayFilter.length > 0) {
-      result = result.filter(cls => dayFilter.includes(cls.day_of_week));
-    }
-    
-    // Default sorting: by day (Monday-Sunday), then by start time (earliest to latest)
-    result.sort((a, b) => {
-      // First sort by day (Monday=1, Tuesday=2, etc., Sunday=0 should be last)
-      const dayA = a.day_of_week === 0 ? 7 : a.day_of_week; // Move Sunday to end
-      const dayB = b.day_of_week === 0 ? 7 : b.day_of_week;
-      
-      if (dayA !== dayB) {
-        return dayA - dayB;
-      }
-      
-      // If same day, sort by start time
-      const timeA = timeToMinutes(a.start_time);
-      const timeB = timeToMinutes(b.start_time);
-      return timeA - timeB;
-    });
-    
-    return result;
-  }, [classes, searchTerm, dayFilter, classSubjects, classStudents, classStaff, getSubjectDisplay]);
+  // Reset to page 1 when search term or filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, dayFilter]);
 
   const _getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -180,12 +128,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   
 
-  const getClassStudents = (classId: string): Tables<'students'>[] => {
-    return classStudents[classId] || [];
+  const getClassStudents = (classItem: Tables<'classes'>): Tables<'students'>[] => {
+    return ((classItem as any).students || []) as Tables<'students'>[];
   };
 
-  const getClassStaff = (classId: string): Tables<'staff'>[] => {
-    return classStaff[classId] || [];
+  const getClassStaff = (classItem: Tables<'classes'>): Tables<'staff'>[] => {
+    return ((classItem as any).staff || []) as Tables<'staff'>[];
   };
   
   const handleClassClick = (cls: Tables<'classes'>) => {
@@ -213,15 +161,20 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const toggleDay = (day: number) => {
     setDayFilter(prev => {
       if (prev.includes(day)) {
-        return prev.filter(d => d !== day);
+        const next = prev.filter(d => d !== day);
+        setPage(1);
+        return next;
       } else {
-        return [...prev, day];
+        const next = [...prev, day];
+        setPage(1);
+        return next;
       }
     });
   };
 
   const clearDayFilter = () => {
     setDayFilter([]);
+    setPage(1);
   };
 
   // Loading state
@@ -289,7 +242,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
               placeholder="Search by subject, student, or staff..."
               className="pl-8"
               value={searchTerm || ''}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           
@@ -373,12 +329,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClasses.length === 0 ? (
+              {classes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center h-24">
                     {isLoading ? (
                       "Loading classes..."
-                    ) : searchTerm || dayFilter.length < 7 ? (
+                    ) : searchTerm || dayFilter.length > 0 ? (
                       "No classes match your filters"
                     ) : (
                       "No classes found"
@@ -386,7 +342,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredClasses.map((cls, index) => {
+                classes.map((cls, index) => {
                   return (
                     <TableRow
                       key={cls.id}
@@ -412,7 +368,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                         >
                           {/* Default to short names, only show full on 2xl+ screens */}
                           <span className="2xl:hidden">{(() => {
-                            const subject = classSubjects[cls.id];
+                            const subject = (cls as any).subject as Tables<'subjects'> | null | undefined;
                             return subject ? formatSubjectShortName(subject) : '-';
                           })()}</span>
                           <span className="hidden 2xl:inline">{getSubjectDisplay(cls)}</span>
@@ -420,10 +376,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {getClassStudents(cls.id).length === 0 ? (
+                          {getClassStudents(cls).length === 0 ? (
                             <span className="text-muted-foreground text-sm">No students</span>
                           ) : (
-                            getClassStudents(cls.id).map((student, studentIndex) => (
+                            getClassStudents(cls).map((student, studentIndex) => (
                               <Button
                                 key={`${cls.id}-${student.id}-${studentIndex}`}
                                 variant="link"
@@ -439,10 +395,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {getClassStaff(cls.id).length === 0 ? (
+                          {getClassStaff(cls).length === 0 ? (
                             <span className="text-muted-foreground text-sm">No staff</span>
                           ) : (
-                            getClassStaff(cls.id).map((staff, staffIndex) => (
+                            getClassStaff(cls).map((staff, staffIndex) => (
                               <Button
                                 key={`${cls.id}-${staff.id}-${staffIndex}`}
                                 variant="link"
@@ -464,10 +420,17 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           </Table>
       </div>
       
-      <div className="text-sm text-muted-foreground">
-        {filteredClasses.length} classes displayed
-        {isFetching && <span className="ml-2">(Refreshing...)</span>}
-      </div>
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        isFetching={isFetching}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
 
       {/* Add Class Modal */}
       <AddClassModal 

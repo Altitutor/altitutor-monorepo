@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { classesApi } from '../api/classes';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 
@@ -17,11 +17,52 @@ export const classesKeys = {
 };
 
 // For table display - minimal data
+export interface UseClassesListParams {
+  search?: string;
+  dayOfWeek?: number;
+  daysOfWeek?: number[];
+  page?: number;
+  pageSize?: number;
+  orderBy?: keyof Tables<'classes'>;
+  ascending?: boolean;
+}
+
+export function useClassesMinimalPaginated(params: UseClassesListParams = {}) {
+  const {
+    search = '',
+    dayOfWeek,
+    daysOfWeek = [],
+    page = 1,
+    pageSize = 50,
+    orderBy = 'day_of_week',
+    ascending = true,
+  } = params;
+
+  const offset = (Math.max(page, 1) - 1) * pageSize;
+
+  return useQuery({
+    queryKey: classesKeys.minimal({ search, dayOfWeek, daysOfWeek, page, pageSize, orderBy, ascending }),
+    queryFn: () =>
+      classesApi.listMinimal({
+        search,
+        dayOfWeek,
+        daysOfWeek,
+        limit: pageSize,
+        offset,
+        orderBy,
+        ascending,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 export function useClassesMinimal(params?: { dayOfWeek?: number; limit?: number; offset?: number }) {
   return useQuery({
     queryKey: classesKeys.minimal(params),
     queryFn: () => classesApi.listMinimal(params),
-    staleTime: 1000 * 30, // 30s
+    staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
   });
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, memo, useMemo } from 'react';
+import { useState, useCallback, memo, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -9,7 +9,8 @@ import {
 } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
-import { useStaffWithSubjects } from '../hooks/useStaffQuery';
+import { TablePagination } from '@/shared/components/TablePagination';
+import { useStaffMinimalPaginated } from '../hooks/useStaffQuery';
 import { AddStaffModal } from './AddStaffModal';
 import { ViewStaffModal } from './modal';
 import { ViewClassModal } from '@/features/classes';
@@ -23,19 +24,8 @@ interface StaffTableProps {
 }
 
 export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
-  // React Query hook for data fetching
-  const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch,
-    isFetching 
-  } = useStaffWithSubjects();
-
-  // Extract staff array and classes from the data structure
-  const staffMembers = (data?.staff as Tables<'staff'>[] | undefined) || [];
-  const staffClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> })[]> = (data as any)?.staffClasses || {};
-  const classSubjects: Record<string, Tables<'subjects'>> = (data as any)?.classSubjects || {};
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,6 +34,25 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const [sortField, setSortField] = useState<keyof Tables<'staff'>>('role');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
+  } = useStaffMinimalPaginated({
+    search: searchTerm,
+    roles: roleFilters,
+    statuses: statusFilters,
+    page,
+    pageSize,
+    orderBy: sortField,
+    ascending: sortDirection === 'asc',
+  });
+
+  const staffMembers = (data?.staff as (Tables<'staff'> & { classes?: (Tables<'classes'> & { subject?: Tables<'subjects'> })[] })[] | undefined) || [];
+  const total = data?.total ?? 0;
+
   // Modal state
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -51,69 +60,10 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  // Memoized filtered and sorted staff
-  const filteredStaff = useMemo(() => {
-    if (!staffMembers.length) return [];
-    
-    let result = [...staffMembers];
-    
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(staff => {
-        // Search in concatenated first_name + last_name
-        const fullName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim().toLowerCase();
-        const nameMatch = fullName.includes(searchLower) ||
-          (staff.first_name || '').toLowerCase().includes(searchLower) ||
-          (staff.last_name || '').toLowerCase().includes(searchLower);
-        
-        // Search in email and phone
-        const contactMatch = staff.email?.toLowerCase().includes(searchLower) ||
-          staff.phone_number?.toLowerCase().includes(searchLower);
-        
-        // Search in classes (short name and full name)
-        const staffClassesList = staffClasses[staff.id] || [];
-        const classMatch = staffClassesList.some(cls => {
-          const shortName = formatClassShortName(cls, cls.subject || classSubjects[cls.id]);
-          const fullClassName = formatClassName(cls, cls.subject || classSubjects[cls.id]);
-          return shortName.toLowerCase().includes(searchLower) ||
-            fullClassName.toLowerCase().includes(searchLower);
-        });
-        
-        return nameMatch || contactMatch || classMatch;
-      });
-    }
-    
-    // Apply role filter
-    if (roleFilters.length > 0) {
-      result = result.filter(staff => staff.role && roleFilters.includes(staff.role));
-    }
-    
-    // Apply status filter
-    if (statusFilters.length > 0) {
-      result = result.filter(staff => staff.status && statusFilters.includes(staff.status));
-    }
-    
-    // Apply sorting with compound sort for role field
-    result.sort((a, b) => {
-      const aValue = String(a[sortField] || '');
-      const bValue = String(b[sortField] || '');
-      
-      const comparison = aValue.localeCompare(bValue);
-      const primarySort = sortDirection === 'asc' ? comparison : -comparison;
-      
-      // If sorting by role and values are equal, use first_name as secondary sort
-      if (sortField === 'role' && comparison === 0) {
-        const aFirstName = String(a.first_name || '');
-        const bFirstName = String(b.first_name || '');
-        return aFirstName.localeCompare(bFirstName);
-      }
-      
-      return primarySort;
-    });
-    
-    return result;
-  }, [staffMembers, searchTerm, roleFilters, statusFilters, sortField, sortDirection, staffClasses, classSubjects]);
+  // Reset to page 1 when search term or filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, roleFilters, statusFilters]);
 
   // Event handlers
   const handleStaffClick = useCallback((id: string) => {
@@ -135,6 +85,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   }, []);
 
   const handleSort = useCallback((field: keyof Tables<'staff'>) => {
+    setPage(1);
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -149,6 +100,17 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     setStatusFilters(['ACTIVE']);
     setSortField('role');
     setSortDirection('asc');
+    setPage(1);
+  }, []);
+
+  const handleRoleFiltersChange = useCallback((roles: string[]) => {
+    setRoleFilters(roles);
+    setPage(1);
+  }, []);
+
+  const handleStatusFiltersChange = useCallback((statuses: string[]) => {
+    setStatusFilters(statuses.length > 0 ? statuses : []);
+    setPage(1);
   }, []);
 
   // Loading state
@@ -197,9 +159,12 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         searchTerm={searchTerm}
         roleFilters={roleFilters}
         statusFilters={statusFilters}
-        onSearchChange={setSearchTerm}
-        onRoleFiltersChange={setRoleFilters}
-        onStatusFiltersChange={setStatusFilters}
+        onSearchChange={(value) => {
+          setSearchTerm(value);
+          setPage(1);
+        }}
+        onRoleFiltersChange={handleRoleFiltersChange}
+        onStatusFiltersChange={handleStatusFiltersChange}
         onResetFilters={resetFilters}
         isLoading={isFetching}
       />
@@ -213,7 +178,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
             onSort={handleSort}
           />
           <TableBody>
-            {filteredStaff.length === 0 ? (
+            {staffMembers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-24">
                   {isLoading ? (
@@ -226,11 +191,11 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                 </TableCell>
               </TableRow>
             ) : (
-              filteredStaff.map((staff) => (
+              staffMembers.map((staff) => (
                 <StaffTableRow
                   key={staff.id}
                   staff={staff}
-                  classes={staffClasses[staff.id] || []}
+                  classes={((staff as any).classes || []) as (Tables<'classes'> & { subject?: Tables<'subjects'> })[]}
                   onStaffClick={handleStaffClick}
                   onClassClick={handleClassClick}
                 />
@@ -240,12 +205,17 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         </Table>
       </div>
       
-      {/* Results count */}
-      <div className="text-sm text-muted-foreground">
-        {filteredStaff.length} staff displayed
-        {filteredStaff.length !== staffMembers.length && ` of ${staffMembers.length} total`}
-        {isFetching && <span className="ml-2">(Refreshing...)</span>}
-      </div>
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        isFetching={isFetching}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
 
       {/* Modals */}
       <AddStaffModal 

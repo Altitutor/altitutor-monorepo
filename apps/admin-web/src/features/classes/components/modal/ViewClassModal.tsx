@@ -178,7 +178,7 @@ export function ViewClassModal({
   if (!classData) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[800px]">
+        <SheetContent className="w-[600px] max-w-[90vw]">
           <SheetHeader>
             <SheetTitle>Loading class...</SheetTitle>
           </SheetHeader>
@@ -189,7 +189,7 @@ export function ViewClassModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[800px]">
+      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
         <Tabs 
           defaultValue="details" 
           value={activeTab} 

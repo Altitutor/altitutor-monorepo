@@ -64,3 +64,9 @@ CREATE TRIGGER update_message_templates_updated_at_trigger
 
 
 
+
+
+
+
+
+
