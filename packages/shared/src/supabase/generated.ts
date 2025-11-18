@@ -4471,6 +4471,7 @@ export type Database = {
         Args: { updates: Json }
         Returns: undefined
       }
+      build_fuzzy_like: { Args: { p_text: string }; Returns: string }
       current_student_id: { Args: never; Returns: string }
       current_tutor_id: { Args: never; Returns: string }
       format_class_full_name:
