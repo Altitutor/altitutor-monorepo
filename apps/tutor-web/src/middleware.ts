@@ -36,15 +36,15 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // IMPORTANT: Call getSession() to refresh session if needed
-  // Note: Using getSession() in middleware is acceptable per Supabase docs
-  // Middleware must be fast and can't call getUser() on every request
-  // Client-side validation happens in AuthProvider
+  // IMPORTANT: Use getUser() to validate and refresh auth token
+  // This validates the token with Supabase Auth server (secure)
+  // getSession() reads from cookies without validation (insecure)
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  // For API routes, we just refresh the session but don't redirect
+  // For API routes, we just refresh the token but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
     return supabaseResponse;
@@ -53,9 +53,9 @@ export async function middleware(req: NextRequest) {
   // Public paths that don't require authentication
   const isPublicPath = pathname.startsWith('/login') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/invite') || pathname.startsWith('/auth');
   
-  // If no session and trying to access protected route, redirect to login
+  // If no user and trying to access protected route, redirect to login
   const isProtected = pathname !== '/' && !isPublicPath;
-  if (!session && isProtected) {
+  if (!user && isProtected) {
     const redirectResponse = NextResponse.redirect(new URL('/login', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -64,19 +64,19 @@ export async function middleware(req: NextRequest) {
     return redirectResponse;
   }
 
-  // Allow public paths without session checks
+  // Allow public paths without user checks
   if (isPublicPath) {
     return supabaseResponse;
   }
 
-  // If no session on public paths or root, allow access
-  if (!session) return supabaseResponse;
+  // If no user on public paths or root, allow access
+  if (!user) return supabaseResponse;
 
   // Check if user is in staff table (both ADMINSTAFF and TUTOR allowed)
   const { data: staff, error: staffError } = (await supabase
     .from('staff')
     .select('role')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
 
   if (staffError) {
@@ -85,8 +85,8 @@ export async function middleware(req: NextRequest) {
 
   console.log('[TUTOR-WEB MIDDLEWARE]', {
     pathname,
-    hasSession: !!session,
-    userId: session?.user?.id,
+    hasUser: !!user,
+    userId: user?.id,
     staffFound: !!staff,
     staffRole: staff?.role,
   });

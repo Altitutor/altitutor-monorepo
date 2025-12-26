@@ -36,15 +36,15 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // IMPORTANT: Call getSession() to refresh session if needed
-  // Note: Using getSession() in middleware is acceptable per Supabase docs
-  // Middleware must be fast and can't call getUser() on every request
-  // Client-side validation happens in AuthProvider
+  // IMPORTANT: Use getUser() to validate and refresh auth token
+  // This validates the token with Supabase Auth server (secure)
+  // getSession() reads from cookies without validation (insecure)
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  // For API routes, we just refresh the session but don't redirect
+  // For API routes, we just refresh the token but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
     return supabaseResponse;
@@ -63,8 +63,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/invite/') || 
     pathname.startsWith('/auth/');
 
-  // If no session and trying to access protected route, redirect to login
-  if (!session && !isPublicPath) {
+  // If no user and trying to access protected route, redirect to login
+  if (!user && !isPublicPath) {
     const redirectResponse = NextResponse.redirect(new URL('/login', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -74,7 +74,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Allow public paths without further checks
-  if (isPublicPath || !session) {
+  if (isPublicPath || !user) {
     return supabaseResponse;
   }
 
@@ -82,7 +82,7 @@ export async function middleware(req: NextRequest) {
   const { data: student, error: studentError } = await supabase
     .from('students')
     .select('id')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (studentError) {
@@ -93,7 +93,7 @@ export async function middleware(req: NextRequest) {
   const { data: staff, error: staffError } = await supabase
     .from('staff')
     .select('role')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
 
   if (staffError) {
@@ -102,8 +102,8 @@ export async function middleware(req: NextRequest) {
 
   console.log('[STUDENT-WEB MIDDLEWARE]', {
     pathname,
-    hasSession: !!session,
-    userId: session?.user?.id,
+    hasUser: !!user,
+    userId: user?.id,
     isStudent: !!student,
     isStaff: !!staff,
     staffRole: staff?.role,

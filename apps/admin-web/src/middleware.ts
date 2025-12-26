@@ -36,15 +36,15 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // IMPORTANT: Call getSession() to refresh session if needed
-  // Note: Using getSession() in middleware is acceptable per Supabase docs
-  // Middleware must be fast and can't call getUser() on every request
-  // Client-side validation happens in AuthProvider
+  // IMPORTANT: Use getUser() to validate and refresh auth token
+  // This validates the token with Supabase Auth server (secure)
+  // getSession() reads from cookies without validation (insecure)
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  // For API routes, we just refresh the session but don't redirect
+  // For API routes, we just refresh the token but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
     return supabaseResponse;
@@ -56,7 +56,7 @@ export async function middleware(req: NextRequest) {
     : 'http://localhost:3002';
 
   const isProtected = !pathname.startsWith('/login') && !pathname.startsWith('/forgot-password') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/invite') && !pathname.startsWith('/auth') && pathname !== '/';
-  if (!session && isProtected) {
+  if (!user && isProtected) {
     const redirectResponse = NextResponse.redirect(new URL('/login', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -65,12 +65,12 @@ export async function middleware(req: NextRequest) {
     return redirectResponse;
   }
 
-  if (!session) return supabaseResponse;
+  if (!user) return supabaseResponse;
 
   const { data: staff } = (await supabase
     .from('staff')
     .select('role')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
 
   const role = staff?.role;
