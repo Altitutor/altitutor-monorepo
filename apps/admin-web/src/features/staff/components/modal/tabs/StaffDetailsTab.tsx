@@ -6,6 +6,7 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
+import { PhoneInput } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import {
@@ -294,18 +295,14 @@ export function StaffDetailsTab({
                     control={form.control}
                     name="phoneNumber"
                     render={({ field }) => (
-                      <Input 
-                        id="phoneNumber" 
-                        {...field}
+                      <PhoneInput
                         value={field.value ?? ''}
-                        disabled={isLoading} 
-                        placeholder="e.g. +12345678901"
+                        onChange={field.onChange}
+                        disabled={isLoading}
+                        error={form.formState.errors.phoneNumber?.message}
                       />
                     )}
                   />
-                  {form.formState.errors.phoneNumber && (
-                    <p className="text-sm text-red-500">{form.formState.errors.phoneNumber.message}</p>
-                  )}
                 </div>
               </div>
 

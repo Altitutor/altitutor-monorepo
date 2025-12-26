@@ -14,6 +14,7 @@ export * from './components/enum-badge';
 export * from './components/form';
 export * from './components/input';
 export * from './components/label';
+export * from './components/phone-input';
 export * from './components/popover';
 export * from './components/radio-group';
 export * from './components/scroll-area';

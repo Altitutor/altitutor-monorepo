@@ -22,7 +22,7 @@ import {
 import { useToast } from "@altitutor/ui";
 import { useCreateStudent } from '../hooks/useStudentsQuery';
 import type { TablesInsert, Tables } from '@altitutor/shared';
-import { PhoneInput } from '@/shared/components/PhoneInput';
+import { PhoneInput } from '@altitutor/ui';
 import { SubjectSearchPopover } from '@/features/subjects/components';
 import { subjectsApi } from '@/features/subjects/api';
 import { studentsApi } from '../api';

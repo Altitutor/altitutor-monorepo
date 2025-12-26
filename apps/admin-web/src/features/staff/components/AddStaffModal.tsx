@@ -1,12 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@altitutor/ui';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
+import { PhoneInput } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { useInviteStaff } from '../hooks/useStaffQuery';
 // Use string literals for role/status
@@ -142,17 +150,22 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
   };
 
   const handleCloseModal = () => {
-    reset();
-    setErrorMessage(null);
-    onClose();
+    if (!isSubmitting) {
+      reset();
+      setErrorMessage(null);
+      onClose();
+    }
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleCloseModal}>
-      <SheetContent className="h-full max-h-[100vh] overflow-y-auto">
-        <SheetHeader className="mb-6">
-          <SheetTitle className="text-xl">Add New Staff Member</SheetTitle>
-        </SheetHeader>
+    <Dialog open={isOpen} onOpenChange={handleCloseModal}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add New Staff Member</DialogTitle>
+          <DialogDescription>
+            Enter the staff member's information below to add them to the system.
+          </DialogDescription>
+        </DialogHeader>
         
         {errorMessage && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
@@ -161,7 +174,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-20">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
@@ -203,15 +216,18 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
           
           <div className="space-y-2">
             <Label htmlFor="phoneNumber">Phone Number</Label>
-            <Input 
-              id="phoneNumber" 
-              {...register('phoneNumber')} 
-              disabled={isSubmitting} 
-              placeholder="e.g. +12345678901"
+            <Controller
+              control={control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <PhoneInput
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  disabled={isSubmitting}
+                  error={errors.phoneNumber?.message}
+                />
+              )}
             />
-            {errors.phoneNumber && (
-              <p className="text-sm text-red-500">{errors.phoneNumber.message}</p>
-            )}
           </div>
           
           <div className="space-y-2">
@@ -388,18 +404,19 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
               </div>
             </div>
           </div>
-        </form>
-        
-        {/* Action buttons at the bottom */}
-        <SheetFooter className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
-          <div className="flex w-full justify-end gap-2">
-            <Button variant="outline" type="button" onClick={handleCloseModal} disabled={isSubmitting}>
+          
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseModal}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button 
-              type="button" 
+              type="submit" 
               disabled={isSubmitting}
-              onClick={handleSubmit(onSubmit)}
             >
               {isSubmitting ? (
                 <>
@@ -410,9 +427,9 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                 'Add Staff Member'
               )}
             </Button>
-          </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 } 

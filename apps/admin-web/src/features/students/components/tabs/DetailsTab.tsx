@@ -25,7 +25,7 @@ import {
 import type { Tables, Enums } from "@altitutor/shared";
 import { Pencil, Loader2, Trash2, X, Copy, Check, Mail, UserPlus } from 'lucide-react';
 import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor, formatSubjectShortName } from '@/shared/utils';
-import { PhoneInput } from '@/shared/components/PhoneInput';
+import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
 import { SendInviteDialog } from '../SendInviteDialog';

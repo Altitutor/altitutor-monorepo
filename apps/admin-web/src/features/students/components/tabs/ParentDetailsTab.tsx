@@ -11,7 +11,7 @@ import { StudentCard } from '@/shared/components/StudentCard';
 import { Loader2, Pencil, X, Copy, Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { studentsApi } from '../../api/students';
-import { PhoneInput } from '@/shared/components/PhoneInput';
+import { PhoneInput } from '@altitutor/ui';
 
 export interface ParentDetailsFormData {
   firstName: string;

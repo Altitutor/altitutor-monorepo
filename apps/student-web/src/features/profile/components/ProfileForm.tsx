@@ -16,6 +16,7 @@ import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
+import { PhoneInput } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useProfile, useUpdateProfile } from '../hooks';
 
@@ -166,7 +167,10 @@ export function ProfileForm() {
               <FormItem>
                 <FormLabel>Phone (optional)</FormLabel>
                 <FormControl>
-                  <Input type="tel" placeholder="+61 4XX XXX XXX" {...field} />
+                  <PhoneInput
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
