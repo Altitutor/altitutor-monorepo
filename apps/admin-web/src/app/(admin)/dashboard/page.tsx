@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@altitutor/ui';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Calendar, Clock, CheckSquare, Zap, FileText } from 'lucide-react';
+import { Calendar, FileText } from 'lucide-react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, TodaySessionsView } from '@/features/sessions';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
+
+type ViewMode = 'calendar' | 'table';
 
 export default function DashboardPage() {
   const { data: currentStaff } = useCurrentStaff();
@@ -15,6 +17,7 @@ export default function DashboardPage() {
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [sessionsViewMode, setSessionsViewMode] = useState<ViewMode>('calendar');
 
   const currentDate = new Date();
   const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -45,13 +48,16 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1">
-              <CardTitle>Sessions Today</CardTitle>
-            </div>
-            <Clock className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Sessions Today</CardTitle>
+            <Tabs value={sessionsViewMode} onValueChange={(v) => setSessionsViewMode(v as ViewMode)}>
+              <TabsList>
+                <TabsTrigger value="table">Table</TabsTrigger>
+                <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardHeader>
           <CardContent>
-          <TodaySessionsView onOpenSession={handleSessionClick} />
+          <TodaySessionsView viewMode={sessionsViewMode} onOpenSession={handleSessionClick} />
           </CardContent>
         </Card>
       
@@ -62,7 +68,6 @@ export default function DashboardPage() {
               <CardTitle>Tasks</CardTitle>
               <CardDescription>Your pending tasks</CardDescription>
             </div>
-            <CheckSquare className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-center py-6">
@@ -77,7 +82,6 @@ export default function DashboardPage() {
               <CardTitle>Quick Actions</CardTitle>
               <CardDescription>Frequently used actions</CardDescription>
             </div>
-            <Zap className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
