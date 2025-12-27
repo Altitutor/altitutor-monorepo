@@ -14,6 +14,8 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
+import { Checkbox } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
@@ -40,6 +42,11 @@ type SessionsTableProps = {
 export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff }: SessionsTableProps) {
   const _router = useRouter();
   
+  // Filter and sort state
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string | 'ALL'>('ALL');
+  const [showInactive, setShowInactive] = useState<boolean>(false);
+  
   // React Query hook for data fetching
   const { 
     data, 
@@ -47,16 +54,12 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     error, 
     refetch,
     isFetching: _isFetching 
-  } = useSessionsWithDetails({ rangeStart, rangeEnd });
+  } = useSessionsWithDetails({ rangeStart, rangeEnd, includeInactive: showInactive });
   
   // Extract sessions array from the data structure
   const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
   const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
   const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
-  
-  // Filter and sort state
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [typeFilter, setTypeFilter] = useState<string | 'ALL'>('ALL');
   type SortField = 'start_at' | 'type';
   const [sortField, setSortField] = useState<SortField>('start_at');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
@@ -288,7 +291,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   return (
     <div className="space-y-4">
       {!limit && (
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-4">
           <div className="relative w-64">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -297,6 +300,16 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               value={searchTerm ?? ''}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="show-inactive"
+              checked={showInactive}
+              onCheckedChange={(checked) => setShowInactive(checked === true)}
+            />
+            <Label htmlFor="show-inactive" className="text-sm font-normal cursor-pointer">
+              Show inactive sessions
+            </Label>
           </div>
         </div>
       )}
@@ -345,9 +358,14 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                   onClick={() => handleSessionClick(session.id)}
                 >
                   <TableCell>
-                    <div className="flex items-center">
-                      <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                      {session.start_at ? formatDate(session.start_at) : '-'}
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                      <span>{session.start_at ? formatDate(session.start_at) : '-'}</span>
+                      {session.status === 'INACTIVE' && (
+                        <Badge variant="secondary" className="text-xs">
+                          Inactive
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{getTimeRange(session)}</TableCell>

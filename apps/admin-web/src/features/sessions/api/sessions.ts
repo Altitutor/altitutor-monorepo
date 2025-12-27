@@ -10,8 +10,12 @@ export const sessionsApi = {
   /**
    * Get all sessions
    */
-  getAllSessions: async (): Promise<Tables<'sessions'>[]> => {
-    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions').select('*');
+  getAllSessions: async (includeInactive: boolean = false): Promise<Tables<'sessions'>[]> => {
+    let query = (getSupabaseClient() as SupabaseClient<Database>).from('sessions').select('*');
+    if (!includeInactive) {
+      query = query.eq('status', 'ACTIVE');
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as Tables<'sessions'>[];
   },
@@ -20,7 +24,7 @@ export const sessionsApi = {
    * Get all sessions with their attendees and staff in an optimized single query
    * This solves the N+1 query problem for the sessions table
    */
-  getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string }): Promise<{ 
+  getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
     sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean }>>;
     sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>;
@@ -32,6 +36,9 @@ export const sessionsApi = {
     try {
       // Get sessions in range if provided (server-side filtering)
       let query = supabase.from('sessions').select('*');
+      if (!args?.includeInactive) {
+        query = query.eq('status', 'ACTIVE');
+      }
       if (args?.rangeStart) {
         const startIso = `${args.rangeStart}T00:00:00Z`;
         query = query.gte('start_at', startIso);
@@ -329,12 +336,16 @@ export const sessionsApi = {
   /**
    * Get sessions for a specific student
    */
-  getSessionsForStudent: async (studentId: string): Promise<Tables<'sessions'>[]> => {
+  getSessionsForStudent: async (studentId: string, includeInactive: boolean = false): Promise<Tables<'sessions'>[]> => {
     try {
       // Get attendance records for the student
       const { data: attendanceRecords, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_students').select('sessions(*)').eq('student_id', studentId);
       if (error) throw error;
-      const sessions = (attendanceRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
+      let sessions = (attendanceRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
+      // Filter by status if needed
+      if (!includeInactive) {
+        sessions = sessions.filter(s => s.status === 'ACTIVE');
+      }
       return sessions;
     } catch (error) {
       console.error('Error getting sessions for student:', error);
@@ -345,12 +356,16 @@ export const sessionsApi = {
   /**
    * Get sessions for a specific staff member
    */
-  getSessionsForStaff: async (staffId: string): Promise<Tables<'sessions'>[]> => {
+  getSessionsForStaff: async (staffId: string, includeInactive: boolean = false): Promise<Tables<'sessions'>[]> => {
     try {
       // Get assignment records for the staff member
       const { data: assignmentRecords, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').select('sessions(*)').eq('staff_id', staffId);
       if (error) throw error;
-      const sessions = (assignmentRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
+      let sessions = (assignmentRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
+      // Filter by status if needed
+      if (!includeInactive) {
+        sessions = sessions.filter(s => s.status === 'ACTIVE');
+      }
       return sessions;
     } catch (error) {
       console.error('Error getting sessions for staff:', error);

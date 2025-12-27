@@ -15,20 +15,25 @@ export const sessionsKeys = {
 };
 
 // Get all sessions with details (optimized query)
-export function useSessionsWithDetails(args?: { rangeStart?: string; rangeEnd?: string }) {
+export function useSessionsWithDetails(args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean }) {
   return useQuery({
-    queryKey: [...sessionsKeys.withDetails(), args?.rangeStart ?? null, args?.rangeEnd ?? null],
+    queryKey: [...sessionsKeys.withDetails(), args?.rangeStart ?? null, args?.rangeEnd ?? null, args?.includeInactive ?? false],
     queryFn: () => sessionsApi.getAllSessionsWithDetails(args),
     staleTime: 1000 * 60 * 3, // 3 minutes - balance freshness with request volume
     gcTime: 1000 * 60 * 3, // 3 minutes
   });
 }
 
+// Convenience hook for getting sessions including inactive ones
+export function useSessionsWithDetailsIncludingInactive(args?: { rangeStart?: string; rangeEnd?: string }) {
+  return useSessionsWithDetails({ ...args, includeInactive: true });
+}
+
 // Get all sessions (basic)
-export function useSessions() {
+export function useSessions(includeInactive: boolean = false) {
   return useQuery({
-    queryKey: sessionsKeys.lists(),
-    queryFn: sessionsApi.getAllSessions,
+    queryKey: [...sessionsKeys.lists(), includeInactive],
+    queryFn: () => sessionsApi.getAllSessions(includeInactive),
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -57,10 +62,10 @@ export function useSession(sessionId: string) {
 }
 
 // Get sessions for a specific student
-export function useSessionsForStudent(studentId: string) {
+export function useSessionsForStudent(studentId: string, includeInactive: boolean = false) {
   return useQuery({
-    queryKey: sessionsKeys.forStudent(studentId),
-    queryFn: () => sessionsApi.getSessionsForStudent(studentId),
+    queryKey: [...sessionsKeys.forStudent(studentId), includeInactive],
+    queryFn: () => sessionsApi.getSessionsForStudent(studentId, includeInactive),
     enabled: !!studentId,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
@@ -68,10 +73,10 @@ export function useSessionsForStudent(studentId: string) {
 }
 
 // Get sessions for a specific staff member
-export function useSessionsForStaff(staffId: string) {
+export function useSessionsForStaff(staffId: string, includeInactive: boolean = false) {
   return useQuery({
-    queryKey: sessionsKeys.forStaff(staffId),
-    queryFn: () => sessionsApi.getSessionsForStaff(staffId),
+    queryKey: [...sessionsKeys.forStaff(staffId), includeInactive],
+    queryFn: () => sessionsApi.getSessionsForStaff(staffId, includeInactive),
     enabled: !!staffId,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes

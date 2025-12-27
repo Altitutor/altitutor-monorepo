@@ -1114,6 +1114,7 @@ export type Database = {
           end_at: string | null
           id: string
           start_at: string | null
+          status: string
           subject_id: string | null
           type: string
           updated_at: string | null
@@ -1124,6 +1125,7 @@ export type Database = {
           end_at?: string | null
           id: string
           start_at?: string | null
+          status?: string
           subject_id?: string | null
           type: string
           updated_at?: string | null
@@ -1134,6 +1136,7 @@ export type Database = {
           end_at?: string | null
           id?: string
           start_at?: string | null
+          status?: string
           subject_id?: string | null
           type?: string
           updated_at?: string | null

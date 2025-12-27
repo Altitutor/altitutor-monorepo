@@ -16,7 +16,11 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
   const todayStr = format(today, 'yyyy-MM-dd');
   
   const { mutate: precreate } = usePrecreateSessions();
-  const { data } = useSessionsWithDetails({ rangeStart: todayStr, rangeEnd: todayStr });
+  const { data } = useSessionsWithDetails({ 
+    rangeStart: todayStr, 
+    rangeEnd: todayStr,
+    includeInactive: false // Only show active sessions in calendar view
+  });
 
   // Precreate sessions for today
   useEffect(() => {

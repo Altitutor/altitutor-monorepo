@@ -18,7 +18,11 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const { mutate: precreate } = usePrecreateSessions();
-  const { data } = useSessionsWithDetails({ rangeStart: format(weekStart, 'yyyy-MM-dd'), rangeEnd: format(weekEnd, 'yyyy-MM-dd') });
+  const { data } = useSessionsWithDetails({ 
+    rangeStart: format(weekStart, 'yyyy-MM-dd'), 
+    rangeEnd: format(weekEnd, 'yyyy-MM-dd'),
+    includeInactive: false // Only show active sessions in calendar view
+  });
 
   // Precreate a bit ahead/behind for smoothness
   const preStart = format(addDays(weekStart, -7), 'yyyy-MM-dd');
