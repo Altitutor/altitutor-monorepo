@@ -24,13 +24,22 @@ SET assigned_at = created_at
 WHERE assigned_at IS NULL;
 
 -- Migrate end_date to unassigned_at for inactive records
+-- Ensure unassigned_at is always >= assigned_at to satisfy constraint
 UPDATE public.classes_staff
 SET unassigned_at = CASE 
   WHEN end_date IS NOT NULL THEN 
     -- Try to parse end_date as date and convert to timestamp
-    (end_date || ' 00:00:00+00')::TIMESTAMPTZ
+    -- Ensure it's at least equal to assigned_at (created_at)
+    GREATEST(
+      (end_date || ' 00:00:00+00')::TIMESTAMPTZ,
+      COALESCE(assigned_at, created_at)
+    )
   WHEN status = 'INACTIVE' AND updated_at IS NOT NULL THEN
-    updated_at
+    -- Ensure updated_at is at least equal to assigned_at
+    GREATEST(
+      updated_at,
+      COALESCE(assigned_at, created_at)
+    )
   ELSE NULL
 END
 WHERE unassigned_at IS NULL AND (status = 'INACTIVE' OR end_date IS NOT NULL);
@@ -68,6 +77,14 @@ BEGIN
       DROP CONSTRAINT class_assignments_staff_id_class_id_start_date_key;
   END IF;
 END $$;
+
+-- Fix any remaining data issues where unassigned_at <= assigned_at
+-- This can happen if end_date or updated_at is before created_at
+UPDATE public.classes_staff
+SET unassigned_at = assigned_at + INTERVAL '1 second'
+WHERE unassigned_at IS NOT NULL 
+  AND assigned_at IS NOT NULL
+  AND unassigned_at <= assigned_at;
 
 -- Add check constraint
 ALTER TABLE public.classes_staff
