@@ -44,26 +44,32 @@ export function Step7FileStudents({
 
       if (fileIds.length > 0) {
         const { data: filesRes } = await supabase
-          .from('topics_files')
+          .from('vtutor_topics_files')
           .select('*')
           .in('id', fileIds);
-        setFilesData(filesRes || []);
+        setFilesData((filesRes || []).filter((f): f is Tables<'topics_files'> => 
+          f.id != null && 
+          f.file_id != null && 
+          f.topic_id != null && 
+          f.index != null &&
+          typeof f.type === 'string'
+        ));
       }
 
       if (topicIds.length > 0) {
         const { data: topicsRes } = await supabase
-          .from('topics')
+          .from('vtutor_topics')
           .select('*')
           .in('id', topicIds);
-        setTopicsData(topicsRes || []);
+        setTopicsData((topicsRes || []).filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null));
       }
 
       if (studentIds.length > 0) {
         const { data: studentsRes } = await supabase
-          .from('students')
+          .from('vtutor_students')
           .select('*')
           .in('id', studentIds);
-        setStudentsData(studentsRes || []);
+        setStudentsData((studentsRes || []) as Tables<'students'>[]);
       }
 
       // Initialize with students from the topic

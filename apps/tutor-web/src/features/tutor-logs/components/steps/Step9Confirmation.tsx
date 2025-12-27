@@ -34,42 +34,73 @@ export function Step9Confirmation({
       
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
-      // Get session
-      const { data: sessionData } = await supabase
-        .from('sessions')
-        .select('*, class:classes!inner(*, subject:subjects(*))')
-        .eq('id', formData.sessionId)
-        .single();
-      setSession(sessionData);
+      // Get session detail from view
+      const { data: sessionDetail } = await supabase
+        .from('vtutor_session_detail')
+        .select('*')
+        .eq('session_id', formData.sessionId)
+        .maybeSingle();
+      
+      if (sessionDetail) {
+        // Transform session detail to match expected format
+        setSession({
+          id: sessionDetail.session_id,
+          start_at: sessionDetail.start_at,
+          end_at: sessionDetail.end_at,
+          class: {
+            subject: {
+              name: sessionDetail.subject_name,
+            },
+          },
+        });
+      }
 
-      // Get students
+      // Get students from vtutor_students view
       const studentIds = (formData.studentAttendance || []).map((sa) => sa.studentId);
       if (studentIds.length > 0) {
         const { data: students } = await supabase
-          .from('students')
+          .from('vtutor_students')
           .select('*')
           .in('id', studentIds);
-        setStudentsMap(new Map((students || []).map((s: any) => [s.id, s])));
+        setStudentsMap(new Map((students || [])
+          .filter((s): s is Tables<'students'> => s.id != null)
+          .map((s) => [s.id, s])));
       }
 
-      // Get staff
+      // Get staff from session detail or vtutor_profile
       const staffIds = (formData.staffAttendance || []).map((sa) => sa.staffId);
-      if (staffIds.length > 0) {
-        const { data: staff } = await supabase
-          .from('staff')
+      if (staffIds.length > 0 && sessionDetail?.staff) {
+        // Extract staff from session detail
+        const staffArray = Array.isArray(sessionDetail.staff) ? sessionDetail.staff : [];
+        const staffMap = new Map(
+          staffArray
+            .filter((s: any): s is Tables<'staff'> => s.id != null)
+            .map((s) => [s.id, s])
+        );
+        setStaffMap(staffMap);
+      } else if (staffIds.length > 0) {
+        // Fallback: get from vtutor_profile (only current tutor)
+        const { data: currentProfile } = await supabase
+          .from('vtutor_profile')
           .select('*')
-          .in('id', staffIds);
-        setStaffMap(new Map((staff || []).map((s: any) => [s.id, s])));
+          .maybeSingle();
+        if (currentProfile && currentProfile.id && staffIds.includes(currentProfile.id)) {
+          // Type assertion needed because vtutor_profile view has nullable fields
+          const staffRecord = currentProfile as unknown as Tables<'staff'>;
+          setStaffMap(new Map([[currentProfile.id, staffRecord]]));
+        }
       }
 
-      // Get topics
+      // Get topics from vtutor_topics view
       const topicIds = (formData.topics || []).map((t) => t.topicId);
       if (topicIds.length > 0) {
         const { data: topics } = await supabase
-          .from('topics')
+          .from('vtutor_topics')
           .select('*')
           .in('id', topicIds);
-        setTopicsMap(new Map((topics || []).map((t: any) => [t.id, t])));
+        setTopicsMap(new Map((topics || [])
+          .filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null)
+          .map((t) => [t.id, t])));
       }
     };
 

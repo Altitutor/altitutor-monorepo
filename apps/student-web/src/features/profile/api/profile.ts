@@ -46,36 +46,24 @@ export const profileApi = {
   },
   
   /**
-   * Update profile (direct write to students table)
+   * Update profile (via API route)
    */
   updateProfile: async (updates: StudentProfileUpdate): Promise<StudentRow> => {
-    const supabase = getSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    const response = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    });
 
-    // Get student ID first
-    const { data: studentData, error: studentError } = await supabase
-      .from('students')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to update profile');
+    }
 
-    if (studentError) throw studentError;
-    if (!studentData) throw new Error('Student not found');
-
-    const studentId = (studentData as Pick<StudentRow, 'id'>).id;
-
-    // Use type assertion to work around TypeScript inference issues with Supabase
-    const query = supabase.from('students') as any;
-    const { data, error } = await query
-      .update(updates)
-      .eq('id', studentId)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    if (!data) throw new Error('Update failed');
-    return data as StudentRow;
+    const result = await response.json();
+    return result.data as StudentRow;
   }
 };
 

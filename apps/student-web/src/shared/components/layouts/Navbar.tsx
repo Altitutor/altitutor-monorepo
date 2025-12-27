@@ -36,9 +36,8 @@ export function Navbar() {
       
       const supabase = getSupabaseClient();
       const { data } = await supabase
-        .from('students')
+        .from('vstudent_profile')
         .select('first_name, last_name')
-        .eq('id', user.id)
         .maybeSingle();
       
       setStudentRecord(data);

@@ -167,13 +167,6 @@ export type Database = {
             foreignKeyName: "class_assignments_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "class_assignments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -298,13 +291,6 @@ export type Database = {
             foreignKeyName: "class_enrollments_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -327,6 +313,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
           {
@@ -444,6 +437,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -961,6 +961,13 @@ export type Database = {
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "parents_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_attempts: {
@@ -1039,6 +1046,13 @@ export type Database = {
             foreignKeyName: "payment_attempts_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_id"]
           },
@@ -1081,6 +1095,13 @@ export type Database = {
             foreignKeyName: "payment_attempts_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_student_id"]
           },
@@ -1090,6 +1111,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vstudent_sessions"
             referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payment_attempts_student_id_fkey"
@@ -1103,6 +1131,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -1154,13 +1189,6 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "vstudent_class_detail"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
             referencedColumns: ["class_id"]
           },
           {
@@ -1281,6 +1309,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "sessions_staff_session_id_fkey"
@@ -1446,6 +1481,13 @@ export type Database = {
             foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
             columns: ["rescheduled_sessions_students_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
+            columns: ["rescheduled_sessions_students_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_student_id"]
           },
@@ -1457,11 +1499,25 @@ export type Database = {
             referencedColumns: ["session_student_id"]
           },
           {
+            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
+            columns: ["rescheduled_sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sessions_students_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "sessions_students_session_id_fkey"
@@ -1503,6 +1559,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -1733,6 +1796,13 @@ export type Database = {
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "student_payment_methods_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
         ]
       }
       student_subsidies: {
@@ -1785,6 +1855,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subsidies_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
           {
@@ -1937,6 +2014,13 @@ export type Database = {
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "students_billing_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
         ]
       }
       students_subjects: {
@@ -1991,6 +2075,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_subjects_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
           {
@@ -2118,13 +2209,6 @@ export type Database = {
             foreignKeyName: "topics_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
@@ -2221,13 +2305,6 @@ export type Database = {
             foreignKeyName: "topics_files_is_solutions_of_id_fkey"
             columns: ["is_solutions_of_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_topics_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
-            columns: ["is_solutions_of_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_topics_files"
             referencedColumns: ["id"]
           },
@@ -2236,13 +2313,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_topics"
             referencedColumns: ["id"]
           },
           {
@@ -2297,6 +2367,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "tutor_logs_session_id_fkey"
@@ -2452,6 +2529,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tutor_logs_student_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
@@ -2519,13 +2603,6 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_topics"
             referencedColumns: ["id"]
           },
           {
@@ -2603,13 +2680,6 @@ export type Database = {
             columns: ["topics_files_id"]
             isOneToOne: false
             referencedRelation: "topics_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_files_topics_files_id_fkey"
-            columns: ["topics_files_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_topics_files"
             referencedColumns: ["id"]
           },
           {
@@ -2703,6 +2773,13 @@ export type Database = {
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tutor_logs_topics_files_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tutor_logs_topics_students: {
@@ -2760,6 +2837,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tutor_logs_topics_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tutor_logs_topics_students_tutor_logs_topics_id_fkey"
             columns: ["tutor_logs_topics_id"]
             isOneToOne: false
@@ -2800,6 +2884,13 @@ export type Database = {
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "students_billing_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vadmin_failed_payment_attempts: {
@@ -2835,6 +2926,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "payment_attempts_session_id_fkey"
@@ -2882,6 +2980,13 @@ export type Database = {
             foreignKeyName: "payment_attempts_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_student_id"]
           },
@@ -2891,6 +2996,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vstudent_sessions"
             referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payment_attempts_student_id_fkey"
@@ -2904,6 +3016,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -2934,6 +3053,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "sessions_students_session_id_fkey"
@@ -2975,6 +3101,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
           {
@@ -3035,6 +3168,13 @@ export type Database = {
             foreignKeyName: "payment_attempts_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_id"]
           },
@@ -3077,6 +3217,13 @@ export type Database = {
             foreignKeyName: "payment_attempts_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_student_id"]
           },
@@ -3086,6 +3233,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vstudent_sessions"
             referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payment_attempts_student_id_fkey"
@@ -3099,6 +3253,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -3143,55 +3304,16 @@ export type Database = {
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "students_billing_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vstudent_class_detail: {
-        Row: {
-          class_id: string | null
-          class_level: string | null
-          class_status: string | null
-          day_of_week: number | null
-          end_time: string | null
-          room: string | null
-          staff: Json | null
-          start_time: string | null
-          students: Json | null
-          subject_color: string | null
-          subject_curriculum:
-            | Database["public"]["Enums"]["subject_curriculum"]
-            | null
-          subject_discipline:
-            | Database["public"]["Enums"]["subject_discipline"]
-            | null
-          subject_id: string | null
-          subject_level: string | null
-          subject_name: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vstudent_class_detail_fixed: {
         Row: {
           class_id: string | null
           class_level: string | null
@@ -3286,13 +3408,6 @@ export type Database = {
             foreignKeyName: "class_enrollments_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -3315,6 +3430,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
           {
@@ -3402,6 +3524,13 @@ export type Database = {
             foreignKeyName: "payment_attempts_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_id"]
           },
@@ -3444,6 +3573,13 @@ export type Database = {
             foreignKeyName: "payment_attempts_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_student_id"]
           },
@@ -3453,6 +3589,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vstudent_sessions"
             referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3528,7 +3671,7 @@ export type Database = {
         }
         Relationships: []
       }
-      vstudent_session_detail: {
+      vstudent_session_base: {
         Row: {
           class_id: string | null
           class_level: string | null
@@ -3582,7 +3725,87 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
+            referencedRelation: "vtutor_class_detail"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vstudent_session_detail: {
+        Row: {
+          class_id: string | null
+          class_level: string | null
+          class_status: string | null
+          credited_at: string | null
+          day_of_week: number | null
+          end_at: string | null
+          end_time: string | null
+          is_credited: boolean | null
+          is_rescheduled: boolean | null
+          planned_absence: boolean | null
+          planned_absence_logged_at: string | null
+          rescheduled_at: string | null
+          room: string | null
+          session_created_at: string | null
+          session_id: string | null
+          session_student_id: string | null
+          session_type: string | null
+          session_updated_at: string | null
+          staff: Json | null
+          start_at: string | null
+          start_time: string | null
+          students: Json | null
+          subject_color: string | null
+          subject_curriculum:
+            | Database["public"]["Enums"]["subject_curriculum"]
+            | null
+          subject_discipline:
+            | Database["public"]["Enums"]["subject_discipline"]
+            | null
+          subject_id: string | null
+          subject_level: string | null
+          subject_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
           {
@@ -3678,13 +3901,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -3710,6 +3926,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
@@ -3731,6 +3954,19 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vstudent_subject_resources: {
+        Row: {
+          depth: number | null
+          files: Json | null
+          parent_id: string | null
+          subject_id: string | null
+          topic_id: string | null
+          topic_index: number | null
+          topic_name: string | null
+          topic_path: string[] | null
+        }
+        Relationships: []
       }
       vstudent_subjects: {
         Row: {
@@ -3748,183 +3984,6 @@ export type Database = {
           year_level: number | null
         }
         Relationships: []
-      }
-      vstudent_topics: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string | null
-          index: number | null
-          name: string | null
-          parent_id: string | null
-          subject_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "topics_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vstudent_topics_files: {
-        Row: {
-          bucket: string | null
-          created_at: string | null
-          created_by: string | null
-          deleted_at: string | null
-          file_id: string | null
-          file_metadata: Json | null
-          filename: string | null
-          id: string | null
-          index: number | null
-          is_solutions: boolean | null
-          is_solutions_of_id: string | null
-          mimetype: string | null
-          size_bytes: number | null
-          storage_path: string | null
-          storage_provider: string | null
-          topic_id: string | null
-          type: Database["public"]["Enums"]["resource_type"] | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "topics_files_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
-            columns: ["is_solutions_of_id"]
-            isOneToOne: false
-            referencedRelation: "topics_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
-            columns: ["is_solutions_of_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_topics_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
-            columns: ["is_solutions_of_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       vstudent_tutor_log: {
         Row: {
@@ -3946,6 +4005,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "tutor_logs_session_id_fkey"
@@ -4177,13 +4243,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -4263,13 +4322,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_class_detail_fixed"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -4302,6 +4354,180 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vtutor_sessions_students: {
+        Row: {
+          class_day_of_week: number | null
+          class_end_time: string | null
+          class_id: string | null
+          class_level: string | null
+          class_room: string | null
+          class_start_time: string | null
+          class_status: string | null
+          created_at: string | null
+          credited_at: string | null
+          end_at: string | null
+          id: string | null
+          is_credited: boolean | null
+          is_rescheduled: boolean | null
+          planned_absence: boolean | null
+          planned_absence_logged_at: string | null
+          rescheduled_at: string | null
+          session_created_at: string | null
+          session_id: string | null
+          session_type: string | null
+          session_updated_at: string | null
+          start_at: string | null
+          student_id: string | null
+          subject_color: string | null
+          subject_curriculum:
+            | Database["public"]["Enums"]["subject_curriculum"]
+            | null
+          subject_discipline:
+            | Database["public"]["Enums"]["subject_discipline"]
+            | null
+          subject_id: string | null
+          subject_level: string | null
+          subject_name: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_class_detail"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_class_detail"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtutor_students: {
+        Row: {
+          availability_friday: boolean | null
+          availability_monday: boolean | null
+          availability_saturday_am: boolean | null
+          availability_saturday_pm: boolean | null
+          availability_sunday_am: boolean | null
+          availability_sunday_pm: boolean | null
+          availability_thursday: boolean | null
+          availability_tuesday: boolean | null
+          availability_wednesday: boolean | null
+          created_at: string | null
+          curriculum: string | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          school: string | null
+          status: string | null
+          updated_at: string | null
+          year_level: number | null
+        }
+        Relationships: []
       }
       vtutor_subjects: {
         Row: {
@@ -4371,13 +4597,6 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_topics"
             referencedColumns: ["id"]
           },
           {
@@ -4474,13 +4693,6 @@ export type Database = {
             foreignKeyName: "topics_files_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
-            referencedRelation: "vstudent_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
             referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
@@ -4544,6 +4756,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "tutor_logs_session_id_fkey"

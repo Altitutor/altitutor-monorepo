@@ -35,18 +35,18 @@ export function Step5TopicStudents({
 
       if (topicIds.length > 0) {
         const { data: topicsRes } = await supabase
-          .from('topics')
+          .from('vtutor_topics')
           .select('*')
           .in('id', topicIds);
-        setTopicsData(topicsRes || []);
+        setTopicsData((topicsRes || []).filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null));
       }
 
       if (attendedStudentIds.length > 0) {
         const { data: studentsRes } = await supabase
-          .from('students')
+          .from('vtutor_students')
           .select('*')
           .in('id', attendedStudentIds);
-        setStudentsData(studentsRes || []);
+        setStudentsData((studentsRes || []) as Tables<'students'>[]);
       }
 
       // Initialize with all students for all topics

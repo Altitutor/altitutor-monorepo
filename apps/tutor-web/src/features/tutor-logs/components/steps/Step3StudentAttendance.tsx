@@ -41,10 +41,10 @@ export function Step3StudentAttendance({
     const fetchData = async () => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
-      // Get session students
+      // Get session students from vtutor_sessions_students view
       const { data: ssData, error: ssError } = await supabase
-        .from('sessions_students')
-        .select('*, student:students(*)')
+        .from('vtutor_sessions_students')
+        .select('*')
         .eq('session_id', sessionId);
 
       if (ssError) {
@@ -52,11 +52,24 @@ export function Step3StudentAttendance({
         return;
       }
 
-      setSessionStudents(ssData as any);
+      // Transform session students
+      if (ssData) {
+        const transformed = ssData.map((ss: any) => ({
+          student_id: ss.student_id,
+          planned_absence: ss.planned_absence,
+          student: {
+            id: ss.student_id,
+            first_name: '', // Will be filled from allStudents
+            last_name: '', // Will be filled from allStudents
+            year_level: null,
+          },
+        }));
+        setSessionStudents(transformed as any);
+      }
 
-      // Get all students for search
+      // Get all students for search from vtutor_students view
       const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
+        .from('vtutor_students')
         .select('*')
         .order('first_name');
 
@@ -66,6 +79,23 @@ export function Step3StudentAttendance({
       }
 
       setAllStudents(studentsData as Tables<'students'>[]);
+
+      // Populate student data in sessionStudents
+      if (ssData && studentsData) {
+        const updatedSessionStudents = ssData.map((ss: any) => {
+          const student = studentsData.find((s) => s.id === ss.student_id);
+          return {
+            ...ss,
+            student: student || {
+              id: ss.student_id,
+              first_name: '',
+              last_name: '',
+              year_level: null,
+            },
+          };
+        });
+        setSessionStudents(updatedSessionStudents as any);
+      }
 
       // Initialize form data if empty
       if (studentAttendance.length === 0 && ssData) {

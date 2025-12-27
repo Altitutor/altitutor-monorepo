@@ -61,36 +61,53 @@ export const absencesApi = {
     const maxDate = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
 
     try {
-      // Get sessions_students records for this student with session details
+      // Get sessions_students records for this student from vtutor_sessions_students view
       const { data, error } = await supabase
-        .from('sessions_students')
-        .select(`
-          id,
-          session_id,
-          planned_absence,
-          session:sessions!inner(
-            *,
-            class:classes(
-              *,
-              subject:subjects(*)
-            )
-          )
-        `)
+        .from('vtutor_sessions_students')
+        .select('*')
         .eq('student_id', studentId)
         .eq('planned_absence', false)
-        .gte('session.start_at', now.toISOString());
+        .gte('start_at', now.toISOString());
 
       if (error) throw error;
 
       // Transform, filter by date range, and sort the data client-side
       const sessions: StudentSession[] = (data || [])
-        .filter((row: any) => row.session) // Filter out any null sessions
         .map((row: any) => {
-          const session = row.session as Tables<'sessions'>;
           return {
-            ...session,
-            class: row.session.class || null,
-            subject: row.session.class?.subject || null,
+            id: row.session_id,
+            type: row.session_type,
+            class_id: row.class_id,
+            subject_id: row.subject_id,
+            start_at: row.start_at,
+            end_at: row.end_at,
+            created_at: row.session_created_at,
+            updated_at: row.session_updated_at,
+            class: row.class_id ? {
+              id: row.class_id,
+              day_of_week: row.class_day_of_week,
+              start_time: row.class_start_time,
+              end_time: row.class_end_time,
+              room: row.class_room,
+              level: row.class_level,
+              status: row.class_status,
+              subject: row.subject_id ? {
+                id: row.subject_id,
+                name: row.subject_name,
+                curriculum: row.subject_curriculum,
+                discipline: row.subject_discipline,
+                level: row.subject_level,
+                color: row.subject_color,
+              } : null,
+            } : null,
+            subject: row.subject_id ? {
+              id: row.subject_id,
+              name: row.subject_name,
+              curriculum: row.subject_curriculum,
+              discipline: row.subject_discipline,
+              level: row.subject_level,
+              color: row.subject_color,
+            } : null,
             sessionsStudentsId: row.id,
           } as StudentSession;
         })
@@ -128,26 +145,19 @@ export const absencesApi = {
     const { originalSessionId, studentId, dateRangeDays } = params;
 
     try {
-      // First, get the original session details
+      // First, get the original session details from vtutor_sessions view
       const { data: originalSession, error: originalError } = await supabase
-        .from('sessions')
-        .select(`
-          *,
-          class:classes(
-            id,
-            subject_id,
-            subject:subjects(*)
-          )
-        `)
-        .eq('id', originalSessionId)
-        .single();
+        .from('vtutor_sessions')
+        .select('*')
+        .eq('session_id', originalSessionId)
+        .maybeSingle();
 
       if (originalError) throw originalError;
-      if (!originalSession || !originalSession.class?.subject_id) {
+      if (!originalSession || !originalSession.subject_id) {
         throw new Error('Original session not found or has no subject');
       }
 
-      const subjectId = originalSession.class.subject_id;
+      const subjectId = originalSession.subject_id;
       const originalDate = new Date(originalSession.start_at || '');
       const now = new Date();
 
@@ -160,17 +170,11 @@ export const absencesApi = {
       // Ensure start date is not in the past
       const effectiveStartDate = startDate < now ? now : startDate;
 
-      // Get sessions with the same subject, different class, within date range
+      // Get sessions with the same subject, different class, within date range from vtutor_sessions view
       const { data: sessions, error: sessionsError } = await supabase
-        .from('sessions')
-        .select(`
-          *,
-          class:classes!inner(
-            *,
-            subject:subjects(*)
-          )
-        `)
-        .eq('class.subject_id', subjectId)
+        .from('vtutor_sessions')
+        .select('*')
+        .eq('subject_id', subjectId)
         .neq('class_id', originalSession.class_id)
         .gte('start_at', effectiveStartDate.toISOString())
         .lte('start_at', endDate.toISOString())
@@ -178,9 +182,9 @@ export const absencesApi = {
 
       if (sessionsError) throw sessionsError;
 
-      // Get sessions where student is already enrolled
+      // Get sessions where student is already enrolled from vtutor_sessions_students view
       const { data: existingEnrollments, error: enrollmentsError } = await supabase
-        .from('sessions_students')
+        .from('vtutor_sessions_students')
         .select('session_id')
         .eq('student_id', studentId)
         .eq('planned_absence', false);
@@ -193,30 +197,61 @@ export const absencesApi = {
 
       // Filter out sessions where student is already enrolled
       const availableSessions: RescheduleSession[] = (sessions || [])
-        .filter((session: any) => !enrolledSessionIds.has(session.id))
+        .filter((session: any) => !enrolledSessionIds.has(session.session_id))
         .map((session: any) => {
-          // Count students in this session
           return {
-            ...session,
-            class: session.class || null,
-            subject: session.class?.subject || null,
+            id: session.session_id,
+            type: session.session_type,
+            class_id: session.class_id,
+            subject_id: session.subject_id,
+            start_at: session.start_at,
+            end_at: session.end_at,
+            created_at: session.session_created_at,
+            updated_at: session.session_updated_at,
+            class: session.class_id ? {
+              id: session.class_id,
+              day_of_week: session.class_day_of_week,
+              start_time: session.class_start_time,
+              end_time: session.class_end_time,
+              room: session.class_room,
+              level: session.class_level,
+              status: session.class_status,
+              subject: session.subject_id ? {
+                id: session.subject_id,
+                name: session.subject_name,
+                curriculum: session.subject_curriculum,
+                discipline: session.subject_discipline,
+                level: session.subject_level,
+                color: session.subject_color,
+              } : null,
+            } : null,
+            subject: session.subject_id ? {
+              id: session.subject_id,
+              name: session.subject_name,
+              curriculum: session.subject_curriculum,
+              discipline: session.subject_discipline,
+              level: session.subject_level,
+              color: session.subject_color,
+            } : null,
           } as RescheduleSession;
         });
 
-      // Get student counts for each session
+      // Get student counts for each session from vtutor_sessions_students view
       if (availableSessions.length > 0) {
         const sessionIds = availableSessions.map((s) => s.id);
         const { data: studentCounts, error: countError } = await supabase
-          .from('sessions_students')
+          .from('vtutor_sessions_students')
           .select('session_id')
           .in('session_id', sessionIds)
           .eq('planned_absence', false);
 
         if (!countError && studentCounts) {
-          const countsMap = studentCounts.reduce((acc: Record<string, number>, row) => {
-            acc[row.session_id] = (acc[row.session_id] || 0) + 1;
-            return acc;
-          }, {});
+          const countsMap = studentCounts
+            .filter((row) => row.session_id != null)
+            .reduce((acc: Record<string, number>, row) => {
+              acc[row.session_id!] = (acc[row.session_id!] || 0) + 1;
+              return acc;
+            }, {});
 
           availableSessions.forEach((session) => {
             session.studentCount = countsMap[session.id] || 0;

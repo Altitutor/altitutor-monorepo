@@ -36,16 +36,16 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
     const fetchData = async () => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
-      // Get session to find subject
+      // Get session to find subject from vtutor_sessions view
       const { data: sessionData } = await supabase
-        .from('sessions')
-        .select('*, class:classes!inner(*, subject:subjects(*))')
-        .eq('id', sessionId)
-        .single();
+        .from('vtutor_sessions')
+        .select('*')
+        .eq('session_id', sessionId)
+        .maybeSingle();
 
       if (!sessionData) return;
 
-      const subjectId = (sessionData as any).class?.subject?.id;
+      const subjectId = sessionData.subject_id;
 
       // Get topics for this subject
       if (subjectId) {
