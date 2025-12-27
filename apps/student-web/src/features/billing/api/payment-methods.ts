@@ -50,8 +50,11 @@ export const paymentMethodsApi = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { data, error } = await supabase.functions.invoke('card-setup', {
-      body: { studentId }
+    const { data, error } = await supabase.functions.invoke('payment-methods', {
+      body: {
+        action: 'create_setup_intent',
+        studentId
+      }
     });
     
     if (error) throw error;
@@ -67,7 +70,7 @@ export const paymentMethodsApi = {
    */
   setDefaultPaymentMethod: async (paymentMethodId: string): Promise<void> => {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.functions.invoke('payment-method-manage', {
+    const { data, error } = await supabase.functions.invoke('payment-methods', {
       body: {
         action: 'set_default',
         paymentMethodId
@@ -85,7 +88,7 @@ export const paymentMethodsApi = {
    */
   deletePaymentMethod: async (paymentMethodId: string): Promise<void> => {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.functions.invoke('payment-method-manage', {
+    const { data, error } = await supabase.functions.invoke('payment-methods', {
       body: {
         action: 'delete',
         paymentMethodId

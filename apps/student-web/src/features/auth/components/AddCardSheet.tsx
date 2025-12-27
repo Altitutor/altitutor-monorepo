@@ -14,6 +14,7 @@ import {
   useToast,
 } from '@altitutor/ui';
 import { CreditCard, Loader2 } from 'lucide-react';
+import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
 
 // Initialize Stripe outside of component to avoid recreating on every render
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
@@ -111,21 +112,7 @@ export function AddCardSheet({ studentId, onSuccess }: AddCardSheetProps) {
       // Initialize card setup when dialog opens
       setLoading(true);
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const response = await fetch(`${supabaseUrl}/functions/v1/card-setup`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ studentId }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || error.message || 'Failed to initialize card setup');
-        }
-
-        const data = await response.json();
+        const data = await paymentMethodsApi.createSetupIntent(studentId);
         setClientSecret(data.client_secret);
       } catch (error) {
         console.error('Failed to initialize card setup:', error);

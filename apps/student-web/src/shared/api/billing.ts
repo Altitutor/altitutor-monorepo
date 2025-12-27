@@ -1,12 +1,23 @@
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@altitutor/shared';
+
 export async function requestCardSetup(studentId: string, email?: string, name?: string) {
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/card-setup`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studentId, email, name }),
+  const supabase = createClientComponentClient<Database>();
+  const { data, error } = await supabase.functions.invoke('payment-methods', {
+    body: {
+      action: 'create_setup_intent',
+      studentId,
+      email,
+      name
+    }
   });
-  if (!res.ok) throw new Error('Failed to initialize card setup');
-  return res.json() as Promise<{ client_secret: string; payment_intent_id: string }>;
+  
+  if (error) throw error;
+  if (!data || !data.client_secret) {
+    throw new Error('Failed to initialize card setup');
+  }
+  
+  return data as { client_secret: string; setup_intent_id: string };
 }
 
 
