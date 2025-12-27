@@ -593,14 +593,14 @@ export const staffApi = {
 
       if (staffError) throw staffError;
 
-      // Get all staff-class assignments with class details and subject information
+      // Get all staff-class assignments with class details and subject information (where unassigned_at IS NULL)
       const { data: assignmentsData, error: assignmentsError } = await supabase
         .from('classes_staff')
         .select(`
           staff_id,
           class:classes(*, subject_details:subjects(*))
         `)
-        .eq('status', 'ACTIVE');
+        .is('unassigned_at', null);
 
       if (assignmentsError) throw assignmentsError;
 

@@ -351,12 +351,12 @@ export const classesApi = {
     type AssignmentRow = { class_id: string; staff: Tables<'staff'> | null };
     
     try {
-      // Get class ids for the staff member
+      // Get class ids for the staff member (where unassigned_at IS NULL)
       const { data: assignmentData, error: assignmentError } = await supabase
         .from('classes_staff')
         .select('class_id')
         .eq('staff_id', staffId)
-        .eq('status', 'ACTIVE');
+        .is('unassigned_at', null);
       if (assignmentError) throw assignmentError;
       const assignmentRows: Array<{ class_id: string }> = (assignmentData ?? []) as Array<{ class_id: string }>;
       const classIds = assignmentRows.map((r) => r.class_id);
@@ -389,7 +389,7 @@ export const classesApi = {
         .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
       if (enrollmentsError) throw enrollmentsError;
 
-      // Staff for those classes
+      // Staff for those classes (where unassigned_at IS NULL)
       const { data: assignmentsData, error: assignmentsError } = await supabase
         .from('classes_staff')
         .select(`
@@ -397,7 +397,7 @@ export const classesApi = {
           staff:staff!class_assignments_staff_id_fkey(*)
         `)
         .in('class_id', classIds)
-        .eq('status', 'ACTIVE');
+        .is('unassigned_at', null);
       if (assignmentsError) throw assignmentsError;
 
       // Transform
@@ -695,8 +695,12 @@ export const classesApi = {
    */
   getClassStaff: async (classId: string): Promise<Tables<'staff'>[]> => {
     try {
-      // Get all class assignments for this class
-      const { data: assignments, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('classes_staff').select('staff:staff(*), class_id, status').eq('class_id', classId).eq('status', 'ACTIVE');
+      // Get all class assignments for this class (where unassigned_at IS NULL)
+      const { data: assignments, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+        .from('classes_staff')
+        .select('staff:staff(*), class_id')
+        .eq('class_id', classId)
+        .is('unassigned_at', null);
       if (error) throw error;
       
       // Filter for active assignments
@@ -955,15 +959,37 @@ export const classesApi = {
   /**
    * Assign a staff member to a class
    */
-  assignStaff: async (classId: string, staffId: string): Promise<Tables<'classes_staff'>> => {
+  assignStaff: async (
+    classId: string, 
+    staffId: string, 
+    currentStaffId?: string
+  ): Promise<Tables<'classes_staff'>> => {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      // Get current staff ID if not provided
+      let assignedBy = currentStaffId;
+      if (!assignedBy) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const { data: staffData } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('user_id', userData.user.id)
+            .single();
+          if (staffData) {
+            assignedBy = staffData.id;
+          }
+        }
+      }
+      
+      // Check for existing open assignment (unassigned_at IS NULL)
       const { data: existing, error: existingError } = await supabase
         .from('classes_staff')
         .select('id')
         .eq('class_id', classId)
         .eq('staff_id', staffId)
-        .eq('status', 'ACTIVE')
+        .is('unassigned_at', null)
         .limit(1);
       if (existingError) throw existingError;
       if ((existing ?? []).length) return (existing![0] as Tables<'classes_staff'>);
@@ -972,8 +998,8 @@ export const classesApi = {
         id: crypto.randomUUID(),
         class_id: classId,
         staff_id: staffId,
-        start_date: new Date().toISOString().split('T')[0],
-        status: 'ACTIVE',
+        assigned_at: new Date().toISOString(),
+        assigned_by: assignedBy || null,
       };
       const { data, error } = await supabase
         .from('classes_staff')
@@ -991,15 +1017,39 @@ export const classesApi = {
   /**
    * Remove a staff member from a class
    */
-  unassignStaff: async (classId: string, staffId: string): Promise<void> => {
+  unassignStaff: async (
+    classId: string, 
+    staffId: string, 
+    currentStaffId?: string
+  ): Promise<void> => {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      // Get current staff ID if not provided
+      let unassignedBy = currentStaffId;
+      if (!unassignedBy) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const { data: staffData } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('user_id', userData.user.id)
+            .single();
+          if (staffData) {
+            unassignedBy = staffData.id;
+          }
+        }
+      }
+      
       const { error } = await supabase
         .from('classes_staff')
-        .update({ status: 'INACTIVE', end_date: new Date().toISOString().split('T')[0] })
+        .update({ 
+          unassigned_at: new Date().toISOString(),
+          unassigned_by: unassignedBy || null
+        })
         .eq('class_id', classId)
         .eq('staff_id', staffId)
-        .eq('status', 'ACTIVE');
+        .is('unassigned_at', null);
       if (error) throw error;
     } catch (error) {
       console.error('Error unassigning staff:', error);
