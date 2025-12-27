@@ -127,7 +127,7 @@ export function ClassInfoTab({
                         id="level" 
                         {...field}
                         disabled={isLoading} 
-                        placeholder="e.g., 10MATH C2"
+                        placeholder="e.g., "
                         required
                       />
                     )}

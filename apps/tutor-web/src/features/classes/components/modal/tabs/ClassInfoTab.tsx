@@ -91,7 +91,7 @@ export function ClassInfoTab({
                 id="level" 
                 {...form.register('level')} 
                 disabled={isLoading} 
-                placeholder="e.g., 10MATH C2"
+                placeholder="A/B/C/D"
               />
               {form.formState.errors.level && (
                 <p className="text-sm text-red-500">{form.formState.errors.level.message}</p>

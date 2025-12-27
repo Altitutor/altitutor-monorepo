@@ -97,7 +97,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                 id="level"
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
-                placeholder="e.g., 10MATH C2"
+                placeholder="A/B/C/D"
                 required
               />
             </div>
