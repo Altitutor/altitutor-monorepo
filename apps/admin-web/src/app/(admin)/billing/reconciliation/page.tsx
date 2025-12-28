@@ -15,14 +15,24 @@ export default function ReconciliationPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [missing, failed, stuck] = await Promise.all([
-        billingApi.getMissingPaymentObligations(),
-        billingApi.getFailedPaymentAttempts(),
-        billingApi.getStuckPaymentAttempts(),
-      ]);
-      setMissingObligations(missing);
-      setFailedAttempts(failed);
-      setStuckAttempts(stuck);
+      // Note: Reconciliation views are deprecated - Stripe handles reconciliation automatically for invoices
+      // These API calls will fail gracefully since views no longer exist
+      try {
+        const [missing, failed, stuck] = await Promise.all([
+          billingApi.getMissingPaymentObligations(),
+          billingApi.getFailedPaymentAttempts(),
+          billingApi.getStuckPaymentAttempts(),
+        ]);
+        setMissingObligations(missing);
+        setFailedAttempts(failed);
+        setStuckAttempts(stuck);
+      } catch (viewError: any) {
+        // Views don't exist anymore - Stripe handles reconciliation automatically
+        console.log('Reconciliation views deprecated - Stripe handles reconciliation automatically');
+        setMissingObligations([]);
+        setFailedAttempts([]);
+        setStuckAttempts([]);
+      }
     } catch (error: any) {
       toast({
         title: 'Error loading reconciliation data',
@@ -35,24 +45,11 @@ export default function ReconciliationPage() {
   };
 
   const handleReconcile = async () => {
-    setReconciling(true);
-    try {
-      const result = await billingApi.triggerReconciliation();
-      toast({
-        title: 'Reconciliation complete',
-        description: `Reconciled ${result.reconciled} payments. ${result.stillStuck} still stuck.`,
-      });
-      // Reload data after reconciliation
-      await loadData();
-    } catch (error: any) {
-      toast({
-        title: 'Reconciliation failed',
-        description: error?.message || 'Failed to trigger reconciliation',
-        variant: 'destructive',
-      });
-    } finally {
-      setReconciling(false);
-    }
+    // Stripe handles reconciliation automatically for invoices
+    toast({
+      title: 'Reconciliation handled automatically',
+      description: 'Stripe automatically reconciles invoices. No manual reconciliation needed.',
+    });
   };
 
   useEffect(() => {
@@ -75,13 +72,29 @@ export default function ReconciliationPage() {
         <div>
           <h1 className="text-2xl font-bold">Payment Reconciliation</h1>
           <p className="text-muted-foreground">
-            Track and resolve payment issues requiring manual follow-up
+            Stripe automatically handles reconciliation for invoices. This page is kept for reference.
           </p>
         </div>
-        <Button onClick={handleReconcile} disabled={reconciling || loading}>
-          {reconciling ? 'Reconciling...' : 'Reconcile Stuck Payments'}
+        <Button onClick={handleReconcile} disabled={reconciling || loading} variant="outline">
+          {reconciling ? 'Reconciling...' : 'Info'}
         </Button>
       </div>
+
+      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <div className="text-blue-600 dark:text-blue-400 font-semibold">Note:</div>
+            <div className="text-blue-800 dark:text-blue-300">
+              <p className="font-medium mb-1">Reconciliation is now automatic</p>
+              <p className="text-sm">
+                With the migration to Stripe Invoices, reconciliation is handled automatically by Stripe. 
+                Failed payments are automatically retried using Smart Retries, and payment status is automatically 
+                reconciled. Manual reconciliation is no longer needed.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="flex justify-center items-center py-8">

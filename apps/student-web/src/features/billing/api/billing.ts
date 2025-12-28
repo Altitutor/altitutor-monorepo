@@ -6,7 +6,12 @@ function getSupabaseClient() {
   return createClientComponentClient<Database>();
 }
 
-type PaymentAttempt = Database['public']['Views']['vstudent_payment_attempts']['Row'];
+export type Invoice = Database['public']['Views']['vstudent_invoices']['Row'];
+export type InvoiceItem = Database['public']['Views']['vstudent_invoice_items']['Row'];
+
+export interface InvoiceWithItems extends Invoice {
+  items?: InvoiceItem[];
+}
 
 export const billingApi = {
   /**
@@ -24,14 +29,15 @@ export const billingApi = {
   },
   
   /**
-   * Get payment attempts history (replaces getPayments)
-   * Uses vstudent_payment_attempts view which follows the vstudent_* pattern
+   * Get invoices history
+   * Uses vstudent_invoices view which follows the vstudent_* pattern
    */
-  getPaymentAttempts: async (): Promise<PaymentAttempt[]> => {
+  getInvoices: async (): Promise<Invoice[]> => {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('vstudent_payment_attempts')
+      .from('vstudent_invoices')
       .select('*')
+      .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -39,10 +45,41 @@ export const billingApi = {
   },
 
   /**
-   * Get payments (alias for getPaymentAttempts for backward compatibility)
-   * Transforms payment attempts to match expected payment structure
+   * Get invoice items for a specific invoice
    */
-  getPayments: async (): Promise<PaymentAttempt[]> => {
-    return billingApi.getPaymentAttempts();
+  getInvoiceItems: async (invoiceId: string): Promise<InvoiceItem[]> => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('vstudent_invoice_items')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get invoices with their items
+   */
+  getInvoicesWithItems: async (): Promise<InvoiceWithItems[]> => {
+    const invoices = await billingApi.getInvoices();
+    const invoicesWithItems = await Promise.all(
+      invoices
+        .filter((invoice) => invoice.id != null) // Filter out invoices without IDs
+        .map(async (invoice) => {
+          const items = await billingApi.getInvoiceItems(invoice.id!);
+          return { ...invoice, items };
+        })
+    );
+    return invoicesWithItems;
+  },
+
+  /**
+   * Get payments (backward compatibility - returns invoices)
+   * Transforms invoices to match expected payment structure for components that haven't been updated yet
+   */
+  getPayments: async (): Promise<Invoice[]> => {
+    return billingApi.getInvoices();
   }
 };

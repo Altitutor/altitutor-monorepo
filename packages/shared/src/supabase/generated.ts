@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       billing_settings: {
@@ -597,6 +592,63 @@ export type Database = {
           },
         ]
       }
+      credit_notes: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          id: string
+          invoice_id: string
+          metadata: Json | null
+          reason: string | null
+          status: string
+          stripe_credit_note_id: string
+          updated_at: string
+          voided_at: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_id: string
+          metadata?: Json | null
+          reason?: string | null
+          status?: string
+          stripe_credit_note_id: string
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_id?: string
+          metadata?: Json | null
+          reason?: string | null
+          status?: string
+          stripe_credit_note_id?: string
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       files: {
         Row: {
           bucket: string
@@ -653,6 +705,282 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_items: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          is_subsidy: boolean
+          session_id: string
+          sessions_students_id: string
+          stripe_invoice_item_id: string
+          student_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          is_subsidy?: boolean
+          session_id: string
+          sessions_students_id: string
+          stripe_invoice_item_id: string
+          student_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          is_subsidy?: boolean
+          session_id?: string
+          sessions_students_id?: string
+          stripe_invoice_item_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount_due_cents: number
+          amount_paid_cents: number
+          auto_advance: boolean | null
+          collection_method: string | null
+          created_at: string
+          currency: string
+          dispute_amount_cents: number | null
+          dispute_created_at: string | null
+          dispute_currency: string | null
+          dispute_id: string | null
+          dispute_reason: string | null
+          dispute_resolved_at: string | null
+          dispute_status: string | null
+          dispute_updated_at: string | null
+          fee_cents: number | null
+          finalized_at: string | null
+          hosted_invoice_url: string | null
+          id: string
+          invoice_date: string
+          invoice_pdf: string | null
+          metadata: Json | null
+          net_cents: number | null
+          paid_at: string | null
+          receipt_url: string | null
+          status: string
+          stripe_charge_id: string | null
+          stripe_invoice_id: string
+          stripe_invoice_number: string | null
+          stripe_payment_intent_id: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_due_cents: number
+          amount_paid_cents?: number
+          auto_advance?: boolean | null
+          collection_method?: string | null
+          created_at?: string
+          currency?: string
+          dispute_amount_cents?: number | null
+          dispute_created_at?: string | null
+          dispute_currency?: string | null
+          dispute_id?: string | null
+          dispute_reason?: string | null
+          dispute_resolved_at?: string | null
+          dispute_status?: string | null
+          dispute_updated_at?: string | null
+          fee_cents?: number | null
+          finalized_at?: string | null
+          hosted_invoice_url?: string | null
+          id?: string
+          invoice_date: string
+          invoice_pdf?: string | null
+          metadata?: Json | null
+          net_cents?: number | null
+          paid_at?: string | null
+          receipt_url?: string | null
+          status?: string
+          stripe_charge_id?: string | null
+          stripe_invoice_id: string
+          stripe_invoice_number?: string | null
+          stripe_payment_intent_id?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_due_cents?: number
+          amount_paid_cents?: number
+          auto_advance?: boolean | null
+          collection_method?: string | null
+          created_at?: string
+          currency?: string
+          dispute_amount_cents?: number | null
+          dispute_created_at?: string | null
+          dispute_currency?: string | null
+          dispute_id?: string | null
+          dispute_reason?: string | null
+          dispute_resolved_at?: string | null
+          dispute_status?: string | null
+          dispute_updated_at?: string | null
+          fee_cents?: number | null
+          finalized_at?: string | null
+          hosted_invoice_url?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_pdf?: string | null
+          metadata?: Json | null
+          net_cents?: number | null
+          paid_at?: string | null
+          receipt_url?: string | null
+          status?: string
+          stripe_charge_id?: string | null
+          stripe_invoice_id?: string
+          stripe_invoice_number?: string | null
+          stripe_payment_intent_id?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -968,178 +1296,6 @@ export type Database = {
           },
           {
             foreignKeyName: "parents_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payment_attempts: {
-        Row: {
-          amount_cents: number
-          attempt_number: number
-          charged_at: string | null
-          created_at: string
-          currency: string
-          failure_code: string | null
-          failure_message: string | null
-          fee_cents: number | null
-          id: string
-          net_cents: number | null
-          receipt_url: string | null
-          refunded_at: string | null
-          session_id: string
-          sessions_students_id: string
-          status: string
-          stripe_charge_id: string | null
-          stripe_payment_intent_id: string | null
-          student_id: string
-          updated_at: string
-        }
-        Insert: {
-          amount_cents: number
-          attempt_number: number
-          charged_at?: string | null
-          created_at?: string
-          currency?: string
-          failure_code?: string | null
-          failure_message?: string | null
-          fee_cents?: number | null
-          id?: string
-          net_cents?: number | null
-          receipt_url?: string | null
-          refunded_at?: string | null
-          session_id: string
-          sessions_students_id: string
-          status?: string
-          stripe_charge_id?: string | null
-          stripe_payment_intent_id?: string | null
-          student_id: string
-          updated_at?: string
-        }
-        Update: {
-          amount_cents?: number
-          attempt_number?: number
-          charged_at?: string | null
-          created_at?: string
-          currency?: string
-          failure_code?: string | null
-          failure_message?: string | null
-          fee_cents?: number | null
-          id?: string
-          net_cents?: number | null
-          receipt_url?: string | null
-          refunded_at?: string | null
-          session_id?: string
-          sessions_students_id?: string
-          status?: string
-          stripe_charge_id?: string | null
-          stripe_payment_intent_id?: string | null
-          student_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "sessions_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_missing_payment_obligations"
-            referencedColumns: ["sessions_students_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_students"
@@ -1479,13 +1635,6 @@ export type Database = {
             foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
             columns: ["rescheduled_sessions_students_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_missing_payment_obligations"
-            referencedColumns: ["sessions_students_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
-            columns: ["rescheduled_sessions_students_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_student_id"]
           },
@@ -1587,7 +1736,7 @@ export type Database = {
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
           created_at: string | null
-          email: string | null
+          email: string
           first_name: string
           has_parking_remote: string | null
           id: string
@@ -1612,7 +1761,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
-          email?: string | null
+          email: string
           first_name: string
           has_parking_remote?: string | null
           id: string
@@ -1637,7 +1786,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
-          email?: string | null
+          email?: string
           first_name?: string
           has_parking_remote?: string | null
           id?: string
@@ -1933,7 +2082,7 @@ export type Database = {
           curriculum?: string | null
           email?: string | null
           first_name: string
-          id?: string
+          id: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -2898,377 +3047,6 @@ export type Database = {
           },
         ]
       }
-      vadmin_failed_payment_attempts: {
-        Row: {
-          amount_cents: number | null
-          attempt_number: number | null
-          card_brand: string | null
-          card_exp_month: number | null
-          card_exp_year: number | null
-          card_last4: string | null
-          created_at: string | null
-          currency: string | null
-          failure_code: string | null
-          failure_message: string | null
-          payment_attempt_id: string | null
-          session_id: string | null
-          session_start_at: string | null
-          session_type: string | null
-          sessions_students_id: string | null
-          status: string | null
-          stripe_customer_id: string | null
-          student_email: string | null
-          student_first_name: string | null
-          student_id: string | null
-          student_last_name: string | null
-          student_phone: string | null
-          subject_name: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "sessions_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_missing_payment_obligations"
-            referencedColumns: ["sessions_students_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vadmin_missing_payment_obligations: {
-        Row: {
-          currency: string | null
-          expected_amount_cents: number | null
-          planned_absence: boolean | null
-          session_id: string | null
-          session_start_at: string | null
-          session_type: string | null
-          sessions_students_id: string | null
-          skip_reason: string | null
-          stripe_customer_id: string | null
-          student_email: string | null
-          student_first_name: string | null
-          student_id: string | null
-          student_last_name: string | null
-          student_phone: string | null
-          subject_id: string | null
-          subject_name: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vadmin_stuck_payment_attempts: {
-        Row: {
-          amount_cents: number | null
-          attempt_number: number | null
-          created_at: string | null
-          currency: string | null
-          failure_code: string | null
-          failure_message: string | null
-          id: string | null
-          session_id: string | null
-          session_start_at: string | null
-          session_type: string | null
-          sessions_students_id: string | null
-          status: string | null
-          stripe_charge_id: string | null
-          stripe_payment_intent_id: string | null
-          student_email: string | null
-          student_first_name: string | null
-          student_id: string | null
-          student_last_name: string | null
-          subject_name: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_session_detail"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "sessions_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_missing_payment_obligations"
-            referencedColumns: ["sessions_students_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_base"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_session_detail"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_sessions"
-            referencedColumns: ["session_student_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_sessions_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       vstudent_billing: {
         Row: {
           created_at: string | null
@@ -3495,23 +3273,20 @@ export type Database = {
           },
         ]
       }
-      vstudent_payment_attempts: {
+      vstudent_invoice_items: {
         Row: {
           amount_cents: number | null
-          attempt_number: number | null
-          charged_at: string | null
           created_at: string | null
-          currency: string | null
-          failure_message: string | null
+          description: string | null
           id: string | null
-          receipt_url: string | null
-          refunded_at: string | null
+          invoice_id: string | null
+          is_subsidy: boolean | null
           session_end_at: string | null
           session_id: string | null
           session_start_at: string | null
           session_type: string | null
           sessions_students_id: string | null
-          status: string | null
+          student_id: string | null
           subject_curriculum:
             | Database["public"]["Enums"]["subject_curriculum"]
             | null
@@ -3519,87 +3294,160 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "payment_attempts_session_id_fkey"
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "payment_attempts_session_id_fkey"
+            foreignKeyName: "invoice_items_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_id"]
           },
           {
-            foreignKeyName: "payment_attempts_session_id_fkey"
+            foreignKeyName: "invoice_items_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_id"]
           },
           {
-            foreignKeyName: "payment_attempts_session_id_fkey"
+            foreignKeyName: "invoice_items_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "vstudent_sessions"
             referencedColumns: ["session_id"]
           },
           {
-            foreignKeyName: "payment_attempts_session_id_fkey"
+            foreignKeyName: "invoice_items_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "vtutor_session_detail"
             referencedColumns: ["session_id"]
           },
           {
-            foreignKeyName: "payment_attempts_session_id_fkey"
+            foreignKeyName: "invoice_items_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
           },
           {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
             referencedRelation: "sessions_students"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
-            columns: ["sessions_students_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_missing_payment_obligations"
-            referencedColumns: ["sessions_students_id"]
-          },
-          {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_student_id"]
           },
           {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
             referencedRelation: "vstudent_session_detail"
             referencedColumns: ["session_student_id"]
           },
           {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
             referencedRelation: "vstudent_sessions"
             referencedColumns: ["session_student_id"]
           },
           {
-            foreignKeyName: "payment_attempts_sessions_students_id_fkey"
+            foreignKeyName: "invoice_items_sessions_students_id_fkey"
             columns: ["sessions_students_id"]
             isOneToOne: false
             referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vstudent_invoices: {
+        Row: {
+          amount_due_cents: number | null
+          amount_paid_cents: number | null
+          created_at: string | null
+          currency: string | null
+          finalized_at: string | null
+          hosted_invoice_url: string | null
+          id: string | null
+          invoice_date: string | null
+          invoice_pdf: string | null
+          item_count: number | null
+          paid_at: string | null
+          receipt_url: string | null
+          status: string | null
+          stripe_invoice_id: string | null
+          stripe_invoice_number: string | null
+          student_id: string | null
+          total_charges_cents: number | null
+          total_subsidies_cents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -4801,39 +4649,44 @@ export type Database = {
       }
     }
     Functions: {
+      add_enum_value: {
+        Args: { enum_name: string; new_value: string }
+        Returns: undefined
+      }
       batch_update_topic_indices: {
         Args: { updates: Json }
         Returns: undefined
       }
       build_fuzzy_like: { Args: { p_text: string }; Returns: string }
+      current_staff_id: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
       current_tutor_id: { Args: never; Returns: string }
       format_class_full_name:
         | {
             Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               p_curriculum: string
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_end_time: string
               p_name: string
@@ -4845,27 +4698,27 @@ export type Database = {
       format_class_short_name:
         | {
             Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               p_curriculum: string
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_name: string
               p_start_time: string
@@ -4877,30 +4730,7 @@ export type Database = {
         Args: { p_curriculum: string; p_name: string; p_year_level: number }
         Returns: string
       }
-      get_latest_payment_attempts_by_student: {
-        Args: { p_student_id: string }
-        Returns: {
-          amount_cents: number
-          attempt_number: number
-          charged_at: string
-          created_at: string
-          currency: string
-          failure_code: string
-          failure_message: string
-          fee_cents: number
-          id: string
-          net_cents: number
-          receipt_url: string
-          refunded_at: string
-          session_id: string
-          sessions_students_id: string
-          status: string
-          stripe_charge_id: string
-          stripe_payment_intent_id: string
-          student_id: string
-          updated_at: string
-        }[]
-      }
+      get_service_role_key: { Args: never; Returns: string }
       get_student_subjects: {
         Args: { student_id: string }
         Returns: {
@@ -4947,19 +4777,20 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_supabase_url: { Args: never; Returns: string }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
       }
+      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       log_student_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
-      map_day_to_number: { Args: { day_string: string }; Returns: number }
-      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -4972,10 +4803,6 @@ export type Database = {
           start_date: string
         }
         Returns: number
-      }
-      resend_confirmation_email: {
-        Args: { email_address: string }
-        Returns: string
       }
       search_all_admin: {
         Args: {
@@ -5026,10 +4853,6 @@ export type Database = {
         }
         Returns: Json
       }
-      set_claim: {
-        Args: { claim: string; uid: string; value: Json }
-        Returns: undefined
-      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -5039,8 +4862,8 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
+      user_role: { Args: never; Returns: string }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
-      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
@@ -5215,3 +5038,4 @@ export const Constants = {
     },
   },
 } as const
+

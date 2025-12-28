@@ -15,22 +15,12 @@ export function TestBillingRunner() {
     setLoading(true);
     setResult(null);
     try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/billing-runner`, {
+      const response = await fetch('/api/billing/runner', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ 
-          testMode: true,
           date: date || undefined
         }),
       });
@@ -38,19 +28,19 @@ export function TestBillingRunner() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || 'Failed to run billing test');
+        throw new Error(data.error || data.message || 'Failed to run billing');
       }
 
       setResult(data);
       toast({
         title: 'Success',
-        description: data.message || `Test billing completed successfully`,
+        description: data.message || `Billing completed successfully`,
       });
     } catch (error) {
-      console.error('Failed to run billing test:', error);
+      console.error('Failed to run billing:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to run billing test',
+        description: error instanceof Error ? error.message : 'Failed to run billing',
         variant: 'destructive',
       });
     } finally {
@@ -63,11 +53,11 @@ export function TestBillingRunner() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Play className="h-5 w-5" />
-          Test Billing Runner
+          Billing Runner
         </CardTitle>
         <CardDescription>
-          Run billing in test mode to verify end-to-end payment processing.
-          <strong className="text-destructive"> WARNING: Test mode will charge Stripe.</strong> Remove test mode Stripe charging before production.
+          Manually trigger billing runner to verify end-to-end payment processing.
+          Uses Stripe test keys in dev environment. Specify a date to process sessions for that date, or leave empty to process tomorrow's sessions.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -83,7 +73,7 @@ export function TestBillingRunner() {
           <p className="text-sm text-muted-foreground">
             {date 
               ? `Will process sessions for ${new Date(date).toLocaleDateString()}`
-              : 'Will process today\'s sessions by default'}
+              : 'Will process tomorrow\'s sessions by default'}
           </p>
         </div>
         
@@ -101,18 +91,18 @@ export function TestBillingRunner() {
           ) : (
             <>
               <Play className="h-4 w-4 mr-2" />
-              Run Test Billing
+              Run Billing
             </>
           )}
         </Button>
 
         {result && (
           <div className="mt-4 p-4 bg-muted rounded-md space-y-2">
-            <div className="font-semibold">Test Results:</div>
+            <div className="font-semibold">Results:</div>
             <div className="text-sm space-y-1">
               <div><strong>Status:</strong> {result.ok ? 'Success' : 'Failed'}</div>
-              <div><strong>Payments Created:</strong> {result.created || 0}</div>
-              <div><strong>Test Mode:</strong> {result.testMode ? 'Yes' : 'No'}</div>
+              <div><strong>Invoices Created:</strong> {result.invoicesCreated || 0}</div>
+              <div><strong>Stripe Key Type:</strong> {result.stripeKeyType || 'unknown'}</div>
               {result.dateRange && (
                 <div>
                   <strong>Date Range:</strong>{' '}

@@ -10,22 +10,24 @@ import {
 } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, ExternalLink } from 'lucide-react';
 import type { Database } from '@altitutor/shared';
-import { usePayments } from '../hooks';
+import { useInvoicesWithItems } from '../hooks';
 import { formatDateTime } from '@/shared/utils';
 
-type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'refunded';
-type PaymentAttempt = Database['public']['Views']['vstudent_payment_attempts']['Row'];
+type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
+type Invoice = Database['public']['Views']['vstudent_invoices']['Row'];
 
-const getStatusVariant = (status: PaymentStatus): 'default' | 'secondary' | 'destructive' => {
+const getStatusVariant = (status: InvoiceStatus): 'default' | 'secondary' | 'destructive' => {
   switch (status) {
-    case 'succeeded':
+    case 'paid':
       return 'default';
-    case 'pending':
+    case 'draft':
+    case 'open':
       return 'secondary';
-    case 'failed':
-    case 'refunded':
+    case 'void':
+    case 'uncollectible':
+    case 'disputed':
       return 'destructive';
     default:
       return 'secondary';
@@ -37,7 +39,7 @@ const formatAmount = (cents: number): string => {
 };
 
 export function PaymentHistoryTable() {
-  const { data: payments, isLoading, error } = usePayments();
+  const { data: invoices, isLoading, error } = useInvoicesWithItems();
 
   if (isLoading) {
     return (
@@ -50,15 +52,15 @@ export function PaymentHistoryTable() {
   if (error) {
     return (
       <div className="text-center py-8 text-destructive">
-        Error loading payment history: {error.message}
+        Error loading invoice history: {error.message}
       </div>
     );
   }
 
-  if (!payments || payments.length === 0) {
+  if (!invoices || invoices.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        No payment history yet
+        No invoice history yet
       </div>
     );
   }
@@ -68,38 +70,42 @@ export function PaymentHistoryTable() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Date</TableHead>
+            <TableHead>Invoice Date</TableHead>
+            <TableHead>Invoice Number</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Session</TableHead>
+            <TableHead>Sessions</TableHead>
             <TableHead>Receipt</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {payments.map((payment, index) => (
-            <TableRow key={payment.id || `payment-${index}`}>
+          {invoices.map((invoice, index) => (
+            <TableRow key={invoice.id || `invoice-${index}`}>
               <TableCell>
-                {payment.created_at ? formatDateTime(payment.created_at) : '-'}
+                {invoice.invoice_date ? formatDateTime(invoice.invoice_date) : '-'}
               </TableCell>
               <TableCell className="font-medium">
-                {payment.amount_cents ? formatAmount(payment.amount_cents) : '-'}
+                {invoice.stripe_invoice_number || '-'}
+              </TableCell>
+              <TableCell className="font-medium">
+                {invoice.amount_due_cents ? formatAmount(invoice.amount_due_cents) : '-'}
               </TableCell>
               <TableCell>
-                {payment.status ? (
-                  <Badge variant={getStatusVariant(payment.status as PaymentStatus)}>
-                    {payment.status}
+                {invoice.status ? (
+                  <Badge variant={getStatusVariant(invoice.status as InvoiceStatus)}>
+                    {invoice.status}
                   </Badge>
                 ) : (
                   '-'
                 )}
               </TableCell>
               <TableCell>
-                {payment.subject_name ? (
+                {invoice.items && invoice.items.length > 0 ? (
                   <div className="text-sm">
-                    <p className="font-medium">{payment.subject_name}</p>
-                    {payment.session_start_at && (
+                    <p className="font-medium">{invoice.items.length} session{invoice.items.length !== 1 ? 's' : ''}</p>
+                    {invoice.total_subsidies_cents && invoice.total_subsidies_cents > 0 && (
                       <p className="text-muted-foreground text-xs">
-                        {formatDateTime(payment.session_start_at)}
+                        Subsidies: {formatAmount(invoice.total_subsidies_cents)}
                       </p>
                     )}
                   </div>
@@ -108,24 +114,57 @@ export function PaymentHistoryTable() {
                 )}
               </TableCell>
               <TableCell>
-                {payment.receipt_url ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    asChild
-                  >
-                    <a 
-                      href={payment.receipt_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                <div className="flex gap-2">
+                  {invoice.receipt_url && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
                     >
-                      <Download className="h-4 w-4 mr-1" />
-                      Receipt
-                    </a>
-                  </Button>
-                ) : (
-                  '-'
-                )}
+                      <a 
+                        href={invoice.receipt_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Receipt
+                      </a>
+                    </Button>
+                  )}
+                  {invoice.hosted_invoice_url && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                    >
+                      <a 
+                        href={invoice.hosted_invoice_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        View
+                      </a>
+                    </Button>
+                  )}
+                  {invoice.invoice_pdf && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                    >
+                      <a 
+                        href={invoice.invoice_pdf} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        PDF
+                      </a>
+                    </Button>
+                  )}
+                  {!invoice.receipt_url && !invoice.hosted_invoice_url && !invoice.invoice_pdf && '-'}
+                </div>
               </TableCell>
             </TableRow>
           ))}

@@ -82,25 +82,25 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
         return;
       }
 
-      // Get payment attempts for these sessions
+      // Get invoice items for these sessions
       const sessionsStudentsIds = sessionsStudents?.map((ss: any) => ss.id) || [];
       
-      const attemptsMap: Record<string, any[]> = {};
+      const invoiceItemsMap: Record<string, any[]> = {};
       if (sessionsStudentsIds.length > 0) {
-        const { data: attempts, error: attemptsError } = await supabase
-          .from('payment_attempts')
-          .select('id, sessions_students_id, attempt_number, amount_cents, status, stripe_payment_intent_id, charged_at')
+        const { data: items, error: itemsError } = await supabase
+          .from('invoice_items')
+          .select('id, sessions_students_id, invoice_id, amount_cents, description, is_subsidy, invoice:invoices(status, stripe_invoice_id, stripe_charge_id, paid_at)')
           .in('sessions_students_id', sessionsStudentsIds)
-          .order('attempt_number', { ascending: false });
+          .order('created_at', { ascending: false });
 
-        if (attemptsError) {
-          console.error('Error fetching payment attempts:', attemptsError);
+        if (itemsError) {
+          console.error('Error fetching invoice items:', itemsError);
         } else {
-          for (const attempt of attempts || []) {
-            if (!attemptsMap[attempt.sessions_students_id]) {
-              attemptsMap[attempt.sessions_students_id] = [];
+          for (const item of items || []) {
+            if (!invoiceItemsMap[item.sessions_students_id]) {
+              invoiceItemsMap[item.sessions_students_id] = [];
             }
-            attemptsMap[attempt.sessions_students_id].push(attempt);
+            invoiceItemsMap[item.sessions_students_id].push(item);
           }
         }
       }
@@ -108,7 +108,18 @@ export function StudentSessionsTab({ student }: { student: Tables<'students'> })
       // Transform the data
       const sessionRows: SessionRow[] = (sessionsStudents || []).map((ss: any) => {
         const sessionData = ss.sessions;
-        const paymentAttempts = attemptsMap[ss.id] || [];
+        // Map invoice items to paymentAttempts format for backward compatibility
+        const invoiceItems = invoiceItemsMap[ss.id] || [];
+        const paymentAttempts = invoiceItems.map((item: any) => ({
+          id: item.id,
+          sessions_students_id: item.sessions_students_id,
+          amount_cents: item.amount_cents,
+          status: item.invoice?.status === 'paid' ? 'succeeded' : item.invoice?.status || 'pending',
+          stripe_payment_intent_id: null, // Invoices don't have payment intents directly
+          stripe_charge_id: item.invoice?.stripe_charge_id || null,
+          charged_at: item.invoice?.paid_at || null,
+          attempt_number: 1, // Invoices don't have attempt numbers
+        }));
         
         return {
           sessionsStudentsId: ss.id,

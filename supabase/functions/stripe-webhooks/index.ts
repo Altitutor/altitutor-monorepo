@@ -215,52 +215,87 @@ Deno.serve(async (req: Request) => {
         return json({ received: true });
       }
 
-      case 'payment_intent.succeeded': {
-        const pi = event.data.object as any;
-        const metadata = pi.metadata || {};
-        const latestChargeId = pi.latest_charge as string | undefined;
+      case 'invoice.created': {
+        // Log invoice creation (optional, for tracking)
+        const invoice = event.data.object as any;
+        console.log('[webhook] Invoice created:', invoice.id, 'for customer:', invoice.customer);
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'invoice.finalized': {
+        // Invoice finalized, ready to charge (optional, for tracking)
+        const invoice = event.data.object as any;
+        console.log('[webhook] Invoice finalized:', invoice.id);
+        
+        // Update finalized_at timestamp if invoice exists
+        await supabase
+          .from('invoices')
+          .update({
+            finalized_at: invoice.status_transitions?.finalized_at 
+              ? new Date(invoice.status_transitions.finalized_at * 1000).toISOString()
+              : new Date().toISOString(),
+            status: invoice.status,
+          })
+          .eq('stripe_invoice_id', invoice.id);
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'invoice.paid': {
+        // CRITICAL: Invoice payment succeeded
+        const invoice = event.data.object as any;
+        const chargeId = invoice.charge as string | undefined;
+        
         let fee_cents: number | null = null;
         let net_cents: number | null = null;
         let receipt_url: string | null = null;
-        if (latestChargeId) {
-          const charge = await stripe.charges.retrieve(latestChargeId, { expand: ['balance_transaction'] });
-          const bt: any = charge.balance_transaction;
-          if (bt) {
-            fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
-            net_cents = typeof bt.net === 'number' ? bt.net : null;
-          }
-          receipt_url = charge.receipt_url || null;
-        }
-
-        // Legacy verification microcharge handling (deprecated - now using SetupIntent)
-        // Kept for backward compatibility with old payment intents
-        if (metadata?.type === 'verification') {
-          console.warn('[webhook] Received legacy verification payment_intent - SetupIntent should be used instead');
+        let payment_intent_id: string | null = null;
+        
+        // Retrieve charge details if available
+        if (chargeId) {
           try {
-            await stripe.refunds.create({ payment_intent: pi.id, reason: 'requested_by_customer' });
-          } catch (e) {
-            console.warn('[webhook] refund verification failed (non-fatal)', e?.message || e);
+            const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction', 'payment_intent'] });
+            const bt: any = charge.balance_transaction;
+            if (bt) {
+              fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
+              net_cents = typeof bt.net === 'number' ? bt.net : null;
+            }
+            receipt_url = charge.receipt_url || null;
+            payment_intent_id = typeof charge.payment_intent === 'string' 
+              ? charge.payment_intent 
+              : (charge.payment_intent as any)?.id || null;
+          } catch (e: any) {
+            console.error('[webhook] Error retrieving charge details:', e?.message || e);
           }
-          await supabase
-            .from('stripe_webhook_events')
-            .update({ processed: true, processed_at: new Date().toISOString() })
-            .eq('stripe_event_id', event.id);
-          return json({ received: true });
         }
-
-        // Session charge success - match by PI ID (handles retries correctly)
+        
+        // Update invoice status to 'paid'
         const { error: payErr } = await supabase
-          .from('payment_attempts')
+          .from('invoices')
           .update({
-            status: 'succeeded',
-            stripe_charge_id: latestChargeId || null,
-            charged_at: new Date().toISOString(),
+            status: 'paid',
+            stripe_charge_id: chargeId || null, // CRITICAL: For disputes
+            stripe_payment_intent_id: payment_intent_id,
+            amount_paid_cents: invoice.amount_paid || invoice.amount_due,
             fee_cents,
             net_cents,
             receipt_url,
+            hosted_invoice_url: invoice.hosted_invoice_url || null,
+            invoice_pdf: invoice.invoice_pdf || null,
+            paid_at: new Date().toISOString(),
           })
-          .eq('stripe_payment_intent_id', pi.id);
-        if (payErr) console.error('[webhook] payment_attempts update error', payErr);
+          .eq('stripe_invoice_id', invoice.id);
+        
+        if (payErr) console.error('[webhook] invoices update error', payErr);
         
         await supabase
           .from('stripe_webhook_events')
@@ -269,22 +304,31 @@ Deno.serve(async (req: Request) => {
         return json({ received: true });
       }
 
-      case 'payment_intent.payment_failed': {
-        const pi = event.data.object as any;
-        const metadata = pi.metadata || {};
-        const failure_code = pi.last_payment_error?.code || 'unknown_error';
-        const failure_message = pi.last_payment_error?.message || 'payment_failed';
+      case 'invoice.payment_failed': {
+        // CRITICAL: Invoice payment failed
+        const invoice = event.data.object as any;
+        const lastError = invoice.last_payment_error;
+        const failure_code = lastError?.code || 'unknown_error';
+        const failure_message = lastError?.message || 'payment_failed';
         
-        // Update payment attempt by PI ID (handles retries correctly)
+        // Update invoice status (remains 'open' for retries)
+        // Store failure details in metadata
         const { error: updErr } = await supabase
-          .from('payment_attempts')
-          .update({ 
-            status: 'failed',
-            failure_code: failure_code,
-            failure_message: failure_message 
+          .from('invoices')
+          .update({
+            // Status remains 'open' for Stripe's automatic retries
+            metadata: {
+              last_payment_error: {
+                code: failure_code,
+                message: failure_message,
+                type: lastError?.type || 'card_error',
+              },
+              last_failure_at: new Date().toISOString(),
+            },
           })
-          .eq('stripe_payment_intent_id', pi.id);
-        if (updErr) console.error('[webhook] payment_attempts fail update error', updErr);
+          .eq('stripe_invoice_id', invoice.id);
+        
+        if (updErr) console.error('[webhook] invoices fail update error', updErr);
         
         await supabase
           .from('stripe_webhook_events')
@@ -293,19 +337,50 @@ Deno.serve(async (req: Request) => {
         return json({ received: true });
       }
 
-      case 'charge.refunded': {
-        const charge = event.data.object as any;
+      case 'invoice.updated': {
+        // MEDIUM: Handle status changes, updates to amounts, etc.
+        const invoice = event.data.object as any;
         
-        // Update payment attempt to refunded status
-        const { error: refundErr } = await supabase
-          .from('payment_attempts')
-          .update({ 
-            status: 'refunded',
-            refunded_at: new Date().toISOString()
+        await supabase
+          .from('invoices')
+          .update({
+            status: invoice.status,
+            amount_due_cents: invoice.amount_due,
+            amount_paid_cents: invoice.amount_paid || 0,
+            hosted_invoice_url: invoice.hosted_invoice_url || null,
+            invoice_pdf: invoice.invoice_pdf || null,
           })
-          .eq('stripe_charge_id', charge.id);
+          .eq('stripe_invoice_id', invoice.id);
         
-        if (refundErr) console.error('[webhook] refund update error', refundErr);
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'invoice.voided': {
+        const invoice = event.data.object as any;
+        
+        await supabase
+          .from('invoices')
+          .update({ status: 'void' })
+          .eq('stripe_invoice_id', invoice.id);
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'invoice.marked_uncollectible': {
+        const invoice = event.data.object as any;
+        
+        await supabase
+          .from('invoices')
+          .update({ status: 'uncollectible' })
+          .eq('stripe_invoice_id', invoice.id);
         
         await supabase
           .from('stripe_webhook_events')
@@ -315,24 +390,23 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'charge.dispute.created': {
+        // CRITICAL: Update invoice dispute fields
         const dispute = event.data.object as any;
         const chargeId = dispute.charge as string;
         
-        // Find payment attempt by stripe_charge_id
-        const { data: paymentAttempt, error: findErr } = await supabase
-          .from('payment_attempts')
+        // Find invoice by stripe_charge_id
+        const { data: invoice, error: findErr } = await supabase
+          .from('invoices')
           .select('id')
           .eq('stripe_charge_id', chargeId)
-          .order('attempt_number', { ascending: false })
-          .limit(1)
           .maybeSingle();
         
         if (findErr) {
-          console.error('[webhook] Error finding payment attempt for dispute:', findErr);
-        } else if (paymentAttempt) {
-          // Update payment attempt with dispute information
+          console.error('[webhook] Error finding invoice for dispute:', findErr);
+        } else if (invoice) {
+          // Update invoice with dispute information
           const { error: updateErr } = await supabase
-            .from('payment_attempts')
+            .from('invoices')
             .update({
               status: 'disputed',
               dispute_id: dispute.id,
@@ -343,15 +417,15 @@ Deno.serve(async (req: Request) => {
               dispute_created_at: new Date(dispute.created * 1000).toISOString(),
               dispute_updated_at: new Date().toISOString(),
             })
-            .eq('id', paymentAttempt.id);
+            .eq('id', invoice.id);
           
           if (updateErr) {
-            console.error('[webhook] Error updating payment attempt with dispute:', updateErr);
+            console.error('[webhook] Error updating invoice with dispute:', updateErr);
           } else {
-            console.log('[webhook] Dispute created for payment attempt:', paymentAttempt.id, 'dispute:', dispute.id);
+            console.log('[webhook] Dispute created for invoice:', invoice.id, 'dispute:', dispute.id);
           }
         } else {
-          console.warn('[webhook] No payment attempt found for dispute charge:', chargeId);
+          console.warn('[webhook] No invoice found for dispute charge:', chargeId);
         }
         
         await supabase
@@ -362,39 +436,38 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'charge.dispute.updated': {
+        // CRITICAL: Update invoice dispute status
         const dispute = event.data.object as any;
         const chargeId = dispute.charge as string;
         
-        // Find payment attempt by stripe_charge_id
-        const { data: paymentAttempt, error: findErr } = await supabase
-          .from('payment_attempts')
+        // Find invoice by stripe_charge_id
+        const { data: invoice, error: findErr } = await supabase
+          .from('invoices')
           .select('id')
           .eq('stripe_charge_id', chargeId)
-          .order('attempt_number', { ascending: false })
-          .limit(1)
           .maybeSingle();
         
         if (findErr) {
-          console.error('[webhook] Error finding payment attempt for dispute update:', findErr);
-        } else if (paymentAttempt) {
+          console.error('[webhook] Error finding invoice for dispute update:', findErr);
+        } else if (invoice) {
           // Update dispute details
           const { error: updateErr } = await supabase
-            .from('payment_attempts')
+            .from('invoices')
             .update({
               dispute_status: dispute.status,
               dispute_reason: dispute.reason,
               dispute_amount_cents: dispute.amount,
               dispute_updated_at: new Date().toISOString(),
             })
-            .eq('id', paymentAttempt.id);
+            .eq('id', invoice.id);
           
           if (updateErr) {
             console.error('[webhook] Error updating dispute:', updateErr);
           } else {
-            console.log('[webhook] Dispute updated for payment attempt:', paymentAttempt.id);
+            console.log('[webhook] Dispute updated for invoice:', invoice.id);
           }
         } else {
-          console.warn('[webhook] No payment attempt found for dispute update charge:', chargeId);
+          console.warn('[webhook] No invoice found for dispute update charge:', chargeId);
         }
         
         await supabase
@@ -405,21 +478,20 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'charge.dispute.closed': {
+        // CRITICAL: Update invoice dispute status, set dispute_resolved_at
         const dispute = event.data.object as any;
         const chargeId = dispute.charge as string;
         
-        // Find payment attempt by stripe_charge_id
-        const { data: paymentAttempt, error: findErr } = await supabase
-          .from('payment_attempts')
+        // Find invoice by stripe_charge_id
+        const { data: invoice, error: findErr } = await supabase
+          .from('invoices')
           .select('id, status')
           .eq('stripe_charge_id', chargeId)
-          .order('attempt_number', { ascending: false })
-          .limit(1)
           .maybeSingle();
         
         if (findErr) {
-          console.error('[webhook] Error finding payment attempt for dispute closure:', findErr);
-        } else if (paymentAttempt) {
+          console.error('[webhook] Error finding invoice for dispute closure:', findErr);
+        } else if (invoice) {
           const disputeStatus = dispute.status; // 'won' or 'lost'
           const resolvedAt = new Date().toISOString();
           
@@ -429,30 +501,112 @@ Deno.serve(async (req: Request) => {
             dispute_updated_at: resolvedAt,
           };
           
-          // If dispute was won, restore payment to succeeded status
-          // If lost, keep as disputed (or could change to dispute_lost if we add that status)
+          // If dispute was won, restore invoice to paid status
+          // If lost, keep as disputed
           if (disputeStatus === 'won') {
-            updateData.status = 'succeeded';
-            // Note: We don't update charged_at here as it should already be set
-            console.log('[webhook] Dispute won - restoring payment to succeeded:', paymentAttempt.id);
+            updateData.status = 'paid';
+            console.log('[webhook] Dispute won - restoring invoice to paid:', invoice.id);
           } else if (disputeStatus === 'lost') {
             // Keep status as 'disputed' - the dispute was lost
-            console.log('[webhook] Dispute lost - keeping status as disputed:', paymentAttempt.id);
+            console.log('[webhook] Dispute lost - keeping status as disputed:', invoice.id);
           }
           
           const { error: updateErr } = await supabase
-            .from('payment_attempts')
+            .from('invoices')
             .update(updateData)
-            .eq('id', paymentAttempt.id);
+            .eq('id', invoice.id);
           
           if (updateErr) {
             console.error('[webhook] Error updating dispute closure:', updateErr);
           } else {
-            console.log('[webhook] Dispute closed for payment attempt:', paymentAttempt.id, 'result:', disputeStatus);
+            console.log('[webhook] Dispute closed for invoice:', invoice.id, 'result:', disputeStatus);
           }
         } else {
-          console.warn('[webhook] No payment attempt found for dispute closure charge:', chargeId);
+          console.warn('[webhook] No invoice found for dispute closure charge:', chargeId);
         }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'credit_note.created': {
+        // HIGH: Create credit_notes record for refunds
+        const creditNote = event.data.object as any;
+        const invoiceId = creditNote.invoice as string;
+        
+        // Find invoice by stripe_invoice_id
+        const { data: invoice, error: findErr } = await supabase
+          .from('invoices')
+          .select('id')
+          .eq('stripe_invoice_id', invoiceId)
+          .maybeSingle();
+        
+        if (findErr) {
+          console.error('[webhook] Error finding invoice for credit note:', findErr);
+        } else if (invoice) {
+          const { error: insertErr } = await supabase
+            .from('credit_notes')
+            .insert({
+              invoice_id: invoice.id,
+              stripe_credit_note_id: creditNote.id,
+              amount_cents: creditNote.amount,
+              currency: creditNote.currency,
+              reason: creditNote.reason,
+              status: creditNote.status,
+              metadata: creditNote.metadata || {},
+            });
+          
+          if (insertErr) {
+            console.error('[webhook] Error creating credit note:', insertErr);
+          } else {
+            console.log('[webhook] Credit note created:', creditNote.id, 'for invoice:', invoice.id);
+          }
+        } else {
+          console.warn('[webhook] No invoice found for credit note:', invoiceId);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'credit_note.updated': {
+        // HIGH: Update credit_notes status
+        const creditNote = event.data.object as any;
+        
+        await supabase
+          .from('credit_notes')
+          .update({
+            status: creditNote.status,
+            reason: creditNote.reason,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_credit_note_id', creditNote.id);
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'credit_note.voided': {
+        // HIGH: Update credit_notes status to 'void'
+        const creditNote = event.data.object as any;
+        
+        await supabase
+          .from('credit_notes')
+          .update({
+            status: 'void',
+            voided_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_credit_note_id', creditNote.id);
         
         await supabase
           .from('stripe_webhook_events')

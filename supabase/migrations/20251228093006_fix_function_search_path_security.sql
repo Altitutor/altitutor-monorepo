@@ -114,8 +114,6 @@ SELECT public._set_function_search_path('update_message_templates_updated_at');
 SELECT public._set_function_search_path('handle_new_user');
 SELECT public._set_function_search_path('link_precreated_user');
 SELECT public._set_function_search_path('prevent_dual_active_roles');
-SELECT public._set_function_search_path('resend_confirmation_email', 'email_address text');
-SELECT public._set_function_search_path('verify_email', 'user_email text');
 SELECT public._set_function_search_path('set_claim', 'uid uuid, claim text, value jsonb');
 
 -- Student subject functions
