@@ -212,7 +212,7 @@ export const staffApi = {
         )
       `)
       .in('staff_id', staffIds)
-      .eq('status', 'ACTIVE');
+      .is('unassigned_at', null);
 
     if (assignmentsError) throw assignmentsError;
 
@@ -283,7 +283,7 @@ export const staffApi = {
             )
           `)
           .eq('staff_id', staffId)
-          .eq('status', 'ACTIVE'),
+          .is('unassigned_at', null),
         
         // Upcoming sessions (next 5) - fetch from sessions_staff join
         supabase

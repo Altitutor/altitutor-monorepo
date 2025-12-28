@@ -181,7 +181,7 @@ export const classesApi = {
           staff:staff!class_assignments_staff_id_fkey(*)
         `)
         .in('class_id', classIds)
-        .eq('status', 'ACTIVE'),
+        .is('unassigned_at', null),
     ]);
 
     if (enrollmentsError) throw enrollmentsError;
@@ -278,7 +278,7 @@ export const classesApi = {
           class_id,
           staff:staff!class_assignments_staff_id_fkey(*)
         `)
-        .eq('status', 'ACTIVE');
+        .is('unassigned_at', null);
       
       if (assignmentsError) throw assignmentsError;
       
@@ -517,7 +517,7 @@ export const classesApi = {
           staff:staff!class_assignments_staff_id_fkey(*)
         `)
         .eq('class_id', classId)
-        .eq('status', 'ACTIVE');
+        .is('unassigned_at', null);
       
       if (staffError) throw staffError;
       
