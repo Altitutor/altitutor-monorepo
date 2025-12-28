@@ -40,34 +40,69 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   
-  // Parse request body for date override
+  // Parse request body for date override (must be done before auth check to avoid consuming body)
   let dateOverride: string | null = null;
+  let requestBody: any = null;
+  
+  if (req.method === 'POST') {
+    try {
+      const bodyText = await req.text();
+      if (bodyText) {
+        requestBody = JSON.parse(bodyText);
+        dateOverride = requestBody.date || null;
+      }
+    } catch {
+      // Body parsing failed, continue with defaults
+    }
+  }
+  
   let isServiceRole = false;
+  let isAdminUser = false;
   
   try {
     const authHeader = req.headers.get('authorization');
     const apiKey = req.headers.get('apikey');
     
     // Check if this is a service role request (cron job or direct service call)
-    if (apiKey === supabaseServiceKey || authHeader?.includes(supabaseServiceKey)) {
+    // Handle both Bearer token format and direct key comparison
+    const bearerToken = authHeader?.startsWith('Bearer ') 
+      ? authHeader.substring(7).trim() 
+      : authHeader;
+    
+    if (apiKey === supabaseServiceKey || bearerToken === supabaseServiceKey) {
       isServiceRole = true;
     }
     
-    // Parse request body if it exists (only for POST requests)
-    if (req.method === 'POST') {
+    // Development mode: Allow admin users to test (only when using test Stripe keys)
+    // This bypasses service role requirement for local/testing scenarios
+    if (!isServiceRole && isStripeTestKey) {
       try {
-        const bodyText = await req.text();
-        if (bodyText) {
-          const body = JSON.parse(bodyText);
-          dateOverride = body.date || null;
+        // Check for admin token in custom header (sent by API route)
+        const adminToken = req.headers.get('x-admin-token');
+        if (adminToken) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+          const { data: { user }, error: userError } = await supabase.auth.getUser(adminToken);
+          
+          if (!userError && user) {
+            // Check if user is admin staff
+            const { data: staffData } = await supabase
+              .from('staff')
+              .select('role, status')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            
+            if (staffData?.role === 'ADMINSTAFF' && staffData?.status === 'ACTIVE') {
+              isAdminUser = true;
+            }
+          }
         }
       } catch {
-        // Body parsing failed, continue with defaults
+        // Auth check failed, continue with normal flow
       }
     }
     
-    // Only allow service role (cron jobs or manual service calls)
-    if (!isServiceRole) {
+    // Only allow service role or admin users (in test mode)
+    if (!isServiceRole && !isAdminUser) {
       return json({ error: 'Unauthorized: Billing can only be triggered by service role (cron jobs or manual service calls)' }, 403);
     }
     
