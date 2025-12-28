@@ -300,6 +300,10 @@ export const tutorLogsApi = {
       if (sessionIds.length === 0) return [];
 
       // Get sessions that are past/current (not logged yet)
+      // Filter by date (not timestamp) - allow sessions from today or earlier
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // End of today
+      
       const { data: sessions, error: sessionsError } = await supabase
         .from('sessions')
         .select(`
@@ -311,7 +315,7 @@ export const tutorLogsApi = {
         `)
         .in('id', sessionIds)
         .eq('type', 'CLASS')
-        // .lte('start_at', new Date().toISOString())
+        .lte('start_at', today.toISOString())
         .order('start_at', { ascending: false });
 
       if (sessionsError) throw sessionsError;

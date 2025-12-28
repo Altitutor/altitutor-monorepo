@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     // Verify the session is accessible by this tutor (check vtutor_sessions view)
     const { data: sessionAccess, error: sessionError } = await userClient
       .from('vtutor_sessions')
-      .select('session_id')
+      .select('session_id, start_at')
       .eq('session_id', body.sessionId)
       .maybeSingle();
     
@@ -67,6 +67,24 @@ export async function POST(request: NextRequest) {
         { error: 'Unauthorized: You do not have access to this session' },
         { status: 403 }
       );
+    }
+
+    // Validate that session is loggable (today or past dates only, not future dates)
+    if (sessionAccess.start_at) {
+      const sessionDate = new Date(sessionAccess.start_at);
+      const today = new Date();
+      
+      // Set both to midnight for date-only comparison
+      sessionDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      
+      // Block logging if session date is in the future (tomorrow or later)
+      if (sessionDate > today) {
+        return NextResponse.json(
+          { error: 'Cannot log tutor log for future sessions. Only sessions from today or earlier can be logged.' },
+          { status: 400 }
+        );
+      }
     }
     
     // Check if a tutor log already exists for this session

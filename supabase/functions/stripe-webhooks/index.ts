@@ -314,6 +314,153 @@ Deno.serve(async (req: Request) => {
         return json({ received: true });
       }
 
+      case 'charge.dispute.created': {
+        const dispute = event.data.object as any;
+        const chargeId = dispute.charge as string;
+        
+        // Find payment attempt by stripe_charge_id
+        const { data: paymentAttempt, error: findErr } = await supabase
+          .from('payment_attempts')
+          .select('id')
+          .eq('stripe_charge_id', chargeId)
+          .order('attempt_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (findErr) {
+          console.error('[webhook] Error finding payment attempt for dispute:', findErr);
+        } else if (paymentAttempt) {
+          // Update payment attempt with dispute information
+          const { error: updateErr } = await supabase
+            .from('payment_attempts')
+            .update({
+              status: 'disputed',
+              dispute_id: dispute.id,
+              dispute_status: dispute.status,
+              dispute_reason: dispute.reason,
+              dispute_amount_cents: dispute.amount,
+              dispute_currency: dispute.currency,
+              dispute_created_at: new Date(dispute.created * 1000).toISOString(),
+              dispute_updated_at: new Date().toISOString(),
+            })
+            .eq('id', paymentAttempt.id);
+          
+          if (updateErr) {
+            console.error('[webhook] Error updating payment attempt with dispute:', updateErr);
+          } else {
+            console.log('[webhook] Dispute created for payment attempt:', paymentAttempt.id, 'dispute:', dispute.id);
+          }
+        } else {
+          console.warn('[webhook] No payment attempt found for dispute charge:', chargeId);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'charge.dispute.updated': {
+        const dispute = event.data.object as any;
+        const chargeId = dispute.charge as string;
+        
+        // Find payment attempt by stripe_charge_id
+        const { data: paymentAttempt, error: findErr } = await supabase
+          .from('payment_attempts')
+          .select('id')
+          .eq('stripe_charge_id', chargeId)
+          .order('attempt_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (findErr) {
+          console.error('[webhook] Error finding payment attempt for dispute update:', findErr);
+        } else if (paymentAttempt) {
+          // Update dispute details
+          const { error: updateErr } = await supabase
+            .from('payment_attempts')
+            .update({
+              dispute_status: dispute.status,
+              dispute_reason: dispute.reason,
+              dispute_amount_cents: dispute.amount,
+              dispute_updated_at: new Date().toISOString(),
+            })
+            .eq('id', paymentAttempt.id);
+          
+          if (updateErr) {
+            console.error('[webhook] Error updating dispute:', updateErr);
+          } else {
+            console.log('[webhook] Dispute updated for payment attempt:', paymentAttempt.id);
+          }
+        } else {
+          console.warn('[webhook] No payment attempt found for dispute update charge:', chargeId);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'charge.dispute.closed': {
+        const dispute = event.data.object as any;
+        const chargeId = dispute.charge as string;
+        
+        // Find payment attempt by stripe_charge_id
+        const { data: paymentAttempt, error: findErr } = await supabase
+          .from('payment_attempts')
+          .select('id, status')
+          .eq('stripe_charge_id', chargeId)
+          .order('attempt_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (findErr) {
+          console.error('[webhook] Error finding payment attempt for dispute closure:', findErr);
+        } else if (paymentAttempt) {
+          const disputeStatus = dispute.status; // 'won' or 'lost'
+          const resolvedAt = new Date().toISOString();
+          
+          let updateData: any = {
+            dispute_status: disputeStatus,
+            dispute_resolved_at: resolvedAt,
+            dispute_updated_at: resolvedAt,
+          };
+          
+          // If dispute was won, restore payment to succeeded status
+          // If lost, keep as disputed (or could change to dispute_lost if we add that status)
+          if (disputeStatus === 'won') {
+            updateData.status = 'succeeded';
+            // Note: We don't update charged_at here as it should already be set
+            console.log('[webhook] Dispute won - restoring payment to succeeded:', paymentAttempt.id);
+          } else if (disputeStatus === 'lost') {
+            // Keep status as 'disputed' - the dispute was lost
+            console.log('[webhook] Dispute lost - keeping status as disputed:', paymentAttempt.id);
+          }
+          
+          const { error: updateErr } = await supabase
+            .from('payment_attempts')
+            .update(updateData)
+            .eq('id', paymentAttempt.id);
+          
+          if (updateErr) {
+            console.error('[webhook] Error updating dispute closure:', updateErr);
+          } else {
+            console.log('[webhook] Dispute closed for payment attempt:', paymentAttempt.id, 'result:', disputeStatus);
+          }
+        } else {
+          console.warn('[webhook] No payment attempt found for dispute closure charge:', chargeId);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
       case 'customer.source.expiring': {
         const source = event.data.object as any;
         const paymentMethodId = source.id;

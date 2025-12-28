@@ -41,6 +41,10 @@ Deno.serve(async (req: Request) => {
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
   if (!STRIPE_SECRET_KEY) return json({ error: 'Stripe key not configured' }, 500);
   
+  // Check if using test or live Stripe keys
+  const isStripeTestKey = STRIPE_SECRET_KEY.startsWith('sk_test_');
+  const isStripeLiveKey = STRIPE_SECRET_KEY.startsWith('sk_live_');
+  
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   
@@ -105,6 +109,14 @@ Deno.serve(async (req: Request) => {
     // Production mode: Only allow service role (cron jobs)
     if (!testMode && !isServiceRole) {
       return json({ error: 'Unauthorized: Production billing can only be triggered by cron jobs' }, 403);
+    }
+    
+    // Safety check: Prevent test mode from using live Stripe keys
+    if (testMode && isStripeLiveKey) {
+      return json({ 
+        error: 'Safety check failed: Test mode cannot use live Stripe keys',
+        message: 'Test mode requires Stripe test keys (sk_test_...). Live keys (sk_live_...) are not allowed in test mode to prevent accidental charges.'
+      }, 400);
     }
     
   } catch (authErr: any) {
@@ -322,8 +334,9 @@ Deno.serve(async (req: Request) => {
       }
 
       try {
-        // NOTE: Test mode currently charges Stripe for end-to-end testing
-        // TODO: Remove test mode Stripe charging before production deployment
+        // Test mode: Only charge if using Stripe test keys (sk_test_...)
+        // Production mode: Charge using configured keys (should be sk_live_...)
+        // Safety: Test mode with live keys is blocked above
         const receiptEmail = parentEmailByStudent[row.student_id] || studentEmailById[row.student_id];
         const pi = await stripe.paymentIntents.create({
           amount: grossCents,
@@ -343,6 +356,7 @@ Deno.serve(async (req: Request) => {
             sessions_students_id: row.id,
             attempt_number: 1,
             test_mode: testMode ? 'true' : 'false',
+            stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
           },
         }, { idempotencyKey: attempt.id });
 
@@ -377,10 +391,11 @@ Deno.serve(async (req: Request) => {
       ok: true, 
       created: paymentsCreated.length,
       testMode,
+      stripeKeyType: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
       dateRange: { start: startIso, end: endIso },
       message: testMode 
-        ? `Test mode: Created ${paymentsCreated.length} payment records and charged Stripe (TEST MODE - remove before production)` 
-        : `Created ${paymentsCreated.length} payment records`
+        ? `Test mode: Created ${paymentsCreated.length} payment records${isStripeTestKey ? ' (using Stripe test keys - safe for testing)' : ''}` 
+        : `Created ${paymentsCreated.length} payment records${isStripeLiveKey ? ' (using Stripe live keys - production)' : ''}`
     });
   } catch (e: any) {
     console.error('[runner] error', e?.message || e);
