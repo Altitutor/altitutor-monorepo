@@ -12,7 +12,21 @@ DECLARE
   contact4_id UUID := '61000000-0000-0000-0000-000000000004';
   conversation1_id UUID := '62000000-0000-0000-0000-000000000001';
   conversation2_id UUID := '62000000-0000-0000-0000-000000000002';
+  default_owned_number_id UUID;
 BEGIN
+  -- Ensure a default owned number exists
+  SELECT id INTO default_owned_number_id
+  FROM public.owned_numbers
+  WHERE is_default = true
+  LIMIT 1;
+  
+  IF default_owned_number_id IS NULL THEN
+    -- Create a default owned number if none exists
+    INSERT INTO public.owned_numbers (id, phone_e164, label, is_default)
+    VALUES (gen_random_uuid(), '+61400000000', 'Default Test Number', true)
+    ON CONFLICT (phone_e164) DO UPDATE SET is_default = true
+    RETURNING id INTO default_owned_number_id;
+  END IF;
   -- ========================
   -- PARENTS
   -- ========================
@@ -36,67 +50,62 @@ BEGIN
   -- ========================
   -- CONTACTS
   -- ========================
-  -- Student contacts
-  INSERT INTO public.contacts (id, display_name, contact_type, phone_e164, student_id)
+  -- Note: display_name column was removed in migration 20251025000010_phone_sync_and_validation.sql
+  -- Student contacts - ensure they exist, get their IDs
+  INSERT INTO public.contacts (id, contact_type, phone_e164, student_id)
   VALUES
-    (contact1_id, 'Alice Williams', 'STUDENT', '+61410000001', '10000000-0000-0000-0000-000000000001'),
-    (contact2_id, 'Bob Taylor', 'STUDENT', '+61410000002', '10000000-0000-0000-0000-000000000002'),
-    (contact3_id, 'Charlie Martinez', 'STUDENT', '+61410000003', '10000000-0000-0000-0000-000000000003')
+    (contact1_id, 'STUDENT', '+61410000001', '10000000-0000-0000-0000-000000000001'),
+    (contact2_id, 'STUDENT', '+61410000002', '10000000-0000-0000-0000-000000000002'),
+    (contact3_id, 'STUDENT', '+61410000003', '10000000-0000-0000-0000-000000000003')
   ON CONFLICT (phone_e164) DO NOTHING;
 
+  -- Get actual contact IDs (in case they were created by owned_numbers.sql with different IDs)
+  SELECT id INTO contact1_id FROM public.contacts WHERE phone_e164 = '+61410000001' LIMIT 1;
+  SELECT id INTO contact2_id FROM public.contacts WHERE phone_e164 = '+61410000002' LIMIT 1;
+
   -- Staff contacts
-  INSERT INTO public.contacts (id, display_name, contact_type, phone_e164, staff_id)
+  INSERT INTO public.contacts (id, contact_type, phone_e164, staff_id)
   VALUES
-    (contact4_id, 'John Doe', 'STAFF', '+61400000010', '00000000-0000-0000-0000-000000000010')
+    (contact4_id, 'STAFF', '+61400000010', '00000000-0000-0000-0000-000000000010')
   ON CONFLICT (phone_e164) DO NOTHING;
 
   -- Parent contacts
-  INSERT INTO public.contacts (id, display_name, contact_type, phone_e164, parent_id)
+  INSERT INTO public.contacts (id, contact_type, phone_e164, parent_id)
   VALUES
-    (gen_random_uuid(), 'Robert Williams', 'PARENT', '+61420000001', parent1_id),
-    (gen_random_uuid(), 'Mary Taylor', 'PARENT', '+61420000002', parent2_id)
+    (gen_random_uuid(), 'PARENT', '+61420000001', parent1_id),
+    (gen_random_uuid(), 'PARENT', '+61420000002', parent2_id)
   ON CONFLICT (phone_e164) DO NOTHING;
 
   -- ========================
   -- CONVERSATIONS
   -- ========================
-  INSERT INTO public.conversations (id, contact_id, owned_number_id, last_message_id, last_message_at)
-  SELECT
-    conversation1_id,
-    contact1_id,
-    o.id,
-    NULL,
-    NULL
-  FROM public.owned_numbers o
-  WHERE o.is_default = true
-  LIMIT 1
-  ON CONFLICT (id) DO NOTHING;
-
-  INSERT INTO public.conversations (id, contact_id, owned_number_id, last_message_id, last_message_at)
-  SELECT
-    conversation2_id,
-    contact2_id,
-    o.id,
-    NULL,
-    NULL
-  FROM public.owned_numbers o
-  WHERE o.is_default = true
-  LIMIT 1
-  ON CONFLICT (id) DO NOTHING;
+  -- Only create conversations if contacts exist
+  IF contact1_id IS NOT NULL AND default_owned_number_id IS NOT NULL THEN
+    INSERT INTO public.conversations (id, contact_id, owned_number_id, last_message_id, last_message_at)
+    VALUES (conversation1_id, contact1_id, default_owned_number_id, NULL, NULL)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+  
+  IF contact2_id IS NOT NULL AND default_owned_number_id IS NOT NULL THEN
+    INSERT INTO public.conversations (id, contact_id, owned_number_id, last_message_id, last_message_at)
+    VALUES (conversation2_id, contact2_id, default_owned_number_id, NULL, NULL)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
 
   -- ========================
   -- MESSAGES
   -- ========================
-  INSERT INTO public.messages (id, conversation_id, direction, body, status, twilio_sid, created_at)
+  -- Note: Column is message_sid, not twilio_sid. Also need from_number_e164 and to_number_e164
+  INSERT INTO public.messages (id, conversation_id, direction, body, from_number_e164, to_number_e164, status, message_sid, created_at)
   VALUES
     -- Conversation 1 messages
-    (gen_random_uuid(), conversation1_id, 'INBOUND', 'Hi, I have a question about the homework', 'delivered', 'test_twilio_sid_1', NOW() - INTERVAL '2 days'),
-    (gen_random_uuid(), conversation1_id, 'OUTBOUND', 'Sure, what would you like to know?', 'delivered', 'test_twilio_sid_2', NOW() - INTERVAL '2 days' + INTERVAL '5 minutes'),
-    (gen_random_uuid(), conversation1_id, 'INBOUND', 'Thanks for your help!', 'delivered', 'test_twilio_sid_3', NOW() - INTERVAL '1 day'),
+    (gen_random_uuid(), conversation1_id, 'INBOUND', 'Hi, I have a question about the homework', '+61410000001', '+61400000000', 'DELIVERED', 'test_twilio_sid_1', NOW() - INTERVAL '2 days'),
+    (gen_random_uuid(), conversation1_id, 'OUTBOUND', 'Sure, what would you like to know?', '+61400000000', '+61410000001', 'DELIVERED', 'test_twilio_sid_2', NOW() - INTERVAL '2 days' + INTERVAL '5 minutes'),
+    (gen_random_uuid(), conversation1_id, 'INBOUND', 'Thanks for your help!', '+61410000001', '+61400000000', 'DELIVERED', 'test_twilio_sid_3', NOW() - INTERVAL '1 day'),
     
     -- Conversation 2 messages
-    (gen_random_uuid(), conversation2_id, 'OUTBOUND', 'Reminder: Class starts at 4pm today', 'delivered', 'test_twilio_sid_4', NOW() - INTERVAL '1 day'),
-    (gen_random_uuid(), conversation2_id, 'INBOUND', 'Got it, thanks!', 'delivered', 'test_twilio_sid_5', NOW() - INTERVAL '1 day' + INTERVAL '10 minutes')
+    (gen_random_uuid(), conversation2_id, 'OUTBOUND', 'Reminder: Class starts at 4pm today', '+61400000000', '+61410000002', 'DELIVERED', 'test_twilio_sid_4', NOW() - INTERVAL '1 day'),
+    (gen_random_uuid(), conversation2_id, 'INBOUND', 'Got it, thanks!', '+61410000002', '+61400000000', 'DELIVERED', 'test_twilio_sid_5', NOW() - INTERVAL '1 day' + INTERVAL '10 minutes')
   ON CONFLICT DO NOTHING;
 
   -- Update conversations with last message info

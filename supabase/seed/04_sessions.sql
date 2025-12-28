@@ -27,45 +27,47 @@ BEGIN
   -- SESSIONS
   -- ========================
   -- Create sessions for the past few weeks and upcoming weeks
-  -- Monday sessions (Math)
-  INSERT INTO public.sessions (id, class_id, subject_id, type, start_at, end_at, status, notes)
+  -- Note: notes column was removed in migration 20251021000013_remove_audit_tables_and_notes.sql
+  INSERT INTO public.sessions (id, class_id, subject_id, type, start_at, end_at, status)
   VALUES
     -- Past sessions
     (session1_id, math_class_id, math_subject_id, 'CLASS', 
      (CURRENT_DATE - INTERVAL '7 days' + TIME '16:00')::TIMESTAMPTZ,
      (CURRENT_DATE - INTERVAL '7 days' + TIME '17:30')::TIMESTAMPTZ,
-     'ACTIVE', 'Functions and Graphs'),
+     'ACTIVE'),
     -- This week
     (session2_id, bio_class_id, bio_subject_id, 'CLASS',
      (CURRENT_DATE - INTERVAL '6 days' + TIME '17:00')::TIMESTAMPTZ,
      (CURRENT_DATE - INTERVAL '6 days' + TIME '18:30')::TIMESTAMPTZ,
-     'ACTIVE', 'Cell Biology'),
+     'ACTIVE'),
     -- Next week
     (session3_id, chem_class_id, chem_subject_id, 'CLASS',
      (CURRENT_DATE - INTERVAL '5 days' + TIME '16:30')::TIMESTAMPTZ,
      (CURRENT_DATE - INTERVAL '5 days' + TIME '18:00')::TIMESTAMPTZ,
-     'ACTIVE', 'Atomic Structure'),
+     'ACTIVE'),
     (session4_id, eng_class_id, eng_subject_id, 'CLASS',
      (CURRENT_DATE - INTERVAL '4 days' + TIME '17:30')::TIMESTAMPTZ,
      (CURRENT_DATE - INTERVAL '4 days' + TIME '19:00')::TIMESTAMPTZ,
-     'ACTIVE', 'Essay Writing'),
+     'ACTIVE'),
     -- Upcoming session
     (session5_id, math_class_id, math_subject_id, 'CLASS',
      (CURRENT_DATE + INTERVAL '1 day' + TIME '16:00')::TIMESTAMPTZ,
      (CURRENT_DATE + INTERVAL '1 day' + TIME '17:30')::TIMESTAMPTZ,
-     'ACTIVE', 'Calculus Introduction')
+     'ACTIVE')
   ON CONFLICT (id) DO NOTHING;
 
   -- ========================
   -- SESSIONS_STAFF
   -- ========================
-  INSERT INTO public.sessions_staff (id, session_id, staff_id, type, attended, created_by)
+  -- Note: attended column was removed when table was rebuilt in migration 20251025000002_sessions_staff_overhaul.sql
+  -- Table now uses planned_absence, is_swapped instead
+  INSERT INTO public.sessions_staff (id, session_id, staff_id, type, created_by)
   VALUES
-    (gen_random_uuid(), session1_id, '00000000-0000-0000-0000-000000000010', 'MAIN_TUTOR', true, '00000000-0000-0000-0000-000000000001'),
-    (gen_random_uuid(), session2_id, '00000000-0000-0000-0000-000000000011', 'MAIN_TUTOR', true, '00000000-0000-0000-0000-000000000001'),
-    (gen_random_uuid(), session3_id, '00000000-0000-0000-0000-000000000014', 'MAIN_TUTOR', true, '00000000-0000-0000-0000-000000000001'),
-    (gen_random_uuid(), session4_id, '00000000-0000-0000-0000-000000000012', 'MAIN_TUTOR', true, '00000000-0000-0000-0000-000000000001'),
-    (gen_random_uuid(), session5_id, '00000000-0000-0000-0000-000000000010', 'MAIN_TUTOR', false, '00000000-0000-0000-0000-000000000001') -- Upcoming session
+    (gen_random_uuid(), session1_id, '00000000-0000-0000-0000-000000000010', 'MAIN_TUTOR', '00000000-0000-0000-0000-000000000001'),
+    (gen_random_uuid(), session2_id, '00000000-0000-0000-0000-000000000011', 'MAIN_TUTOR', '00000000-0000-0000-0000-000000000001'),
+    (gen_random_uuid(), session3_id, '00000000-0000-0000-0000-000000000014', 'MAIN_TUTOR', '00000000-0000-0000-0000-000000000001'),
+    (gen_random_uuid(), session4_id, '00000000-0000-0000-0000-000000000012', 'MAIN_TUTOR', '00000000-0000-0000-0000-000000000001'),
+    (gen_random_uuid(), session5_id, '00000000-0000-0000-0000-000000000010', 'MAIN_TUTOR', '00000000-0000-0000-0000-000000000001') -- Upcoming session
   ON CONFLICT DO NOTHING;
 
   -- ========================

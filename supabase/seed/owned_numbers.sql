@@ -14,9 +14,10 @@ ON CONFLICT (phone_e164) DO UPDATE SET is_default = EXCLUDED.is_default;
 
 -- 2) Create sample contacts for testing (these will link to students/staff as they exist)
 -- Note: This complements the contacts created in 05_communications.sql
+-- Note: display_name column was removed in migration 20251025000010_phone_sync_and_validation.sql
 -- Student contact by phone (if student exists with phone and doesn't already have a contact)
-INSERT INTO public.contacts (id, display_name, contact_type, phone_e164, student_id)
-SELECT gen_random_uuid(), CONCAT(first_name,' ',last_name), 'STUDENT', phone, id
+INSERT INTO public.contacts (id, contact_type, phone_e164, student_id)
+SELECT gen_random_uuid(), 'STUDENT', phone, id
 FROM public.students s
 WHERE s.phone IS NOT NULL AND s.phone <> ''
   AND NOT EXISTS (
@@ -25,8 +26,8 @@ WHERE s.phone IS NOT NULL AND s.phone <> ''
 ON CONFLICT (phone_e164) DO NOTHING;
 
 -- Staff contact by phone (if staff exists with phone and doesn't already have a contact)
-INSERT INTO public.contacts (id, display_name, contact_type, phone_e164, staff_id)
-SELECT gen_random_uuid(), CONCAT(first_name,' ',last_name), 'STAFF', phone_number, id
+INSERT INTO public.contacts (id, contact_type, phone_e164, staff_id)
+SELECT gen_random_uuid(), 'STAFF', phone_number, id
 FROM public.staff st
 WHERE st.phone_number IS NOT NULL AND st.phone_number <> ''
   AND NOT EXISTS (
