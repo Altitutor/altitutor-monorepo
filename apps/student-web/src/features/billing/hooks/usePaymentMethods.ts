@@ -1,29 +1,27 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import type { Database } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { paymentMethodsApi } from '../api/payment-methods';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 
-// Lazy client creation to avoid issues during static generation
-function getSupabaseClient() {
-  return createClientComponentClient<Database>();
-}
-
 export function usePaymentMethods() {
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
-  const studentId = user?.user_metadata?.student_id;
+  const { user, loading: authLoading } = useAuthStore();
 
   const query = useQuery({
     queryKey: ['payment-methods'],
     queryFn: paymentMethodsApi.getPaymentMethods,
+    // Wait for auth to be ready before querying
+    enabled: !authLoading && !!user,
     // Don't refetch on window focus to prevent overwriting optimistic updates
     refetchOnWindowFocus: false,
     // Don't refetch on reconnect immediately
     refetchOnReconnect: false,
   });
+
+  // Get student ID from the billing query result
+  const studentId = query.data?.student_id;
 
   // Set up real-time subscription for payment method changes
   useEffect(() => {

@@ -1,10 +1,5 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
-
-// Lazy client creation to avoid issues during static generation
-function getSupabaseClient() {
-  return createClientComponentClient<Database>();
-}
 
 export interface PaymentMethodData {
   id: string;
@@ -32,13 +27,35 @@ export const paymentMethodsApi = {
    * Get all payment methods for current student from vstudent_billing view
    */
   getPaymentMethods: async (): Promise<BillingData | null> => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'payment-methods.ts:34',message:'getPaymentMethods called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const supabase = getSupabaseClient();
+    
+    // #region agent log
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'payment-methods.ts:38',message:'Auth user check',data:{hasUser:!!authUser,userId:authUser?.id,email:authUser?.email},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    // #region agent log
+    const { data: currentStudentIdResult, error: rpcError } = await supabase.rpc('current_student_id');
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'payment-methods.ts:42',message:'current_student_id RPC result',data:{hasError:!!rpcError,rpcError:rpcError?.message,studentId:currentStudentIdResult},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     const { data, error } = await supabase
       .from('vstudent_billing')
       .select('*')
       .maybeSingle();
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'payment-methods.ts:48',message:'View query result',data:{hasError:!!error,error:error?.message,errorCode:error?.code,hasData:!!data,dataKeys:data?Object.keys(data):null,paymentMethodsType:data?.payment_methods?typeof data.payment_methods:null,paymentMethodsValue:data?.payment_methods?JSON.stringify(data.payment_methods).substring(0,200):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A,B,C,E'})}).catch(()=>{});
+    // #endregion
+    
     if (error) throw error;
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'payment-methods.ts:54',message:'Returning data',data:{isNull:data===null,studentId:data?.student_id,hasPaymentMethods:!!data?.payment_methods},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
     return data;
   },
   

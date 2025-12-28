@@ -6,13 +6,16 @@ const nextConfig = {
   swcMinify: true,
   transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
   webpack: (config, { isServer }) => {
-    // Replace @supabase/realtime-js with a stub module for Edge Runtime and SSR
+    // Replace @supabase/realtime-js with a stub module ONLY for server-side builds
     // The realtime package uses Node.js APIs (process.versions) that aren't available in Edge Runtime
     // During SSR/build, realtime subscriptions aren't needed, so we use a stub
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@supabase/realtime-js': path.resolve(__dirname, 'src/shared/lib/supabase/realtime-stub.ts'),
-    };
+    // BUT: We must NOT stub it in the browser bundle, as real-time subscriptions need the real client
+    if (isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@supabase/realtime-js': path.resolve(__dirname, 'src/shared/lib/supabase/realtime-stub.ts'),
+      };
+    }
     return config;
   },
 }

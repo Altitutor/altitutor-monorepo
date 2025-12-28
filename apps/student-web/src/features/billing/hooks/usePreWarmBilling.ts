@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { useAuthStore } from '@/shared/lib/supabase/auth';
+import { usePaymentMethods } from './usePaymentMethods';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 import { paymentMethodsApi } from '../api/payment-methods';
 
 // Pre-load Stripe.js instance
@@ -18,8 +19,11 @@ function getStripePromise() {
  * This improves perceived performance when user clicks "Add Payment Method"
  */
 export function usePreWarmBilling() {
-  const { user } = useAuthStore();
-  const studentId = user?.user_metadata?.student_id;
+  const { data: billing } = usePaymentMethods();
+  const { data: profile } = useProfile();
+  
+  // Get student ID from billing view (primary) or profile view (fallback)
+  const studentId = billing?.student_id || profile?.id;
 
   useEffect(() => {
     if (!studentId) return;

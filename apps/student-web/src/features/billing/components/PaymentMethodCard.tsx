@@ -6,16 +6,20 @@ import { CreditCard, Plus, Loader2 } from 'lucide-react';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { AddPaymentMethodModal } from './AddPaymentMethodModal';
 import { PaymentMethodsList } from './PaymentMethodsList';
-import { useAuthStore } from '@/shared/lib/supabase/auth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 
 export function PaymentMethodCard() {
   const { data: billing, isLoading } = usePaymentMethods();
+  const { data: profile } = useProfile();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { user } = useAuthStore();
 
-  // Get student ID from user metadata (more reliable than waiting for billing data)
-  // Fallback to billing data if user metadata is not available
-  const studentId = user?.user_metadata?.student_id || billing?.student_id;
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:12',message:'Component render',data:{isLoading,hasBilling:!!billing,hasProfile:!!profile,billingKeys:billing?Object.keys(billing):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+  // #endregion
+
+  // Get student ID from billing view (primary) or profile view (fallback)
+  // Both views return the student_id, so we should always have it once data loads
+  const studentId = billing?.student_id || profile?.id;
 
   if (isLoading) {
     return (
@@ -25,18 +29,42 @@ export function PaymentMethodCard() {
     );
   }
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:28',message:'Before parsing payment_methods',data:{hasBilling:!!billing,hasPaymentMethodsField:!!billing?.payment_methods,paymentMethodsType:billing?.payment_methods?typeof billing.payment_methods:null,isArray:Array.isArray(billing?.payment_methods),paymentMethodsPreview:billing?.payment_methods?JSON.stringify(billing.payment_methods).substring(0,300):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,C'})}).catch(()=>{});
+  // #endregion
+
   // Handle payment_methods - could be array or JSON string from database
   let paymentMethods: any[] = [];
   if (billing?.payment_methods) {
     if (Array.isArray(billing.payment_methods)) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:33',message:'Payment methods is array',data:{length:billing.payment_methods.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       paymentMethods = billing.payment_methods;
     } else if (typeof billing.payment_methods === 'string') {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:36',message:'Attempting JSON parse',data:{stringLength:billing.payment_methods.length,stringPreview:billing.payment_methods.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C,D'})}).catch(()=>{});
+      // #endregion
       try {
         paymentMethods = JSON.parse(billing.payment_methods);
-      } catch {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:39',message:'JSON parse succeeded',data:{parsedLength:paymentMethods.length,isArray:Array.isArray(paymentMethods)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+      } catch (e) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:42',message:'JSON parse failed',data:{error:String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         paymentMethods = [];
       }
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:46',message:'Payment methods is unexpected type',data:{type:typeof billing.payment_methods,value:String(billing.payment_methods).substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
     }
+  } else {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:50',message:'No payment_methods field',data:{hasBilling:!!billing,billingKeys:billing?Object.keys(billing):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
   }
   
   // Debug logging
@@ -44,6 +72,10 @@ export function PaymentMethodCard() {
     console.log('[PaymentMethodCard] Billing data:', billing);
     console.log('[PaymentMethodCard] Payment methods:', paymentMethods);
   }
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:58',message:'Final payment methods state',data:{finalLength:paymentMethods.length,hasPaymentMethods:paymentMethods.length>0,studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'})}).catch(()=>{});
+  // #endregion
   
   const hasPaymentMethods = paymentMethods.length > 0;
 
