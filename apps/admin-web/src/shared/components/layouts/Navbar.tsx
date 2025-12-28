@@ -56,22 +56,12 @@ export function Navbar() {
           <div className="h-12 flex items-center gap-1">
             <Image 
               src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
-              alt="Altitutor Admin" 
+              alt="Altitutor" 
               width={160} 
               height={36}
               priority
               className="object-contain"
             />
-            <span 
-              className="text-brand-lightBlue font-normal leading-none"
-              style={{ 
-                fontFamily: 'Calibri, "Segoe UI", system-ui, -apple-system, sans-serif',
-                fontSize: '28px',
-                letterSpacing: '-0.02em'
-              }}
-            >
-              admin
-            </span>
           </div>
         </div>
         <div className="flex-1 flex justify-center">
