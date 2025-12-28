@@ -4829,6 +4829,24 @@ export type Database = {
         }
         Returns: Json
       }
+      search_sessions_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_class_id?: string
+          p_include_relationships?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_range_end?: string
+          p_range_start?: string
+          p_search?: string
+          p_staff_id?: string
+          p_statuses?: string[]
+          p_student_id?: string
+          p_types?: string[]
+        }
+        Returns: Json
+      }
       search_staff_admin: {
         Args: {
           p_ascending?: boolean
