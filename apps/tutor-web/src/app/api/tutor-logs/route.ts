@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
+import type { Database } from '@altitutor/shared';
 
 /**
  * POST /api/tutor-logs
@@ -69,9 +70,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Type assertion: sessionAccess has session_id and start_at from vtutor_sessions view
+    type SessionAccess = Pick<Database['public']['Views']['vtutor_sessions']['Row'], 'session_id' | 'start_at'>;
+    const typedSessionAccess = sessionAccess as SessionAccess;
+
     // Validate that session is loggable (today or past dates only, not future dates)
-    if (sessionAccess.start_at) {
-      const sessionDate = new Date(sessionAccess.start_at);
+    if (typedSessionAccess.start_at) {
+      const sessionDate = new Date(typedSessionAccess.start_at);
       const today = new Date();
       
       // Set both to midnight for date-only comparison
