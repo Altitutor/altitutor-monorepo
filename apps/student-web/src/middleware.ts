@@ -78,12 +78,13 @@ export async function middleware(req: NextRequest) {
     return supabaseResponse;
   }
 
-  // Check if user is a student
-  const { data: student, error: studentError } = await supabase
-    .from('students')
+  // Check if user is a student using vstudent_profile view
+  // This view is accessible to students (unlike the students table which has RLS blocking direct access)
+  // The view automatically filters to the current user's record via current_student_id() function
+  const { data: student, error: studentError } = await (supabase as any)
+    .from('vstudent_profile')
     .select('id')
-    .eq('user_id', user.id)
-    .maybeSingle();
+    .maybeSingle() as { data: { id: string } | null; error: any };
 
   if (studentError) {
     console.error('[STUDENT-WEB MIDDLEWARE] Error fetching student:', studentError);
@@ -99,15 +100,6 @@ export async function middleware(req: NextRequest) {
   if (staffError) {
     console.error('[STUDENT-WEB MIDDLEWARE] Error fetching staff:', staffError);
   }
-
-  console.log('[STUDENT-WEB MIDDLEWARE]', {
-    pathname,
-    hasUser: !!user,
-    userId: user?.id,
-    isStudent: !!student,
-    isStaff: !!staff,
-    staffRole: staff?.role,
-  });
 
   // If user is staff, redirect them to appropriate portal
   if (staff) {

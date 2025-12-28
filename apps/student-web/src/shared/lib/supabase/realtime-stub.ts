@@ -22,6 +22,12 @@ export class RealtimeClient {
     return Promise.resolve();
   }
   
+  setAuth(_token: string | null) {
+    // Stub implementation - no-op
+    // Called by Supabase client when auth state changes
+    return this;
+  }
+  
   channel(_topic: string, _params?: Record<string, string>) {
     return {
       subscribe: () => ({ unsubscribe: () => {} }),

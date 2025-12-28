@@ -72,24 +72,17 @@ export async function middleware(req: NextRequest) {
   // If no user on public paths or root, allow access
   if (!user) return supabaseResponse;
 
-  // Check if user is in staff table (both ADMINSTAFF and TUTOR allowed)
-  const { data: staff, error: staffError } = (await supabase
-    .from('staff')
+  // Check if user is staff using vtutor_profile view
+  // This view is accessible to tutors (unlike direct staff table access which may have RLS restrictions)
+  // The view automatically filters to the current user's record via current_tutor_id() function
+  const { data: staff, error: staffError } = await (supabase as any)
+    .from('vtutor_profile')
     .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
+    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
 
   if (staffError) {
     console.error('[TUTOR-WEB MIDDLEWARE] Error fetching staff:', staffError);
   }
-
-  console.log('[TUTOR-WEB MIDDLEWARE]', {
-    pathname,
-    hasUser: !!user,
-    userId: user?.id,
-    staffFound: !!staff,
-    staffRole: staff?.role,
-  });
 
   // Block students - if not in staff table, redirect to login
   if (!staff) {

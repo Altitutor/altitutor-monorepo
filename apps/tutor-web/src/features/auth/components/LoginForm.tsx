@@ -65,8 +65,6 @@ export function LoginForm() {
       }
 
       // Redirect immediately after successful login
-      // Session is available right away, so we can navigate immediately
-      // Using replace to avoid adding to history and ensure clean navigation
       router.replace('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
