@@ -19,13 +19,16 @@ import { Label } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
-  CalendarIcon
+  CalendarIcon,
+  Check,
+  X
 } from 'lucide-react';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
+import { TutorLogAvatar } from './TutorLogAvatar';
 
 type SessionsTableProps = {
   studentId?: string;
@@ -60,6 +63,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
   const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
   const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
+  const tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }> = (data as any)?.tutorLogs || {};
   type SortField = 'start_at' | 'type';
   const [sortField, setSortField] = useState<SortField>('start_at');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
@@ -336,15 +340,15 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               {!classId && (
                 <TableHead>Class</TableHead>
               )}
-              {/* Taught By removed as requested */}
-              <TableHead>Students</TableHead>
               <TableHead>Staff</TableHead>
+              <TableHead>Students</TableHead>
+              <TableHead>Tutor Log</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={(classId ? 5 : 6)} className="text-center h-24">
+                <TableCell colSpan={(classId ? 6 : 7)} className="text-center h-24">
                   {searchTerm || typeFilter !== 'ALL' 
                     ? "No sessions match your filters" 
                     : "No sessions found"}
@@ -376,64 +380,141 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                   </TableCell>
                   {!classId && (
                     <TableCell>
-                      {session.class_id ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
-                          onClick={(e) => handleClassClick(session.class_id!, e)}
-                          title={getClassDisplay(session)}
-                        >
-                          {/* Default to short names, only show full on 2xl+ screens */}
-                          <span className="2xl:hidden">{getClassShortDisplay(session)}</span>
-                          <span className="hidden 2xl:inline">{getClassDisplay(session)}</span>
-                        </Button>
-                      ) : (
+                      {session.class_id ? (() => {
+                        const cls = classesById[session.class_id];
+                        const shortDisplay = getClassShortDisplay(session);
+                        const fullDisplay = getClassDisplay(session);
+                        // Show button if class exists, even if display is empty (fallback to "Class")
+                        if (cls) {
+                          return (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
+                              onClick={(e) => handleClassClick(session.class_id!, e)}
+                              title={fullDisplay || 'Class'}
+                            >
+                              {/* Default to short names, only show full on 2xl+ screens */}
+                              <span className="2xl:hidden">{shortDisplay || 'Class'}</span>
+                              <span className="hidden 2xl:inline">{fullDisplay || 'Class'}</span>
+                            </Button>
+                          );
+                        }
+                        return <span className="text-muted-foreground text-sm">-</span>;
+                      })() : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
                   )}
                   <TableCell>
                     {(() => {
-                      const planned: any[] = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
-                      if (!planned.length) return <span className="text-muted-foreground text-sm">-</span>;
+                      const staffList: any[] = ((data as any)?.sessionStaff?.[session.id] || []) as any[];
+                      if (!staffList.length) return <span className="text-muted-foreground text-sm">-</span>;
                       return (
                         <div className="flex flex-col gap-1">
-                          {planned.map((s) => (
-                            <Button
-                              key={s.id}
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs justify-start"
-                              onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
-                            >
-                              {s.first_name} {s.last_name}
-                            </Button>
-                          ))}
+                          {staffList.map((s) => {
+                            const plannedAbsence = s.planned_absence === true;
+                            const actualAttended = s.actual_attended;
+                            const nameClass = plannedAbsence 
+                              ? "text-muted-foreground line-through" 
+                              : "";
+                            
+                            return (
+                              <div key={s.id} className="flex items-center gap-1">
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className={cn("h-auto p-0 text-xs justify-start", nameClass)}
+                                  onClick={(e) => { e.stopPropagation(); (onOpenStaff as any)?.(s.id); }}
+                                >
+                                  {s.first_name} {s.last_name}
+                                </Button>
+                                {actualAttended !== null && (
+                                  actualAttended ? (
+                                    <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                  ) : (
+                                    <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                  )
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })()}
                   </TableCell>
                   <TableCell>
                     {(() => {
-                      const planned: any[] = ((data as any)?.sessionStaff?.[session.id] || []) as any[];
-                      if (!planned.length) return <span className="text-muted-foreground text-sm">-</span>;
+                      const studentList: any[] = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
+                      if (!studentList.length) return <span className="text-muted-foreground text-sm">-</span>;
+                      
+                      const getInvoiceStatusBadge = (status: string | null | undefined) => {
+                        if (!status) return null;
+                        
+                        let label = '';
+                        let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
+                        
+                        if (status === 'draft' || status === 'open') {
+                          label = 'Sent';
+                          variant = 'secondary';
+                        } else if (status === 'paid') {
+                          label = 'Paid';
+                          variant = 'default';
+                        } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
+                          label = 'Failed';
+                          variant = 'destructive';
+                        } else {
+                          label = status;
+                          variant = 'outline';
+                        }
+                        
+                        return <Badge variant={variant} className="text-xs ml-1">{label}</Badge>;
+                      };
+                      
                       return (
                         <div className="flex flex-col gap-1">
-                          {planned.map((s) => (
-                            <Button
-                              key={s.id}
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs justify-start"
-                              onClick={(e) => { e.stopPropagation(); (onOpenStaff as any)?.(s.id); }}
-                            >
-                              {s.first_name} {s.last_name}
-                            </Button>
-                          ))}
+                          {studentList.map((s) => {
+                            const plannedAbsence = s.planned_absence === true;
+                            const actualAttended = s.actual_attended;
+                            const invoiceStatus = s.invoice_status;
+                            const nameClass = plannedAbsence 
+                              ? "text-muted-foreground line-through" 
+                              : "";
+                            
+                            return (
+                              <div key={s.id} className="flex items-center gap-1 flex-wrap">
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className={cn("h-auto p-0 text-xs justify-start", nameClass)}
+                                  onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
+                                >
+                                  {s.first_name} {s.last_name}
+                                </Button>
+                                {actualAttended !== null && (
+                                  actualAttended ? (
+                                    <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                  ) : (
+                                    <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                  )
+                                )}
+                                {getInvoiceStatusBadge(invoiceStatus)}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })()}
+                  </TableCell>
+                  <TableCell>
+                    {tutorLogs[session.id] ? (
+                      <TutorLogAvatar
+                        firstName={tutorLogs[session.id].created_by_name.first_name}
+                        lastName={tutorLogs[session.id].created_by_name.last_name}
+                      />
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

@@ -26,8 +26,9 @@ export const sessionsApi = {
    */
   getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
-    sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean }>>;
-    sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>;
+    sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>>;
+    sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>>;
+    tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
     classesById: Record<string, Tables<'classes'>>;
     subjectsById: Record<string, Tables<'subjects'>>;
   }> => {
@@ -51,79 +52,313 @@ export const sessionsApi = {
       
       if (sessionsError) throw sessionsError;
       
-      // Get session students with student details (planned attendance only)
+      // Transform sessions data
+      const sessions = (allSessions ?? []) as Tables<'sessions'>[];
+      const sessionIds = sessions.map(s => s.id);
+      
+      // Early return if no sessions found
+      if (sessionIds.length === 0) {
+        return {
+          sessions: [],
+          sessionStudents: {},
+          sessionStaff: {},
+          tutorLogs: {},
+          classesById: {},
+          subjectsById: {},
+        };
+      }
+      
+      // Get session students with student details and invoice status (using JOIN)
+      // Filter by session IDs to only fetch records for sessions we retrieved
       const { data: sessionStudentsData, error: studentsError } = await supabase
         .from('sessions_students')
         .select(`
+          id,
           session_id,
           planned_absence,
-          student:students(id, first_name, last_name)
-        `);
+          student_id,
+          student:students(id, first_name, last_name),
+          invoice_items:invoice_items(
+            invoice:invoices(status)
+          )
+        `)
+        .in('session_id', sessionIds);
       
       if (studentsError) throw studentsError;
       
       // Get session staff with staff details (planned attendance only)
+      // Filter by session IDs to only fetch records for sessions we retrieved
       const { data: sessionStaffData, error: staffError } = await supabase
         .from('sessions_staff')
-        .select(`session_id, planned_absence, staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name)`);
+        .select(`session_id, staff_id, planned_absence, staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name)`)
+        .in('session_id', sessionIds);
       
       if (staffError) throw staffError;
       
-      // Transform sessions data
-      const sessions = (allSessions ?? []) as Tables<'sessions'>[];
-      
       // Collect referenced IDs
       const classIds = Array.from(new Set(sessions.map(s => s.class_id).filter(Boolean))) as string[];
-      const subjectIds = Array.from(new Set(sessions.map(s => s.subject_id).filter(Boolean))) as string[];
+      const subjectIdsFromSessions = Array.from(new Set(sessions.map(s => s.subject_id).filter(Boolean))) as string[];
 
-      // Fetch referenced classes and subjects
-      const [classesRes, subjectsRes] = await Promise.all([
-        classIds.length
-          ? supabase.from('classes').select('*').in('id', classIds)
-          : Promise.resolve({ data: [] as any[], error: null as any }),
-        subjectIds.length
-          ? supabase.from('subjects').select('*').in('id', subjectIds)
-          : Promise.resolve({ data: [] as any[], error: null as any }),
-      ]);
+      // Fetch classes first
+      const classesRes = classIds.length
+        ? await supabase.from('classes').select('*').in('id', classIds)
+        : { data: [] as any[], error: null as any };
 
       if ((classesRes as any).error) throw (classesRes as any).error;
-      if ((subjectsRes as any).error) throw (subjectsRes as any).error;
 
       const classesById: Record<string, Tables<'classes'>> = {};
       for (const row of (classesRes as any).data as Tables<'classes'>[]) {
         classesById[row.id] = row;
       }
+
+      // Collect subject IDs from both sessions AND classes (classes reference subjects too)
+      const subjectIdsFromClasses = Array.from(
+        new Set(
+          Object.values(classesById)
+            .map(cls => cls.subject_id)
+            .filter(Boolean)
+        )
+      ) as string[];
+      
+      // Combine subject IDs from sessions and classes
+      const allSubjectIds = Array.from(new Set([...subjectIdsFromSessions, ...subjectIdsFromClasses]));
+
+      // Fetch all referenced subjects
+      const subjectsRes = allSubjectIds.length
+        ? await supabase.from('subjects').select('*').in('id', allSubjectIds)
+        : { data: [] as any[], error: null as any };
+
+      if ((subjectsRes as any).error) throw (subjectsRes as any).error;
+
       const subjectsById: Record<string, Tables<'subjects'>> = {};
       for (const row of (subjectsRes as any).data as Tables<'subjects'>[]) {
         subjectsById[row.id] = row;
       }
 
+      // Fetch tutor logs with created_by staff info
+      const { data: tutorLogsData, error: tutorLogsError } = await supabase
+        .from('tutor_logs')
+        .select(`
+          id,
+          session_id,
+          created_by,
+          staff:staff!tutor_logs_created_by_fkey(id, first_name, last_name)
+        `)
+        .in('session_id', sessionIds);
+      
+      if (tutorLogsError) throw tutorLogsError;
+
+      // Build tutor logs map
+      const tutorLogsMap: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }> = {};
+      tutorLogsData?.forEach((row: any) => {
+        if (row.session_id && row.staff) {
+          tutorLogsMap[row.session_id] = {
+            id: row.id,
+            created_by: row.created_by,
+            created_by_name: {
+              first_name: row.staff.first_name,
+              last_name: row.staff.last_name,
+            },
+          };
+        }
+      });
+
+      // Get tutor log IDs for fetching attendance
+      const tutorLogIds = tutorLogsData?.map(tl => tl.id) || [];
+
+      // Fetch actual student attendance from tutor logs (using JOIN to tutor_logs)
+      const { data: studentAttendanceData, error: studentAttendanceError } = tutorLogIds.length > 0
+        ? await supabase
+            .from('tutor_logs_student_attendance')
+            .select(`
+              tutor_log_id,
+              student_id,
+              attended,
+              tutor_log:tutor_logs(session_id)
+            `)
+            .in('tutor_log_id', tutorLogIds)
+        : { data: [], error: null };
+      
+      if (studentAttendanceError) throw studentAttendanceError;
+
+      // Fetch actual staff attendance from tutor logs (using JOIN to tutor_logs)
+      const { data: staffAttendanceData, error: staffAttendanceError } = tutorLogIds.length > 0
+        ? await supabase
+            .from('tutor_logs_staff_attendance')
+            .select(`
+              tutor_log_id,
+              staff_id,
+              attended,
+              tutor_log:tutor_logs(session_id)
+            `)
+            .in('tutor_log_id', tutorLogIds)
+        : { data: [], error: null };
+      
+      if (staffAttendanceError) throw staffAttendanceError;
+
+      // Build actual attendance maps
+      // Map: session_id -> student_id -> attended
+      const actualStudentAttendanceMap: Record<string, Record<string, boolean>> = {};
+      // Map: session_id -> staff_id -> attended
+      const actualStaffAttendanceMap: Record<string, Record<string, boolean>> = {};
+
+      // Process student attendance (using session_id from JOIN)
+      studentAttendanceData?.forEach((row: any) => {
+        const sessionId = row.tutor_log?.session_id;
+        if (sessionId && row.student_id) {
+          if (!actualStudentAttendanceMap[sessionId]) {
+            actualStudentAttendanceMap[sessionId] = {};
+          }
+          actualStudentAttendanceMap[sessionId][row.student_id] = row.attended;
+        }
+      });
+
+      // Process staff attendance (using session_id from JOIN)
+      staffAttendanceData?.forEach((row: any) => {
+        const sessionId = row.tutor_log?.session_id;
+        if (sessionId && row.staff_id) {
+          if (!actualStaffAttendanceMap[sessionId]) {
+            actualStaffAttendanceMap[sessionId] = {};
+          }
+          actualStaffAttendanceMap[sessionId][row.staff_id] = row.attended;
+        }
+      });
+
       // Build session students map (including all students with planned_absence status)
-      const sessionStudentsMap: Record<string, Array<Tables<'students'> & { planned_absence?: boolean }>> = {};
+      // Invoice status is now included via JOIN in the query above
+      const sessionStudentsMap: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>> = {};
       sessionStudentsData?.forEach((row: any) => {
         if (row.session_id && row.student) {
           if (!sessionStudentsMap[row.session_id]) {
             sessionStudentsMap[row.session_id] = [];
           }
+          const actualAttended = actualStudentAttendanceMap[row.session_id]?.[row.student_id] ?? null;
+          // Extract invoice status from JOIN (invoice_items is an array, take first if exists)
+          const invoiceStatus = row.invoice_items && row.invoice_items.length > 0
+            ? row.invoice_items[0]?.invoice?.status || null
+            : null;
           sessionStudentsMap[row.session_id].push({
             ...(row.student as Tables<'students'>),
-            planned_absence: row.planned_absence || false
+            planned_absence: row.planned_absence || false,
+            actual_attended: actualAttended,
+            invoice_status: invoiceStatus,
+            sessions_students_id: row.id,
           });
         }
       });
+
+      // Collect student IDs from actual attendance who are not in planned
+      const unplannedStudentIds = new Set<string>();
+      Object.keys(actualStudentAttendanceMap).forEach(sessionId => {
+        const actualAttendance = actualStudentAttendanceMap[sessionId];
+        Object.keys(actualAttendance).forEach(studentId => {
+          const existsInPlanned = sessionStudentsMap[sessionId]?.some(
+            s => s.id === studentId
+          );
+          if (!existsInPlanned) {
+            unplannedStudentIds.add(studentId);
+          }
+        });
+      });
+
+      // Fetch student details for unplanned students
+      const unplannedStudentsMap: Record<string, Tables<'students'>> = {};
+      if (unplannedStudentIds.size > 0) {
+        const { data: unplannedStudentsData, error: unplannedStudentsError } = await supabase
+          .from('students')
+          .select('id, first_name, last_name')
+          .in('id', Array.from(unplannedStudentIds));
+        
+        if (unplannedStudentsError) throw unplannedStudentsError;
+        unplannedStudentsData?.forEach((student: any) => {
+          unplannedStudentsMap[student.id] = student as Tables<'students'>;
+        });
+      }
+
+      // Add students from actual attendance who are not in planned attendance
+      Object.keys(actualStudentAttendanceMap).forEach(sessionId => {
+        const actualAttendance = actualStudentAttendanceMap[sessionId];
+        Object.keys(actualAttendance).forEach(studentId => {
+          const existsInPlanned = sessionStudentsMap[sessionId]?.some(
+            s => s.id === studentId
+          );
+          if (!existsInPlanned && unplannedStudentsMap[studentId]) {
+            if (!sessionStudentsMap[sessionId]) {
+              sessionStudentsMap[sessionId] = [];
+            }
+            sessionStudentsMap[sessionId].push({
+              ...unplannedStudentsMap[studentId],
+              planned_absence: true, // Not in planned, so mark as absent
+              actual_attended: actualAttendance[studentId],
+              invoice_status: null, // No sessions_students_id, so no invoice
+              sessions_students_id: undefined,
+            });
+          }
+        });
+      });
       
       // Build session staff map (including all staff with planned_absence status)
-      const sessionStaffMap: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>> = {};
+      const sessionStaffMap: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>> = {};
       sessionStaffData?.forEach((row: any) => {
         if (row.session_id && row.staff) {
           if (!sessionStaffMap[row.session_id]) {
             sessionStaffMap[row.session_id] = [];
           }
+          const actualAttended = actualStaffAttendanceMap[row.session_id]?.[row.staff_id] ?? null;
           sessionStaffMap[row.session_id].push({
             ...(row.staff as Tables<'staff'>),
-            planned_absence: row.planned_absence || false
+            planned_absence: row.planned_absence || false,
+            actual_attended: actualAttended,
           });
         }
+      });
+
+      // Collect staff IDs from actual attendance who are not in planned
+      const unplannedStaffIds = new Set<string>();
+      Object.keys(actualStaffAttendanceMap).forEach(sessionId => {
+        const actualAttendance = actualStaffAttendanceMap[sessionId];
+        Object.keys(actualAttendance).forEach(staffId => {
+          const existsInPlanned = sessionStaffMap[sessionId]?.some(
+            s => s.id === staffId
+          );
+          if (!existsInPlanned) {
+            unplannedStaffIds.add(staffId);
+          }
+        });
+      });
+
+      // Fetch staff details for unplanned staff
+      const unplannedStaffMap: Record<string, Tables<'staff'>> = {};
+      if (unplannedStaffIds.size > 0) {
+        const { data: unplannedStaffData, error: unplannedStaffError } = await supabase
+          .from('staff')
+          .select('id, first_name, last_name')
+          .in('id', Array.from(unplannedStaffIds));
+        
+        if (unplannedStaffError) throw unplannedStaffError;
+        unplannedStaffData?.forEach((staff: any) => {
+          unplannedStaffMap[staff.id] = staff as Tables<'staff'>;
+        });
+      }
+
+      // Add staff from actual attendance who are not in planned attendance
+      Object.keys(actualStaffAttendanceMap).forEach(sessionId => {
+        const actualAttendance = actualStaffAttendanceMap[sessionId];
+        Object.keys(actualAttendance).forEach(staffId => {
+          const existsInPlanned = sessionStaffMap[sessionId]?.some(
+            s => s.id === staffId
+          );
+          if (!existsInPlanned && unplannedStaffMap[staffId]) {
+            if (!sessionStaffMap[sessionId]) {
+              sessionStaffMap[sessionId] = [];
+            }
+            sessionStaffMap[sessionId].push({
+              ...unplannedStaffMap[staffId],
+              planned_absence: true, // Not in planned, so mark as absent
+              actual_attended: actualAttendance[staffId],
+            });
+          }
+        });
       });
       
       // Initialize empty arrays for sessions with no students/staff
@@ -140,6 +375,7 @@ export const sessionsApi = {
         sessions,
         sessionStudents: sessionStudentsMap,
         sessionStaff: sessionStaffMap,
+        tutorLogs: tutorLogsMap,
         classesById,
         subjectsById,
       };
@@ -465,12 +701,32 @@ export const sessionsApi = {
         });
       }
       
-      // Attach rescheduled session data to sessions_students
+      // Fetch invoice status for sessions_students
+      const sessionsStudentsIds = (sessionsStudentsData || []).map((ss: any) => ss.id).filter(Boolean);
+      const { data: invoiceItemsData, error: invoiceItemsError } = sessionsStudentsIds.length > 0
+        ? await supabase
+            .from('invoice_items')
+            .select('sessions_students_id, invoice:invoices(status)')
+            .in('sessions_students_id', sessionsStudentsIds)
+        : { data: [], error: null };
+      
+      if (invoiceItemsError) throw invoiceItemsError;
+
+      // Build invoice status map: sessions_students_id -> invoice.status
+      const invoiceStatusMap: Record<string, string | null> = {};
+      invoiceItemsData?.forEach((row: any) => {
+        if (row.sessions_students_id && row.invoice) {
+          invoiceStatusMap[row.sessions_students_id] = row.invoice.status || null;
+        }
+      });
+
+      // Attach rescheduled session data and invoice status to sessions_students
       const enrichedSessionsStudentsData = (sessionsStudentsData || []).map((ss: any) => ({
         ...ss,
         rescheduled_session: ss.rescheduled_sessions_students_id
           ? rescheduledSessionsMap[ss.rescheduled_sessions_students_id]
           : null,
+        invoice_status: invoiceStatusMap[ss.id] || null,
       }));
       
       // 3. Get all sessions_staff with full details  

@@ -66,172 +66,63 @@ export const classesApi = {
           ? [dayOfWeek]
           : [];
 
-    // Use RPC function when search term is provided
-    if (trimmed.length > 0) {
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
-        p_search: trimmed,
-        p_statuses: ['ACTIVE'],
-        p_include_relationships: true,
-        p_limit: limit,
-        p_offset: offset,
-        p_order_by: orderBy as string,
-        p_ascending: ascending,
-      });
+    // Always use RPC function (supports both search and "get all" when search is empty)
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
+      p_search: trimmed.length > 0 ? trimmed : null,
+      p_statuses: ['ACTIVE'],
+      p_include_relationships: true,
+      p_limit: limit,
+      p_offset: offset,
+      p_order_by: orderBy as string,
+      p_ascending: ascending,
+    });
 
-      if (rpcError) throw rpcError;
-      if (!rpcResult) return { classes: [], total: 0 };
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { classes: [], total: 0 };
 
-      const rpcData = rpcResult as { classes: any[]; classSubjects: Record<string, any>; classStudents: Record<string, any[]>; classStaff: Record<string, any[]>; total: number };
-      let classes = (rpcData.classes || []) as any[];
+    const rpcData = rpcResult as { classes: any[]; classSubjects: Record<string, any>; classStudents: Record<string, any[]>; classStaff: Record<string, any[]>; total: number };
+    let classes = (rpcData.classes || []) as any[];
 
-      // Apply day filter that RPC doesn't support
-      if (dayFilters.length > 0) {
-        classes = classes.filter((c) => c.day_of_week !== undefined && dayFilters.includes(c.day_of_week));
-      }
+    // Apply day filter that RPC doesn't support
+    if (dayFilters.length > 0) {
+      classes = classes.filter((c) => c.day_of_week !== undefined && dayFilters.includes(c.day_of_week));
+    }
 
-      // Transform RPC response to match expected format
-      const transformedClasses = classes.map((cls: any) => {
-        const subject = rpcData.classSubjects?.[cls.id] || null;
-        const students = rpcData.classStudents?.[cls.id] || [];
-        const staff = rpcData.classStaff?.[cls.id] || [];
-        
-        return {
-          id: cls.id,
-          day_of_week: cls.day_of_week,
-          start_time: cls.start_time,
-          end_time: cls.end_time,
-          status: cls.status,
-          room: cls.room,
-          subject_id: cls.subject_id,
-          level: cls.level,
-          subject,
-          studentCount: students.length,
-          students,
-          staff,
-        };
-      }) as MinimalClass[];
-
-      // Recalculate total after filtering (approximate - RPC total may be higher)
-      const total = transformedClasses.length < limit ? transformedClasses.length : rpcData.total;
-
+    // Transform RPC response to match expected format
+    const transformedClasses = classes.map((cls: any) => {
+      const subject = rpcData.classSubjects?.[cls.id] || null;
+      const students = rpcData.classStudents?.[cls.id] || [];
+      const staff = rpcData.classStaff?.[cls.id] || [];
+      
       return {
-        classes: transformedClasses,
-        total,
-      };
-    }
-
-    // No search term - use existing query logic
-    let query = supabase
-      .from('classes')
-      .select(
-        `
-        id,
-        day_of_week,
-        start_time,
-        end_time,
-        level,
-        room,
-        status,
-        subject_id,
-        subject_details:subjects(*)
-        `,
-        { count: 'exact' }
-      );
-
-    if (dayFilters.length === 1) {
-      query = query.eq('day_of_week', dayFilters[0]);
-    } else if (dayFilters.length > 1) {
-      query = query.in('day_of_week', dayFilters);
-    }
-
-    query = query.order(orderBy as string, { ascending });
-    if (orderBy !== 'start_time') {
-      query = query.order('start_time', { ascending: true });
-    }
-
-    const from = offset;
-    const to = Math.max(offset + limit - 1, offset);
-    query = query.range(from, to);
-
-    const { data: classesData, count, error } = await query;
-    if (error) throw error;
-
-    const classes = (classesData ?? []) as (Tables<'classes'> & { subject_details?: Tables<'subjects'> })[];
-    if (classes.length === 0) {
-      return { classes: [], total: count ?? 0 };
-    }
-
-    const classIds = classes.map((cls) => cls.id);
-    const nowIso = new Date().toISOString();
-
-    const [{ data: enrollmentsData, error: enrollmentsError }, { data: assignmentsData, error: assignmentsError }] = await Promise.all([
-      supabase
-        .from('classes_students')
-        .select(`
-          class_id,
-          unenrolled_at,
-          student:students(*)
-        `)
-        .in('class_id', classIds)
-        .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`),
-      supabase
-        .from('classes_staff')
-        .select(`
-          class_id,
-          staff:staff!class_assignments_staff_id_fkey(*)
-        `)
-        .in('class_id', classIds)
-        .is('unassigned_at', null),
-    ]);
-
-    if (enrollmentsError) throw enrollmentsError;
-    if (assignmentsError) throw assignmentsError;
-
-    const classStudentsMap: Record<string, Tables<'students'>[]> = {};
-    const studentCountMap: Record<string, number> = {};
-    classIds.forEach((id) => {
-      classStudentsMap[id] = [];
-      studentCountMap[id] = 0;
-    });
-
-    (enrollmentsData ?? []).forEach((enrollment: any) => {
-      if (enrollment.class_id && enrollment.student) {
-        classStudentsMap[enrollment.class_id].push(enrollment.student as Tables<'students'>);
-        studentCountMap[enrollment.class_id] += 1;
-      }
-    });
-
-    const classStaffMap: Record<string, Tables<'staff'>[]> = {};
-    classIds.forEach((id) => {
-      classStaffMap[id] = [];
-    });
-
-    (assignmentsData ?? []).forEach((assignment: any) => {
-      if (assignment.class_id && assignment.staff) {
-        classStaffMap[assignment.class_id].push(assignment.staff as Tables<'staff'>);
-      }
-    });
-
-    const transformedClasses = classes.map((cls) => {
-      const subject = cls.subject_details ?? null;
-      const { subject_details, ...rest } = cls as typeof cls & { subject_details?: Tables<'subjects'> };
-      return {
-        ...(rest as Tables<'classes'>),
+        id: cls.id,
+        day_of_week: cls.day_of_week,
+        start_time: cls.start_time,
+        end_time: cls.end_time,
+        status: cls.status,
+        room: cls.room,
+        subject_id: cls.subject_id,
+        level: cls.level,
         subject,
-        studentCount: studentCountMap[cls.id] ?? 0,
-        students: classStudentsMap[cls.id] || [],
-        staff: classStaffMap[cls.id] || [],
-      } as MinimalClass;
+        studentCount: students.length,
+        students,
+        staff,
+      };
     }) as MinimalClass[];
+
+    // Use RPC total for pagination (client-side filters reduce visible items but don't affect total count for pagination)
+    // Note: If client-side filters are applied, the actual filtered total may be lower, but we use RPC total
+    // to maintain correct pagination. The UI will show fewer items on some pages due to filtering.
+    const total = rpcData.total;
 
     return {
       classes: transformedClasses,
-      total: count ?? 0,
+      total,
     };
   },
   
   /**
-   * Get all classes with their associated subject, students, and staff in optimized single queries
+   * Get all classes with their associated subject, students, and staff using RPC function
    * This solves the N+1 query problem for the classes table
    */
   getAllClassesWithDetails: async (): Promise<{ 
@@ -241,85 +132,72 @@ export const classesApi = {
     classStaff: Record<string, Tables<'staff'>[]>;
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    type ClassRowWithSubject = Tables<'classes'> & { subject_details?: Tables<'subjects'> };
-    type EnrollmentRow = { class_id: string; student: Tables<'students'> | null };
-    type AssignmentRow = { class_id: string; staff: Tables<'staff'> | null };
     
     try {
-      // Get all classes with their subjects
-      const { data: classesData, error: classesError } = await supabase
-        .from('classes')
-        .select(`
-          id, subject_id, day_of_week, start_time, end_time, status, room,
-          subject_details:subjects(*)
-        `);
+      // Use RPC function to get all classes (no search term, very high limit)
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
+        p_search: null,
+        p_statuses: null, // Get all statuses
+        p_include_relationships: true,
+        p_limit: 10000, // High limit to get all classes
+        p_offset: 0,
+        p_order_by: 'day_of_week',
+        p_ascending: true,
+      });
       
-      if (classesError) throw classesError;
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return { classes: [], classSubjects: {}, classStudents: {}, classStaff: {} };
       
-      // Get all class enrollments with student data (current and future enrollments)
-      const { data: enrollmentsData, error: enrollmentsError } = await supabase
-        .from('classes_students')
-        .select(`
-          class_id,
-          enrolled_at,
-          enrolled_by,
-          unenrolled_at,
-          unenrolled_by,
-          student:students(*)
-        `)
-        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
+      const rpcData = rpcResult as { 
+        classes: any[]; 
+        classSubjects: Record<string, any>; 
+        classStudents: Record<string, any[]>; 
+        classStaff: Record<string, any[]>; 
+        total: number 
+      };
       
-      if (enrollmentsError) throw enrollmentsError;
+      const rpcClasses = (rpcData.classes || []) as any[];
       
-      // Get all class assignments with staff data
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('classes_staff')
-        .select(`
-          class_id,
-          staff:staff!class_assignments_staff_id_fkey(*)
-        `)
-        .is('unassigned_at', null);
-      
-      if (assignmentsError) throw assignmentsError;
-      
-      // Transform and organize the data
+      // Transform RPC response to match expected format
       const classes: Tables<'classes'>[] = [];
       const classSubjects: Record<string, Tables<'subjects'>> = {};
       const classStudents: Record<string, Tables<'students'>[]> = {};
       const classStaff: Record<string, Tables<'staff'>[]> = {};
       
-      // Process classes
-      (classesData as ClassRowWithSubject[] | null)?.forEach((row) => {
-        const cls = row as Tables<'classes'>;
-        classes.push(cls);
+      rpcClasses.forEach((cls: any) => {
+        // Build class object
+        const classData: Tables<'classes'> = {
+          id: cls.id,
+          day_of_week: cls.day_of_week,
+          start_time: cls.start_time,
+          end_time: cls.end_time,
+          status: cls.status,
+          room: cls.room || null,
+          subject_id: cls.subject_id || null,
+          level: cls.level || null,
+          created_at: cls.created_at || null,
+          updated_at: cls.updated_at || null,
+        } as Tables<'classes'>;
+        
+        classes.push(classData);
         
         // Add subject if available
-        if (row.subject_details) {
-          classSubjects[cls.id] = row.subject_details as Tables<'subjects'>;
+        if (rpcData.classSubjects?.[cls.id]) {
+          classSubjects[cls.id] = rpcData.classSubjects[cls.id] as Tables<'subjects'>;
         }
         
-        // Initialize arrays
-        classStudents[cls.id] = [];
-        classStaff[cls.id] = [];
-      });
-      
-      // Process enrollments
-      (enrollmentsData as EnrollmentRow[] | null)?.forEach((row) => {
-        if (row.student && row.class_id) {
-          if (!classStudents[row.class_id]) {
-            classStudents[row.class_id] = [];
-          }
-          classStudents[row.class_id].push(row.student);
+        // Add students if available
+        if (rpcData.classStudents?.[cls.id]) {
+          classStudents[cls.id] = (rpcData.classStudents[cls.id] || []) as Tables<'students'>[];
+        } else {
+          classStudents[cls.id] = [];
         }
-      });
-      
-      // Process assignments
-      (assignmentsData as AssignmentRow[] | null)?.forEach((row) => {
-        if (row.staff && row.class_id) {
-          if (!classStaff[row.class_id]) {
-            classStaff[row.class_id] = [];
-          }
-          classStaff[row.class_id].push(row.staff);
+        
+        // Add staff if available
+        if (rpcData.classStaff?.[cls.id]) {
+          classStaff[cls.id] = (rpcData.classStaff[cls.id] || []) as Tables<'staff'>[];
+        } else {
+          classStaff[cls.id] = [];
         }
       });
       

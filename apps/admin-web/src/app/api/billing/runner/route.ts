@@ -44,14 +44,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the admin user's session token for development mode bypass
+    // The edge function will use this to verify admin access when using test Stripe keys
+    const { data: { session } } = await supabase.auth.getSession();
+    const adminToken = session?.access_token;
+
     // Call the billing-runner edge function with service role key
+    // Also include admin token header for development mode testing
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${serviceRoleKey}`,
+      'apikey': serviceRoleKey,
+    };
+    
+    // Add admin token for development mode bypass (edge function will verify admin access)
+    if (adminToken) {
+      headers['X-Admin-Token'] = adminToken;
+    }
+
     const response = await fetch(`${supabaseUrl}/functions/v1/billing-runner`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'apikey': serviceRoleKey,
-      },
+      headers,
       body: JSON.stringify({ 
         date: date || undefined
       }),

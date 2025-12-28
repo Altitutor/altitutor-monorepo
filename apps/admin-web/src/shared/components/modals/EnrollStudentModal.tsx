@@ -539,7 +539,6 @@ export function EnrollStudentModal({
                   type="date"
                   value={enrollmentDate}
                   onChange={(e) => setEnrollmentDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
                   className="pl-9"
                 />
               </div>

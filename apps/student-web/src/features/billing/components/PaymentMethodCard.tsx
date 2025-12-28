@@ -33,39 +33,8 @@ export function PaymentMethodCard() {
   fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:28',message:'Before parsing payment_methods',data:{hasBilling:!!billing,hasPaymentMethodsField:!!billing?.payment_methods,paymentMethodsType:billing?.payment_methods?typeof billing.payment_methods:null,isArray:Array.isArray(billing?.payment_methods),paymentMethodsPreview:billing?.payment_methods?JSON.stringify(billing.payment_methods).substring(0,300):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,C'})}).catch(()=>{});
   // #endregion
 
-  // Handle payment_methods - could be array or JSON string from database
-  let paymentMethods: any[] = [];
-  if (billing?.payment_methods) {
-    if (Array.isArray(billing.payment_methods)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:33',message:'Payment methods is array',data:{length:billing.payment_methods.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      paymentMethods = billing.payment_methods;
-    } else if (typeof billing.payment_methods === 'string') {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:36',message:'Attempting JSON parse',data:{stringLength:billing.payment_methods.length,stringPreview:billing.payment_methods.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C,D'})}).catch(()=>{});
-      // #endregion
-      try {
-        paymentMethods = JSON.parse(billing.payment_methods);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:39',message:'JSON parse succeeded',data:{parsedLength:paymentMethods.length,isArray:Array.isArray(paymentMethods)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-      } catch (e) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:42',message:'JSON parse failed',data:{error:String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-        paymentMethods = [];
-      }
-    } else {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:46',message:'Payment methods is unexpected type',data:{type:typeof billing.payment_methods,value:String(billing.payment_methods).substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-    }
-  } else {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:50',message:'No payment_methods field',data:{hasBilling:!!billing,billingKeys:billing?Object.keys(billing):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-  }
+  // Handle payment_methods - should already be transformed to array by API layer
+  const paymentMethods = billing?.payment_methods ?? [];
   
   // Debug logging
   if (process.env.NODE_ENV === 'development') {

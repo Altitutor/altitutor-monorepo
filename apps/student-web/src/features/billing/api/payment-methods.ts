@@ -14,10 +14,10 @@ export interface PaymentMethodData {
 }
 
 export interface BillingData {
-  student_id: string;
-  stripe_customer_id: string;
-  created_at: string;
-  updated_at: string;
+  student_id: string | null;
+  stripe_customer_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
   payment_methods: PaymentMethodData[] | null;
   default_payment_method: PaymentMethodData | null;
 }
@@ -56,7 +56,45 @@ export const paymentMethodsApi = {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'payment-methods.ts:54',message:'Returning data',data:{isNull:data===null,studentId:data?.student_id,hasPaymentMethods:!!data?.payment_methods},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A,B'})}).catch(()=>{});
     // #endregion
-    return data;
+    
+    if (!data) return null;
+    
+    // Transform payment_methods from Json to PaymentMethodData[] if needed
+    let paymentMethods: PaymentMethodData[] | null = null;
+    if (data.payment_methods) {
+      if (Array.isArray(data.payment_methods)) {
+        paymentMethods = data.payment_methods as unknown as PaymentMethodData[];
+      } else if (typeof data.payment_methods === 'string') {
+        try {
+          paymentMethods = JSON.parse(data.payment_methods) as PaymentMethodData[];
+        } catch {
+          paymentMethods = null;
+        }
+      }
+    }
+    
+    // Transform default_payment_method from Json to PaymentMethodData if needed
+    let defaultPaymentMethod: PaymentMethodData | null = null;
+    if (data.default_payment_method) {
+      if (typeof data.default_payment_method === 'object' && !Array.isArray(data.default_payment_method)) {
+        defaultPaymentMethod = data.default_payment_method as unknown as PaymentMethodData;
+      } else if (typeof data.default_payment_method === 'string') {
+        try {
+          defaultPaymentMethod = JSON.parse(data.default_payment_method) as PaymentMethodData;
+        } catch {
+          defaultPaymentMethod = null;
+        }
+      }
+    }
+    
+    return {
+      student_id: data.student_id,
+      stripe_customer_id: data.stripe_customer_id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      payment_methods: paymentMethods,
+      default_payment_method: defaultPaymentMethod,
+    };
   },
   
   /**

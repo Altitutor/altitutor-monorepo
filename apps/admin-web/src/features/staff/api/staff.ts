@@ -124,121 +124,61 @@ export const staffApi = {
     const roleFilters = roles.length > 0 ? roles : role ? [role] : [];
     const statusFilters = statuses.length > 0 ? statuses : status ? [status] : [];
 
-    // Use RPC function when search term is provided
-    if (trimmed.length > 0) {
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_staff_admin', {
-        p_search: trimmed,
-        p_statuses: statusFilters.length > 0 ? statusFilters : ['ACTIVE'],
-        p_include_relationships: true,
-        p_limit: limit,
-        p_offset: offset,
-        p_order_by: orderBy as string,
-        p_ascending: ascending,
-      });
+    // Always use RPC function (supports both search and "get all" when search is empty)
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_staff_admin', {
+      p_search: trimmed.length > 0 ? trimmed : null,
+      p_statuses: statusFilters.length > 0 ? statusFilters : ['ACTIVE'],
+      p_include_relationships: true,
+      p_limit: limit,
+      p_offset: offset,
+      p_order_by: orderBy as string,
+      p_ascending: ascending,
+    });
 
-      if (rpcError) throw rpcError;
-      if (!rpcResult) return { staff: [], total: 0 };
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { staff: [], total: 0 };
 
-      const rpcData = rpcResult as { staff: any[]; staffClasses: Record<string, any[]>; classSubjects: Record<string, any>; total: number };
-      let staff = (rpcData.staff || []) as any[];
+    const rpcData = rpcResult as { staff: any[]; staffClasses: Record<string, any[]>; classSubjects: Record<string, any>; total: number };
+    let staff = (rpcData.staff || []) as any[];
 
-      // Apply role filter that RPC doesn't support
-      if (roleFilters.length > 0) {
-        staff = staff.filter((s) => s.role && roleFilters.includes(s.role));
-      }
-
-      // Transform RPC response to match expected format
-      const staffClassesMap: Record<string, ClassWithExpandedSubject[]> = {};
-      staff.forEach((s) => {
-        const classes = rpcData.staffClasses?.[s.id] || [];
-        staffClassesMap[s.id] = classes.map((cls: any) => {
-          const subject = cls.subject || rpcData.classSubjects?.[cls.id] || null;
-          return {
-            ...cls,
-            subject,
-          } as ClassWithExpandedSubject;
-        });
-      });
-
-      const transformedStaff = staff.map((s: any) => ({
-        id: s.id,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        role: s.role,
-        status: s.status,
-        phone_number: s.phone_number,
-        email: s.email,
-        classes: staffClassesMap[s.id] || [],
-      })) as StaffListItem[];
-
-      // Recalculate total after filtering (approximate - RPC total may be higher)
-      const total = transformedStaff.length < limit ? transformedStaff.length : rpcData.total;
-
-      return {
-        staff: transformedStaff,
-        total,
-      };
+    // Apply role filter that RPC doesn't support
+    if (roleFilters.length > 0) {
+      staff = staff.filter((s) => s.role && roleFilters.includes(s.role));
     }
 
-    // No search term - use existing query logic
-    let query = supabase
-      .from('staff')
-      .select('id, first_name, last_name, role, status, phone_number, email', { count: 'exact' })
-      .order(orderBy as string, { ascending });
-
-    if (roleFilters.length > 0) query = query.in('role', roleFilters);
-    if (statusFilters.length > 0) query = query.in('status', statusFilters);
-
-    const from = offset;
-    const to = Math.max(offset + limit - 1, offset);
-    const { data, count, error } = await query.range(from, to);
-    if (error) throw error;
-
-    const staff = (data ?? []) as StaffListItem[];
-
-    if (staff.length === 0) {
-      return { staff: [], total: count ?? 0 };
-    }
-
-    const staffIds = staff.map((member) => member.id);
-
-    const { data: assignmentsData, error: assignmentsError } = await supabase
-      .from('classes_staff')
-      .select(`
-        staff_id,
-        class:classes(
-          *,
-          subject_details:subjects(*)
-        )
-      `)
-      .in('staff_id', staffIds)
-      .is('unassigned_at', null);
-
-    if (assignmentsError) throw assignmentsError;
-
+    // Transform RPC response to match expected format
     const staffClassesMap: Record<string, ClassWithExpandedSubject[]> = {};
-    staffIds.forEach((id) => {
-      staffClassesMap[id] = [];
+    staff.forEach((s) => {
+      const classes = rpcData.staffClasses?.[s.id] || [];
+      staffClassesMap[s.id] = classes.map((cls: any) => {
+        const subject = cls.subject || rpcData.classSubjects?.[cls.id] || null;
+        return {
+          ...cls,
+          subject,
+        } as ClassWithExpandedSubject;
+      });
     });
 
-    (assignmentsData ?? []).forEach((assignment: any) => {
-      const classWithSubject = assignment.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
-      if (classWithSubject && assignment.staff_id) {
-        const cls: ClassWithExpandedSubject = {
-          ...classWithSubject,
-          subject: classWithSubject.subject_details,
-        };
-        delete (cls as any).subject_details;
-        staffClassesMap[assignment.staff_id].push(cls);
-      }
-    });
+    const transformedStaff = staff.map((s: any) => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      role: s.role,
+      status: s.status,
+      phone_number: s.phone_number,
+      email: s.email,
+      classes: staffClassesMap[s.id] || [],
+    })) as StaffListItem[];
 
-    const staffWithClasses = staff.map((staffMember) => ({
-      ...staffMember,
-      classes: staffClassesMap[staffMember.id] || [],
-    }));
+    // Use RPC total for pagination (client-side filters reduce visible items but don't affect total count for pagination)
+    // Note: If client-side filters are applied, the actual filtered total may be lower, but we use RPC total
+    // to maintain correct pagination. The UI will show fewer items on some pages due to filtering.
+    const total = rpcData.total;
 
-    return { staff: staffWithClasses, total: count ?? 0 };
+    return {
+      staff: transformedStaff,
+      total,
+    };
   },
 
   /**

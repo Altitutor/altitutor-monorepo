@@ -20,6 +20,7 @@ import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
+import { Check, X } from 'lucide-react';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -192,6 +193,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       actualStatus,
       rescheduledDate,
       rescheduledSessionId: ss.rescheduled_session?.session?.id,
+      invoiceStatus: ss.invoice_status || null,
     };
   });
 
@@ -217,6 +219,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       ? 'attended'
       : 'did-not-attend';
     
+    const submittedTutorLog = tutorLog?.created_by === sf.staff_id;
+    
     return {
       staff: sf.staff,
       plannedStatus,
@@ -224,6 +228,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       staffType: actualAttendance?.type,
       swappedStaffName,
       swappedStaffId,
+      submittedTutorLog,
     };
   });
 
@@ -284,6 +289,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     <div className="flex items-center gap-4">
                       <span className="text-xs text-muted-foreground">Planned</span>
                       <span className="text-xs text-muted-foreground">Actual</span>
+                      <span className="text-xs text-muted-foreground">Invoice</span>
                     </div>
                   )}
                 </div>
@@ -322,6 +328,31 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                             linkText={data.rescheduledDate}
                           />
                           <AttendanceCell status={data.actualStatus} />
+                          <div className="w-16 flex justify-center">
+                            {(() => {
+                              const status = data.invoice_status;
+                              if (!status) return <span className="text-xs text-muted-foreground">-</span>;
+                              
+                              let label = '';
+                              let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
+                              
+                              if (status === 'draft' || status === 'open') {
+                                label = 'Sent';
+                                variant = 'secondary';
+                              } else if (status === 'paid') {
+                                label = 'Paid';
+                                variant = 'default';
+                              } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
+                                label = 'Failed';
+                                variant = 'destructive';
+                              } else {
+                                label = status;
+                                variant = 'outline';
+                              }
+                              
+                              return <Badge variant={variant} className="text-xs">{label}</Badge>;
+                            })()}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -339,6 +370,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     <div className="flex items-center gap-4">
                       <span className="text-xs text-muted-foreground">Planned</span>
                       <span className="text-xs text-muted-foreground">Actual</span>
+                      <span className="text-xs text-muted-foreground">Tutor Log</span>
                     </div>
                   )}
                 </div>
@@ -374,6 +406,13 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                             linkText={data.swappedStaffName}
                           />
                           <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
+                          <div className="w-16 flex justify-center">
+                            {data.submittedTutorLog ? (
+                              <Check className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <X className="h-4 w-4 text-red-600" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

@@ -132,169 +132,64 @@ export const studentsApi = {
 
     const trimmed = search.trim();
     
-    // Use RPC function when search term is provided
-    if (trimmed.length > 0) {
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
-        p_search: trimmed,
-        p_statuses: statuses.length > 0 ? statuses : ['ACTIVE', 'TRIAL'],
-        p_include_relationships: true,
-        p_limit: limit,
-        p_offset: offset,
-        p_order_by: orderBy as string,
-        p_ascending: ascending,
+    // Always use RPC function (supports both search and "get all" when search is empty)
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+      p_search: trimmed.length > 0 ? trimmed : null,
+      p_statuses: statuses.length > 0 ? statuses : ['ACTIVE', 'TRIAL'],
+      p_include_relationships: true,
+      p_limit: limit,
+      p_offset: offset,
+      p_order_by: orderBy as string,
+      p_ascending: ascending,
+    });
+
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { students: [], total: 0 };
+
+    const rpcData = rpcResult as { students: any[]; total: number };
+    let students = (rpcData.students || []) as any[];
+
+    // Apply additional filters that RPC doesn't support (curriculums, yearLevels, subjectIds)
+    if (curriculums.length > 0) {
+      students = students.filter((s) => s.curriculum && curriculums.includes(s.curriculum));
+    }
+    if (yearLevels.length > 0) {
+      students = students.filter((s) => s.year_level && yearLevels.includes(s.year_level));
+    }
+    if (subjectIds.length > 0) {
+      // Filter by subject IDs - check if student has any of the requested subjects in their classes
+      students = students.filter((s) => {
+        const studentClasses = s.classes || [];
+        return studentClasses.some((cls: any) => cls.subject && subjectIds.includes(cls.subject.id));
       });
-
-      if (rpcError) throw rpcError;
-      if (!rpcResult) return { students: [], total: 0 };
-
-      const rpcData = rpcResult as { students: any[]; total: number };
-      let students = (rpcData.students || []) as any[];
-
-      // Apply additional filters that RPC doesn't support (curriculums, yearLevels, subjectIds)
-      if (curriculums.length > 0) {
-        students = students.filter((s) => s.curriculum && curriculums.includes(s.curriculum));
-      }
-      if (yearLevels.length > 0) {
-        students = students.filter((s) => s.year_level && yearLevels.includes(s.year_level));
-      }
-      if (subjectIds.length > 0) {
-        // Filter by subject IDs - check if student has any of the requested subjects in their classes
-        students = students.filter((s) => {
-          const studentClasses = s.classes || [];
-          return studentClasses.some((cls: any) => cls.subject && subjectIds.includes(cls.subject.id));
-        });
-      }
-
-      // Transform RPC response to match expected format
-      const transformedStudents = students.map((s: any) => ({
-        id: s.id,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        status: s.status,
-        curriculum: s.curriculum,
-        year_level: s.year_level,
-        school: s.school,
-        classes: (s.classes || []).map((cls: any) => ({
-          id: cls.id,
-          day_of_week: cls.day_of_week,
-          start_time: cls.start_time,
-          level: cls.level,
-          subject: cls.subject || null,
-        })),
-      }));
-
-      // Recalculate total after filtering (approximate - RPC total may be higher)
-      const total = transformedStudents.length < limit ? transformedStudents.length : rpcData.total;
-
-      return {
-        students: transformedStudents as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
-        total,
-      };
     }
 
-    // No search term - use existing query logic
-    // First, get the student IDs matching filters (same logic as list())
-    let studentIds: string[] | null = null;
-    if (subjectIds && subjectIds.length > 0) {
-      const { data: studentsSubjectsData, error: ssError } = await supabase
-        .from('students_subjects')
-        .select('student_id')
-        .in('subject_id', subjectIds);
-      
-      if (ssError) throw ssError;
-      studentIds = Array.from(new Set(studentsSubjectsData?.map(ss => ss.student_id) || []));
-      if (studentIds.length === 0) {
-        return { students: [], total: 0 };
-      }
-    }
+    // Transform RPC response to match expected format
+    const transformedStudents = students.map((s: any) => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      status: s.status,
+      curriculum: s.curriculum,
+      year_level: s.year_level,
+      school: s.school,
+      classes: (s.classes || []).map((cls: any) => ({
+        id: cls.id,
+        day_of_week: cls.day_of_week,
+        start_time: cls.start_time,
+        level: cls.level,
+        subject: cls.subject || null,
+      })),
+    }));
 
-    // Build base query with minimal fields only
-    let query = supabase
-      .from('students')
-      .select(
-        'id, first_name, last_name, status, curriculum, year_level, school',
-        { count: 'exact' }
-      );
+    // Use RPC total for pagination (client-side filters reduce visible items but don't affect total count for pagination)
+    // Note: If client-side filters are applied, the actual filtered total may be lower, but we use RPC total
+    // to maintain correct pagination. The UI will show fewer items on some pages due to filtering.
+    const total = rpcData.total;
 
-    if (statuses && statuses.length > 0) {
-      query = query.in('status', statuses);
-    }
-    if (curriculums && curriculums.length > 0) {
-      query = query.in('curriculum', curriculums);
-    }
-    if (yearLevels && yearLevels.length > 0) {
-      query = query.in('year_level', yearLevels);
-    }
-    if (studentIds) {
-      query = query.in('id', studentIds);
-    }
-
-    query = query.order(orderBy as string, { ascending });
-    const from = offset;
-    const to = Math.max(offset + limit - 1, offset);
-    query = query.range(from, to);
-
-    const { data: studentsData, count, error } = await query;
-    if (error) throw error;
-
-    const students = studentsData ?? [];
-
-    // Fetch classes for these students - use same pattern as staff table
-    if (students.length > 0) {
-      const studentIds = students.map((s: any) => s.id);
-      
-      // Get all student-class enrollments with class details AND subject information (like staff table does)
-      const { data: enrollmentsData, error: enrollmentsError } = await supabase
-        .from('classes_students')
-        .select(`
-          student_id,
-          unenrolled_at,
-          class:classes(*, subject_details:subjects(*))
-        `)
-        .in('student_id', studentIds);
-      
-      if (enrollmentsError) throw enrollmentsError;
-      
-      // Filter to current/future enrollments only
-      const activeEnrollments = (enrollmentsData ?? []).filter((e: any) => 
-        !e.unenrolled_at || new Date(e.unenrolled_at) > new Date()
-      );
-      
-      // Build student -> classes map with subject data
-      const studentClassesMap: Record<string, Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }>> = {};
-      studentIds.forEach(id => {
-        studentClassesMap[id] = [];
-      });
-      
-      activeEnrollments.forEach((enrollment: any) => {
-        const classWithSubject = enrollment.class;
-        if (classWithSubject && enrollment.student_id) {
-          studentClassesMap[enrollment.student_id].push({
-            id: classWithSubject.id,
-            day_of_week: classWithSubject.day_of_week,
-            start_time: classWithSubject.start_time,
-            level: classWithSubject.level,
-            subject: classWithSubject.subject_details || null,
-          });
-        }
-      });
-      
-      // Attach classes to students
-      const studentsWithClasses = students.map((student: any) => ({
-        ...student,
-        classes: studentClassesMap[student.id] || [],
-      }));
-      
-      return {
-        students: studentsWithClasses as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
-        total: count ?? 0,
-      };
-    }
-
-    // No students
     return {
-      students: students as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
-      total: count ?? 0
+      students: transformedStudents as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
+      total,
     };
   },
   
@@ -648,7 +543,7 @@ export const studentsApi = {
   },
 
   /**
-   * Get all students with their subjects and classes in optimized single queries
+   * Get all students with their subjects and classes using RPC function
    * This solves the N+1 query problem for the students table with class information
    */
   getAllStudentsWithDetails: async (): Promise<{ 
@@ -659,71 +554,93 @@ export const studentsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
-      // Get all students
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*');
+      // Use RPC function to get all students (no search term, very high limit)
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+        p_search: null,
+        p_statuses: null, // Get all statuses
+        p_include_relationships: true,
+        p_limit: 10000, // High limit to get all students
+        p_offset: 0,
+        p_order_by: 'last_name',
+        p_ascending: true,
+      });
       
-      if (studentsError) throw studentsError;
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return { students: [], studentSubjects: {}, studentClasses: {} };
       
-      // Get all student-subject relationships
-      const { data: studentSubjectsData, error: studentSubjectsError } = await supabase
-        .from('students_subjects')
-        .select(`
-          student_id,
-          subject_details:subjects(*)
-        `);
+      const rpcData = rpcResult as { students: any[]; total: number };
+      const rpcStudents = (rpcData.students || []) as any[];
       
-      if (studentSubjectsError) throw studentSubjectsError;
-      
-      // Get all student-class enrollments with class and subject details (current and future)
-      const { data: enrollmentsData, error: enrollmentsError } = await supabase
-        .from('classes_students')
-        .select(`
-          student_id,
-          enrolled_at,
-          enrolled_by,
-          unenrolled_at,
-          unenrolled_by,
-          class:classes(
-            *,
-            subject_details:subjects(*)
-          )
-        `)
-        .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
-      
-      if (enrollmentsError) throw enrollmentsError;
-      
-      // Transform and organize the data
-      const students = (studentsData ?? []) as Tables<'students'>[];
+      // Transform RPC response to match expected format
+      const students: Tables<'students'>[] = [];
       const studentSubjects: Record<string, Tables<'subjects'>[]> = {};
       const studentClasses: Record<string, Tables<'classes'>[]> = {};
       
       // Initialize arrays for all students
-      students.forEach(student => {
-        studentSubjects[student.id] = [];
-        studentClasses[student.id] = [];
-      });
-      
-      // Process student subjects
-      studentSubjectsData?.forEach((row: any) => {
-        if (row.subject_details && row.student_id) {
-          const subject = row.subject_details as Tables<'subjects'>;
-          if (studentSubjects[row.student_id]) {
-            studentSubjects[row.student_id].push(subject);
-          }
+      rpcStudents.forEach((s: any) => {
+        students.push({
+          id: s.id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          status: s.status,
+          curriculum: s.curriculum,
+          year_level: s.year_level,
+          school: s.school,
+          // Include all other student fields that might be needed
+          email: s.email || null,
+          phone: s.phone || null,
+          created_at: s.created_at || null,
+          updated_at: s.updated_at || null,
+        } as Tables<'students'>);
+        
+        studentSubjects[s.id] = [];
+        studentClasses[s.id] = [];
+        
+        // Extract classes from RPC response
+        if (s.classes && Array.isArray(s.classes)) {
+          s.classes.forEach((cls: any) => {
+            // Extract class data (without subject nested structure)
+            const classData: Tables<'classes'> = {
+              id: cls.id,
+              day_of_week: cls.day_of_week,
+              start_time: cls.start_time,
+              end_time: cls.end_time,
+              status: cls.status || 'ACTIVE',
+              room: cls.room || null,
+              subject_id: cls.subject_id || cls.subject?.id || null,
+              level: cls.level || null,
+              created_at: cls.created_at || null,
+              updated_at: cls.updated_at || null,
+            } as Tables<'classes'>;
+            
+            studentClasses[s.id].push(classData);
+          });
         }
       });
       
-      // Process student classes
-      enrollmentsData?.forEach((row: any) => {
-        if (row.class && row.student_id) {
-          const cls = row.class as Tables<'classes'>;
-          if (studentClasses[row.student_id]) {
-            studentClasses[row.student_id].push(cls);
+      // Get student subjects separately (RPC doesn't include subjects directly, only via classes)
+      // We need to fetch students_subjects to get direct subject assignments
+      if (students.length > 0) {
+        const studentIds = students.map(s => s.id);
+        const { data: studentSubjectsData, error: studentSubjectsError } = await supabase
+          .from('students_subjects')
+          .select(`
+            student_id,
+            subject_details:subjects(*)
+          `)
+          .in('student_id', studentIds);
+        
+        if (studentSubjectsError) throw studentSubjectsError;
+        
+        studentSubjectsData?.forEach((row: any) => {
+          if (row.subject_details && row.student_id) {
+            const subject = row.subject_details as Tables<'subjects'>;
+            if (studentSubjects[row.student_id]) {
+              studentSubjects[row.student_id].push(subject);
+            }
           }
-        }
-      });
+        });
+      }
       
       return {
         students,
