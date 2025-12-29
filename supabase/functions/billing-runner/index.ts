@@ -371,6 +371,7 @@ Deno.serve(async (req: Request) => {
               customer: billing.stripe_customer_id,
               collection_method: 'send_invoice',
               auto_advance: false,
+              pending_invoice_items_behavior: 'include',
               description: `Invoice for sessions on ${invoiceDate}`,
               metadata: {
                 type: 'session_invoice',
@@ -459,6 +460,7 @@ Deno.serve(async (req: Request) => {
             customer: billing.stripe_customer_id,
             collection_method: 'charge_automatically',
             auto_advance: true,
+            pending_invoice_items_behavior: 'include',
             description: `Invoice for sessions on ${invoiceDate}`,
             metadata: {
               type: 'session_invoice',
