@@ -1,25 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, Button, Badge, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
-import { CreditCard, Trash2, Check, Loader2 } from 'lucide-react';
+import { PaymentMethodCard, type PaymentMethodCardData } from '@altitutor/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { useSetDefaultPaymentMethod, useDeletePaymentMethod } from '../hooks/usePaymentMethods';
 import type { PaymentMethodData } from '../api/payment-methods';
-import { cn } from '@/shared/utils';
 
 interface PaymentMethodsListProps {
   paymentMethods: PaymentMethodData[];
-}
-
-function getCardBrandIcon(brand: string): string {
-  const brandMap: Record<string, string> = {
-    visa: '💳',
-    mastercard: '💳',
-    amex: '💳',
-    discover: '💳',
-    unknown: '💳',
-  };
-  return brandMap[brand.toLowerCase()] || '💳';
 }
 
 export function PaymentMethodsList({ paymentMethods }: PaymentMethodsListProps) {
@@ -50,6 +38,15 @@ export function PaymentMethodsList({ paymentMethods }: PaymentMethodsListProps) 
     return deleteMutation.isPending && deleteMutation.variables === paymentMethodId;
   };
 
+  const mapToCardData = (method: PaymentMethodData): PaymentMethodCardData => ({
+    id: method.id,
+    card_brand: method.card_brand,
+    card_last4: method.card_last4,
+    card_exp_month: method.card_exp_month,
+    card_exp_year: method.card_exp_year,
+    is_default: method.is_default,
+  });
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -57,91 +54,14 @@ export function PaymentMethodsList({ paymentMethods }: PaymentMethodsListProps) 
           const deleting = isDeleting(method.id);
           
           return (
-            <Card 
-              key={method.id} 
-              className={cn(
-                'transition-all duration-300',
-                method.is_default && !deleting && 'border-brand-500',
-                deleting && 'border-destructive bg-destructive/5 border-2'
-              )}
-            >
-              <CardContent className={cn('p-4', deleting && 'opacity-75')}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className={cn(
-                      'p-2 rounded-lg transition-colors',
-                      deleting ? 'bg-destructive/20' : 'bg-muted'
-                    )}>
-                      {deleting ? (
-                        <Loader2 className="h-5 w-5 animate-spin text-destructive" />
-                      ) : (
-                        <CreditCard className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className={cn(
-                          'font-medium',
-                          deleting && 'text-destructive'
-                        )}>
-                          {method.card_brand.toUpperCase()} •••• {method.card_last4}
-                        </p>
-                        {method.is_default && !deleting && (
-                          <Badge variant="default" className="text-xs">
-                            <Check className="h-3 w-3 mr-1" />
-                            Default
-                          </Badge>
-                        )}
-                        {deleting && (
-                          <Badge variant="destructive" className="text-xs">
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                            Deleting...
-                          </Badge>
-                        )}
-                      </div>
-                      <p className={cn(
-                        'text-sm',
-                        deleting ? 'text-destructive/70' : 'text-muted-foreground'
-                      )}>
-                        Expires {method.card_exp_month}/{method.card_exp_year}
-                      </p>
-                      {method.card_country && (
-                        <p className={cn(
-                          'text-xs',
-                          deleting ? 'text-destructive/60' : 'text-muted-foreground'
-                        )}>
-                          {method.card_country}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    {!method.is_default && !deleting && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSetDefault(method.id)}
-                          disabled={setDefaultMutation.isPending}
-                        >
-                          Set Default
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteClick(method.id)}
-                          disabled={deleteMutation.isPending}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <PaymentMethodCard
+              key={method.id}
+              paymentMethod={mapToCardData(method)}
+              isDeleting={deleting}
+              onSetDefault={handleSetDefault}
+              onDelete={handleDeleteClick}
+              showActions={true}
+            />
           );
         })}
       </div>
