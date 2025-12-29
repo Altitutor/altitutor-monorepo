@@ -126,7 +126,7 @@ export const staffApi = {
 
     // Always use RPC function (supports both search and "get all" when search is empty)
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_staff_admin', {
-      p_search: trimmed.length > 0 ? trimmed : null,
+      p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: statusFilters.length > 0 ? statusFilters : ['ACTIVE'],
       p_include_relationships: true,
       p_limit: limit,

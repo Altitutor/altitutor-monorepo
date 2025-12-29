@@ -134,7 +134,7 @@ export const studentsApi = {
     
     // Always use RPC function (supports both search and "get all" when search is empty)
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
-      p_search: trimmed.length > 0 ? trimmed : null,
+      p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: statuses.length > 0 ? statuses : ['ACTIVE', 'TRIAL'],
       p_include_relationships: true,
       p_limit: limit,
@@ -556,8 +556,8 @@ export const studentsApi = {
     try {
       // Use RPC function to get all students (no search term, very high limit)
       const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
-        p_search: null,
-        p_statuses: null, // Get all statuses
+        p_search: undefined,
+        p_statuses: undefined, // Get all statuses
         p_include_relationships: true,
         p_limit: 10000, // High limit to get all students
         p_offset: 0,

@@ -1,3 +1,5 @@
+import type { Tables } from '@altitutor/shared';
+
 export type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
 export type {
   AbsenceAction,

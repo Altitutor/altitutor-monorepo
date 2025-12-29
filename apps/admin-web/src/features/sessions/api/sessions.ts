@@ -21,8 +21,8 @@ export const sessionsApi = {
   },
 
   /**
-   * Get all sessions with their attendees and staff in an optimized single query
-   * This solves the N+1 query problem for the sessions table
+   * Get all sessions with their attendees and staff using optimized RPC function
+   * This replaces the previous multi-query approach with a single RPC call
    */
   getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
@@ -35,29 +35,32 @@ export const sessionsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
-      // Get sessions in range if provided (server-side filtering)
-      let query = supabase.from('sessions').select('*');
-      if (!args?.includeInactive) {
-        query = query.eq('status', 'ACTIVE');
-      }
-      if (args?.rangeStart) {
-        const startIso = `${args.rangeStart}T00:00:00Z`;
-        query = query.gte('start_at', startIso);
-      }
-      if (args?.rangeEnd) {
-        const endIso = `${args.rangeEnd}T23:59:59Z`;
-        query = query.lte('start_at', endIso);
-      }
-      const { data: allSessions, error: sessionsError } = await query;
+      // Convert date strings to timestamptz for RPC
+      const rangeStart = args?.rangeStart ? `${args.rangeStart}T00:00:00Z` : null;
+      const rangeEnd = args?.rangeEnd ? `${args.rangeEnd}T23:59:59Z` : null;
       
-      if (sessionsError) throw sessionsError;
+      // Determine status filter
+      const statuses = args?.includeInactive ? ['ACTIVE', 'INACTIVE'] : ['ACTIVE'];
       
-      // Transform sessions data
-      const sessions = (allSessions ?? []) as Tables<'sessions'>[];
-      const sessionIds = sessions.map(s => s.id);
+      // Call RPC function with high limit to get all sessions
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
+        p_search: undefined,
+        p_range_start: rangeStart || undefined,
+        p_range_end: rangeEnd || undefined,
+        p_staff_id: undefined,
+        p_class_id: undefined,
+        p_student_id: undefined,
+        p_statuses: statuses,
+        p_types: undefined,
+        p_include_relationships: true,
+        p_limit: 10000, // High limit to get all sessions
+        p_offset: 0,
+        p_order_by: 'start_at',
+        p_ascending: true,
+      });
       
-      // Early return if no sessions found
-      if (sessionIds.length === 0) {
+      if (rpcError) throw rpcError;
+      if (!rpcResult) {
         return {
           sessions: [],
           sessionStudents: {},
@@ -68,314 +71,83 @@ export const sessionsApi = {
         };
       }
       
-      // Get session students with student details and invoice status (using JOIN)
-      // Filter by session IDs to only fetch records for sessions we retrieved
-      const { data: sessionStudentsData, error: studentsError } = await supabase
-        .from('sessions_students')
-        .select(`
-          id,
-          session_id,
-          planned_absence,
-          student_id,
-          student:students(id, first_name, last_name),
-          invoice_items:invoice_items(
-            invoice:invoices(status)
-          )
-        `)
-        .in('session_id', sessionIds);
+      // Transform RPC response to match expected format
+      const rpcData = rpcResult as {
+        sessions: any[];
+        sessionStudents: Record<string, any[]>;
+        sessionStaff: Record<string, any[]>;
+        tutorLogs: Record<string, any>;
+        classesById: Record<string, any>;
+        subjectsById: Record<string, any>;
+        total: number;
+      };
       
-      if (studentsError) throw studentsError;
+      // Transform sessions
+      const sessions = (rpcData.sessions || []) as Tables<'sessions'>[];
       
-      // Get session staff with staff details (planned attendance only)
-      // Filter by session IDs to only fetch records for sessions we retrieved
-      const { data: sessionStaffData, error: staffError } = await supabase
-        .from('sessions_staff')
-        .select(`session_id, staff_id, planned_absence, staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name)`)
-        .in('session_id', sessionIds);
+      // Transform sessionStudents - RPC returns full student objects with additional fields
+      const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>> = {};
+      Object.entries(rpcData.sessionStudents || {}).forEach(([sessionId, students]) => {
+        sessionStudents[sessionId] = (students || []).map((s: any) => ({
+          id: s.id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          status: s.status,
+          curriculum: s.curriculum,
+          year_level: s.year_level,
+          school: s.school,
+          planned_absence: s.planned_absence ?? false,
+          actual_attended: s.actual_attended ?? null,
+          invoice_status: s.invoice_status ?? null,
+          sessions_students_id: s.sessions_students_id ?? undefined,
+        })) as Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>;
+      });
       
-      if (staffError) throw staffError;
+      // Transform sessionStaff - RPC returns full staff objects with additional fields
+      const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>> = {};
+      Object.entries(rpcData.sessionStaff || {}).forEach(([sessionId, staff]) => {
+        sessionStaff[sessionId] = (staff || []).map((s: any) => ({
+          id: s.id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          role: s.role,
+          status: s.status,
+          planned_absence: s.planned_absence ?? false,
+          actual_attended: s.actual_attended ?? null,
+        })) as Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>;
+      });
       
-      // Collect referenced IDs
-      const classIds = Array.from(new Set(sessions.map(s => s.class_id).filter(Boolean))) as string[];
-      const subjectIdsFromSessions = Array.from(new Set(sessions.map(s => s.subject_id).filter(Boolean))) as string[];
-
-      // Fetch classes first
-      const classesRes = classIds.length
-        ? await supabase.from('classes').select('*').in('id', classIds)
-        : { data: [] as any[], error: null as any };
-
-      if ((classesRes as any).error) throw (classesRes as any).error;
-
-      const classesById: Record<string, Tables<'classes'>> = {};
-      for (const row of (classesRes as any).data as Tables<'classes'>[]) {
-        classesById[row.id] = row;
-      }
-
-      // Collect subject IDs from both sessions AND classes (classes reference subjects too)
-      const subjectIdsFromClasses = Array.from(
-        new Set(
-          Object.values(classesById)
-            .map(cls => cls.subject_id)
-            .filter(Boolean)
-        )
-      ) as string[];
-      
-      // Combine subject IDs from sessions and classes
-      const allSubjectIds = Array.from(new Set([...subjectIdsFromSessions, ...subjectIdsFromClasses]));
-
-      // Fetch all referenced subjects
-      const subjectsRes = allSubjectIds.length
-        ? await supabase.from('subjects').select('*').in('id', allSubjectIds)
-        : { data: [] as any[], error: null as any };
-
-      if ((subjectsRes as any).error) throw (subjectsRes as any).error;
-
-      const subjectsById: Record<string, Tables<'subjects'>> = {};
-      for (const row of (subjectsRes as any).data as Tables<'subjects'>[]) {
-        subjectsById[row.id] = row;
-      }
-
-      // Fetch tutor logs with created_by staff info
-      const { data: tutorLogsData, error: tutorLogsError } = await supabase
-        .from('tutor_logs')
-        .select(`
-          id,
-          session_id,
-          created_by,
-          staff:staff!tutor_logs_created_by_fkey(id, first_name, last_name)
-        `)
-        .in('session_id', sessionIds);
-      
-      if (tutorLogsError) throw tutorLogsError;
-
-      // Build tutor logs map
-      const tutorLogsMap: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }> = {};
-      tutorLogsData?.forEach((row: any) => {
-        if (row.session_id && row.staff) {
-          tutorLogsMap[row.session_id] = {
-            id: row.id,
-            created_by: row.created_by,
-            created_by_name: {
-              first_name: row.staff.first_name,
-              last_name: row.staff.last_name,
-            },
+      // Transform tutorLogs
+      const tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }> = {};
+      Object.entries(rpcData.tutorLogs || {}).forEach(([sessionId, log]) => {
+        if (log) {
+          tutorLogs[sessionId] = {
+            id: log.id,
+            created_by: log.created_by,
+            created_by_name: log.created_by_name || { first_name: '', last_name: '' },
           };
         }
       });
-
-      // Get tutor log IDs for fetching attendance
-      const tutorLogIds = tutorLogsData?.map(tl => tl.id) || [];
-
-      // Fetch actual student attendance from tutor logs (using JOIN to tutor_logs)
-      const { data: studentAttendanceData, error: studentAttendanceError } = tutorLogIds.length > 0
-        ? await supabase
-            .from('tutor_logs_student_attendance')
-            .select(`
-              tutor_log_id,
-              student_id,
-              attended,
-              tutor_log:tutor_logs(session_id)
-            `)
-            .in('tutor_log_id', tutorLogIds)
-        : { data: [], error: null };
       
-      if (studentAttendanceError) throw studentAttendanceError;
-
-      // Fetch actual staff attendance from tutor logs (using JOIN to tutor_logs)
-      const { data: staffAttendanceData, error: staffAttendanceError } = tutorLogIds.length > 0
-        ? await supabase
-            .from('tutor_logs_staff_attendance')
-            .select(`
-              tutor_log_id,
-              staff_id,
-              attended,
-              tutor_log:tutor_logs(session_id)
-            `)
-            .in('tutor_log_id', tutorLogIds)
-        : { data: [], error: null };
-      
-      if (staffAttendanceError) throw staffAttendanceError;
-
-      // Build actual attendance maps
-      // Map: session_id -> student_id -> attended
-      const actualStudentAttendanceMap: Record<string, Record<string, boolean>> = {};
-      // Map: session_id -> staff_id -> attended
-      const actualStaffAttendanceMap: Record<string, Record<string, boolean>> = {};
-
-      // Process student attendance (using session_id from JOIN)
-      studentAttendanceData?.forEach((row: any) => {
-        const sessionId = row.tutor_log?.session_id;
-        if (sessionId && row.student_id) {
-          if (!actualStudentAttendanceMap[sessionId]) {
-            actualStudentAttendanceMap[sessionId] = {};
-          }
-          actualStudentAttendanceMap[sessionId][row.student_id] = row.attended;
-        }
-      });
-
-      // Process staff attendance (using session_id from JOIN)
-      staffAttendanceData?.forEach((row: any) => {
-        const sessionId = row.tutor_log?.session_id;
-        if (sessionId && row.staff_id) {
-          if (!actualStaffAttendanceMap[sessionId]) {
-            actualStaffAttendanceMap[sessionId] = {};
-          }
-          actualStaffAttendanceMap[sessionId][row.staff_id] = row.attended;
-        }
-      });
-
-      // Build session students map (including all students with planned_absence status)
-      // Invoice status is now included via JOIN in the query above
-      const sessionStudentsMap: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>> = {};
-      sessionStudentsData?.forEach((row: any) => {
-        if (row.session_id && row.student) {
-          if (!sessionStudentsMap[row.session_id]) {
-            sessionStudentsMap[row.session_id] = [];
-          }
-          const actualAttended = actualStudentAttendanceMap[row.session_id]?.[row.student_id] ?? null;
-          // Extract invoice status from JOIN (invoice_items is an array, take first if exists)
-          const invoiceStatus = row.invoice_items && row.invoice_items.length > 0
-            ? row.invoice_items[0]?.invoice?.status || null
-            : null;
-          sessionStudentsMap[row.session_id].push({
-            ...(row.student as Tables<'students'>),
-            planned_absence: row.planned_absence || false,
-            actual_attended: actualAttended,
-            invoice_status: invoiceStatus,
-            sessions_students_id: row.id,
-          });
-        }
-      });
-
-      // Collect student IDs from actual attendance who are not in planned
-      const unplannedStudentIds = new Set<string>();
-      Object.keys(actualStudentAttendanceMap).forEach(sessionId => {
-        const actualAttendance = actualStudentAttendanceMap[sessionId];
-        Object.keys(actualAttendance).forEach(studentId => {
-          const existsInPlanned = sessionStudentsMap[sessionId]?.some(
-            s => s.id === studentId
-          );
-          if (!existsInPlanned) {
-            unplannedStudentIds.add(studentId);
-          }
-        });
-      });
-
-      // Fetch student details for unplanned students
-      const unplannedStudentsMap: Record<string, Tables<'students'>> = {};
-      if (unplannedStudentIds.size > 0) {
-        const { data: unplannedStudentsData, error: unplannedStudentsError } = await supabase
-          .from('students')
-          .select('id, first_name, last_name')
-          .in('id', Array.from(unplannedStudentIds));
-        
-        if (unplannedStudentsError) throw unplannedStudentsError;
-        unplannedStudentsData?.forEach((student: any) => {
-          unplannedStudentsMap[student.id] = student as Tables<'students'>;
-        });
-      }
-
-      // Add students from actual attendance who are not in planned attendance
-      Object.keys(actualStudentAttendanceMap).forEach(sessionId => {
-        const actualAttendance = actualStudentAttendanceMap[sessionId];
-        Object.keys(actualAttendance).forEach(studentId => {
-          const existsInPlanned = sessionStudentsMap[sessionId]?.some(
-            s => s.id === studentId
-          );
-          if (!existsInPlanned && unplannedStudentsMap[studentId]) {
-            if (!sessionStudentsMap[sessionId]) {
-              sessionStudentsMap[sessionId] = [];
-            }
-            sessionStudentsMap[sessionId].push({
-              ...unplannedStudentsMap[studentId],
-              planned_absence: true, // Not in planned, so mark as absent
-              actual_attended: actualAttendance[studentId],
-              invoice_status: null, // No sessions_students_id, so no invoice
-              sessions_students_id: undefined,
-            });
-          }
-        });
-      });
-      
-      // Build session staff map (including all staff with planned_absence status)
-      const sessionStaffMap: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>> = {};
-      sessionStaffData?.forEach((row: any) => {
-        if (row.session_id && row.staff) {
-          if (!sessionStaffMap[row.session_id]) {
-            sessionStaffMap[row.session_id] = [];
-          }
-          const actualAttended = actualStaffAttendanceMap[row.session_id]?.[row.staff_id] ?? null;
-          sessionStaffMap[row.session_id].push({
-            ...(row.staff as Tables<'staff'>),
-            planned_absence: row.planned_absence || false,
-            actual_attended: actualAttended,
-          });
-        }
-      });
-
-      // Collect staff IDs from actual attendance who are not in planned
-      const unplannedStaffIds = new Set<string>();
-      Object.keys(actualStaffAttendanceMap).forEach(sessionId => {
-        const actualAttendance = actualStaffAttendanceMap[sessionId];
-        Object.keys(actualAttendance).forEach(staffId => {
-          const existsInPlanned = sessionStaffMap[sessionId]?.some(
-            s => s.id === staffId
-          );
-          if (!existsInPlanned) {
-            unplannedStaffIds.add(staffId);
-          }
-        });
-      });
-
-      // Fetch staff details for unplanned staff
-      const unplannedStaffMap: Record<string, Tables<'staff'>> = {};
-      if (unplannedStaffIds.size > 0) {
-        const { data: unplannedStaffData, error: unplannedStaffError } = await supabase
-          .from('staff')
-          .select('id, first_name, last_name')
-          .in('id', Array.from(unplannedStaffIds));
-        
-        if (unplannedStaffError) throw unplannedStaffError;
-        unplannedStaffData?.forEach((staff: any) => {
-          unplannedStaffMap[staff.id] = staff as Tables<'staff'>;
-        });
-      }
-
-      // Add staff from actual attendance who are not in planned attendance
-      Object.keys(actualStaffAttendanceMap).forEach(sessionId => {
-        const actualAttendance = actualStaffAttendanceMap[sessionId];
-        Object.keys(actualAttendance).forEach(staffId => {
-          const existsInPlanned = sessionStaffMap[sessionId]?.some(
-            s => s.id === staffId
-          );
-          if (!existsInPlanned && unplannedStaffMap[staffId]) {
-            if (!sessionStaffMap[sessionId]) {
-              sessionStaffMap[sessionId] = [];
-            }
-            sessionStaffMap[sessionId].push({
-              ...unplannedStaffMap[staffId],
-              planned_absence: true, // Not in planned, so mark as absent
-              actual_attended: actualAttendance[staffId],
-            });
-          }
-        });
-      });
+      // Transform classesById and subjectsById (already in correct format from RPC)
+      const classesById = (rpcData.classesById || {}) as Record<string, Tables<'classes'>>;
+      const subjectsById = (rpcData.subjectsById || {}) as Record<string, Tables<'subjects'>>;
       
       // Initialize empty arrays for sessions with no students/staff
       sessions.forEach(session => {
-        if (!sessionStudentsMap[session.id]) {
-          sessionStudentsMap[session.id] = [];
+        if (!sessionStudents[session.id]) {
+          sessionStudents[session.id] = [];
         }
-        if (!sessionStaffMap[session.id]) {
-          sessionStaffMap[session.id] = [];
+        if (!sessionStaff[session.id]) {
+          sessionStaff[session.id] = [];
         }
       });
       
       return {
         sessions,
-        sessionStudents: sessionStudentsMap,
-        sessionStaff: sessionStaffMap,
-        tutorLogs: tutorLogsMap,
+        sessionStudents,
+        sessionStaff,
+        tutorLogs,
         classesById,
         subjectsById,
       };
@@ -570,19 +342,34 @@ export const sessionsApi = {
 
 
   /**
-   * Get sessions for a specific student
+   * Get sessions for a specific student using RPC
    */
   getSessionsForStudent: async (studentId: string, includeInactive: boolean = false): Promise<Tables<'sessions'>[]> => {
     try {
-      // Get attendance records for the student
-      const { data: attendanceRecords, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_students').select('sessions(*)').eq('student_id', studentId);
-      if (error) throw error;
-      let sessions = (attendanceRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
-      // Filter by status if needed
-      if (!includeInactive) {
-        sessions = sessions.filter(s => s.status === 'ACTIVE');
-      }
-      return sessions;
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const statuses = includeInactive ? ['ACTIVE', 'INACTIVE'] : ['ACTIVE'];
+      
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
+        p_search: undefined,
+        p_range_start: undefined,
+        p_range_end: undefined,
+        p_staff_id: undefined,
+        p_class_id: undefined,
+        p_student_id: studentId,
+        p_statuses: statuses,
+        p_types: undefined,
+        p_include_relationships: false, // Don't need relationships for this query
+        p_limit: 10000, // High limit to get all sessions
+        p_offset: 0,
+        p_order_by: 'start_at',
+        p_ascending: true,
+      });
+      
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return [];
+      
+      const rpcData = rpcResult as { sessions: any[]; total: number };
+      return (rpcData.sessions || []) as Tables<'sessions'>[];
     } catch (error) {
       console.error('Error getting sessions for student:', error);
       throw error;
@@ -590,19 +377,34 @@ export const sessionsApi = {
   },
 
   /**
-   * Get sessions for a specific staff member
+   * Get sessions for a specific staff member using RPC
    */
   getSessionsForStaff: async (staffId: string, includeInactive: boolean = false): Promise<Tables<'sessions'>[]> => {
     try {
-      // Get assignment records for the staff member
-      const { data: assignmentRecords, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').select('sessions(*)').eq('staff_id', staffId);
-      if (error) throw error;
-      let sessions = (assignmentRecords ?? []).map((row: { sessions: Tables<'sessions'> | null }) => row.sessions).filter(Boolean) as Tables<'sessions'>[];
-      // Filter by status if needed
-      if (!includeInactive) {
-        sessions = sessions.filter(s => s.status === 'ACTIVE');
-      }
-      return sessions;
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const statuses = includeInactive ? ['ACTIVE', 'INACTIVE'] : ['ACTIVE'];
+      
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
+        p_search: undefined,
+        p_range_start: undefined,
+        p_range_end: undefined,
+        p_staff_id: staffId,
+        p_class_id: undefined,
+        p_student_id: undefined,
+        p_statuses: statuses,
+        p_types: undefined,
+        p_include_relationships: false, // Don't need relationships for this query
+        p_limit: 10000, // High limit to get all sessions
+        p_offset: 0,
+        p_order_by: 'start_at',
+        p_ascending: true,
+      });
+      
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return [];
+      
+      const rpcData = rpcResult as { sessions: any[]; total: number };
+      return (rpcData.sessions || []) as Tables<'sessions'>[];
     } catch (error) {
       console.error('Error getting sessions for staff:', error);
       throw error;

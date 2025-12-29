@@ -301,7 +301,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
             <Input
               placeholder="Search sessions..."
               className="pl-8"
-              value={searchTerm ?? ''}
+              value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
