@@ -87,36 +87,51 @@ export const billingApi = {
     studentIds?: string[];
     from?: string; 
     to?: string; 
-    limit?: number; 
-  }): Promise<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]> {
-    const { statuses = [], studentIds = [], from, to, limit = 200 } = params || {};
-    let query = (getSupabaseClient() as SupabaseClient<Database>)
-      .from('invoices')
-      .select(`
-        *,
-        student:students!invoices_student_id_fkey(id, first_name, last_name)
-      `)
-      .order('invoice_date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    limit?: number;
+    offset?: number;
+    orderBy?: 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents';
+    ascending?: boolean;
+  }): Promise<{ invoices: (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]; total: number }> {
+    const { 
+      statuses = [], 
+      studentIds = [], 
+      from, 
+      to, 
+      limit = 50,
+      offset = 0,
+      orderBy = 'invoice_date',
+      ascending = false,
+    } = params || {};
     
-    // Status filter (multiple selection with AND - all selected statuses)
-    if (statuses && statuses.length > 0) {
-      query = query.in('status', statuses);
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    // Call RPC function
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_invoices_admin', {
+      p_date_from: from || undefined,
+      p_date_to: to || undefined,
+      p_student_ids: studentIds.length > 0 ? studentIds : undefined,
+      p_statuses: statuses.length > 0 ? statuses : undefined,
+      p_limit: limit,
+      p_offset: offset,
+      p_order_by: orderBy,
+      p_ascending: ascending,
+    });
+    
+    if (rpcError) throw rpcError;
+    if (!rpcResult) {
+      return { invoices: [], total: 0 };
     }
     
-    // Student filter (multiple selection with AND - all selected students)
-    if (studentIds && studentIds.length > 0) {
-      query = query.in('student_id', studentIds);
-    }
+    // Type the RPC result
+    const result = rpcResult as {
+      invoices?: (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[];
+      total?: number;
+    };
     
-    // Date filters
-    if (from) query = query.gte('invoice_date', from);
-    if (to) query = query.lte('invoice_date', to);
+    const invoices = (result.invoices ?? []) as (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[];
+    const total = result.total ?? 0;
     
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data ?? []) as (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[];
+    return { invoices, total };
   },
 
   // Backward compatibility - returns invoices instead of payment attempts
@@ -137,9 +152,14 @@ export const billingApi = {
     studentIds?: string[];
     from?: string; 
     to?: string; 
-    limit?: number; 
-  }): Promise<any[]> {
-    return this.listInvoices(params);
+    limit?: number;
+    offset?: number;
+    orderBy?: 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents';
+    ascending?: boolean;
+  }): Promise<any> {
+    const result = await this.listInvoices(params);
+    // Backward compatibility: return just the invoices array
+    return result.invoices;
   },
 
   // Reconciliation views

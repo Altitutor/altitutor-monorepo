@@ -4,4 +4,5 @@ export * from './api/payment-methods';
 export * from './api/subject-pricing-overrides';
 export * from './components/AddPaymentMethodModal';
 export * from './components/ViewInvoiceModal';
+export * from './hooks/useInvoicesQuery';
 

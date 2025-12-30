@@ -11,6 +11,9 @@ import { useToast } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentMethodCard, type PaymentMethodCardData } from '@altitutor/ui';
 import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
+import { fetchStudentSubsidies } from '../api/subsidies';
+import { StudentSubsidiesTable } from './StudentSubsidiesTable';
+import { AddSubsidyModal } from './AddSubsidyModal';
 
 type PaymentMethod = Tables<'student_payment_methods'>;
 
@@ -18,6 +21,12 @@ type PaymentMethod = Tables<'student_payment_methods'>;
 export const studentPaymentMethodsKeys = {
   all: ['student-payment-methods'] as const,
   student: (studentId: string) => [...studentPaymentMethodsKeys.all, studentId] as const,
+};
+
+// Query key factory for student subsidies
+export const studentSubsidiesKeys = {
+  all: ['student-subsidies'] as const,
+  student: (studentId: string) => [...studentSubsidiesKeys.all, studentId] as const,
 };
 
 async function fetchStudentPaymentMethods(studentId: string): Promise<PaymentMethod[]> {
@@ -33,13 +42,19 @@ async function fetchStudentPaymentMethods(studentId: string): Promise<PaymentMet
 }
 
 export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
+  const [isSubsidyModalOpen, setIsSubsidyModalOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: paymentMethods = [], isLoading: loading } = useQuery({
+  const { data: paymentMethods = [], isLoading: loadingPaymentMethods } = useQuery({
     queryKey: studentPaymentMethodsKeys.student(student.id),
     queryFn: () => fetchStudentPaymentMethods(student.id),
+  });
+
+  const { data: subsidies = [], isLoading: loadingSubsidies } = useQuery({
+    queryKey: studentSubsidiesKeys.student(student.id),
+    queryFn: () => fetchStudentSubsidies(student.id),
   });
 
   const handleSetDefault = async (methodId: string) => {
@@ -112,70 +127,96 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          View and manage the student's saved payment methods.
+    <div className="space-y-8">
+      {/* Payment Methods Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Payment Methods</h3>
+          {paymentMethods.length > 0 && (
+            <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Payment Method
+            </Button>
+          )}
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Payment Method
-        </Button>
+
+        {loadingPaymentMethods ? (
+          <div>Loading…</div>
+        ) : paymentMethods.length === 0 ? (
+          <div className="text-center py-8 space-y-4">
+            <div className="flex justify-center">
+              <div className="p-4 bg-muted rounded-full">
+                <CreditCard className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-semibold">No payment method on file</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Add a payment method to enable automatic billing for sessions
+              </p>
+            </div>
+            <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Payment Method
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {paymentMethods.map((method) => {
+              const cardData: PaymentMethodCardData = {
+                id: method.id,
+                card_brand: method.card_brand,
+                card_last4: method.card_last4,
+                card_exp_month: method.card_exp_month,
+                card_exp_year: method.card_exp_year,
+                is_default: method.is_default,
+              };
+
+              return (
+                <PaymentMethodCard
+                  key={method.id}
+                  paymentMethod={cardData}
+                  onSetDefault={handleSetDefault}
+                  onDelete={handleRemoveMethod}
+                  showActions={true}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        <AddPaymentMethodModal
+          isOpen={isPaymentMethodModalOpen}
+          onClose={() => setIsPaymentMethodModalOpen(false)}
+          studentId={student.id}
+          studentEmail={student.email || undefined}
+          studentName={student.first_name && student.last_name ? `${student.first_name} ${student.last_name}` : undefined}
+          onSuccess={handleAddSuccess}
+        />
       </div>
 
-      {loading ? (
-        <div>Loading…</div>
-      ) : paymentMethods.length === 0 ? (
-        <div className="text-center py-8 space-y-4">
-          <div className="flex justify-center">
-            <div className="p-4 bg-muted rounded-full">
-              <CreditCard className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold">No payment method on file</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Add a payment method to enable automatic billing for sessions
-            </p>
-          </div>
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Payment Method
+      {/* Subsidies Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Subsidies</h3>
+          <Button onClick={() => setIsSubsidyModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Subsidy
           </Button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {paymentMethods.map((method) => {
-            const cardData: PaymentMethodCardData = {
-              id: method.id,
-              card_brand: method.card_brand,
-              card_last4: method.card_last4,
-              card_exp_month: method.card_exp_month,
-              card_exp_year: method.card_exp_year,
-              is_default: method.is_default,
-            };
 
-            return (
-              <PaymentMethodCard
-                key={method.id}
-                paymentMethod={cardData}
-                onSetDefault={handleSetDefault}
-                onDelete={handleRemoveMethod}
-                showActions={true}
-              />
-            );
-          })}
-        </div>
-      )}
+        {loadingSubsidies ? (
+          <div>Loading…</div>
+        ) : (
+          <StudentSubsidiesTable subsidies={subsidies} studentId={student.id} />
+        )}
 
-      <AddPaymentMethodModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        studentId={student.id}
-        studentEmail={student.email || undefined}
-        studentName={student.first_name && student.last_name ? `${student.first_name} ${student.last_name}` : undefined}
-        onSuccess={handleAddSuccess}
-      />
+        <AddSubsidyModal
+          isOpen={isSubsidyModalOpen}
+          onClose={() => setIsSubsidyModalOpen(false)}
+          studentId={student.id}
+        />
+      </div>
     </div>
   );
 }

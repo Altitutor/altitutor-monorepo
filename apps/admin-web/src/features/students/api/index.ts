@@ -1,1 +1,2 @@
-export { studentsApi } from './students'; 
+export { studentsApi } from './students';
+export * from './subsidies'; 

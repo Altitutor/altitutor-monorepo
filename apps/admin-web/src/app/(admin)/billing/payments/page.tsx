@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal } from '@/features/billing';
+import { useState, useEffect } from 'react';
+import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, useInvoicesList } from '@/features/billing';
 import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Checkbox, ScrollArea } from '@altitutor/ui';
 import { Filter, X } from 'lucide-react';
 import { addDays } from 'date-fns';
 import { cn } from '@/shared/utils';
 import { useStudents } from '@/features/students';
+import { TablePagination } from '@/shared/components/TablePagination';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,43 +20,64 @@ type InvoiceWithStudent = InvoiceRow & {
 const INVOICE_STATUSES: InvoiceRow['status'][] = ['draft', 'open', 'paid', 'void', 'uncollectible', 'disputed'];
 
 export default function PaymentsPage() {
-  const [rows, setRows] = useState<InvoiceWithStudent[]>([]);
-  const [loading, setLoading] = useState(false);
   const [statusFilters, setStatusFilters] = useState<InvoiceRow['status'][]>([]);
   const [studentFilters, setStudentFilters] = useState<string[]>([]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [invoiceItemsMap, setInvoiceItemsMap] = useState<Record<string, InvoiceItemRow[]>>({});
 
   // Fetch all students for the filter
   const { data: allStudents = [] } = useStudents();
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const data = await billingApi.listInvoices({ 
-        statuses: statusFilters.length > 0 ? statusFilters : undefined,
-        studentIds: studentFilters.length > 0 ? studentFilters : undefined,
-        from: from || undefined,
-        to: to || undefined,
-      });
-      // Fetch invoice items for each invoice
-      const invoicesWithItems = await Promise.all(
-        data.map(async (invoice) => {
-          const items = await billingApi.getInvoiceItemsByInvoice(invoice.id);
-          return { ...invoice, items };
-        })
-      );
-      setRows(invoicesWithItems);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch invoices with pagination
+  const { 
+    data, 
+    isLoading, 
+    isFetching,
+    error 
+  } = useInvoicesList({
+    statuses: statusFilters,
+    studentIds: studentFilters,
+    from: from || undefined,
+    to: to || undefined,
+    page,
+    pageSize,
+  });
 
+  const invoices = data?.invoices || [];
+  const total = data?.total || 0;
+
+  // Fetch invoice items for displayed invoices
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (invoices.length === 0) {
+      setInvoiceItemsMap({});
+      return;
+    }
+
+    const fetchItems = async () => {
+      const itemsPromises = invoices.map(async (invoice) => {
+        const items = await billingApi.getInvoiceItemsByInvoice(invoice.id);
+        return { invoiceId: invoice.id, items };
+      });
+      
+      const itemsResults = await Promise.all(itemsPromises);
+      const newMap: Record<string, InvoiceItemRow[]> = {};
+      itemsResults.forEach(({ invoiceId, items }) => {
+        newMap[invoiceId] = items;
+      });
+      setInvoiceItemsMap(newMap);
+    };
+
+    fetchItems();
+  }, [invoices]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
   }, [statusFilters, studentFilters, from, to]);
 
   const formatDate = (dateString: string | null) => {
@@ -283,22 +305,29 @@ export default function PaymentsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {isLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-24">
                   Loading invoices...
                 </TableCell>
               </TableRow>
-            ) : rows.length === 0 ? (
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center h-24 text-destructive">
+                  Error loading invoices. Please try again.
+                </TableCell>
+              </TableRow>
+            ) : invoices.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-24">
                   No invoices found
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((invoice) => {
+              invoices.map((invoice) => {
                 const invoiceDate = invoice.invoice_date ? new Date(invoice.invoice_date) : null;
                 const sessionDate = invoiceDate ? addDays(invoiceDate, 1) : null;
+                const items = invoiceItemsMap[invoice.id] || [];
                 
                 return (
                   <TableRow 
@@ -319,9 +348,9 @@ export default function PaymentsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {invoice.items && invoice.items.length > 0 ? (
+                      {items.length > 0 ? (
                         <div className="flex flex-col gap-1">
-                          {invoice.items.slice(0, 2).map((item) => (
+                          {items.slice(0, 2).map((item) => (
                             <div key={item.id} className="text-xs">
                               <span className={cn(item.is_subsidy && "text-muted-foreground line-through")}>
                                 {item.description || 'Invoice item'}
@@ -331,9 +360,9 @@ export default function PaymentsPage() {
                               )}
                             </div>
                           ))}
-                          {invoice.items.length > 2 && (
+                          {items.length > 2 && (
                             <div className="text-xs text-muted-foreground">
-                              +{invoice.items.length - 2} more
+                              +{items.length - 2} more
                             </div>
                           )}
                         </div>
@@ -350,6 +379,18 @@ export default function PaymentsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        isFetching={isFetching}
+        onPageChange={(newPage) => setPage(newPage)}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+      />
 
       <ViewInvoiceModal
         isOpen={!!activeInvoiceId}
