@@ -504,17 +504,23 @@ Deno.serve(async (req: Request) => {
           const totalFeesCents = grossCents - totalNetCents;
           
           // Add fees as a separate line item
-          if (totalFeesCents > 0) {
-            invoiceItems.push({
-              sessions_students_id: null, // Fees don't belong to a specific session
-              session_id: null,
-              student_id: studentId, // Use studentId from outer loop
-              amount_cents: totalFeesCents,
-              description: `Payment processing fee (${(feePercent * 100).toFixed(2)}%${feeFixedCents > 0 ? ` + $${(feeFixedCents / 100).toFixed(2)}` : ''})`,
-              is_subsidy: false,
-              is_fee: true,
-              currency: invoiceCurrency
-            });
+          // Note: sessions_students_id and session_id are required by DB schema (NOT NULL constraint)
+          // For fee items, we use the first session's IDs as a technical requirement
+          // Fees apply to the entire invoice, not a specific session
+          if (totalFeesCents > 0 && invoiceItems.length > 0) {
+            const firstSessionItem = invoiceItems.find((item: any) => item.sessions_students_id);
+            if (firstSessionItem) {
+              invoiceItems.push({
+                sessions_students_id: firstSessionItem.sessions_students_id, // Use first session's ID for DB constraint
+                session_id: firstSessionItem.session_id, // Use first session's ID for DB constraint
+                student_id: studentId,
+                amount_cents: totalFeesCents,
+                description: `Payment processing fee (${(feePercent * 100).toFixed(2)}%${feeFixedCents > 0 ? ` + $${(feeFixedCents / 100).toFixed(2)}` : ''})`,
+                is_subsidy: false,
+                is_fee: true,
+                currency: invoiceCurrency
+              });
+            }
           }
         }
 
