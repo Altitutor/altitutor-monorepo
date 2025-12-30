@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, useInvoicesList } from '@/features/billing';
 import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Checkbox, ScrollArea } from '@altitutor/ui';
@@ -48,7 +48,8 @@ export default function PaymentsPage() {
     pageSize,
   });
 
-  const invoices = data?.invoices || [];
+  // Use useMemo to stabilize the invoices array reference to prevent infinite loops
+  const invoices = useMemo(() => data?.invoices || [], [data?.invoices]);
   const total = data?.total || 0;
 
   // Fetch invoice items for displayed invoices
@@ -75,11 +76,6 @@ export default function PaymentsPage() {
     fetchItems();
   }, [invoices]);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilters, studentFilters, from, to]);
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     try {
@@ -93,13 +89,14 @@ export default function PaymentsPage() {
     }
   };
 
-  // Filter toggle handlers
+  // Filter toggle handlers - reset page when filters change
   const toggleStatusFilter = (status: InvoiceRow['status']) => {
     setStatusFilters(prev => 
       prev.includes(status) 
         ? prev.filter(s => s !== status)
         : [...prev, status]
     );
+    setPage(1);
   };
 
   const toggleStudentFilter = (studentId: string) => {
@@ -108,6 +105,7 @@ export default function PaymentsPage() {
         ? prev.filter(id => id !== studentId)
         : [...prev, studentId]
     );
+    setPage(1);
   };
 
   const clearAllFilters = () => {
@@ -116,6 +114,7 @@ export default function PaymentsPage() {
     setFrom('');
     setTo('');
     setStudentSearchQuery('');
+    setPage(1);
   };
 
   // Count active filters
@@ -277,14 +276,20 @@ export default function PaymentsPage() {
           <Input 
             type="date" 
             value={from} 
-            onChange={e => setFrom(e.target.value)}
+            onChange={e => {
+              setFrom(e.target.value);
+              setPage(1);
+            }}
             placeholder="From date"
             className="w-[160px]"
           />
           <Input 
             type="date" 
             value={to} 
-            onChange={e => setTo(e.target.value)}
+            onChange={e => {
+              setTo(e.target.value);
+              setPage(1);
+            }}
             placeholder="To date"
             className="w-[160px]"
           />

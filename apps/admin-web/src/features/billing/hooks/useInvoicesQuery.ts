@@ -40,8 +40,8 @@ export function useInvoicesList(params: UseInvoicesListParams) {
   return useQuery({
     queryKey: [
       ...invoicesKeys.lists(),
-      statuses.sort().join(','),
-      studentIds.sort().join(','),
+      [...statuses].sort().join(','),
+      [...studentIds].sort().join(','),
       from || null,
       to || null,
       page,
