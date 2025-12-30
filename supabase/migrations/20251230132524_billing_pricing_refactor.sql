@@ -790,6 +790,27 @@ BEGIN
   END IF;
 END $$;
 
+-- Ensure current_staff_id() function exists in public schema
+-- This function should have been created in migration 20250720000000_migrate_to_staff_role_based_rls.sql
+-- but we ensure it exists here in case it wasn't applied or exists in a different schema
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public' AND p.proname = 'current_staff_id'
+  ) THEN
+    CREATE OR REPLACE FUNCTION public.current_staff_id()
+    RETURNS UUID AS $$
+      SELECT id FROM public.staff WHERE user_id = auth.uid();
+    $$ LANGUAGE sql STABLE SECURITY DEFINER;
+    
+    GRANT EXECUTE ON FUNCTION public.current_staff_id() TO authenticated;
+    
+    COMMENT ON FUNCTION public.current_staff_id() IS 'Returns the staff ID for the current user';
+  END IF;
+END $$;
+
 -- Drop and recreate vtutor_subjects view (removing billing fields)
 DROP VIEW IF EXISTS public.vtutor_subjects CASCADE;
 

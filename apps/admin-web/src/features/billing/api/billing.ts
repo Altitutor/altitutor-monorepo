@@ -68,6 +68,20 @@ export const billingApi = {
     return (data ?? []) as InvoiceRow[];
   },
 
+  async getInvoiceById(invoiceId: string): Promise<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null }) | null> {
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('invoices')
+      .select(`
+        *,
+        student:students!invoices_student_id_fkey(id, first_name, last_name)
+      `)
+      .eq('id', invoiceId)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return (data ?? null) as (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null }) | null;
+  },
+
   async listInvoices(params: { 
     status?: InvoiceRow['status'] | 'ALL'; 
     from?: string; 

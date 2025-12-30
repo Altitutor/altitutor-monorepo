@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { billingApi, type InvoiceRow, type InvoiceItemRow } from '@/features/billing';
+import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal } from '@/features/billing';
 import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button, Badge } from '@altitutor/ui';
-import { ExternalLink, Download, CalendarIcon } from 'lucide-react';
-import { addDays, format } from 'date-fns';
+import { CalendarIcon } from 'lucide-react';
+import { addDays } from 'date-fns';
 import { cn } from '@/shared/utils';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +22,7 @@ export default function PaymentsPage() {
   const [q, setQ] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
+  const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -133,27 +132,23 @@ export default function PaymentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Invoice Date</TableHead>
               <TableHead>Session Date</TableHead>
-              <TableHead>Invoice Number</TableHead>
               <TableHead>Student</TableHead>
               <TableHead>Invoice Items</TableHead>
               <TableHead>Amount Due</TableHead>
-              <TableHead>Amount Paid</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center h-24">
+                <TableCell colSpan={5} className="text-center h-24">
                   Loading invoices...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center h-24">
+                <TableCell colSpan={5} className="text-center h-24">
                   No invoices found
                 </TableCell>
               </TableRow>
@@ -163,30 +158,22 @@ export default function PaymentsPage() {
                 const sessionDate = invoiceDate ? addDays(invoiceDate, 1) : null;
                 
                 return (
-                  <TableRow key={invoice.id}>
+                  <TableRow 
+                    key={invoice.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setActiveInvoiceId(invoice.id)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>{invoiceDate ? formatDate(invoice.invoice_date!) : '-'}</span>
+                        <span>{sessionDate ? formatDate(sessionDate.toISOString()) : '-'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {sessionDate ? formatDate(sessionDate.toISOString()) : '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{invoice.stripe_invoice_number || '-'}</TableCell>
-                    <TableCell>
                       {invoice.student ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs justify-start"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveStudentId(invoice.student!.id);
-                          }}
-                        >
+                        <span className="text-sm">
                           {invoice.student.first_name} {invoice.student.last_name}
-                        </Button>
+                        </span>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
@@ -194,7 +181,7 @@ export default function PaymentsPage() {
                     <TableCell>
                       {invoice.items && invoice.items.length > 0 ? (
                         <div className="flex flex-col gap-1">
-                          {invoice.items.map((item) => (
+                          {invoice.items.slice(0, 2).map((item) => (
                             <div key={item.id} className="text-xs">
                               <span className={cn(item.is_subsidy && "text-muted-foreground line-through")}>
                                 {item.description || 'Invoice item'}
@@ -204,32 +191,18 @@ export default function PaymentsPage() {
                               )}
                             </div>
                           ))}
+                          {invoice.items.length > 2 && (
+                            <div className="text-xs text-muted-foreground">
+                              +{invoice.items.length - 2} more
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
-                    <TableCell>{`$${((invoice.amount_due_cents || 0)/100).toFixed(2)} ${invoice.currency || 'AUD'}`}</TableCell>
-                    <TableCell>{`$${((invoice.amount_paid_cents || 0)/100).toFixed(2)}`}</TableCell>
+                    <TableCell>{`$${((invoice.amount_due_cents || 0)/100).toFixed(2)}`}</TableCell>
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {invoice.hosted_invoice_url && (
-                          <Button variant="ghost" size="sm" asChild>
-                            <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        )}
-                        {invoice.invoice_pdf && (
-                          <Button variant="ghost" size="sm" asChild>
-                            <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
                   </TableRow>
                 );
               })
@@ -238,11 +211,10 @@ export default function PaymentsPage() {
         </Table>
       </div>
 
-      <ViewStudentModal
-        isOpen={!!activeStudentId}
-        studentId={activeStudentId}
-        onClose={() => setActiveStudentId(null)}
-        onStudentUpdated={() => {}}
+      <ViewInvoiceModal
+        isOpen={!!activeInvoiceId}
+        invoiceId={activeInvoiceId}
+        onClose={() => setActiveInvoiceId(null)}
       />
     </div>
   );
