@@ -800,14 +800,15 @@ BEGIN
     JOIN pg_namespace n ON p.pronamespace = n.oid
     WHERE n.nspname = 'public' AND p.proname = 'current_staff_id'
   ) THEN
-    CREATE OR REPLACE FUNCTION public.current_staff_id()
-    RETURNS UUID AS $$
-      SELECT id FROM public.staff WHERE user_id = auth.uid();
-    $$ LANGUAGE sql STABLE SECURITY DEFINER;
+    EXECUTE '
+      CREATE OR REPLACE FUNCTION public.current_staff_id()
+      RETURNS UUID AS $func$
+        SELECT id FROM public.staff WHERE user_id = auth.uid();
+      $func$ LANGUAGE sql STABLE SECURITY DEFINER;
+    ';
     
-    GRANT EXECUTE ON FUNCTION public.current_staff_id() TO authenticated;
-    
-    COMMENT ON FUNCTION public.current_staff_id() IS 'Returns the staff ID for the current user';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.current_staff_id() TO authenticated;';
+    EXECUTE 'COMMENT ON FUNCTION public.current_staff_id() IS ''Returns the staff ID for the current user'';';
   END IF;
 END $$;
 

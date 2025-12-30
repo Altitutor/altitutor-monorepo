@@ -83,13 +83,13 @@ export const billingApi = {
   },
 
   async listInvoices(params: { 
-    status?: InvoiceRow['status'] | 'ALL'; 
+    statuses?: InvoiceRow['status'][]; 
+    studentIds?: string[];
     from?: string; 
     to?: string; 
-    q?: string; 
     limit?: number; 
   }): Promise<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]> {
-    const { status = 'ALL', from, to, q, limit = 200 } = params || {};
+    const { statuses = [], studentIds = [], from, to, limit = 200 } = params || {};
     let query = (getSupabaseClient() as SupabaseClient<Database>)
       .from('invoices')
       .select(`
@@ -99,21 +99,21 @@ export const billingApi = {
       .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (status && status !== 'ALL') query = query.eq('status', status as InvoiceRow['status']);
+    
+    // Status filter (multiple selection with AND - all selected statuses)
+    if (statuses && statuses.length > 0) {
+      query = query.in('status', statuses);
+    }
+    
+    // Student filter (multiple selection with AND - all selected students)
+    if (studentIds && studentIds.length > 0) {
+      query = query.in('student_id', studentIds);
+    }
+    
+    // Date filters
     if (from) query = query.gte('invoice_date', from);
     if (to) query = query.lte('invoice_date', to);
-    if (q) {
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data ?? []).filter((p: any) => (
-        p.stripe_invoice_id?.includes(q) || 
-        p.stripe_invoice_number?.includes(q) ||
-        p.id?.includes(q) ||
-        p.stripe_charge_id?.includes(q) ||
-        p.student?.first_name?.toLowerCase().includes(q.toLowerCase()) ||
-        p.student?.last_name?.toLowerCase().includes(q.toLowerCase())
-      ));
-    }
+    
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[];
@@ -133,10 +133,10 @@ export const billingApi = {
   },
 
   async listPaymentAttempts(params: { 
-    status?: string | 'ALL'; 
+    statuses?: InvoiceRow['status'][];
+    studentIds?: string[];
     from?: string; 
     to?: string; 
-    q?: string; 
     limit?: number; 
   }): Promise<any[]> {
     return this.listInvoices(params);
