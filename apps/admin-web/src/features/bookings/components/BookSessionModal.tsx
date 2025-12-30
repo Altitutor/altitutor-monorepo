@@ -311,7 +311,7 @@ export function BookSessionModal({
                 <div className="space-y-1 text-sm">
                   <div>
                     <span className="font-medium">Student:</span>{' '}
-                    {formatStudentDisplay(studentsData?.students.find((s) => s.id === selectedStudentId)!)}
+                    {formatStudentDisplay(studentsData?.find((s) => s.id === selectedStudentId)!)}
                   </div>
                   {selectedSubjectId && (
                     <div>
