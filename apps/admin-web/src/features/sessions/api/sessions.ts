@@ -57,7 +57,7 @@ export const sessionsApi = {
    */
   getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
-    sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>>;
+    sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>>;
     sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>>;
     tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
     classesById: Record<string, Tables<'classes'>>;
@@ -117,7 +117,7 @@ export const sessionsApi = {
       const sessions = (rpcData.sessions || []) as Tables<'sessions'>[];
       
       // Transform sessionStudents - RPC returns full student objects with additional fields
-      const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>> = {};
+      const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = {};
       Object.entries(rpcData.sessionStudents || {}).forEach(([sessionId, students]) => {
         sessionStudents[sessionId] = (students || []).map((s: any) => ({
           id: s.id,
@@ -131,7 +131,8 @@ export const sessionsApi = {
           actual_attended: s.actual_attended ?? null,
           invoice_status: s.invoice_status ?? null,
           sessions_students_id: s.sessions_students_id ?? undefined,
-        })) as Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string }>;
+          is_extra: s.is_extra ?? false,
+        })) as Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>;
       });
       
       // Transform sessionStaff - RPC returns full staff objects with additional fields
