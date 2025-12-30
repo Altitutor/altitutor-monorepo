@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CreateBookingInput {
   session_type: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
-  student_id: string;
   start_at: string; // ISO timestamp
   end_at: string; // ISO timestamp
   subject_id?: string;
@@ -22,9 +21,15 @@ export const bookingsApi = {
       throw new Error('User not authenticated');
     }
 
+    // Get current student ID
+    const { data: studentId, error: studentIdError } = await supabase.rpc('current_student_id');
+    if (studentIdError || !studentId) {
+      throw new Error('Failed to get student ID');
+    }
+
     const { data, error } = await supabase.rpc('create_booking_session', {
       p_session_type: input.session_type,
-      p_student_id: input.student_id,
+      p_student_id: studentId,
       p_start_at: input.start_at,
       p_end_at: input.end_at,
       p_subject_id: input.subject_id || null,
