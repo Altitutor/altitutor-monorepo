@@ -342,10 +342,19 @@ BEGIN
           (v_actual_student_attendance->ss.session_id::TEXT->st.id::TEXT)::boolean,
           NULL
         ) as actual_attended,
-        COALESCE(iss.invoice_status, NULL) as invoice_status
+        COALESCE(iss.invoice_status, NULL) as invoice_status,
+        -- Calculate is_extra: student is extra if session has class_id but student is not enrolled
+        CASE 
+          WHEN s.class_id IS NOT NULL AND cs.id IS NULL THEN true
+          ELSE false
+        END as is_extra
       FROM public.sessions_students ss
       JOIN public.students st ON st.id = ss.student_id
+      JOIN public.sessions s ON s.id = ss.session_id
       LEFT JOIN invoice_status_per_student iss ON iss.sessions_students_id = ss.id
+      LEFT JOIN public.classes_students cs ON cs.class_id = s.class_id 
+        AND cs.student_id = ss.student_id 
+        AND (cs.unenrolled_at IS NULL OR cs.unenrolled_at > s.start_at)
       WHERE ss.session_id = ANY(v_session_ids)
     ),
     session_students_aggregated AS (
@@ -363,7 +372,8 @@ BEGIN
             'planned_absence', planned_absence,
             'actual_attended', actual_attended,
             'sessions_students_id', sessions_students_id,
-            'invoice_status', invoice_status
+            'invoice_status', invoice_status,
+            'is_extra', is_extra
           )
         ) as students
       FROM session_students_with_invoice
@@ -399,9 +409,18 @@ BEGIN
           st.curriculum,
           st.year_level,
           st.school,
-          us.attended
+          us.attended,
+          -- Calculate is_extra: student is extra if session has class_id but student is not enrolled
+          CASE 
+            WHEN s.class_id IS NOT NULL AND cs.id IS NULL THEN true
+            ELSE false
+          END as is_extra
         FROM unplanned_students us
         JOIN public.students st ON st.id = us.student_id
+        JOIN public.sessions s ON s.id = us.session_id
+        LEFT JOIN public.classes_students cs ON cs.class_id = s.class_id 
+          AND cs.student_id = us.student_id 
+          AND (cs.unenrolled_at IS NULL OR cs.unenrolled_at > s.start_at)
       ),
       unplanned_students_aggregated AS (
         SELECT 
@@ -418,7 +437,8 @@ BEGIN
               'planned_absence', true, -- Not in planned, so mark as absent
               'actual_attended', attended,
               'sessions_students_id', NULL,
-              'invoice_status', NULL
+              'invoice_status', NULL,
+              'is_extra', is_extra
             )
           ) as students
         FROM unplanned_student_details
