@@ -399,22 +399,44 @@ export const studentsApi = {
   
   /**
    * Search students by name, email, or status
+   * Uses server-side RPC search to avoid pagination limits
    */
   searchStudents: async (query: string): Promise<Tables<'students'>[]> => {
     try {
-      // Get all students first
-      const allStudents = await studentsApi.getAllStudents();
+      const trimmed = query.trim();
+      if (!trimmed) return [];
       
-      // Filter students based on the search query
-      const lowerQuery = query.toLowerCase();
-      return allStudents.filter(student => {
-        return (
-          (student.first_name?.toLowerCase().includes(lowerQuery)) ||
-          (student.last_name?.toLowerCase().includes(lowerQuery)) ||
-          (student.email?.toLowerCase().includes(lowerQuery)) ||
-          (student.status?.toLowerCase().includes(lowerQuery))
-        );
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      // Use server-side search function to avoid pagination limits
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+        p_search: trimmed,
+        p_statuses: undefined, // Search all statuses
+        p_include_relationships: false,
+        p_limit: 1000, // Reasonable limit for search results
+        p_offset: 0,
+        p_order_by: 'last_name',
+        p_ascending: true,
       });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return [];
+
+      const rpcData = rpcResult as { students: any[]; total: number };
+      // Transform RPC response to match Tables<'students'> format
+      return (rpcData.students || []).map((s: any) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status,
+        curriculum: s.curriculum || null,
+        year_level: s.year_level || null,
+        school: s.school || null,
+        email: s.email || null,
+        phone: s.phone || null,
+        created_at: s.created_at || null,
+        updated_at: s.updated_at || null,
+      })) as Tables<'students'>[];
     } catch (error) {
       console.error('Error searching students:', error);
       throw error;
@@ -545,28 +567,32 @@ export const studentsApi = {
   /**
    * Get all students with their subjects and classes using RPC function
    * This solves the N+1 query problem for the students table with class information
+   * Note: This function may not return all students if there are more than the limit.
+   * Consider using paginated queries for large datasets.
    */
-  getAllStudentsWithDetails: async (): Promise<{ 
+  getAllStudentsWithDetails: async (params?: { limit?: number; statuses?: Tables<'students'>['status'][] }): Promise<{ 
     students: Tables<'students'>[]; 
     studentSubjects: Record<string, Tables<'subjects'>[]>;
     studentClasses: Record<string, Tables<'classes'>[]>;
+    total: number;
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { limit = 5000, statuses } = params || {}; // Default to 5000, configurable
     
     try {
-      // Use RPC function to get all students (no search term, very high limit)
+      // Use RPC function to get students with pagination support
       const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
         p_search: undefined,
-        p_statuses: undefined, // Get all statuses
+        p_statuses: statuses, // Get specified statuses or all if undefined
         p_include_relationships: true,
-        p_limit: 10000, // High limit to get all students
+        p_limit: limit,
         p_offset: 0,
         p_order_by: 'last_name',
         p_ascending: true,
       });
       
       if (rpcError) throw rpcError;
-      if (!rpcResult) return { students: [], studentSubjects: {}, studentClasses: {} };
+      if (!rpcResult) return { students: [], studentSubjects: {}, studentClasses: {}, total: 0 };
       
       const rpcData = rpcResult as { students: any[]; total: number };
       const rpcStudents = (rpcData.students || []) as any[];
@@ -645,7 +671,8 @@ export const studentsApi = {
       return {
         students,
         studentSubjects,
-        studentClasses
+        studentClasses,
+        total: rpcData.total || students.length,
       };
       
     } catch (error) {

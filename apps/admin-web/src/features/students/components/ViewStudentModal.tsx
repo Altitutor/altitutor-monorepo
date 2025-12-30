@@ -421,8 +421,8 @@ export function ViewStudentModal({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="billing" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
-                  <div className="h-full p-6">
+                <TabsContent value="billing" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
                     <StudentBillingTab student={student} />
                   </div>
                 </TabsContent>

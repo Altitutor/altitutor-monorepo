@@ -4897,6 +4897,7 @@ export type Database = {
       }
       is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      is_adminstaff_active_test: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }

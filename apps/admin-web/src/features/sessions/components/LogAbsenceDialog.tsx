@@ -24,7 +24,9 @@ import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import { Search, Loader2 } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type WizardStep = 'select-student' | 'select-sessions' | 'process-session' | 'review' | 'confirm' | 'success' | 'error';
 
@@ -45,27 +47,61 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
   >(new Map());
   const [errorMessage, setErrorMessage] = useState<string>('');
   
-  // Student search
+  // Student search - use server-side search to avoid pagination limits
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: allStudents, isLoading: loadingStudents } = useQuery({
-    queryKey: ['students', 'all'],
-    queryFn: () => studentsApi.getAllStudents(),
-    staleTime: 1000 * 60 * 5,
+  const { data: searchResults, isLoading: loadingStudents } = useQuery({
+    queryKey: ['students', 'search', searchQuery.trim()],
+    queryFn: async () => {
+      const trimmed = searchQuery.trim();
+      if (!trimmed) return { students: [], total: 0 };
+      
+      // Use server-side search function for better performance and to avoid pagination limits
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+        p_search: trimmed,
+        p_statuses: ['ACTIVE'], // Only ACTIVE students for absence logging
+        p_include_relationships: false, // We don't need relationships here
+        p_limit: 50, // Show up to 50 results
+        p_offset: 0,
+        p_order_by: 'last_name',
+        p_ascending: true,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return { students: [], total: 0 };
+
+      const rpcData = rpcResult as { students: any[]; total: number };
+      // Transform RPC response to match Tables<'students'> format
+      // The RPC function returns: id, first_name, last_name, status, curriculum, year_level, school
+      const students = (rpcData.students || []).map((s: any) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status,
+        curriculum: s.curriculum || null,
+        year_level: s.year_level || null,
+        school: s.school || null,
+        // These fields may not be in the RPC response, but we'll include them as null
+        // The component only needs basic fields for display
+        email: s.email || null,
+        phone: s.phone || null,
+        created_at: s.created_at || null,
+        updated_at: s.updated_at || null,
+      })) as Tables<'students'>[];
+      
+      return {
+        students,
+        total: rpcData.total || 0,
+      };
+    },
+    enabled: searchQuery.trim().length > 0, // Only search when there's a query
+    staleTime: 1000 * 30, // 30 seconds stale time for search results
   });
 
   const filteredStudents = useMemo(() => {
-    if (!allStudents || !searchQuery.trim()) return [];
-    const query = searchQuery.toLowerCase();
-    return allStudents
-      .filter(
-        (student) =>
-          student.status === 'ACTIVE' && // Only show ACTIVE students
-          (student.first_name.toLowerCase().includes(query) ||
-          student.last_name.toLowerCase().includes(query) ||
-          `${student.first_name} ${student.last_name}`.toLowerCase().includes(query))
-      )
-      .slice(0, 10); // Limit to 10 results
-  }, [allStudents, searchQuery]);
+    if (!searchQuery.trim()) return [];
+    return (searchResults?.students || []).slice(0, 10); // Limit to 10 results for display
+  }, [searchResults, searchQuery]);
 
   // Get student's future sessions (8 weeks ahead by default)
   const { data: futureSessions, isLoading: loadingSessions } = useStudentFutureSessions(

@@ -236,6 +236,11 @@ export function SessionsCard({
             <div className={cn('flex items-center gap-2 flex-wrap', shouldUseCompact ? 'mt-1' : 'mt-2')}>
               <div className="flex flex-wrap gap-1">
                 {students.map((student) => {
+                  // #region agent log
+                  if (student.first_name === 'Elliot' && student.last_name === 'Koh') {
+                    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SessionsCard.tsx:238',message:'Elliot Koh in SessionsCard',data:{is_extra:student.is_extra,is_extra_type:typeof student.is_extra,planned_absence:student.planned_absence,student},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                  }
+                  // #endregion
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
                   
@@ -245,6 +250,11 @@ export function SessionsCard({
                     : student.is_extra 
                     ? 'Attending (extra)' 
                     : 'Attending';
+                  // #region agent log
+                  if (student.first_name === 'Elliot' && student.last_name === 'Koh') {
+                    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SessionsCard.tsx:247',message:'Elliot Koh status calculation',data:{status,planned_absence:student.planned_absence,is_extra:student.is_extra},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                  }
+                  // #endregion
                   
                   const badge = (
                     <span

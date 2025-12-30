@@ -340,14 +340,35 @@ export const tutorLogsApi = {
   /**
    * Get all tutor logs (admin only)
    */
-  getAllTutorLogs: async (): Promise<Tables<'tutor_logs'>[]> => {
-    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+  getAllTutorLogs: async (params?: { limit?: number; offset?: number; dateFrom?: string; dateTo?: string }): Promise<{ logs: Tables<'tutor_logs'>[]; total: number }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { limit = 1000, offset = 0, dateFrom, dateTo } = params || {};
+    
+    let query = supabase
       .from('tutor_logs')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false });
 
+    // Add date range filters if provided
+    if (dateFrom) {
+      query = query.gte('created_at', dateFrom);
+    }
+    if (dateTo) {
+      query = query.lte('created_at', dateTo);
+    }
+
+    // Apply pagination
+    const from = offset;
+    const to = Math.max(offset + limit - 1, offset);
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
     if (error) throw error;
-    return data as Tables<'tutor_logs'>[];
+    
+    return {
+      logs: (data ?? []) as Tables<'tutor_logs'>[],
+      total: count ?? 0,
+    };
   },
 
   /**

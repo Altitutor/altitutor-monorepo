@@ -474,10 +474,20 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                       return (
                         <div className="flex flex-col gap-1">
                           {studentList.map((s) => {
+                            // #region agent log
+                            if (s.first_name === 'Elliot' && s.last_name === 'Koh') {
+                              fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SessionsTable.tsx:477',message:'Elliot Koh in SessionsTable',data:{is_extra:s.is_extra,is_extra_type:typeof s.is_extra,is_extra_eq_true:s.is_extra===true,student:s},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                            }
+                            // #endregion
                             const plannedAbsence = s.planned_absence === true;
                             const actualAttended = s.actual_attended;
                             const invoiceStatus = s.invoice_status;
                             const isExtra = s.is_extra === true;
+                            // #region agent log
+                            if (s.first_name === 'Elliot' && s.last_name === 'Koh') {
+                              fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SessionsTable.tsx:481',message:'Elliot Koh isExtra check',data:{isExtra,plannedAbsence,nameClass:plannedAbsence?'text-muted-foreground line-through':isExtra?'text-orange-600 dark:text-orange-400':''},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                            }
+                            // #endregion
                             const nameClass = plannedAbsence 
                               ? "text-muted-foreground line-through" 
                               : isExtra

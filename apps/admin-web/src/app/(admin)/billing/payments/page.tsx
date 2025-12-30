@@ -5,9 +5,12 @@ import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, use
 import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Checkbox, ScrollArea } from '@altitutor/ui';
 import { Filter, X } from 'lucide-react';
-import { addDays } from 'date-fns';
 import { cn } from '@/shared/utils';
-import { useStudents } from '@/features/students';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { useQuery } from '@tanstack/react-query';
+import type { Tables } from '@altitutor/shared';
 import { TablePagination } from '@/shared/components/TablePagination';
 
 export const dynamic = 'force-dynamic';
@@ -30,8 +33,48 @@ export default function PaymentsPage() {
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [invoiceItemsMap, setInvoiceItemsMap] = useState<Record<string, InvoiceItemRow[]>>({});
 
-  // Fetch all students for the filter
-  const { data: allStudents = [] } = useStudents();
+  // Fetch students for the filter using server-side search
+  const { data: searchResults } = useQuery({
+    queryKey: ['students', 'search', studentSearchQuery.trim()],
+    queryFn: async () => {
+      const trimmed = studentSearchQuery.trim();
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      
+      // Use server-side search function to avoid pagination limits
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+        p_search: trimmed.length > 0 ? trimmed : undefined,
+        p_statuses: ['ACTIVE', 'TRIAL'], // Include both ACTIVE and TRIAL students
+        p_include_relationships: false,
+        p_limit: 100, // Limit to 100 results for filter dropdown
+        p_offset: 0,
+        p_order_by: 'last_name',
+        p_ascending: true,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return { students: [], total: 0 };
+
+      const rpcData = rpcResult as { students: any[]; total: number };
+      const students = (rpcData.students || []).map((s: any) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status,
+        curriculum: s.curriculum || null,
+        year_level: s.year_level || null,
+        school: s.school || null,
+        email: s.email || null,
+        phone: s.phone || null,
+        created_at: s.created_at || null,
+        updated_at: s.updated_at || null,
+      })) as Tables<'students'>[];
+      
+      return { students, total: rpcData.total || 0 };
+    },
+    staleTime: 1000 * 30, // 30 seconds stale time
+  });
+
+  const allStudents = searchResults?.students || [];
 
   // Fetch invoices with pagination
   const { 
@@ -330,8 +373,9 @@ export default function PaymentsPage() {
               </TableRow>
             ) : (
               invoices.map((invoice) => {
-                const invoiceDate = invoice.invoice_date ? new Date(invoice.invoice_date) : null;
-                const sessionDate = invoiceDate ? addDays(invoiceDate, 1) : null;
+                // invoice_date already represents the date of the sessions being invoiced
+                // No need to add 1 day - that was a bug
+                const sessionDate = invoice.invoice_date ? new Date(invoice.invoice_date) : null;
                 const items = invoiceItemsMap[invoice.id] || [];
                 
                 return (

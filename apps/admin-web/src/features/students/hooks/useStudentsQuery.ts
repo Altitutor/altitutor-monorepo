@@ -58,7 +58,7 @@ export function useStudentDetails(studentId: string, enabled = true) {
 export function useStudentsWithDetails() {
   return useQuery({
     queryKey: studentsKeys.withDetails(),
-    queryFn: studentsApi.getAllStudentsWithDetails,
+    queryFn: () => studentsApi.getAllStudentsWithDetails(),
     staleTime: 1000 * 60 * 2, // 2 minutes - frequently updated data
     gcTime: 1000 * 60 * 5, // 5 minutes
   });

@@ -15,12 +15,12 @@ export const tutorLogsKeys = {
 };
 
 /**
- * Get all tutor logs
+ * Get all tutor logs with pagination support
  */
-export function useTutorLogs() {
+export function useTutorLogs(params?: { limit?: number; offset?: number; dateFrom?: string; dateTo?: string }) {
   return useQuery({
-    queryKey: tutorLogsKeys.lists(),
-    queryFn: tutorLogsApi.getAllTutorLogs,
+    queryKey: [...tutorLogsKeys.lists(), params],
+    queryFn: () => tutorLogsApi.getAllTutorLogs(params),
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
   });
