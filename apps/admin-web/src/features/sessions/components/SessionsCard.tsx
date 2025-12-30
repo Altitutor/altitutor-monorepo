@@ -22,7 +22,7 @@ interface SessionsCardProps {
   classData?: Tables<'classes'>;
   subject?: Tables<'subjects'>;
   staff: Array<Tables<'staff'> & { planned_absence?: boolean }>;
-  students?: Array<Tables<'students'> & { planned_absence?: boolean }>;
+  students?: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
   onClick?: () => void;
   
   // Visual states
@@ -239,6 +239,13 @@ export function SessionsCard({
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
                   
+                  // Determine status for tooltip
+                  const status = student.planned_absence 
+                    ? 'Planned Absence' 
+                    : student.is_extra 
+                    ? 'Attending (extra)' 
+                    : 'Attending';
+                  
                   const badge = (
                     <span
                       key={student.id}
@@ -249,6 +256,8 @@ export function SessionsCard({
                           : 'text-xs px-2 py-0.5',
                         student.planned_absence
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                          : student.is_extra
+                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
                           : 'bg-muted'
                       )}
                     >
@@ -256,22 +265,19 @@ export function SessionsCard({
                     </span>
                   );
                   
-                  if (!showFullNames) {
-                    return (
-                      <TooltipProvider key={student.id} delayDuration={100}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            {badge}
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{fullName}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    );
-                  }
-                  
-                  return badge;
+                  // Always show tooltip with name and status
+                  return (
+                    <TooltipProvider key={student.id} delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {badge}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{fullName} - {status}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
                 })}
               </div>
             </div>

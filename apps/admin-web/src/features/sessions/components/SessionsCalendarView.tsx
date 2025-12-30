@@ -172,7 +172,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             
                             const cls: any = (data as any)?.classesById?.[s.class_id];
                             const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-                            const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean }>;
+                            const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean }>;
                             
                             // Calculate actual pixel dimensions for smart sizing
