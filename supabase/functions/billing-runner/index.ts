@@ -145,13 +145,30 @@ Deno.serve(async (req: Request) => {
     }
     
     const { startIso, endIso } = (() => {
-      // Use UTC methods to ensure date range is in UTC, not local time
+      // Convert target date to Adelaide timezone to get the correct date range
+      // Sessions are stored in UTC, but we want to filter by Adelaide date
+      // Adelaide is UTC+10:30 (ACDT) or UTC+9:30 (ACST)
+      // For January, Adelaide uses ACDT (UTC+10:30)
+      // Example: 03/01/2026 Adelaide = 2026-01-02 13:30:00 UTC to 2026-01-03 13:29:59 UTC
+      
       const year = targetDate.getUTCFullYear();
       const month = targetDate.getUTCMonth();
       const day = targetDate.getUTCDate();
-      const start = new Date(Date.UTC(year, month, day, 0, 0, 0));
-      const end = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-      return { startIso: start.toISOString(), endIso: end.toISOString() };
+      
+      // Calculate UTC range that covers the entire Adelaide day
+      // Start: 00:00:00 Adelaide = 13:30:00 previous day UTC (UTC+10:30)
+      // End: 23:59:59.999 Adelaide = 13:29:59.999 same day UTC
+      const adelaideOffsetMs = 10.5 * 60 * 60 * 1000; // 10.5 hours in milliseconds
+      
+      // Start of day in Adelaide (00:00:00 Adelaide time)
+      const startAdelaide = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const startUTC = new Date(startAdelaide.getTime() - adelaideOffsetMs);
+      
+      // End of day in Adelaide (23:59:59.999 Adelaide time)
+      const endAdelaide = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+      const endUTC = new Date(endAdelaide.getTime() - adelaideOffsetMs);
+      
+      return { startIso: startUTC.toISOString(), endIso: endUTC.toISOString() };
     })();
 
     const invoiceDate = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
