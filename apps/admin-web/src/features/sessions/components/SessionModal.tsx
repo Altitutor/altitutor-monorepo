@@ -164,7 +164,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   // Process students
   const studentsData = sessionsStudents.map((ss: any) => {
-    let plannedStatus: 'attending' | 'absent' | 'rescheduled' | 'credited' = 'attending';
+    let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' = 'attending';
     let rescheduledDate = '';
     
     if (ss.planned_absence) {
@@ -178,6 +178,9 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       } else if (ss.is_credited) {
         plannedStatus = 'credited';
       }
+    } else if (ss.is_extra) {
+      // If student is extra and attending, show "attending-extra" status
+      plannedStatus = 'attending-extra';
     }
     
     const actualAttendance = actualStudentAttendance[ss.student_id];

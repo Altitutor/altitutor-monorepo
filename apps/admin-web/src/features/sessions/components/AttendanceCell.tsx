@@ -3,7 +3,7 @@
 import { cn } from '@/shared/utils/index';
 
 type AttendanceCellProps = {
-  status: 'attending' | 'absent' | 'rescheduled' | 'credited' | 'swapped' | 'attended' | 'did-not-attend' | 'not-logged';
+  status: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'swapped' | 'attended' | 'did-not-attend' | 'not-logged';
   linkTo?: {
     type: 'session' | 'staff';
     id: string;
@@ -20,6 +20,11 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
         return {
           text: 'Attending',
           className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+        };
+      case 'attending-extra':
+        return {
+          text: 'Attending (extra)',
+          className: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400',
         };
       case 'absent':
         return {

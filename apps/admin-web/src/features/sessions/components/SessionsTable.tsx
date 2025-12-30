@@ -477,8 +477,11 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                             const plannedAbsence = s.planned_absence === true;
                             const actualAttended = s.actual_attended;
                             const invoiceStatus = s.invoice_status;
+                            const isExtra = s.is_extra === true;
                             const nameClass = plannedAbsence 
                               ? "text-muted-foreground line-through" 
+                              : isExtra
+                              ? "text-orange-600 dark:text-orange-400"
                               : "";
                             
                             return (
