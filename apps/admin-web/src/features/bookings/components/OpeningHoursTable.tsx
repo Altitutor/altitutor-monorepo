@@ -51,7 +51,7 @@ export function OpeningHoursTable({ openingHours, onUpdate }: OpeningHoursTableP
     setEditingHours(hours);
     setStartTime(hours.start_time);
     setEndTime(hours.end_time);
-    setIsActive(hours.is_active);
+    setIsActive(hours.is_active ?? true);
   };
 
   const handleSave = async () => {
