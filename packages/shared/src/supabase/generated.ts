@@ -115,6 +115,89 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_settings: {
+        Row: {
+          description: string
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string
+        }
+        Insert: {
+          description: string
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string
+        }
+        Update: {
+          description?: string
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      booking_staff_unavailability: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          end_at: string
+          id: string
+          reason: string | null
+          staff_id: string
+          start_at: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          end_at: string
+          id?: string
+          reason?: string | null
+          staff_id: string
+          start_at: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          end_at?: string
+          id?: string
+          reason?: string | null
+          staff_id?: string
+          start_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_staff_unavailability_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_staff_unavailability_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_staff_unavailability_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_staff_unavailability_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           created_at: string | null
@@ -1245,6 +1328,36 @@ export type Database = {
           },
         ]
       }
+      opening_hours: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean | null
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       owned_numbers: {
         Row: {
           created_at: string | null
@@ -1821,6 +1934,7 @@ export type Database = {
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
           created_at: string | null
+          drafting_availability: boolean | null
           email: string
           first_name: string
           has_parking_remote: string | null
@@ -1832,6 +1946,8 @@ export type Database = {
           phone_number: string | null
           role: string
           status: string
+          subsidy_interview_availability: boolean | null
+          trial_session_availability: boolean | null
           updated_at: string | null
           user_id: string | null
         }
@@ -1846,6 +1962,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
+          drafting_availability?: boolean | null
           email: string
           first_name: string
           has_parking_remote?: string | null
@@ -1857,6 +1974,8 @@ export type Database = {
           phone_number?: string | null
           role: string
           status: string
+          subsidy_interview_availability?: boolean | null
+          trial_session_availability?: boolean | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -1871,6 +1990,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
+          drafting_availability?: boolean | null
           email?: string
           first_name?: string
           has_parking_remote?: string | null
@@ -1882,6 +2002,8 @@ export type Database = {
           phone_number?: string | null
           role?: string
           status?: string
+          subsidy_interview_availability?: boolean | null
+          trial_session_availability?: boolean | null
           updated_at?: string | null
           user_id?: string | null
         }

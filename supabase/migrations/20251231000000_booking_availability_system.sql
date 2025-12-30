@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS public.booking_staff_unavailability (
 CREATE INDEX IF NOT EXISTS idx_booking_staff_unavailability_staff_range 
   ON public.booking_staff_unavailability(staff_id, start_at, end_at);
 CREATE INDEX IF NOT EXISTS idx_booking_staff_unavailability_range 
-  ON public.booking_staff_unavailability USING GIST (staff_id, tstzrange(start_at, end_at));
+  ON public.booking_staff_unavailability USING GIST (tstzrange(start_at, end_at));
+CREATE INDEX IF NOT EXISTS idx_booking_staff_unavailability_staff_id 
+  ON public.booking_staff_unavailability(staff_id);
 
 -- Comments
 COMMENT ON TABLE public.booking_staff_unavailability IS 'Staff blockout dates and times when they are unavailable for bookings';
