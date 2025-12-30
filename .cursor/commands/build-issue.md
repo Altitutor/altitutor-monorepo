@@ -4,9 +4,11 @@ Implement Linear issue(s) with comprehensive testing and incremental commits.
 
 ## Context
 
-This is the Every Language monorepo:
+This is the Altitutor monorepo:
 
-- **Stack**: React 19, TypeScript 5.8, TailwindCSS, TanStack Query 5.83, Zustand 5.0, Supabase (Postgres 17), Deno Edge Functions
+- **Stack**: React 18, TypeScript 5.8, TailwindCSS, TanStack Query 5.77, Zustand 4.5, Supabase (Postgres), Deno Edge Functions
+- **Apps**: `admin-web` (port 3000), `student-web` (port 3001), `tutor-web` (port 3002)
+- **Packages**: `shared` (types and utilities), `ui` (shared components)
 - **Project Rules**: See `.cursor/rules/` for frontend, backend, testing guidelines
 - **Testing**: Write tests for all new features and bug fixes
 - **Documentation**: Use context7 MCP for library best practices
@@ -23,7 +25,7 @@ This is the Every Language monorepo:
 
 **Fallback:**
 
-- If no issues found in git, ask user: "Which Linear issue(s) should I build? (e.g., `EL-123`)"
+- If no issues found in git, ask user: "Which Linear issue(s) should I build? (e.g., `ALT-123`)"
 
 ### 2. Fetch Issue Details from Linear
 
@@ -43,7 +45,7 @@ For each issue:
 - Based on issue description, find relevant files:
   - Frontend: Components in `apps/*/src/features/`, stores, hooks
   - Backend: Migrations in `supabase/migrations/`, Edge Functions in `supabase/functions/`
-  - Types: Check `packages/shared-types/types/database.types.ts`
+  - Types: Check `packages/shared/src/supabase/generated.ts`
 
 **Search for Similar Patterns:**
 
@@ -53,10 +55,11 @@ For each issue:
 
 **Review Project Rules:**
 
-- Read `.cursor/rules/frontend.mdc` for React/TanStack Query/Zustand patterns
-- Read `.cursor/rules/backend.mdc` for Supabase migration rules
-- Read `.cursor/rules/testing.mdc` for testing patterns
-- Apply `.cursor/rules/general.mdc` conventions
+- Read `.cursor/rules/20-nextjs-app-router.mdc` for Next.js patterns
+- Read `.cursor/rules/30-react-query.mdc` for TanStack Query patterns
+- Read `.cursor/rules/50-database-migrations.mdc` for Supabase migration rules
+- Read `.cursor/rules/80-testing.mdc` for testing patterns
+- Apply `.cursor/rules/` conventions
 
 ### 4. Create Implementation Plan
 
@@ -126,10 +129,10 @@ Example queries:
 **Implementation Order:**
 
 1. **Backend First (if applicable):**
-   - Database migrations (must be idempotent - see backend.mdc)
+   - Database migrations (must be idempotent - see database-migrations.mdc)
    - Edge Functions
    - Update RLS policies
-   - Generate types: `pnpm db:generate-types`
+   - Generate types: `pnpm db:types`
 
 2. **Frontend Next:**
    - Create/update components
@@ -177,9 +180,9 @@ ref {issue_id}"
 After each major change, run:
 
 ```bash
-pnpm run lint          # Check linting
-pnpm run type-check    # Check TypeScript errors
-pnpm run test          # Run tests
+pnpm lint          # Check linting
+pnpm typecheck     # Check TypeScript errors
+pnpm test          # Run tests
 ```
 
 **Fix Issues Immediately:**
@@ -193,35 +196,31 @@ pnpm run test          # Run tests
 Run full quality check:
 
 ```bash
-pnpm run ci:pr
+pnpm checkall
 ```
 
-This runs (mirroring CI workflow):
+This runs:
 
-- Format check (all workspaces)
 - Lint (all workspaces)
 - Type check (all workspaces)
-- Tests with coverage (all workspaces)
+- Tests (all workspaces)
 - Build (all workspaces)
-- Backend checks (if backend changed: Supabase start, tests, Deno type-check)
-- App-specific validations (App Bible managed workflow check)
-- Security audit
 
-**Note**: The script automatically detects which parts of the monorepo changed and only runs relevant checks.
+**Note**: This runs checks across all workspaces. For app-specific checks, run commands in the specific app directory.
 
-\*\*If `ci:pr` fails:
+\*\*If `checkall` fails:
 
 - Identify which step failed
 - Fix the issues
-- Re-run `ci:pr`
+- Re-run `pnpm checkall`
 - Repeat until it passes
 
 ### 9. Update Documentation (if needed)
 
 **Database Changes:**
 
-- If migrations added/modified tables, update docs in `docs/database/`
-- Follow domain-based organization (ref-languages-and-regions, bible, analytics, users, finance, projects)
+- If migrations added/modified tables, update relevant docs in `docs/`
+- Document schema changes and RLS policy updates
 
 **API Changes:**
 
@@ -243,8 +242,8 @@ Give user specific manual testing steps:
 ### Setup
 
 1. Start development server:
-   - Frontend: `pnpm --filter={workspace} dev`
-   - Backend: `pnpm dev` (starts local Supabase)
+   - Frontend: `pnpm --filter {workspace} dev` (e.g., `pnpm --filter admin-web dev`)
+   - Backend: Ensure local Supabase is running
 
 2. Navigate to: {URL}
 
@@ -333,14 +332,14 @@ Provide summary:
 - If Linear API fails: Continue with cached/manual context
 - If tests fail: Debug, fix, and re-run
 - If breaking changes needed: Get user approval first
-- If `ci:pr` fails: Identify and fix issues iteratively
+- If `checkall` fails: Identify and fix issues iteratively
 - If library usage unclear: Use context7 MCP for documentation
 
 ## Important Notes
 
 - **Never use `any` type**: Use `unknown` instead
 - **Always enable RLS**: For new database tables
-- **Migrations must be idempotent**: See backend.mdc
+- **Migrations must be idempotent**: See database-migrations.mdc
 - **Write explicit return types**: For all functions
 - **Use conventional commits**: feat:, fix:, test:, chore:
 - **Reference issues in commits**: `ref {issue_id}`

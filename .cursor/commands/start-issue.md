@@ -1,12 +1,16 @@
 # Start Issue
 
-Create a feature branch and draft PR for one or more Linear issues, following the Every Language workflow.
+Create a feature branch and draft PR for one or more Linear issues, following the Altitutor workflow.
 
 ## Context
+
+This is the Altitutor monorepo:
 
 - **Branch Strategy**: All branches created from `develop`, PRs merge to `develop`
 - **Commit Convention**: Conventional commits with Linear references
 - **PR Format**: Draft PRs with `fixes {issue_id}` tags
+- **Apps**: `admin-web`, `student-web`, `tutor-web`
+- **Packages**: `shared`, `ui`
 
 ## Workflow
 
@@ -23,7 +27,7 @@ Create a feature branch and draft PR for one or more Linear issues, following th
 
 ### 2. Get Linear Issue ID(s)
 
-- Prompt user for Linear issue ID(s): "Provide Linear issue ID(s) (e.g., `EL-123` or `EL-123 EL-124`)"
+- Prompt user for Linear issue ID(s): "Provide Linear issue ID(s) (e.g., `ALT-123` or `ALT-123 ALT-124`)"
 - Parse input to handle both single and multiple issue IDs
 - Validate format: Issues should match pattern `[A-Z]+-\d+`
 

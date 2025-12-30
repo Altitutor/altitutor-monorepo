@@ -65,7 +65,7 @@ Based on affected area:
 
 - Frontend: Component/feature name
 - Backend: Migration/function name
-- Monorepo: Workspace name (e.g., `web-admin`, `shared-types`)
+- Monorepo: Workspace name (e.g., `admin-web`, `student-web`, `tutor-web`, `shared`, `ui`)
 
 #### 2.4 **Write Subject:**
 

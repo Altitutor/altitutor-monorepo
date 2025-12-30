@@ -4,17 +4,19 @@ Write out a linear issue properly, and enhance it with detailed context from the
 
 ## Context
 
-This is an Every Language monorepo with:
+This is the Altitutor monorepo with:
 
-- **Stack**: React 19, TypeScript 5.8, TailwindCSS, TanStack Query 5.83, Zustand 5.0, Supabase (Postgres 17)
-- **Structure**: `apps/`, `packages/shared-types` (DB types), `supabase/` (migrations, Edge Functions)
+- **Stack**: React 18, TypeScript 5.8, TailwindCSS, TanStack Query 5.77, Zustand 4.5, Supabase (Postgres)
+- **Apps**: `admin-web` (port 3000), `student-web` (port 3001), `tutor-web` (port 3002)
+- **Packages**: `shared` (types and utilities), `ui` (shared components)
+- **Structure**: `apps/*/src/features/` (feature-first architecture), `packages/shared/src/supabase/generated.ts` (DB types), `supabase/` (migrations, Edge Functions)
 - **Environments**: `develop` branch → dev, `main` branch → prod
 
 ## Workflow
 
 ### 1. Get Linear Issue ID
 
-- Prompt user for the Linear issue ID (e.g., `EL-123`)
+- Prompt user for the Linear issue ID (e.g., `ALT-123`)
 
 ### 2. Fetch Issue from Linear
 
@@ -48,7 +50,7 @@ Based on the issue type and description:
 
 - Analyze both frontend and backend components
 - Identify API integration points
-- Check type definitions in `packages/shared-types`
+- Check type definitions in `packages/shared/src/supabase/generated.ts`
 
 ### 4. Gather Additional Context
 
