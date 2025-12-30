@@ -146,12 +146,13 @@ Deno.serve(async (req: Request) => {
 
     const invoiceDate = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
 
-    // Find sessions for target date
+    // Find billable sessions for target date (filter by billing_type IS NOT NULL)
     const { data: sessions, error: sessErr } = await supabase
       .from('sessions')
-      .select('id, start_at, subject_id')
+      .select('id, start_at, end_at, subject_id, class_id, billing_type')
       .gte('start_at', startIso)
-      .lte('start_at', endIso);
+      .lte('start_at', endIso)
+      .not('billing_type', 'is', null); // Only billable sessions
     if (sessErr) throw sessErr;
 
     if (!sessions?.length) {
@@ -160,11 +161,48 @@ Deno.serve(async (req: Request) => {
         processed: 0, 
         invoicesCreated: 0,
         dateRange: { start: startIso, end: endIso },
-        message: `No sessions found for ${dateOverride ? `date ${invoiceDate}` : 'tomorrow'}`
+        message: `No billable sessions found for ${dateOverride ? `date ${invoiceDate}` : 'tomorrow'}`
       });
     }
 
-    // Load attending students and subject pricing
+    // Load billing pricing tables
+    const { data: billingPricing, error: bpErr } = await supabase
+      .from('billing_pricing')
+      .select('billing_type, hourly_rate_cents, currency');
+    if (bpErr) throw bpErr;
+    const pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }> = {};
+    for (const p of billingPricing || []) {
+      pricingByBillingType[p.billing_type] = {
+        hourly_rate_cents: p.hourly_rate_cents,
+        currency: p.currency
+      };
+    }
+
+    // Load subject pricing overrides
+    const subjectIds = Array.from(new Set(sessions.map((s: any) => s.subject_id).filter(Boolean)));
+    const { data: pricingOverrides, error: poErr } = await supabase
+      .from('billing_pricing_overrides')
+      .select('subject_id, billing_type, hourly_rate_cents, currency, effective_from, effective_until')
+      .in('subject_id', subjectIds);
+    if (poErr) throw poErr;
+    const overridesBySubjectAndBilling: Record<string, Record<string, any>> = {};
+    const now = new Date();
+    for (const override of pricingOverrides || []) {
+      // Check if override is active
+      const effectiveFrom = new Date(override.effective_from);
+      const effectiveUntil = override.effective_until ? new Date(override.effective_until) : null;
+      if (effectiveFrom <= now && (!effectiveUntil || effectiveUntil > now)) {
+        if (!overridesBySubjectAndBilling[override.subject_id]) {
+          overridesBySubjectAndBilling[override.subject_id] = {};
+        }
+        overridesBySubjectAndBilling[override.subject_id][override.billing_type] = {
+          hourly_rate_cents: override.hourly_rate_cents,
+          currency: override.currency
+        };
+      }
+    }
+
+    // Load attending students
     const sessionIds = sessions.map((s: any) => s.id);
     const { data: ssRows, error: ssErr } = await supabase
       .from('sessions_students')
@@ -172,14 +210,24 @@ Deno.serve(async (req: Request) => {
       .in('session_id', sessionIds);
     if (ssErr) throw ssErr;
 
-    const subjectIds = Array.from(new Set(sessions.map((s: any) => s.subject_id).filter(Boolean)));
+    // Load subjects for display names (no pricing fields needed)
     const { data: subjects, error: subjErr } = await supabase
       .from('subjects')
-      .select('id, billing_type, session_fee_cents, currency')
+      .select('id, name, curriculum, year_level')
       .in('id', subjectIds);
     if (subjErr) throw subjErr;
     const subjectById: Record<string, any> = {};
     for (const sub of subjects || []) subjectById[sub.id] = sub;
+
+    // Load classes for class name display
+    const classIds = Array.from(new Set(sessions.map((s: any) => s.class_id).filter(Boolean)));
+    const { data: classes, error: classErr } = await supabase
+      .from('classes')
+      .select('id, level, subject_id')
+      .in('id', classIds);
+    if (classErr) throw classErr;
+    const classById: Record<string, any> = {};
+    for (const cls of classes || []) classById[cls.id] = cls;
 
     // Get billing info with default payment method using optimized view
     const { data: billingRows, error: billErr } = await supabase
@@ -221,6 +269,24 @@ Deno.serve(async (req: Request) => {
       .from('student_subsidies')
       .select('student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until');
     if (subErr) throw subErr;
+
+    // Pricing calculation function
+    const calculateSessionPrice = (session: any): number => {
+      if (!session.billing_type) return 0; // Non-billable session
+      
+      // Calculate duration in hours
+      const startTime = new Date(session.start_at).getTime();
+      const endTime = new Date(session.end_at).getTime();
+      const durationMs = endTime - startTime;
+      const durationHours = durationMs / (1000 * 60 * 60);
+      
+      // Check for subject override first
+      const override = overridesBySubjectAndBilling[session.subject_id]?.[session.billing_type];
+      const hourlyRateCents = override?.hourly_rate_cents || pricingByBillingType[session.billing_type]?.hourly_rate_cents || 0;
+      
+      // Calculate total: hourly_rate * duration (rounded to nearest cent)
+      return Math.round(hourlyRateCents * durationHours);
+    };
 
     // Group sessions by student_id
     const sessionsByStudent: Record<string, any[]> = {};
@@ -268,17 +334,50 @@ Deno.serve(async (req: Request) => {
 
         // Calculate pricing for each session and build invoice items
         const invoiceItems: any[] = [];
-        let totalAmountCents = 0;
+        let totalNetCents = 0; // Track total net amount (before fees)
+
+        // Helper function to build class long name
+        const getClassLongName = (session: any): string => {
+          const cls = session.class_id ? classById[session.class_id] : null;
+          const subj = session.subject_id ? subjectById[session.subject_id] : null;
+          if (!subj) return 'Session';
+          
+          const parts: string[] = [];
+          if (subj.curriculum) parts.push(String(subj.curriculum));
+          if (subj.year_level != null) parts.push(String(subj.year_level));
+          if (subj.name) parts.push(subj.name);
+          if (cls?.level) parts.push(String(cls.level));
+          return parts.length > 0 ? parts.join(' ') : subj.name || 'Session';
+        };
+
+        // Helper function to format session date
+        const formatSessionDate = (startAt: string): string => {
+          try {
+            const date = new Date(startAt);
+            return date.toLocaleDateString('en-AU', { 
+              weekday: 'short', 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          } catch {
+            return startAt;
+          }
+        };
 
         for (const item of studentSessions) {
           const { session, subject, sessions_students_id, student_id } = item;
 
-          // Resolve price (subsidy override if active)
-          let netCents = subject.session_fee_cents || 0;
+          // Calculate base price from hourly rate and duration
+          let netCents = calculateSessionPrice(session);
+          
+          // Check for subsidy override (subsidies are per-subject per-billing-type, price is final amount)
           const activeSub = (subsidies || []).find((s: any) =>
             s.student_id === student_id && 
             s.subject_id === session.subject_id && 
-            s.billing_type === subject.billing_type && 
+            s.billing_type === session.billing_type && 
             (!s.effective_until || new Date(s.effective_until) > new Date())
           );
           
@@ -287,23 +386,27 @@ Deno.serve(async (req: Request) => {
             if (subsidyAmount < netCents) {
               // Partial subsidy: add negative item for subsidy
               const subsidyCents = -(netCents - subsidyAmount);
+              const classLongName = getClassLongName(session);
+              const sessionDate = formatSessionDate(session.start_at);
               invoiceItems.push({
                 sessions_students_id,
                 session_id: session.id,
                 student_id,
                 amount_cents: subsidyCents,
-                description: `Subsidy for ${session.start_at}`,
+                description: `Subsidy - ${classLongName} (${sessionDate})`,
                 is_subsidy: true
               });
               netCents = subsidyAmount;
             } else if (subsidyAmount >= netCents) {
               // Full subsidy: add negative item for full amount
+              const classLongName = getClassLongName(session);
+              const sessionDate = formatSessionDate(session.start_at);
               invoiceItems.push({
                 sessions_students_id,
                 session_id: session.id,
                 student_id,
                 amount_cents: -netCents,
-                description: `Full subsidy for ${session.start_at}`,
+                description: `Full subsidy - ${classLongName} (${sessionDate})`,
                 is_subsidy: true
               });
               netCents = 0;
@@ -313,20 +416,43 @@ Deno.serve(async (req: Request) => {
           // Skip zero-amount sessions (already handled by subsidies)
           if (netCents <= 0) continue;
 
-          // Calculate gross amount with fees
-          const isIntl = (defaultPM?.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
-          const grossCents = grossUp(netCents, !!isIntl, FEE_PERCENT_DOM, FEE_PERCENT_INTL, FEE_FIXED_CENTS);
-
+          // Add session charge (net amount, fees will be added separately)
+          const classLongName = getClassLongName(session);
+          const sessionDate = formatSessionDate(session.start_at);
           invoiceItems.push({
             sessions_students_id,
             session_id: session.id,
             student_id,
-            amount_cents: grossCents,
-            description: `Session charge for ${session.start_at}`,
+            amount_cents: netCents,
+            description: `${classLongName} - ${sessionDate}`,
             is_subsidy: false
           });
 
-          totalAmountCents += grossCents;
+          totalNetCents += netCents;
+        }
+
+        // Calculate total fees as a separate line item
+        if (totalNetCents > 0 && defaultPM) {
+          const isIntl = (defaultPM.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
+          const feePercent = isIntl ? FEE_PERCENT_INTL : FEE_PERCENT_DOM;
+          const feeFixedCents = FEE_FIXED_CENTS;
+          
+          // Calculate gross amount with fees
+          const grossCents = grossUp(totalNetCents, !!isIntl, FEE_PERCENT_DOM, FEE_PERCENT_INTL, FEE_FIXED_CENTS);
+          const totalFeesCents = grossCents - totalNetCents;
+          
+          // Add fees as a separate line item
+          if (totalFeesCents > 0) {
+            invoiceItems.push({
+              sessions_students_id: null, // Fees don't belong to a specific session
+              session_id: null,
+              student_id,
+              amount_cents: totalFeesCents,
+              description: `Payment processing fee (${(feePercent * 100).toFixed(2)}%${feeFixedCents > 0 ? ` + $${(feeFixedCents / 100).toFixed(2)}` : ''})`,
+              is_subsidy: false,
+              is_fee: true
+            });
+          }
         }
 
         // Skip if no items to invoice

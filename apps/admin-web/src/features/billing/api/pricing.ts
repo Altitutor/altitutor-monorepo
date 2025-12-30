@@ -1,30 +1,28 @@
-import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Tables } from '@altitutor/shared';
 
-export type SubjectRow = Tables<'subjects'>;
+export type BillingPricingRow = Tables<'billing_pricing'>;
 
 export const pricingApi = {
-  async getAllSubjectsWithPricing(): Promise<SubjectRow[]> {
+  async getBillingPricing(): Promise<BillingPricingRow[]> {
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('subjects')
+      .from('billing_pricing')
       .select('*')
-      .order('name', { ascending: true });
+      .order('billing_type', { ascending: true });
     if (error) throw error;
-    return (data ?? []) as SubjectRow[];
+    return (data ?? []) as BillingPricingRow[];
   },
 
-  async updateSubjectPricing(
-    subjectId: string,
-    updates: { session_fee_cents?: number; billing_type?: 'CLASS' | 'EXAM_COURSE' | 'DRAFTING'; currency?: string }
+  async updateBillingPricing(
+    billingType: 'CLASS' | 'EXAM_COURSE' | 'DRAFTING',
+    updates: { hourly_rate_cents?: number; currency?: string }
   ): Promise<void> {
     const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('subjects')
+      .from('billing_pricing')
       .update(updates)
-      .eq('id', subjectId);
+      .eq('billing_type', billingType);
     if (error) throw error;
   },
 };
-
-

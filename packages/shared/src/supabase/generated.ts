@@ -9,6 +9,88 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      billing_pricing: {
+        Row: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          created_at: string
+          currency: string
+          hourly_rate_cents: number
+          updated_at: string
+        }
+        Insert: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          created_at?: string
+          currency?: string
+          hourly_rate_cents: number
+          updated_at?: string
+        }
+        Update: {
+          billing_type?: Database["public"]["Enums"]["billing_type"]
+          created_at?: string
+          currency?: string
+          hourly_rate_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      billing_pricing_overrides: {
+        Row: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          created_at: string
+          currency: string
+          effective_from: string
+          effective_until: string | null
+          hourly_rate_cents: number
+          id: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          hourly_rate_cents: number
+          id?: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          billing_type?: Database["public"]["Enums"]["billing_type"]
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          hourly_rate_cents?: number
+          id?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_settings: {
         Row: {
           description: string | null
@@ -836,7 +918,7 @@ export type Database = {
             columns: ["sessions_students_id"]
             isOneToOne: false
             referencedRelation: "vtutor_sessions_students"
-            referencedColumns: ["id"]
+            referencedColumns: ["sessions_students_id"]
           },
           {
             foreignKeyName: "invoice_items_student_id_fkey"
@@ -1305,6 +1387,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          billing_type: Database["public"]["Enums"]["billing_type"] | null
           class_id: string | null
           created_at: string | null
           end_at: string | null
@@ -1312,10 +1395,11 @@ export type Database = {
           start_at: string | null
           status: string
           subject_id: string | null
-          type: string
+          type: Database["public"]["Enums"]["session_type"]
           updated_at: string | null
         }
         Insert: {
+          billing_type?: Database["public"]["Enums"]["billing_type"] | null
           class_id?: string | null
           created_at?: string | null
           end_at?: string | null
@@ -1323,10 +1407,11 @@ export type Database = {
           start_at?: string | null
           status?: string
           subject_id?: string | null
-          type: string
+          type: Database["public"]["Enums"]["session_type"]
           updated_at?: string | null
         }
         Update: {
+          billing_type?: Database["public"]["Enums"]["billing_type"] | null
           class_id?: string | null
           created_at?: string | null
           end_at?: string | null
@@ -1334,7 +1419,7 @@ export type Database = {
           start_at?: string | null
           status?: string
           subject_id?: string | null
-          type?: string
+          type?: Database["public"]["Enums"]["session_type"]
           updated_at?: string | null
         }
         Relationships: [
@@ -1657,7 +1742,7 @@ export type Database = {
             columns: ["rescheduled_sessions_students_id"]
             isOneToOne: false
             referencedRelation: "vtutor_sessions_students"
-            referencedColumns: ["id"]
+            referencedColumns: ["sessions_students_id"]
           },
           {
             foreignKeyName: "sessions_students_session_id_fkey"
@@ -2263,44 +2348,35 @@ export type Database = {
       }
       subjects: {
         Row: {
-          billing_type: Database["public"]["Enums"]["billing_type"]
           color: string | null
           created_at: string | null
-          currency: string
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
           name: string
-          session_fee_cents: number
           updated_at: string | null
           year_level: number | null
         }
         Insert: {
-          billing_type?: Database["public"]["Enums"]["billing_type"]
           color?: string | null
           created_at?: string | null
-          currency?: string
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
           name: string
-          session_fee_cents?: number
           updated_at?: string | null
           year_level?: number | null
         }
         Update: {
-          billing_type?: Database["public"]["Enums"]["billing_type"]
           color?: string | null
           created_at?: string | null
-          currency?: string
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
           name?: string
-          session_fee_cents?: number
           updated_at?: string | null
           year_level?: number | null
         }
@@ -2357,13 +2433,6 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
           {
@@ -2456,24 +2525,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
-            columns: ["is_solutions_of_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics_files"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "topics_files_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
         ]
@@ -2760,13 +2815,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tutor_logs_topics_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
@@ -2834,13 +2882,6 @@ export type Database = {
             columns: ["topics_files_id"]
             isOneToOne: false
             referencedRelation: "topics_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_files_topics_files_id_fkey"
-            columns: ["topics_files_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics_files"
             referencedColumns: ["id"]
           },
           {
@@ -3284,7 +3325,7 @@ export type Database = {
           session_end_at: string | null
           session_id: string | null
           session_start_at: string | null
-          session_type: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
           sessions_students_id: string | null
           student_id: string | null
           subject_curriculum:
@@ -3382,7 +3423,7 @@ export type Database = {
             columns: ["sessions_students_id"]
             isOneToOne: false
             referencedRelation: "vtutor_sessions_students"
-            referencedColumns: ["id"]
+            referencedColumns: ["sessions_students_id"]
           },
           {
             foreignKeyName: "invoice_items_student_id_fkey"
@@ -3542,7 +3583,7 @@ export type Database = {
           session_created_at: string | null
           session_id: string | null
           session_student_id: string | null
-          session_type: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
           session_updated_at: string | null
           staff: Json | null
           start_at: string | null
@@ -3629,7 +3670,7 @@ export type Database = {
           session_created_at: string | null
           session_id: string | null
           session_student_id: string | null
-          session_type: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
           session_updated_at: string | null
           staff: Json | null
           start_at: string | null
@@ -3700,30 +3741,28 @@ export type Database = {
       }
       vstudent_sessions: {
         Row: {
-          attendance_status: boolean | null
-          class_day_of_week: number | null
-          class_end_time: string | null
           class_id: string | null
           class_level: string | null
-          class_room: string | null
-          class_start_time: string | null
+          class_status: string | null
           credited_at: string | null
+          day_of_week: number | null
           end_at: string | null
-          has_tutor_log: boolean | null
+          end_time: string | null
           is_credited: boolean | null
           is_rescheduled: boolean | null
           planned_absence: boolean | null
           planned_absence_logged_at: string | null
           rescheduled_at: string | null
+          room: string | null
           session_created_at: string | null
           session_id: string | null
-          session_student_created_at: string | null
           session_student_id: string | null
-          session_student_updated_at: string | null
-          session_type: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
           session_updated_at: string | null
+          staff: Json | null
           start_at: string | null
-          student_id: string | null
+          start_time: string | null
+          students: Json | null
           subject_color: string | null
           subject_curriculum:
             | Database["public"]["Enums"]["subject_curriculum"]
@@ -3765,27 +3804,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
@@ -3823,16 +3841,13 @@ export type Database = {
       }
       vstudent_subjects: {
         Row: {
-          billing_type: Database["public"]["Enums"]["billing_type"] | null
           color: string | null
           created_at: string | null
-          currency: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string | null
           level: string | null
           name: string | null
-          session_fee_cents: number | null
           updated_at: string | null
           year_level: number | null
         }
@@ -4059,7 +4074,7 @@ export type Database = {
           room: string | null
           session_created_at: string | null
           session_id: string | null
-          session_type: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
           session_updated_at: string | null
           staff: Json | null
           start_at: string | null
@@ -4141,7 +4156,7 @@ export type Database = {
           end_at: string | null
           session_created_at: string | null
           session_id: string | null
-          session_type: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
           session_updated_at: string | null
           start_at: string | null
           subject_color: string | null
@@ -4210,39 +4225,25 @@ export type Database = {
       }
       vtutor_sessions_students: {
         Row: {
-          class_day_of_week: number | null
-          class_end_time: string | null
           class_id: string | null
-          class_level: string | null
-          class_room: string | null
-          class_start_time: string | null
-          class_status: string | null
-          created_at: string | null
           credited_at: string | null
+          credited_by: string | null
           end_at: string | null
-          id: string | null
           is_credited: boolean | null
           is_rescheduled: boolean | null
           planned_absence: boolean | null
           planned_absence_logged_at: string | null
           rescheduled_at: string | null
-          session_created_at: string | null
+          rescheduled_sessions_students_id: string | null
           session_id: string | null
-          session_type: string | null
-          session_updated_at: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
+          sessions_students_id: string | null
           start_at: string | null
+          student_email: string | null
+          student_first_name: string | null
           student_id: string | null
-          subject_color: string | null
-          subject_curriculum:
-            | Database["public"]["Enums"]["subject_curriculum"]
-            | null
-          subject_discipline:
-            | Database["public"]["Enums"]["subject_discipline"]
-            | null
+          student_last_name: string | null
           subject_id: string | null
-          subject_level: string | null
-          subject_name: string | null
-          updated_at: string | null
         }
         Relationships: [
           {
@@ -4272,6 +4273,55 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_classes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_credited_by_fkey"
+            columns: ["credited_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_credited_by_fkey"
+            columns: ["credited_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
+            columns: ["rescheduled_sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
+            columns: ["rescheduled_sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
+            columns: ["rescheduled_sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
+            columns: ["rescheduled_sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_rescheduled_sessions_students_id_fkey"
+            columns: ["rescheduled_sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["sessions_students_id"]
           },
           {
             foreignKeyName: "sessions_students_session_id_fkey"
@@ -4384,172 +4434,17 @@ export type Database = {
       }
       vtutor_subjects: {
         Row: {
-          billing_type: Database["public"]["Enums"]["billing_type"] | null
           color: string | null
           created_at: string | null
-          currency: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string | null
           level: string | null
           name: string | null
-          session_fee_cents: number | null
           updated_at: string | null
           year_level: number | null
         }
         Relationships: []
-      }
-      vtutor_topics: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string | null
-          index: number | null
-          name: string | null
-          parent_id: string | null
-          subject_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "topics_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vtutor_topics_files: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          file_id: string | null
-          id: string | null
-          index: number | null
-          topic_id: string | null
-          type: Database["public"]["Enums"]["resource_type"] | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          file_id?: string | null
-          id?: string | null
-          index?: number | null
-          topic_id?: string | null
-          type?: Database["public"]["Enums"]["resource_type"] | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          file_id?: string | null
-          id?: string | null
-          index?: number | null
-          topic_id?: string | null
-          type?: Database["public"]["Enums"]["resource_type"] | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "topics_files_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_files_topic_id_fkey"
-            columns: ["topic_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_topics"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       vtutor_tutor_log: {
         Row: {
@@ -4734,16 +4629,13 @@ export type Database = {
       get_student_subjects: {
         Args: { student_id: string }
         Returns: {
-          billing_type: Database["public"]["Enums"]["billing_type"]
           color: string | null
           created_at: string | null
-          currency: string
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
           name: string
-          session_fee_cents: number
           updated_at: string | null
           year_level: number | null
         }[]
@@ -4757,16 +4649,13 @@ export type Database = {
       get_subjects_for_student: {
         Args: { p_curriculum: string; p_year_level: number }
         Returns: {
-          billing_type: Database["public"]["Enums"]["billing_type"]
           color: string | null
           created_at: string | null
-          currency: string
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
           name: string
-          session_fee_cents: number
           updated_at: string | null
           year_level: number | null
         }[]
@@ -4895,6 +4784,13 @@ export type Database = {
         | "FLASHCARDS"
         | "REVISION_SHEET"
         | "CHEAT_SHEET"
+      session_type:
+        | "CLASS"
+        | "DRAFTING"
+        | "EXAM_COURSE"
+        | "SUBSIDY_INTERVIEW"
+        | "TRIAL_SESSION"
+        | "STAFF_INTERVIEW"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
       subject_discipline:
         | "MATHEMATICS"
@@ -5042,6 +4938,14 @@ export const Constants = {
         "FLASHCARDS",
         "REVISION_SHEET",
         "CHEAT_SHEET",
+      ],
+      session_type: [
+        "CLASS",
+        "DRAFTING",
+        "EXAM_COURSE",
+        "SUBSIDY_INTERVIEW",
+        "TRIAL_SESSION",
+        "STAFF_INTERVIEW",
       ],
       subject_curriculum: ["SACE", "IB", "PRESACE", "PRIMARY", "MEDICINE"],
       subject_discipline: [

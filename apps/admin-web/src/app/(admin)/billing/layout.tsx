@@ -7,6 +7,7 @@ import { cn } from '@/shared/utils/index';
 const tabs = [
   { label: 'Payments', href: '/billing/payments' },
   { label: 'Pricing', href: '/billing/pricing' },
+  { label: 'Subject Overrides', href: '/billing/pricing/subject-overrides' },
 ];
 
 export default function BillingLayout({ children }: { children: React.ReactNode }) {

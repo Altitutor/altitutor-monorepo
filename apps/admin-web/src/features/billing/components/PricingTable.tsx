@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import type { Tables } from '@altitutor/shared';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -24,51 +23,35 @@ import {
   DialogFooter,
   Label,
 } from '@altitutor/ui';
-import { Edit2, Search } from 'lucide-react';
-import { pricingApi } from '../api/pricing';
-
-type SubjectRow = Tables<'subjects'>;
+import { Edit2 } from 'lucide-react';
+import { pricingApi, type BillingPricingRow } from '../api/pricing';
 
 interface PricingTableProps {
-  subjects: SubjectRow[];
+  pricing: BillingPricingRow[];
   onUpdate: () => void;
 }
 
-export function PricingTable({ subjects, onUpdate }: PricingTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingSubject, setEditingSubject] = useState<SubjectRow | null>(null);
-  const [sessionFeeCents, setSessionFeeCents] = useState<number>(0);
-  const [billingType, setBillingType] = useState<'CLASS' | 'EXAM_COURSE' | 'DRAFTING'>('CLASS');
+export function PricingTable({ pricing, onUpdate }: PricingTableProps) {
+  const [editingPricing, setEditingPricing] = useState<BillingPricingRow | null>(null);
+  const [hourlyRateCents, setHourlyRateCents] = useState<number>(0);
   const [currency, setCurrency] = useState<string>('AUD');
   const [saving, setSaving] = useState(false);
 
-  const filtered = useMemo(() => {
-    if (!searchTerm) return subjects;
-    const lower = searchTerm.toLowerCase();
-    return subjects.filter(
-      (s) =>
-        s.name.toLowerCase().includes(lower) ||
-        s.level?.toLowerCase().includes(lower)
-    );
-  }, [subjects, searchTerm]);
-
-  const handleEdit = (subject: SubjectRow) => {
-    setEditingSubject(subject);
-    setSessionFeeCents(subject.session_fee_cents);
-    setBillingType(subject.billing_type);
-    setCurrency(subject.currency);
+  const handleEdit = (pricingRow: BillingPricingRow) => {
+    setEditingPricing(pricingRow);
+    setHourlyRateCents(pricingRow.hourly_rate_cents);
+    setCurrency(pricingRow.currency);
   };
 
   const handleSave = async () => {
-    if (!editingSubject) return;
+    if (!editingPricing) return;
     setSaving(true);
     try {
-      await pricingApi.updateSubjectPricing(editingSubject.id, {
-        session_fee_cents: sessionFeeCents,
-        billing_type: billingType,
+      await pricingApi.updateBillingPricing(editingPricing.billing_type, {
+        hourly_rate_cents: hourlyRateCents,
         currency,
       });
-      setEditingSubject(null);
+      setEditingPricing(null);
       onUpdate();
     } catch (e) {
       alert('Failed to update: ' + (e as Error).message);
@@ -79,48 +62,29 @@ export function PricingTable({ subjects, onUpdate }: PricingTableProps) {
 
   return (
     <>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search subjects..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </div>
-
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Subject</TableHead>
-              <TableHead>Year / Level</TableHead>
               <TableHead>Billing Type</TableHead>
-              <TableHead>Session Fee (AUD)</TableHead>
+              <TableHead>Hourly Rate (AUD)</TableHead>
               <TableHead>Currency</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((subject) => (
-              <TableRow key={subject.id}>
-                <TableCell className="font-medium">{subject.name}</TableCell>
+            {pricing.map((pricingRow) => (
+              <TableRow key={pricingRow.billing_type}>
+                <TableCell className="font-medium">{pricingRow.billing_type}</TableCell>
                 <TableCell>
-                  {subject.year_level ? `Year ${subject.year_level}` : ''}{' '}
-                  {subject.level ? `(${subject.level})` : ''}
+                  ${(pricingRow.hourly_rate_cents / 100).toFixed(2)}/hour
                 </TableCell>
-                <TableCell>{subject.billing_type}</TableCell>
-                <TableCell>
-                  ${(subject.session_fee_cents / 100).toFixed(2)}
-                </TableCell>
-                <TableCell>{subject.currency}</TableCell>
+                <TableCell>{pricingRow.currency}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => handleEdit(subject)}
+                    onClick={() => handleEdit(pricingRow)}
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
@@ -131,38 +95,24 @@ export function PricingTable({ subjects, onUpdate }: PricingTableProps) {
         </Table>
       </div>
 
-      <Dialog open={!!editingSubject} onOpenChange={() => setEditingSubject(null)}>
+      <Dialog open={!!editingPricing} onOpenChange={() => setEditingPricing(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Pricing</DialogTitle>
             <DialogDescription>
-              Update the session fee and billing type for {editingSubject?.name}
+              Update the hourly rate for {editingPricing?.billing_type}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="billing-type">Billing Type</Label>
-              <Select value={billingType} onValueChange={(value) => setBillingType(value as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING')}>
-                <SelectTrigger id="billing-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CLASS">CLASS</SelectItem>
-                  <SelectItem value="EXAM_COURSE">EXAM_COURSE</SelectItem>
-                  <SelectItem value="DRAFTING">DRAFTING</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="session-fee">Session Fee (AUD)</Label>
+              <Label htmlFor="hourly-rate">Hourly Rate (AUD)</Label>
               <Input
-                id="session-fee"
+                id="hourly-rate"
                 type="number"
                 step="0.01"
-                value={(sessionFeeCents / 100).toFixed(2)}
+                value={(hourlyRateCents / 100).toFixed(2)}
                 onChange={(e) =>
-                  setSessionFeeCents(Math.round(Number(e.target.value) * 100))
+                  setHourlyRateCents(Math.round(Number(e.target.value) * 100))
                 }
               />
             </div>
@@ -181,7 +131,7 @@ export function PricingTable({ subjects, onUpdate }: PricingTableProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingSubject(null)}>
+            <Button variant="outline" onClick={() => setEditingPricing(null)}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving}>
@@ -193,5 +143,3 @@ export function PricingTable({ subjects, onUpdate }: PricingTableProps) {
     </>
   );
 }
-
-
