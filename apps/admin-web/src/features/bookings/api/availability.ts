@@ -26,7 +26,7 @@ export const availabilityApi = {
         p_session_type: params.session_type,
         p_subject_id: params.subject_id ?? null,
         p_duration_minutes: params.duration_minutes ?? null,
-      });
+      } as any);
     
     if (error) throw error;
     return (data ?? []) as AvailableSlot[];
