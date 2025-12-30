@@ -34,7 +34,7 @@ type ChatStoreState = {
 export const useChatStore = create<ChatStoreState>((set, get) => ({
   // New unified state
   activeConversationId: null,
-  minimized: false,
+  minimized: true,
   conversations: new Map(),
   
   setActiveConversation: (conversationId) => {

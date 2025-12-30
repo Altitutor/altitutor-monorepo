@@ -2436,6 +2436,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
@@ -2525,10 +2532,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "topics_files_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
         ]
@@ -2815,6 +2836,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tutor_logs_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
@@ -2882,6 +2910,13 @@ export type Database = {
             columns: ["topics_files_id"]
             isOneToOne: false
             referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_topics_files_id_fkey"
+            columns: ["topics_files_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
             referencedColumns: ["id"]
           },
           {
@@ -4445,6 +4480,178 @@ export type Database = {
           year_level: number | null
         }
         Relationships: []
+      }
+      vtutor_topics: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          index: number | null
+          name: string | null
+          parent_id: string | null
+          subject_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          index?: number | null
+          name?: string | null
+          parent_id?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          index?: number | null
+          name?: string | null
+          parent_id?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtutor_topics_files: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          file_id: string | null
+          id: string | null
+          index: number | null
+          is_solutions: boolean | null
+          is_solutions_of_id: string | null
+          topic_id: string | null
+          type: Database["public"]["Enums"]["resource_type"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          file_id?: string | null
+          id?: string | null
+          index?: number | null
+          is_solutions?: boolean | null
+          is_solutions_of_id?: string | null
+          topic_id?: string | null
+          type?: Database["public"]["Enums"]["resource_type"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          file_id?: string | null
+          id?: string | null
+          index?: number | null
+          is_solutions?: boolean | null
+          is_solutions_of_id?: string | null
+          topic_id?: string | null
+          type?: Database["public"]["Enums"]["resource_type"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vtutor_tutor_log: {
         Row: {

@@ -133,16 +133,24 @@ Deno.serve(async (req: Request) => {
     // Determine date range: use override if provided, otherwise tomorrow (production)
     let targetDate: Date;
     if (dateOverride) {
-      targetDate = new Date(dateOverride);
+      // Parse date string as UTC date (YYYY-MM-DD format)
+      // This ensures we're working with the correct date regardless of server timezone
+      const [year, month, day] = dateOverride.split('-').map(Number);
+      targetDate = new Date(Date.UTC(year, month - 1, day));
     } else {
       // Production mode: process tomorrow's sessions
-      targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + 1);
+      const tomorrow = new Date();
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      targetDate = tomorrow;
     }
     
     const { startIso, endIso } = (() => {
-      const start = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
-      const end = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+      // Use UTC methods to ensure date range is in UTC, not local time
+      const year = targetDate.getUTCFullYear();
+      const month = targetDate.getUTCMonth();
+      const day = targetDate.getUTCDate();
+      const start = new Date(Date.UTC(year, month, day, 0, 0, 0));
+      const end = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
       return { startIso: start.toISOString(), endIso: end.toISOString() };
     })();
 
@@ -463,10 +471,55 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        // Handle missing billing or payment method
+        // Handle missing billing account - auto-create if missing
         if (!billing?.stripe_customer_id) {
-          errors.push(`Student ${studentId}: No billing account configured`);
-          continue;
+          try {
+            // Get student email for Stripe customer creation
+            const studentEmail = studentEmailById[studentId] || parentEmailByStudent[studentId];
+            const { data: studentData } = await supabase
+              .from('students')
+              .select('first_name, last_name, email')
+              .eq('id', studentId)
+              .single();
+            
+            // Create Stripe customer
+            const stripeCustomer = await stripe.customers.create({
+              email: studentEmail || studentData?.email || undefined,
+              name: studentData ? `${studentData.first_name} ${studentData.last_name}`.trim() : undefined,
+              metadata: {
+                student_id: studentId,
+                type: 'student',
+              },
+            });
+
+            // Create or update billing account in database
+            const { data: billingData, error: billingErr } = await supabase
+              .from('students_billing')
+              .upsert({
+                student_id: studentId,
+                stripe_customer_id: stripeCustomer.id,
+              }, {
+                onConflict: 'student_id',
+              })
+              .select('student_id, stripe_customer_id')
+              .single();
+
+            if (billingErr) throw billingErr;
+
+            // Update billing map
+            billingByStudent[studentId] = {
+              student_id: studentId,
+              stripe_customer_id: stripeCustomer.id,
+              payment_methods: []
+            };
+            billing = billingByStudent[studentId];
+            
+            console.log(`[runner] Auto-created billing account for student ${studentId} with Stripe customer ${stripeCustomer.id}`);
+          } catch (createErr: any) {
+            console.error(`[runner] Failed to auto-create billing account for student ${studentId}:`, createErr?.message || createErr);
+            errors.push(`Student ${studentId}: Failed to create billing account - ${createErr?.message || 'Unknown error'}`);
+            continue;
+          }
         }
 
         if (!defaultPM?.stripe_payment_method_id) {
