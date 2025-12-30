@@ -494,8 +494,12 @@ Deno.serve(async (req: Request) => {
         }
 
         // Calculate total fees as a separate line item
-        if (totalNetCents > 0 && defaultPM && invoiceCurrency) {
-          const isIntl = (defaultPM.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
+        // If no payment method exists, assume Australian card (domestic fees)
+        if (totalNetCents > 0 && invoiceCurrency) {
+          // If no payment method, assume Australian card (domestic fees)
+          const isIntl = defaultPM 
+            ? (defaultPM.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY)
+            : false; // Assume domestic (Australian) card when no payment method
           const feePercent = isIntl ? FEE_PERCENT_INTL : FEE_PERCENT_DOM;
           const feeFixedCents = FEE_FIXED_CENTS;
           
@@ -813,6 +817,20 @@ Deno.serve(async (req: Request) => {
 
           // Finalize invoice (triggers automatic charge)
           const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+          
+          // Pay invoice immediately (Stripe may delay automatic payment by up to 1 hour)
+          // This ensures immediate payment for invoices with charge_automatically
+          let paidInvoice = finalizedInvoice;
+          if (finalizedInvoice.status === 'open' && finalizedInvoice.collection_method === 'charge_automatically') {
+            try {
+              paidInvoice = await stripe.invoices.pay(finalizedInvoice.id);
+            } catch (payErr: any) {
+              // If payment fails (e.g., card declined), log but don't fail the invoice creation
+              // The invoice will remain open and Stripe will retry according to retry settings
+              console.warn(`[runner] Failed to immediately pay invoice ${finalizedInvoice.id} for student ${studentId}:`, payErr?.message || payErr);
+              // Continue with finalizedInvoice (status will be 'open' until payment succeeds)
+            }
+          }
 
           // Store in database - wrap in try/catch for rollback
           let dbInvoice: any = null;
@@ -821,19 +839,19 @@ Deno.serve(async (req: Request) => {
               .from('invoices')
               .insert({
                 student_id: studentId,
-                stripe_invoice_id: finalizedInvoice.id,
-                stripe_invoice_number: finalizedInvoice.number,
+                stripe_invoice_id: paidInvoice.id,
+                stripe_invoice_number: paidInvoice.number,
                 invoice_date: invoiceDate,
-                amount_due_cents: finalizedInvoice.amount_due,
-                amount_paid_cents: finalizedInvoice.amount_paid || 0,
-                currency: finalizedInvoice.currency,
-                status: finalizedInvoice.status,
-                collection_method: finalizedInvoice.collection_method,
-                auto_advance: finalizedInvoice.auto_advance,
-                hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
-                invoice_pdf: finalizedInvoice.invoice_pdf,
-                finalized_at: finalizedInvoice.status_transitions?.finalized_at 
-                  ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000).toISOString()
+                amount_due_cents: paidInvoice.amount_due,
+                amount_paid_cents: paidInvoice.amount_paid || 0,
+                currency: paidInvoice.currency,
+                status: paidInvoice.status,
+                collection_method: paidInvoice.collection_method,
+                auto_advance: paidInvoice.auto_advance,
+                hosted_invoice_url: paidInvoice.hosted_invoice_url,
+                invoice_pdf: paidInvoice.invoice_pdf,
+                finalized_at: paidInvoice.status_transitions?.finalized_at 
+                  ? new Date(paidInvoice.status_transitions.finalized_at * 1000).toISOString()
                   : null,
               })
               .select('id')
@@ -866,9 +884,9 @@ Deno.serve(async (req: Request) => {
             // Note: If charge already succeeded, we can't void, but we log the error
             console.error(`[runner] Database insert failed for student ${studentId}, attempting to void Stripe invoice:`, dbErr?.message || dbErr);
             try {
-              await stripe.invoices.voidInvoice(finalizedInvoice.id);
+              await stripe.invoices.voidInvoice(paidInvoice.id);
             } catch (voidErr) {
-              console.error(`[runner] Failed to void invoice ${finalizedInvoice.id} during rollback (charge may have succeeded):`, voidErr);
+              console.error(`[runner] Failed to void invoice ${paidInvoice.id} during rollback (charge may have succeeded):`, voidErr);
               // If void fails, the invoice may have already been paid - this requires manual reconciliation
               errors.push(`Student ${studentId}: Database insert failed but Stripe invoice may have been charged. Manual reconciliation required.`);
             }

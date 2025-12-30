@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       billing_pricing: {
@@ -1826,7 +1821,7 @@ export type Database = {
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
           created_at: string | null
-          email: string | null
+          email: string
           first_name: string
           has_parking_remote: string | null
           id: string
@@ -1851,7 +1846,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
-          email?: string | null
+          email: string
           first_name: string
           has_parking_remote?: string | null
           id: string
@@ -1876,7 +1871,7 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
-          email?: string | null
+          email?: string
           first_name?: string
           has_parking_remote?: string | null
           id?: string
@@ -2053,6 +2048,7 @@ export type Database = {
         Row: {
           billing_type: Database["public"]["Enums"]["billing_type"]
           created_at: string
+          created_by: string | null
           currency: string
           effective_from: string
           effective_until: string | null
@@ -2065,6 +2061,7 @@ export type Database = {
         Insert: {
           billing_type: Database["public"]["Enums"]["billing_type"]
           created_at?: string
+          created_by?: string | null
           currency?: string
           effective_from?: string
           effective_until?: string | null
@@ -2077,6 +2074,7 @@ export type Database = {
         Update: {
           billing_type?: Database["public"]["Enums"]["billing_type"]
           created_at?: string
+          created_by?: string | null
           currency?: string
           effective_from?: string
           effective_until?: string | null
@@ -2087,6 +2085,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "student_subsidies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subsidies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "student_subsidies_student_id_fkey"
             columns: ["student_id"]
@@ -2172,7 +2184,7 @@ export type Database = {
           curriculum?: string | null
           email?: string | null
           first_name: string
-          id?: string
+          id: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -4756,6 +4768,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_enum_value: {
+        Args: { enum_name: string; new_value: string }
+        Returns: undefined
+      }
       batch_update_topic_indices: {
         Args: { updates: Json }
         Returns: undefined
@@ -4767,29 +4783,29 @@ export type Database = {
       format_class_full_name:
         | {
             Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               p_curriculum: string
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_end_time: string
               p_name: string
@@ -4801,27 +4817,27 @@ export type Database = {
       format_class_short_name:
         | {
             Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               p_curriculum: string
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_name: string
               p_start_time: string
@@ -4879,15 +4895,15 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
+      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       log_student_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
-      map_day_to_number: { Args: { day_string: string }; Returns: number }
-      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -4923,6 +4939,19 @@ export type Database = {
           p_order_by?: string
           p_search?: string
           p_statuses?: string[]
+        }
+        Returns: Json
+      }
+      search_invoices_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_date_from?: string
+          p_date_to?: string
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_statuses?: string[]
+          p_student_ids?: string[]
         }
         Returns: Json
       }
@@ -4968,10 +4997,6 @@ export type Database = {
         }
         Returns: Json
       }
-      set_claim: {
-        Args: { claim: string; uid: string; value: Json }
-        Returns: undefined
-      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -4981,8 +5006,8 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
+      user_role: { Args: never; Returns: string }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
-      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
@@ -5172,3 +5197,4 @@ export const Constants = {
     },
   },
 } as const
+
