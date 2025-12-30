@@ -358,7 +358,8 @@ Deno.serve(async (req: Request) => {
     // Process each student
     for (const [studentId, studentSessions] of Object.entries(sessionsByStudent)) {
       try {
-        // Check for existing invoice for this student and date
+        // Check for existing invoice for this student and date BEFORE creating any Stripe resources
+        // This prevents idempotency key conflicts
         const { data: existingInvoice } = await supabase
           .from('invoices')
           .select('id, stripe_invoice_id')
@@ -394,11 +395,13 @@ Deno.serve(async (req: Request) => {
           return parts.length > 0 ? parts.join(' ') : subj.name || 'Session';
         };
 
-        // Helper function to format session date
+        // Helper function to format session date in Australia/Adelaide timezone
         const formatSessionDate = (startAt: string): string => {
           try {
             const date = new Date(startAt);
-            return date.toLocaleDateString('en-AU', { 
+            // Format in Australia/Adelaide timezone
+            return date.toLocaleString('en-AU', { 
+              timeZone: 'Australia/Adelaide',
               weekday: 'short', 
               year: 'numeric', 
               month: 'short', 
@@ -587,41 +590,61 @@ Deno.serve(async (req: Request) => {
 
         if (!defaultPM?.stripe_payment_method_id) {
           // Create invoice with send_invoice collection method (no auto-charge)
-          const idempotencyKey = `invoice_${studentId}_${invoiceDate}`;
+          // Generate idempotency key with timestamp to avoid conflicts on retries
+          const timestamp = Date.now();
+          const idempotencyKey = `invoice_${studentId}_${invoiceDate}_${timestamp}`;
           
           try {
             // Helper function to generate idempotency key with hash of amount and description
+            // Include timestamp to ensure uniqueness on retries
             const generateItemIdempotencyKey = (item: any): string => {
               if (item.sessions_students_id) {
                 // For session items, include amount and description hash for uniqueness
                 const hash = `${item.amount_cents}_${item.description.substring(0, 50)}`.replace(/[^a-zA-Z0-9_]/g, '_');
-                return `invoice_item_${item.sessions_students_id}_${hash.substring(0, 100)}`;
+                return `invoice_item_${item.sessions_students_id}_${hash.substring(0, 80)}_${timestamp}`;
               } else {
-                // For fee items, include amount in key
-                return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
+                // For fee items, include amount and timestamp in key
+                return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}_${timestamp}`;
               }
             };
 
             // Create invoice items in Stripe
+            // Track created items for rollback on failure
             const stripeInvoiceItems = [];
-            for (const item of invoiceItems) {
-              // Generate unique idempotency key with hash of amount and description
-              const itemIdempotencyKey = generateItemIdempotencyKey(item);
-              const stripeItem = await stripe.invoiceItems.create({
-                customer: billing.stripe_customer_id,
-                amount: item.amount_cents,
-                currency: invoiceCurrency, // Use currency from pricing data, not hardcoded
-                description: item.description,
-                metadata: {
-                  type: 'session_charge',
-                  student_id: studentId,
-                  session_id: item.session_id || '',
-                  sessions_students_id: item.sessions_students_id || '',
-                  is_subsidy: item.is_subsidy ? 'true' : 'false',
-                  is_fee: item.is_fee ? 'true' : 'false',
-                },
-              }, { idempotencyKey: itemIdempotencyKey });
-              stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
+            const createdStripeItemIds: string[] = [];
+            
+            try {
+              for (const item of invoiceItems) {
+                // Generate unique idempotency key with hash of amount and description
+                const itemIdempotencyKey = generateItemIdempotencyKey(item);
+                const stripeItem = await stripe.invoiceItems.create({
+                  customer: billing.stripe_customer_id,
+                  amount: item.amount_cents,
+                  currency: invoiceCurrency, // Use currency from pricing data, not hardcoded
+                  description: item.description,
+                  metadata: {
+                    type: 'session_charge',
+                    student_id: studentId,
+                    session_id: item.session_id || '',
+                    sessions_students_id: item.sessions_students_id || '',
+                    is_subsidy: item.is_subsidy ? 'true' : 'false',
+                    is_fee: item.is_fee ? 'true' : 'false',
+                  },
+                }, { idempotencyKey: itemIdempotencyKey });
+                stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
+                createdStripeItemIds.push(stripeItem.id);
+              }
+            } catch (itemErr: any) {
+              // Rollback: delete created invoice items if any failed
+              console.error(`[runner] Failed to create invoice items for student ${studentId}, rolling back:`, itemErr?.message || itemErr);
+              for (const itemId of createdStripeItemIds) {
+                try {
+                  await stripe.invoiceItems.del(itemId);
+                } catch (delErr) {
+                  console.error(`[runner] Failed to delete invoice item ${itemId} during rollback:`, delErr);
+                }
+              }
+              throw itemErr;
             }
 
             // Create invoice with send_invoice collection method
@@ -644,8 +667,151 @@ Deno.serve(async (req: Request) => {
             // Finalize invoice (sends email)
             const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
 
-            // Store in database
-            const { data: dbInvoice, error: dbErr } = await supabase
+            // Store in database - wrap in try/catch for rollback
+            let dbInvoice: any = null;
+            try {
+              const { data: insertedInvoice, error: dbErr } = await supabase
+                .from('invoices')
+                .insert({
+                  student_id: studentId,
+                  stripe_invoice_id: finalizedInvoice.id,
+                  stripe_invoice_number: finalizedInvoice.number,
+                  invoice_date: invoiceDate,
+                  amount_due_cents: finalizedInvoice.amount_due,
+                  amount_paid_cents: finalizedInvoice.amount_paid || 0,
+                  currency: finalizedInvoice.currency,
+                  status: finalizedInvoice.status,
+                  collection_method: finalizedInvoice.collection_method,
+                  auto_advance: finalizedInvoice.auto_advance,
+                  hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
+                  invoice_pdf: finalizedInvoice.invoice_pdf,
+                  finalized_at: finalizedInvoice.status_transitions?.finalized_at 
+                    ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000).toISOString()
+                    : null,
+                })
+                .select('id')
+                .single();
+
+              if (dbErr) throw dbErr;
+              dbInvoice = insertedInvoice;
+
+              // Store invoice items
+              const itemInserts = stripeInvoiceItems.map((item) => ({
+                invoice_id: dbInvoice.id,
+                sessions_students_id: item.sessions_students_id,
+                stripe_invoice_item_id: item.stripe_invoice_item_id,
+                amount_cents: item.amount_cents,
+                description: item.description,
+                is_subsidy: item.is_subsidy,
+                session_id: item.session_id,
+                student_id: item.student_id,
+              }));
+
+              const { error: itemsErr } = await supabase
+                .from('invoice_items')
+                .insert(itemInserts);
+
+              if (itemsErr) throw itemsErr;
+
+              invoicesCreated.push(dbInvoice.id);
+            } catch (dbErr: any) {
+              // Rollback: void the Stripe invoice if DB insert failed
+              console.error(`[runner] Database insert failed for student ${studentId}, voiding Stripe invoice:`, dbErr?.message || dbErr);
+              try {
+                await stripe.invoices.voidInvoice(finalizedInvoice.id);
+              } catch (voidErr) {
+                console.error(`[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`, voidErr);
+              }
+              throw dbErr;
+            }
+          } catch (e: any) {
+            console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
+            errors.push(`Student ${studentId}: ${e?.message || 'Invoice creation failed'}`);
+          }
+          continue;
+        }
+
+        // Create invoice with automatic collection
+        // Generate idempotency key with timestamp to avoid conflicts on retries
+        const timestamp = Date.now();
+        const idempotencyKey = `invoice_${studentId}_${invoiceDate}_${timestamp}`;
+        
+        try {
+          // Helper function to generate idempotency key with hash of amount and description
+          // Include timestamp to ensure uniqueness on retries
+          const generateItemIdempotencyKey = (item: any): string => {
+            if (item.sessions_students_id) {
+              // For session items, include amount and description hash for uniqueness
+              const hash = `${item.amount_cents}_${item.description.substring(0, 50)}`.replace(/[^a-zA-Z0-9_]/g, '_');
+              return `invoice_item_${item.sessions_students_id}_${hash.substring(0, 80)}_${timestamp}`;
+            } else {
+              // For fee items, include amount and timestamp in key
+              return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}_${timestamp}`;
+            }
+          };
+
+          // Create invoice items in Stripe
+          // Track created items for rollback on failure
+          const stripeInvoiceItems = [];
+          const createdStripeItemIds: string[] = [];
+          
+          try {
+            for (const item of invoiceItems) {
+              // Generate unique idempotency key with hash of amount and description
+              const itemIdempotencyKey = generateItemIdempotencyKey(item);
+              const stripeItem = await stripe.invoiceItems.create({
+                customer: billing.stripe_customer_id,
+                amount: item.amount_cents,
+                currency: invoiceCurrency, // Use currency from pricing data, not hardcoded
+                description: item.description,
+                metadata: {
+                  type: 'session_charge',
+                  student_id: studentId,
+                  session_id: item.session_id || '',
+                  sessions_students_id: item.sessions_students_id || '',
+                  is_subsidy: item.is_subsidy ? 'true' : 'false',
+                  is_fee: item.is_fee ? 'true' : 'false',
+                },
+              }, { idempotencyKey: itemIdempotencyKey });
+              stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
+              createdStripeItemIds.push(stripeItem.id);
+            }
+          } catch (itemErr: any) {
+            // Rollback: delete created invoice items if any failed
+            console.error(`[runner] Failed to create invoice items for student ${studentId}, rolling back:`, itemErr?.message || itemErr);
+            for (const itemId of createdStripeItemIds) {
+              try {
+                await stripe.invoiceItems.del(itemId);
+              } catch (delErr) {
+                console.error(`[runner] Failed to delete invoice item ${itemId} during rollback:`, delErr);
+              }
+            }
+            throw itemErr;
+          }
+
+          // Create invoice with automatic collection
+          const invoice = await stripe.invoices.create({
+            customer: billing.stripe_customer_id,
+            collection_method: 'charge_automatically',
+            auto_advance: true,
+            pending_invoice_items_behavior: 'include',
+            default_payment_method: defaultPM.stripe_payment_method_id, // Explicitly set default payment method
+            description: `Invoice for sessions on ${invoiceDate}`,
+            metadata: {
+              type: 'session_invoice',
+              student_id: studentId,
+              invoice_date: invoiceDate,
+              stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
+            },
+          }, { idempotencyKey });
+
+          // Finalize invoice (triggers automatic charge)
+          const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+
+          // Store in database - wrap in try/catch for rollback
+          let dbInvoice: any = null;
+          try {
+            const { data: insertedInvoice, error: dbErr } = await supabase
               .from('invoices')
               .insert({
                 student_id: studentId,
@@ -668,114 +834,10 @@ Deno.serve(async (req: Request) => {
               .single();
 
             if (dbErr) throw dbErr;
+            dbInvoice = insertedInvoice;
 
             // Store invoice items
-            for (const item of stripeInvoiceItems) {
-              await supabase.from('invoice_items').insert({
-                invoice_id: dbInvoice.id,
-                sessions_students_id: item.sessions_students_id,
-                stripe_invoice_item_id: item.stripe_invoice_item_id,
-                amount_cents: item.amount_cents,
-                description: item.description,
-                is_subsidy: item.is_subsidy,
-                session_id: item.session_id,
-                student_id: item.student_id,
-              });
-            }
-
-            invoicesCreated.push(dbInvoice.id);
-          } catch (e: any) {
-            console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
-            errors.push(`Student ${studentId}: ${e?.message || 'Invoice creation failed'}`);
-          }
-          continue;
-        }
-
-        // Create invoice with automatic collection
-        const idempotencyKey = `invoice_${studentId}_${invoiceDate}`;
-        
-        try {
-          // Helper function to generate idempotency key with hash of amount and description
-          const generateItemIdempotencyKey = (item: any): string => {
-            if (item.sessions_students_id) {
-              // For session items, include amount and description hash for uniqueness
-              const hash = `${item.amount_cents}_${item.description.substring(0, 50)}`.replace(/[^a-zA-Z0-9_]/g, '_');
-              return `invoice_item_${item.sessions_students_id}_${hash.substring(0, 100)}`;
-            } else {
-              // For fee items, include amount in key
-              return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
-            }
-          };
-
-          // Create invoice items in Stripe
-          const stripeInvoiceItems = [];
-          for (const item of invoiceItems) {
-            // Generate unique idempotency key with hash of amount and description
-            const itemIdempotencyKey = generateItemIdempotencyKey(item);
-            const stripeItem = await stripe.invoiceItems.create({
-              customer: billing.stripe_customer_id,
-              amount: item.amount_cents,
-              currency: invoiceCurrency, // Use currency from pricing data, not hardcoded
-              description: item.description,
-              metadata: {
-                type: 'session_charge',
-                student_id: studentId,
-                session_id: item.session_id || '',
-                sessions_students_id: item.sessions_students_id || '',
-                is_subsidy: item.is_subsidy ? 'true' : 'false',
-                is_fee: item.is_fee ? 'true' : 'false',
-              },
-            }, { idempotencyKey: itemIdempotencyKey });
-            stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
-          }
-
-          // Create invoice with automatic collection
-          const invoice = await stripe.invoices.create({
-            customer: billing.stripe_customer_id,
-            collection_method: 'charge_automatically',
-            auto_advance: true,
-            pending_invoice_items_behavior: 'include',
-            default_payment_method: defaultPM.stripe_payment_method_id, // Explicitly set default payment method
-            description: `Invoice for sessions on ${invoiceDate}`,
-            metadata: {
-              type: 'session_invoice',
-              student_id: studentId,
-              invoice_date: invoiceDate,
-              stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
-            },
-          }, { idempotencyKey });
-
-          // Finalize invoice (triggers automatic charge)
-          const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
-
-          // Store in database
-          const { data: dbInvoice, error: dbErr } = await supabase
-            .from('invoices')
-            .insert({
-              student_id: studentId,
-              stripe_invoice_id: finalizedInvoice.id,
-              stripe_invoice_number: finalizedInvoice.number,
-              invoice_date: invoiceDate,
-              amount_due_cents: finalizedInvoice.amount_due,
-              amount_paid_cents: finalizedInvoice.amount_paid || 0,
-              currency: finalizedInvoice.currency,
-              status: finalizedInvoice.status,
-              collection_method: finalizedInvoice.collection_method,
-              auto_advance: finalizedInvoice.auto_advance,
-              hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
-              invoice_pdf: finalizedInvoice.invoice_pdf,
-              finalized_at: finalizedInvoice.status_transitions?.finalized_at 
-                ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000).toISOString()
-                : null,
-            })
-            .select('id')
-            .single();
-
-          if (dbErr) throw dbErr;
-
-          // Store invoice items
-          for (const item of stripeInvoiceItems) {
-            await supabase.from('invoice_items').insert({
+            const itemInserts = stripeInvoiceItems.map((item) => ({
               invoice_id: dbInvoice.id,
               sessions_students_id: item.sessions_students_id,
               stripe_invoice_item_id: item.stripe_invoice_item_id,
@@ -784,10 +846,28 @@ Deno.serve(async (req: Request) => {
               is_subsidy: item.is_subsidy,
               session_id: item.session_id,
               student_id: item.student_id,
-            });
-          }
+            }));
 
-          invoicesCreated.push(dbInvoice.id);
+            const { error: itemsErr } = await supabase
+              .from('invoice_items')
+              .insert(itemInserts);
+
+            if (itemsErr) throw itemsErr;
+
+            invoicesCreated.push(dbInvoice.id);
+          } catch (dbErr: any) {
+            // Rollback: void the Stripe invoice if DB insert failed
+            // Note: If charge already succeeded, we can't void, but we log the error
+            console.error(`[runner] Database insert failed for student ${studentId}, attempting to void Stripe invoice:`, dbErr?.message || dbErr);
+            try {
+              await stripe.invoices.voidInvoice(finalizedInvoice.id);
+            } catch (voidErr) {
+              console.error(`[runner] Failed to void invoice ${finalizedInvoice.id} during rollback (charge may have succeeded):`, voidErr);
+              // If void fails, the invoice may have already been paid - this requires manual reconciliation
+              errors.push(`Student ${studentId}: Database insert failed but Stripe invoice may have been charged. Manual reconciliation required.`);
+            }
+            throw dbErr;
+          }
         } catch (e: any) {
           console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
           errors.push(`Student ${studentId}: ${e?.message || 'Invoice creation failed'}`);

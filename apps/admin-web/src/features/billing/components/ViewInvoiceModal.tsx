@@ -98,8 +98,16 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     return <Badge variant={variant} className="text-xs">{label}</Badge>;
   };
 
-  const totalAmount = invoiceItems.reduce((sum, item) => sum + (item.amount_cents || 0), 0);
+  // Use Stripe invoice total (amount_due_cents) instead of summing line items
+  // This ensures we show the correct total including any Stripe charges/fees
+  const totalAmount = invoice?.amount_due_cents || 0;
   const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
+  
+  // Calculate line items subtotal for display
+  const lineItemsSubtotal = invoiceItems.reduce((sum, item) => sum + (item.amount_cents || 0), 0);
+  
+  // Check if there's a difference (could be card charge or other Stripe fees)
+  const hasStripeCharge = totalAmount !== lineItemsSubtotal;
 
   const handleSessionClick = (sessionId: string) => {
     setActiveSessionId(sessionId);
@@ -160,6 +168,11 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   <div className="text-sm font-medium text-muted-foreground">Status:</div>
                   <div className="text-sm">{getStatusBadge(invoice.status)}</div>
                   
+                  <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
+                  <div className="text-sm">
+                    ${((invoice.amount_due_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
+                  </div>
+                  
                   <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
                   <div className="text-sm">
                     ${((invoice.amount_paid_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
@@ -209,6 +222,20 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Show Stripe charge if there's a difference between line items and total */}
+                    {hasStripeCharge && (
+                      <div className="flex items-start justify-between p-3 rounded-md border bg-muted/30">
+                        <div className="flex-1">
+                          <span className="text-sm text-muted-foreground">
+                            Card processing charge
+                          </span>
+                        </div>
+                        <div className="text-sm font-medium ml-4">
+                          ${((totalAmount - lineItemsSubtotal) / 100).toFixed(2)}
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Total */}
                     <div className="flex items-center justify-between pt-3 border-t font-semibold">
