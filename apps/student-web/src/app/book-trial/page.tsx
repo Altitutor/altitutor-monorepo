@@ -2,18 +2,24 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { BookingFlow } from '@/features/bookings/components/BookingFlow';
 import { TimeSlotPicker } from '@/features/bookings/components/TimeSlotPicker';
 import { useStudentSubjects } from '@/features/bookings/hooks/useStudentSubjects';
 import { useCreateBooking } from '@/features/bookings/hooks/useCreateBooking';
 import { useMyReservations } from '@/features/bookings/hooks/useReservations';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@altitutor/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast, Alert, AlertDescription } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 export default function BookTrialPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const isAuthenticated = !!user;
+  
+  // Only fetch subjects and reservations if authenticated
   const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
   const { data: reservations } = useMyReservations();
   const createBooking = useCreateBooking();
@@ -30,7 +36,8 @@ export default function BookTrialPage() {
 
   const handleSlotSelect = (startAt: string, endAt: string) => {
     setSelectedSlot({ startAt, endAt });
-    setCurrentStep(1); // Move to confirmation step
+    // Move to confirmation step (skip subject step if not authenticated)
+    setCurrentStep(isAuthenticated ? 2 : 1);
   };
 
   const handleConfirmBooking = async () => {
@@ -40,6 +47,17 @@ export default function BookTrialPage() {
         description: 'Please select a time slot',
         variant: 'destructive',
       });
+      return;
+    }
+
+    // Require authentication before confirming booking
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login Required',
+        description: 'Please sign in to confirm your booking',
+        variant: 'destructive',
+      });
+      router.push(`/login?redirect=${encodeURIComponent('/book-trial')}`);
       return;
     }
 
@@ -80,7 +98,7 @@ export default function BookTrialPage() {
   };
 
   const steps = [
-    {
+    ...(isAuthenticated ? [{
       id: 'subject',
       title: 'Select Subject (Optional)',
       component: (
@@ -111,12 +129,12 @@ export default function BookTrialPage() {
               </SelectContent>
             </Select>
           )}
-          <Button onClick={() => setCurrentStep(1)} className="w-full">
+          <Button onClick={() => setCurrentStep(isAuthenticated ? 1 : 0)} className="w-full">
             Continue to Time Selection
           </Button>
         </div>
       ),
-    },
+    }] : []),
     {
       id: 'time',
       title: 'Select Time',
@@ -125,6 +143,17 @@ export default function BookTrialPage() {
           <p className="text-sm text-muted-foreground">
             Choose an available time slot for your trial session
           </p>
+          {!isAuthenticated && (
+            <Alert>
+              <AlertDescription>
+                You can browse available slots without signing in. You'll need to{' '}
+                <Link href={`/login?redirect=${encodeURIComponent('/book-trial')}`} className="underline font-medium">
+                  sign in
+                </Link>{' '}
+                to confirm your booking.
+              </AlertDescription>
+            </Alert>
+          )}
           <TimeSlotPicker
             sessionType="TRIAL_SESSION"
             durationMinutes={60}
@@ -157,25 +186,38 @@ export default function BookTrialPage() {
                   </div>
                 </div>
               </div>
+              {!isAuthenticated && (
+                <Alert>
+                  <AlertDescription>
+                    Please{' '}
+                    <Link href={`/login?redirect=${encodeURIComponent('/book-trial')}`} className="underline font-medium">
+                      sign in
+                    </Link>{' '}
+                    to confirm your booking.
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="flex gap-2 pt-4">
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setCurrentStep(1);
+                    setCurrentStep(isAuthenticated ? 1 : 0);
                     setSelectedSlot(null);
                   }}
                   disabled={isSubmitting}
                 >
                   Back
                 </Button>
-                <Button onClick={handleConfirmBooking} disabled={isSubmitting}>
+                <Button onClick={handleConfirmBooking} disabled={isSubmitting || !isAuthenticated}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Confirming...
                     </>
-                  ) : (
+                  ) : isAuthenticated ? (
                     'Confirm Booking'
+                  ) : (
+                    'Sign In to Book'
                   )}
                 </Button>
               </div>

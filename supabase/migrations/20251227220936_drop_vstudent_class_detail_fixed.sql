@@ -6,3 +6,4 @@
 DROP VIEW IF EXISTS public.vstudent_class_detail_fixed;
 
 
+

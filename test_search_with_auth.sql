@@ -80,3 +80,4 @@ FROM (
 -- Actually, let's check if we can bypass by testing the function logic directly
 -- Let's see what data exists and test the search logic manually first
 
+

@@ -155,3 +155,4 @@ After applying the migration, verify:
 - Auth configuration changes require **manual dashboard configuration** (cannot be done via migrations)
 
 
+

@@ -40,3 +40,4 @@ SELECT
   'Fuzzy "Jhon"' as search_type,
   (search_students_admin('Jhon', ARRAY['ACTIVE', 'TRIAL']::TEXT[], false, 100, 0)->>'total')::int as count;
 
+
