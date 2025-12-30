@@ -11,13 +11,44 @@ export const sessionsApi = {
    * Get all sessions
    */
   getAllSessions: async (includeInactive: boolean = false): Promise<Tables<'sessions'>[]> => {
-    let query = (getSupabaseClient() as SupabaseClient<Database>).from('sessions').select('*');
-    if (!includeInactive) {
-      query = query.eq('status', 'ACTIVE');
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    try {
+      // Use server-side search function to avoid pagination limits
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
+        p_search: undefined, // No search term - get all
+        p_range_start: undefined,
+        p_range_end: undefined,
+        p_staff_id: undefined,
+        p_class_id: undefined,
+        p_student_id: undefined,
+        p_statuses: includeInactive ? undefined : ['ACTIVE'], // Filter by status if needed
+        p_types: undefined,
+        p_include_relationships: false, // We don't need relationships for basic list
+        p_limit: 10000, // High limit to get all sessions
+        p_offset: 0,
+        p_order_by: 'start_at',
+        p_ascending: false, // Most recent first
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return [];
+
+      const rpcData = rpcResult as { sessions: any[]; total: number };
+      // Transform RPC response to match Tables<'sessions'> format
+      return (rpcData.sessions || []).map((s: any) => ({
+        id: s.id,
+        class_id: s.class_id,
+        start_at: s.start_at,
+        end_at: s.end_at,
+        status: s.status,
+        created_at: s.created_at || null,
+        updated_at: s.updated_at || null,
+      })) as Tables<'sessions'>[];
+    } catch (error) {
+      console.error('Error getting all sessions:', error);
+      throw error;
     }
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data ?? []) as Tables<'sessions'>[];
   },
 
   /**
@@ -522,13 +553,59 @@ export const sessionsApi = {
         }
       });
 
-      // Attach rescheduled session data and invoice status to sessions_students
+      // Calculate is_extra flag: student is extra if session has class_id but student is not enrolled
+      const session = sessionData as Tables<'sessions'>;
+      const isExtraMap: Record<string, boolean> = {};
+      
+      if (session.class_id && sessionsStudentsData && sessionsStudentsData.length > 0) {
+        const studentIds = sessionsStudentsData.map((ss: any) => ss.student_id).filter(Boolean);
+        const sessionStartAt = session.start_at ? new Date(session.start_at) : null;
+        
+        // Fetch class enrollments for these students
+        const { data: enrollmentsData, error: enrollError } = await supabase
+          .from('classes_students')
+          .select('student_id, unenrolled_at')
+          .eq('class_id', session.class_id)
+          .in('student_id', studentIds);
+        
+        if (!enrollError && enrollmentsData) {
+          // Build map of enrolled students (enrolled and not unenrolled before session)
+          const enrolledStudentIds = new Set<string>();
+          enrollmentsData.forEach((enrollment: any) => {
+            if (!enrollment.unenrolled_at || (sessionStartAt && new Date(enrollment.unenrolled_at) > sessionStartAt)) {
+              enrolledStudentIds.add(enrollment.student_id);
+            }
+          });
+          
+          // Mark students as extra if they're not enrolled
+          sessionsStudentsData.forEach((ss: any) => {
+            if (ss.student_id && !enrolledStudentIds.has(ss.student_id)) {
+              isExtraMap[ss.id] = true;
+            } else {
+              isExtraMap[ss.id] = false;
+            }
+          });
+        } else {
+          // If error fetching enrollments, assume all students are extra if class_id exists
+          sessionsStudentsData.forEach((ss: any) => {
+            isExtraMap[ss.id] = session.class_id ? true : false;
+          });
+        }
+      } else {
+        // No class_id means no extra students
+        sessionsStudentsData?.forEach((ss: any) => {
+          isExtraMap[ss.id] = false;
+        });
+      }
+
+      // Attach rescheduled session data, invoice status, and is_extra flag to sessions_students
       const enrichedSessionsStudentsData = (sessionsStudentsData || []).map((ss: any) => ({
         ...ss,
         rescheduled_session: ss.rescheduled_sessions_students_id
           ? rescheduledSessionsMap[ss.rescheduled_sessions_students_id]
           : null,
         invoice_status: invoiceStatusMap[ss.id] || null,
+        is_extra: isExtraMap[ss.id] || false,
       }));
       
       // 3. Get all sessions_staff with full details  
