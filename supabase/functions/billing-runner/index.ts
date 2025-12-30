@@ -279,7 +279,8 @@ Deno.serve(async (req: Request) => {
     if (subErr) throw subErr;
 
     // Pricing calculation function - returns { amount_cents, currency }
-    const calculateSessionPrice = (session: any): { amount_cents: number; currency: string } => {
+    // Now accepts studentId to check for subsidies (hourly rate overrides)
+    const calculateSessionPrice = (session: any, studentId?: string): { amount_cents: number; currency: string } => {
       if (!session.billing_type) return { amount_cents: 0, currency: 'aud' }; // Non-billable session
       
       // Calculate duration in hours
@@ -322,6 +323,30 @@ Deno.serve(async (req: Request) => {
         const defaultPricing = pricingByBillingType[session.billing_type];
         hourlyRateCents = defaultPricing?.hourly_rate_cents || 0;
         currency = defaultPricing?.currency?.toLowerCase() || 'aud';
+      }
+      
+      // Check for student subsidy (hourly rate override)
+      // Subsidies are stored as hourly_rate_cents (price_cents field)
+      // Student pays the minimum of subsidy rate and default/override rate
+      if (studentId && session.subject_id && session.billing_type) {
+        const activeSub = (subsidies || []).find((s: any) =>
+          s.student_id === studentId && 
+          s.subject_id === session.subject_id && 
+          s.billing_type === session.billing_type && 
+          (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
+          (!s.effective_until || new Date(s.effective_until) > targetDate)
+        );
+        
+        if (activeSub) {
+          // Subsidy price_cents is now the hourly rate override
+          const subsidyHourlyRateCents = activeSub.price_cents;
+          // Use the minimum of subsidy rate and default/override rate
+          hourlyRateCents = Math.min(hourlyRateCents, subsidyHourlyRateCents);
+          // Use subsidy currency if provided, otherwise keep existing currency
+          if (activeSub.currency) {
+            currency = activeSub.currency.toLowerCase();
+          }
+        }
       }
       
       // Calculate total: hourly_rate * duration (rounded to nearest cent)
@@ -417,9 +442,10 @@ Deno.serve(async (req: Request) => {
         for (const item of studentSessions) {
           const { session, subject, sessions_students_id, student_id } = item;
 
-          // Calculate base price from hourly rate and duration (returns { amount_cents, currency })
-          const priceResult = calculateSessionPrice(session);
-          let netCents = priceResult.amount_cents;
+          // Calculate price from hourly rate and duration (subsidy is now applied as hourly rate override)
+          // Pass student_id to calculateSessionPrice so it can check for subsidies
+          const priceResult = calculateSessionPrice(session, student_id);
+          const netCents = priceResult.amount_cents;
           const sessionCurrency = priceResult.currency;
           
           // Validate currency consistency
@@ -430,54 +456,10 @@ Deno.serve(async (req: Request) => {
             continue;
           }
           
-          // Check for subsidy override (subsidies are per-subject per-billing-type, price is final amount)
-          // Use targetDate for subsidy validation instead of new Date()
-          const activeSub = (subsidies || []).find((s: any) =>
-            s.student_id === student_id && 
-            s.subject_id === session.subject_id && 
-            s.billing_type === session.billing_type && 
-            (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
-            (!s.effective_until || new Date(s.effective_until) > targetDate)
-          );
-          
-          if (activeSub) {
-            const subsidyAmount = activeSub.price_cents;
-            if (subsidyAmount < netCents) {
-              // Partial subsidy: add negative item for subsidy
-              const subsidyCents = -(netCents - subsidyAmount);
-              const classLongName = getClassLongName(session);
-              const sessionDate = formatSessionDate(session.start_at);
-              invoiceItems.push({
-                sessions_students_id,
-                session_id: session.id,
-                student_id,
-                amount_cents: subsidyCents,
-                description: `Subsidy - ${classLongName} (${sessionDate})`,
-                is_subsidy: true,
-                currency: sessionCurrency
-              });
-              netCents = subsidyAmount;
-            } else if (subsidyAmount >= netCents) {
-              // Full subsidy: add negative item for full amount
-              const classLongName = getClassLongName(session);
-              const sessionDate = formatSessionDate(session.start_at);
-              invoiceItems.push({
-                sessions_students_id,
-                session_id: session.id,
-                student_id,
-                amount_cents: -netCents,
-                description: `Full subsidy - ${classLongName} (${sessionDate})`,
-                is_subsidy: true,
-                currency: sessionCurrency
-              });
-              netCents = 0;
-            }
-          }
-
-          // Skip zero-amount sessions (already handled by subsidies)
+          // Skip zero-amount sessions
           if (netCents <= 0) continue;
 
-          // Add session charge (net amount, fees will be added separately)
+          // Add session charge (subsidy is already applied as hourly rate override, no separate line item needed)
           const classLongName = getClassLongName(session);
           const sessionDate = formatSessionDate(session.start_at);
           invoiceItems.push({

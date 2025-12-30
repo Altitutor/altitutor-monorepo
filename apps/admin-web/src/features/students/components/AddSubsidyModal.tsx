@@ -91,7 +91,7 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
     if (!priceDollars || parseFloat(priceDollars) < 0) {
       toast({
         title: 'Error',
-        description: 'Please enter a valid price',
+        description: 'Please enter a valid hourly rate',
         variant: 'destructive',
       });
       return;
@@ -133,7 +133,7 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
         <DialogHeader>
           <DialogTitle>Add Subsidy</DialogTitle>
           <DialogDescription>
-            Create a new subsidy for this student. The subsidy will override the default pricing for the selected subject and billing type.
+            Create a new hourly rate subsidy for this student. The student will pay the minimum of the subsidy rate and the default rate for the selected subject and billing type.
           </DialogDescription>
         </DialogHeader>
 
@@ -169,7 +169,7 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="price">Price (in dollars)</Label>
+            <Label htmlFor="price">Subsidy Price Per Hour (in dollars)</Label>
             <Input
               id="price"
               type="number"
@@ -179,6 +179,9 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
               onChange={(e) => setPriceDollars(e.target.value)}
               placeholder="0.00"
             />
+            <p className="text-xs text-muted-foreground">
+              The student will pay the minimum of this subsidy rate and the default hourly rate for this billing type.
+            </p>
           </div>
 
           <div className="space-y-2">

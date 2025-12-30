@@ -97,7 +97,7 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
     if (!priceDollars || parseFloat(priceDollars) < 0) {
       toast({
         title: 'Error',
-        description: 'Please enter a valid price',
+        description: 'Please enter a valid hourly rate',
         variant: 'destructive',
       });
       return;
@@ -137,7 +137,7 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
         <DialogHeader>
           <DialogTitle>Edit Subsidy</DialogTitle>
           <DialogDescription>
-            Update the subsidy details. Leave "Effective Until" empty for indefinitely.
+            Update the hourly rate subsidy details. The student will pay the minimum of the subsidy rate and the default rate. Leave "Effective Until" empty for indefinitely.
           </DialogDescription>
         </DialogHeader>
 
@@ -173,7 +173,7 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="price">Price (in dollars)</Label>
+            <Label htmlFor="price">Subsidy Price Per Hour (in dollars)</Label>
             <Input
               id="price"
               type="number"
@@ -183,6 +183,9 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
               onChange={(e) => setPriceDollars(e.target.value)}
               placeholder="0.00"
             />
+            <p className="text-xs text-muted-foreground">
+              The student will pay the minimum of this subsidy rate and the default hourly rate for this billing type.
+            </p>
           </div>
 
           <div className="space-y-2">

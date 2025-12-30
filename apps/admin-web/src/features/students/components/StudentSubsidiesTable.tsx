@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -20,6 +20,8 @@ import type { StudentSubsidyRow } from '../api/subsidies';
 import { updateSubsidy, deleteSubsidy } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
 import { EditSubsidyModal } from './EditSubsidyModal';
+import { pricingApi } from '@/features/billing/api/pricing';
+import type { BillingPricingRow } from '@/features/billing/api/pricing';
 
 interface StudentSubsidiesTableProps {
   subsidies: StudentSubsidyRow[];
@@ -29,8 +31,24 @@ interface StudentSubsidiesTableProps {
 export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidiesTableProps) {
   const [editingSubsidy, setEditingSubsidy] = useState<StudentSubsidyRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [defaultPricing, setDefaultPricing] = useState<BillingPricingRow[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch default pricing for each billing type
+  useEffect(() => {
+    pricingApi.getBillingPricing()
+      .then(setDefaultPricing)
+      .catch(() => {
+        // Silently fail - default pricing is optional for display
+      });
+  }, []);
+
+  // Helper to get default hourly rate for a billing type
+  const getDefaultHourlyRate = (billingType: string): number | null => {
+    const pricing = defaultPricing.find(p => p.billing_type === billingType);
+    return pricing ? pricing.hourly_rate_cents : null;
+  };
 
   const handleDelete = async (subsidyId: string) => {
     if (!confirm('Are you sure you want to delete this subsidy?')) return;
@@ -75,7 +93,8 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
             <TableRow>
               <TableHead>Subject</TableHead>
               <TableHead>Billing Type</TableHead>
-              <TableHead>Price</TableHead>
+              <TableHead>Subsidy Price Per Hour</TableHead>
+              <TableHead>Default Price Per Hour</TableHead>
               <TableHead>Effective From</TableHead>
               <TableHead>Effective Until</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -100,6 +119,15 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
                   <TableCell>{subsidy.billing_type}</TableCell>
                   <TableCell>
                     ${(subsidy.price_cents / 100).toFixed(2)} {subsidy.currency}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const defaultRate = getDefaultHourlyRate(subsidy.billing_type);
+                      if (defaultRate === null) {
+                        return <span className="text-muted-foreground">N/A</span>;
+                      }
+                      return `$${(defaultRate / 100).toFixed(2)} ${subsidy.currency}`;
+                    })()}
                   </TableCell>
                   <TableCell>{formatDate(subsidy.effective_from)}</TableCell>
                   <TableCell>
