@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { format, differenceInMinutes, isSameDay } from 'date-fns';
-import { usePrecreateSessions } from '../hooks/usePrecreateSessions';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
@@ -15,17 +13,11 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
   
-  const { mutate: precreate } = usePrecreateSessions();
   const { data } = useSessionsWithDetails({ 
     rangeStart: todayStr, 
     rangeEnd: todayStr,
     includeInactive: false // Only show active sessions in calendar view
   });
-
-  // Precreate sessions for today
-  useEffect(() => {
-    precreate({ start_date: todayStr, end_date: todayStr });
-  }, [todayStr, precreate]);
 
   const slotHeight = 75; // px per hour
 

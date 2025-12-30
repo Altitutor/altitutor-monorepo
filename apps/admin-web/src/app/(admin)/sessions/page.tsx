@@ -7,17 +7,18 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Button, Input, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
+import { Button, Input, Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { addDays, format, endOfYear } from 'date-fns';
 import { usePrecreateSessions } from '@/features/sessions';
-import { addDays, format } from 'date-fns';
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
+  const { toast } = useToast();
   const viewParam = search.get('view') || 'table';
   const [day, setDay] = useState<string>(new Date().toISOString().slice(0, 10));
-  const { mutate: precreate } = usePrecreateSessions();
+  const { mutate: precreate, isPending: isPrecreating } = usePrecreateSessions();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
@@ -30,11 +31,35 @@ export default function SessionsPage() {
     router.push(`/sessions?${params.toString()}`);
   };
 
-  // Auto-precreate for the selected day
-  useEffect(() => {
-    if (!day) return;
-    precreate({ start_date: day, end_date: day });
-  }, [day, precreate]);
+  const handlePrecreateSessions = () => {
+    const today = new Date();
+    const yearEnd = endOfYear(today);
+    const startDate = format(today, 'yyyy-MM-dd');
+    const endDate = format(yearEnd, 'yyyy-MM-dd');
+
+    precreate(
+      {
+        start_date: startDate,
+        end_date: endDate,
+      },
+      {
+        onSuccess: (count) => {
+          toast({
+            title: 'Sessions precreated',
+            description: `Successfully created ${count || 0} new session${count !== 1 ? 's' : ''} for the rest of ${today.getFullYear()}.`,
+          });
+        },
+        onError: (error: Error) => {
+          console.error('Error precreating sessions:', error);
+          toast({
+            title: 'Error',
+            description: error.message || 'Failed to precreate sessions. Please try again.',
+            variant: 'destructive',
+          });
+        },
+      }
+    );
+  };
 
   // Listen for events fired from SessionModal to open student/staff/topic/file modals
   useEffect(() => {
@@ -72,12 +97,21 @@ export default function SessionsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
-        <Tabs value={viewParam} onValueChange={(v) => setView(v as any)}>
-          <TabsList>
-            <TabsTrigger value="table">Table</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={handlePrecreateSessions}
+            disabled={isPrecreating}
+            variant="outline"
+          >
+            {isPrecreating ? 'Precreating...' : `Precreate Sessions for ${new Date().getFullYear()}`}
+          </Button>
+          <Tabs value={viewParam} onValueChange={(v) => setView(v as any)}>
+            <TabsList>
+              <TabsTrigger value="table">Table</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {viewParam === 'table' && (
