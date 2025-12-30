@@ -61,8 +61,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/forgot-password') || 
     pathname.startsWith('/reset-password') || 
     pathname.startsWith('/invite/') || 
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/book-trial');
+    pathname.startsWith('/auth/');
 
   // If no user and trying to access protected route, redirect to login
   if (!user && !isPublicPath) {

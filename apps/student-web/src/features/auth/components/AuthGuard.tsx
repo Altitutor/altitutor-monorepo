@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 
-const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/reset-password', '/book-trial'];
+const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/reset-password'];
 
 // Helper function to check if a path is public
 const isPublicPath = (pathname: string): boolean => {

@@ -27,6 +27,9 @@ export interface StaffCreateData {
   availability_saturday_pm?: boolean | null;
   availability_sunday_am?: boolean | null;
   availability_sunday_pm?: boolean | null;
+  drafting_availability?: boolean | null;
+  trial_session_availability?: boolean | null;
+  subsidy_interview_availability?: boolean | null;
 }
 
 export interface StaffUpdateData extends Partial<StaffCreateData> {
@@ -342,6 +345,9 @@ export const staffApi = {
           availability_saturday_pm: data.availability_saturday_pm,
           availability_sunday_am: data.availability_sunday_am,
           availability_sunday_pm: data.availability_sunday_pm,
+          drafting_availability: data.drafting_availability,
+          trial_session_availability: data.trial_session_availability,
+          subsidy_interview_availability: data.subsidy_interview_availability,
         }),
       });
 
@@ -378,6 +384,9 @@ export const staffApi = {
       availability_saturday_pm: (data as unknown as { availability_saturday_pm?: boolean | null }).availability_saturday_pm,
       availability_sunday_am: (data as unknown as { availability_sunday_am?: boolean | null }).availability_sunday_am,
       availability_sunday_pm: (data as unknown as { availability_sunday_pm?: boolean | null }).availability_sunday_pm,
+      drafting_availability: (data as unknown as { drafting_availability?: boolean | null }).drafting_availability,
+      trial_session_availability: (data as unknown as { trial_session_availability?: boolean | null }).trial_session_availability,
+      subsidy_interview_availability: (data as unknown as { subsidy_interview_availability?: boolean | null }).subsidy_interview_availability,
     });
   },
 

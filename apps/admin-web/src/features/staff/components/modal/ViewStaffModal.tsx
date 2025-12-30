@@ -119,7 +119,10 @@ export function ViewStaffModal({
         availability_saturday_am: data.availability_saturday_am,
         availability_saturday_pm: data.availability_saturday_pm,
         availability_sunday_am: data.availability_sunday_am,
-        availability_sunday_pm: data.availability_sunday_pm
+        availability_sunday_pm: data.availability_sunday_pm,
+        drafting_availability: data.drafting_availability,
+        trial_session_availability: data.trial_session_availability,
+        subsidy_interview_availability: data.subsidy_interview_availability,
       };
       console.log('[ViewStaffModal] Calling staffApi.updateStaff with:', {
         id: staffMember.id,

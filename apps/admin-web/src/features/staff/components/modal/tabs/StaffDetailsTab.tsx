@@ -62,6 +62,10 @@ const formSchema = z.object({
   availability_saturday_pm: z.boolean(),
   availability_sunday_am: z.boolean(),
   availability_sunday_pm: z.boolean(),
+  // Session-type availability
+  drafting_availability: z.boolean(),
+  trial_session_availability: z.boolean(),
+  subsidy_interview_availability: z.boolean(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -131,6 +135,9 @@ export function StaffDetailsTab({
       availability_saturday_pm: false,
       availability_sunday_am: false,
       availability_sunday_pm: false,
+      drafting_availability: false,
+      trial_session_availability: false,
+      subsidy_interview_availability: false,
     },
   });
 
@@ -172,6 +179,9 @@ export function StaffDetailsTab({
         availability_saturday_pm: !!staffMember.availability_saturday_pm,
         availability_sunday_am: !!staffMember.availability_sunday_am,
         availability_sunday_pm: !!staffMember.availability_sunday_pm,
+        drafting_availability: !!staffMember.drafting_availability,
+        trial_session_availability: !!staffMember.trial_session_availability,
+        subsidy_interview_availability: !!staffMember.subsidy_interview_availability,
       };
       console.log('[StaffDetailsTab] Calling form.reset with values:', resetValues);
       form.reset(resetValues);
@@ -531,6 +541,34 @@ export function StaffDetailsTab({
                 </div>
               </div>
 
+              {/* Session-Type Availability Section */}
+              <div className="mt-4">
+                <h4 className="font-medium mb-3">Session-Type Availability</h4>
+                <div className="space-y-3">
+                  {[
+                    { key: 'drafting_availability', label: 'Drafting Sessions' },
+                    { key: 'trial_session_availability', label: 'Trial Sessions' },
+                    { key: 'subsidy_interview_availability', label: 'Subsidy Interviews' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Controller
+                        control={form.control}
+                        name={key as keyof FormData}
+                        render={({ field }) => (
+                          <Checkbox 
+                            id={key} 
+                            checked={field.value as boolean}
+                            onCheckedChange={field.onChange}
+                            disabled={isLoading}
+                          />
+                        )}
+                      />
+                      <Label htmlFor={key}>{label}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <Separator className="my-6" />
 
               {/* Account Section */}
@@ -868,6 +906,25 @@ export function StaffDetailsTab({
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Session-Type Availability Section */}
+        <div className="mt-6">
+          <h4 className="font-medium mb-3">Session-Type Availability</h4>
+          <div className="space-y-2">
+            {[
+              { key: 'drafting_availability', label: 'Drafting Sessions' },
+              { key: 'trial_session_availability', label: 'Trial Sessions' },
+              { key: 'subsidy_interview_availability', label: 'Subsidy Interviews' },
+            ].map(({ key, label }) => (
+              <div key={key} className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {label}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

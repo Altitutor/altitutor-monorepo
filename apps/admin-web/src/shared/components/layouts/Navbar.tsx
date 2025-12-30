@@ -181,8 +181,8 @@ export function Navbar() {
         // Fallback if showPicker throws synchronously
         input.click();
       }
-    } else {
-      // Fallback: trigger click
+      } else {
+        // Fallback: trigger click
       input.click();
     }
   };
@@ -200,8 +200,8 @@ export function Navbar() {
         // Fallback if showPicker throws synchronously
         input.click();
       }
-    } else {
-      // Fallback: trigger click
+      } else {
+        // Fallback: trigger click
       input.click();
     }
   };

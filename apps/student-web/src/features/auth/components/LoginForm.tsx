@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { Button } from '@altitutor/ui';
 import {
@@ -35,8 +35,6 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const { resolvedTheme } = useTheme();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -66,8 +64,8 @@ export function LoginForm() {
         throw new Error('Authentication failed: No user or session data');
       }
 
-      // Redirect immediately after successful login (or to redirect URL if provided)
-      router.replace(redirectTo);
+      // Redirect immediately after successful login
+      router.replace('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setLoading(false);

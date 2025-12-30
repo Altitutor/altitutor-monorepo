@@ -119,6 +119,9 @@ export async function PATCH(
         availability_saturday_pm: body.availability_saturday_pm,
         availability_sunday_am: body.availability_sunday_am,
         availability_sunday_pm: body.availability_sunday_pm,
+        drafting_availability: body.drafting_availability,
+        trial_session_availability: body.trial_session_availability,
+        subsidy_interview_availability: body.subsidy_interview_availability,
       })
       .eq('id', staffId)
       .select()
