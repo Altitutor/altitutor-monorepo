@@ -196,20 +196,18 @@ Deno.serve(async (req: Request) => {
       .in('subject_id', subjectIds);
     if (poErr) throw poErr;
     const overridesBySubjectAndBilling: Record<string, Record<string, any>> = {};
-    const now = new Date();
+    // Note: Override validation will be done per-session using targetDate in calculateSessionPrice
+    // This map is kept for quick lookup, but actual validation happens during price calculation
     for (const override of pricingOverrides || []) {
-      // Check if override is active
-      const effectiveFrom = new Date(override.effective_from);
-      const effectiveUntil = override.effective_until ? new Date(override.effective_until) : null;
-      if (effectiveFrom <= now && (!effectiveUntil || effectiveUntil > now)) {
-        if (!overridesBySubjectAndBilling[override.subject_id]) {
-          overridesBySubjectAndBilling[override.subject_id] = {};
-        }
-        overridesBySubjectAndBilling[override.subject_id][override.billing_type] = {
-          hourly_rate_cents: override.hourly_rate_cents,
-          currency: override.currency
-        };
+      if (!overridesBySubjectAndBilling[override.subject_id]) {
+        overridesBySubjectAndBilling[override.subject_id] = {};
       }
+      overridesBySubjectAndBilling[override.subject_id][override.billing_type] = {
+        hourly_rate_cents: override.hourly_rate_cents,
+        currency: override.currency,
+        effective_from: override.effective_from,
+        effective_until: override.effective_until
+      };
     }
 
     // Load attending students
@@ -280,9 +278,9 @@ Deno.serve(async (req: Request) => {
       .select('student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until');
     if (subErr) throw subErr;
 
-    // Pricing calculation function
-    const calculateSessionPrice = (session: any): number => {
-      if (!session.billing_type) return 0; // Non-billable session
+    // Pricing calculation function - returns { amount_cents, currency }
+    const calculateSessionPrice = (session: any): { amount_cents: number; currency: string } => {
+      if (!session.billing_type) return { amount_cents: 0, currency: 'aud' }; // Non-billable session
       
       // Calculate duration in hours
       const startTime = new Date(session.start_at).getTime();
@@ -290,12 +288,47 @@ Deno.serve(async (req: Request) => {
       const durationMs = endTime - startTime;
       const durationHours = durationMs / (1000 * 60 * 60);
       
-      // Check for subject override first
+      // Check for subject override first (use targetDate for override validation)
       const override = overridesBySubjectAndBilling[session.subject_id]?.[session.billing_type];
-      const hourlyRateCents = override?.hourly_rate_cents || pricingByBillingType[session.billing_type]?.hourly_rate_cents || 0;
+      let hourlyRateCents = 0;
+      let currency = 'aud';
+      
+      if (override) {
+        // Validate override is active for targetDate
+        const overrideData = pricingOverrides?.find((o: any) => 
+          o.subject_id === session.subject_id && 
+          o.billing_type === session.billing_type
+        );
+        if (overrideData) {
+          const effectiveFrom = new Date(overrideData.effective_from);
+          const effectiveUntil = overrideData.effective_until ? new Date(overrideData.effective_until) : null;
+          if (effectiveFrom <= targetDate && (!effectiveUntil || effectiveUntil > targetDate)) {
+            hourlyRateCents = override.hourly_rate_cents;
+            currency = override.currency.toLowerCase();
+          } else {
+            // Override not active, use default pricing
+            const defaultPricing = pricingByBillingType[session.billing_type];
+            hourlyRateCents = defaultPricing?.hourly_rate_cents || 0;
+            currency = defaultPricing?.currency?.toLowerCase() || 'aud';
+          }
+        } else {
+          // Override not found in active list, use default
+          const defaultPricing = pricingByBillingType[session.billing_type];
+          hourlyRateCents = defaultPricing?.hourly_rate_cents || 0;
+          currency = defaultPricing?.currency?.toLowerCase() || 'aud';
+        }
+      } else {
+        // No override, use default pricing
+        const defaultPricing = pricingByBillingType[session.billing_type];
+        hourlyRateCents = defaultPricing?.hourly_rate_cents || 0;
+        currency = defaultPricing?.currency?.toLowerCase() || 'aud';
+      }
       
       // Calculate total: hourly_rate * duration (rounded to nearest cent)
-      return Math.round(hourlyRateCents * durationHours);
+      return {
+        amount_cents: Math.round(hourlyRateCents * durationHours),
+        currency
+      };
     };
 
     // Group sessions by student_id
@@ -345,6 +378,7 @@ Deno.serve(async (req: Request) => {
         // Calculate pricing for each session and build invoice items
         const invoiceItems: any[] = [];
         let totalNetCents = 0; // Track total net amount (before fees)
+        let invoiceCurrency: string | null = null; // Track currency for validation
 
         // Helper function to build class long name
         const getClassLongName = (session: any): string => {
@@ -380,15 +414,27 @@ Deno.serve(async (req: Request) => {
         for (const item of studentSessions) {
           const { session, subject, sessions_students_id, student_id } = item;
 
-          // Calculate base price from hourly rate and duration
-          let netCents = calculateSessionPrice(session);
+          // Calculate base price from hourly rate and duration (returns { amount_cents, currency })
+          const priceResult = calculateSessionPrice(session);
+          let netCents = priceResult.amount_cents;
+          const sessionCurrency = priceResult.currency;
+          
+          // Validate currency consistency
+          if (invoiceCurrency === null) {
+            invoiceCurrency = sessionCurrency;
+          } else if (invoiceCurrency !== sessionCurrency) {
+            errors.push(`Student ${studentId}: Mixed currencies detected (${invoiceCurrency} vs ${sessionCurrency}). All sessions must use the same currency.`);
+            continue;
+          }
           
           // Check for subsidy override (subsidies are per-subject per-billing-type, price is final amount)
+          // Use targetDate for subsidy validation instead of new Date()
           const activeSub = (subsidies || []).find((s: any) =>
             s.student_id === student_id && 
             s.subject_id === session.subject_id && 
             s.billing_type === session.billing_type && 
-            (!s.effective_until || new Date(s.effective_until) > new Date())
+            (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
+            (!s.effective_until || new Date(s.effective_until) > targetDate)
           );
           
           if (activeSub) {
@@ -404,7 +450,8 @@ Deno.serve(async (req: Request) => {
                 student_id,
                 amount_cents: subsidyCents,
                 description: `Subsidy - ${classLongName} (${sessionDate})`,
-                is_subsidy: true
+                is_subsidy: true,
+                currency: sessionCurrency
               });
               netCents = subsidyAmount;
             } else if (subsidyAmount >= netCents) {
@@ -417,7 +464,8 @@ Deno.serve(async (req: Request) => {
                 student_id,
                 amount_cents: -netCents,
                 description: `Full subsidy - ${classLongName} (${sessionDate})`,
-                is_subsidy: true
+                is_subsidy: true,
+                currency: sessionCurrency
               });
               netCents = 0;
             }
@@ -435,14 +483,15 @@ Deno.serve(async (req: Request) => {
             student_id,
             amount_cents: netCents,
             description: `${classLongName} - ${sessionDate}`,
-            is_subsidy: false
+            is_subsidy: false,
+            currency: sessionCurrency
           });
 
           totalNetCents += netCents;
         }
 
         // Calculate total fees as a separate line item
-        if (totalNetCents > 0 && defaultPM) {
+        if (totalNetCents > 0 && defaultPM && invoiceCurrency) {
           const isIntl = (defaultPM.card_country && defaultPM.card_country.toUpperCase() !== DOMESTIC_COUNTRY);
           const feePercent = isIntl ? FEE_PERCENT_INTL : FEE_PERCENT_DOM;
           const feeFixedCents = FEE_FIXED_CENTS;
@@ -460,7 +509,8 @@ Deno.serve(async (req: Request) => {
               amount_cents: totalFeesCents,
               description: `Payment processing fee (${(feePercent * 100).toFixed(2)}%${feeFixedCents > 0 ? ` + $${(feeFixedCents / 100).toFixed(2)}` : ''})`,
               is_subsidy: false,
-              is_fee: true
+              is_fee: true,
+              currency: invoiceCurrency
             });
           }
         }
@@ -468,6 +518,19 @@ Deno.serve(async (req: Request) => {
         // Skip if no items to invoice
         if (invoiceItems.length === 0) {
           console.log(`[runner] No invoice items for student ${studentId} on ${invoiceDate}, skipping`);
+          continue;
+        }
+
+        // Validate currency consistency (all items must use the same currency)
+        if (!invoiceCurrency) {
+          errors.push(`Student ${studentId}: No currency determined for invoice items`);
+          continue;
+        }
+        
+        // Ensure all items have the same currency
+        const mismatchedCurrency = invoiceItems.find((item: any) => item.currency !== invoiceCurrency);
+        if (mismatchedCurrency) {
+          errors.push(`Student ${studentId}: Currency mismatch detected. Expected ${invoiceCurrency}, found ${mismatchedCurrency.currency}`);
           continue;
         }
 
@@ -527,17 +590,27 @@ Deno.serve(async (req: Request) => {
           const idempotencyKey = `invoice_${studentId}_${invoiceDate}`;
           
           try {
+            // Helper function to generate idempotency key with hash of amount and description
+            const generateItemIdempotencyKey = (item: any): string => {
+              if (item.sessions_students_id) {
+                // For session items, include amount and description hash for uniqueness
+                const hash = `${item.amount_cents}_${item.description.substring(0, 50)}`.replace(/[^a-zA-Z0-9_]/g, '_');
+                return `invoice_item_${item.sessions_students_id}_${hash.substring(0, 100)}`;
+              } else {
+                // For fee items, include amount in key
+                return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
+              }
+            };
+
             // Create invoice items in Stripe
             const stripeInvoiceItems = [];
             for (const item of invoiceItems) {
-              // Generate unique idempotency key (handle null sessions_students_id for fees)
-              const itemIdempotencyKey = item.sessions_students_id 
-                ? `invoice_item_${item.sessions_students_id}`
-                : `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
+              // Generate unique idempotency key with hash of amount and description
+              const itemIdempotencyKey = generateItemIdempotencyKey(item);
               const stripeItem = await stripe.invoiceItems.create({
                 customer: billing.stripe_customer_id,
                 amount: item.amount_cents,
-                currency: 'aud',
+                currency: invoiceCurrency, // Use currency from pricing data, not hardcoded
                 description: item.description,
                 metadata: {
                   type: 'session_charge',
@@ -551,10 +624,12 @@ Deno.serve(async (req: Request) => {
               stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
             }
 
-            // Create invoice
+            // Create invoice with send_invoice collection method
+            // Stripe requires due_date or days_until_due when collection_method is 'send_invoice'
             const invoice = await stripe.invoices.create({
               customer: billing.stripe_customer_id,
               collection_method: 'send_invoice',
+              days_until_due: 30, // Set 30 days payment window for manual invoices
               auto_advance: false,
               pending_invoice_items_behavior: 'include',
               description: `Invoice for sessions on ${invoiceDate}`,
@@ -620,17 +695,27 @@ Deno.serve(async (req: Request) => {
         const idempotencyKey = `invoice_${studentId}_${invoiceDate}`;
         
         try {
+          // Helper function to generate idempotency key with hash of amount and description
+          const generateItemIdempotencyKey = (item: any): string => {
+            if (item.sessions_students_id) {
+              // For session items, include amount and description hash for uniqueness
+              const hash = `${item.amount_cents}_${item.description.substring(0, 50)}`.replace(/[^a-zA-Z0-9_]/g, '_');
+              return `invoice_item_${item.sessions_students_id}_${hash.substring(0, 100)}`;
+            } else {
+              // For fee items, include amount in key
+              return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
+            }
+          };
+
           // Create invoice items in Stripe
           const stripeInvoiceItems = [];
           for (const item of invoiceItems) {
-            // Generate unique idempotency key (handle null sessions_students_id for fees)
-            const itemIdempotencyKey = item.sessions_students_id 
-              ? `invoice_item_${item.sessions_students_id}`
-              : `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
+            // Generate unique idempotency key with hash of amount and description
+            const itemIdempotencyKey = generateItemIdempotencyKey(item);
             const stripeItem = await stripe.invoiceItems.create({
               customer: billing.stripe_customer_id,
               amount: item.amount_cents,
-              currency: 'aud',
+              currency: invoiceCurrency, // Use currency from pricing data, not hardcoded
               description: item.description,
               metadata: {
                 type: 'session_charge',
@@ -644,12 +729,13 @@ Deno.serve(async (req: Request) => {
             stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
           }
 
-          // Create invoice
+          // Create invoice with automatic collection
           const invoice = await stripe.invoices.create({
             customer: billing.stripe_customer_id,
             collection_method: 'charge_automatically',
             auto_advance: true,
             pending_invoice_items_behavior: 'include',
+            default_payment_method: defaultPM.stripe_payment_method_id, // Explicitly set default payment method
             description: `Invoice for sessions on ${invoiceDate}`,
             metadata: {
               type: 'session_invoice',
