@@ -3,16 +3,10 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard, MessageSquarePlus, Clock, Ban } from 'lucide-react';
+import { Calendar, Settings, Menu, X, Home, ClipboardList, BookOpen, Ban } from 'lucide-react';
 import { Button } from '@altitutor/ui';
-import { cn, navHoverStyles } from '@/shared/utils/index';
+import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, MessageCircle } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
-  ssr: false,
-});
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -35,29 +29,14 @@ const navItems: NavItem[] = [
     title: 'SCHEDULING',
   },
   {
-    title: 'Students',
-    href: '/students',
-    icon: GraduationCap,
-  },
-  {
-    title: 'Staff',
-    href: '/staff',
-    icon: Users,
+    title: 'Sessions',
+    href: '/session-logs',
+    icon: ClipboardList,
   },
   {
     title: 'Classes',
     href: '/classes',
     icon: Calendar,
-  },
-  {
-    title: 'Sessions',
-    href: '/sessions',
-    icon: ClipboardList,
-  },
-  {
-    title: 'Opening Hours',
-    href: '/settings/opening-hours',
-    icon: Clock,
   },
   {
     title: 'Blockout Dates',
@@ -66,52 +45,16 @@ const navItems: NavItem[] = [
   },
   {
     type: 'heading',
-    title: 'COMMUNICATIONS',
-  },
-  {
-    title: 'Communications',
-    href: '/communications',
-    icon: MessageCircle,
-  },
-  {
-    title: 'Bulk Messaging',
-    href: '/communications/bulk',
-    icon: MessageSquarePlus,
-  },
-  {
-    title: 'Templates',
-    href: '/communications/templates',
-    icon: FileText,
-  },
-  {
-    type: 'heading',
-    title: 'FINANCIAL',
-  },
-  {
-    title: 'Billing',
-    href: '/billing/payments',
-    icon: CreditCard,
-  },
-  {
-    title: 'Reports',
-    href: '/reports',
-    icon: FileText,
-  },
-  {
-    type: 'heading',
     title: 'RESOURCES',
   },
   {
-    title: 'Subjects',
-    href: '/subjects',
-    icon: Beaker,
-  },
-  {
-    title: 'Topics',
-    href: '/topics',
-    icon: Newspaper,
+    title: 'Resources',
+    href: '/resources',
+    icon: BookOpen,
   },
 ];
+
+const navHoverStyles = "hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70";
 
 function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProps) {
   const pathname = usePathname();
@@ -136,7 +79,7 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
         </Button>
         {!collapsed && (
           <div className="flex items-center">
-            <h2 className="text-lg font-semibold">Altitutor Admin</h2>
+            <h2 className="text-lg font-semibold">Tutor Portal</h2>
           </div>
         )}
       </div>
@@ -182,24 +125,24 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
       
       <div className="border-t dark:border-brand-dark-border p-2">
         <Link 
-          href="/settings"
+          href="/my-account"
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-            pathname === '/settings'
+            pathname === '/my-account'
               ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
               : navHoverStyles,
             collapsed && "justify-center px-0"
           )}
         >
           <Settings className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
-          {!collapsed && <span>Settings</span>}
+          {!collapsed && <span>My Account</span>}
         </Link>
       </div>
     </div>
   );
 }
 
-export default function AdminLayout({
+export default function TutorLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -213,10 +156,8 @@ export default function AdminLayout({
   return (
     <div className="flex h-[calc(100vh-var(--navbar-height))] overflow-hidden">
       <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
-      <div className="flex-1 overflow-auto relative">
+      <div className="flex-1 overflow-auto">
         {children}
-        {/* Floating chat dock (admin-only) */}
-        <ChatDock />
       </div>
     </div>
   );
