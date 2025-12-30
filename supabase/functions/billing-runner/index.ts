@@ -338,7 +338,7 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        const billing = billingByStudent[studentId];
+        let billing = billingByStudent[studentId];
         const defaultPM = billing?.payment_methods?.[0];
         const receiptEmail = parentEmailByStudent[studentId] || studentEmailById[studentId];
 
@@ -456,7 +456,7 @@ Deno.serve(async (req: Request) => {
             invoiceItems.push({
               sessions_students_id: null, // Fees don't belong to a specific session
               session_id: null,
-              student_id,
+              student_id: studentId, // Use studentId from outer loop
               amount_cents: totalFeesCents,
               description: `Payment processing fee (${(feePercent * 100).toFixed(2)}%${feeFixedCents > 0 ? ` + $${(feeFixedCents / 100).toFixed(2)}` : ''})`,
               is_subsidy: false,
@@ -530,7 +530,10 @@ Deno.serve(async (req: Request) => {
             // Create invoice items in Stripe
             const stripeInvoiceItems = [];
             for (const item of invoiceItems) {
-              const itemIdempotencyKey = `invoice_item_${item.sessions_students_id}`;
+              // Generate unique idempotency key (handle null sessions_students_id for fees)
+              const itemIdempotencyKey = item.sessions_students_id 
+                ? `invoice_item_${item.sessions_students_id}`
+                : `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
               const stripeItem = await stripe.invoiceItems.create({
                 customer: billing.stripe_customer_id,
                 amount: item.amount_cents,
@@ -539,9 +542,10 @@ Deno.serve(async (req: Request) => {
                 metadata: {
                   type: 'session_charge',
                   student_id: studentId,
-                  session_id: item.session_id,
-                  sessions_students_id: item.sessions_students_id,
+                  session_id: item.session_id || '',
+                  sessions_students_id: item.sessions_students_id || '',
                   is_subsidy: item.is_subsidy ? 'true' : 'false',
+                  is_fee: item.is_fee ? 'true' : 'false',
                 },
               }, { idempotencyKey: itemIdempotencyKey });
               stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
@@ -619,7 +623,10 @@ Deno.serve(async (req: Request) => {
           // Create invoice items in Stripe
           const stripeInvoiceItems = [];
           for (const item of invoiceItems) {
-            const itemIdempotencyKey = `invoice_item_${item.sessions_students_id}`;
+            // Generate unique idempotency key (handle null sessions_students_id for fees)
+            const itemIdempotencyKey = item.sessions_students_id 
+              ? `invoice_item_${item.sessions_students_id}`
+              : `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}`;
             const stripeItem = await stripe.invoiceItems.create({
               customer: billing.stripe_customer_id,
               amount: item.amount_cents,
@@ -628,9 +635,10 @@ Deno.serve(async (req: Request) => {
               metadata: {
                 type: 'session_charge',
                 student_id: studentId,
-                session_id: item.session_id,
-                sessions_students_id: item.sessions_students_id,
+                session_id: item.session_id || '',
+                sessions_students_id: item.sessions_students_id || '',
                 is_subsidy: item.is_subsidy ? 'true' : 'false',
+                is_fee: item.is_fee ? 'true' : 'false',
               },
             }, { idempotencyKey: itemIdempotencyKey });
             stripeInvoiceItems.push({ ...item, stripe_invoice_item_id: stripeItem.id });
