@@ -35,6 +35,17 @@ export const billingApi = {
     return (data ?? []) as InvoiceItemRow[];
   },
 
+  // Get invoice items for an invoice
+  async getInvoiceItemsByInvoice(invoiceId: string): Promise<InvoiceItemRow[]> {
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('invoice_items')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as InvoiceItemRow[];
+  },
+
   // Get invoices by session (through invoice_items)
   async getInvoicesBySession(sessionId: string): Promise<InvoiceRow[]> {
     const { data: items, error: itemsError } = await (getSupabaseClient() as SupabaseClient<Database>)
@@ -63,11 +74,14 @@ export const billingApi = {
     to?: string; 
     q?: string; 
     limit?: number; 
-  }): Promise<InvoiceRow[]> {
+  }): Promise<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]> {
     const { status = 'ALL', from, to, q, limit = 200 } = params || {};
     let query = (getSupabaseClient() as SupabaseClient<Database>)
       .from('invoices')
-      .select('*')
+      .select(`
+        *,
+        student:students!invoices_student_id_fkey(id, first_name, last_name)
+      `)
       .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -81,12 +95,14 @@ export const billingApi = {
         p.stripe_invoice_id?.includes(q) || 
         p.stripe_invoice_number?.includes(q) ||
         p.id?.includes(q) ||
-        p.stripe_charge_id?.includes(q)
+        p.stripe_charge_id?.includes(q) ||
+        p.student?.first_name?.toLowerCase().includes(q.toLowerCase()) ||
+        p.student?.last_name?.toLowerCase().includes(q.toLowerCase())
       ));
     }
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []) as InvoiceRow[];
+    return (data ?? []) as (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[];
   },
 
   // Backward compatibility - returns invoices instead of payment attempts

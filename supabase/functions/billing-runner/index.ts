@@ -75,7 +75,8 @@ Deno.serve(async (req: Request) => {
     
     // Development mode: Allow admin users to test (only when using test Stripe keys)
     // This bypasses service role requirement for local/testing scenarios
-    if (!isServiceRole && isStripeTestKey) {
+    // Check admin token even if service role is provided, as a fallback for local dev
+    if (isStripeTestKey) {
       try {
         // Check for admin token in custom header (sent by API route)
         const adminToken = req.headers.get('x-admin-token');
@@ -96,8 +97,9 @@ Deno.serve(async (req: Request) => {
             }
           }
         }
-      } catch {
+      } catch (err) {
         // Auth check failed, continue with normal flow
+        console.error('[billing-runner] Admin token check failed:', err);
       }
     }
     

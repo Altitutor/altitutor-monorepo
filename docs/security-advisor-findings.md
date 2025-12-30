@@ -154,3 +154,4 @@ After applying the migration, verify:
 - Function search_path fixes are **non-breaking** - they only add security hardening
 - Auth configuration changes require **manual dashboard configuration** (cannot be done via migrations)
 
+

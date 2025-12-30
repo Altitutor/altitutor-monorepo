@@ -8,9 +8,9 @@ export async function POST(request: NextRequest) {
   try {
     // Verify user is authenticated and has admin role
     const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
     
-    if (authError || !user) {
+    if (authError || !session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
       .select('role, status')
-      .eq('user_id', user.id)
+      .eq('user_id', session.user.id)
       .maybeSingle();
 
     if (staffError || !staffData) {
@@ -44,27 +44,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the admin user's session token for development mode bypass
-    // The edge function will use this to verify admin access when using test Stripe keys
-    const { data: { session } } = await supabase.auth.getSession();
-    const adminToken = session?.access_token;
-
     // Call the billing-runner edge function with service role key
-    // Also include admin token header for development mode testing
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${serviceRoleKey}`,
-      'apikey': serviceRoleKey,
-    };
-    
-    // Add admin token for development mode bypass (edge function will verify admin access)
-    if (adminToken) {
-      headers['X-Admin-Token'] = adminToken;
-    }
-
+    // Also pass admin token for development-mode bypass
     const response = await fetch(`${supabaseUrl}/functions/v1/billing-runner`, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`, // Still pass service role key for production
+        'apikey': serviceRoleKey, // Still pass apikey for production
+        'x-admin-token': session.access_token, // Pass admin token for dev bypass
+      },
       body: JSON.stringify({ 
         date: date || undefined
       }),
