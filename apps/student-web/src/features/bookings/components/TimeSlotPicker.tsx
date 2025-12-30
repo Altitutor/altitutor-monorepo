@@ -6,8 +6,8 @@ import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
 import { useCreateReservation } from '../hooks/useReservations';
-import type { GetAvailableSlotsParams } from '../api/availability';
-import { cn } from '@altitutor/ui';
+import type { GetAvailableSlotsParams, AvailableSlot } from '../api/availability';
+import { cn } from '@/shared/utils';
 
 interface TimeSlotPickerProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
@@ -53,7 +53,7 @@ export function TimeSlotPicker({
 
   // Group slots by date
   const slotsByDate = useMemo(() => {
-    const grouped: Record<string, typeof slots> = {};
+    const grouped: Record<string, AvailableSlot[]> = {};
     slots?.forEach((slot) => {
       const dateKey = format(parseISO(slot.start_at), 'yyyy-MM-dd');
       if (!grouped[dateKey]) {
@@ -64,7 +64,7 @@ export function TimeSlotPicker({
     return grouped;
   }, [slots]);
 
-  const handleSlotClick = async (slot: typeof slots[0]) => {
+  const handleSlotClick = async (slot: AvailableSlot) => {
     if (!slot.is_available || slot.available_staff_ids.length === 0) {
       return;
     }
@@ -90,7 +90,7 @@ export function TimeSlotPicker({
     return format(date, 'h:mm a');
   };
 
-  const isSlotSelected = (slot: typeof slots[0]) => {
+  const isSlotSelected = (slot: AvailableSlot) => {
     return selectedSlot?.startAt === slot.start_at && selectedSlot?.endAt === slot.end_at;
   };
 

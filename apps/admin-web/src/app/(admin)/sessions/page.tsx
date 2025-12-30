@@ -9,15 +9,44 @@ import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import { Button, Input, Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { addDays, format, endOfYear } from 'date-fns';
+import { addDays, format, endOfYear, isValid, parseISO } from 'date-fns';
 import { usePrecreateSessions } from '@/features/sessions';
+
+// Get today's date in local timezone (YYYY-MM-DD format)
+const getTodayLocalDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Validate date string format (YYYY-MM-DD)
+const isValidDateString = (dateString: string | null): boolean => {
+  if (!dateString) return false;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(dateString)) return false;
+  try {
+    const date = parseISO(dateString);
+    return isValid(date);
+  } catch {
+    return false;
+  }
+};
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
   const viewParam = search.get('view') || 'table';
-  const [day, setDay] = useState<string>(new Date().toISOString().slice(0, 10));
+  
+  // Initialize day from URL param or default to today
+  const dateParam = search.get('date');
+  const initialDate = isValidDateString(dateParam) 
+    ? dateParam! 
+    : getTodayLocalDate();
+  
+  const [day, setDay] = useState<string>(initialDate);
   const { mutate: precreate, isPending: isPrecreating } = usePrecreateSessions();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
@@ -25,9 +54,41 @@ export default function SessionsPage() {
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
+  // Sync day state with URL param when it changes
+  useEffect(() => {
+    const dateParam = search.get('date');
+    if (isValidDateString(dateParam) && dateParam !== day) {
+      setDay(dateParam!);
+    } else if (!dateParam && day !== getTodayLocalDate()) {
+      // If no date param and day is not today, reset to today
+      const today = getTodayLocalDate();
+      setDay(today);
+    }
+  }, [search, day]);
+
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
     params.set('view', v);
+    router.push(`/sessions?${params.toString()}`);
+  };
+
+  // Handle date change and update URL
+  const handleDateChange = (newDate: string) => {
+    if (!isValidDateString(newDate)) {
+      // Fallback to today if invalid
+      const today = getTodayLocalDate();
+      setDay(today);
+      const params = new URLSearchParams(search.toString());
+      params.set('view', 'table');
+      params.set('date', today);
+      router.push(`/sessions?${params.toString()}`);
+      return;
+    }
+    
+    setDay(newDate);
+    const params = new URLSearchParams(search.toString());
+    params.set('view', 'table');
+    params.set('date', newDate);
     router.push(`/sessions?${params.toString()}`);
   };
 
@@ -118,12 +179,52 @@ export default function SessionsPage() {
         <div className="flex items-end gap-2">
           <div>
             <label className="block text-sm mb-1">Date</label>
-            <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+            <Input 
+              type="date" 
+              value={day} 
+              onChange={(e) => handleDateChange(e.target.value)} 
+            />
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setDay(format(addDays(new Date(day), -1), 'yyyy-MM-dd'))}>Prev</Button>
-            <Button variant="outline" onClick={() => setDay(new Date().toISOString().slice(0, 10))}>Today</Button>
-            <Button variant="outline" onClick={() => setDay(format(addDays(new Date(day), 1), 'yyyy-MM-dd'))}>Next</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                try {
+                  const prevDate = format(addDays(parseISO(day), -1), 'yyyy-MM-dd');
+                  handleDateChange(prevDate);
+                } catch {
+                  // Fallback if date parsing fails
+                  const today = getTodayLocalDate();
+                  handleDateChange(today);
+                }
+              }}
+            >
+              Prev
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                const today = getTodayLocalDate();
+                handleDateChange(today);
+              }}
+            >
+              Today
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                try {
+                  const nextDate = format(addDays(parseISO(day), 1), 'yyyy-MM-dd');
+                  handleDateChange(nextDate);
+                } catch {
+                  // Fallback if date parsing fails
+                  const today = getTodayLocalDate();
+                  handleDateChange(today);
+                }
+              }}
+            >
+              Next
+            </Button>
           </div>
         </div>
       )}

@@ -95,7 +95,7 @@ INSERT INTO public.booking_settings (setting_key, setting_value, description) VA
   ('min_advance_booking_days', '1', 'Minimum days in advance bookings can be made'),
   ('max_advance_booking_days', '90', 'Maximum days in advance bookings can be made'),
   ('slot_duration_minutes', '15', 'Time slot granularity for booking calendar in minutes'),
-  ('booking_buffer_minutes', '15', 'Minimum buffer time between bookings in minutes')
+  ('booking_buffer_minutes', '0', 'Minimum buffer time between bookings in minutes')
 ON CONFLICT (setting_key) DO NOTHING;
 
 -- Comments

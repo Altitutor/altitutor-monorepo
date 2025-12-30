@@ -339,7 +339,7 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      <TestBillingRunner />
+      {/* <TestBillingRunner /> */}
 
       <div className="rounded-md border">
         <Table>

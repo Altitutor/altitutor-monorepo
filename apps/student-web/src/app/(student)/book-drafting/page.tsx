@@ -149,7 +149,10 @@ export default function BookDraftingPage() {
                 <div className="space-y-1 text-sm">
                   <div>
                     <span className="font-medium">Subject:</span>{' '}
-                    {formatSubjectDisplay(subjects?.find((s) => s.id === selectedSubjectId)!)}
+                    {(() => {
+                      const subject = subjects?.find((s) => s.id === selectedSubjectId);
+                      return subject ? formatSubjectDisplay(subject) : 'Unknown';
+                    })()}
                   </div>
                   <div>
                     <span className="font-medium">Date & Time:</span>{' '}

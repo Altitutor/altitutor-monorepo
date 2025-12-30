@@ -32,9 +32,9 @@ export const bookingsApi = {
       p_student_id: studentId,
       p_start_at: input.start_at,
       p_end_at: input.end_at,
-      p_subject_id: input.subject_id || null,
-      p_staff_id: input.staff_id || null,
-      p_reservation_id: input.reservation_id || null,
+      p_subject_id: input.subject_id || undefined,
+      p_staff_id: input.staff_id || undefined,
+      p_reservation_id: input.reservation_id || undefined,
       p_created_by: user.id,
     });
     

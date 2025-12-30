@@ -1,13 +1,15 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
-import { useRouter } from 'next/navigation';
-import { LogOut, User } from 'lucide-react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { LogOut, User, Calendar } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
+import { format, isValid, parseISO } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,11 +20,93 @@ import {
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { GlobalSearch } from '../GlobalSearch';
 
+// Get today's date in local timezone (YYYY-MM-DD format)
+const getTodayLocalDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Validate date string format (YYYY-MM-DD)
+const isValidDateString = (dateString: string | null): boolean => {
+  if (!dateString) return false;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(dateString)) return false;
+  try {
+    const date = parseISO(dateString);
+    return isValid(date);
+  } catch {
+    return false;
+  }
+};
+
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { data: staffRecord } = useCurrentStaff();
+  
+  // Initialize date from URL if on sessions page, otherwise use today
+  const getInitialDate = (): string => {
+    if (pathname === '/sessions') {
+      const dateParam = searchParams.get('date');
+      if (isValidDateString(dateParam) && dateParam) {
+        return dateParam;
+      }
+    }
+    return getTodayLocalDate();
+  };
+  
+  const [selectedDate, setSelectedDate] = useState<string>(getInitialDate());
+  const dateInputRefDesktop = useRef<HTMLInputElement>(null);
+  const dateInputRefMobile = useRef<HTMLInputElement>(null);
+
+  // Sync date with URL when on sessions page
+  useEffect(() => {
+    if (pathname === '/sessions') {
+      const dateParam = searchParams.get('date');
+      if (isValidDateString(dateParam) && dateParam && dateParam !== selectedDate) {
+        setSelectedDate(dateParam);
+      } else if (!dateParam) {
+        // If no date param, reset to today
+        const today = getTodayLocalDate();
+        if (selectedDate !== today) {
+          setSelectedDate(today);
+        }
+      }
+    }
+  }, [pathname, searchParams, selectedDate]);
+
+  // Close date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // If clicking outside the date input and button, blur the input to close picker
+      if (
+        dateInputRefDesktop.current &&
+        !dateInputRefDesktop.current.contains(target) &&
+        !target.closest('[data-date-picker-button]')
+      ) {
+        dateInputRefDesktop.current.blur();
+      }
+      if (
+        dateInputRefMobile.current &&
+        !dateInputRefMobile.current.contains(target) &&
+        !target.closest('[data-date-picker-button]')
+      ) {
+        dateInputRefMobile.current.blur();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -49,6 +133,79 @@ export function Navbar() {
     return user?.email?.split('@')[0] || 'User';
   };
 
+  // Format date for display
+  const formatDateDisplay = (dateString: string): string => {
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) return format(new Date(), 'MMM d, yyyy');
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dateToCheck = new Date(date);
+      dateToCheck.setHours(0, 0, 0, 0);
+      
+      if (dateToCheck.getTime() === today.getTime()) {
+        return `Today, ${format(date, 'MMM d')}`;
+      }
+      return format(date, 'MMM d, yyyy');
+    } catch {
+      return format(new Date(), 'MMM d, yyyy');
+    }
+  };
+
+  // Handle date change
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    if (!newDate) return;
+    
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(newDate)) return;
+    
+    setSelectedDate(newDate);
+    
+    // Navigate to sessions page with date filter
+    router.push(`/sessions?view=table&date=${newDate}`);
+  };
+
+  // Handle button click to open date picker (desktop)
+  const handleDateButtonClickDesktop = () => {
+    const input = dateInputRefDesktop.current;
+    if (!input) return;
+    
+    // Try showPicker() if available (modern browsers)
+    if ('showPicker' in input && typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+      } catch {
+        // Fallback if showPicker throws synchronously
+        input.click();
+      }
+    } else {
+      // Fallback: trigger click
+      input.click();
+    }
+  };
+
+  // Handle button click to open date picker (mobile)
+  const handleDateButtonClickMobile = () => {
+    const input = dateInputRefMobile.current;
+    if (!input) return;
+    
+    // Try showPicker() if available (modern browsers)
+    if ('showPicker' in input && typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+      } catch {
+        // Fallback if showPicker throws synchronously
+        input.click();
+      }
+    } else {
+      // Fallback: trigger click
+      input.click();
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
       <div className="container mx-auto px-4 h-full flex items-center gap-4">
@@ -61,6 +218,7 @@ export function Navbar() {
               height={36}
               priority
               className="object-contain"
+              style={{ width: 'auto', height: 'auto' }}
             />
           </div>
         </div>
@@ -68,6 +226,61 @@ export function Navbar() {
           <GlobalSearch />
         </div>
         <div className="flex items-center gap-4 min-w-[220px] justify-end">
+          {/* Date Picker */}
+          <div className="hidden md:flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="relative">
+              <input
+                ref={dateInputRefDesktop}
+                type="date"
+                value={selectedDate}
+                onChange={handleDateChange}
+                className="sr-only"
+                aria-label="Select date"
+                id="date-picker-desktop"
+              />
+              <Button
+                variant="outline"
+                className="h-9 px-3 text-sm font-normal cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDateButtonClickDesktop();
+                }}
+                type="button"
+                data-date-picker-button
+              >
+                {formatDateDisplay(selectedDate)}
+              </Button>
+            </div>
+          </div>
+          {/* Mobile date picker - icon only */}
+          <div className="md:hidden">
+            <div className="relative">
+              <input
+                ref={dateInputRefMobile}
+                type="date"
+                value={selectedDate}
+                onChange={handleDateChange}
+                className="sr-only"
+                aria-label="Select date"
+                id="date-picker-mobile"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDateButtonClickMobile();
+                }}
+                title="Select date"
+                type="button"
+                data-date-picker-button
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
           <ThemeToggle />
           {user ? (
             <DropdownMenu>

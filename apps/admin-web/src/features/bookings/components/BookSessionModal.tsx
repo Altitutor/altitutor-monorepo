@@ -48,7 +48,7 @@ export function BookSessionModal({
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
     queryKey: ['students', 'search', studentSearch],
     queryFn: async () => {
-      const result = await studentsApi.searchStudents({ search: studentSearch, limit: 20 });
+      const result = await studentsApi.searchStudents(studentSearch);
       return result;
     },
     enabled: isOpen && studentSearch.length >= 2,
@@ -189,9 +189,9 @@ export function BookSessionModal({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : studentsData?.students && studentsData.students.length > 0 ? (
+          ) : studentsData && studentsData.length > 0 ? (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {studentsData.students.map((student) => (
+              {studentsData.map((student) => (
                 <button
                   key={student.id}
                   onClick={() => {
@@ -311,16 +311,21 @@ export function BookSessionModal({
                 <div className="space-y-1 text-sm">
                   <div>
                     <span className="font-medium">Student:</span>{' '}
-                    {formatStudentDisplay(studentsData?.find((s) => s.id === selectedStudentId)!)}
+                    {(() => {
+                      const student = studentsData?.find((s) => s.id === selectedStudentId);
+                      return student ? formatStudentDisplay(student) : 'Unknown';
+                    })()}
                   </div>
-                  {selectedSubjectId && (
-                    <div>
-                      <span className="font-medium">Subject:</span>{' '}
-                      {formatSubjectDisplay(
-                        (sessionType === 'DRAFTING' ? studentSubjects : subjects)?.find((s) => s.id === selectedSubjectId)!
-                      )}
-                    </div>
-                  )}
+                  {selectedSubjectId && (() => {
+                    const subjectList = sessionType === 'DRAFTING' ? studentSubjects : subjects;
+                    const subject = subjectList?.find((s) => s.id === selectedSubjectId);
+                    return subject ? (
+                      <div>
+                        <span className="font-medium">Subject:</span>{' '}
+                        {formatSubjectDisplay(subject)}
+                      </div>
+                    ) : null;
+                  })()}
                   <div>
                     <span className="font-medium">Date & Time:</span>{' '}
                     {new Date(selectedSlot.startAt).toLocaleString('en-AU', {

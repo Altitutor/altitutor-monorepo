@@ -1,4 +1,4 @@
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { getSupabaseClient } from '@/shared/lib/supabase/client/index';
 import type { Tables } from '@altitutor/shared';
 
 export const studentSubjectsApi = {

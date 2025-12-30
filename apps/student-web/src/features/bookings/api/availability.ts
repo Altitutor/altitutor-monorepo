@@ -24,8 +24,8 @@ export const availabilityApi = {
         p_start_date: params.start_date,
         p_end_date: params.end_date,
         p_session_type: params.session_type,
-        p_subject_id: params.subject_id ?? null,
-        p_duration_minutes: params.duration_minutes ?? null,
+        p_subject_id: params.subject_id ?? undefined,
+        p_duration_minutes: params.duration_minutes ?? undefined,
       });
     
     if (error) throw error;

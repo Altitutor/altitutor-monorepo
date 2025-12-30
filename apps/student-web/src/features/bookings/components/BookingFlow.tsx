@@ -21,7 +21,7 @@ export function BookingFlow({
   description,
   steps,
   currentStep,
-  onStepChange: _onStepChange,
+  onStepChange,
 }: BookingFlowProps) {
   const currentStepData = steps[currentStep];
 

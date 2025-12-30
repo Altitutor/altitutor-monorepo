@@ -144,12 +144,6 @@ export default function BookTrialPage() {
               <div className="space-y-2">
                 <h3 className="font-semibold">Booking Details</h3>
                 <div className="space-y-1 text-sm">
-                  {selectedSubjectId && (
-                    <div>
-                      <span className="font-medium">Subject:</span>{' '}
-                      {formatSubjectDisplay(subjects?.find((s) => s.id === selectedSubjectId)!)}
-                    </div>
-                  )}
                   <div>
                     <span className="font-medium">Date & Time:</span>{' '}
                     {new Date(selectedSlot.startAt).toLocaleString('en-AU', {
