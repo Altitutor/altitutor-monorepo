@@ -182,12 +182,13 @@ export const absencesApi = {
 
       if (sessionsError) throw sessionsError;
 
-      // Get sessions where student is already enrolled
+      // Get sessions where student is already enrolled (check ALL enrollments, not just planned_absence=false)
+      // This prevents duplicate key errors when trying to reschedule to a session the student is already in
       const { data: existingEnrollments, error: enrollmentsError } = await supabase
         .from('sessions_students')
         .select('session_id')
-        .eq('student_id', studentId)
-        .eq('planned_absence', false);
+        .eq('student_id', studentId);
+        // Removed .eq('planned_absence', false) to check ALL enrollments
 
       if (enrollmentsError) throw enrollmentsError;
 

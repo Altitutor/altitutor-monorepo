@@ -5,19 +5,18 @@ import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import type { StudentSession, RescheduleSession } from '../types/absence';
-import { Calendar, BookOpen } from 'lucide-react';
+import { SessionsCard } from './SessionsCard';
+import type { Tables } from '@altitutor/shared';
 
 // Base session type that both StudentSession and RescheduleSession share
 type BaseSession = {
   id: string;
   start_at: string | null;
   end_at: string | null;
-  subject?: {
-    curriculum?: string | null;
-    year_level?: number | null;
-    name?: string | null;
-    level?: string | null;
-  } | null;
+  class_id: string | null;
+  type: Tables<'sessions'>['type'] | null;
+  subject?: Tables<'subjects'> | null;
+  class?: Tables<'classes'> | null;
 };
 
 interface WeekViewCalendarProps {
@@ -37,12 +36,15 @@ export function WeekViewCalendar({
   onWeekChange,
   minDate,
 }: WeekViewCalendarProps) {
-  // Calculate the week days (Sunday to Saturday)
+  // Calculate the week days (Monday to Sunday)
   const weekDays = useMemo(() => {
     const days: Date[] = [];
     const startOfWeek = new Date(currentWeekStart);
-    // Set to Sunday
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    // Set to Monday (day 1)
+    const dayOfWeek = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
     
     for (let i = 0; i < 7; i++) {
       const day = new Date(startOfWeek);
@@ -52,7 +54,7 @@ export function WeekViewCalendar({
     return days;
   }, [currentWeekStart]);
 
-  // Group sessions by date
+  // Group sessions by date (using local timezone, not UTC)
   const sessionsByDate = useMemo(() => {
     const grouped = new Map<string, BaseSession[]>();
     
@@ -60,7 +62,11 @@ export function WeekViewCalendar({
       if (!session.start_at) return;
       
       const sessionDate = new Date(session.start_at);
-      const dateKey = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      // Use local date components instead of UTC to avoid timezone issues
+      const year = sessionDate.getFullYear();
+      const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
+      const day = String(sessionDate.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`; // YYYY-MM-DD in local timezone
       
       if (!grouped.has(dateKey)) {
         grouped.set(dateKey, []);
@@ -71,11 +77,14 @@ export function WeekViewCalendar({
     return grouped;
   }, [sessions]);
 
-  // Check if we can go to previous week
+  // Check if we can go to previous week (Monday-based)
   const canGoPrevious = useMemo(() => {
     if (!minDate) return true;
     const weekStart = new Date(currentWeekStart);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const dayOfWeek = weekStart.getDay();
+    const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    weekStart.setDate(diff);
+    weekStart.setHours(0, 0, 0, 0);
     return weekStart >= minDate;
   }, [currentWeekStart, minDate]);
 
@@ -104,9 +113,9 @@ export function WeekViewCalendar({
     const monthName = date.toLocaleDateString('en-US', { month: 'short' });
     
     return (
-      <div className={`text-center pb-2 ${isToday ? 'font-bold text-primary' : ''}`}>
+      <div className="text-center pb-2">
         <div className="text-xs text-muted-foreground">{dayName}</div>
-        <div className={`text-sm ${isToday ? 'text-primary' : ''}`}>
+        <div className={`text-sm ${isToday ? 'text-primary font-semibold' : ''}`}>
           {dayNumber} {monthName}
         </div>
       </div>
@@ -114,7 +123,11 @@ export function WeekViewCalendar({
   };
 
   const getSessionsForDay = (date: Date): BaseSession[] => {
-    const dateKey = date.toISOString().split('T')[0];
+    // Use local date components instead of UTC
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
     return sessionsByDate.get(dateKey) || [];
   };
 
@@ -123,13 +136,13 @@ export function WeekViewCalendar({
       {/* Week Navigation */}
       <div className="flex items-center justify-between">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={handlePreviousWeek}
           disabled={!canGoPrevious}
+          className="p-2"
         >
           <ChevronLeft className="h-4 w-4" />
-          Previous Week
         </Button>
         
         <div className="text-sm font-medium">
@@ -137,11 +150,11 @@ export function WeekViewCalendar({
         </div>
         
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={handleNextWeek}
+          className="p-2"
         >
-          Next Week
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -150,26 +163,14 @@ export function WeekViewCalendar({
       <div className="grid grid-cols-7 gap-2">
         {weekDays.map((day, index) => {
           const daySessions = getSessionsForDay(day);
-          const isToday = (() => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const dayDate = new Date(day);
-            dayDate.setHours(0, 0, 0, 0);
-            return dayDate.getTime() === today.getTime();
-          })();
 
           return (
-            <div
-              key={index}
-              className={`border rounded-lg p-2 min-h-[120px] ${
-                isToday ? 'border-primary bg-primary/5' : 'border-border'
-              }`}
-            >
+            <div key={index} className="space-y-2">
               {/* Day Header */}
               {formatDayHeader(day)}
               
               {/* Sessions List */}
-              <div className="space-y-1 mt-2">
+              <div className="space-y-2">
                 {daySessions.length === 0 ? (
                   <div className="text-xs text-muted-foreground text-center py-2">
                     No sessions
@@ -177,45 +178,34 @@ export function WeekViewCalendar({
                 ) : (
                   daySessions.map((session) => {
                     const isSelected = selectedSessionIds.has(session.id);
-                    const sessionDate = session.start_at ? new Date(session.start_at) : null;
                     
-                    // Build subject display
-                    const subject = session.subject;
-                    const subjectParts = [];
-                    if (subject?.curriculum) subjectParts.push(subject.curriculum);
-                    if (subject?.year_level) subjectParts.push(`Y${subject.year_level}`);
-                    if (subject?.name) subjectParts.push(subject.name);
-                    if (subject?.level) subjectParts.push(subject.level);
-                    const subjectDisplay = subjectParts.length > 0 
-                      ? subjectParts.join(' ') 
-                      : 'Unknown';
+                    // Convert to Tables<'sessions'> format for SessionsCard
+                    const sessionForCard: Tables<'sessions'> = {
+                      id: session.id,
+                      start_at: session.start_at,
+                      end_at: session.end_at,
+                      class_id: session.class_id,
+                      type: session.type || 'CLASS', // Default to 'CLASS' if null (satisfies type requirement)
+                      created_at: null,
+                      updated_at: null,
+                    } as Tables<'sessions'>;
 
                     return (
                       <div
                         key={session.id}
-                        className={`
-                          p-2 rounded border text-xs cursor-pointer transition-all
-                          ${
-                            isSelected
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border hover:border-primary/50 hover:bg-primary/5'
-                          }
-                        `}
                         onClick={() => onToggleSession(session.id)}
+                        className={isSelected ? 'ring-2 ring-primary rounded-lg' : ''}
                       >
-                        <div className="font-medium mb-1 flex items-center gap-1">
-                          <BookOpen className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{subjectDisplay}</span>
-                        </div>
-                        {sessionDate && (
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Calendar className="h-2.5 w-2.5 flex-shrink-0" />
-                            <span>{formatTimeHHMM(session.start_at)}</span>
-                            {session.end_at && (
-                              <span>- {formatTimeHHMM(session.end_at)}</span>
-                            )}
-                          </div>
-                        )}
+                        <SessionsCard
+                          session={sessionForCard}
+                          classData={session.class || undefined}
+                          subject={session.subject || undefined}
+                          staff={[]}
+                          students={[]}
+                          isSelecting={true}
+                          isSelected={isSelected}
+                          compact={true}
+                        />
                       </div>
                     );
                   })

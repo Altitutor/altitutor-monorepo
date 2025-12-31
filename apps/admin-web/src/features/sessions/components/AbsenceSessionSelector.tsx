@@ -17,22 +17,26 @@ export function AbsenceSessionSelector({
   onToggleSession,
   isLoading = false,
 }: AbsenceSessionSelectorProps) {
-  // Get the current week start (Sunday of current week)
+  // Get the current week start (Monday of current week)
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
     const currentWeekStart = new Date(today);
-    currentWeekStart.setDate(today.getDate() - dayOfWeek);
+    // Calculate Monday of current week
+    const diff = currentWeekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    currentWeekStart.setDate(diff);
     currentWeekStart.setHours(0, 0, 0, 0);
     return currentWeekStart;
   });
 
-  // Minimum date is the start of the current week
+  // Minimum date is the start of the current week (Monday containing today)
   const minDate = useMemo(() => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     const min = new Date(today);
-    min.setDate(today.getDate() - dayOfWeek);
+    // Calculate Monday of current week
+    const diff = min.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    min.setDate(diff);
     min.setHours(0, 0, 0, 0);
     return min;
   }, []);

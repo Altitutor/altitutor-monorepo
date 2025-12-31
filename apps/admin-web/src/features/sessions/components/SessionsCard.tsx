@@ -88,6 +88,8 @@ export function SessionsCard({
       ? formatSubjectDisplay(subject) 
       : session.type === 'CLASS' ? 'Class' : 'Meeting';
   const day = classData ? getDayOfWeek(classData.day_of_week) : '';
+  const sessionDate = session.start_at ? new Date(session.start_at) : null;
+  const dateDisplay = sessionDate ? formatDate(sessionDate) : '';
   const timeRange = session.start_at && session.end_at
     ? `${formatTime(new Date(session.start_at).toTimeString().slice(0, 5))} - ${formatTime(new Date(session.end_at).toTimeString().slice(0, 5))}`
     : '';
@@ -173,9 +175,9 @@ export function SessionsCard({
                   classData?.room ? `Room: ${classData.room}` : ''
                 ) : (
                   <>
-                    {day && timeRange && (
+                    {timeRange && (
                       <>
-                        {day} {timeRange}
+                        {dateDisplay ? `${dateDisplay} ` : ''}{timeRange}
                         {classData?.room && ` • Room: ${classData.room}`}
                       </>
                     )}
