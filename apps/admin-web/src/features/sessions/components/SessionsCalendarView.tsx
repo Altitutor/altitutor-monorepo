@@ -169,7 +169,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                               fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SessionsCalendarView.tsx:175',message:'Elliot Koh in SessionsCalendarView',data:{is_extra:elliotStudent.is_extra,is_extra_type:typeof elliotStudent.is_extra,student:elliotStudent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
                             }
                             // #endregion
-                            const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean }>;
+                            const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);

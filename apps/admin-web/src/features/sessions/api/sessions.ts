@@ -58,7 +58,7 @@ export const sessionsApi = {
   getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
     sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>>;
-    sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>>;
+    sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>>;
     tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
     classesById: Record<string, Tables<'classes'>>;
     subjectsById: Record<string, Tables<'subjects'>>;
@@ -154,7 +154,7 @@ export const sessionsApi = {
       });
       
       // Transform sessionStaff - RPC returns full staff objects with additional fields
-      const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>> = {};
+      const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>> = {};
       Object.entries(rpcData.sessionStaff || {}).forEach(([sessionId, staff]) => {
         sessionStaff[sessionId] = (staff || []).map((s: any) => ({
           id: s.id,
@@ -164,7 +164,8 @@ export const sessionsApi = {
           status: s.status,
           planned_absence: s.planned_absence ?? false,
           actual_attended: s.actual_attended ?? null,
-        })) as Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null }>;
+          is_swapped_in: s.is_swapped_in ?? false,
+        })) as Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>;
       });
       
       // Transform tutorLogs
@@ -627,6 +628,48 @@ export const sessionsApi = {
         is_extra: isExtraMap[ss.id] || false,
       }));
       
+      // Get tutor log to check for unplanned students who attended
+      const { data: tutorLogDataForUnplanned, error: tlErrorForUnplanned } = await supabase
+        .from('tutor_logs')
+        .select('id')
+        .eq('session_id', sessionId)
+        .maybeSingle();
+      
+      // If tutor log exists, get unplanned students (students who attended but aren't in sessions_students)
+      const unplannedStudents: any[] = [];
+      if (tutorLogDataForUnplanned && !tlErrorForUnplanned) {
+        const { data: studentAttendanceData, error: saError } = await supabase
+          .from('tutor_logs_student_attendance')
+          .select('*, student:students(*)')
+          .eq('tutor_log_id', tutorLogDataForUnplanned.id)
+          .eq('attended', true);
+        
+        if (!saError && studentAttendanceData) {
+          // Get student IDs that are already in sessions_students
+          const plannedStudentIds = new Set(
+            (sessionsStudentsData || []).map((ss: any) => ss.student_id).filter(Boolean)
+          );
+          
+          // Find students who attended but aren't in sessions_students
+          studentAttendanceData.forEach((att: any) => {
+            if (att.student && att.student.id && !plannedStudentIds.has(att.student.id)) {
+              unplannedStudents.push({
+                student_id: att.student.id,
+                student: att.student,
+                planned_absence: false,
+                is_extra: true, // These are always extra since they're not planned
+                sessions_students_id: null, // Explicitly null to mark as unplanned
+                invoice_status: null,
+                rescheduled_session: null,
+              });
+            }
+          });
+        }
+      }
+      
+      // Combine planned and unplanned students
+      const allSessionsStudents = [...enrichedSessionsStudentsData, ...unplannedStudents];
+      
       // 3. Get all sessions_staff with full details  
       const { data: sessionsStaffData, error: sfError } = await supabase
         .from('sessions_staff')
@@ -756,7 +799,7 @@ export const sessionsApi = {
       
       return {
         session: sessionData,
-        sessionsStudents: enrichedSessionsStudentsData || [],
+        sessionsStudents: allSessionsStudents || [],
         sessionsStaff: enrichedSessionsStaffData || [],
         tutorLog,
       };

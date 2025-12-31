@@ -21,8 +21,8 @@ interface SessionsCardProps {
   session: Tables<'sessions'>;
   classData?: Tables<'classes'>;
   subject?: Tables<'subjects'>;
-  staff: Array<Tables<'staff'> & { planned_absence?: boolean }>;
-  students?: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+  staff: Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+  students?: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>;
   onClick?: () => void;
   
   // Visual states
@@ -195,6 +195,13 @@ export function SessionsCard({
                   const fullName = `${staffMember.first_name} ${staffMember.last_name}`;
                   const display = !showFullNames ? getInitials(staffMember.first_name, staffMember.last_name) : fullName;
                   
+                  // Determine status for tooltip
+                  const status = staffMember.planned_absence 
+                    ? 'Planned Absence' 
+                    : staffMember.is_swapped_in 
+                    ? 'Swapped In' 
+                    : 'Attending';
+                  
                   const badge = (
                     <span
                       key={staffMember.id}
@@ -205,6 +212,8 @@ export function SessionsCard({
                           : 'text-xs px-2 py-0.5',
                         staffMember.planned_absence
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                          : staffMember.is_swapped_in
+                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
                           : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                       )}
                     >
@@ -212,22 +221,19 @@ export function SessionsCard({
                     </span>
                   );
                   
-                  if (!showFullNames) {
-                    return (
-                      <TooltipProvider key={staffMember.id} delayDuration={100}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            {badge}
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{fullName}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    );
-                  }
-                  
-                  return badge;
+                  // Always show tooltip with name and status
+                  return (
+                    <TooltipProvider key={staffMember.id} delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {badge}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{fullName} - {status}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
                 })}
               </div>
             </div>
@@ -247,16 +253,20 @@ export function SessionsCard({
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
                   
                   // Determine status for tooltip
-                  const status = student.planned_absence 
+                  // Check if this is an unplanned student (no sessions_students_id)
+                  // Unplanned students are those who attended (in tutor log) but weren't in sessions_students
+                  // They have is_extra: true and sessions_students_id is null/undefined
+                  const isUnplanned = student.is_extra && (student.sessions_students_id === null || student.sessions_students_id === undefined);
+                  // RPC bug: marks unplanned students with planned_absence: true, but they should be unplanned
+                  const isUnplannedFromRPC = student.is_extra && student.planned_absence && (student.sessions_students_id === null || student.sessions_students_id === undefined);
+                  
+                  const status = isUnplanned || isUnplannedFromRPC
+                    ? 'Unplanned'
+                    : student.planned_absence && !student.is_extra
                     ? 'Planned Absence' 
-                    : student.is_extra 
+                    : student.is_extra && !isUnplanned && !isUnplannedFromRPC
                     ? 'Attending (extra)' 
                     : 'Attending';
-                  // #region agent log
-                  if (student.first_name === 'Elliot' && student.last_name === 'Koh') {
-                    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SessionsCard.tsx:247',message:'Elliot Koh status calculation',data:{status,planned_absence:student.planned_absence,is_extra:student.is_extra},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                  }
-                  // #endregion
                   
                   const badge = (
                     <span
@@ -266,9 +276,10 @@ export function SessionsCard({
                         shouldUseCompact 
                           ? 'text-[10px] px-1 py-0.5' 
                           : 'text-xs px-2 py-0.5',
-                        student.planned_absence
+                        // Show red for unplanned students and planned absences
+                        (isUnplanned || isUnplannedFromRPC) || (student.planned_absence && !student.is_extra)
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                          : student.is_extra
+                          : student.is_extra && !isUnplanned && !isUnplannedFromRPC
                           ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
                           : 'bg-muted'
                       )}

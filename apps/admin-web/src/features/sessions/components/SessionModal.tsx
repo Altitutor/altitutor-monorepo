@@ -163,11 +163,24 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   }
 
   // Process students
+  // Build set of student IDs that are in sessions_students (planned students)
+  const plannedStudentIds = new Set(
+    sessionsStudents
+      .filter((ss: any) => ss.student_id && !ss.is_extra)
+      .map((ss: any) => ss.student_id)
+  );
+  
   const studentsData = sessionsStudents.map((ss: any) => {
-    let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' = 'attending';
+    let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
     let rescheduledDate = '';
     
-    if (ss.planned_absence) {
+    // Check if this is an unplanned student (not in sessions_students originally)
+    // Unplanned students don't have a sessions_students_id (it's null/undefined)
+    // They are in the tutor log but not in sessions_students
+    const isUnplanned = (ss.sessions_students_id === null || ss.sessions_students_id === undefined) && ss.is_extra;
+    
+    if (ss.planned_absence && !isUnplanned) {
+      // Only mark as absent if it's a planned student with planned absence
       plannedStatus = 'absent';
       if (ss.is_rescheduled && ss.rescheduled_session?.session) {
         plannedStatus = 'rescheduled';
@@ -178,8 +191,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       } else if (ss.is_credited) {
         plannedStatus = 'credited';
       }
-    } else if (ss.is_extra) {
-      // If student is extra and attending, show "attending-extra" status
+    } else if (isUnplanned) {
+      // Unplanned student (attended but not in sessions_students)
+      plannedStatus = 'unplanned';
+    } else if (ss.is_extra && plannedStudentIds.has(ss.student_id)) {
+      // Planned extra student (in sessions_students but marked as extra)
       plannedStatus = 'attending-extra';
     }
     
