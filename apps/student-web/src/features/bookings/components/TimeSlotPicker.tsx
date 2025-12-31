@@ -16,6 +16,7 @@ interface TimeSlotPickerProps {
   onSlotSelect: (startAt: string, endAt: string) => void;
   selectedSlot?: { startAt: string; endAt: string } | null;
   className?: string;
+  allowAnonymous?: boolean; // Skip reservations for anonymous users
 }
 
 export function TimeSlotPicker({
@@ -25,6 +26,7 @@ export function TimeSlotPicker({
   onSlotSelect,
   selectedSlot,
   className,
+  allowAnonymous = false,
 }: TimeSlotPickerProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -70,13 +72,16 @@ export function TimeSlotPicker({
     }
 
     try {
-      // Create reservation
-      await createReservation.mutateAsync({
-        start_at: slot.start_at,
-        end_at: slot.end_at,
-        session_type: sessionType,
-        subject_id: subjectId,
-      });
+      // Skip reservation for anonymous users
+      if (!allowAnonymous) {
+        // Create reservation
+        await createReservation.mutateAsync({
+          start_at: slot.start_at,
+          end_at: slot.end_at,
+          session_type: sessionType,
+          subject_id: subjectId,
+        });
+      }
 
       // Call onSlotSelect callback
       onSlotSelect(slot.start_at, slot.end_at);

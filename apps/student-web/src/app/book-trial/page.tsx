@@ -4,40 +4,37 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookingFlow } from '@/features/bookings/components/BookingFlow';
 import { TimeSlotPicker } from '@/features/bookings/components/TimeSlotPicker';
-import { useStudentSubjects } from '@/features/bookings/hooks/useStudentSubjects';
-import { useCreateBooking } from '@/features/bookings/hooks/useCreateBooking';
-import { useMyReservations } from '@/features/bookings/hooks/useReservations';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@altitutor/ui';
+import { TrialContactForm } from '@/features/bookings/components/TrialContactForm';
+import { StudentExistsError } from '@/features/bookings/components/StudentExistsError';
+import { Button, useToast } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { TrialContactFormValues } from '@/features/bookings/components/TrialContactForm';
 
 export default function BookTrialPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
-  const { data: reservations } = useMyReservations();
-  const createBooking = useCreateBooking();
-
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  
+  const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string } | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showStudentExistsError, setShowStudentExistsError] = useState(false);
 
-  // Get the active reservation for the selected slot
-  const activeReservation = reservations?.find(
-    (r) => r.start_at === selectedSlot?.startAt && r.end_at === selectedSlot?.endAt
-  );
+  const handleContactSubmit = (data: TrialContactFormValues) => {
+    setContactData(data);
+    setCurrentStep(1); // Move to time selection
+  };
 
   const handleSlotSelect = (startAt: string, endAt: string) => {
     setSelectedSlot({ startAt, endAt });
-    setCurrentStep(1); // Move to confirmation step
+    setCurrentStep(2); // Move to confirmation
   };
 
   const handleConfirmBooking = async () => {
-    if (!selectedSlot) {
+    if (!selectedSlot || !contactData) {
       toast({
         title: 'Missing Information',
-        description: 'Please select a time slot',
+        description: 'Please complete all steps',
         variant: 'destructive',
       });
       return;
@@ -45,20 +42,38 @@ export default function BookTrialPage() {
 
     setIsSubmitting(true);
     try {
-      const sessionId = await createBooking.mutateAsync({
-        session_type: 'TRIAL_SESSION',
-        start_at: selectedSlot.startAt,
-        end_at: selectedSlot.endAt,
-        subject_id: selectedSubjectId || undefined,
-        reservation_id: activeReservation?.id,
+      const response = await fetch('/api/bookings/trial/public', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...contactData,
+          start_at: selectedSlot.startAt,
+          end_at: selectedSlot.endAt,
+        }),
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        
+        // Handle student exists error
+        if (error.error === 'STUDENT_EXISTS' || response.status === 409) {
+          setShowStudentExistsError(true);
+          return;
+        }
+        
+        throw new Error(error.error || 'Failed to create booking');
+      }
+
+      const { session_id } = await response.json();
 
       toast({
         title: 'Booking Confirmed',
         description: 'Your trial session has been booked successfully',
       });
 
-      router.push(`/sessions/${sessionId}`);
+      // Redirect to success page (we'll create a simple success message for now)
+      // For now, redirect to home with success message
+      router.push(`/?bookingSuccess=true&sessionId=${session_id}`);
     } catch (error: any) {
       toast({
         title: 'Booking Failed',
@@ -70,51 +85,15 @@ export default function BookTrialPage() {
     }
   };
 
-  const formatSubjectDisplay = (subject: Tables<'subjects'>) => {
-    const parts = [
-      subject.curriculum,
-      subject.year_level ? `Year ${subject.year_level}` : '',
-      subject.name,
-    ].filter(Boolean);
-    return parts.join(' ');
-  };
-
   const steps = [
     {
-      id: 'subject',
-      title: 'Select Subject (Optional)',
+      id: 'contact',
+      title: 'Student Details',
       component: (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Optionally choose a subject for your trial session. You can skip this step.
-          </p>
-          {subjectsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : !subjects || subjects.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No subjects found. You can proceed without selecting a subject.</p>
-            </div>
-          ) : (
-            <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a subject (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None (General Trial)</SelectItem>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    {formatSubjectDisplay(subject)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button onClick={() => setCurrentStep(1)} className="w-full">
-            Continue to Time Selection
-          </Button>
-        </div>
+        <TrialContactForm
+          onSubmit={handleContactSubmit}
+          defaultValues={contactData || undefined}
+        />
       ),
     },
     {
@@ -130,6 +109,7 @@ export default function BookTrialPage() {
             durationMinutes={60}
             onSlotSelect={handleSlotSelect}
             selectedSlot={selectedSlot}
+            allowAnonymous={true}
           />
         </div>
       ),
@@ -139,11 +119,24 @@ export default function BookTrialPage() {
       title: 'Confirm Booking',
       component: (
         <div className="space-y-4">
-          {selectedSlot ? (
+          {showStudentExistsError ? (
+            <StudentExistsError />
+          ) : selectedSlot && contactData ? (
             <>
               <div className="space-y-2">
                 <h3 className="font-semibold">Booking Details</h3>
                 <div className="space-y-1 text-sm">
+                  <div>
+                    <span className="font-medium">Student:</span>{' '}
+                    {contactData.student_first_name} {contactData.student_last_name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Email:</span> {contactData.student_email}
+                  </div>
+                  <div>
+                    <span className="font-medium">Curriculum:</span> {contactData.curriculum}
+                    {contactData.year_level && ` - Year ${contactData.year_level}`}
+                  </div>
                   <div>
                     <span className="font-medium">Date & Time:</span>{' '}
                     {new Date(selectedSlot.startAt).toLocaleString('en-AU', {
@@ -194,7 +187,7 @@ export default function BookTrialPage() {
     <div className="container max-w-4xl py-8">
       <BookingFlow
         title="Book Trial Session"
-        description="Schedule a trial session to experience our tutoring services"
+        description="Schedule a free trial session to experience our tutoring"
         steps={steps}
         currentStep={currentStep}
         onStepChange={setCurrentStep}
@@ -202,4 +195,3 @@ export default function BookTrialPage() {
     </div>
   );
 }
-
