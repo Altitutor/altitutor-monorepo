@@ -12,7 +12,7 @@ import {
 import { useStudentFutureSessions, useLogAbsences } from '../hooks';
 import { studentsApi } from '@/features/students/api';
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
-import { AbsenceActionSelector } from './AbsenceActionSelector';
+import { AbsenceBulkActionSelector } from './AbsenceBulkActionSelector';
 import { AbsenceSummary } from './AbsenceSummary';
 import type {
   AbsenceDecision,
@@ -28,7 +28,7 @@ import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type WizardStep = 'select-student' | 'select-sessions' | 'process-session' | 'review' | 'confirm' | 'success' | 'error';
+type WizardStep = 'select-student' | 'select-sessions' | 'process-sessions' | 'review' | 'confirm' | 'success' | 'error';
 
 interface LogAbsenceDialogProps {
   isOpen: boolean;
@@ -160,34 +160,34 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
       alert('Please select at least one session');
       return;
     }
-    setCurrentSessionIndex(0);
-    setStep('process-session');
+    setStep('process-sessions');
   };
 
-  const handleActionSelected = (action: 'reschedule' | 'credit', targetSessionId?: string, targetSession?: RescheduleSession) => {
-    if (!currentSession) return;
+  const handleBulkDecisionsChange = (bulkDecisions: Array<{ sessionId: string; action: AbsenceAction; targetSessionId?: string; targetSession?: RescheduleSession }>) => {
+    if (!selectedStudent) return;
 
-    // Store decision
-    const newDecision: AbsenceDecision = {
-      sessionId: currentSession.id,
-      sessionsStudentsId: currentSession.sessionsStudentsId,
-      action,
-      targetSessionId,
-    };
+    // Convert bulk decisions to AbsenceDecision format
+    const newDecisions: AbsenceDecision[] = bulkDecisions.map((bulkDecision) => {
+      const session = selectedSessionsArray.find((s) => s.id === bulkDecision.sessionId);
+      if (!session) {
+        throw new Error(`Session ${bulkDecision.sessionId} not found`);
+      }
 
-    setDecisions((prev) => [...prev, newDecision]);
+      // Store target session in map for later display
+      if (bulkDecision.action === 'reschedule' && bulkDecision.targetSession && bulkDecision.targetSessionId) {
+        setRescheduledSessionsMap((prev) => new Map(prev).set(bulkDecision.targetSessionId!, bulkDecision.targetSession!));
+      }
 
-    // Store target session in map for later display
-    if (action === 'reschedule' && targetSession && targetSessionId) {
-      setRescheduledSessionsMap((prev) => new Map(prev).set(targetSessionId, targetSession));
-    }
+      return {
+        sessionId: session.id,
+        sessionsStudentsId: session.sessionsStudentsId,
+        action: bulkDecision.action,
+        targetSessionId: bulkDecision.targetSessionId,
+      };
+    });
 
-    // Move to next session or review
-    if (currentSessionIndex + 1 < selectedSessionsArray.length) {
-      setCurrentSessionIndex(currentSessionIndex + 1);
-    } else {
-      setStep('review');
-    }
+    setDecisions(newDecisions);
+    setStep('review');
   };
 
   const handleFinalConfirm = async () => {
@@ -319,51 +319,27 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
           </div>
         );
 
-      case 'process-session':
-        if (!currentSession) return null;
-
-        const sessionDate = currentSession.start_at ? new Date(currentSession.start_at) : null;
-
+      case 'process-sessions':
         return (
           <div className="space-y-4">
             <div className="p-3 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground mb-1">
-                Session {currentSessionIndex + 1} of {selectedSessionsArray.length}
-              </div>
               <div className="font-semibold">
                 {selectedStudent?.first_name} {selectedStudent?.last_name}
               </div>
+              <div className="text-sm text-muted-foreground">
+                Select action for {selectedSessionsArray.length} session{selectedSessionsArray.length !== 1 ? 's' : ''}
+              </div>
             </div>
 
-            <AbsenceActionSelector
+            <AbsenceBulkActionSelector
+              sessions={selectedSessionsArray}
               studentId={selectedStudent!.id}
-              sessionId={currentSession.id}
-              sessionDetails={{
-                date: sessionDate ? formatDate(sessionDate) : 'TBD',
-                time: currentSession.start_at
-                  ? `${formatTimeHHMM(currentSession.start_at)}${currentSession.end_at ? ` - ${formatTimeHHMM(currentSession.end_at)}` : ''}`
-                  : 'TBD',
-                subject: currentSession.subject?.name || 'Unknown',
-                class: currentSession.class?.level || '',
-                curriculum: currentSession.subject?.curriculum ?? undefined,
-                yearLevel: currentSession.subject?.year_level?.toString(),
-                subjectName: currentSession.subject?.name,
-                level: currentSession.subject?.level ?? undefined,
-              }}
-              onActionSelected={handleActionSelected}
+              onDecisionsChange={handleBulkDecisionsChange}
               onBack={() => {
-                if (currentSessionIndex > 0) {
-                  // Go back to previous session and remove last decision
-                  setCurrentSessionIndex(currentSessionIndex - 1);
-                  setDecisions((prev) => prev.slice(0, -1));
-                } else {
-                  // First session, go back to select sessions and clear decisions
-                  setDecisions([]);
-                  setRescheduledSessionsMap(new Map());
-                  setStep('select-sessions');
-                }
+                setDecisions([]);
+                setRescheduledSessionsMap(new Map());
+                setStep('select-sessions');
               }}
-              resetAction={currentSessionIndex > 0} // Reset action for subsequent sessions
               excludeSessionIds={decisions
                 .filter((d) => d.action === 'reschedule' && d.targetSessionId)
                 .map((d) => d.targetSessionId!)} // Exclude already selected reschedule targets
@@ -391,10 +367,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
               <Button
                 variant="outline"
                 onClick={() => {
-                  // Go back to process the last session
-                  setCurrentSessionIndex(selectedSessionsArray.length - 1);
-                  setDecisions((prev) => prev.slice(0, -1));
-                  setStep('process-session');
+                  setStep('process-sessions');
                 }}
                 className="flex-1"
               >
@@ -488,8 +461,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
         return 'Select Student';
       case 'select-sessions':
         return 'Select Sessions';
-      case 'process-session':
-        return 'Process Absence';
+      case 'process-sessions':
+        return 'Process Absences';
       case 'review':
         return 'Review Summary';
       case 'confirm':
@@ -505,7 +478,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
         return 'Search and select the student to log absences for';
       case 'select-sessions':
         return 'Select which future sessions the student will be absent from';
-      case 'process-session':
+      case 'process-sessions':
         return 'Choose whether to reschedule or credit each session';
       case 'review':
         return 'Review all changes before confirming';
@@ -518,13 +491,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{getStepTitle()}</DialogTitle>
           <DialogDescription>{getStepDescription()}</DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">{renderStepContent()}</div>
+        <div className="flex-1 overflow-y-auto py-4">{renderStepContent()}</div>
       </DialogContent>
     </Dialog>
   );

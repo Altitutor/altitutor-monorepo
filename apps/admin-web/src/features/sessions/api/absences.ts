@@ -54,6 +54,10 @@ export const absencesApi = {
 
   /**
    * Get a student's future sessions with session-student enrollment details
+   * 
+   * Note: We use direct queries from sessions_students rather than search_sessions_admin RPC
+   * because we need the sessionsStudentsId from sessions_students table for absence logging.
+   * The RPC returns sessions but doesn't provide the sessions_students.id we need.
    */
   getStudentFutureSessions: async (studentId: string, weeksAhead: number = 8): Promise<StudentSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
