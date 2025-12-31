@@ -5,6 +5,7 @@ import { Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { TopicCard } from '../TopicCard';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { deriveTopicCode } from '@/features/topics/utils/codes';
@@ -31,21 +32,25 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
+  const [sessionData, setSessionData] = useState<any>(null);
+  const [subjectsMap, setSubjectsMap] = useState<Map<string, Tables<'subjects'>>>(new Map());
 
   useEffect(() => {
     const fetchData = async () => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
       // Get session to find subject
-      const { data: sessionData } = await supabase
+      const { data: sessionDataResult } = await supabase
         .from('sessions')
         .select('*, class:classes!inner(*, subject:subjects(*))')
         .eq('id', sessionId)
         .single();
 
-      if (!sessionData) return;
+      if (!sessionDataResult) return;
 
-      const subjectId = (sessionData as any).class?.subject?.id;
+      setSessionData(sessionDataResult);
+      const subjectId = (sessionDataResult as any).class?.subject?.id;
 
       // Get topics for this subject
       if (subjectId) {
@@ -65,6 +70,26 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
         .order('name');
 
       setAllTopics(allTopicsData || []);
+
+      // Get subjects for all topics (for additional topics display)
+      if (allTopicsData && allTopicsData.length > 0) {
+        const subjectIds = [...new Set(allTopicsData.map((t: any) => t.subject_id).filter(Boolean))];
+        if (subjectIds.length > 0) {
+          const { data: subjectsData } = await supabase
+            .from('subjects')
+            .select('*')
+            .in('id', subjectIds);
+          
+          if (subjectsData) {
+            const subjects = new Map<string, Tables<'subjects'>>();
+            subjectsData.forEach((s: any) => {
+              subjects.set(s.id, s);
+            });
+            setSubjectsMap(subjects);
+          }
+        }
+      }
+
       setIsLoading(false);
     };
 
@@ -118,19 +143,20 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
     return childTopics.map((topic) => {
       const hasChildren = subjectTopics.some((t) => t.parent_id === topic.id);
       const isExpanded = expandedTopics.has(topic.id);
-      const code = deriveTopicCode(topic, subjectTopics);
+      const parentTopic = topic.parent_id ? subjectTopics.find((t) => t.id === topic.parent_id) : undefined;
+      const subject = sessionData?.class?.subject;
 
       return (
         <div key={topic.id}>
           <div
-            className="flex items-center gap-2 py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
+            className="flex items-start gap-2 py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
             style={{ paddingLeft: `${depth * 20}px` }}
           >
             {hasChildren && (
               <button
                 type="button"
                 onClick={() => toggleExpanded(topic.id)}
-                className="p-1 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
+                className="p-1 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded mt-1"
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
@@ -143,9 +169,16 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
             <Checkbox
               checked={isTopicSelected(topic.id)}
               onCheckedChange={(checked) => handleToggleTopic(topic.id, checked === true)}
+              className="mt-1"
             />
-            <span className="text-sm font-mono text-muted-foreground">{code}</span>
-            <span>{topic.name}</span>
+            <div className="flex-1">
+              <TopicCard
+                topic={topic}
+                allTopics={subjectTopics}
+                subject={subject}
+                parentTopic={parentTopic}
+              />
+            </div>
           </div>
           {isExpanded && hasChildren && renderTopicTree(topic.id, depth + 1)}
         </div>
@@ -168,6 +201,65 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
 
+  const filteredSubjectTopics = subjectTopics.filter((topic) => {
+    if (!searchFilter) return true;
+    const searchLower = searchFilter.toLowerCase();
+    const topicCode = deriveTopicCode(topic, subjectTopics);
+    return (
+      topic.name.toLowerCase().includes(searchLower) ||
+      topicCode.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const renderFilteredTopicTree = (parentId: string | null, depth: number = 0) => {
+    const childTopics = filteredSubjectTopics.filter((t) => t.parent_id === parentId);
+
+    return childTopics.map((topic) => {
+      const hasChildren = filteredSubjectTopics.some((t) => t.parent_id === topic.id);
+      const isExpanded = expandedTopics.has(topic.id);
+      const parentTopic = topic.parent_id ? filteredSubjectTopics.find((t) => t.id === topic.parent_id) : undefined;
+      const subject = sessionData?.class?.subject;
+
+      return (
+        <div key={topic.id}>
+          <div
+            className="flex items-start gap-2 py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
+            style={{ paddingLeft: `${depth * 20}px` }}
+          >
+            {hasChildren && (
+              <button
+                type="button"
+                onClick={() => toggleExpanded(topic.id)}
+                className="p-1 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded mt-1"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            {!hasChildren && <div className="w-6" />}
+            <Checkbox
+              checked={isTopicSelected(topic.id)}
+              onCheckedChange={(checked) => handleToggleTopic(topic.id, checked === true)}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <TopicCard
+                topic={topic}
+                allTopics={subjectTopics}
+                subject={subject}
+                parentTopic={parentTopic}
+              />
+            </div>
+          </div>
+          {isExpanded && hasChildren && renderFilteredTopicTree(topic.id, depth + 1)}
+        </div>
+      );
+    });
+  };
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
@@ -175,22 +267,40 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
       </p>
 
       {subjectTopics.length > 0 && (
-        <div className="border rounded-md p-4 max-h-[400px] overflow-y-auto">
-          {renderTopicTree(null)}
-        </div>
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search topics by name or code..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="max-h-[400px] overflow-y-auto space-y-1">
+            {renderFilteredTopicTree(null)}
+          </div>
+        </>
       )}
 
       {additionalTopicIds.length > 0 && (
         <div className="space-y-2">
           <div className="font-medium">Additional Topics</div>
-          <div className="space-y-1">
+          <div className="space-y-3">
             {additionalTopicIds.map((topicId) => {
               const topic = allTopics.find((t) => t.id === topicId);
               if (!topic) return null;
+              // Get subject for this specific topic
+              const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : undefined;
+              const parentTopic = topic.parent_id ? allTopics.find((t) => t.id === topic.parent_id) : undefined;
               return (
-                <div key={topicId} className="p-2 bg-blue-50/50 dark:bg-blue-900/10 rounded-md text-sm">
-                  {topic.name}
-                </div>
+                <TopicCard
+                  key={topicId}
+                  topic={topic}
+                  allTopics={allTopics}
+                  subject={subject}
+                  parentTopic={parentTopic}
+                />
               );
             })}
           </div>

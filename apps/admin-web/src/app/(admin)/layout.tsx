@@ -12,7 +12,7 @@ import dynamic from 'next/dynamic';
 import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
 import { LogSessionModal } from '@/features/tutor-logs';
-import { LogAbsenceDialog } from '@/features/sessions';
+import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
@@ -210,7 +210,7 @@ function AdminLayoutContent({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, closeTutorLogModal, closeLogAbsenceDialog } = useQuickActions();
+  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
   
   const toggleSidebar = () => {
@@ -238,6 +238,11 @@ function AdminLayoutContent({
             <LogAbsenceDialog
               isOpen={isLogAbsenceDialogOpen}
               onClose={closeLogAbsenceDialog}
+              staffId={currentStaff.id}
+            />
+            <LogStaffAbsenceDialog
+              isOpen={isLogStaffAbsenceDialogOpen}
+              onClose={closeLogStaffAbsenceDialog}
               staffId={currentStaff.id}
             />
           </>

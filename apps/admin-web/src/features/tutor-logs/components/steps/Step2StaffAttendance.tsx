@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Plus, Search, X } from 'lucide-react';
+import { StaffCard } from '@/shared/components/StaffCard';
+import { staffApi, type StaffListItem } from '@/features/staff/api/staff';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
@@ -20,6 +24,7 @@ type Step2StaffAttendanceProps = {
   currentStaffId: string;
   staffAttendance: StaffAttendanceItem[];
   onUpdate: (staffAttendance: StaffAttendanceItem[]) => void;
+  onAddStaffToSession?: (staffId: string) => Promise<void>;
 };
 
 export function Step2StaffAttendance({
@@ -27,11 +32,16 @@ export function Step2StaffAttendance({
   currentStaffId,
   staffAttendance,
   onUpdate,
+  onAddStaffToSession,
 }: Step2StaffAttendanceProps) {
   const [sessionStaff, setSessionStaff] = useState<
     Array<Tables<'sessions_staff'> & { staff: Tables<'staff'> }>
   >([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAddStaff, setShowAddStaff] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [availableStaff, setAvailableStaff] = useState<StaffListItem[]>([]);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(false);
 
   useEffect(() => {
     const fetchSessionStaff = async () => {
@@ -104,16 +114,57 @@ export function Step2StaffAttendance({
     return staffAttendance.find((sa) => sa.staffId === staffId);
   };
 
+  const handleSearchStaff = async (search: string) => {
+    setSearchTerm(search);
+    if (!search.trim()) {
+      setAvailableStaff([]);
+      return;
+    }
+
+    setIsLoadingStaff(true);
+    try {
+      const result = await staffApi.listMinimal({
+        search,
+        limit: 20,
+        offset: 0,
+        orderBy: 'first_name',
+        ascending: true,
+      });
+      // Filter out staff already in session
+      const existingStaffIds = new Set(sessionStaff.map((ss: any) => ss.staff_id));
+      setAvailableStaff(result.staff.filter((s) => !existingStaffIds.has(s.id)));
+    } catch (error) {
+      console.error('Error searching staff:', error);
+    } finally {
+      setIsLoadingStaff(false);
+    }
+  };
+
+  const handleAddStaff = async (staffId: string) => {
+    if (onAddStaffToSession) {
+      await onAddStaffToSession(staffId);
+      // Refresh session staff
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data } = await supabase
+        .from('sessions_staff')
+        .select('*, staff:staff!sessions_staff_staff_id_fkey(*)')
+        .eq('session_id', sessionId);
+      if (data) {
+        setSessionStaff(data as any);
+        // Initialize attendance for new staff
+        const newStaff = data.find((ss: any) => ss.staff_id === staffId);
+        if (newStaff) {
+          handleAttendanceChange(staffId, true);
+        }
+      }
+    }
+    setShowAddStaff(false);
+    setSearchTerm('');
+    setAvailableStaff([]);
+  };
+
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
-  }
-
-  if (sessionStaff.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No staff assigned to this session.
-      </div>
-    );
   }
 
   return (
@@ -121,52 +172,111 @@ export function Step2StaffAttendance({
       <p className="text-sm text-muted-foreground">
         Select which staff members attended this session. Only one PRIMARY tutor is allowed.
       </p>
-      <div className="space-y-3">
-        {sessionStaff.map((ss: any) => {
-          const staff = ss.staff;
-          const attendance = getStaffAttendance(ss.staff_id);
-          const isAttended = attendance?.attended ?? !ss.planned_absence;
-          const type = attendance?.type ?? (ss.staff_id === currentStaffId ? 'PRIMARY' : 'ASSISTANT');
+      
+      {sessionStaff.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          No staff assigned to this session.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sessionStaff.map((ss: any) => {
+            const staff = ss.staff;
+            const attendance = getStaffAttendance(ss.staff_id);
+            const isAttended = attendance?.attended ?? !ss.planned_absence;
+            const type = attendance?.type ?? (ss.staff_id === currentStaffId ? 'PRIMARY' : 'ASSISTANT');
 
-          return (
-            <div
-              key={ss.staff_id}
-              className="flex items-center gap-4 p-3 border rounded-md"
-            >
-              <Checkbox
-                id={`staff-${ss.staff_id}`}
-                checked={isAttended}
-                onCheckedChange={(checked) =>
-                  handleAttendanceChange(ss.staff_id, checked === true)
-                }
-              />
-              <Label htmlFor={`staff-${ss.staff_id}`} className="flex-1 cursor-pointer">
-                {staff.first_name} {staff.last_name}
-                {ss.planned_absence && (
-                  <span className="ml-2 text-xs text-muted-foreground">(Planned Absence)</span>
-                )}
-              </Label>
-              {isAttended && (
-                <Select
-                  value={type}
-                  onValueChange={(value) =>
-                    handleTypeChange(ss.staff_id, value as 'PRIMARY' | 'ASSISTANT' | 'TRIAL')
+            return (
+              <div key={ss.staff_id} className="flex items-center gap-3">
+                <Checkbox
+                  id={`staff-${ss.staff_id}`}
+                  checked={isAttended}
+                  onCheckedChange={(checked) =>
+                    handleAttendanceChange(ss.staff_id, checked === true)
                   }
+                />
+                <div className="flex-1">
+                  <StaffCard
+                    staff={staff}
+                    showSubjects={false}
+                    showActions={false}
+                  />
+                </div>
+                {isAttended && (
+                  <Select
+                    value={type}
+                    onValueChange={(value) =>
+                      handleTypeChange(ss.staff_id, value as 'PRIMARY' | 'ASSISTANT' | 'TRIAL')
+                    }
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PRIMARY">Primary</SelectItem>
+                      <SelectItem value="ASSISTANT">Assistant</SelectItem>
+                      <SelectItem value="TRIAL">Trial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!showAddStaff && (
+        <Button variant="outline" onClick={() => setShowAddStaff(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Staff
+        </Button>
+      )}
+
+      {showAddStaff && (
+        <div className="space-y-2 border rounded-md p-4 bg-muted/30">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search staff by name..."
+              value={searchTerm}
+              onChange={(e) => handleSearchStaff(e.target.value)}
+              className="pl-10"
+              autoFocus
+            />
+          </div>
+          
+          {isLoadingStaff ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">Searching...</div>
+          ) : availableStaff.length > 0 ? (
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {availableStaff.map((staffMember) => (
+                <div
+                  key={staffMember.id}
+                  onClick={() => handleAddStaff(staffMember.id)}
+                  className="cursor-pointer"
                 >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PRIMARY">Primary</SelectItem>
-                    <SelectItem value="ASSISTANT">Assistant</SelectItem>
-                    <SelectItem value="TRIAL">Trial</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+                  <StaffCard
+                    staff={staffMember as Tables<'staff'>}
+                    showSubjects={false}
+                    showActions={false}
+                  />
+                </div>
+              ))}
             </div>
-          );
-        })}
-      </div>
+          ) : searchTerm ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No staff found
+            </div>
+          ) : null}
+
+          <Button variant="outline" size="sm" onClick={() => {
+            setShowAddStaff(false);
+            setSearchTerm('');
+            setAvailableStaff([]);
+          }}>
+            Cancel
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

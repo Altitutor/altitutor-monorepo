@@ -2,7 +2,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type StaffListItem = Pick<
+export type StaffListItem = Pick<
   Tables<'staff'>,
   'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'phone_number' | 'email'
 > & {

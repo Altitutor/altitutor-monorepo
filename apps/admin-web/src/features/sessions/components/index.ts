@@ -10,3 +10,7 @@ export * from './AttendanceCell';
 export * from './AbsenceSessionSelector';
 export * from './AbsenceActionSelector';
 export * from './LogAbsenceDialog';
+export * from './StaffAbsenceSessionSelector';
+export * from './StaffAbsenceBulkActionSelector';
+export * from './ReplacementStaffDropdown';
+export * from './LogStaffAbsenceDialog';

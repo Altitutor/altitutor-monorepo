@@ -12,7 +12,7 @@ import { Calendar, FileText, Zap } from 'lucide-react';
 
 export function QuickActionsMenu() {
   const minimized = useChatStore(s => s.minimized);
-  const { openTutorLogModal, openLogAbsenceDialog } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog } = useQuickActions();
 
   // Hide when messages are expanded (not minimized)
   if (!minimized) {
@@ -39,6 +39,10 @@ export function QuickActionsMenu() {
           <DropdownMenuItem onClick={openLogAbsenceDialog}>
             <Calendar className="h-4 w-4 mr-2" />
             Log Absence
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={openLogStaffAbsenceDialog}>
+            <Calendar className="h-4 w-4 mr-2" />
+            Log Staff Absence
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

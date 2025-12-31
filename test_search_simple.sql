@@ -41,3 +41,4 @@ SELECT
   (search_students_admin('Jhon', ARRAY['ACTIVE', 'TRIAL']::TEXT[], false, 100, 0)->>'total')::int as count;
 
 
+

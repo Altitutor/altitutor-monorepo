@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Checkbox } from '@altitutor/ui';
+import { FileCard } from '@/features/topics/components/FileCard';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
@@ -25,9 +26,13 @@ type Step6FilesProps = {
   onUpdate: (topicFiles: TopicFileItem[]) => void;
 };
 
+type TopicFileWithFile = Tables<'topics_files'> & {
+  file: Tables<'files'>;
+};
+
 export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
   const [filesData, setFilesData] = useState<
-    Record<string, Array<Tables<'topics_files'>>>
+    Record<string, Array<TopicFileWithFile>>
   >({});
   const [topicsData, setTopicsData] = useState<Tables<'topics'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,16 +54,19 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
         .in('id', topicIds);
       setTopicsData(topicsRes || []);
 
-      // Get files for each topic
-      const filesMap: Record<string, Array<Tables<'topics_files'>>> = {};
+      // Get files for each topic with file details
+      const filesMap: Record<string, Array<TopicFileWithFile>> = {};
       for (const topicId of topicIds) {
         const { data } = await supabase
           .from('topics_files')
-          .select('*')
+          .select(`
+            *,
+            file:files(*)
+          `)
           .eq('topic_id', topicId)
           .order('type')
           .order('index');
-        filesMap[topicId] = data || [];
+        filesMap[topicId] = (data || []) as TopicFileWithFile[];
       }
       setFilesData(filesMap);
       setIsLoading(false);
@@ -86,7 +94,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select which files were used in this session.
+        Select which files were used in this session. You can proceed without selecting any files.
       </p>
 
       <div className="space-y-6">
@@ -96,23 +104,39 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
 
           if (files.length === 0) return null;
 
+          const topicCode = topicData ? deriveTopicCode(topicData, topicsData) : '';
+
           return (
-            <div key={topic.topicId} className="border rounded-md p-4">
-              <div className="font-medium mb-3">{topicData?.name}</div>
+            <div key={topic.topicId} className="space-y-3">
+              <div className="font-semibold text-base">
+                {topicCode} {topicData?.name}
+              </div>
               <div className="space-y-2">
                 {files.map((file) => {
-                  const topicCode = topicData ? deriveTopicCode(topicData, topicsData) : '';
                   const fileCode = deriveTopicFileCode(file, topicCode, file.type);
 
                   return (
-                    <div key={file.id} className="flex items-center gap-2 py-1">
+                    <div key={file.id} className="flex items-center gap-3">
                       <Checkbox
                         checked={isFileSelected(file.id)}
                         onCheckedChange={(checked) =>
                           handleToggleFile(file.id, topic.topicId, checked === true)
                         }
                       />
-                      <span className="font-mono text-sm">{fileCode}</span>
+                      <div className="flex-1">
+                        {file.file?.filename ? (
+                          <FileCard
+                            fileCode={fileCode}
+                            fileType={file.type}
+                            filename={file.file.filename}
+                            storagePath={file.file.storage_path}
+                            mimeType={file.file.mimetype || undefined}
+                            topicFileId={file.id}
+                          />
+                        ) : (
+                          <div className="text-sm text-muted-foreground">File name unavailable</div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

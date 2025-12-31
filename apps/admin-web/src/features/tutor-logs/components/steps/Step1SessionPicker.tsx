@@ -1,12 +1,11 @@
 'use client';
 
-import { useUnloggedSessions } from '../../hooks';
-import { Card } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
-import { format } from 'date-fns';
-import { CalendarIcon, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { SessionsCard } from '@/features/sessions/components/SessionsCard';
+import { sessionsApi } from '@/features/sessions/api/sessions';
 import { cn } from '@/shared/utils/index';
-import type { Database } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Step1SessionPickerProps = {
@@ -20,13 +19,81 @@ export function Step1SessionPicker({
   selectedSessionId,
   onSelectSession,
 }: Step1SessionPickerProps) {
-  const { data: sessions, isLoading } = useUnloggedSessions(staffId);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sessionStudents, setSessionStudents] = useState<Record<string, any[]>>({});
+  const [sessionStaff, setSessionStaff] = useState<Record<string, any[]>>({});
+  const [classesById, setClassesById] = useState<Record<string, Tables<'classes'>>>({});
+  const [subjectsById, setSubjectsById] = useState<Record<string, Tables<'subjects'>>>({});
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      setIsLoading(true);
+      try {
+        const supabase = getSupabaseClient() as SupabaseClient<Database>;
+        
+        // Get all sessions for this staff using RPC
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
+          p_search: undefined,
+          p_range_start: undefined,
+          p_range_end: today.toISOString(),
+          p_staff_id: staffId,
+          p_class_id: undefined,
+          p_student_id: undefined,
+          p_statuses: ['ACTIVE'],
+          p_types: ['CLASS'], // Only CLASS sessions
+          p_include_relationships: true,
+          p_limit: 1000,
+          p_offset: 0,
+          p_order_by: 'start_at',
+          p_ascending: false,
+        });
+
+        if (rpcError) throw rpcError;
+        if (!rpcResult) return;
+
+        const rpcData = rpcResult as {
+          sessions: any[];
+          sessionStudents: Record<string, any[]>;
+          sessionStaff: Record<string, any[]>;
+          classesById: Record<string, any>;
+          subjectsById: Record<string, any>;
+          total: number;
+        };
+
+        // Filter out sessions that already have tutor logs
+        const { data: existingLogs } = await supabase
+          .from('tutor_logs')
+          .select('session_id');
+        
+        const loggedSessionIds = new Set((existingLogs || []).map((log: any) => log.session_id));
+        const unloggedSessions = (rpcData.sessions || []).filter(
+          (s: any) => !loggedSessionIds.has(s.id)
+        );
+
+        setSessions(unloggedSessions);
+        setSessionStudents(rpcData.sessionStudents || {});
+        setSessionStaff(rpcData.sessionStaff || {});
+        setClassesById(rpcData.classesById || {});
+        setSubjectsById(rpcData.subjectsById || {});
+      } catch (error) {
+        console.error('Error fetching sessions:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSessions();
+  }, [staffId]);
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>;
   }
 
-  if (!sessions || sessions.length === 0) {
+  if (sessions.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">No sessions available to log.</p>
@@ -40,61 +107,42 @@ export function Step1SessionPicker({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select a session to log. Only past or current sessions are shown.
+        Select a session to log. Only past or current CLASS sessions are shown.
       </p>
       <div className="grid gap-3 max-h-[500px] overflow-y-auto">
         {sessions.map((session) => {
           const isSelected = session.id === selectedSessionId;
-          const startDate = session.start_at ? new Date(session.start_at) : null;
-          const endDate = session.end_at ? new Date(session.end_at) : null;
-          const subject = session.class?.subject;
+          const classData = classesById[session.class_id];
+          const subject = classData?.subject_id ? subjectsById[classData.subject_id] : undefined;
+          const staff = (sessionStaff[session.id] || []).map((sf: any) => ({
+            ...sf.staff || sf,
+            planned_absence: sf.planned_absence,
+          }));
+          const students = (sessionStudents[session.id] || []).map((ss: any) => ({
+            ...ss.student || ss,
+            planned_absence: ss.planned_absence,
+            is_extra: ss.is_extra,
+          }));
 
           return (
-            <Card
+            <div
               key={session.id}
               className={cn(
-                'p-4 cursor-pointer transition-all hover:shadow-md',
-                isSelected && 'ring-2 ring-primary shadow-md'
+                'cursor-pointer transition-all',
+                isSelected && 'ring-2 ring-primary rounded-lg'
               )}
               onClick={() => onSelectSession(session.id)}
             >
-              <div className="flex items-start justify-between">
-                <div className="space-y-2 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge>{session.type}</Badge>
-                    {isSelected && (
-                      <Badge variant="outline" className="bg-primary/10">
-                        Selected
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  {subject && (
-                    <div className="font-medium">
-                      {subject.curriculum && `${subject.curriculum} `}
-                      {subject.year_level != null && `Year ${subject.year_level} `}
-                      {subject.name}
-                      {session.class?.level && ` - ${session.class.level}`}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    {startDate && (
-                      <div className="flex items-center gap-1">
-                        <CalendarIcon className="h-4 w-4" />
-                        {format(startDate, 'EEE, dd MMM yyyy')}
-                      </div>
-                    )}
-                    {startDate && endDate && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Card>
+              <SessionsCard
+                session={session}
+                classData={classData}
+                subject={subject}
+                staff={staff}
+                students={students}
+                isSelecting={true}
+                isSelected={isSelected}
+              />
+            </div>
           );
         })}
       </div>

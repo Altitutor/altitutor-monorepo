@@ -5,10 +5,13 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 interface QuickActionsContextType {
   isTutorLogModalOpen: boolean;
   isLogAbsenceDialogOpen: boolean;
+  isLogStaffAbsenceDialogOpen: boolean;
   openTutorLogModal: () => void;
   closeTutorLogModal: () => void;
   openLogAbsenceDialog: () => void;
   closeLogAbsenceDialog: () => void;
+  openLogStaffAbsenceDialog: () => void;
+  closeLogStaffAbsenceDialog: () => void;
 }
 
 const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
@@ -16,6 +19,7 @@ const QuickActionsContext = createContext<QuickActionsContextType | undefined>(u
 export function QuickActionsProvider({ children }: { children: React.ReactNode }) {
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
 
   const openTutorLogModal = useCallback(() => {
     setIsTutorLogModalOpen(true);
@@ -33,15 +37,26 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsLogAbsenceDialogOpen(false);
   }, []);
 
+  const openLogStaffAbsenceDialog = useCallback(() => {
+    setIsLogStaffAbsenceDialogOpen(true);
+  }, []);
+
+  const closeLogStaffAbsenceDialog = useCallback(() => {
+    setIsLogStaffAbsenceDialogOpen(false);
+  }, []);
+
   return (
     <QuickActionsContext.Provider
       value={{
         isTutorLogModalOpen,
         isLogAbsenceDialogOpen,
+        isLogStaffAbsenceDialogOpen,
         openTutorLogModal,
         closeTutorLogModal,
         openLogAbsenceDialog,
         closeLogAbsenceDialog,
+        openLogStaffAbsenceDialog,
+        closeLogStaffAbsenceDialog,
       }}
     >
       {children}

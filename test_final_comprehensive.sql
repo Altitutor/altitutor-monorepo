@@ -204,3 +204,4 @@ FROM (SELECT search_students_admin('A.L.I.C.E', NULL, false, 100, 0) as result) 
 \echo ''
 
 
+

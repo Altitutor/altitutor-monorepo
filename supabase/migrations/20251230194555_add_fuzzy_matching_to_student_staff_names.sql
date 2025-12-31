@@ -1009,3 +1009,4 @@ COMMENT ON FUNCTION search_staff_admin IS 'Admin search function for staff with 
 COMMENT ON FUNCTION search_sessions_admin IS 'Admin search function for sessions with filtering, search, pagination, and relationship loading. Supports exact + fuzzy matching for student names, staff names, and session shortname (class shortname).';
 
 
+

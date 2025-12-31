@@ -11,6 +11,16 @@ export type {
   GetRescheduleSessionsParams,
 } from './absence';
 
+export type {
+  StaffAbsenceAction,
+  StaffAbsenceOperation,
+  StaffAbsenceDecision,
+  StaffSession,
+  ReplacementStaff,
+  LogStaffAbsencesResponse,
+  GetReplacementStaffParams,
+} from './staff-absence';
+
 export type StudentWithAttendance = Tables<'students'> & {
   planned_absence?: boolean;
   actual_attended?: boolean | null;

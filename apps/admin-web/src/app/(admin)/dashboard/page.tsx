@@ -6,7 +6,7 @@ import { Button } from '@altitutor/ui';
 import { Calendar, FileText } from 'lucide-react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogSessionModal } from '@/features/tutor-logs';
-import { LogAbsenceDialog, TodaySessionsView } from '@/features/sessions';
+import { LogAbsenceDialog, LogStaffAbsenceDialog, TodaySessionsView } from '@/features/sessions';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 
 type ViewMode = 'calendar' | 'table';
@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
   const [sessionsViewMode, setSessionsViewMode] = useState<ViewMode>('calendar');
 
   const currentDate = new Date();
@@ -101,6 +102,14 @@ export default function DashboardPage() {
                 <Calendar className="h-4 w-4 mr-2" />
                 Log Absence
               </Button>
+              <Button
+                onClick={() => setIsLogStaffAbsenceDialogOpen(true)}
+                className="w-full"
+                variant="outline"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Log Staff Absence
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -123,6 +132,11 @@ export default function DashboardPage() {
           <LogAbsenceDialog
             isOpen={isLogAbsenceDialogOpen}
             onClose={() => setIsLogAbsenceDialogOpen(false)}
+            staffId={currentStaff.id}
+          />
+          <LogStaffAbsenceDialog
+            isOpen={isLogStaffAbsenceDialogOpen}
+            onClose={() => setIsLogStaffAbsenceDialogOpen(false)}
             staffId={currentStaff.id}
           />
         </>

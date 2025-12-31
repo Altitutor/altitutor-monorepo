@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
-import { Plus, X, Search } from 'lucide-react';
+import { X, Search, Plus } from 'lucide-react';
+import { StudentCard } from '@/shared/components/StudentCard';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { cn } from '@/shared/utils/index';
@@ -36,6 +36,7 @@ export function Step3StudentAttendance({
   const [isLoading, setIsLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,20 +68,24 @@ export function Step3StudentAttendance({
 
       setAllStudents(studentsData as Tables<'students'>[]);
 
-      // Initialize form data if empty
-      if (studentAttendance.length === 0 && ssData) {
-        const initialAttendance = ssData.map((ss: any) => ({
-          studentId: ss.student_id,
-          attended: !ss.planned_absence,
-        }));
-        onUpdate(initialAttendance);
-      }
-
       setIsLoading(false);
     };
 
     fetchData();
-  }, [sessionId, studentAttendance.length, onUpdate]);
+  }, [sessionId]);
+
+  // Initialize form data if empty (separate effect to avoid setState during render)
+  useEffect(() => {
+    if (!hasInitialized.current && studentAttendance.length === 0 && sessionStudents.length > 0 && !isLoading) {
+      hasInitialized.current = true;
+      const initialAttendance = sessionStudents.map((ss: any) => ({
+        studentId: ss.student_id,
+        attended: !ss.planned_absence,
+      }));
+      onUpdate(initialAttendance);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStudents.length, isLoading]); // Only depend on sessionStudents.length and isLoading
 
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) =>
@@ -146,22 +151,30 @@ export function Step3StudentAttendance({
             const student = ss.student;
             const attendance = getStudentAttendance(ss.student_id);
             const isAttended = attendance?.attended ?? !ss.planned_absence;
+            const isExtra = ss.is_extra;
 
             return (
-              <div key={ss.student_id} className="flex items-center gap-3 p-3 border rounded-md">
-                <Checkbox
-                  id={`student-${ss.student_id}`}
-                  checked={isAttended}
-                  onCheckedChange={(checked) =>
-                    handleAttendanceChange(ss.student_id, checked === true)
-                  }
-                />
-                <Label htmlFor={`student-${ss.student_id}`} className="flex-1 cursor-pointer">
-                  {student.first_name} {student.last_name}
-                  {ss.planned_absence && (
-                    <span className="ml-2 text-xs text-muted-foreground">(Planned Absence)</span>
-                  )}
-                </Label>
+              <div key={ss.student_id} className="flex items-center gap-3">
+                {isExtra ? (
+                  <div className="w-6 h-6 flex items-center justify-center text-red-600">
+                    <X className="h-5 w-5" />
+                  </div>
+                ) : (
+                  <Checkbox
+                    id={`student-${ss.student_id}`}
+                    checked={isAttended}
+                    onCheckedChange={(checked) =>
+                      handleAttendanceChange(ss.student_id, checked === true)
+                    }
+                  />
+                )}
+                <div className="flex-1">
+                  <StudentCard
+                    student={student}
+                    showSubjects={false}
+                    showActions={false}
+                  />
+                </div>
               </div>
             );
           })}
@@ -177,10 +190,21 @@ export function Step3StudentAttendance({
             if (!student) return null;
 
             return (
-              <div key={studentId} className="flex items-center gap-3 p-3 border rounded-md bg-blue-50/50 dark:bg-blue-900/10">
-                <Label className="flex-1">
-                  {student.first_name} {student.last_name}
-                </Label>
+              <div key={studentId} className="flex items-center gap-3">
+                <Checkbox
+                  id={`student-${studentId}`}
+                  checked={getStudentAttendance(studentId)?.attended ?? true}
+                  onCheckedChange={(checked) =>
+                    handleAttendanceChange(studentId, checked === true)
+                  }
+                />
+                <div className="flex-1">
+                  <StudentCard
+                    student={student}
+                    showSubjects={false}
+                    showActions={false}
+                  />
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"

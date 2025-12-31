@@ -138,3 +138,4 @@ FROM jsonb_array_elements(search_students_admin('Jhon', ARRAY['ACTIVE', 'TRIAL']
 \echo 'Fuzzy matching should find results even with typos or spacing.'
 
 
+

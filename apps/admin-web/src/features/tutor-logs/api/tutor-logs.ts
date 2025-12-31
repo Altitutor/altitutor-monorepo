@@ -9,166 +9,49 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  */
 export const tutorLogsApi = {
   /**
-   * Create a tutor log with all related records
-   * This should be done in a transaction-like manner
+   * Create a tutor log with all related records atomically via RPC function
+   * All operations are executed within a single transaction
    */
   createTutorLog: async (data: TutorLogFormData, createdBy: string): Promise<Tables<'tutor_logs'>> => {
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
-
     try {
-      // 1. Create the tutor log
-      const tutorLogPayload: TablesInsert<'tutor_logs'> = {
-        id: crypto.randomUUID(),
-        session_id: data.sessionId,
-        created_by: createdBy,
-      };
+      const response = await fetch('/api/tutor-logs/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data,
+          createdBy,
+        }),
+      });
 
-      const { data: tutorLog, error: tutorLogError } = await supabase
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create tutor log');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create tutor log');
+      }
+
+      // Fetch the created tutor log to return it
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
+      const tutorLogId = (result.data as any)?.tutor_log_id;
+      
+      if (!tutorLogId) {
+        throw new Error('Tutor log ID not returned from RPC function');
+      }
+
+      const { data: tutorLog, error: fetchError } = await supabase
         .from('tutor_logs')
-        .insert(tutorLogPayload)
-        .select()
+        .select('*')
+        .eq('id', tutorLogId)
         .single();
 
-      if (tutorLogError) throw tutorLogError;
-
-      const tutorLogId = tutorLog.id;
-
-      // 2. Create staff attendance records
-      if (data.staffAttendance.length > 0) {
-        const staffAttendancePayload = data.staffAttendance.map((sa) => ({
-          id: crypto.randomUUID(),
-          tutor_log_id: tutorLogId,
-          staff_id: sa.staffId,
-          attended: sa.attended,
-          type: sa.type,
-        }));
-
-        const { error: staffError } = await supabase
-          .from('tutor_logs_staff_attendance')
-          .insert(staffAttendancePayload);
-
-        if (staffError) throw staffError;
-      }
-
-      // 3. Create student attendance records
-      if (data.studentAttendance.length > 0) {
-        const studentAttendancePayload = data.studentAttendance.map((sa) => ({
-          id: crypto.randomUUID(),
-          tutor_log_id: tutorLogId,
-          student_id: sa.studentId,
-          attended: sa.attended,
-          created_by: createdBy,
-        }));
-
-        const { error: studentError } = await supabase
-          .from('tutor_logs_student_attendance')
-          .insert(studentAttendancePayload);
-
-        if (studentError) throw studentError;
-      }
-
-      // 4. Create topic records
-      if (data.topics.length > 0) {
-        const topicsPayload = data.topics.map((t) => ({
-          id: crypto.randomUUID(),
-          tutor_log_id: tutorLogId,
-          topic_id: t.topicId,
-          created_by: createdBy,
-        }));
-
-        const { data: createdTopics, error: topicsError } = await supabase
-          .from('tutor_logs_topics')
-          .insert(topicsPayload)
-          .select();
-
-        if (topicsError) throw topicsError;
-
-        // 5. Create topic-student links
-        const topicStudentsPayload: TablesInsert<'tutor_logs_topics_students'>[] = [];
-        data.topics.forEach((t) => {
-          const tutorLogTopicRecord = createdTopics?.find(
-            (ct: any) => ct.topic_id === t.topicId
-          );
-          if (tutorLogTopicRecord) {
-            t.studentIds.forEach((studentId) => {
-              topicStudentsPayload.push({
-                id: crypto.randomUUID(),
-                tutor_logs_topics_id: tutorLogTopicRecord.id,
-                student_id: studentId,
-                created_by: createdBy,
-              });
-            });
-          }
-        });
-
-        if (topicStudentsPayload.length > 0) {
-          const { error: topicStudentsError } = await supabase
-            .from('tutor_logs_topics_students')
-            .insert(topicStudentsPayload);
-
-          if (topicStudentsError) throw topicStudentsError;
-        }
-      }
-
-      // 6. Create topic file records
-      if (data.topicFiles.length > 0) {
-        const topicFilesPayload = data.topicFiles.map((tf) => ({
-          id: crypto.randomUUID(),
-          tutor_log_id: tutorLogId,
-          topics_files_id: tf.topicsFilesId,
-          created_by: createdBy,
-        }));
-
-        const { data: createdTopicFiles, error: topicFilesError } = await supabase
-          .from('tutor_logs_topics_files')
-          .insert(topicFilesPayload)
-          .select();
-
-        if (topicFilesError) throw topicFilesError;
-
-        // 7. Create topic file-student links
-        const topicFileStudentsPayload: TablesInsert<'tutor_logs_topics_files_students'>[] = [];
-        data.topicFiles.forEach((tf) => {
-          const tutorLogTopicFileRecord = createdTopicFiles?.find(
-            (ctf: any) => ctf.topics_files_id === tf.topicsFilesId
-          );
-          if (tutorLogTopicFileRecord) {
-            tf.studentIds.forEach((studentId) => {
-              topicFileStudentsPayload.push({
-                id: crypto.randomUUID(),
-                tutor_logs_topics_files_id: tutorLogTopicFileRecord.id,
-                student_id: studentId,
-                created_by: createdBy,
-              });
-            });
-          }
-        });
-
-        if (topicFileStudentsPayload.length > 0) {
-          const { error: topicFileStudentsError } = await supabase
-            .from('tutor_logs_topics_files_students')
-            .insert(topicFileStudentsPayload);
-
-          if (topicFileStudentsError) throw topicFileStudentsError;
-        }
-      }
-
-      // 8. Create notes
-      if (data.notes.length > 0) {
-        const notesPayload = data.notes.map((note) => ({
-          id: crypto.randomUUID(),
-          target_type: 'tutor_logs',
-          target_id: tutorLogId,
-          note: note,
-          created_by: createdBy,
-        }));
-
-        const { error: notesError } = await supabase
-          .from('notes')
-          .insert(notesPayload);
-
-        if (notesError) throw notesError;
-      }
+      if (fetchError) throw fetchError;
+      if (!tutorLog) throw new Error('Tutor log not found after creation');
 
       return tutorLog as Tables<'tutor_logs'>;
     } catch (error) {
