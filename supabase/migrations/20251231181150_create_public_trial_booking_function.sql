@@ -32,8 +32,6 @@ SET search_path = public
 AS $$
 DECLARE
   v_existing_student_id UUID;
-  v_existing_status TEXT;
-  v_existing_user_id UUID;
   v_existing_parent_id UUID;
   v_parent_id UUID;
   v_student_id UUID;
@@ -41,7 +39,7 @@ DECLARE
   v_result JSONB;
 BEGIN
   -- Check if student exists by email (case-insensitive)
-  SELECT id, status, user_id INTO v_existing_student_id, v_existing_status, v_existing_user_id
+  SELECT id INTO v_existing_student_id
   FROM students
   WHERE LOWER(email) = LOWER(p_student_email)
   LIMIT 1;
