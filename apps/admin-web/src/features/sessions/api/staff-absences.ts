@@ -21,6 +21,9 @@ export const staffAbsencesApi = {
     operations: StaffAbsenceOperation[],
     staffId: string
   ): Promise<LogStaffAbsencesResponse> => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'staff-absences.ts:24',message:'API client: preparing request',data:{operationsCount:operations.length,operations,staffId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
     try {
       const response = await fetch('/api/staff-absences/log', {
         method: 'POST',
@@ -33,8 +36,15 @@ export const staffAbsencesApi = {
         }),
       });
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'staff-absences.ts:36',message:'API client: response received',data:{ok:response.ok,status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+
       if (!response.ok) {
         const errorData = await response.json();
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'staff-absences.ts:40',message:'API client: error response',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         return {
           success: false,
           error: errorData.error || 'Failed to log staff absences',
@@ -42,8 +52,14 @@ export const staffAbsencesApi = {
       }
 
       const result = await response.json();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'staff-absences.ts:49',message:'API client: success response',data:{result},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       return result;
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'staff-absences.ts:54',message:'API client: exception caught',data:{error:error instanceof Error?{message:error.message,stack:error.stack}:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       console.error('Error logging staff absences:', error);
       return {
         success: false,
@@ -148,6 +164,8 @@ export const staffAbsencesApi = {
       ]);
 
       // Query staff from classes_staff → classes → subject_id
+      // Use explicit foreign key relationship to avoid ambiguity
+      // Note: classes_staff doesn't have a status column - use unassigned_at IS NULL for active
       const { data: staffFromClasses, error: classesError } = await supabase
         .from('classes_staff')
         .select(`
@@ -157,7 +175,7 @@ export const staffAbsencesApi = {
             id,
             subject_id
           ),
-          staff:staff!inner(
+          staff:staff!class_assignments_staff_id_fkey(
             id,
             first_name,
             last_name,
@@ -167,10 +185,9 @@ export const staffAbsencesApi = {
             status
           )
         `)
-        .eq('status', 'ACTIVE')
         .is('unassigned_at', null)
         .eq('class.subject_id', subjectId)
-        .in('staff.status', ['ACTIVE']);
+        .eq('staff.status', 'ACTIVE');
 
       if (classesError) throw classesError;
 

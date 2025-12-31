@@ -36,6 +36,13 @@ interface LogStaffAbsenceDialogProps {
 }
 
 export function LogStaffAbsenceDialog({ isOpen, onClose, staffId }: LogStaffAbsenceDialogProps) {
+  // #region agent log
+  useEffect(() => {
+    if (isOpen && staffId) {
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LogStaffAbsenceDialog.tsx:39',message:'Dialog opened with staffId prop',data:{staffId,isOpen},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    }
+  }, [isOpen, staffId]);
+  // #endregion
   const [step, setStep] = useState<WizardStep>('select-staff');
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
@@ -200,12 +207,27 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId }: LogStaffAbse
     setStep('confirm');
 
     // Convert decisions to operations
-    const operations: StaffAbsenceOperation[] = decisionsToSubmit.map((decision) => ({
-      staff_id: selectedStaff.id,
-      original_sessions_staff_id: decision.sessionsStaffId,
-      action: decision.action!,
-      replacement_staff_id: decision.replacementStaffId,
-    }));
+    // Only include replacement_staff_id for 'swap' actions
+    const operations: StaffAbsenceOperation[] = decisionsToSubmit.map((decision) => {
+      const base = {
+        staff_id: selectedStaff.id,
+        original_sessions_staff_id: decision.sessionsStaffId,
+        action: decision.action!,
+      };
+      
+      if (decision.action === 'swap' && decision.replacementStaffId) {
+        return {
+          ...base,
+          replacement_staff_id: decision.replacementStaffId,
+        };
+      }
+      
+      return base;
+    });
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LogStaffAbsenceDialog.tsx:220',message:'Operations created before API call',data:{operationsCount:operations.length,operations,staffId,selectedStaffId:selectedStaff.id,decisionsCount:decisionsToSubmit.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     try {
       // Submit to API
@@ -213,6 +235,10 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId }: LogStaffAbse
         operations,
         staffId,
       });
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LogStaffAbsenceDialog.tsx:227',message:'API call result received',data:{success:result.success,error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
 
       if (result.success) {
         // Success - show success screen
