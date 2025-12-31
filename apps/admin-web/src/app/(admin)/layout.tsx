@@ -9,6 +9,11 @@ import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { LogAbsenceDialog } from '@/features/sessions';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
   ssr: false,
@@ -199,12 +204,14 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
   );
 }
 
-export default function AdminLayout({
+function AdminLayoutContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, closeTutorLogModal, closeLogAbsenceDialog } = useQuickActions();
+  const { data: currentStaff } = useCurrentStaff();
   
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
@@ -215,10 +222,40 @@ export default function AdminLayout({
       <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
       <div className="flex-1 overflow-auto relative">
         {children}
+        {/* Floating quick actions menu */}
+        <QuickActionsMenu />
         {/* Floating chat dock (admin-only) */}
         <ChatDock />
+        {/* Quick action modals */}
+        {currentStaff?.id && (
+          <>
+            <LogSessionModal
+              isOpen={isTutorLogModalOpen}
+              onClose={closeTutorLogModal}
+              currentStaffId={currentStaff.id}
+              adminMode={true}
+            />
+            <LogAbsenceDialog
+              isOpen={isLogAbsenceDialogOpen}
+              onClose={closeLogAbsenceDialog}
+              staffId={currentStaff.id}
+            />
+          </>
+        )}
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <QuickActionsProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </QuickActionsProvider>
   );
 }
 
