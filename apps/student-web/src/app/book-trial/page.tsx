@@ -6,9 +6,13 @@ import { BookingFlow } from '@/features/bookings/components/BookingFlow';
 import { TimeSlotPicker } from '@/features/bookings/components/TimeSlotPicker';
 import { TrialContactForm } from '@/features/bookings/components/TrialContactForm';
 import { StudentExistsError } from '@/features/bookings/components/StudentExistsError';
-import { Button, useToast } from '@altitutor/ui';
-import { Loader2 } from 'lucide-react';
+import { useToast } from '@altitutor/ui';
 import type { TrialContactFormValues } from '@/features/bookings/components/TrialContactForm';
+import type { UseFormReturn } from 'react-hook-form';
+import type { Tables } from '@altitutor/shared';
+import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { Badge } from '@altitutor/ui';
+import { cn } from '@/shared/utils';
 
 export default function BookTrialPage() {
   const router = useRouter();
@@ -24,7 +28,9 @@ export default function BookTrialPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStudentExistsError, setShowStudentExistsError] = useState(false);
-  const [contactFormRef, setContactFormRef] = useState<any>(null);
+  const [contactFormRef, setContactFormRef] = useState<UseFormReturn<TrialContactFormValues> | null>(null);
+  const [isFormValid, setIsFormValid] = useState(false);
+  const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
 
   // Initialize selectedSlot from query params on mount
   useEffect(() => {
@@ -133,10 +139,11 @@ export default function BookTrialPage() {
       // Redirect to success page (we'll create a simple success message for now)
       // For now, redirect to home with success message
       router.push(`/?bookingSuccess=true&sessionId=${session_id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create booking. Please try again.';
       toast({
         title: 'Booking Failed',
-        description: error.message || 'Failed to create booking. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -150,9 +157,6 @@ export default function BookTrialPage() {
       title: 'Select Time',
       component: (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Choose an available time slot for your trial session
-          </p>
           <TimeSlotPicker
             sessionType="TRIAL_SESSION"
             durationMinutes={60}
@@ -165,12 +169,14 @@ export default function BookTrialPage() {
     },
     {
       id: 'contact',
-      title: 'Student Details',
+      title: 'Details',
       component: (
         <TrialContactForm
           onSubmit={handleContactSubmit}
           defaultValues={contactData || undefined}
           onFormReady={setContactFormRef}
+          onValidityChange={setIsFormValid}
+          onSelectedSubjectsChange={setSelectedSubjects}
         />
       ),
     },
@@ -183,38 +189,83 @@ export default function BookTrialPage() {
             <StudentExistsError />
           ) : selectedSlot && contactData ? (
             <>
-              <div className="space-y-2">
-                <h3 className="font-semibold">Booking Details</h3>
-                <div className="space-y-1 text-sm">
-                  <div>
-                    <span className="font-medium">Student:</span>{' '}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Booking Details</h3>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="text-sm font-medium text-muted-foreground">Student:</div>
+                  <div className="text-sm">
                     {contactData.student_first_name} {contactData.student_last_name}
                   </div>
-                  <div>
-                    <span className="font-medium">Email:</span> {contactData.student_email}
-                  </div>
-                  <div>
-                    <span className="font-medium">Curriculum:</span> {contactData.curriculum}
+                  
+                  <div className="text-sm font-medium text-muted-foreground">Email:</div>
+                  <div className="text-sm">{contactData.student_email}</div>
+                  
+                  <div className="text-sm font-medium text-muted-foreground">Phone:</div>
+                  <div className="text-sm">{contactData.student_phone}</div>
+                  
+                  <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
+                  <div className="text-sm">
+                    {contactData.curriculum}
                     {contactData.year_level && ` - Year ${contactData.year_level === 'Reception' ? 'Reception' : contactData.year_level}`}
                   </div>
+                  
                   {contactData.subject_ids && contactData.subject_ids.length > 0 && (
-                    <div>
-                      <span className="font-medium">Subjects:</span>{' '}
-                      <span className="text-sm text-muted-foreground">
-                        {contactData.subject_ids.length} subject{contactData.subject_ids.length !== 1 ? 's' : ''} selected
-                      </span>
-                    </div>
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Subjects:</div>
+                      <div className="text-sm">
+                        {selectedSubjects.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedSubjects.map((subject) => {
+                              const { style, textColorClass } = getSubjectColorStyle(subject);
+                              const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                              return (
+                                <Badge
+                                  key={subject.id}
+                                  className={cn(
+                                    defaultClass || `${textColorClass} border-0`,
+                                    !defaultClass && 'border-0'
+                                  )}
+                                  style={style.backgroundColor ? style : undefined}
+                                >
+                                  {formatSubjectDisplay(subject)}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          `${contactData.subject_ids.length} subject${contactData.subject_ids.length !== 1 ? 's' : ''} selected`
+                        )}
+                      </div>
+                    </>
                   )}
-                  <div>
-                    <span className="font-medium">Date & Time:</span>{' '}
-                    {new Date(selectedSlot.startAt).toLocaleString('en-AU', {
-                      dateStyle: 'long',
-                      timeStyle: 'short',
+                  
+                  <div className="text-sm font-medium text-muted-foreground">Date:</div>
+                  <div className="text-sm">
+                    {new Date(selectedSlot.startAt).toLocaleDateString('en-AU', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
                       timeZone: 'Australia/Adelaide',
                     })}
                   </div>
-                  <div>
-                    <span className="font-medium">Duration:</span> 60 minutes
+                  
+                  <div className="text-sm font-medium text-muted-foreground">Time:</div>
+                  <div className="text-sm">
+                    {new Date(selectedSlot.startAt).toLocaleTimeString('en-AU', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      timeZone: 'Australia/Adelaide',
+                    })} - {new Date(selectedSlot.endAt).toLocaleTimeString('en-AU', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      timeZone: 'Australia/Adelaide',
+                    })}
+                  </div>
+                  
+                  <div className="text-sm font-medium text-muted-foreground">Duration:</div>
+                  <div className="text-sm">
+                    {Math.round((new Date(selectedSlot.endAt).getTime() - new Date(selectedSlot.startAt).getTime()) / (1000 * 60))} minutes
                   </div>
                 </div>
               </div>
@@ -252,10 +303,39 @@ export default function BookTrialPage() {
       if (contactFormRef) {
         contactFormRef.handleSubmit(
           handleContactSubmit,
-          (errors) => {
-            // Show validation errors
-            const firstError = Object.values(errors)[0];
-            if (firstError) {
+          (errors: Record<string, { message?: string }>) => {
+            // Show detailed validation errors
+            const errorMessages: string[] = [];
+            
+            if (errors.student_first_name) {
+              errorMessages.push('Student first name is required');
+            }
+            if (errors.student_last_name) {
+              errorMessages.push('Student last name is required');
+            }
+            if (errors.student_email) {
+              errorMessages.push(`Student email: ${errors.student_email.message || 'is invalid'}`);
+            }
+            if (errors.student_phone) {
+              errorMessages.push('Student phone number is required');
+            }
+            if (errors.curriculum) {
+              errorMessages.push('Please select a curriculum');
+            }
+            if (errors.subject_ids) {
+              errorMessages.push(`Subjects: ${errors.subject_ids.message || 'Please select at least one subject'}`);
+            }
+            if (errors.parent_email && !contactFormRef.getValues('skip_parent_details')) {
+              errorMessages.push(`Parent email: ${errors.parent_email.message || 'is invalid'}`);
+            }
+            
+            if (errorMessages.length > 0) {
+              toast({
+                title: 'Please fix the following errors',
+                description: errorMessages.join(', '),
+                variant: 'destructive',
+              });
+            } else {
               toast({
                 title: 'Please complete all required fields',
                 description: 'Some required fields are missing or invalid',
@@ -284,7 +364,6 @@ export default function BookTrialPage() {
     <div className="container max-w-4xl py-8">
       <BookingFlow
         title="Book Trial Session"
-        description="Schedule a free trial session to experience our tutoring"
         steps={steps}
         currentStep={currentStep}
         onStepChange={handleStepChange}
@@ -292,7 +371,7 @@ export default function BookTrialPage() {
         onBack={handleBack}
         onConfirm={currentStep === 2 ? handleConfirmBooking : undefined}
         isSubmitting={isSubmitting}
-        canProceed={currentStep === 0 ? !!selectedSlot : currentStep === 1 ? !!contactData : true}
+        canProceed={currentStep === 0 ? !!selectedSlot : currentStep === 1 ? isFormValid : true}
         selectedSlot={selectedSlot}
       />
     </div>

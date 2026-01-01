@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useEffect, useMemo } from 'react';
@@ -22,7 +22,7 @@ import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Loader2, Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { formatSubjectDisplay } from '@/shared/utils';
+import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
 
 const trialContactSchema = z.object({
   student_first_name: z.string().min(1, 'First name is required').max(100),
@@ -53,12 +53,15 @@ interface TrialContactFormProps {
   onSubmit: (data: TrialContactFormValues) => void;
   defaultValues?: Partial<TrialContactFormValues>;
   isLoading?: boolean;
-  onFormReady?: (form: ReturnType<typeof useForm<TrialContactFormValues>>) => void;
+  onFormReady?: (form: UseFormReturn<TrialContactFormValues>) => void;
+  onValidityChange?: (isValid: boolean) => void;
+  onSelectedSubjectsChange?: (subjects: Tables<'subjects'>[]) => void;
 }
 
-export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, onFormReady }: TrialContactFormProps) {
+export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoading = false, onFormReady, onValidityChange, onSelectedSubjectsChange }: TrialContactFormProps) {
   const form = useForm({
     resolver: zodResolver(trialContactSchema),
+    mode: 'onChange', // Validate on change for real-time feedback
     defaultValues: {
       student_first_name: '',
       student_last_name: '',
@@ -79,7 +82,8 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
   const skipParentDetails = form.watch('skip_parent_details');
   const curriculum = form.watch('curriculum');
   const yearLevel = form.watch('year_level');
-  const selectedSubjectIds = form.watch('subject_ids') || [];
+  const watchedSubjectIds = form.watch('subject_ids');
+  const selectedSubjectIds = useMemo(() => watchedSubjectIds || [], [watchedSubjectIds]);
 
   // Subject search state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
@@ -87,6 +91,8 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
   const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
   const [isSearchingSubjects, setIsSearchingSubjects] = useState(false);
   const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
+  // Cache of selected subject objects (to show subjects that don't match current filters)
+  const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
 
   // Fetch all subjects (always show subject selector)
   useEffect(() => {
@@ -130,21 +136,18 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
 
     const timeoutId = setTimeout(async () => {
       if (subjectSearchQuery.trim().length === 0) {
+        // No search term - use filtered subjects (respect curriculum/year level)
         setSubjectSearchResults(allSubjects);
         setIsSearchingSubjects(false);
       } else {
+        // Search term present - search ALL subjects (ignore filters)
         setIsSearchingSubjects(true);
         try {
           const params = new URLSearchParams({
             search: subjectSearchQuery.trim(),
             limit: '100',
           });
-          
-          if (curriculum) params.set('curriculums', curriculum);
-          if (yearLevel) {
-            const yearLevelNum = yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10);
-            params.set('year_levels', yearLevelNum.toString());
-          }
+          // DO NOT add curriculum/year_level filters when searching
           
           const response = await fetch(`/api/subjects/search?${params.toString()}`);
           if (!response.ok) throw new Error('Failed to search subjects');
@@ -161,7 +164,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen, curriculum, yearLevel, allSubjects]);
+  }, [subjectSearchQuery, isSubjectPopoverOpen, allSubjects]);
 
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
@@ -171,15 +174,29 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
 
   const selectedSubjects = useMemo(() => {
     if (!selectedSubjectIds || selectedSubjectIds.length === 0) return [];
-    // We need to find subjects from allSubjects or search results
+    // Use cached subjects first, then try to find from current lists
+    const subjects: Tables<'subjects'>[] = [];
     const allAvailableSubjects = [...allSubjects, ...subjectSearchResults];
-    const uniqueSubjects = Array.from(new Map(allAvailableSubjects.map(s => [s.id, s])).values());
-    return uniqueSubjects.filter(s => selectedSubjectIds.includes(s.id));
-  }, [selectedSubjectIds, allSubjects, subjectSearchResults]);
+    const uniqueSubjectsMap = new Map(allAvailableSubjects.map(s => [s.id, s]));
+    
+    // Merge cache with current lists
+    const mergedMap = new Map([...selectedSubjectsCache, ...uniqueSubjectsMap]);
+    
+    selectedSubjectIds.forEach(id => {
+      const subject = mergedMap.get(id);
+      if (subject) {
+        subjects.push(subject);
+      }
+    });
+    
+    return subjects;
+  }, [selectedSubjectIds, allSubjects, subjectSearchResults, selectedSubjectsCache]);
 
   const handleSelectSubject = (subject: Tables<'subjects'>) => {
     const currentIds = form.getValues('subject_ids') || [];
     form.setValue('subject_ids', [...currentIds, subject.id]);
+    // Cache the subject object so we can display it even if filters change
+    setSelectedSubjectsCache(prev => new Map(prev).set(subject.id, subject));
     setIsSubjectPopoverOpen(false);
     setSubjectSearchQuery('');
   };
@@ -187,14 +204,36 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
   const handleRemoveSubject = (subjectId: string) => {
     const currentIds = form.getValues('subject_ids') || [];
     form.setValue('subject_ids', currentIds.filter(id => id !== subjectId));
+    // Remove from cache
+    setSelectedSubjectsCache(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(subjectId);
+      return newMap;
+    });
   };
 
   // Expose form to parent for programmatic submission
   useEffect(() => {
     if (onFormReady) {
-      onFormReady(form);
+      // Type assertion needed due to react-hook-form's type inference with default values
+      onFormReady(form as unknown as UseFormReturn<TrialContactFormValues>);
     }
   }, [form, onFormReady]);
+
+  // Watch form validity and notify parent
+  const isValid = form.formState.isValid;
+  useEffect(() => {
+    if (onValidityChange) {
+      onValidityChange(isValid);
+    }
+  }, [isValid, onValidityChange]);
+
+  // Notify parent of selected subjects changes
+  useEffect(() => {
+    if (onSelectedSubjectsChange) {
+      onSelectedSubjectsChange(selectedSubjects);
+    }
+  }, [selectedSubjects, onSelectedSubjectsChange]);
 
   return (
     <Form {...form}>
@@ -270,30 +309,6 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="curriculum"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Curriculum *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select curriculum" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">PRESACE</SelectItem>
-                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="year_level"
               render={({ field }) => (
                 <FormItem>
@@ -325,30 +340,68 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="curriculum"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Curriculum *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select curriculum" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="SACE">SACE</SelectItem>
+                      <SelectItem value="IB">IB</SelectItem>
+                      <SelectItem value="PRESACE">PRESACE</SelectItem>
+                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           {/* Subject Selector */}
           <FormField
             control={form.control}
             name="subject_ids"
-            render={({ field }) => (
+            render={() => (
               <FormItem>
                 <FormLabel>Subjects *</FormLabel>
                 <div className="space-y-2">
                 {selectedSubjects.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {selectedSubjects.map((subject) => (
-                      <Badge key={subject.id} variant="secondary" className="flex items-center gap-1">
-                        {formatSubjectDisplay(subject)}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSubject(subject.id)}
-                          className="ml-1 hover:text-destructive"
+                    {selectedSubjects.map((subject) => {
+                      const { style, textColorClass } = getSubjectColorStyle(subject);
+                      const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                      return (
+                        <Badge
+                          key={subject.id}
+                          className={cn(
+                            defaultClass || `${textColorClass} cursor-pointer hover:opacity-80 flex items-center gap-1`,
+                            !defaultClass && 'border-0'
+                          )}
+                          style={style.backgroundColor ? style : undefined}
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                          {formatSubjectDisplay(subject)}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveSubject(subject.id);
+                            }}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
                   </div>
                 )}
                 <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
@@ -411,7 +464,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false, o
         {/* Parent Details */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Parent Details (Optional)</h3>
+            <h3 className="text-lg font-semibold">Parent Details</h3>
             <FormField
               control={form.control}
               name="skip_parent_details"
