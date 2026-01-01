@@ -5,7 +5,7 @@ import type { CSSProperties } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn } from '@/shared/utils/index';
+import { cn, formatSessionType } from '@/shared/utils/index';
 import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
 import { SessionsCard } from './SessionsCard';
 import { Button } from "@altitutor/ui";
@@ -35,7 +35,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const _getDisplayLabel = (s: any): string => {
     const cls: any = (data as any)?.classesById?.[s.class_id];
     const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-    if (!cls || !subj) return s.type === 'CLASS' ? 'Class' : 'Meeting';
+    if (!cls || !subj) return formatSessionType(s.type);
     const parts: string[] = [];
     if (subj.curriculum) parts.push(String(subj.curriculum));
     if (subj.year_level != null) parts.push(String(subj.year_level));

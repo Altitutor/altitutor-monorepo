@@ -235,6 +235,26 @@ export function getIconStrokeColor(hex: string | null | undefined): string {
   return luminance > 0.5 ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
 }
 
+/**
+ * Format a session type to a human-readable display name
+ * Converts enum values like 'TRIAL_SESSION' to 'Trial Session'
+ */
+export function formatSessionType(type: string | null | undefined): string {
+  if (!type) return 'Meeting';
+  
+  const typeMap: Record<string, string> = {
+    'CLASS': 'Class',
+    'DRAFTING': 'Drafting',
+    'EXAM_COURSE': 'Exam Course',
+    'SUBSIDY_INTERVIEW': 'Subsidy Interview',
+    'TRIAL_SESSION': 'Trial Session',
+    'STAFF_INTERVIEW': 'Staff Interview',
+    'TRIAL_SHIFT': 'Trial Shift', // Legacy type, may not be in enum but handle gracefully
+  };
+  
+  return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
 // Re-export enum color utilities from shared UI package
 export * from '@altitutor/ui';
 export * from './subject-icons';

@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn } from '@/shared/utils/index';
+import { cn, formatSessionType } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from './TutorLogAvatar';
 
@@ -155,6 +155,10 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
         return 'bg-green-100 text-green-800';
       case 'TRIAL_SHIFT':
         return 'bg-orange-100 text-orange-800';
+      case 'EXAM_COURSE':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'STAFF_INTERVIEW':
+        return 'bg-pink-100 text-pink-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -324,7 +328,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                   <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
                   <TableCell>
                     <Badge className={getSessionTypeBadgeColor(session.type)}>
-                      {session.type === 'CLASS' ? 'CLASS' : 'MEETING'}
+                      {formatSessionType(session.type)}
                     </Badge>
                   </TableCell>
                   {!classId && (

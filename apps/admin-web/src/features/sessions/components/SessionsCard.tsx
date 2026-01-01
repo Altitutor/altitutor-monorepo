@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
-import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle, getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
+import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle, getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -86,7 +86,7 @@ export function SessionsCard({
     ? formatSubjectShortName(subject) 
     : subject 
       ? formatSubjectDisplay(subject) 
-      : session.type === 'CLASS' ? 'Class' : 'Meeting';
+      : formatSessionType(session.type);
   const day = classData ? getDayOfWeek(classData.day_of_week) : '';
   const sessionDate = session.start_at ? new Date(session.start_at) : null;
   const dateDisplay = sessionDate ? formatDate(sessionDate) : '';
