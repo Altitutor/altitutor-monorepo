@@ -5748,6 +5748,20 @@ export type Database = {
         }
         Returns: Json
       }
+      search_subjects_public: {
+        Args: {
+          p_ascending?: boolean
+          p_curriculums?: string[]
+          p_disciplines?: string[]
+          p_levels?: string[]
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_search?: string
+          p_year_levels?: number[]
+        }
+        Returns: Json
+      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
