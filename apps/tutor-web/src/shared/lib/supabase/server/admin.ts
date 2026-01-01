@@ -5,10 +5,14 @@ import type { Database } from '@altitutor/shared';
 // Never import this from client components
 export const supabaseAdmin = (() => {
   if (typeof window !== 'undefined') return null;
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  
+  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_SECRET_KEY for backward compatibility
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !serviceRoleKey) return null;
   return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    serviceRoleKey,
     {
       auth: {
         autoRefreshToken: false,
