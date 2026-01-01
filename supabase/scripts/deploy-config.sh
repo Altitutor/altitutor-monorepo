@@ -22,10 +22,22 @@ cp config.toml "$TEMP_CONFIG"
 # Substitute environment variables
 echo "🔄 Substituting environment variables..."
 
-# Email credentials
-if [ ! -z "$RESEND_API_KEY" ]; then
-    sed -i.bak "s|env(RESEND_API_KEY)|$RESEND_API_KEY|g" "$TEMP_CONFIG"
-    echo "✅ Substituted RESEND_API_KEY"
+# Email credentials - RESEND_API_KEY is required
+if [ -z "$RESEND_API_KEY" ]; then
+    echo "❌ Error: RESEND_API_KEY environment variable is not set"
+    echo "Please set RESEND_API_KEY in your GitHub Actions secrets"
+    rm -f "$TEMP_CONFIG"
+    exit 1
+fi
+
+sed -i.bak "s|env(RESEND_API_KEY)|$RESEND_API_KEY|g" "$TEMP_CONFIG"
+echo "✅ Substituted RESEND_API_KEY"
+
+# Verify substitution worked
+if grep -q "env(RESEND_API_KEY)" "$TEMP_CONFIG"; then
+    echo "❌ Error: RESEND_API_KEY substitution failed"
+    rm -f "$TEMP_CONFIG" "$TEMP_CONFIG.bak"
+    exit 1
 fi
 
 # Enable SMTP in production

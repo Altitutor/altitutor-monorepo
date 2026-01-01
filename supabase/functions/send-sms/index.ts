@@ -124,17 +124,20 @@ Deno.serve(async (req: Request) => {
     console.log('[send-sms] Loaded owned number', { from: owned.phone_e164, messaging_service_sid: owned.messaging_service_sid || null });
 
     // Determine sender: use "ALTITUTOR" for announcements, otherwise use phone number
+    // Note: Alphanumeric sender IDs cannot be used with MessagingServiceSid
     const isAnnouncement = message.is_announcement === true;
     const fromSender = isAnnouncement ? 'ALTITUTOR' : (owned.phone_e164 || undefined);
+    // Only use MessagingServiceSid for non-announcement messages (when not using alphanumeric sender)
+    const messagingServiceSid = isAnnouncement ? undefined : (owned.messaging_service_sid || undefined);
     
-    console.log('[send-sms] Sender determination', { isAnnouncement, fromSender, usingMessagingService: !!owned.messaging_service_sid });
+    console.log('[send-sms] Sender determination', { isAnnouncement, fromSender, usingMessagingService: !!messagingServiceSid });
 
     const statusCallback = new URL('/functions/v1/twilio-status', supabaseUrl).toString();
     const tw = await callTwilioSend(
       contact.phone_e164,
       message.body,
       fromSender,
-      owned.messaging_service_sid || undefined,
+      messagingServiceSid,
       statusCallback
     );
 

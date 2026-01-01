@@ -49,6 +49,23 @@ export function ApplyPlanDialog({
   
   const [sessionStartDate, setSessionStartDate] = useState<Date>(today);
 
+  // Check for unassigned students_subjects - must be called before early return
+  const { data: allStudentsWithSubjects } = useQuery({
+    queryKey: ['class-planner', 'students-subjects', planId],
+    queryFn: async () => {
+      const supabase = (await import('@/shared/lib/supabase/client')).getSupabaseClient();
+      const { data, error } = await supabase
+        .from('students_subjects')
+        .select(`
+          student:students(*),
+          subject:subjects(*)
+        `);
+      if (error) throw error;
+      return (data || []).filter((row: any) => row.student && row.subject);
+    },
+    enabled: !!plan, // Only run query when plan exists
+  });
+
   const handleApply = async () => {
     try {
       await applyMutation.mutateAsync({
@@ -78,22 +95,6 @@ export function ApplyPlanDialog({
   const totalClasses = plan.classes.length;
   const totalStudents = plan.classes.reduce((sum, cls) => sum + cls.students.length, 0);
   const totalStaff = plan.classes.reduce((sum, cls) => sum + cls.staff.length, 0);
-  
-  // Check for unassigned students_subjects
-  const { data: allStudentsWithSubjects } = useQuery({
-    queryKey: ['class-planner', 'students-subjects', planId],
-    queryFn: async () => {
-      const supabase = (await import('@/shared/lib/supabase/client')).getSupabaseClient();
-      const { data, error } = await supabase
-        .from('students_subjects')
-        .select(`
-          student:students(*),
-          subject:subjects(*)
-        `);
-      if (error) throw error;
-      return (data || []).filter((row: any) => row.student && row.subject);
-    },
-  });
 
   const assignedSet = new Set<string>();
   plan.classes.forEach((cls) => {
