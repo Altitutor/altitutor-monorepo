@@ -44,7 +44,7 @@ export function Step1SessionPicker({
           p_class_id: undefined,
           p_student_id: undefined,
           p_statuses: ['ACTIVE'],
-          p_types: ['CLASS'], // Only CLASS sessions
+          p_types: undefined, // Include all session types
           p_include_relationships: true,
           p_limit: 1000,
           p_offset: 0,
@@ -107,7 +107,7 @@ export function Step1SessionPicker({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select a session to log. Only past or current CLASS sessions are shown.
+        Select a session to log. Only past or current sessions are shown.
       </p>
       <div className="grid gap-3 max-h-[500px] overflow-y-auto">
         {sessions.map((session) => {

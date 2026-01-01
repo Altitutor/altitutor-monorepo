@@ -41,16 +41,23 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
       // Get session to find subject
+      // Use LEFT join for classes since trial sessions may not have class_id
       const { data: sessionDataResult } = await supabase
         .from('sessions')
-        .select('*, class:classes!inner(*, subject:subjects(*))')
+        .select('*, class:classes(*, subject:subjects(*)), subject:subjects(*)')
         .eq('id', sessionId)
         .single();
 
-      if (!sessionDataResult) return;
+      if (!sessionDataResult) {
+        setIsLoading(false);
+        return;
+      }
 
       setSessionData(sessionDataResult);
-      const subjectId = (sessionDataResult as any).class?.subject?.id;
+      // Try to get subject from class first, then fall back to direct subject_id
+      const subjectId = (sessionDataResult as any).class?.subject?.id || 
+                        (sessionDataResult as any).subject?.id ||
+                        (sessionDataResult as any).subject_id;
 
       // Get topics for this subject
       if (subjectId) {
@@ -144,7 +151,8 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
       const hasChildren = subjectTopics.some((t) => t.parent_id === topic.id);
       const isExpanded = expandedTopics.has(topic.id);
       const parentTopic = topic.parent_id ? subjectTopics.find((t) => t.id === topic.parent_id) : undefined;
-      const subject = sessionData?.class?.subject;
+      // Get subject from class if available, otherwise from direct subject relation
+      const subject = sessionData?.class?.subject || sessionData?.subject;
 
       return (
         <div key={topic.id}>
@@ -218,7 +226,8 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
       const hasChildren = filteredSubjectTopics.some((t) => t.parent_id === topic.id);
       const isExpanded = expandedTopics.has(topic.id);
       const parentTopic = topic.parent_id ? filteredSubjectTopics.find((t) => t.id === topic.parent_id) : undefined;
-      const subject = sessionData?.class?.subject;
+      // Get subject from class if available, otherwise from direct subject relation
+      const subject = sessionData?.class?.subject || sessionData?.subject;
 
       return (
         <div key={topic.id}>
