@@ -302,7 +302,9 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 6:
         return true; // Allow proceeding with no file assignments
       case 7:
-        return true;
+        return true; // Notes step
+      case 8:
+        return true; // Confirmation step - always allow submission
       default:
         return false;
     }

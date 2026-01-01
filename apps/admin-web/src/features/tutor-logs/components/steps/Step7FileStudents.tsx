@@ -134,22 +134,19 @@ export function Step7FileStudents({
     return topic?.studentIds || [];
   };
 
-  if (topicFiles.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No files selected. This step will be skipped.
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Assign students to files. By default, if a student studied a topic, they are assigned to that topic's files.
+        Assign students to files. By default, if a student studied a topic, they are assigned to that topic's files. You can proceed without assigning students.
       </p>
 
-      <div className="space-y-3">
-        {topicFiles.map((file) => {
+      {topicFiles.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          No files selected.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {topicFiles.map((file) => {
           const fileData = getFile(file.topicsFilesId);
           const topicData = getTopic(file.topicId);
           if (!fileData || !topicData) return null;
@@ -237,7 +234,8 @@ export function Step7FileStudents({
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
