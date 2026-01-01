@@ -21,6 +21,7 @@ import { formatSubjectDisplay } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { Check, X } from 'lucide-react';
+import { SessionNotes } from './SessionNotes';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -141,7 +142,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     );
   }
 
-  const { session, sessionsStudents, sessionsStaff, tutorLog } = data;
+  const { session, sessionsStudents, sessionsStaff, tutorLog, notes } = data;
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
   const subject = session.class?.subject;
@@ -530,6 +531,24 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                   This session has not been logged yet.
                 </div>
               )}
+
+              <Separator />
+
+              {/* Session Notes Section */}
+              <SessionNotes
+                sessionId={sessionId!}
+                notes={(notes as any) || []}
+                onNoteAdded={() => {
+                  // Refetch session data to get updated notes
+                  if (sessionId) {
+                    sessionsApi.getSessionWithTutorLog(sessionId).then((result) => {
+                      setData(result);
+                    }).catch((error) => {
+                      console.error('Failed to refresh session:', error);
+                    });
+                  }
+                }}
+              />
             </div>
           </div>
         </SheetContent>

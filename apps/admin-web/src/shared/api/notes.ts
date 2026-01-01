@@ -76,5 +76,36 @@ export const notesApi = {
     if (error) throw error;
     return data as any;
   },
+
+  /**
+   * Update a note
+   */
+  updateNote: async (noteId: string, note: string): Promise<Tables<'notes'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .update({ note })
+      .eq('id', noteId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data as Tables<'notes'>;
+  },
+
+  /**
+   * Delete a note
+   */
+  deleteNote: async (noteId: string): Promise<void> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const { error } = await supabase
+      .from('notes')
+      .delete()
+      .eq('id', noteId);
+    
+    if (error) throw error;
+  },
 };
 

@@ -800,11 +800,43 @@ export const sessionsApi = {
         };
       }
       
+      // 5. Get notes for session and tutor log
+      const sessionNotesPromise = supabase
+        .from('notes')
+        .select('*, staff:created_by(*)')
+        .eq('target_type', 'sessions')
+        .eq('target_id', sessionId)
+        .order('created_at', { ascending: true });
+      
+      const tutorLogNotesPromise = tutorLogData
+        ? supabase
+            .from('notes')
+            .select('*, staff:created_by(*)')
+            .eq('target_type', 'tutor_logs')
+            .eq('target_id', tutorLogData.id)
+            .order('created_at', { ascending: true })
+        : Promise.resolve({ data: [], error: null });
+      
+      const [{ data: sessionNotesData, error: sessionNotesError }, { data: tutorLogNotesData, error: tutorLogNotesError }] = await Promise.all([
+        sessionNotesPromise,
+        tutorLogNotesPromise,
+      ]);
+      
+      if (sessionNotesError) throw sessionNotesError;
+      if (tutorLogNotesError) throw tutorLogNotesError;
+      
+      // Combine and sort all notes chronologically
+      const allNotes = [
+        ...((sessionNotesData || []) as any[]),
+        ...((tutorLogNotesData || []) as any[]),
+      ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      
       return {
         session: sessionData,
         sessionsStudents: allSessionsStudents || [],
         sessionsStaff: enrichedSessionsStaffData || [],
         tutorLog,
+        notes: allNotes,
       };
     } catch (error) {
       console.error('Error getting session with tutor log:', error);
