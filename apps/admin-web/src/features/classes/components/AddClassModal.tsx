@@ -35,6 +35,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const [selectedSubject, setSelectedSubject] = useState<Tables<'subjects'> | null>(null);
   
   const [room, setRoom] = useState('');
+  const [sessionStartDate, setSessionStartDate] = useState<string>('');
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +52,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         status: 'ACTIVE',
         subject_id: selectedSubject?.id || null,
         room: room || null,
+        session_start_date: sessionStartDate || null,
       };
       await createMutation.mutateAsync(payload);
       
@@ -73,6 +75,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setSelectedSubject(null);
     
     setRoom('');
+    setSessionStartDate('');
   };
   
   return (
@@ -165,6 +168,18 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             </div>
           </div>
           
+          <div className="space-y-2">
+            <Label htmlFor="session-start-date">Session Start Date (Optional)</Label>
+            <Input
+              id="session-start-date"
+              type="date"
+              value={sessionStartDate}
+              onChange={(e) => setSessionStartDate(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty to create sessions immediately. Set a future date to delay session creation until that date.
+            </p>
+          </div>
           
           
           <div className="flex justify-end space-x-2 pt-4">
