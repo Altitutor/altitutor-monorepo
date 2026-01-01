@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -23,7 +23,6 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
@@ -47,8 +46,20 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string | 'ALL'>('ALL');
   const [showInactive, setShowInactive] = useState<boolean>(false);
+  type SortField = 'start_at' | 'type';
+  const [sortField, setSortField] = useState<SortField>('start_at');
+  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
+  
+  // Debounce search term
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
   
   // React Query hook for data fetching
   const { 
@@ -57,16 +68,24 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     error, 
     refetch,
     isFetching: _isFetching 
-  } = useSessionsWithDetails({ rangeStart, rangeEnd, includeInactive: showInactive });
+  } = useSessionsWithDetails({ 
+    rangeStart, 
+    rangeEnd, 
+    includeInactive: showInactive,
+    search: debouncedSearchTerm,
+    studentId,
+    staffId,
+    classId,
+    types: typeFilter !== 'ALL' ? [typeFilter] : undefined,
+    orderBy: sortField === 'start_at' ? 'start_at' : 'type',
+    ascending: sortDirection === 'asc',
+  });
   
   // Extract sessions array from the data structure
   const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
   const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
   const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
   const tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }> = (data as any)?.tutorLogs || {};
-  type SortField = 'start_at' | 'type';
-  const [sortField, setSortField] = useState<SortField>('start_at');
-  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
   
   // Class modal state
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -101,89 +120,19 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     return parts.filter(Boolean).join(' ');
   };
 
-  // Memoized filtered and sorted sessions
+  // Memoized sessions (filtering and sorting is now done server-side via RPC)
   const filteredSessions = useMemo(() => {
     if (!allSessions.length) return [];
     
     let result = [...allSessions];
     
-    // Apply entity filters if provided
-    if (studentId && data?.sessionStudents) {
-      // Filter by student attendance using the sessionStudents mapping
-      result = result.filter(session => 
-        data.sessionStudents[session.id]?.some((student: any) => student.id === studentId)
-      );
-    }
-    
-    if (staffId && data?.sessionStaff) {
-      // Filter by staff using the sessionStaff mapping
-      result = result.filter(session => 
-        data.sessionStaff[session.id]?.some((staff: any) => staff.id === staffId)
-      );
-    }
-    
-    if (classId) {
-      result = result.filter(session => session.class_id === classId);
-    }
-    
-    // Apply range filter (start_at within [rangeStart, rangeEnd]) if provided
-    if (rangeStart && rangeEnd) {
-      try {
-        const start = startOfDay(parseISO(rangeStart));
-        const end = endOfDay(parseISO(rangeEnd));
-        result = result.filter((session) => {
-          if (!session.start_at) return false;
-          try {
-            const sessionDate = parseISO(session.start_at);
-            return isWithinInterval(sessionDate, { start, end });
-          } catch {
-            return false;
-          }
-        });
-      } catch {
-        // If date parsing fails, skip filtering
-        console.error('Invalid date range provided to SessionsTable');
-      }
-    }
-
-    // Apply search term (class display OR student names OR staff names)
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(session => {
-        const classMatches = (getClassDisplay(session) || '').toLowerCase().includes(searchLower);
-        const students = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
-        const staff = ((data as any)?.sessionStaff?.[session.id] || []) as any[];
-        const studentsMatch = students.some((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchLower));
-        const staffMatch = staff.some((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchLower));
-        return classMatches || studentsMatch || staffMatch;
-      });
-    }
-    
-    // Apply type filter
-    if (typeFilter !== 'ALL') {
-      result = result.filter(session => session.type === typeFilter);
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      if (sortField === 'start_at') {
-        const tsA = (a as any).start_at ? new Date((a as any).start_at).getTime() : 0;
-        const tsB = (b as any).start_at ? new Date((b as any).start_at).getTime() : 0;
-        return sortDirection === 'asc' ? tsA - tsB : tsB - tsA;
-      }
-      // sortField === 'type'
-      const va = (a.type || '').toString();
-      const vb = (b.type || '').toString();
-      return sortDirection === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-    });
-    
-    // Apply limit if provided
+    // Apply limit if provided (RPC handles filtering and sorting)
     if (limit && limit > 0) {
       result = result.slice(0, limit);
     }
     
     return result;
-  }, [allSessions, data, searchTerm, typeFilter, sortField, sortDirection, studentId, staffId, classId, limit, rangeStart, rangeEnd, getClassDisplay]);
+  }, [allSessions, limit]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

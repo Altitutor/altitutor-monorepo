@@ -24,7 +24,6 @@ import type { Tables } from '@altitutor/shared';
 import {
   searchStudents,
   getAllSubjects,
-  getAllClasses,
   getStudentsBySubject,
   getStudentsByClass,
   getStudentsByYearLevel,
@@ -32,6 +31,7 @@ import {
   getStudentsClasses,
 } from '../../api/bulk';
 import { subjectsApi } from '@/features/subjects/api/subjects';
+import { classesApi } from '@/features/classes/api/classes';
 import { 
   formatSubjectDisplay, 
   formatClassName, 
@@ -86,9 +86,30 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
   const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
   const [isSearchingSubjects, setIsSearchingSubjects] = useState(false);
 
+  // Server-side class search state
+  const [classSearchResults, setClassSearchResults] = useState<Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>>([]);
+  const [isSearchingClasses, setIsSearchingClasses] = useState(false);
+
+  // Fetch all classes initially (no search)
   const { data: classes = [] } = useQuery({
     queryKey: ['classes-all'],
-    queryFn: getAllClasses,
+    queryFn: async () => {
+      const { classes: allClasses } = await classesApi.listMinimal({ limit: 1000, offset: 0 });
+      // Transform to match expected format
+      return allClasses.map(cls => ({
+        class: {
+          id: cls.id,
+          subject_id: cls.subject_id,
+          day_of_week: cls.day_of_week,
+          start_time: cls.start_time,
+          end_time: cls.end_time,
+          status: cls.status,
+          room: cls.room,
+          level: cls.level,
+        } as Tables<'classes'>,
+        subject: cls.subject || null,
+      }));
+    },
   });
   
   // Fetch classes for selected students
@@ -173,17 +194,62 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     return subjects;
   }, [subjectSearchQuery, subjectSearchResults, subjects]);
   
-  // Filter classes based on search query
+  // Server-side class search with debouncing
+  useEffect(() => {
+    if (!isClassPopoverOpen) {
+      setClassSearchQuery('');
+      setClassSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      if (classSearchQuery.trim().length === 0) {
+        // If no search query, use all classes
+        setClassSearchResults(classes);
+        setIsSearchingClasses(false);
+      } else {
+        // Search with query using RPC function
+        setIsSearchingClasses(true);
+        try {
+          const { classes: searchResults } = await classesApi.listMinimal({ 
+            search: classSearchQuery.trim(), 
+            limit: 100, 
+            offset: 0 
+          });
+          // Transform to match expected format
+          const transformedResults = searchResults.map(cls => ({
+            class: {
+              id: cls.id,
+              subject_id: cls.subject_id,
+              day_of_week: cls.day_of_week,
+              start_time: cls.start_time,
+              end_time: cls.end_time,
+              status: cls.status,
+              room: cls.room,
+              level: cls.level,
+            } as Tables<'classes'>,
+            subject: cls.subject || null,
+          }));
+          setClassSearchResults(transformedResults);
+        } catch (error) {
+          console.error('Error searching classes:', error);
+          setClassSearchResults([]);
+        } finally {
+          setIsSearchingClasses(false);
+        }
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [classSearchQuery, isClassPopoverOpen, classes]);
+
+  // Use search results if searching, otherwise use all classes
   const filteredClasses = useMemo(() => {
-    if (!classSearchQuery) return classes;
-    
-    const query = classSearchQuery.toLowerCase();
-    return classes.filter(({ class: cls, subject }) => {
-      const className = formatClassName(cls, subject).toLowerCase();
-      const shortName = formatClassShortName(cls, subject).toLowerCase();
-      return className.includes(query) || shortName.includes(query);
-    });
-  }, [classes, classSearchQuery]);
+    if (classSearchQuery.trim().length > 0) {
+      return classSearchResults;
+    }
+    return classes;
+  }, [classSearchQuery, classSearchResults, classes]);
   
   // Year levels
   const yearLevels = [7, 8, 9, 10, 11, 12, 13];
@@ -484,7 +550,12 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
                 />
                 <ScrollArea className="max-h-[300px]">
                   <div className="space-y-1">
-                    {filteredClasses.length === 0 ? (
+                    {isSearchingClasses ? (
+                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Searching...
+                      </div>
+                    ) : filteredClasses.length === 0 ? (
                       <div className="p-3 text-center text-sm text-muted-foreground">
                         {classSearchQuery ? 'No classes match your search' : 'No classes found'}
                       </div>

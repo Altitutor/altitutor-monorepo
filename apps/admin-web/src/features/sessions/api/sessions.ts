@@ -55,7 +55,7 @@ export const sessionsApi = {
    * Get all sessions with their attendees and staff using optimized RPC function
    * This replaces the previous multi-query approach with a single RPC call
    */
-  getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean }): Promise<{ 
+  getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean; search?: string; studentId?: string; staffId?: string; classId?: string; types?: string[]; orderBy?: string; ascending?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
     sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>>;
     sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>>;
@@ -73,21 +73,24 @@ export const sessionsApi = {
       // Determine status filter
       const statuses = args?.includeInactive ? ['ACTIVE', 'INACTIVE'] : ['ACTIVE'];
       
+      // Prepare search term (trim if provided)
+      const searchTerm = args?.search?.trim();
+      
       // Call RPC function with high limit to get all sessions
       const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
-        p_search: undefined,
+        p_search: searchTerm && searchTerm.length > 0 ? searchTerm : undefined,
         p_range_start: rangeStart || undefined,
         p_range_end: rangeEnd || undefined,
-        p_staff_id: undefined,
-        p_class_id: undefined,
-        p_student_id: undefined,
+        p_staff_id: args?.staffId || undefined,
+        p_class_id: args?.classId || undefined,
+        p_student_id: args?.studentId || undefined,
         p_statuses: statuses,
-        p_types: undefined,
+        p_types: args?.types || undefined,
         p_include_relationships: true,
         p_limit: 10000, // High limit to get all sessions
         p_offset: 0,
-        p_order_by: 'start_at',
-        p_ascending: true,
+        p_order_by: args?.orderBy || 'start_at',
+        p_ascending: args?.ascending !== undefined ? args.ascending : true,
       });
       
       if (rpcError) throw rpcError;

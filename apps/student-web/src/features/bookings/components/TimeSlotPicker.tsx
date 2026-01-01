@@ -5,7 +5,6 @@ import { format, addDays, startOfWeek, eachDayOfInterval, isSameDay, parseISO, i
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
-import { useCreateReservation } from '../hooks/useReservations';
 import type { GetAvailableSlotsParams, AvailableSlot } from '../api/availability';
 import { cn } from '@/shared/utils';
 
@@ -42,13 +41,12 @@ export function TimeSlotPicker({
   });
   
   const weekDays = useMemo(() => {
-    const allDays = eachDayOfInterval({
+    // Show all days of the week, don't filter out past dates
+    return eachDayOfInterval({
       start: currentWeekStart,
       end: addDays(currentWeekStart, 6),
     });
-    // Filter out past dates
-    return allDays.filter(day => !isPast(day) || isSameDay(day, today));
-  }, [currentWeekStart, today]);
+  }, [currentWeekStart]);
 
   // Calculate date range for API call - ensure we don't request past dates
   const effectiveStartDate = useMemo(() => {
@@ -68,7 +66,6 @@ export function TimeSlotPicker({
   };
 
   const { data: slots, isLoading } = useAvailableSlots(params);
-  const createReservation = useCreateReservation();
 
   // Group slots by date and filter out past slots
   const slotsByDate = useMemo(() => {
@@ -91,28 +88,14 @@ export function TimeSlotPicker({
     return grouped;
   }, [slots]);
 
-  const handleSlotClick = async (slot: AvailableSlot) => {
+  const handleSlotClick = (slot: AvailableSlot) => {
     if (!slot.is_available || slot.available_staff_ids.length === 0) {
       return;
     }
 
-    try {
-      // Skip reservation for anonymous users
-      if (!allowAnonymous) {
-        // Create reservation
-        await createReservation.mutateAsync({
-          start_at: slot.start_at,
-          end_at: slot.end_at,
-          session_type: sessionType,
-          subject_id: subjectId,
-        });
-      }
-
-      // Call onSlotSelect callback
-      onSlotSelect(slot.start_at, slot.end_at);
-    } catch (error) {
-      console.error('Failed to reserve slot:', error);
-    }
+    // Just select the slot, don't auto-proceed
+    // The parent component will handle proceeding when "Next" is clicked
+    onSlotSelect(slot.start_at, slot.end_at);
   };
 
   const formatTime = (isoString: string) => {
@@ -166,7 +149,7 @@ export function TimeSlotPicker({
             const isPastDate = isPast(day) && !isToday;
 
             return (
-              <div key={dateKey} className={cn('space-y-2', isPastDate && 'opacity-50')}>
+              <div key={dateKey} className="space-y-2">
                 {/* Day Header */}
                 <div className={cn(
                   'text-center text-sm font-medium py-2',
@@ -193,13 +176,12 @@ export function TimeSlotPicker({
                     daySlots.map((slot) => {
                       const isAvailable = slot.is_available && slot.available_staff_ids.length > 0;
                       const isSelected = isSlotSelected(slot);
-                      const isReserving = createReservation.isPending;
 
                       return (
                         <button
                           key={`${slot.start_at}-${slot.end_at}`}
                           onClick={() => handleSlotClick(slot)}
-                          disabled={!isAvailable || isReserving}
+                          disabled={!isAvailable}
                           className={cn(
                             'w-full text-xs py-2 px-2 rounded border transition-colors',
                             isSelected

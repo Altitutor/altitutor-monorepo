@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { BookingFlow } from '@/features/bookings/components/BookingFlow';
 import { TimeSlotPicker } from '@/features/bookings/components/TimeSlotPicker';
 import { TrialContactForm } from '@/features/bookings/components/TrialContactForm';
@@ -12,22 +12,61 @@ import type { TrialContactFormValues } from '@/features/bookings/components/Tria
 
 export default function BookTrialPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   
+  // Initialize state from query params
   const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string } | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(() => {
+    const stepParam = searchParams.get('step');
+    return stepParam ? parseInt(stepParam, 10) : 0;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStudentExistsError, setShowStudentExistsError] = useState(false);
+  const [contactFormRef, setContactFormRef] = useState<any>(null);
 
-  const handleContactSubmit = (data: TrialContactFormValues) => {
-    setContactData(data);
-    setCurrentStep(1); // Move to time selection
-  };
+  // Initialize selectedSlot from query params on mount
+  useEffect(() => {
+    const timeParam = searchParams.get('time');
+    if (timeParam) {
+      const [startAt, endAt] = timeParam.split('/');
+      if (startAt && endAt && !selectedSlot) {
+        setSelectedSlot({ startAt, endAt });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Sync query params with state (but don't overwrite on initial mount)
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('step', currentStep.toString());
+    
+    if (selectedSlot) {
+      const startDate = new Date(selectedSlot.startAt);
+      params.set('date', startDate.toISOString().split('T')[0]);
+      params.set('time', `${selectedSlot.startAt}/${selectedSlot.endAt}`);
+    }
+    
+    // Only update if params actually changed to avoid infinite loops
+    const currentParams = new URLSearchParams(window.location.search);
+    const stepChanged = currentParams.get('step') !== currentStep.toString();
+    const timeChanged = currentParams.get('time') !== (selectedSlot ? `${selectedSlot.startAt}/${selectedSlot.endAt}` : null);
+    
+    if (stepChanged || timeChanged) {
+      router.replace(`/book-trial?${params.toString()}`, { scroll: false });
+    }
+  }, [currentStep, selectedSlot, router]);
 
   const handleSlotSelect = (startAt: string, endAt: string) => {
     setSelectedSlot({ startAt, endAt });
-    setCurrentStep(2); // Move to confirmation
+    // Don't auto-proceed - user clicks Next button
+  };
+
+  const handleContactSubmit = (data: TrialContactFormValues) => {
+    setContactData(data);
+    setCurrentStep(2); // Move to confirmation (step 0 = time, step 1 = contact, step 2 = confirm)
   };
 
   const handleConfirmBooking = async () => {
@@ -107,16 +146,6 @@ export default function BookTrialPage() {
 
   const steps = [
     {
-      id: 'contact',
-      title: 'Student Details',
-      component: (
-        <TrialContactForm
-          onSubmit={handleContactSubmit}
-          defaultValues={contactData || undefined}
-        />
-      ),
-    },
-    {
       id: 'time',
       title: 'Select Time',
       component: (
@@ -132,6 +161,17 @@ export default function BookTrialPage() {
             allowAnonymous={true}
           />
         </div>
+      ),
+    },
+    {
+      id: 'contact',
+      title: 'Student Details',
+      component: (
+        <TrialContactForm
+          onSubmit={handleContactSubmit}
+          defaultValues={contactData || undefined}
+          onFormReady={setContactFormRef}
+        />
       ),
     },
     {
@@ -155,8 +195,16 @@ export default function BookTrialPage() {
                   </div>
                   <div>
                     <span className="font-medium">Curriculum:</span> {contactData.curriculum}
-                    {contactData.year_level && ` - Year ${contactData.year_level}`}
+                    {contactData.year_level && ` - Year ${contactData.year_level === 'Reception' ? 'Reception' : contactData.year_level}`}
                   </div>
+                  {contactData.subject_ids && contactData.subject_ids.length > 0 && (
+                    <div>
+                      <span className="font-medium">Subjects:</span>{' '}
+                      <span className="text-sm text-muted-foreground">
+                        {contactData.subject_ids.length} subject{contactData.subject_ids.length !== 1 ? 's' : ''} selected
+                      </span>
+                    </div>
+                  )}
                   <div>
                     <span className="font-medium">Date & Time:</span>{' '}
                     {new Date(selectedSlot.startAt).toLocaleString('en-AU', {
@@ -170,28 +218,7 @@ export default function BookTrialPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCurrentStep(1);
-                    setSelectedSlot(null);
-                  }}
-                  disabled={isSubmitting}
-                >
-                  Back
-                </Button>
-                <Button onClick={handleConfirmBooking} disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Confirming...
-                    </>
-                  ) : (
-                    'Confirm Booking'
-                  )}
-                </Button>
-              </div>
+              {/* Back/Next buttons are handled by BookingFlow component */}
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
@@ -203,6 +230,56 @@ export default function BookTrialPage() {
     },
   ];
 
+  const handleStepChange = (step: number) => {
+    setCurrentStep(step);
+  };
+
+  const handleNext = () => {
+    if (currentStep === 0) {
+      // From time selection to contact form
+      if (!selectedSlot) {
+        toast({
+          title: 'Please select a time',
+          description: 'You must select a time slot before continuing',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setCurrentStep(1);
+    } else if (currentStep === 1) {
+      // From contact form to confirmation
+      // Trigger form submission programmatically
+      if (contactFormRef) {
+        contactFormRef.handleSubmit(
+          handleContactSubmit,
+          (errors) => {
+            // Show validation errors
+            const firstError = Object.values(errors)[0];
+            if (firstError) {
+              toast({
+                title: 'Please complete all required fields',
+                description: 'Some required fields are missing or invalid',
+                variant: 'destructive',
+              });
+            }
+          }
+        )();
+      } else {
+        toast({
+          title: 'Form not ready',
+          description: 'Please wait for the form to load',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   return (
     <div className="container max-w-4xl py-8">
       <BookingFlow
@@ -210,7 +287,13 @@ export default function BookTrialPage() {
         description="Schedule a free trial session to experience our tutoring"
         steps={steps}
         currentStep={currentStep}
-        onStepChange={setCurrentStep}
+        onStepChange={handleStepChange}
+        onNext={handleNext}
+        onBack={handleBack}
+        onConfirm={currentStep === 2 ? handleConfirmBooking : undefined}
+        isSubmitting={isSubmitting}
+        canProceed={currentStep === 0 ? !!selectedSlot : currentStep === 1 ? !!contactData : true}
+        selectedSlot={selectedSlot}
       />
     </div>
   );

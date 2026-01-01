@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
   Table,
   TableBody,
@@ -27,7 +28,6 @@ import {
   Palette,
   Loader2
 } from 'lucide-react';
-import { useSubjects } from '../hooks/useSubjectsQuery';
 import type { Tables, Enums } from '@altitutor/shared';
 import { cn, getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { useElementSize } from '@/shared/hooks/useElementSize';
@@ -52,20 +52,12 @@ interface SubjectsTableProps {
 export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSubject }: SubjectsTableProps) {
   const _router = useRouter();
   
-  // React Query hook for data fetching
-  const { 
-    data: subjects = [], 
-    isLoading, 
-    error, 
-    refetch,
-    isFetching 
-  } = useSubjects();
-
   // Track table width for responsive display
   const [tableRef, tableSize] = useElementSize<HTMLDivElement>();
 
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [curriculumFilters, setCurriculumFilters] = useState<Enums<'subject_curriculum'>[]>([]);
   const [disciplineFilters, setDisciplineFilters] = useState<Enums<'subject_discipline'>[]>([]);
   const [sortField, setSortField] = useState<keyof Tables<'subjects'>>('name');
@@ -81,6 +73,48 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   const [bulkColor, setBulkColor] = useState<string>('#000000');
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const { toast } = useToast();
+
+  // Debounce search term
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  // Map sortField to RPC orderBy parameter
+  const rpcOrderBy = useMemo(() => {
+    if (sortField === 'name') return 'name';
+    if (sortField === 'curriculum') return 'curriculum';
+    if (sortField === 'year_level') return 'year_level';
+    if (sortField === 'discipline') return 'discipline';
+    if (sortField === 'level') return 'level';
+    return 'name';
+  }, [sortField]);
+
+  // React Query hook for data fetching with server-side filtering
+  const { 
+    data: subjectsData, 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
+  } = useQuery({
+    queryKey: ['subjects-list', debouncedSearchTerm, curriculumFilters, disciplineFilters, rpcOrderBy, sortDirection],
+    queryFn: () => subjectsApi.list({
+      search: debouncedSearchTerm || undefined,
+      curriculums: curriculumFilters.length > 0 ? curriculumFilters : undefined,
+      disciplines: disciplineFilters.length > 0 ? disciplineFilters : undefined,
+      limit: 10000, // High limit to get all subjects
+      offset: 0,
+      orderBy: rpcOrderBy as 'name' | 'curriculum' | 'year_level' | 'discipline' | 'level',
+      ascending: sortDirection === 'asc',
+    }),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const subjects = subjectsData?.subjects || [];
 
   // Filter toggle handlers
   const toggleCurriculumFilter = (curriculum: Enums<'subject_curriculum'>) => {
@@ -105,62 +139,8 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     setSearchTerm('');
   };
 
-  // Memoized filtered and sorted subjects
-  const filteredSubjects = useMemo(() => {
-    if (!subjects.length) return [];
-    
-    let result = [...subjects];
-    
-    // Apply search term - search by full name or short name
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(subject => {
-        const fullName = formatSubjectDisplay(subject).toLowerCase();
-        const shortName = formatSubjectShortName(subject).toLowerCase();
-        const subjectName = subject.name.toLowerCase();
-        return (
-          fullName.includes(searchLower) ||
-          shortName.includes(searchLower) ||
-          subjectName.includes(searchLower)
-        );
-      });
-    }
-    
-    // Apply curriculum filter
-    if (curriculumFilters.length > 0) {
-      result = result.filter(subject => subject.curriculum && curriculumFilters.includes(subject.curriculum));
-    }
-    
-    // Apply discipline filter
-    if (disciplineFilters.length > 0) {
-      result = result.filter(subject => subject.discipline && disciplineFilters.includes(subject.discipline));
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      const valueA = a[sortField];
-      const valueB = b[sortField];
-      
-      if (valueA === null || valueA === undefined) return sortDirection === 'asc' ? -1 : 1;
-      if (valueB === null || valueB === undefined) return sortDirection === 'asc' ? 1 : -1;
-      
-      if (typeof valueA === 'string' && typeof valueB === 'string') {
-        return sortDirection === 'asc' 
-          ? valueA.localeCompare(valueB) 
-          : valueB.localeCompare(valueA);
-      }
-      
-      if (typeof valueA === 'number' && typeof valueB === 'number') {
-        return sortDirection === 'asc' 
-          ? valueA - valueB 
-          : valueB - valueA;
-      }
-      
-      return 0;
-    });
-    
-    return result;
-  }, [subjects, searchTerm, curriculumFilters, disciplineFilters, sortField, sortDirection]);
+  // Subjects are already filtered and sorted server-side via RPC
+  const filteredSubjects = subjects;
 
   const handleSort = (field: keyof Tables<'subjects'>) => {
     if (sortField === field) {
