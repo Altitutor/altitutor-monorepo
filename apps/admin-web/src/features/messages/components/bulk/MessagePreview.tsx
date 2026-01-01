@@ -145,13 +145,10 @@ export function MessagePreview({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-6 border-b">
-        <h2 className="text-xl font-semibold">Preview & Send</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review recipients and their personalized messages before sending
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Review recipients and their personalized messages before sending
+      </p>
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
@@ -256,25 +253,6 @@ export function MessagePreview({
           </div>
         </>
       )}
-
-      <div className="p-6 border-t flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={isSending}>
-          Back
-        </Button>
-        <Button
-          onClick={onSend}
-          disabled={recipientsWithPhone.length === 0 || isSending || isLoading}
-        >
-          {isSending ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Sending...
-            </>
-          ) : (
-            `Send ${recipientsWithPhone.length} Message${recipientsWithPhone.length !== 1 ? 's' : ''}`
-          )}
-        </Button>
-      </div>
     </div>
   );
 }

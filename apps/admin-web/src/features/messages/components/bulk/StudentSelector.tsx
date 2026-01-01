@@ -17,21 +17,22 @@ import {
   PopoverTrigger,
   ScrollArea,
   Badge,
+  Label,
 } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { useToast } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import {
-  searchStudents,
-  getAllSubjects,
   getStudentsBySubject,
   getStudentsByClass,
   getStudentsByYearLevel,
-  getStudentsBySessionDate,
   getStudentsClasses,
 } from '../../api/bulk';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { classesApi } from '@/features/classes/api/classes';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { 
   formatSubjectDisplay, 
   formatClassName, 
@@ -44,10 +45,18 @@ import { useQuery } from '@tanstack/react-query';
 interface StudentSelectorProps {
   selectedStudents: Tables<'students'>[];
   onStudentsChange: (students: Tables<'students'>[]) => void;
-  onNext: () => void;
+  sendToParents: boolean;
+  onSendToParentsChange: (value: boolean) => void;
+  onNext?: () => void;
 }
 
-export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: StudentSelectorProps) {
+export function StudentSelector({ 
+  selectedStudents, 
+  onStudentsChange, 
+  sendToParents,
+  onSendToParentsChange,
+  onNext: _onNext 
+}: StudentSelectorProps) {
   const { toast } = useToast();
   
   // Search state
@@ -76,11 +85,6 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
   // Bulk selection state
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   
-  // Fetch subjects for filters (initial load - no search)
-  const { data: subjects = [] } = useQuery({
-    queryKey: ['subjects-all'],
-    queryFn: getAllSubjects,
-  });
 
   // Server-side subject search state
   const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
@@ -90,27 +94,6 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
   const [classSearchResults, setClassSearchResults] = useState<Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>>([]);
   const [isSearchingClasses, setIsSearchingClasses] = useState(false);
 
-  // Fetch all classes initially (no search)
-  const { data: classes = [] } = useQuery({
-    queryKey: ['classes-all'],
-    queryFn: async () => {
-      const { classes: allClasses } = await classesApi.listMinimal({ limit: 1000, offset: 0 });
-      // Transform to match expected format
-      return allClasses.map(cls => ({
-        class: {
-          id: cls.id,
-          subject_id: cls.subject_id,
-          day_of_week: cls.day_of_week,
-          start_time: cls.start_time,
-          end_time: cls.end_time,
-          status: cls.status,
-          room: cls.room,
-          level: cls.level,
-        } as Tables<'classes'>,
-        subject: cls.subject || null,
-      }));
-    },
-  });
   
   // Fetch classes for selected students
   const { data: studentClassesMap = {} } = useQuery({
@@ -119,7 +102,7 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     enabled: selectedStudents.length > 0,
   });
   
-  // Search functionality
+  // Search functionality using RPC
   useEffect(() => {
     if (searchQuery.trim().length === 0) {
       setSearchResults([]);
@@ -130,7 +113,53 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const results = await searchStudents(searchQuery, 20);
+        const supabase = getSupabaseClient() as SupabaseClient<Database>;
+        const trimmed = searchQuery.trim();
+        
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+          p_search: trimmed,
+          p_statuses: ['ACTIVE'],
+          p_include_relationships: false,
+          p_limit: 20,
+          p_offset: 0,
+          p_order_by: 'last_name',
+          p_ascending: true,
+        });
+
+        if (rpcError) throw rpcError;
+        if (!rpcResult) {
+          setSearchResults([]);
+          setIsSearchPopoverOpen(false);
+          return;
+        }
+
+        const rpcData = rpcResult as { students: Array<{
+          id: string;
+          first_name: string | null;
+          last_name: string | null;
+          status: string;
+          curriculum: string | null;
+          year_level: number | null;
+          school: string | null;
+          email: string | null;
+          phone: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        }>; total: number };
+        const results = (rpcData.students || []).map((s) => ({
+          id: s.id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          status: s.status,
+          curriculum: s.curriculum || null,
+          year_level: s.year_level || null,
+          school: s.school || null,
+          email: s.email || null,
+          phone: s.phone || null,
+          created_at: s.created_at || null,
+          updated_at: s.updated_at || null,
+        })) as Tables<'students'>[];
+
         // Filter out already selected students
         const selectedIds = new Set(selectedStudents.map(s => s.id));
         const filteredResults = results.filter(s => !selectedIds.has(s.id));
@@ -151,7 +180,7 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, selectedStudents, toast]);
   
-  // Server-side subject search with debouncing
+  // Server-side subject search with debouncing using RPC
   useEffect(() => {
     if (!isSubjectPopoverOpen) {
       setSubjectSearchQuery('');
@@ -160,41 +189,31 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     }
 
     const timeoutId = setTimeout(async () => {
-      if (subjectSearchQuery.trim().length === 0) {
-        // If no search query, use all subjects
-        setSubjectSearchResults(subjects);
+      setIsSearchingSubjects(true);
+      try {
+        const { subjects: searchResults } = await subjectsApi.list({ 
+          search: subjectSearchQuery.trim().length > 0 ? subjectSearchQuery.trim() : undefined, 
+          limit: 100, 
+          offset: 0 
+        });
+        setSubjectSearchResults(searchResults);
+      } catch (error) {
+        console.error('Error searching subjects:', error);
+        setSubjectSearchResults([]);
+      } finally {
         setIsSearchingSubjects(false);
-      } else {
-        // Search with query using RPC function
-        setIsSearchingSubjects(true);
-        try {
-          const { subjects: searchResults } = await subjectsApi.list({ 
-            search: subjectSearchQuery.trim(), 
-            limit: 100, 
-            offset: 0 
-          });
-          setSubjectSearchResults(searchResults);
-        } catch (error) {
-          console.error('Error searching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSearchingSubjects(false);
-        }
       }
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen, subjects]);
+  }, [subjectSearchQuery, isSubjectPopoverOpen]);
 
-  // Use search results if searching, otherwise use all subjects
+  // Use search results
   const filteredSubjects = useMemo(() => {
-    if (subjectSearchQuery.trim().length > 0) {
-      return subjectSearchResults;
-    }
-    return subjects;
-  }, [subjectSearchQuery, subjectSearchResults, subjects]);
+    return subjectSearchResults;
+  }, [subjectSearchResults]);
   
-  // Server-side class search with debouncing
+  // Server-side class search with debouncing using RPC
   useEffect(() => {
     if (!isClassPopoverOpen) {
       setClassSearchQuery('');
@@ -203,57 +222,47 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     }
 
     const timeoutId = setTimeout(async () => {
-      if (classSearchQuery.trim().length === 0) {
-        // If no search query, use all classes
-        setClassSearchResults(classes);
+      setIsSearchingClasses(true);
+      try {
+        const { classes: searchResults } = await classesApi.listMinimal({ 
+          search: classSearchQuery.trim().length > 0 ? classSearchQuery.trim() : undefined, 
+          limit: 100, 
+          offset: 0 
+        });
+        // Transform to match expected format
+        const transformedResults = searchResults.map(cls => ({
+          class: {
+            id: cls.id,
+            subject_id: cls.subject_id,
+            day_of_week: cls.day_of_week,
+            start_time: cls.start_time,
+            end_time: cls.end_time,
+            status: cls.status,
+            room: cls.room,
+            level: cls.level,
+          } as Tables<'classes'>,
+          subject: cls.subject || null,
+        }));
+        setClassSearchResults(transformedResults);
+      } catch (error) {
+        console.error('Error searching classes:', error);
+        setClassSearchResults([]);
+      } finally {
         setIsSearchingClasses(false);
-      } else {
-        // Search with query using RPC function
-        setIsSearchingClasses(true);
-        try {
-          const { classes: searchResults } = await classesApi.listMinimal({ 
-            search: classSearchQuery.trim(), 
-            limit: 100, 
-            offset: 0 
-          });
-          // Transform to match expected format
-          const transformedResults = searchResults.map(cls => ({
-            class: {
-              id: cls.id,
-              subject_id: cls.subject_id,
-              day_of_week: cls.day_of_week,
-              start_time: cls.start_time,
-              end_time: cls.end_time,
-              status: cls.status,
-              room: cls.room,
-              level: cls.level,
-            } as Tables<'classes'>,
-            subject: cls.subject || null,
-          }));
-          setClassSearchResults(transformedResults);
-        } catch (error) {
-          console.error('Error searching classes:', error);
-          setClassSearchResults([]);
-        } finally {
-          setIsSearchingClasses(false);
-        }
       }
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [classSearchQuery, isClassPopoverOpen, classes]);
+  }, [classSearchQuery, isClassPopoverOpen]);
 
-  // Use search results if searching, otherwise use all classes
+  // Use search results
   const filteredClasses = useMemo(() => {
-    if (classSearchQuery.trim().length > 0) {
-      return classSearchResults;
-    }
-    return classes;
-  }, [classSearchQuery, classSearchResults, classes]);
+    return classSearchResults;
+  }, [classSearchResults]);
   
   // Year levels
-  const yearLevels = [7, 8, 9, 10, 11, 12, 13];
   const filteredYearLevels = useMemo(() => {
+    const yearLevels = [7, 8, 9, 10, 11, 12, 13];
     if (!yearSearchQuery) return yearLevels;
     
     const query = yearSearchQuery.toLowerCase();
@@ -354,10 +363,87 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     
     setIsLoading(true);
     try {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const newStudents = await getStudentsBySessionDate(dateStr);
+      const startIso = `${dateStr}T00:00:00Z`;
+      const endIso = `${dateStr}T23:59:59Z`;
+      
+      // Use RPC function to search sessions
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
+        p_search: undefined,
+        p_range_start: startIso,
+        p_range_end: endIso,
+        p_staff_id: undefined,
+        p_class_id: undefined,
+        p_student_id: undefined,
+        p_statuses: ['ACTIVE'],
+        p_types: undefined,
+        p_include_relationships: true,
+        p_limit: 1000,
+        p_offset: 0,
+        p_order_by: 'start_at',
+        p_ascending: true,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) {
+        setIsSessionPopoverOpen(false);
+        setSelectedDate(undefined);
+        return;
+      }
+
+      const rpcData = rpcResult as {
+        sessions: Array<{
+          id: string;
+          class_id: string | null;
+          start_at: string;
+          end_at: string;
+          status: string;
+        }>;
+        sessionStudents: Record<string, Array<{
+          student: {
+            id: string;
+            status: string;
+          };
+          planned_absence: boolean;
+        }>>;
+        total: number;
+      };
+
+      // Extract unique student IDs from sessions
+      const studentIds = new Set<string>();
+      Object.values(rpcData.sessionStudents || {}).forEach((students) => {
+        students.forEach((ss) => {
+          const student = ss.student || ss;
+          if (student && student.status === 'ACTIVE' && !ss.planned_absence) {
+            studentIds.add(student.id);
+          }
+        });
+      });
+
+      if (studentIds.size === 0) {
+        toast({
+          title: 'No students found',
+          description: 'No active students found for this session date',
+        });
+        setIsSessionPopoverOpen(false);
+        setSelectedDate(undefined);
+        return;
+      }
+
+      // Fetch full student records
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*')
+        .in('id', Array.from(studentIds))
+        .eq('status', 'ACTIVE');
+
+      if (studentsError) throw studentsError;
+
+      const newStudents = (studentsData || []) as Tables<'students'>[];
       const existingIds = new Set(selectedStudents.map(s => s.id));
       const uniqueNewStudents = newStudents.filter(s => !existingIds.has(s.id));
+      
       onStudentsChange([...selectedStudents, ...uniqueNewStudents]);
       setIsSessionPopoverOpen(false);
       setSelectedDate(undefined);
@@ -370,6 +456,76 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
       toast({
         title: 'Error',
         description: 'Failed to add students',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddAllActiveStudents = async () => {
+    setIsLoading(true);
+    try {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      
+      // Use RPC function to get all active student IDs
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+        p_search: undefined, // No search term - get all
+        p_statuses: ['ACTIVE'],
+        p_include_relationships: false,
+        p_limit: 10000, // High limit to get all active students
+        p_offset: 0,
+        p_order_by: 'last_name',
+        p_ascending: true,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) {
+        toast({
+          title: 'No students found',
+          description: 'No active students found',
+        });
+        return;
+      }
+
+      const rpcData = rpcResult as { students: Array<{ id: string }>; total: number };
+      const studentIds = (rpcData.students || []).map(s => s.id);
+
+      if (studentIds.length === 0) {
+        toast({
+          title: 'No students found',
+          description: 'No active students found',
+        });
+        return;
+      }
+
+      // Fetch full student records with phone and email
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*')
+        .in('id', studentIds)
+        .eq('status', 'ACTIVE')
+        .order('last_name', { ascending: true })
+        .order('first_name', { ascending: true });
+
+      if (studentsError) throw studentsError;
+
+      const allActiveStudents = (studentsData || []) as Tables<'students'>[];
+
+      // Filter out already selected students
+      const existingIds = new Set(selectedStudents.map(s => s.id));
+      const uniqueNewStudents = allActiveStudents.filter(s => !existingIds.has(s.id));
+      
+      onStudentsChange([...selectedStudents, ...uniqueNewStudents]);
+      toast({
+        title: 'Students added',
+        description: `Added ${uniqueNewStudents.length} active student${uniqueNewStudents.length !== 1 ? 's' : ''}`,
+      });
+    } catch (error) {
+      console.error('Error adding all active students:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add all active students',
         variant: 'destructive',
       });
     } finally {
@@ -414,19 +570,11 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
   };
   
   const allSelected = selectedStudents.length > 0 && selectedStudentIds.size === selectedStudents.length;
-  const someSelected = selectedStudentIds.size > 0 && selectedStudentIds.size < selectedStudents.length;
   
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-6 border-b">
-        <h2 className="text-xl font-semibold">Select Students</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Search or use filters to add students to your bulk message list
-        </p>
-      </div>
-
+    <div className="space-y-4">
       {/* Search and Filters */}
-      <div className="p-6 border-b space-y-4">
+      <div className="space-y-4">
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -485,7 +633,18 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
         </div>
         
         {/* Filter Buttons */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Add All Active Students Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddAllActiveStudents}
+            disabled={isLoading}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add All Active Students
+          </Button>
+          
           {/* Subject Filter */}
           <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
             <PopoverTrigger asChild>
@@ -652,9 +811,31 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
         </div>
       </div>
 
+      {/* Send to Parents Option */}
+      <div className="border rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <Checkbox
+            id="send-to-parents"
+            checked={sendToParents}
+            onCheckedChange={(checked) => onSendToParentsChange(checked === true)}
+          />
+          <div className="flex-1">
+            <Label
+              htmlFor="send-to-parents"
+              className="text-sm font-medium cursor-pointer"
+            >
+              Send to parents as well
+            </Label>
+            <p className="text-sm text-muted-foreground mt-1">
+              If enabled, each parent will receive a separate message with their student's information
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Table */}
-      <div className="flex-1 p-6 overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between mb-4">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
           <h3 className="font-semibold">
             Selected Students ({selectedStudents.length})
           </h3>
@@ -684,11 +865,11 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
         </div>
 
         {selectedStudents.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+          <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
             No students selected. Use search or filters above to add students.
           </div>
         ) : (
-          <div className="rounded-md border overflow-auto flex-1">
+          <div className="rounded-md border overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -704,7 +885,6 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
                   <TableHead>Last Name</TableHead>
                   <TableHead>Classes</TableHead>
                   <TableHead>Phone</TableHead>
-                  <TableHead>Email</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -751,7 +931,10 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
                             {classes
                               .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
                               .map((cls) => {
-                                const shortName = formatClassShortName(cls as any, cls.subject || null);
+                                const shortName = formatClassShortName({
+                                  day_of_week: cls.day_of_week,
+                                  start_time: cls.start_time,
+                                } as Tables<'classes'>, cls.subject || null);
                                 return (
                                   <span key={cls.id} className="text-xs">
                                     {shortName}
@@ -765,9 +948,6 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
                       </TableCell>
                       <TableCell className="text-sm">
                         {student.phone || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {student.email || '-'}
                       </TableCell>
                       <TableCell>
                         <Button
@@ -786,15 +966,6 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
             </Table>
           </div>
         )}
-      </div>
-
-      <div className="p-6 border-t flex justify-end">
-        <Button
-          onClick={onNext}
-          disabled={selectedStudents.length === 0}
-        >
-          Next
-        </Button>
       </div>
     </div>
   );

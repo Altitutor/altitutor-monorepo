@@ -13,28 +13,28 @@ import { replaceVariables } from '../utils/variableReplacer';
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 200;
 
-interface BulkSendResult {
+interface AnnouncementSendResult {
   sent: number;
   failed: number;
   skipped: number;
   errors: Array<{ recipientId: string; error: string }>;
 }
 
-export function useBulkSend() {
+export function useAnnouncements() {
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(false);
 
-  const sendBulkMessages = async (
+  const sendAnnouncements = async (
     students: Tables<'students'>[],
     message: string,
     sendToParents: boolean
-  ): Promise<BulkSendResult> => {
+  ): Promise<AnnouncementSendResult> => {
     setIsLoading(true);
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
-    const result: BulkSendResult = {
+    const result: AnnouncementSendResult = {
       sent: 0,
       failed: 0,
       skipped: 0,
@@ -165,7 +165,7 @@ export function useBulkSend() {
         await Promise.allSettled(
           batch.map(async (msg) => {
             try {
-              // Create message row (QUEUED)
+              // Create message row (QUEUED) with is_announcement flag
               const { data: created, error: insertErr } = await supabase
                 .from('messages')
                 .insert({
@@ -176,6 +176,7 @@ export function useBulkSend() {
                   created_by_staff_id: staffId,
                   from_number_e164: msg.fromNumber,
                   to_number_e164: msg.toNumber,
+                  is_announcement: true,
                 })
                 .select('id')
                 .single();
@@ -213,7 +214,7 @@ export function useBulkSend() {
 
       return result;
     } catch (error: any) {
-      console.error('Bulk send error:', error);
+      console.error('Announcement send error:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -222,16 +223,8 @@ export function useBulkSend() {
   };
 
   return {
-    sendBulkMessages,
+    sendAnnouncements,
     isLoading,
     progress,
   };
 }
-
-
-
-
-
-
-
-

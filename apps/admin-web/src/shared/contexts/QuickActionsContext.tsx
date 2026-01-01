@@ -6,15 +6,15 @@ interface QuickActionsContextType {
   isTutorLogModalOpen: boolean;
   isLogAbsenceDialogOpen: boolean;
   isLogStaffAbsenceDialogOpen: boolean;
-  isBulkMessagingModalOpen: boolean;
+  isAnnouncementsModalOpen: boolean;
   openTutorLogModal: () => void;
   closeTutorLogModal: () => void;
   openLogAbsenceDialog: () => void;
   closeLogAbsenceDialog: () => void;
   openLogStaffAbsenceDialog: () => void;
   closeLogStaffAbsenceDialog: () => void;
-  openBulkMessagingModal: () => void;
-  closeBulkMessagingModal: () => void;
+  openAnnouncementsModal: () => void;
+  closeAnnouncementsModal: () => void;
 }
 
 const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
@@ -23,7 +23,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
-  const [isBulkMessagingModalOpen, setIsBulkMessagingModalOpen] = useState(false);
+  const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
 
   const openTutorLogModal = useCallback(() => {
     setIsTutorLogModalOpen(true);
@@ -49,12 +49,12 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsLogStaffAbsenceDialogOpen(false);
   }, []);
 
-  const openBulkMessagingModal = useCallback(() => {
-    setIsBulkMessagingModalOpen(true);
+  const openAnnouncementsModal = useCallback(() => {
+    setIsAnnouncementsModalOpen(true);
   }, []);
 
-  const closeBulkMessagingModal = useCallback(() => {
-    setIsBulkMessagingModalOpen(false);
+  const closeAnnouncementsModal = useCallback(() => {
+    setIsAnnouncementsModalOpen(false);
   }, []);
 
   return (
@@ -63,15 +63,15 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         isTutorLogModalOpen,
         isLogAbsenceDialogOpen,
         isLogStaffAbsenceDialogOpen,
-        isBulkMessagingModalOpen,
+        isAnnouncementsModalOpen,
         openTutorLogModal,
         closeTutorLogModal,
         openLogAbsenceDialog,
         closeLogAbsenceDialog,
         openLogStaffAbsenceDialog,
         closeLogStaffAbsenceDialog,
-        openBulkMessagingModal,
-        closeBulkMessagingModal,
+        openAnnouncementsModal,
+        closeAnnouncementsModal,
       }}
     >
       {children}

@@ -13,7 +13,7 @@ import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickAc
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
-import { BulkMessagingModal } from '@/features/messages/components/bulk/BulkMessagingModal';
+import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
@@ -191,7 +191,7 @@ function AdminLayoutContent({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isBulkMessagingModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeBulkMessagingModal } = useQuickActions();
+  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isAnnouncementsModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeAnnouncementsModal } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
   
   // #region agent log
@@ -234,9 +234,9 @@ function AdminLayoutContent({
               onClose={closeLogStaffAbsenceDialog}
               staffId={currentStaff.id}
             />
-            <BulkMessagingModal
-              isOpen={isBulkMessagingModalOpen}
-              onClose={closeBulkMessagingModal}
+            <AnnouncementsModal
+              isOpen={isAnnouncementsModalOpen}
+              onClose={closeAnnouncementsModal}
             />
           </>
         )}

@@ -78,15 +78,12 @@ export function MessageComposer({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-6 border-b">
-        <h2 className="text-xl font-semibold">Compose Message</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Write your message using variables like {'{first_name}'}, {'{last_name}'}, {'{classes}'}, {'{sender_name}'}
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Write your message using variables like {'{first_name}'}, {'{last_name}'}, {'{classes}'}, {'{sender_name}'}
+      </p>
 
-      <div className="flex-1 p-6 grid grid-cols-2 gap-6 overflow-hidden">
+      <div className="grid grid-cols-2 gap-6 overflow-hidden">
         {/* Message Input */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-3">
@@ -168,18 +165,6 @@ export function MessageComposer({
             </div>
           )}
         </div>
-      </div>
-
-      <div className="p-6 border-t flex justify-between">
-        <Button variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          onClick={onNext}
-          disabled={!message.trim()}
-        >
-          Next
-        </Button>
       </div>
     </div>
   );

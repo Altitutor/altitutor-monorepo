@@ -12,7 +12,7 @@ import { Calendar, FileText, Zap, Megaphone } from 'lucide-react';
 
 export function QuickActionsMenu() {
   const minimized = useChatStore(s => s.minimized);
-  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openBulkMessagingModal } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal } = useQuickActions();
 
   // Hide when messages are expanded (not minimized)
   if (!minimized) {
@@ -32,7 +32,7 @@ export function QuickActionsMenu() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="w-48">
-          <DropdownMenuItem onClick={openBulkMessagingModal}>
+          <DropdownMenuItem onClick={openAnnouncementsModal}>
             <Megaphone className="h-4 w-4 mr-2" />
             Make Announcement
           </DropdownMenuItem>
