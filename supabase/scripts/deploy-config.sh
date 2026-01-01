@@ -1,28 +1,26 @@
 #!/bin/bash
 
-# ============================================================
-# Supabase Config Deployment Script
-# Substitutes environment variables and deploys config.toml
-# ============================================================
+# Deploy configuration with environment variable substitution
+# Usage: ./scripts/deploy-config.sh <project-ref>
 
 set -e
 
 PROJECT_REF=$1
 
 if [ -z "$PROJECT_REF" ]; then
-    echo "❌ Error: Project reference required"
-    echo "Usage: ./deploy-config.sh <project-ref>"
+    echo "Error: Project ref is required"
+    echo "Usage: $0 <project-ref>"
     exit 1
 fi
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-SUPABASE_DIR="$(dirname "$SCRIPT_DIR")"
-TEMP_CONFIG=$(mktemp)
-
 echo "📝 Deploying configuration to project: $PROJECT_REF"
 
-# Copy original config to temp file
-cp "$SUPABASE_DIR/config.toml" "$TEMP_CONFIG"
+# Create a temporary config file with environment variables substituted
+TEMP_CONFIG=$(mktemp)
+cp config.toml "$TEMP_CONFIG"
+
+# Substitute environment variables
+echo "🔄 Substituting environment variables..."
 
 # Email credentials
 if [ ! -z "$RESEND_API_KEY" ]; then
@@ -34,16 +32,18 @@ fi
 sed -i.bak 's|enabled = false  # Set to true in production|enabled = true|g' "$TEMP_CONFIG"
 echo "✅ Enabled SMTP for production"
 
-# Deploy config using Supabase CLI
-echo "🚀 Pushing configuration to Supabase..."
-cd "$SUPABASE_DIR"
-supabase config push --project-ref "$PROJECT_REF" --config-file "$TEMP_CONFIG" || {
-    echo "❌ Failed to push configuration"
-    rm -f "$TEMP_CONFIG" "$TEMP_CONFIG.bak"
-    exit 1
-}
+# Copy the processed config to the current directory temporarily
+cp "$TEMP_CONFIG" config.toml
 
-# Cleanup
+# Push the configuration
+echo "🚀 Pushing configuration to Supabase..."
+supabase config push --project-ref "$PROJECT_REF"
+
+# Restore the original config file
+git checkout config.toml
+echo "✅ Restored original config.toml"
+
+# Clean up
 rm -f "$TEMP_CONFIG" "$TEMP_CONFIG.bak"
 
-echo "✅ Configuration deployed successfully"
+echo "🎉 Configuration deployment completed successfully!"
