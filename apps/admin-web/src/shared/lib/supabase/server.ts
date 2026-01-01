@@ -45,14 +45,18 @@ export function getServerSupabaseClient() {
  * 
  * Note: SUPABASE_SERVICE_ROLE_KEY is automatically derived from SUPABASE_SECRET_KEY
  * by the deployment scripts for backward compatibility.
+ * Supports both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_SECRET_KEY for flexibility.
  */
 export function getServerSupabaseAdmin() {
+  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_SECRET_KEY for backward compatibility
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors
     return createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key',
+      serviceRoleKey || 'placeholder-key',
       {
         auth: {
           autoRefreshToken: false,
@@ -62,15 +66,15 @@ export function getServerSupabaseAdmin() {
     );
   }
   
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Missing environment variable: SUPABASE_SERVICE_ROLE_KEY');
+  if (!serviceRoleKey) {
+    throw new Error('Missing environment variable: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY');
   }
 
   validateEnvVars();
 
   return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    serviceRoleKey,
     {
       auth: {
         autoRefreshToken: false,
