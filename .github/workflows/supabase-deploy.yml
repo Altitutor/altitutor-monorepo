@@ -6,6 +6,7 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/functions/**'
+      - 'supabase/config.toml'
   workflow_dispatch:
 
 permissions:
@@ -66,6 +67,14 @@ jobs:
               supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
             done
           fi
+
+      - name: Deploy configuration
+        run: |
+          echo "📝 Deploying configuration changes..."
+          cd supabase
+          ./scripts/deploy-config.sh $SUPABASE_PROJECT_ID
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
 
 

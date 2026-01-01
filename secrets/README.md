@@ -109,6 +109,7 @@ Secrets used across **all environments** (dev and prod). Use sparingly.
 - Service credentials shared across environments
 - Non-environment-specific configuration
 - `VERCEL_TOKEN` - Vercel API token for deployment scripts (optional, can also be set as environment variable)
+- `SUPABASE_ACCESS_TOKEN` - Supabase Management API access token (optional, only needed if using SMTP automation script)
 
 ### `.env.development`
 Secrets for **development/preview environments**.
@@ -182,8 +183,36 @@ Secrets for **production environment**.
 - `TWILIO_PUBLIC_URL_STATUS` (or `TWILIO_PUBLIC_URL` as fallback)
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
+- `RESEND_API_KEY`
 
 **Why:** Edge functions need access to third-party APIs (Stripe, Twilio, etc.) to process payments, send SMS, etc.
+
+### Supabase Auth SMTP Configuration
+
+**Local Development:**
+- SMTP is **disabled** (`enabled = false`) in `config.toml`
+- Emails are captured by **Inbucket** at `http://localhost:55324`
+- No Resend API key needed locally
+
+**Remote Development & Production:**
+- Configuration is deployed via `supabase/scripts/deploy-config.sh`
+- The script:
+  1. Substitutes `RESEND_API_KEY` from environment variables
+  2. Enables SMTP (`enabled = true`) for production
+  3. Pushes config via `supabase config push`
+
+**Setup:**
+1. Add `RESEND_API_KEY` to `secrets/.env.shared`
+2. The secret is automatically deployed via `deploy-supabase.sh`
+3. CI/CD workflows run `deploy-config.sh` which configures SMTP automatically
+
+**SMTP Settings:**
+- **Host:** `smtp.resend.com`
+- **Port:** `587`
+- **Username:** `resend`
+- **Password:** Your Resend API key
+- **Sender email:** `noreply@altitutor.com` (configured in `config.toml`)
+- **Sender name:** `Altitutor`
 
 ## 🔧 Customizing Secret Filters
 

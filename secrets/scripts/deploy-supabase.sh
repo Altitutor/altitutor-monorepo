@@ -105,10 +105,10 @@ else
     while IFS='=' read -r key value || [ -n "$key" ]; do
         secret_count=$((secret_count + 1))
         # Only deploy secrets actually used by edge functions
-        # Used: TWILIO_*, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+        # Used: TWILIO_*, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY
         # Auto-provided by Supabase: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
         # Skip: NEXT_PUBLIC_*, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN
-        if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]]; then
+        if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]] || [[ "$key" == "RESEND_API_KEY" ]]; then
             deploy_supabase_secret "$key" "$value" "$DEV_PROJECT_REF" "development"
         fi
     done < "$temp_input"
@@ -152,10 +152,10 @@ else
     # Read from temp file to avoid subshell issues
     while IFS='=' read -r key value; do
         # Only deploy secrets actually used by edge functions
-        # Used: TWILIO_*, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+        # Used: TWILIO_*, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY
         # Auto-provided by Supabase: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
         # Skip: NEXT_PUBLIC_*, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN
-        if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]]; then
+        if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]] || [[ "$key" == "RESEND_API_KEY" ]]; then
             deploy_supabase_secret "$key" "$value" "$PROD_PROJECT_REF" "production"
         fi
     done < "$temp_input"
