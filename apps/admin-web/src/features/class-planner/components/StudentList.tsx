@@ -12,9 +12,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { studentsApi } from '@/features/students/api/students';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
+import { useClassPlan } from '../hooks/useClassPlansQuery';
+import { classPlansApi } from '../api/classPlans';
+import { useQueryClient } from '@tanstack/react-query';
+import { classPlansKeys } from '../hooks/useClassPlansQuery';
 
 interface StudentListProps {
   planId: string;
+  onSubjectFilterChange?: (subjectId: string | null) => void;
+  onDragStart?: (subjectId: string) => void;
+  onDragEnd?: () => void;
+  selectedSubjectId?: string | null;
+  onStudentDrop?: (studentId: string, subjectId: string) => void;
 }
 
 type StudentWithSubject = {
@@ -22,9 +31,22 @@ type StudentWithSubject = {
   subject: Tables<'subjects'>;
 };
 
-export function StudentList({ planId }: StudentListProps) {
+export function StudentList({ planId, onSubjectFilterChange, onDragStart, onDragEnd, selectedSubjectId: externalSelectedSubjectId, onStudentDrop }: StudentListProps) {
+  const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [internalSelectedSubjectId, setInternalSelectedSubjectId] = useState<string | null>(null);
+  
+  const selectedSubjectId = externalSelectedSubjectId !== undefined ? externalSelectedSubjectId : internalSelectedSubjectId;
+  
+  const handleSubjectFilterChange = (subjectId: string | null) => {
+    if (externalSelectedSubjectId === undefined) {
+      setInternalSelectedSubjectId(subjectId);
+    }
+    onSubjectFilterChange?.(subjectId);
+  };
+
+  // Get plan data to check assigned students
+  const { data: plan } = useClassPlan(planId);
 
   // Get all students with their subjects
   const { data: studentsWithSubjects, isLoading } = useQuery({
@@ -51,6 +73,27 @@ export function StudentList({ planId }: StudentListProps) {
     },
   });
 
+  // Filter out assigned students
+  const unassignedStudents = useMemo(() => {
+    if (!studentsWithSubjects || !plan) return studentsWithSubjects || [];
+    
+    // Get all assigned student-subject combinations
+    const assignedSet = new Set<string>();
+    plan.classes.forEach((cls) => {
+      cls.students.forEach((student) => {
+        // Create key: studentId-subjectId
+        const key = `${student.id}-${cls.subject_id || 'null'}`;
+        assignedSet.add(key);
+      });
+    });
+    
+    // Filter out assigned students
+    return studentsWithSubjects.filter((item) => {
+      const key = `${item.student.id}-${item.subject.id}`;
+      return !assignedSet.has(key);
+    });
+  }, [studentsWithSubjects, plan]);
+
   // Get unique subjects for filtering
   const subjects = useMemo(() => {
     if (!studentsWithSubjects) return [];
@@ -63,11 +106,11 @@ export function StudentList({ planId }: StudentListProps) {
     return Array.from(subjectMap.values());
   }, [studentsWithSubjects]);
 
-  // Filter students
+  // Filter students (using unassigned students)
   const filteredStudents = useMemo(() => {
-    if (!studentsWithSubjects) return [];
+    if (!unassignedStudents) return [];
     
-    let filtered = studentsWithSubjects;
+    let filtered = unassignedStudents;
     
     // Filter by subject
     if (selectedSubjectId) {
@@ -89,7 +132,7 @@ export function StudentList({ planId }: StudentListProps) {
     }
     
     return filtered;
-  }, [studentsWithSubjects, searchTerm, selectedSubjectId]);
+  }, [unassignedStudents, searchTerm, selectedSubjectId]);
 
   // Group by subject
   const groupedBySubject = useMemo(() => {
@@ -130,7 +173,7 @@ export function StudentList({ planId }: StudentListProps) {
         {subjects.length > 0 && (
           <div className="flex flex-wrap gap-1">
             <button
-              onClick={() => setSelectedSubjectId(null)}
+              onClick={() => handleSubjectFilterChange(null)}
               className={`px-2 py-1 text-xs rounded ${
                 selectedSubjectId === null
                   ? 'bg-primary text-primary-foreground'
@@ -144,7 +187,7 @@ export function StudentList({ planId }: StudentListProps) {
               return (
                 <button
                   key={subject.id}
-                  onClick={() => setSelectedSubjectId(subject.id)}
+                  onClick={() => handleSubjectFilterChange(subject.id)}
                   className={`px-2 py-1 text-xs rounded ${
                     selectedSubjectId === subject.id
                       ? 'ring-2 ring-primary'
@@ -161,7 +204,36 @@ export function StudentList({ planId }: StudentListProps) {
       </div>
 
       {/* Student List */}
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div 
+        className="flex-1 overflow-auto p-4 space-y-4"
+        onDragOver={(e) => {
+          e.preventDefault();
+          // Allow drop if it's a JSON data type (student or class drag)
+          if (e.dataTransfer.types.includes('application/json')) {
+            e.dataTransfer.dropEffect = 'move';
+          } else {
+            e.dataTransfer.dropEffect = 'none';
+          }
+        }}
+        onDrop={async (e) => {
+          e.preventDefault();
+          const dragData = e.dataTransfer.getData('application/json');
+          if (!dragData) return;
+          
+          try {
+            const data = JSON.parse(dragData);
+            // Handle dropping student back to list (remove from class)
+            if (data.studentId && data.fromClassId) {
+              await classPlansApi.removeStudentFromDraftClass(data.fromClassId, data.studentId);
+              qc.invalidateQueries({ queryKey: classPlansKeys.detail(planId) });
+              onStudentDrop?.(data.studentId, data.subjectId);
+              onDragEnd?.();
+            }
+          } catch (error) {
+            console.error('Error removing student from class:', error);
+          }
+        }}
+      >
         {filteredStudents.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
             {searchTerm || selectedSubjectId
@@ -195,6 +267,10 @@ export function StudentList({ planId }: StudentListProps) {
                             subjectId: item.subject.id,
                           })
                         );
+                        onDragStart?.(item.subject.id);
+                      }}
+                      onDragEnd={() => {
+                        onDragEnd?.();
                       }}
                     >
                       <div className="text-sm font-medium">

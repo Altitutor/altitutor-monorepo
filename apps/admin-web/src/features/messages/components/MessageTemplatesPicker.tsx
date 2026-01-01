@@ -57,7 +57,7 @@ export function MessageTemplatesPicker({ onSelect, disabled }: MessageTemplatesP
               size="sm"
               onClick={() => {
                 setOpen(false);
-                router.push('/communications/templates');
+                router.push('/settings/templates');
               }}
             >
               <Plus className="h-3 w-3 mr-1" />

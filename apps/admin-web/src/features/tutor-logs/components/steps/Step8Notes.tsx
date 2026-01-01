@@ -99,11 +99,6 @@ export function Step8Notes({ notes, onUpdate }: Step8NotesProps) {
       <h3 className="text-lg font-semibold">Session Notes</h3>
 
       {/* Notes List */}
-      {notes.length === 0 ? (
-        <div className="text-sm text-muted-foreground py-4">
-          No notes yet. Add a note to get started.
-        </div>
-      ) : (
         <div className="space-y-3">
           {notes.map((note, index) => (
             <Card key={index} className="group">
@@ -181,7 +176,6 @@ export function Step8Notes({ notes, onUpdate }: Step8NotesProps) {
             </Card>
           ))}
         </div>
-      )}
 
       {/* New Note Input */}
       <div className="space-y-2 pt-2">

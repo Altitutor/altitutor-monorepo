@@ -13,7 +13,7 @@ import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useMarkUnread } from '@/features/messages/api/mutations';
 import { useToast } from '@altitutor/ui';
 
-export default function CommunicationsPage() {
+export default function MessagesPage() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);

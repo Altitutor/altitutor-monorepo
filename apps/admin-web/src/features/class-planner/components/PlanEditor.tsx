@@ -6,7 +6,7 @@ import { WeekCalendarView } from './WeekCalendarView';
 import { StudentList } from './StudentList';
 import { ClassBank } from './ClassBank';
 import { Button } from '@altitutor/ui';
-import { Save, Play } from 'lucide-react';
+import { Save, Play, ArrowLeft } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { ApplyPlanDialog } from './ApplyPlanDialog';
@@ -21,6 +21,9 @@ export function PlanEditor({ planId }: PlanEditorProps) {
   const { data: plan, isLoading, error } = useClassPlan(planId);
   const { data: currentStaff } = useCurrentStaff();
   const [showApplyDialog, setShowApplyDialog] = useState(false);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [dragSubjectId, setDragSubjectId] = useState<string | null>(null);
+  const [dragStudentSubjectId, setDragStudentSubjectId] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('apply') === 'true') {
@@ -40,9 +43,19 @@ export function PlanEditor({ planId }: PlanEditorProps) {
     return (
       <div className="p-6">
         <div className="text-red-500">Failed to load plan. Please try again.</div>
-        <Button onClick={() => router.push('/class-planner')} className="mt-4">
-          Back to Plans
-        </Button>
+        <div className="flex gap-2 mt-4">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => router.push('/settings')}
+            className="border"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => router.push('/settings/class-planner')}>
+            Back to Plans
+          </Button>
+        </div>
       </div>
     );
   }
@@ -56,36 +69,68 @@ export function PlanEditor({ planId }: PlanEditorProps) {
           <p className="text-sm text-muted-foreground">Year {plan.year}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => router.push('/settings')}
+            className="border"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={() => router.push('/settings/class-planner')}>
+            Back to Plans
+          </Button>
           {plan.status === 'DRAFT' && (
             <Button onClick={() => setShowApplyDialog(true)}>
               <Play className="h-4 w-4 mr-2" />
               Apply Plan
             </Button>
           )}
-          <Button variant="outline" onClick={() => router.push('/class-planner')}>
-            Back to Plans
-          </Button>
         </div>
       </div>
 
       {/* Main Editor Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Split View: Calendar (60%) + Student List (40%) */}
+        {/* Split View: Calendar (75%) + Student List (25%) */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left: Calendar View */}
           <div className="flex-[3] border-r overflow-auto">
-            <WeekCalendarView plan={plan} />
+            <WeekCalendarView 
+              plan={plan} 
+              planId={planId}
+              selectedSubjectId={selectedSubjectId}
+              dragSubjectId={dragSubjectId || dragStudentSubjectId}
+              onStudentDragStart={(subjectId) => {
+                setDragStudentSubjectId(subjectId);
+              }}
+              onStudentDragEnd={() => {
+                setDragStudentSubjectId(null);
+              }}
+            />
           </div>
 
           {/* Right: Student List */}
-          <div className="flex-[2] overflow-auto">
-            <StudentList planId={planId} />
+          <div className="flex-[1] overflow-auto">
+            <StudentList 
+              planId={planId}
+              selectedSubjectId={selectedSubjectId}
+              onSubjectFilterChange={setSelectedSubjectId}
+              onDragStart={(subjectId) => {
+                if (selectedSubjectId === null) {
+                  setDragSubjectId(subjectId);
+                }
+              }}
+              onDragEnd={() => {
+                if (selectedSubjectId === null) {
+                  setDragSubjectId(null);
+                }
+                setDragStudentSubjectId(null);
+              }}
+              onStudentDrop={() => {
+                setDragStudentSubjectId(null);
+              }}
+            />
           </div>
-        </div>
-
-        {/* Bottom: Class Bank */}
-        <div className="border-t h-32 overflow-auto">
-          <ClassBank planId={planId} />
         </div>
       </div>
 
@@ -95,7 +140,7 @@ export function PlanEditor({ planId }: PlanEditorProps) {
           isOpen={showApplyDialog}
           onClose={() => {
             setShowApplyDialog(false);
-            router.replace(`/class-planner/${planId}`);
+            router.replace(`/settings/class-planner/${planId}`);
           }}
           planId={planId}
           planName={plan.name}

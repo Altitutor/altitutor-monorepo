@@ -6,12 +6,15 @@ interface QuickActionsContextType {
   isTutorLogModalOpen: boolean;
   isLogAbsenceDialogOpen: boolean;
   isLogStaffAbsenceDialogOpen: boolean;
+  isBulkMessagingModalOpen: boolean;
   openTutorLogModal: () => void;
   closeTutorLogModal: () => void;
   openLogAbsenceDialog: () => void;
   closeLogAbsenceDialog: () => void;
   openLogStaffAbsenceDialog: () => void;
   closeLogStaffAbsenceDialog: () => void;
+  openBulkMessagingModal: () => void;
+  closeBulkMessagingModal: () => void;
 }
 
 const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
@@ -20,6 +23,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
+  const [isBulkMessagingModalOpen, setIsBulkMessagingModalOpen] = useState(false);
 
   const openTutorLogModal = useCallback(() => {
     setIsTutorLogModalOpen(true);
@@ -45,18 +49,29 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsLogStaffAbsenceDialogOpen(false);
   }, []);
 
+  const openBulkMessagingModal = useCallback(() => {
+    setIsBulkMessagingModalOpen(true);
+  }, []);
+
+  const closeBulkMessagingModal = useCallback(() => {
+    setIsBulkMessagingModalOpen(false);
+  }, []);
+
   return (
     <QuickActionsContext.Provider
       value={{
         isTutorLogModalOpen,
         isLogAbsenceDialogOpen,
         isLogStaffAbsenceDialogOpen,
+        isBulkMessagingModalOpen,
         openTutorLogModal,
         closeTutorLogModal,
         openLogAbsenceDialog,
         closeLogAbsenceDialog,
         openLogStaffAbsenceDialog,
         closeLogStaffAbsenceDialog,
+        openBulkMessagingModal,
+        closeBulkMessagingModal,
       }}
     >
       {children}

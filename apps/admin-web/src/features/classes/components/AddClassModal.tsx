@@ -13,8 +13,8 @@ import {
   SelectValue,
 } from '@altitutor/ui';
 import { useCreateClass } from '../hooks/useClassesQuery';
-import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import type { TablesInsert } from '@altitutor/shared';
+import type { TablesInsert, Tables } from '@altitutor/shared';
+import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
 
 interface AddClassModalProps {
   isOpen: boolean;
@@ -24,7 +24,6 @@ interface AddClassModalProps {
 
 export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalProps) {
   const createMutation = useCreateClass();
-  const { data: subjects } = useSubjects();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -33,7 +32,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const [dayOfWeek, setDayOfWeek] = useState<string>('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [subjectId, setSubjectId] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState<Tables<'subjects'> | null>(null);
   
   const [room, setRoom] = useState('');
   
@@ -50,7 +49,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         start_time: startTime,
         end_time: endTime,
         status: 'ACTIVE',
-        subject_id: subjectId || null,
+        subject_id: selectedSubject?.id || null,
         room: room || null,
       };
       await createMutation.mutateAsync(payload);
@@ -71,7 +70,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setDayOfWeek('');
     setStartTime('');
     setEndTime('');
-    setSubjectId('');
+    setSelectedSubject(null);
     
     setRoom('');
   };
@@ -104,26 +103,11 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             
             <div className="space-y-2">
               <Label htmlFor="subject-id">Subject</Label>
-              <Select 
-                value={subjectId || "none"} 
-                onValueChange={(value) => {
-                  // Special handling for "none" value
-                  setSubjectId(value === "none" ? "" : value);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {subjects?.map((subject) => (
-                    <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name} {subject.year_level ? `Year ${subject.year_level}` : ''}
-                      {subject.curriculum ? ` (${subject.curriculum})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SubjectSelectPopover
+                selectedSubject={selectedSubject}
+                onSelectSubject={setSelectedSubject}
+                placeholder="Select subject"
+              />
             </div>
           </div>
           

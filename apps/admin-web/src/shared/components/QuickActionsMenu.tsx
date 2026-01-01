@@ -8,11 +8,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { Calendar, FileText, Zap } from 'lucide-react';
+import { Calendar, FileText, Zap, Megaphone } from 'lucide-react';
 
 export function QuickActionsMenu() {
   const minimized = useChatStore(s => s.minimized);
-  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openBulkMessagingModal } = useQuickActions();
 
   // Hide when messages are expanded (not minimized)
   if (!minimized) {
@@ -32,6 +32,10 @@ export function QuickActionsMenu() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="w-48">
+          <DropdownMenuItem onClick={openBulkMessagingModal}>
+            <Megaphone className="h-4 w-4 mr-2" />
+            Make Announcement
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={openTutorLogModal}>
             <FileText className="h-4 w-4 mr-2" />
             Tutor Log

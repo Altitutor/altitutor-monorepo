@@ -2,24 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BlockoutDatesTable } from '@/features/bookings/components/BlockoutDatesTable';
-import { blockoutsApi, type BlockoutRow } from '@/features/bookings/api/blockouts';
+import { BookingSettingsTable } from '@/features/bookings/components/BookingSettingsTable';
+import { bookingSettingsApi, type BookingSettingsRow } from '@/features/bookings/api/settings';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 
-export default function BlockoutsPage() {
+export default function BookingSettingsPage() {
   const router = useRouter();
-  const [blockouts, setBlockouts] = useState<BlockoutRow[]>([]);
+  const [settings, setSettings] = useState<BookingSettingsRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await blockoutsApi.getBlockouts();
-      setBlockouts(data);
+      const data = await bookingSettingsApi.getBookingSettings();
+      setSettings(data);
     } catch (error) {
-      console.error('Failed to load blockouts:', error);
-      alert('Failed to load blockouts: ' + (error as Error).message);
+      console.error('Failed to load booking settings:', error);
+      alert('Failed to load booking settings: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -49,15 +49,13 @@ export default function BlockoutsPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Blockout Dates</h1>
+          <h1 className="text-2xl font-bold">Booking Settings</h1>
           <p className="text-muted-foreground">
-            Manage staff unavailability dates and times
+            Manage global booking configuration settings
           </p>
         </div>
       </div>
-      <BlockoutDatesTable blockouts={blockouts} onUpdate={loadData} />
+      <BookingSettingsTable settings={settings} onUpdate={loadData} />
     </div>
   );
 }
-
-

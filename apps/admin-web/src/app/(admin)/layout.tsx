@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard, MessageSquarePlus, Clock, Ban } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard, Clock, Ban } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
@@ -13,6 +13,7 @@ import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickAc
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
+import { BulkMessagingModal } from '@/features/messages/components/bulk/BulkMessagingModal';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
@@ -60,38 +61,13 @@ const navItems: NavItem[] = [
     icon: ClipboardList,
   },
   {
-    title: 'Class Planner',
-    href: '/class-planner',
-    icon: LayoutGrid,
-  },
-  {
-    title: 'Opening Hours',
-    href: '/settings/opening-hours',
-    icon: Clock,
-  },
-  {
-    title: 'Blockout Dates',
-    href: '/settings/blockouts',
-    icon: Ban,
-  },
-  {
     type: 'heading',
-    title: 'COMMUNICATIONS',
+    title: 'MESSAGING',
   },
   {
-    title: 'Communications',
-    href: '/communications',
+    title: 'Messages',
+    href: '/messages',
     icon: MessageCircle,
-  },
-  {
-    title: 'Bulk Messaging',
-    href: '/communications/bulk',
-    icon: MessageSquarePlus,
-  },
-  {
-    title: 'Templates',
-    href: '/communications/templates',
-    icon: FileText,
   },
   {
     type: 'heading',
@@ -215,7 +191,7 @@ function AdminLayoutContent({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog } = useQuickActions();
+  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isBulkMessagingModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeBulkMessagingModal } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
   
   // #region agent log
@@ -257,6 +233,10 @@ function AdminLayoutContent({
               isOpen={isLogStaffAbsenceDialogOpen}
               onClose={closeLogStaffAbsenceDialog}
               staffId={currentStaff.id}
+            />
+            <BulkMessagingModal
+              isOpen={isBulkMessagingModalOpen}
+              onClose={closeBulkMessagingModal}
             />
           </>
         )}

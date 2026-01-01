@@ -23,14 +23,15 @@ type TimeSlot = {
   end_time: string;
 };
 
+// Monday first
 const DAYS_OF_WEEK = [
-  { value: 0, label: 'Sunday', short: 'Sun' },
   { value: 1, label: 'Monday', short: 'Mon' },
   { value: 2, label: 'Tuesday', short: 'Tue' },
   { value: 3, label: 'Wednesday', short: 'Wed' },
   { value: 4, label: 'Thursday', short: 'Thu' },
   { value: 5, label: 'Friday', short: 'Fri' },
   { value: 6, label: 'Saturday', short: 'Sat' },
+  { value: 0, label: 'Sunday', short: 'Sun' },
 ];
 
 export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
@@ -74,12 +75,48 @@ export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
   };
 
   const updateSlot = (dayOfWeek: number, index: number, field: 'start_time' | 'end_time', value: string) => {
-    setSlots((prev) => ({
-      ...prev,
-      [dayOfWeek]: prev[dayOfWeek].map((slot, i) =>
-        i === index ? { ...slot, [field]: value } : slot
-      ),
-    }));
+    setSlots((prev) => {
+      const updated = prev[dayOfWeek].map((slot, i) => {
+        if (i !== index) return slot;
+        
+        const newSlot = { ...slot, [field]: value };
+        
+        // If start_time changed, always auto-set end_time to start_time + default length
+        if (field === 'start_time' && value) {
+          const [startHours, startMins] = value.split(':').map(Number);
+          const startMinutes = startHours * 60 + startMins;
+          const defaultMinutes = defaultLength * 60;
+          const newEndMinutes = startMinutes + defaultMinutes;
+          const newEndHours = Math.floor(newEndMinutes / 60);
+          const newEndMins = newEndMinutes % 60;
+          newSlot.end_time = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`;
+        }
+        
+        // If end_time changed and is now <= start_time, adjust end_time
+        if (field === 'end_time') {
+          const [startHours, startMins] = slot.start_time.split(':').map(Number);
+          const [endHours, endMins] = value.split(':').map(Number);
+          const startMinutes = startHours * 60 + startMins;
+          const endMinutes = endHours * 60 + endMins;
+          
+          if (endMinutes <= startMinutes) {
+            // Add default length hours to start time
+            const defaultMinutes = defaultLength * 60;
+            const newEndMinutes = startMinutes + defaultMinutes;
+            const newEndHours = Math.floor(newEndMinutes / 60);
+            const newEndMins = newEndMinutes % 60;
+            newSlot.end_time = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`;
+          }
+        }
+        
+        return newSlot;
+      });
+      
+      return {
+        ...prev,
+        [dayOfWeek]: updated,
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,7 +158,7 @@ export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
 
       resetForm();
       onClose();
-      router.push(`/class-planner/${plan.id}`);
+      router.push(`/settings/class-planner/${plan.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create class plan');
       console.error('Error creating class plan:', err);

@@ -28,7 +28,7 @@ export function ChatDock() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const isMessagesPage = pathname?.startsWith('/communications');
+  const isMessagesPage = pathname?.startsWith('/messages');
 
   // Extract function references using useRef to prevent re-subscriptions
   const hasWindowRef = useRef(hasWindow);

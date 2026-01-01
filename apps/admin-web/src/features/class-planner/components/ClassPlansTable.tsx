@@ -39,7 +39,7 @@ export function ClassPlansTable({ onCreatePlan }: ClassPlansTableProps) {
   const duplicateMutation = useDuplicateClassPlan();
 
   const handleEdit = (planId: string) => {
-    router.push(`/class-planner/${planId}`);
+    router.push(`/settings/class-planner/${planId}`);
   };
 
   const handleDuplicate = async (plan: DraftClassPlan) => {
@@ -92,7 +92,7 @@ export function ClassPlansTable({ onCreatePlan }: ClassPlansTableProps) {
   };
 
   const handleApply = (planId: string) => {
-    router.push(`/class-planner/${planId}?apply=true`);
+    router.push(`/settings/class-planner/${planId}?apply=true`);
   };
 
   const getStatusBadge = (status: string | null) => {

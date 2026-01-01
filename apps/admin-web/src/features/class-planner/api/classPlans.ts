@@ -661,8 +661,8 @@ export const classPlansApi = {
     data: {
       subject_id?: string | null;
       day_of_week?: number | null;
-      start_time: string;
-      end_time: string;
+      start_time: string | null;
+      end_time: string | null;
       room?: string | null;
       level?: string | null;
       status?: 'ACTIVE' | 'INACTIVE';
@@ -675,8 +675,8 @@ export const classPlansApi = {
       draft_class_plan_id: planId,
       subject_id: data.subject_id || null,
       day_of_week: data.day_of_week ?? null,
-      start_time: data.start_time,
-      end_time: data.end_time,
+      start_time: data.start_time || '',
+      end_time: data.end_time || '',
       room: data.room || null,
       level: data.level || null,
       status: data.status || 'ACTIVE',
@@ -700,8 +700,8 @@ export const classPlansApi = {
     data: Partial<{
       subject_id: string | null;
       day_of_week: number | null;
-      start_time: string;
-      end_time: string;
+      start_time?: string;
+      end_time?: string;
       room: string | null;
       level: string | null;
       status: 'ACTIVE' | 'INACTIVE';
@@ -804,6 +804,34 @@ export const classPlansApi = {
       .delete()
       .eq('draft_class_id', classId)
       .eq('staff_id', staffId);
+    if (error) throw error;
+  },
+
+  /**
+   * Add a slot to a class plan
+   */
+  addSlot: async (
+    planId: string,
+    slot: {
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+    }
+  ): Promise<void> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    const payload: TablesInsert<'draft_class_plan_slots'> = {
+      id: crypto.randomUUID(),
+      draft_class_plan_id: planId,
+      day_of_week: slot.day_of_week,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+    };
+
+    const { error } = await supabase
+      .from('draft_class_plan_slots')
+      .insert(payload);
+    
     if (error) throw error;
   },
 };

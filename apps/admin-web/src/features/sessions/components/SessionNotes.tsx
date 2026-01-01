@@ -140,11 +140,6 @@ export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProp
       <h3 className="text-lg font-semibold">Session Notes</h3>
 
       {/* Notes List */}
-      {notes.length === 0 ? (
-        <div className="text-sm text-muted-foreground py-4">
-          No notes yet. Add a note to get started.
-        </div>
-      ) : (
         <div className="space-y-3">
           {notes.map((note) => (
             <Card key={note.id} className="group">
@@ -238,7 +233,6 @@ export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProp
             </Card>
           ))}
         </div>
-      )}
 
       {/* New Note Input */}
       <div className="space-y-2 pt-2">

@@ -19,6 +19,7 @@ import { useClassPlan } from '../hooks/useClassPlansQuery';
 import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { format, endOfYear } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 
 interface ApplyPlanDialogProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export function ApplyPlanDialog({
       });
 
       onClose();
-      router.push('/class-planner');
+      router.push('/settings/class-planner');
     } catch (error) {
       toast({
         title: 'Error',
@@ -77,6 +78,35 @@ export function ApplyPlanDialog({
   const totalClasses = plan.classes.length;
   const totalStudents = plan.classes.reduce((sum, cls) => sum + cls.students.length, 0);
   const totalStaff = plan.classes.reduce((sum, cls) => sum + cls.staff.length, 0);
+  
+  // Check for unassigned students_subjects
+  const { data: allStudentsWithSubjects } = useQuery({
+    queryKey: ['class-planner', 'students-subjects', planId],
+    queryFn: async () => {
+      const supabase = (await import('@/shared/lib/supabase/client')).getSupabaseClient();
+      const { data, error } = await supabase
+        .from('students_subjects')
+        .select(`
+          student:students(*),
+          subject:subjects(*)
+        `);
+      if (error) throw error;
+      return (data || []).filter((row: any) => row.student && row.subject);
+    },
+  });
+
+  const assignedSet = new Set<string>();
+  plan.classes.forEach((cls) => {
+    cls.students.forEach((student) => {
+      const key = `${student.id}-${cls.subject_id || 'null'}`;
+      assignedSet.add(key);
+    });
+  });
+
+  const unassignedCount = allStudentsWithSubjects?.filter((item: any) => {
+    const key = `${item.student.id}-${item.subject.id}`;
+    return !assignedSet.has(key);
+  }).length || 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -95,6 +125,15 @@ export function ApplyPlanDialog({
               <strong>Warning:</strong> This action will delete all existing classes and cannot be undone. A backup will be created automatically. Classes will be applied immediately, and sessions will be generated from the selected date onwards.
             </AlertDescription>
           </Alert>
+
+          {unassignedCount > 0 && (
+            <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-600">
+              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                <strong>Warning:</strong> There {unassignedCount === 1 ? 'is' : 'are'} {unassignedCount} unassigned student-subject combination{unassignedCount !== 1 ? 's' : ''} that will not be included in this plan. You can proceed anyway.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-2">
             <Label>Plan Summary</Label>
