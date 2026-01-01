@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { Tables, Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import type { Tables } from '@altitutor/shared';
 import { 
   Table, 
   TableBody, 
@@ -11,251 +10,547 @@ import {
   TableHeader, 
   TableRow,
   Badge,
-  useToast
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SkeletonTable,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from '@altitutor/ui';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { getSessionTitle, formatSessionDate, type SessionWithDetails } from '@/features/sessions/utils/session-helpers';
+import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
+import { useStudentClasses } from '../hooks/useStudentClasses';
+import { TablePagination } from '@/shared/components/TablePagination';
+import { ViewClassModal } from '@/features/classes';
+import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
+import { cn, formatSessionType } from '@/shared/utils';
+import { CalendarIcon, Check, X, ArrowUpDown } from 'lucide-react';
+import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
 
-type PaymentStatus = 'pending' | 'processing' | 'succeeded' | 'failed' | 'refunded';
-
-interface SessionRow {
-  sessionsStudentsId: string;
-  session: SessionWithDetails;
-  paymentAttempts: {
-    id: string;
-    attempt_number: number;
-    amount_cents: number;
-    status: PaymentStatus;
-    stripe_payment_intent_id: string | null;
-    charged_at: string | null;
-  }[];
+interface StudentSessionsTabProps {
+  student: Tables<'students'>;
 }
 
-export function StudentSessionsTab({ student }: { student: Tables<'students'> }) {
-  const { toast } = useToast();
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [loading, setLoading] = useState(false);
+// Get today's date in local timezone (YYYY-MM-DD format)
+const getTodayLocalDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
-  const loadSessions = async () => {
-    setLoading(true);
-    try {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      
-      // Get end of today in local timezone
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
-      
-      // Query sessions_students to get all sessions for this student up to end of today
-      const { data: sessionsStudents, error: ssError } = await supabase
-        .from('sessions_students')
-        .select(`
-          id,
-          session_id,
-          sessions!inner(
-            id,
-            start_at,
-            end_at,
-            type,
-            class_id,
-            classes(
-              id,
-              day_of_week,
-              start_time,
-              end_time,
-              level,
-              subject_id,
-              subjects(
-                id,
-                name,
-                curriculum,
-                year_level
-              )
-            )
-          )
-        `)
-        .eq('student_id', student.id)
-        .lte('sessions.start_at', endOfToday.toISOString())
-        .order('sessions(start_at)', { ascending: false });
+export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
+  // View mode state
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
-      if (ssError) {
-        console.error('Error fetching sessions:', ssError);
-        return;
-      }
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
-      // Get invoice items for these sessions
-      const sessionsStudentsIds = sessionsStudents?.map((ss: any) => ss.id) || [];
-      
-      const invoiceItemsMap: Record<string, any[]> = {};
-      if (sessionsStudentsIds.length > 0) {
-        const { data: items, error: itemsError } = await supabase
-          .from('invoice_items')
-          .select('id, sessions_students_id, invoice_id, amount_cents, description, is_subsidy, invoice:invoices(status, stripe_invoice_id, stripe_charge_id, paid_at)')
-          .in('sessions_students_id', sessionsStudentsIds)
-          .order('created_at', { ascending: false });
+  // Filter state - default to past sessions only (end date = today)
+  const [dateRangeStart, setDateRangeStart] = useState<string>('');
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(getTodayLocalDate());
+  const [selectedClassId, setSelectedClassId] = useState<string>('ALL');
 
-        if (itemsError) {
-          console.error('Error fetching invoice items:', itemsError);
-        } else {
-          for (const item of items || []) {
-            if (!invoiceItemsMap[item.sessions_students_id]) {
-              invoiceItemsMap[item.sessions_students_id] = [];
-            }
-            invoiceItemsMap[item.sessions_students_id].push(item);
-          }
-        }
-      }
+  // Sort state
+  type SortField = 'start_at' | 'type';
+  const [sortField, setSortField] = useState<SortField>('start_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-      // Transform the data
-      const sessionRows: SessionRow[] = (sessionsStudents || []).map((ss: any) => {
-        const sessionData = ss.sessions;
-        // Map invoice items to paymentAttempts format for backward compatibility
-        const invoiceItems = invoiceItemsMap[ss.id] || [];
-        const paymentAttempts = invoiceItems.map((item: any) => ({
-          id: item.id,
-          sessions_students_id: item.sessions_students_id,
-          amount_cents: item.amount_cents,
-          status: item.invoice?.status === 'paid' ? 'succeeded' : item.invoice?.status || 'pending',
-          stripe_payment_intent_id: null, // Invoices don't have payment intents directly
-          stripe_charge_id: item.invoice?.stripe_charge_id || null,
-          charged_at: item.invoice?.paid_at || null,
-          attempt_number: 1, // Invoices don't have attempt numbers
-        }));
-        
-        return {
-          sessionsStudentsId: ss.id,
-          session: {
-            ...sessionData,
-            class: sessionData.classes ? {
-              ...sessionData.classes,
-              subject: sessionData.classes.subjects || undefined
-            } : undefined
-          },
-          paymentAttempts
-        };
-      });
+  // Modal state
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [viewingClassId, setViewingClassId] = useState<string | null>(null);
 
-      setSessions(sessionRows);
-    } catch (error) {
-      console.error('Failed to load sessions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Get student classes for filter
+  const { data: studentClassesData = [] } = useStudentClasses(student.id);
 
+  // Prepare date range for API (YYYY-MM-DD format)
+  const rangeStart = dateRangeStart || undefined;
+  const rangeEnd = dateRangeEnd || undefined;
+  const classId = selectedClassId !== 'ALL' ? selectedClassId : undefined;
+
+  // Fetch sessions using RPC
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    refetch,
+    isFetching 
+  } = useSessionsWithDetails({ 
+    rangeStart,
+    rangeEnd,
+    studentId: student.id,
+    classId,
+    includeInactive: false,
+    orderBy: sortField === 'start_at' ? 'start_at' : 'type',
+    ascending: sortDirection === 'asc',
+  });
+
+  // Extract data from response
+  const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
+  const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
+  const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
+  const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = (data as any)?.sessionStudents || {};
+  const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>> = (data as any)?.sessionStaff || {};
+
+  // Client-side pagination
+  const totalSessions = allSessions.length;
+  const paginatedSessions = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return allSessions.slice(start, end);
+  }, [allSessions, page, pageSize]);
+
+  // Reset to page 1 when filters change
   useEffect(() => {
-    loadSessions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [student.id]);
+    setPage(1);
+  }, [dateRangeStart, dateRangeEnd, selectedClassId]);
 
-  const formatAmount = (amountCents: number) => {
-    return `$${(amountCents / 100).toFixed(2)}`;
-  };
+  // Helper functions
+  const getClassShortDisplay = useCallback((session: Tables<'sessions'>) => {
+    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
+    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
+    const parts: string[] = [];
+    if (subj?.curriculum) parts.push(String(subj.curriculum));
+    const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
+    const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
+    if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
+    return parts.filter(Boolean).join(' ');
+  }, [classesById, subjectsById]);
 
-  const formatTime = (startAt: string | null, endAt: string | null) => {
-    if (!startAt) return '-';
+  const getClassDisplay = useCallback((session: Tables<'sessions'>) => {
+    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
+    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
+    const parts: string[] = [];
+    if (subj?.curriculum) parts.push(String(subj.curriculum));
+    if (subj?.year_level != null) parts.push(String(subj.year_level));
+    if (subj?.name) parts.push(subj.name);
+    if (cls?.level) parts.push(String(cls.level));
+    return parts.join(' ');
+  }, [classesById, subjectsById]);
+
+  const getTimeRange = useCallback((session: Tables<'sessions'>) => {
+    const s = session.start_at ? new Date(session.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const e = session.end_at ? new Date(session.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    return s && e ? `${s}–${e}` : s || e || '-';
+  }, []);
+
+  const getSessionTypeBadgeColor = useCallback((type: string) => {
+    switch (type) {
+      case 'CLASS':
+        return 'bg-blue-100 text-blue-800';
+      case 'DRAFTING':
+        return 'bg-purple-100 text-purple-800';
+      case 'SUBSIDY_INTERVIEW':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'TRIAL_SESSION':
+        return 'bg-green-100 text-green-800';
+      case 'TRIAL_SHIFT':
+        return 'bg-orange-100 text-orange-800';
+      case 'EXAM_COURSE':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'STAFF_INTERVIEW':
+        return 'bg-pink-100 text-pink-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getInvoiceStatusBadge = useCallback((status: string | null | undefined) => {
+    if (!status) return null;
     
-    const start = new Date(startAt);
-    const startHours = start.getHours().toString().padStart(2, '0');
-    const startMinutes = start.getMinutes().toString().padStart(2, '0');
+    let label = '';
+    let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
     
-    if (!endAt) return `${startHours}:${startMinutes}`;
+    if (status === 'draft' || status === 'open') {
+      label = 'Sent';
+      variant = 'secondary';
+    } else if (status === 'paid') {
+      label = 'Paid';
+      variant = 'default';
+    } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
+      label = 'Failed';
+      variant = 'destructive';
+    } else {
+      label = status;
+      variant = 'outline';
+    }
     
-    const end = new Date(endAt);
-    const endHours = end.getHours().toString().padStart(2, '0');
-    const endMinutes = end.getMinutes().toString().padStart(2, '0');
-    
-    return `${startHours}:${startMinutes} - ${endHours}:${endMinutes}`;
-  };
+    return <Badge variant={variant} className="text-xs ml-1">{label}</Badge>;
+  }, []);
 
-  const getStatusBadge = (status: PaymentStatus) => {
-    const variants: Record<PaymentStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      pending: 'secondary',
-      processing: 'outline',
-      succeeded: 'default',
-      failed: 'destructive',
-      refunded: 'secondary'
-    };
+  const handleSort = useCallback((field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  }, [sortField]);
 
-    const labels: Record<PaymentStatus, string> = {
-      pending: 'Pending',
-      processing: 'Processing',
-      succeeded: 'Succeeded',
-      failed: 'Failed',
-      refunded: 'Refunded'
-    };
+  const handleClassClick = useCallback((classId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setViewingClassId(classId);
+    setIsClassModalOpen(true);
+  }, []);
 
-    return <Badge variant={variants[status]}>{labels[status]}</Badge>;
-  };
+  const handleOpenStudent = useCallback((studentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('open-student-modal', { detail: { id: studentId } }));
+  }, []);
 
-  if (loading) {
+  const handleOpenStaff = useCallback((staffId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('open-staff-modal', { detail: { id: staffId } }));
+  }, []);
+
+  const handleOpenSession = useCallback((sessionId: string) => {
+    window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+  }, []);
+
+  // Format date for display
+  const formatDate = useCallback((dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(undefined, {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  }, []);
+
+  // Loading state
+  if (isLoading && allSessions.length === 0) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <div className="text-muted-foreground">Loading sessions...</div>
+      <div className="h-full flex flex-col space-y-4">
+        <div className="flex items-center justify-between">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'calendar')}>
+            <TabsList>
+              <TabsTrigger value="table">Table</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        {viewMode === 'table' ? (
+          <>
+            <div className="flex gap-4 items-end">
+              <div>
+                <label className="block text-sm mb-1">Start Date</label>
+                <Input type="date" disabled />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">End Date</label>
+                <Input type="date" disabled />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Class</label>
+                <Select disabled>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="All Classes" />
+                  </SelectTrigger>
+                </Select>
+              </div>
+            </div>
+            <SkeletonTable rows={8} columns={7} />
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-muted-foreground">Loading calendar...</div>
+          </div>
+        )}
       </div>
     );
   }
 
-  if (sessions.length === 0) {
+  // Error state
+  if (error && allSessions.length === 0) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <div className="text-muted-foreground">No sessions found for this student.</div>
+      <div className="text-red-500 p-4">
+        Failed to load sessions. Please try again.
+        <button 
+          onClick={() => refetch()} 
+          className="ml-2 text-blue-600 hover:text-blue-800 underline"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date & Time</TableHead>
-            <TableHead>Class</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-            <TableHead>Payment Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sessions.map((row) => (
-            <TableRow key={row.session.id}>
-              <TableCell>
-                <div>
-                  {row.session.start_at && (
-                    <>
-                      <div>{formatSessionDate(row.session.start_at)}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatTime(row.session.start_at, row.session.end_at)}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="max-w-md">
-                  {getSessionTitle(row.session)}
-                </div>
-              </TableCell>
-              <TableCell className="text-right">
-                {row.paymentAttempts.length > 0 ? formatAmount(row.paymentAttempts[0].amount_cents) : '-'}
-              </TableCell>
-              <TableCell>
-                {row.paymentAttempts.length > 0 ? (
-                  <div>
-                    {getStatusBadge(row.paymentAttempts[0].status)}
-                    {row.paymentAttempts[0].attempt_number > 1 && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        (Attempt {row.paymentAttempts[0].attempt_number})
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <Badge variant="outline">Not Billed</Badge>
-                )}
-              </TableCell>
+    <div className="h-full flex flex-col space-y-4">
+      {/* View Selector */}
+      <div className="flex items-center justify-between">
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'calendar')}>
+          <TabsList>
+            <TabsTrigger value="table">Table</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Filters - only show in table view */}
+      {viewMode === 'table' && (
+        <div className="flex gap-4 items-end">
+          <div>
+            <label className="block text-sm mb-1">Start Date</label>
+            <Input 
+              type="date" 
+              value={dateRangeStart}
+              onChange={(e) => setDateRangeStart(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">End Date</label>
+            <Input 
+              type="date" 
+              value={dateRangeEnd}
+              onChange={(e) => setDateRangeEnd(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Class</label>
+            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Classes</SelectItem>
+                {studentClassesData.map((sc) => (
+                  <SelectItem key={sc.class.id} value={sc.class.id}>
+                    {sc.subject ? `${sc.subject.curriculum || ''} ${sc.subject.year_level || ''} ${sc.subject.name || ''}`.trim() : `Class ${sc.class.id.substring(0, 8)}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {/* Calendar View */}
+      {viewMode === 'calendar' && (
+        <div className="flex-1 min-h-0">
+          <StudentSessionsCalendarView
+            studentId={student.id}
+            onOpenSession={handleOpenSession}
+            classId={selectedClassId !== 'ALL' ? selectedClassId : undefined}
+          />
+        </div>
+      )}
+
+      {/* Table View */}
+      {viewMode === 'table' && (
+      <div className="flex-1 overflow-y-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('start_at')}>
+                Date
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  sortField === 'start_at' ? "opacity-100" : "opacity-40"
+                )} />
+              </TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('type')}>
+                Type
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  sortField === 'type' ? "opacity-100" : "opacity-40"
+                )} />
+              </TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead>Staff</TableHead>
+              <TableHead>Students</TableHead>
+              <TableHead>Invoice Status</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {paginatedSessions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center h-24">
+                  {dateRangeStart || dateRangeEnd || selectedClassId !== 'ALL'
+                    ? "No sessions match your filters" 
+                    : "No sessions found"}
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedSessions.map((session) => {
+                const students = sessionStudents[session.id] || [];
+                const staff = sessionStaff[session.id] || [];
+                // Get invoice status from the student in this session (should only be one since we're filtering by student)
+                const studentInSession = students.find(s => s.id === student.id);
+                const invoiceStatus = studentInSession?.invoice_status;
+
+                return (
+                  <TableRow 
+                    key={session.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleOpenSession(session.id)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                        <span>{session.start_at ? formatDate(session.start_at) : '-'}</span>
+                        {session.status === 'INACTIVE' && (
+                          <Badge variant="secondary" className="text-xs">
+                            Inactive
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
+                    <TableCell>
+                      <Badge className={getSessionTypeBadgeColor(session.type)}>
+                        {formatSessionType(session.type)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {session.class_id ? (() => {
+                        const cls = classesById[session.class_id];
+                        const shortDisplay = getClassShortDisplay(session);
+                        const fullDisplay = getClassDisplay(session);
+                        if (cls) {
+                          return (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
+                              onClick={(e) => handleClassClick(session.class_id!, e)}
+                              title={fullDisplay || 'Class'}
+                            >
+                              <span className="2xl:hidden">{shortDisplay || 'Class'}</span>
+                              <span className="hidden 2xl:inline">{fullDisplay || 'Class'}</span>
+                            </Button>
+                          );
+                        }
+                        return <span className="text-muted-foreground text-sm">-</span>;
+                      })() : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {staff.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {staff.map((s) => {
+                            const plannedAbsence = s.planned_absence === true;
+                            const actualAttended = s.actual_attended;
+                            const nameClass = plannedAbsence 
+                              ? "text-muted-foreground line-through" 
+                              : "";
+                            
+                            return (
+                              <div key={s.id} className="flex items-center gap-1">
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className={cn("h-auto p-0 text-xs justify-start", nameClass)}
+                                  onClick={(e) => handleOpenStaff(s.id, e)}
+                                >
+                                  {s.first_name} {s.last_name}
+                                </Button>
+                                {actualAttended !== null && (
+                                  actualAttended ? (
+                                    <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                  ) : (
+                                    <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                  )
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {students.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {students.map((s) => {
+                            const plannedAbsence = s.planned_absence === true;
+                            const actualAttended = s.actual_attended;
+                            const isExtra = s.is_extra === true;
+                            const nameClass = plannedAbsence 
+                              ? "text-muted-foreground line-through" 
+                              : isExtra
+                              ? "text-orange-600 dark:text-orange-400"
+                              : "";
+                            
+                            return (
+                              <div key={s.id} className="flex items-center gap-1 flex-wrap">
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className={cn("h-auto p-0 text-xs justify-start", nameClass)}
+                                  onClick={(e) => handleOpenStudent(s.id, e)}
+                                >
+                                  {s.first_name} {s.last_name}
+                                </Button>
+                                {actualAttended !== null && (
+                                  actualAttended ? (
+                                    <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                  ) : (
+                                    <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                  )
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {getInvoiceStatusBadge(invoiceStatus) || (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      )}
+
+      {/* Pagination - only show in table view */}
+      {viewMode === 'table' && totalSessions > 0 && (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={totalSessions}
+          isFetching={isFetching}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
+
+      {/* Class Modal */}
+      {viewingClassId && (
+        <ViewClassModal
+          classId={viewingClassId}
+          isOpen={isClassModalOpen}
+          onClose={() => {
+            setIsClassModalOpen(false);
+            setViewingClassId(null);
+          }}
+          onClassUpdated={() => {
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 }
-
