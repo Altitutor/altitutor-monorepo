@@ -7,7 +7,7 @@ import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, Cred
 import { Button } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, MessageCircle } from 'lucide-react';
+import { Beaker, Newspaper, ClipboardList, MessageCircle, LayoutGrid } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
@@ -58,6 +58,11 @@ const navItems: NavItem[] = [
     title: 'Sessions',
     href: '/sessions',
     icon: ClipboardList,
+  },
+  {
+    title: 'Class Planner',
+    href: '/class-planner',
+    icon: LayoutGrid,
   },
   {
     title: 'Opening Hours',

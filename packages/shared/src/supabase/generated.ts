@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       billing_pricing: {
@@ -913,6 +908,306 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      draft_class_plan_slots: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          draft_class_plan_id: string | null
+          end_time: string
+          id: string
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          draft_class_plan_id?: string | null
+          end_time: string
+          id?: string
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          draft_class_plan_id?: string | null
+          end_time?: string
+          id?: string
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_class_plan_slots_draft_class_plan_id_fkey"
+            columns: ["draft_class_plan_id"]
+            isOneToOne: false
+            referencedRelation: "draft_class_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      draft_class_plans: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          created_at: string | null
+          created_by: string | null
+          default_class_length_hours: number | null
+          id: string
+          name: string
+          status: string | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          default_class_length_hours?: number | null
+          id?: string
+          name: string
+          status?: string | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          default_class_length_hours?: number | null
+          id?: string
+          name?: string
+          status?: string | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_class_plans_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_class_plans_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "draft_class_plans_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_class_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_class_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "draft_class_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      draft_classes: {
+        Row: {
+          created_at: string | null
+          day_of_week: number | null
+          draft_class_plan_id: string | null
+          end_time: string
+          id: string
+          level: string | null
+          room: string | null
+          start_time: string
+          status: string | null
+          subject_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week?: number | null
+          draft_class_plan_id?: string | null
+          end_time: string
+          id?: string
+          level?: string | null
+          room?: string | null
+          start_time: string
+          status?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number | null
+          draft_class_plan_id?: string | null
+          end_time?: string
+          id?: string
+          level?: string | null
+          room?: string | null
+          start_time?: string
+          status?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_classes_draft_class_plan_id_fkey"
+            columns: ["draft_class_plan_id"]
+            isOneToOne: false
+            referencedRelation: "draft_class_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      draft_classes_staff: {
+        Row: {
+          created_at: string | null
+          draft_class_id: string | null
+          id: string
+          staff_id: string | null
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          draft_class_id?: string | null
+          id?: string
+          staff_id?: string | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          draft_class_id?: string | null
+          id?: string
+          staff_id?: string | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_classes_staff_draft_class_id_fkey"
+            columns: ["draft_class_id"]
+            isOneToOne: false
+            referencedRelation: "draft_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "draft_classes_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      draft_classes_students: {
+        Row: {
+          created_at: string | null
+          draft_class_id: string | null
+          id: string
+          student_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          draft_class_id?: string | null
+          id?: string
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          draft_class_id?: string | null
+          id?: string
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_classes_students_draft_class_id_fkey"
+            columns: ["draft_class_id"]
+            isOneToOne: false
+            referencedRelation: "draft_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "draft_classes_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -2194,7 +2489,7 @@ export type Database = {
           availability_wednesday: boolean | null
           created_at: string | null
           drafting_availability: boolean | null
-          email: string | null
+          email: string
           first_name: string
           has_parking_remote: string | null
           id: string
@@ -2222,7 +2517,7 @@ export type Database = {
           availability_wednesday?: boolean | null
           created_at?: string | null
           drafting_availability?: boolean | null
-          email?: string | null
+          email: string
           first_name: string
           has_parking_remote?: string | null
           id: string
@@ -2250,7 +2545,7 @@ export type Database = {
           availability_wednesday?: boolean | null
           created_at?: string | null
           drafting_availability?: boolean | null
-          email?: string | null
+          email?: string
           first_name?: string
           has_parking_remote?: string | null
           id?: string
@@ -2579,7 +2874,7 @@ export type Database = {
           curriculum?: string | null
           email?: string | null
           first_name: string
-          id?: string
+          id: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -5429,6 +5724,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_enum_value: {
+        Args: { enum_name: string; new_value: string }
+        Returns: undefined
+      }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -5493,29 +5792,29 @@ export type Database = {
       format_class_full_name:
         | {
             Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               p_curriculum: string
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_end_time: string
               p_name: string
@@ -5527,27 +5826,27 @@ export type Database = {
       format_class_short_name:
         | {
             Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               p_curriculum: string
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_name: string
               p_start_time: string
@@ -5629,7 +5928,9 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
+      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       log_staff_absences: {
@@ -5640,8 +5941,6 @@ export type Database = {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
-      map_day_to_number: { Args: { day_string: string }; Returns: number }
-      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -5763,10 +6062,6 @@ export type Database = {
         }
         Returns: Json
       }
-      set_claim: {
-        Args: { claim: string; uid: string; value: Json }
-        Returns: undefined
-      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -5776,8 +6071,8 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
+      user_role: { Args: never; Returns: string }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
-      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
@@ -5967,3 +6262,4 @@ export const Constants = {
     },
   },
 } as const
+

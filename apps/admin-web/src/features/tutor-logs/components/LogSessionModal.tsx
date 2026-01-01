@@ -69,38 +69,17 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     }
   }, [isOpen, currentStaffId]);
 
-  // Skip file students step if no files selected
-  const shouldSkipFileStudents = (formData.topicFiles || []).length === 0;
-  const actualTotalSteps = adminMode 
-    ? (shouldSkipFileStudents ? 9 : 10)
-    : (shouldSkipFileStudents ? 8 : 9);
+  const actualTotalSteps = adminMode ? 10 : 9;
 
-  // Adjust step when skipping file students
   const handleNext = () => {
     if (currentStep < actualTotalSteps - 1) {
-      let nextStep = currentStep + 1;
-      // Skip file students step (step 6 in non-admin, step 7 in admin) if no files
-      if (shouldSkipFileStudents) {
-        const fileStudentsStep = adminMode ? 7 : 6;
-        if (nextStep === fileStudentsStep) {
-          nextStep = fileStudentsStep + 1; // Skip to notes step
-        }
-      }
-      setCurrentStep(nextStep);
+      setCurrentStep(currentStep + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentStep > 0) {
-      let prevStep = currentStep - 1;
-      // Skip file students step when going back
-      if (shouldSkipFileStudents) {
-        const fileStudentsStep = adminMode ? 7 : 6;
-        if (prevStep === fileStudentsStep) {
-          prevStep = fileStudentsStep - 1; // Go back to files step
-        }
-      }
-      setCurrentStep(prevStep);
+      setCurrentStep(currentStep - 1);
     }
   };
 
@@ -136,12 +115,6 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     if (adminMode && currentStep === 0) return 'Select Staff Member';
     const stepIndex = adminMode ? currentStep - 1 : currentStep;
     
-    // Adjust step index if we're skipping file students
-    let adjustedIndex = stepIndex;
-    if (shouldSkipFileStudents && stepIndex >= 7) {
-      adjustedIndex = stepIndex - 1; // Shift steps after file students
-    }
-    
     const titles = [
       'Select Session',
       'Staff Attendance',
@@ -153,7 +126,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       'Notes',
       'Confirmation',
     ];
-    return titles[adjustedIndex] || 'Log Session';
+    return titles[stepIndex] || 'Log Session';
   };
 
   const renderStep = () => {
@@ -284,15 +257,6 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
           />
         );
       case 6:
-        // Skip if no files selected
-        if (shouldSkipFileStudents) {
-          return (
-            <Step8Notes
-              notes={formData.notes || []}
-              onUpdate={(notes) => updateFormData({ notes })}
-            />
-          );
-        }
         return (
           <Step7FileStudents
             topics={formData.topics || []}
@@ -301,14 +265,6 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
           />
         );
       case 7:
-        // If we skipped file students, this is notes, otherwise it's notes after file students
-        if (shouldSkipFileStudents) {
-          return (
-            <Step9Confirmation
-              formData={formData}
-            />
-          );
-        }
         return (
           <Step8Notes
             notes={formData.notes || []}
@@ -338,13 +294,13 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 2:
         return (formData.studentAttendance || []).length > 0;
       case 3:
-        return (formData.topics || []).length > 0;
+        return true; // Allow proceeding with no topics selected
       case 4:
         return true; // Can proceed even with no student assignments
       case 5:
         return true; // Allow proceeding with no files selected
       case 6:
-        return true; // Allow proceeding with no file assignments (or skip if no files)
+        return true; // Allow proceeding with no file assignments
       case 7:
         return true;
       default:

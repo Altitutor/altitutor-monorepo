@@ -9,6 +9,7 @@ import type { TutorLogFormData } from '../../types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { formatSessionDate } from '@/features/sessions/utils/session-helpers';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { format } from 'date-fns';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
@@ -43,9 +44,10 @@ export function Step9Confirmation({
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
       // Get session
+      // Use LEFT join for classes since trial sessions may not have class_id
       const { data: sessionData } = await supabase
         .from('sessions')
-        .select('*, class:classes!inner(*, subject:subjects(*))')
+        .select('*, class:classes(*, subject:subjects(*)), subject:subjects(*)')
         .eq('id', formData.sessionId)
         .single();
       setSession(sessionData);
@@ -94,7 +96,10 @@ export function Step9Confirmation({
         }
         
         // Get all topics for the subject to derive codes
-        const subjectId = sessionData?.class?.subject?.id;
+        // Try to get subject from class first, then fall back to direct subject relation
+        const subjectId = sessionData?.class?.subject?.id || 
+                          sessionData?.subject?.id ||
+                          sessionData?.subject_id;
         if (subjectId) {
           const { data: allTopicsData } = await supabase
             .from('topics')
@@ -153,7 +158,20 @@ export function Step9Confirmation({
     })
     .filter((data): data is NonNullable<typeof data> => data !== null);
 
-  const subject = session?.class?.subject;
+  // Get subject from class if available, otherwise from direct subject relation
+  const subject = session?.class?.subject || session?.subject;
+
+  // Format time from session timestamps
+  const formatSessionTime = () => {
+    if (!session?.start_at || !session?.end_at) return '—';
+    try {
+      const start = new Date(session.start_at);
+      const end = new Date(session.end_at);
+      return `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`;
+    } catch {
+      return '—';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -165,11 +183,7 @@ export function Step9Confirmation({
           <div className="text-sm">{session?.start_at ? formatSessionDate(session.start_at) : '—'}</div>
           
           <div className="text-sm font-medium text-muted-foreground">Time:</div>
-          <div className="text-sm">
-            {session?.class?.start_time && session?.class?.end_time
-              ? `${session.class.start_time} - ${session.class.end_time}`
-              : '—'}
-          </div>
+          <div className="text-sm">{formatSessionTime()}</div>
           
           <div className="text-sm font-medium text-muted-foreground">Subject:</div>
           <div className="text-sm">
