@@ -145,7 +145,6 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
           <div className="space-y-2">
             <Label htmlFor="subject">Subject</Label>
             <SubjectSearchPopover
-              allSubjects={allSubjects}
               selectedSubjects={selectedSubject ? [selectedSubject] : []}
               onSelectSubject={setSelectedSubject}
               trigger={

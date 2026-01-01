@@ -366,7 +366,6 @@ export function ViewStudentModal({
                       onViewSubject={handleViewSubject}
                       addSubjectButton={
                         <SubjectSearchPopover
-                          allSubjects={allSubjects}
                           selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
                           onSelectSubject={handleAssignSubject}
                         />

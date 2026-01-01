@@ -344,7 +344,6 @@ export function ViewStaffModal({
                       onViewSubject={handleViewSubject}
                       addSubjectButton={
                         <SubjectSearchPopover
-                          allSubjects={allSubjects}
                           selectedSubjects={isEditing ? tempStaffSubjects : staffSubjects}
                           onSelectSubject={(subject) => handleAssignSubject(subject.id)}
                         />

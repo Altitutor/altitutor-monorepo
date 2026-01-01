@@ -328,7 +328,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Subjects</h3>
               <SubjectSearchPopover
-                allSubjects={allSubjects}
                 selectedSubjects={selectedSubjects}
                 onSelectSubject={handleAddSubject}
               />

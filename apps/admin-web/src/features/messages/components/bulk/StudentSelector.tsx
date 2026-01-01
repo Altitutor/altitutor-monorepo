@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { X, Plus, Search, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Plus, Search, ChevronDown, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { 
   Button, 
   Input, 
@@ -31,6 +31,7 @@ import {
   getStudentsBySessionDate,
   getStudentsClasses,
 } from '../../api/bulk';
+import { subjectsApi } from '@/features/subjects/api/subjects';
 import { 
   formatSubjectDisplay, 
   formatClassName, 
@@ -75,11 +76,15 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
   // Bulk selection state
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   
-  // Fetch subjects and classes for filters
+  // Fetch subjects for filters (initial load - no search)
   const { data: subjects = [] } = useQuery({
     queryKey: ['subjects-all'],
     queryFn: getAllSubjects,
   });
+
+  // Server-side subject search state
+  const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
+  const [isSearchingSubjects, setIsSearchingSubjects] = useState(false);
 
   const { data: classes = [] } = useQuery({
     queryKey: ['classes-all'],
@@ -125,16 +130,48 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, selectedStudents, toast]);
   
-  // Filter subjects based on search query
+  // Server-side subject search with debouncing
+  useEffect(() => {
+    if (!isSubjectPopoverOpen) {
+      setSubjectSearchQuery('');
+      setSubjectSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      if (subjectSearchQuery.trim().length === 0) {
+        // If no search query, use all subjects
+        setSubjectSearchResults(subjects);
+        setIsSearchingSubjects(false);
+      } else {
+        // Search with query using RPC function
+        setIsSearchingSubjects(true);
+        try {
+          const { subjects: searchResults } = await subjectsApi.list({ 
+            search: subjectSearchQuery.trim(), 
+            limit: 100, 
+            offset: 0 
+          });
+          setSubjectSearchResults(searchResults);
+        } catch (error) {
+          console.error('Error searching subjects:', error);
+          setSubjectSearchResults([]);
+        } finally {
+          setIsSearchingSubjects(false);
+        }
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [subjectSearchQuery, isSubjectPopoverOpen, subjects]);
+
+  // Use search results if searching, otherwise use all subjects
   const filteredSubjects = useMemo(() => {
-    if (!subjectSearchQuery) return subjects;
-    
-    const query = subjectSearchQuery.toLowerCase();
-    return subjects.filter((subject) => {
-      const displayText = formatSubjectDisplay(subject).toLowerCase();
-      return displayText.includes(query) || subject.name.toLowerCase().includes(query);
-    });
-  }, [subjects, subjectSearchQuery]);
+    if (subjectSearchQuery.trim().length > 0) {
+      return subjectSearchResults;
+    }
+    return subjects;
+  }, [subjectSearchQuery, subjectSearchResults, subjects]);
   
   // Filter classes based on search query
   const filteredClasses = useMemo(() => {
@@ -401,7 +438,12 @@ export function StudentSelector({ selectedStudents, onStudentsChange, onNext }: 
                 />
                 <ScrollArea className="max-h-[300px]">
                   <div className="space-y-1">
-                    {filteredSubjects.length === 0 ? (
+                    {isSearchingSubjects ? (
+                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Searching...
+                      </div>
+                    ) : filteredSubjects.length === 0 ? (
                       <div className="p-3 text-center text-sm text-muted-foreground">
                         {subjectSearchQuery ? 'No subjects match your search' : 'No subjects found'}
                       </div>

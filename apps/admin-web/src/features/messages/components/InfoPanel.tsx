@@ -336,7 +336,6 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                     onViewSubject={handleViewSubject}
                     addSubjectButton={
                       <SubjectSearchPopover
-                        allSubjects={allSubjects}
                         selectedSubjects={isEditingStudent ? tempStudentSubjects : studentSubjects}
                         onSelectSubject={handleAssignSubjectToStudent}
                       />
@@ -562,7 +561,6 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                     onViewSubject={handleViewSubjectStaff}
                     addSubjectButton={
                       <SubjectSearchPopover
-                        allSubjects={allSubjects}
                         selectedSubjects={isEditingStaff ? tempStaffSubjects : staffSubjects}
                         onSelectSubject={(subject) => handleAssignSubjectToStaff(subject.id)}
                       />

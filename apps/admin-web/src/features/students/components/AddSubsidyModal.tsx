@@ -141,7 +141,6 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
           <div className="space-y-2">
             <Label htmlFor="subject">Subject</Label>
             <SubjectSearchPopover
-              allSubjects={allSubjects}
               selectedSubjects={selectedSubject ? [selectedSubject] : []}
               onSelectSubject={setSelectedSubject}
               trigger={
