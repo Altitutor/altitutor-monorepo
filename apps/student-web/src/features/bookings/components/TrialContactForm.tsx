@@ -26,7 +26,7 @@ const trialContactSchema = z.object({
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY'], {
     required_error: 'Please select a curriculum',
   }),
-  year_level: z.coerce.number().int().min(1).max(12).optional(),
+  year_level: z.enum(['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']).optional(),
   skip_parent_details: z.boolean().default(false),
   parent_first_name: z.string().max(100).optional(),
   parent_last_name: z.string().max(100).optional(),
@@ -169,16 +169,29 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading = false }:
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Year Level</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={12}
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                    />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select year level" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Reception">Reception</SelectItem>
+                      <SelectItem value="1">Year 1</SelectItem>
+                      <SelectItem value="2">Year 2</SelectItem>
+                      <SelectItem value="3">Year 3</SelectItem>
+                      <SelectItem value="4">Year 4</SelectItem>
+                      <SelectItem value="5">Year 5</SelectItem>
+                      <SelectItem value="6">Year 6</SelectItem>
+                      <SelectItem value="7">Year 7</SelectItem>
+                      <SelectItem value="8">Year 8</SelectItem>
+                      <SelectItem value="9">Year 9</SelectItem>
+                      <SelectItem value="10">Year 10</SelectItem>
+                      <SelectItem value="11">Year 11</SelectItem>
+                      <SelectItem value="12">Year 12</SelectItem>
+                      <SelectItem value="13">Year 13</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

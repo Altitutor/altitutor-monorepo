@@ -36,25 +36,14 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // IMPORTANT: Use getUser() to validate and refresh auth token
-  // This validates the token with Supabase Auth server (secure)
-  // getSession() reads from cookies without validation (insecure)
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
   // For API routes, we just refresh the token but don't redirect
   // The API route itself will handle auth checks
   if (pathname.startsWith('/api')) {
     return supabaseResponse;
   }
 
-  // Determine portal URLs based on environment
-  const adminPortalUrl = process.env.NEXT_PUBLIC_ADMIN_PORTAL_URL || 'http://localhost:3000';
-  const tutorPortalUrl = process.env.NEXT_PUBLIC_TUTOR_PORTAL_URL || 'http://localhost:3002';
-
   // Public paths that don't require authentication
+  // Check these EARLY to avoid unnecessary auth calls
   const isPublicPath = 
     pathname === '/' ||
     pathname.startsWith('/login') || 
@@ -64,19 +53,31 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/book-trial');
 
+  // For public paths, allow access without authentication checks
+  if (isPublicPath) {
+    return supabaseResponse;
+  }
+
+  // IMPORTANT: Use getUser() to validate and refresh auth token
+  // This validates the token with Supabase Auth server (secure)
+  // getSession() reads from cookies without validation (insecure)
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  // Determine portal URLs based on environment
+  const adminPortalUrl = process.env.NEXT_PUBLIC_ADMIN_PORTAL_URL || 'http://localhost:3000';
+  const tutorPortalUrl = process.env.NEXT_PUBLIC_TUTOR_PORTAL_URL || 'http://localhost:3002';
+
   // If no user and trying to access protected route, redirect to login
-  if (!user && !isPublicPath) {
+  if (!user) {
     const redirectResponse = NextResponse.redirect(new URL('/login', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value);
     });
     return redirectResponse;
-  }
-
-  // Allow public paths without further checks
-  if (isPublicPath || !user) {
-    return supabaseResponse;
   }
 
   // Check if user is a student using vstudent_profile view

@@ -19,21 +19,54 @@ export const subjectsApi = {
   
   /**
    * Paginated, server-filtered subject list for pickers
+   * Uses search_subjects_admin RPC function for optimized search with exact + fuzzy matching
    */
-  list: async (params: { search?: string; limit?: number; offset?: number }): Promise<{ subjects: Tables<'subjects'>[]; total: number }> => {
-    const { search = '', limit = 20, offset = 0 } = params || {};
-    let query = (getSupabaseClient() as SupabaseClient<Database>)
-      .from('subjects')
-      .select('id, name, curriculum, year_level, discipline, color, level', { count: 'exact' })
-      .order('name', { ascending: true });
+  list: async (params: { 
+    search?: string; 
+    yearLevels?: number[];
+    curriculums?: string[];
+    disciplines?: string[];
+    levels?: string[];
+    limit?: number; 
+    offset?: number;
+    orderBy?: 'name' | 'curriculum' | 'year_level' | 'discipline' | 'level';
+    ascending?: boolean;
+  }): Promise<{ subjects: Tables<'subjects'>[]; total: number }> => {
+    const { 
+      search = '', 
+      yearLevels,
+      curriculums,
+      disciplines,
+      levels,
+      limit = 20, 
+      offset = 0,
+      orderBy = 'name',
+      ascending = true
+    } = params || {};
+    
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const trimmed = search.trim();
-    if (trimmed.length > 0) {
-      const q = `%${trimmed}%`;
-      query = query.or(`name.ilike.${q},level.ilike.${q}`);
-    }
-    const { data, count, error } = await query.range(offset, Math.max(offset + limit - 1, offset));
-    if (error) throw error;
-    return { subjects: (data ?? []) as Tables<'subjects'>[], total: count ?? 0 };
+    
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_subjects_admin', {
+      p_search: trimmed.length > 0 ? trimmed : undefined,
+      p_year_levels: yearLevels && yearLevels.length > 0 ? yearLevels : undefined,
+      p_curriculums: curriculums && curriculums.length > 0 ? curriculums : undefined,
+      p_disciplines: disciplines && disciplines.length > 0 ? disciplines : undefined,
+      p_levels: levels && levels.length > 0 ? levels : undefined,
+      p_limit: limit,
+      p_offset: offset,
+      p_order_by: orderBy,
+      p_ascending: ascending,
+    });
+
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { subjects: [], total: 0 };
+
+    const rpcData = rpcResult as { subjects: any[]; total: number };
+    return { 
+      subjects: (rpcData.subjects || []) as Tables<'subjects'>[], 
+      total: rpcData.total ?? 0 
+    };
   },
   
   /**
@@ -51,6 +84,7 @@ export const subjectsApi = {
   
   /**
    * Search subjects by name, curriculum, or year level
+   * Uses search_subjects_admin RPC function for optimized search with exact + fuzzy matching
    */
   searchSubjects: async (query: string): Promise<Tables<'subjects'>[]> => {
     const { subjects } = await subjectsApi.list({ search: query, limit: 20, offset: 0 });

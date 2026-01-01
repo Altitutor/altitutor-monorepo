@@ -4,11 +4,12 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 
-const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/reset-password'];
+// Auth pages that authenticated users should be redirected away from
+const AUTH_PAGES = ['/login', '/forgot-password', '/reset-password'];
 
-// Helper function to check if a path is public
-const isPublicPath = (pathname: string): boolean => {
-  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/');
+// Helper function to check if a path is an auth page
+const isAuthPage = (pathname: string): boolean => {
+  return AUTH_PAGES.includes(pathname) || pathname.startsWith('/auth/');
 };
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -17,18 +18,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
 
   useEffect(() => {
-    // Skip auth check for public paths
-    if (isPublicPath(pathname)) {
-      // If user is authenticated and trying to access login page, redirect to dashboard
-      if (user && pathname === '/login' && !loading) {
-        router.push('/dashboard');
-      }
-      return;
-    }
-
-    // For protected routes, redirect to login if not authenticated
-    if (!user && !loading) {
-      router.push('/login');
+    // If user is authenticated and trying to access auth pages, redirect to dashboard
+    // Middleware already handles redirecting unauthenticated users from protected routes,
+    // so we only need to handle this UX improvement here
+    if (user && isAuthPage(pathname) && !loading) {
+      router.push('/dashboard');
     }
   }, [user, loading, pathname, router]);
 
@@ -37,12 +31,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // For public routes, always render
-  if (isPublicPath(pathname)) {
-    return <>{children}</>;
-  }
-
-  // For protected routes, render if authenticated
-  // Middleware has already verified the user is a student
-  return user ? <>{children}</> : null;
+  // Middleware has already handled all route protection, so we can always render children
+  return <>{children}</>;
 } 

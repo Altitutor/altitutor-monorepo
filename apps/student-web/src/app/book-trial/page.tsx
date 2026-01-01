@@ -55,13 +55,33 @@ export default function BookTrialPage() {
       if (!response.ok) {
         const error = await response.json();
         
-        // Handle student exists error
-        if (error.error === 'STUDENT_EXISTS' || response.status === 409) {
+        // Handle student exists error (email conflict)
+        if (error.error === 'STUDENT_EXISTS') {
           setShowStudentExistsError(true);
           return;
         }
         
-        throw new Error(error.error || 'Failed to create booking');
+        // Handle phone conflict error
+        if (error.error === 'PHONE_CONFLICT') {
+          toast({
+            title: 'Phone Number Already in Use',
+            description: error.message || 'This phone number is already associated with another account. Please use a different phone number.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // Handle other 409 conflicts
+        if (response.status === 409) {
+          toast({
+            title: 'Conflict',
+            description: error.message || 'This information is already associated with another account.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        throw new Error(error.error || error.message || 'Failed to create booking');
       }
 
       const { session_id } = await response.json();

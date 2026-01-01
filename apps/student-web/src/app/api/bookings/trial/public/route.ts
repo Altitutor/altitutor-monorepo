@@ -69,11 +69,40 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate booking dates - prevent past bookings
+    const startAt = new Date(body.start_at);
+    const endAt = new Date(body.end_at);
+    const now = new Date();
+    
+    if (startAt < now) {
+      return NextResponse.json(
+        { error: 'Cannot book sessions in the past' },
+        { status: 400 }
+      );
+    }
+    
+    if (endAt <= startAt) {
+      return NextResponse.json(
+        { error: 'End time must be after start time' },
+        { status: 400 }
+      );
+    }
+    
     // Create Supabase client
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
+    
+    // Map year level: 'Reception' -> 0, numeric strings -> numbers
+    let yearLevel: number | null = null;
+    if (body.year_level) {
+      if (body.year_level === 'Reception') {
+        yearLevel = 0;
+      } else {
+        yearLevel = parseInt(body.year_level, 10);
+      }
+    }
     
     // Call database function (parameters must be in order: required first, then optional)
     const { data, error } = await supabase.rpc('create_public_trial_booking' as any, {
@@ -84,7 +113,7 @@ export async function POST(request: NextRequest) {
       p_curriculum: body.curriculum,
       p_start_at: body.start_at,
       p_end_at: body.end_at,
-      p_year_level: body.year_level || null,
+      p_year_level: yearLevel,
       p_parent_first_name: body.skip_parent_details ? null : (body.parent_first_name || null),
       p_parent_last_name: body.skip_parent_details ? null : (body.parent_last_name || null),
       p_parent_email: body.skip_parent_details ? null : (body.parent_email || null),
@@ -92,8 +121,18 @@ export async function POST(request: NextRequest) {
     });
     
     if (error) {
-      // Handle specific error codes
-      if (error.code === 'P0001' || error.message.includes('STUDENT_EXISTS')) {
+      // Log the full error for debugging
+      console.error('[TRIAL BOOKING API] Database error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      
+      const errorMessage = error.message || '';
+      
+      // Handle STUDENT_EXISTS error (email already exists)
+      if (error.code === 'P0001' && errorMessage.includes('STUDENT_EXISTS')) {
         return NextResponse.json(
           { 
             error: 'STUDENT_EXISTS',
@@ -103,8 +142,45 @@ export async function POST(request: NextRequest) {
         );
       }
       
+      // Handle phone number conflicts (phone already associated with parent/staff)
+      if (error.code === 'P0001' && (
+        errorMessage.includes('already associated with a parent') ||
+        errorMessage.includes('already associated with a staff member') ||
+        errorMessage.includes('already associated with another student')
+      )) {
+        return NextResponse.json(
+          { 
+            error: 'PHONE_CONFLICT',
+            message: errorMessage || 'This phone number is already associated with another account'
+          },
+          { status: 409 } // Conflict
+        );
+      }
+      
+      // Check for unique constraint violation (23505 is PostgreSQL unique violation)
+      if (error.code === '23505' || errorMessage.includes('unique constraint') || errorMessage.includes('duplicate key')) {
+        // Try to determine if it's email or phone conflict
+        if (errorMessage.toLowerCase().includes('email')) {
+          return NextResponse.json(
+            { 
+              error: 'STUDENT_EXISTS',
+              message: 'A student with this email already exists'
+            },
+            { status: 409 } // Conflict
+          );
+        } else {
+          return NextResponse.json(
+            { 
+              error: 'PHONE_CONFLICT',
+              message: 'This phone number is already associated with another account'
+            },
+            { status: 409 } // Conflict
+          );
+        }
+      }
+      
       return NextResponse.json(
-        { error: error.message || 'Failed to create booking' },
+        { error: errorMessage || 'Failed to create booking' },
         { status: 400 }
       );
     }

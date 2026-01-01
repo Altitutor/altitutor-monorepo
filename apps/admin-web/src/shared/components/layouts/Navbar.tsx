@@ -81,30 +81,21 @@ export function Navbar() {
     }
   }, [pathname, searchParams, selectedDate]);
 
-  // Close date picker when clicking outside
+  // Close date picker on scroll
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      // If clicking outside the date input and button, blur the input to close picker
-      if (
-        dateInputRefDesktop.current &&
-        !dateInputRefDesktop.current.contains(target) &&
-        !target.closest('[data-date-picker-button]')
-      ) {
+    const handleScroll = () => {
+      if (dateInputRefDesktop.current && document.activeElement === dateInputRefDesktop.current) {
         dateInputRefDesktop.current.blur();
       }
-      if (
-        dateInputRefMobile.current &&
-        !dateInputRefMobile.current.contains(target) &&
-        !target.closest('[data-date-picker-button]')
-      ) {
+      if (dateInputRefMobile.current && document.activeElement === dateInputRefMobile.current) {
         dateInputRefMobile.current.blur();
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('scroll', handleScroll, true);
+    
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('scroll', handleScroll, true);
     };
   }, []);
 
@@ -227,60 +218,63 @@ export function Navbar() {
         </div>
         <div className="flex items-center gap-4 min-w-[220px] justify-end">
           {/* Date Picker */}
-          <div className="hidden md:flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <div className="relative">
-              <input
-                ref={dateInputRefDesktop}
-                type="date"
-                value={selectedDate}
-                onChange={handleDateChange}
-                className="sr-only"
-                aria-label="Select date"
-                id="date-picker-desktop"
-              />
-              <Button
-                variant="outline"
-                className="h-9 px-3 text-sm font-normal cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleDateButtonClickDesktop();
-                }}
-                type="button"
-                data-date-picker-button
-              >
-                {formatDateDisplay(selectedDate)}
-              </Button>
-            </div>
-          </div>
-          {/* Mobile date picker - icon only */}
-          <div className="md:hidden">
-            <div className="relative">
-              <input
-                ref={dateInputRefMobile}
-                type="date"
-                value={selectedDate}
-                onChange={handleDateChange}
-                className="sr-only"
-                aria-label="Select date"
-                id="date-picker-mobile"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleDateButtonClickMobile();
-                }}
-                title="Select date"
-                type="button"
-                data-date-picker-button
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          {user && (
+            <>
+              <div className="hidden md:flex items-center gap-2">
+                <div className="relative">
+                  <input
+                    ref={dateInputRefDesktop}
+                    type="date"
+                    value={selectedDate}
+                    onChange={handleDateChange}
+                    className="sr-only"
+                    aria-label="Select date"
+                    id="date-picker-desktop"
+                  />
+                  <Button
+                    variant="outline"
+                    className="h-9 px-3 text-sm font-normal cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDateButtonClickDesktop();
+                    }}
+                    type="button"
+                    data-date-picker-button
+                  >
+                    {formatDateDisplay(selectedDate)}
+                  </Button>
+                </div>
+              </div>
+              {/* Mobile date picker - icon only */}
+              <div className="md:hidden">
+                <div className="relative">
+                  <input
+                    ref={dateInputRefMobile}
+                    type="date"
+                    value={selectedDate}
+                    onChange={handleDateChange}
+                    className="sr-only"
+                    aria-label="Select date"
+                    id="date-picker-mobile"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDateButtonClickMobile();
+                    }}
+                    title="Select date"
+                    type="button"
+                    data-date-picker-button
+                  >
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
           <ThemeToggle />
           {user ? (
             <DropdownMenu>
