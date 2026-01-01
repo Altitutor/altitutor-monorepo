@@ -109,7 +109,8 @@ Secrets used across **all environments** (dev and prod). Use sparingly.
 - Service credentials shared across environments
 - Non-environment-specific configuration
 - `VERCEL_TOKEN` - Vercel API token for deployment scripts (optional, can also be set as environment variable)
-- `SUPABASE_ACCESS_TOKEN` - Supabase Management API access token (optional, only needed if using SMTP automation script)
+- `SUPABASE_ACCESS_TOKEN` - Supabase Management API access token
+- `RESEND_API_KEY` - Resend API key for SMTP email sending (required for Supabase Auth SMTP)
 
 ### `.env.development`
 Secrets for **development/preview environments**.

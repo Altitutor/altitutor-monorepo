@@ -93,11 +93,11 @@ Deno.serve(async (req: Request) => {
     // Load message + conversation + contact + owned number
     const { data: message, error: msgErr } = await supabase
       .from('messages')
-      .select('id, body, conversation_id, is_announcement')
+      .select('id, body, conversation_id')
       .eq('id', messageId)
       .maybeSingle();
     if (msgErr || !message) throw msgErr || new Error('message not found');
-    console.log('[send-sms] Loaded message', { id: message.id, conversation_id: message.conversation_id, is_announcement: message.is_announcement || false });
+    console.log('[send-sms] Loaded message', { id: message.id, conversation_id: message.conversation_id });
 
     const { data: convo, error: cErr } = await supabase
       .from('conversations')
@@ -123,21 +123,12 @@ Deno.serve(async (req: Request) => {
     if (onErr || !owned) throw onErr || new Error('owned number not found');
     console.log('[send-sms] Loaded owned number', { from: owned.phone_e164, messaging_service_sid: owned.messaging_service_sid || null });
 
-    // Determine sender: use "ALTITUTOR" for announcements, otherwise use phone number
-    // Note: Alphanumeric sender IDs cannot be used with MessagingServiceSid
-    const isAnnouncement = message.is_announcement === true;
-    const fromSender = isAnnouncement ? 'ALTITUTOR' : (owned.phone_e164 || undefined);
-    // Only use MessagingServiceSid for non-announcement messages (when not using alphanumeric sender)
-    const messagingServiceSid = isAnnouncement ? undefined : (owned.messaging_service_sid || undefined);
-    
-    console.log('[send-sms] Sender determination', { isAnnouncement, fromSender, usingMessagingService: !!messagingServiceSid });
-
     const statusCallback = new URL('/functions/v1/twilio-status', supabaseUrl).toString();
     const tw = await callTwilioSend(
       contact.phone_e164,
       message.body,
-      fromSender,
-      messagingServiceSid,
+      owned.phone_e164 || undefined,
+      owned.messaging_service_sid || undefined,
       statusCallback
     );
 
