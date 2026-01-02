@@ -85,21 +85,23 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
 
   return (
     <div className="h-full border-r dark:border-brand-dark-border flex flex-col">
-      <div className="p-3 flex-shrink-0 space-y-3">
-        <Button
-          onClick={() => setIsNewConversationDialogOpen(true)}
-          className="w-full"
-          size="sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Conversation
-        </Button>
-        <input 
-          className="w-full px-3 py-2 text-sm border rounded-md" 
-          placeholder="Search conversations" 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="p-3 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <input 
+            className="flex-1 min-w-0 px-3 py-2 text-sm border rounded-md" 
+            placeholder="Search conversations" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button
+            onClick={() => setIsNewConversationDialogOpen(true)}
+            size="sm"
+            className="h-[36px] w-[36px] p-0 flex-shrink-0"
+            title="New Conversation"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
         
         {/* Filter pills - hidden when searching */}
         {!searchTerm.trim() && (
