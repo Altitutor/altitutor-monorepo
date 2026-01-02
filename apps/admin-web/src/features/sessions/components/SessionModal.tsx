@@ -22,6 +22,7 @@ import { Badge } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { Check, X } from 'lucide-react';
 import { SessionNotes } from './SessionNotes';
+import { formatTime } from '@/shared/utils/datetime';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -274,9 +275,19 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                   
                   <div className="text-sm font-medium text-muted-foreground">Time:</div>
                   <div className="text-sm">
-                    {session.class?.start_time && session.class?.end_time
-                      ? `${session.class.start_time} - ${session.class.end_time}`
-                      : '—'}
+                    {(() => {
+                      if (session.start_at && session.end_at) {
+                        const startDate = new Date(session.start_at);
+                        const endDate = new Date(session.end_at);
+                        const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+                        const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+                        return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+                      }
+                      if (session.class?.start_time && session.class?.end_time) {
+                        return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
+                      }
+                      return '—';
+                    })()}
                   </div>
                   
                   <div className="text-sm font-medium text-muted-foreground">Subject:</div>

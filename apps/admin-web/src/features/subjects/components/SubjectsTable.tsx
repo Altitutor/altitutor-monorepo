@@ -238,7 +238,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   if (isLoading && subjects.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap justify-between gap-2 items-center">
+        <div className="flex justify-between items-center gap-4">
           <div className="relative w-64">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -247,7 +247,15 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
               disabled
             />
           </div>
-          <div className="flex space-x-2 items-center">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled>
+              <Filter className="h-4 w-4 mr-2" />
+              Curriculum
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              <Filter className="h-4 w-4 mr-2" />
+              Discipline
+            </Button>
           </div>
         </div>
         
@@ -277,7 +285,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap justify-between gap-2 items-center">
+      <div className="flex justify-between items-center gap-4">
         <div className="relative w-64">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -287,7 +295,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex space-x-2 items-center">
+        <div className="flex items-center gap-2">
           {/* Select Mode Toggle */}
           <Button
             variant={isSelectMode ? "secondary" : "outline"}

@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BillingPricingTable } from '@/features/billing/components/BillingPricingTable';
 import { SubjectPricingOverridesTable } from '@/features/billing/components/SubjectPricingOverridesTable';
+import { BillingSettingsTable } from '@/features/billing/components/BillingSettingsTable';
 import { pricingApi, type BillingPricingRow } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi, type SubjectPricingOverrideRow } from '@/features/billing/api/subject-pricing-overrides';
+import { billingSettingsApi, type BillingSettingsRow } from '@/features/billing/api/billing-settings';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger, Button } from '@altitutor/ui';
 
@@ -13,6 +15,7 @@ export default function BillingSettingsPage() {
   const router = useRouter();
   const [pricing, setPricing] = useState<BillingPricingRow[]>([]);
   const [overrides, setOverrides] = useState<SubjectPricingOverrideRow[]>([]);
+  const [settings, setSettings] = useState<BillingSettingsRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadPricing = async () => {
@@ -35,10 +38,20 @@ export default function BillingSettingsPage() {
     }
   };
 
+  const loadSettings = async () => {
+    try {
+      const data = await billingSettingsApi.getBillingSettings();
+      setSettings(data);
+    } catch (error) {
+      console.error('Failed to load billing settings:', error);
+      alert('Failed to load billing settings: ' + (error as Error).message);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadPricing(), loadOverrides()]);
+      await Promise.all([loadPricing(), loadOverrides(), loadSettings()]);
     } finally {
       setLoading(false);
     }
@@ -79,6 +92,7 @@ export default function BillingSettingsPage() {
         <TabsList>
           <TabsTrigger value="pricing">Base Pricing</TabsTrigger>
           <TabsTrigger value="overrides">Subject Overrides</TabsTrigger>
+          <TabsTrigger value="settings">Billing Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="pricing" className="space-y-4">
           <div>
@@ -96,6 +110,15 @@ export default function BillingSettingsPage() {
               Override base pricing for specific subjects. Subject-specific rates take precedence over base pricing.
             </p>
             <SubjectPricingOverridesTable overrides={overrides} onUpdate={loadOverrides} />
+          </div>
+        </TabsContent>
+        <TabsContent value="settings" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Billing Settings</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Manage global billing configuration settings such as Stripe fee percentages and fixed fees.
+            </p>
+            <BillingSettingsTable settings={settings} onUpdate={loadSettings} />
           </div>
         </TabsContent>
       </Tabs>

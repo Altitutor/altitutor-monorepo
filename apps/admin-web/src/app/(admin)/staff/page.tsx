@@ -39,7 +39,7 @@ export default function StaffPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Staff</h1>
         <Button onClick={() => setIsAddModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Staff

@@ -7,9 +7,9 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Button, Input, Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
+import { Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { addDays, format, endOfYear, isValid, parseISO } from 'date-fns';
+import { isValid, parseISO } from 'date-fns';
 
 // Get today's date in local timezone (YYYY-MM-DD format)
 const getTodayLocalDate = (): string => {
@@ -137,65 +137,13 @@ export default function SessionsPage() {
         </div>
       </div>
 
-      {viewParam === 'table' && (
-        <div className="flex items-end gap-2">
-          <div>
-            <label className="block text-sm mb-1">Date</label>
-            <Input 
-              type="date" 
-              value={day} 
-              onChange={(e) => handleDateChange(e.target.value)} 
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                try {
-                  const prevDate = format(addDays(parseISO(day), -1), 'yyyy-MM-dd');
-                  handleDateChange(prevDate);
-                } catch {
-                  // Fallback if date parsing fails
-                  const today = getTodayLocalDate();
-                  handleDateChange(today);
-                }
-              }}
-            >
-              Prev
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                const today = getTodayLocalDate();
-                handleDateChange(today);
-              }}
-            >
-              Today
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                try {
-                  const nextDate = format(addDays(parseISO(day), 1), 'yyyy-MM-dd');
-                  handleDateChange(nextDate);
-                } catch {
-                  // Fallback if date parsing fails
-                  const today = getTodayLocalDate();
-                  handleDateChange(today);
-                }
-              }}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-
       <Suspense>
         {viewParam === 'table' ? (
           <SessionsTable 
             rangeStart={day} 
             rangeEnd={day}
+            date={day}
+            onDateChange={handleDateChange}
             onOpenSession={(id) => setActiveSessionId(id as string)}
             onOpenStudent={(id) => setActiveStudentId(id as string)}
             onOpenStaff={(id) => setActiveStaffId(id as string)}

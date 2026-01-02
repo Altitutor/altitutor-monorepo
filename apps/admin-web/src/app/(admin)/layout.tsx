@@ -74,8 +74,8 @@ const navItems: NavItem[] = [
     title: 'FINANCIAL',
   },
   {
-    title: 'Billing',
-    href: '/billing/payments',
+    title: 'Invoices',
+    href: '/invoices',
     icon: CreditCard,
   },
   {

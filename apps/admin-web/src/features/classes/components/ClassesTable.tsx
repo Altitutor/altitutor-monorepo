@@ -182,24 +182,22 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by subject, student, or staff..."
-                className="pl-8"
-                value={""}
-                disabled
-              />
-            </div>
-            
-            <div className="flex items-center gap-1">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                <Button key={day} variant="outline" size="sm" disabled>
-                  {day}
-                </Button>
-              ))}
-            </div>
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search classes"
+              className="pl-8"
+              value={""}
+              disabled
+            />
+          </div>
+          
+          <div className="flex items-center gap-1">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+              <Button key={day} variant="outline" size="sm" disabled>
+                {day}
+              </Button>
+            ))}
           </div>
         </div>
         
@@ -235,81 +233,79 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by subject, student, or staff..."
-              className="pl-8"
-              value={searchTerm || ''}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          
-          <div className="flex items-center gap-1">
+        <div className="relative w-64">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search classes"
+            className="pl-8"
+            value={searchTerm || ''}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <Button 
+            variant={dayFilter.includes(1) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(1)}
+          >
+            Mon
+          </Button>
+          <Button 
+            variant={dayFilter.includes(2) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(2)}
+          >
+            Tue
+          </Button>
+          <Button 
+            variant={dayFilter.includes(3) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(3)}
+          >
+            Wed
+          </Button>
+          <Button 
+            variant={dayFilter.includes(4) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(4)}
+          >
+            Thu
+          </Button>
+          <Button 
+            variant={dayFilter.includes(5) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(5)}
+          >
+            Fri
+          </Button>
+          <Button 
+            variant={dayFilter.includes(6) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(6)}
+          >
+            Sat
+          </Button>
+          <Button 
+            variant={dayFilter.includes(0) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(0)}
+          >
+            Sun
+          </Button>
+          {dayFilter.length > 0 && (
             <Button 
-              variant={dayFilter.includes(1) ? 'default' : 'outline'} 
+              variant="ghost" 
               size="sm"
-              onClick={() => toggleDay(1)}
+              onClick={clearDayFilter}
+              className="text-muted-foreground hover:text-foreground"
             >
-              Mon
+              Clear
             </Button>
-            <Button 
-              variant={dayFilter.includes(2) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(2)}
-            >
-              Tue
-            </Button>
-            <Button 
-              variant={dayFilter.includes(3) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(3)}
-            >
-              Wed
-            </Button>
-            <Button 
-              variant={dayFilter.includes(4) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(4)}
-            >
-              Thu
-            </Button>
-            <Button 
-              variant={dayFilter.includes(5) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(5)}
-            >
-              Fri
-            </Button>
-            <Button 
-              variant={dayFilter.includes(6) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(6)}
-            >
-              Sat
-            </Button>
-            <Button 
-              variant={dayFilter.includes(0) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(0)}
-            >
-              Sun
-            </Button>
-            {dayFilter.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={clearDayFilter}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Clear
-              </Button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 

@@ -22,7 +22,7 @@ type InvoiceWithStudent = InvoiceRow & {
 
 const INVOICE_STATUSES: InvoiceRow['status'][] = ['draft', 'open', 'paid', 'void', 'uncollectible', 'disputed'];
 
-export default function PaymentsPage() {
+export default function InvoicesPage() {
   const [statusFilters, setStatusFilters] = useState<InvoiceRow['status'][]>([]);
   const [studentFilters, setStudentFilters] = useState<string[]>([]);
   const [from, setFrom] = useState('');
@@ -219,124 +219,125 @@ export default function PaymentsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
-        <div className="flex items-center gap-2">
-          {/* Clear Filters */}
-          {activeFiltersCount > 0 && (
+      </div>
+
+      <div className="flex items-center gap-2 justify-end">
+        {/* Clear Filters */}
+        {activeFiltersCount > 0 && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={clearAllFilters}
+          >
+            <X className="h-4 w-4 mr-2" />
+            Clear
+          </Button>
+        )}
+
+        {/* Status Filter */}
+        <Popover>
+          <PopoverTrigger asChild>
             <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={clearAllFilters}
+              variant={statusFilters.length > 0 ? "secondary" : "outline"} 
+              size="sm"
             >
-              <X className="h-4 w-4 mr-2" />
-              Clear
+              <Filter className="h-4 w-4 mr-2" />
+              Status {statusFilters.length > 0 && `(${statusFilters.length})`}
             </Button>
-          )}
+          </PopoverTrigger>
+          <PopoverContent className="w-56" align="end">
+            <div className="space-y-2">
+              <div className="font-medium text-sm mb-2">Invoice Status</div>
+              {INVOICE_STATUSES.map((status) => (
+                <label key={status} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={statusFilters.includes(status)}
+                    onCheckedChange={() => toggleStatusFilter(status)}
+                  />
+                  <span className="text-sm capitalize">{status}</span>
+                </label>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
 
-          {/* Status Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant={statusFilters.length > 0 ? "secondary" : "outline"} 
-                size="sm"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Status {statusFilters.length > 0 && `(${statusFilters.length})`}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
-              <div className="space-y-2">
-                <div className="font-medium text-sm mb-2">Invoice Status</div>
-                {INVOICE_STATUSES.map((status) => (
-                  <label key={status} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={statusFilters.includes(status)}
-                      onCheckedChange={() => toggleStatusFilter(status)}
-                    />
-                    <span className="text-sm capitalize">{status}</span>
-                  </label>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Student Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant={studentFilters.length > 0 ? "secondary" : "outline"} 
-                size="sm"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Student {studentFilters.length > 0 && `(${studentFilters.length})`}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[400px]" align="end">
-              <div className="p-3">
-                <Input
-                  placeholder="Search students..."
-                  value={studentSearchQuery}
-                  onChange={(e) => setStudentSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-1 pr-4">
-                    {filteredStudents.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        {studentSearchQuery
-                          ? 'No students match your search'
-                          : 'No students found'}
-                      </div>
-                    ) : (
-                      filteredStudents.map((student) => (
-                        <label
-                          key={student.id}
-                          className="flex items-center gap-2 cursor-pointer p-2 hover:bg-muted rounded"
-                        >
-                          <Checkbox
-                            checked={studentFilters.includes(student.id)}
-                            onCheckedChange={() => toggleStudentFilter(student.id)}
-                          />
-                          <div className="flex flex-col items-start flex-1">
-                            <div className="font-medium text-sm">
-                              {student.first_name} {student.last_name}
-                            </div>
-                            {student.school && (
-                              <div className="text-xs text-muted-foreground">
-                                {student.school}
-                              </div>
-                            )}
+        {/* Student Filter */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button 
+              variant={studentFilters.length > 0 ? "secondary" : "outline"} 
+              size="sm"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Student {studentFilters.length > 0 && `(${studentFilters.length})`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[400px]" align="end">
+            <div className="p-3">
+              <Input
+                placeholder="Search students..."
+                value={studentSearchQuery}
+                onChange={(e) => setStudentSearchQuery(e.target.value)}
+                className="mb-3"
+              />
+              <ScrollArea className="h-[300px]">
+                <div className="space-y-1 pr-4">
+                  {filteredStudents.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {studentSearchQuery
+                        ? 'No students match your search'
+                        : 'No students found'}
+                    </div>
+                  ) : (
+                    filteredStudents.map((student) => (
+                      <label
+                        key={student.id}
+                        className="flex items-center gap-2 cursor-pointer p-2 hover:bg-muted rounded"
+                      >
+                        <Checkbox
+                          checked={studentFilters.includes(student.id)}
+                          onCheckedChange={() => toggleStudentFilter(student.id)}
+                        />
+                        <div className="flex flex-col items-start flex-1">
+                          <div className="font-medium text-sm">
+                            {student.first_name} {student.last_name}
                           </div>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+                          {student.school && (
+                            <div className="text-xs text-muted-foreground">
+                              {student.school}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </PopoverContent>
+        </Popover>
 
-          {/* Date Filters */}
-          <Input 
-            type="date" 
-            value={from} 
-            onChange={e => {
-              setFrom(e.target.value);
-              setPage(1);
-            }}
-            placeholder="From date"
-            className="w-[160px]"
-          />
-          <Input 
-            type="date" 
-            value={to} 
-            onChange={e => {
-              setTo(e.target.value);
-              setPage(1);
-            }}
-            placeholder="To date"
-            className="w-[160px]"
-          />
-        </div>
+        {/* Date Filters */}
+        <Input 
+          type="date" 
+          value={from} 
+          onChange={e => {
+            setFrom(e.target.value);
+            setPage(1);
+          }}
+          placeholder="From date"
+          className="w-auto min-w-[140px]"
+        />
+        <Input 
+          type="date" 
+          value={to} 
+          onChange={e => {
+            setTo(e.target.value);
+            setPage(1);
+          }}
+          placeholder="To date"
+          className="w-auto min-w-[140px]"
+        />
       </div>
 
       {/* <TestBillingRunner /> */}
@@ -400,13 +401,18 @@ export default function PaymentsPage() {
                       {items.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {items.slice(0, 2).map((item) => (
-                            <div key={item.id} className="text-xs">
-                              <span className={cn(item.is_subsidy && "text-muted-foreground line-through")}>
-                                {item.description || 'Invoice item'}
+                            <div key={item.id} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-1">
+                                <span className={cn(item.is_subsidy && "text-muted-foreground line-through")}>
+                                  {item.description || 'Invoice item'}
+                                </span>
+                                {item.is_subsidy && (
+                                  <Badge variant="outline" className="text-xs">Subsidy</Badge>
+                                )}
+                              </div>
+                              <span className="text-xs font-medium ml-2">
+                                ${((item.amount_cents || 0) / 100).toFixed(2)}
                               </span>
-                              {item.is_subsidy && (
-                                <Badge variant="outline" className="text-xs ml-1">Subsidy</Badge>
-                              )}
                             </div>
                           ))}
                           {items.length > 2 && (
@@ -449,5 +455,3 @@ export default function PaymentsPage() {
     </div>
   );
 }
-
-

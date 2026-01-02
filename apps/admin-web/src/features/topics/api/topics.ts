@@ -273,6 +273,46 @@ export const topicsApi = {
   },
   
   /**
+   * Search topics with server-side filtering and pagination
+   * Uses search_topics_admin RPC function
+   */
+  search: async (params: {
+    search?: string;
+    subjectIds?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    topics: Array<Tables<'topics'> & { subject: Tables<'subjects'> }>;
+    total: number;
+  }> => {
+    const {
+      search = '',
+      subjectIds,
+      limit = 20,
+      offset = 0,
+    } = params || {};
+
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const trimmed = search.trim();
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_topics_admin', {
+      p_search: trimmed.length > 0 ? trimmed : undefined,
+      p_subject_ids: subjectIds && subjectIds.length > 0 ? subjectIds : undefined,
+      p_limit: limit,
+      p_offset: offset,
+    });
+
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { topics: [], total: 0 };
+
+    const rpcData = rpcResult as { topics: any[]; total: number };
+    return {
+      topics: (rpcData.topics || []) as Array<Tables<'topics'> & { subject: Tables<'subjects'> }>,
+      total: rpcData.total ?? 0,
+    };
+  },
+
+  /**
    * Get topics with their related subject information
    */
   getTopicsWithSubjects: async (): Promise<{

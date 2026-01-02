@@ -16,6 +16,8 @@ export const topicsKeys = {
   hierarchy: (subjectId: string) => ['topics', 'hierarchy', subjectId] as const,
   roots: (subjectId: string) => ['topics', 'roots', subjectId] as const,
   withSubjects: () => ['topics', 'with-subjects'] as const,
+  search: (params: { search?: string; subjectIds?: string[]; limit?: number; offset?: number }) =>
+    ['topics', 'search', params] as const,
 };
 
 /**
@@ -90,6 +92,23 @@ export function useTopicsWithSubjects() {
   return useQuery({
     queryKey: topicsKeys.withSubjects(),
     queryFn: () => topicsApi.getTopicsWithSubjects(),
+  });
+}
+
+/**
+ * Search topics with server-side filtering and pagination
+ */
+export function useSearchTopics(params: {
+  search?: string;
+  subjectIds?: string[];
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: topicsKeys.search(params),
+    queryFn: () => topicsApi.search(params),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 

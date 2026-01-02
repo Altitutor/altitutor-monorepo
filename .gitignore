@@ -32,6 +32,24 @@ tasks/
 *storybook.log
 .next
 
+# TypeScript build artifacts
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Build output directories
+dist/
+**/dist/
+build/
+**/build/
+
+# Test coverage
+coverage/
+**/coverage/
+
+# Vercel
+.vercel
+**/.vercel
+
 # Resource folder
 altitutor-admin-obsidian-vault/
 
