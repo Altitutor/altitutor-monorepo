@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -14,13 +15,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@altitutor/ui";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { 
   Search, 
-  ChevronLeft,
   ChevronRight,
   ChevronDown,
   Filter,
@@ -29,7 +35,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { getSubjectColorHex, formatSubjectDisplay } from '@/shared/utils/index';
+import { getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
+import { TablePagination } from '@/shared/components/TablePagination';
 import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
 import { deriveTopicCode } from '../utils/codes';
@@ -47,12 +54,45 @@ interface TopicsTableProps {
 type TopicWithSubject = Tables<'topics'> & { subject: Tables<'subjects'> };
 
 export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableProps) {
-  // Filter and search state
-  const [searchTerm, setSearchTerm] = useState('');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Initialize from URL params
+  const getSearchFromUrl = () => searchParams.get('search') || '';
+  const getArrayFromUrl = (key: string): string[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').filter(Boolean) : [];
+  };
+  
+  const updateUrlParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/topics?${params.toString()}`);
+  };
+  
+  // Filter and search state initialized from URL
+  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [subjectFilters, setSubjectFilters] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(50);
+  const [subjectFilters, setSubjectFilters] = useState<string[]>(getArrayFromUrl('subject'));
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
+  
+  // Sync from URL params
+  useEffect(() => {
+    setSearchTerm(getSearchFromUrl());
+    setSubjectFilters(getArrayFromUrl('subject'));
+    const pageParam = Number(searchParams.get('page'));
+    if (pageParam) setPage(pageParam);
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    if (pageSizeParam) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
@@ -68,6 +108,10 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
     const timeoutId = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       setPage(1); // Reset to first page on search
+      updateUrlParams({ 
+        search: searchTerm || null,
+        page: null 
+      });
     }, 300);
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
@@ -157,18 +201,26 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
   };
 
   const handleSubjectFilterToggle = (subjectId: string) => {
-    setSubjectFilters(prev => 
-      prev.includes(subjectId) 
-        ? prev.filter(id => id !== subjectId)
-        : [...prev, subjectId]
-    );
+    const newFilters = subjectFilters.includes(subjectId) 
+      ? subjectFilters.filter(id => id !== subjectId)
+      : [...subjectFilters, subjectId];
+    setSubjectFilters(newFilters);
     setPage(1); // Reset to first page
+    updateUrlParams({ 
+      subject: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
   };
 
   const clearAllFilters = () => {
     setSubjectFilters([]);
     setSearchTerm('');
     setPage(1);
+    updateUrlParams({ 
+      subject: null,
+      search: null,
+      page: null 
+    });
   };
 
   const handleFileClick = (fileId: string) => {
@@ -179,12 +231,7 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
   const handleFileDownload = async (storagePath: string, filename: string) => {
     try {
       const signedUrl = await getSignedUrl(storagePath);
-      const link = document.createElement('a');
-      link.href = signedUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      window.open(signedUrl, '_blank');
     } catch (error) {
       console.error('Failed to download file:', error);
     }
@@ -246,8 +293,11 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
           <Input
             placeholder="Search topics..."
             className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchTerm(value);
+              }}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -355,34 +405,25 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
         </Table>
       </div>
 
-      {/* Results count and pagination */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          Showing {rootTopics.length} of {total} root topics
-          {isFetching && <span className="ml-2">(Refreshing...)</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1 || isLoading}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {Math.ceil(total / pageSize)}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => p + 1)}
-            disabled={page >= Math.ceil(total / pageSize) || isLoading}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      {/* Pagination */}
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        isFetching={isFetching}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
+        }}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+          updateUrlParams({ 
+            pageSize: size === 50 ? null : String(size),
+            page: null 
+          });
+        }}
+      />
 
       {/* File Preview Modal */}
       <FilePreviewModal
@@ -545,7 +586,7 @@ function TopicRow({
               color: subjectColorHex || undefined,
             }}
           >
-            {formatSubjectDisplay(topic.subject)}
+            {formatSubjectShortName(topic.subject)}
           </div>
         </TableCell>
         <TableCell style={{ paddingLeft: `${paddingLeft}px` }}>
@@ -555,48 +596,55 @@ function TopicRow({
           </div>
         </TableCell>
         <TableCell onClick={(e) => e.stopPropagation()}>
-          <div className="space-y-1">
-            {topicFiles.map((tf) => {
-              const fileCode = deriveTopicFileCode(tf, topicCode, tf.type);
-              const typeLabel = getFileTypeLabel(tf.type);
-              const filename = tf.file?.filename || 'Unknown file';
-              const storagePath = tf.file?.storage_path || '';
-              const fileId = tf.file?.id;
+          <TooltipProvider>
+            <div className="space-y-1">
+              {topicFiles.map((tf) => {
+                const fileCode = deriveTopicFileCode(tf, topicCode, tf.type);
+                const typeLabel = getFileTypeLabel(tf.type);
+                const filename = tf.file?.filename || 'Unknown file';
+                const storagePath = tf.file?.storage_path || '';
+                const fileId = tf.file?.id;
 
-              return (
-                <div
-                  key={tf.id}
-                  className="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-muted/50 group"
-                >
-                  <button
-                    onClick={() => fileId && onFileClick(fileId)}
-                    className="flex-1 text-left min-w-0 truncate text-sm"
-                    title={`${fileCode} ${typeLabel} ${filename}`}
+                return (
+                  <div
+                    key={tf.id}
+                    className="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-muted/50"
                   >
-                    <span className="font-mono">{fileCode}</span>{' '}
-                    <span className="text-muted-foreground">{typeLabel}</span>{' '}
-                    <span className="truncate">{filename}</span>
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (storagePath) {
-                        onFileDownload(storagePath, filename);
-                      }
-                    }}
-                  >
-                    <Download className="h-3 w-3" />
-                  </Button>
-                </div>
-              );
-            })}
-            {topicFiles.length === 0 && (
-              <span className="text-sm text-muted-foreground">No files</span>
-            )}
-          </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => fileId && onFileClick(fileId)}
+                          className="flex-1 text-left min-w-0 truncate text-sm"
+                        >
+                          <span className="font-mono">{fileCode}</span>{' '}
+                          <span className="text-muted-foreground">{typeLabel}</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{filename}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (storagePath) {
+                          onFileDownload(storagePath, filename);
+                        }
+                      }}
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
+                );
+              })}
+              {topicFiles.length === 0 && (
+                <span className="text-sm text-muted-foreground">No files</span>
+              )}
+            </div>
+          </TooltipProvider>
         </TableCell>
       </TableRow>
       {hasChildren && isExpanded && childTopicsWithSubjects.length > 0 && (
