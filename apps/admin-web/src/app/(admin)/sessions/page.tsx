@@ -43,8 +43,8 @@ export default function SessionsPage() {
   // Initialize date range from URL params or default to today
   const fromParam = search.get('from');
   const toParam = search.get('to');
-  const initialFrom = isValidDateString(fromParam) ? fromParam! : getTodayLocalDate();
-  const initialTo = isValidDateString(toParam) ? toParam! : getTodayLocalDate();
+  const initialFrom = fromParam === '' ? '' : (isValidDateString(fromParam) ? fromParam! : getTodayLocalDate());
+  const initialTo = toParam === '' ? '' : (isValidDateString(toParam) ? toParam! : getTodayLocalDate());
   
   const [from, setFrom] = useState<string>(initialFrom);
   const [to, setTo] = useState<string>(initialTo);
@@ -55,37 +55,29 @@ export default function SessionsPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
   // Sync date range state with URL params when they change
+  // Only sync from URL to state, don't force defaults after initial load
   useEffect(() => {
     const fromParam = search.get('from');
     const toParam = search.get('to');
+    
     if (fromParam !== null) {
       if (isValidDateString(fromParam)) {
-        if (fromParam !== from) {
-          setFrom(fromParam);
-        }
-      } else if (fromParam === '' && from !== '') {
+        setFrom(fromParam);
+      } else if (fromParam === '') {
         setFrom('');
       }
-    } else if (from !== getTodayLocalDate()) {
-      // If no from param, default to today
-      const today = getTodayLocalDate();
-      setFrom(today);
     }
+    // If fromParam is null, don't change state (allows cleared dates to stay cleared)
     
     if (toParam !== null) {
       if (isValidDateString(toParam)) {
-        if (toParam !== to) {
-          setTo(toParam);
-        }
-      } else if (toParam === '' && to !== '') {
+        setTo(toParam);
+      } else if (toParam === '') {
         setTo('');
       }
-    } else if (to !== getTodayLocalDate()) {
-      // If no to param, default to today
-      const today = getTodayLocalDate();
-      setTo(today);
     }
-  }, [search, from, to]);
+    // If toParam is null, don't change state (allows cleared dates to stay cleared)
+  }, [search]);
 
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
@@ -95,14 +87,19 @@ export default function SessionsPage() {
 
   // Handle date range changes and update URL
   const handleFromChange = (newFrom: string) => {
-    if (!isValidDateString(newFrom)) {
-      const today = getTodayLocalDate();
-      setFrom(today);
+    // Allow empty string to clear the filter
+    if (newFrom === '') {
+      setFrom('');
       const params = new URLSearchParams(search.toString());
       params.set('view', 'table');
-      params.set('from', today);
-      params.set('to', to);
+      params.delete('from'); // Remove from URL when cleared
+      params.set('to', to || '');
       router.push(`/sessions?${params.toString()}`);
+      return;
+    }
+    
+    if (!isValidDateString(newFrom)) {
+      // Invalid date - don't update, keep current value
       return;
     }
     
@@ -110,26 +107,31 @@ export default function SessionsPage() {
     const params = new URLSearchParams(search.toString());
     params.set('view', 'table');
     params.set('from', newFrom);
-    params.set('to', to);
+    params.set('to', to || '');
     router.push(`/sessions?${params.toString()}`);
   };
 
   const handleToChange = (newTo: string) => {
-    if (!isValidDateString(newTo)) {
-      const today = getTodayLocalDate();
-      setTo(today);
+    // Allow empty string to clear the filter
+    if (newTo === '') {
+      setTo('');
       const params = new URLSearchParams(search.toString());
       params.set('view', 'table');
-      params.set('from', from);
-      params.set('to', today);
+      params.set('from', from || '');
+      params.delete('to'); // Remove from URL when cleared
       router.push(`/sessions?${params.toString()}`);
+      return;
+    }
+    
+    if (!isValidDateString(newTo)) {
+      // Invalid date - don't update, keep current value
       return;
     }
     
     setTo(newTo);
     const params = new URLSearchParams(search.toString());
     params.set('view', 'table');
-    params.set('from', from);
+    params.set('from', from || '');
     params.set('to', newTo);
     router.push(`/sessions?${params.toString()}`);
   };
@@ -191,6 +193,11 @@ export default function SessionsPage() {
             onOpenStaff={(id) => setActiveStaffId(id as string)}
             onFromChange={handleFromChange}
             onToChange={handleToChange}
+            onResetDates={() => {
+              const today = getTodayLocalDate();
+              handleFromChange(today);
+              handleToChange(today);
+            }}
           />
         ) : (
           <SessionsCalendarView onOpenSession={(id) => setActiveSessionId(id as string)} />

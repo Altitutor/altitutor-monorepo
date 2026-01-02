@@ -54,6 +54,14 @@ export function DateRangePicker({
       if (!isValid(date)) return;
       const newDate = addDays(date, 1);
       const newFrom = format(newDate, 'yyyy-MM-dd');
+      
+      // If from === to, increment both dates together
+      if (from === to && to) {
+        onFromChange(newFrom);
+        onToChange(newFrom);
+        return;
+      }
+      
       const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, to);
       onFromChange(adjustedFrom);
       if (adjustedTo !== to) {
@@ -105,6 +113,14 @@ export function DateRangePicker({
       if (!isValid(date)) return;
       const newDate = subDays(date, 1);
       const newTo = format(newDate, 'yyyy-MM-dd');
+      
+      // If from === to, decrement both dates together
+      if (from === to && from) {
+        onFromChange(newTo);
+        onToChange(newTo);
+        return;
+      }
+      
       const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(from, newTo);
       onToChange(adjustedTo);
       if (adjustedFrom !== from) {

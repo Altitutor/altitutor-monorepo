@@ -35,6 +35,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { TablePagination } from '@/shared/components/TablePagination';
 
 type SessionsTableProps = {
   studentId?: string;
@@ -48,9 +49,10 @@ type SessionsTableProps = {
   onOpenStaff?: (id: string) => void;
   onFromChange?: (date: string) => void;
   onToChange?: (date: string) => void;
+  onResetDates?: () => void; // Callback to reset dates to default
 };
 
-export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff, onFromChange, onToChange }: SessionsTableProps) {
+export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff, onFromChange, onToChange, onResetDates }: SessionsTableProps) {
   const _router = useRouter();
   
   // Filter and sort state
@@ -59,6 +61,8 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   const [studentFilters, setStudentFilters] = useState<string[]>([]);
   const [typeFilters, setTypeFilters] = useState<string[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   type SortField = 'start_at' | 'type';
   const [sortField, setSortField] = useState<SortField>('start_at');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
@@ -122,26 +126,62 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   
   // Toggle student filter
   const toggleStudentFilter = useCallback((studentId: string) => {
-    setStudentFilters(prev => 
-      prev.includes(studentId) 
+    setStudentFilters(prev => {
+      const newFilters = prev.includes(studentId) 
         ? prev.filter(id => id !== studentId)
-        : [...prev, studentId]
-    );
+        : [...prev, studentId];
+      setPage(1); // Reset to first page when filter changes
+      return newFilters;
+    });
   }, []);
   
   // Toggle type filter
   const toggleTypeFilter = useCallback((type: string) => {
-    setTypeFilters(prev => 
-      prev.includes(type) 
+    setTypeFilters(prev => {
+      const newFilters = prev.includes(type) 
         ? prev.filter(t => t !== type)
-        : [...prev, type]
-    );
+        : [...prev, type];
+      setPage(1); // Reset to first page when filter changes
+      return newFilters;
+    });
   }, []);
+
+  // Check if filters are in default state
+  // Default: no student/type filters, no search, dates are today
+  const isDefaultState = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayString = `${year}-${month}-${day}`;
+    
+    return (
+      studentFilters.length === 0 &&
+      typeFilters.length === 0 &&
+      searchTerm === '' &&
+      rangeStart === todayString &&
+      rangeEnd === todayString
+    );
+  }, [studentFilters, typeFilters, searchTerm, rangeStart, rangeEnd]);
+
+  // Clear all filters
+  const clearAllFilters = useCallback(() => {
+    setStudentFilters([]);
+    setTypeFilters([]);
+    setSearchTerm('');
+    setStudentSearchQuery('');
+    setPage(1);
+    // Reset dates to default (today) via callback
+    if (onResetDates) {
+      onResetDates();
+    }
+  }, [onResetDates]);
   
   // Debounce search term
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
+      setPage(1); // Reset to first page when search changes
     }, 300);
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
@@ -154,8 +194,8 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     refetch,
     isFetching: _isFetching 
   } = useSessionsWithDetails({ 
-    rangeStart, 
-    rangeEnd, 
+    rangeStart: rangeStart || undefined, // Convert empty string to undefined
+    rangeEnd: rangeEnd || undefined, // Convert empty string to undefined
     includeInactive: false,
     search: debouncedSearchTerm,
     studentId: studentId || (studentFilters.length === 1 ? studentFilters[0] : undefined),
@@ -165,6 +205,8 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     orderBy: sortField === 'start_at' ? 'start_at' : 'type',
     ascending: sortDirection === 'asc',
   });
+  
+  const isFetching = _isFetching;
   
   // Extract sessions array from the data structure
   const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
@@ -220,13 +262,25 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
       });
     }
     
-    // Apply limit if provided
+    return result;
+  }, [allSessions, studentFilters, data?.sessionStudents]);
+
+  // Paginated sessions
+  const paginatedSessions = useMemo(() => {
     if (limit && limit > 0) {
-      result = result.slice(0, limit);
+      // If limit is provided, use it instead of pagination
+      return filteredSessions.slice(0, limit);
     }
     
-    return result;
-  }, [allSessions, limit, studentFilters, data?.sessionStudents]);
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredSessions.slice(start, end);
+  }, [filteredSessions, page, pageSize, limit]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [studentFilters, typeFilters, debouncedSearchTerm, rangeStart, rangeEnd]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -349,11 +403,26 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               placeholder="Search sessions..."
               className="pl-8"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchTerm(value);
+              }}
             />
           </div>
           
           <div className="flex flex-wrap items-center gap-2">
+              {/* Clear Filters */}
+              {!isDefaultState && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearAllFilters}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear
+                </Button>
+              )}
+              
               {/* Student Filter */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -478,7 +547,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredSessions.length === 0 ? (
+            {paginatedSessions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={(classId ? 6 : 7)} className="text-center h-24">
                   {searchTerm || studentFilters.length > 0 || typeFilters.length > 0
@@ -487,7 +556,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                 </TableCell>
               </TableRow>
             ) : (
-              filteredSessions.map((session) => (
+              paginatedSessions.map((session) => (
                 <TableRow 
                   key={session.id} 
                   className="cursor-pointer hover:bg-muted/50"
@@ -669,9 +738,19 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
       </div>
       
       {!limit && (
-        <div className="text-sm text-muted-foreground">
-          {filteredSessions.length} sessions displayed
-        </div>
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={filteredSessions.length}
+          isFetching={isFetching}
+          onPageChange={(newPage) => {
+            setPage(newPage);
+          }}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+        />
       )}
 
       {/* Class Modal */}
