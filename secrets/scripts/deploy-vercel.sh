@@ -176,18 +176,23 @@ echo -e "${BLUE}1. Deploying Development Secrets (Preview)${NC}"
 echo -e "${YELLOW}Vercel Preview Environment:${NC}"
 
 # Combine base env vars with derived vars
-{
-    parse_env_file "$SECRETS_DIR/.env.development"
-    parse_env_file "$SECRETS_DIR/.env.shared"
-    derive_env_vars "$SECRETS_DIR/.env.development"
-} | while IFS='=' read -r key value; do
+while IFS='=' read -r key value; do
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
     if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
+    # Deploy server-side secrets needed for API routes
+    elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
     fi
-done
+done < <({
+    parse_env_file "$SECRETS_DIR/.env.development"
+    parse_env_file "$SECRETS_DIR/.env.shared"
+    derive_env_vars "$SECRETS_DIR/.env.development"
+})
 
 echo ""
 
@@ -199,18 +204,23 @@ echo -e "${BLUE}2. Deploying Production Secrets${NC}"
 echo -e "${YELLOW}Vercel Production Environment:${NC}"
 
 # Combine base env vars with derived vars
-{
-    parse_env_file "$SECRETS_DIR/.env.production"
-    parse_env_file "$SECRETS_DIR/.env.shared"
-    derive_env_vars "$SECRETS_DIR/.env.production"
-} | while IFS='=' read -r key value; do
+while IFS='=' read -r key value; do
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
     if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
+    # Deploy server-side secrets needed for API routes
+    elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
     fi
-done
+done < <({
+    parse_env_file "$SECRETS_DIR/.env.production"
+    parse_env_file "$SECRETS_DIR/.env.shared"
+    derive_env_vars "$SECRETS_DIR/.env.production"
+})
 
 echo ""
 

@@ -173,6 +173,10 @@ export const studentsApi = {
       curriculum: s.curriculum,
       year_level: s.year_level,
       school: s.school,
+      email: s.email || null,
+      phone: s.phone || null,
+      created_at: s.created_at || null,
+      updated_at: s.updated_at || null,
       classes: (s.classes || []).map((cls: any) => ({
         id: cls.id,
         day_of_week: cls.day_of_week,
