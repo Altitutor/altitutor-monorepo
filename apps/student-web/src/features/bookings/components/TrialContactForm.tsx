@@ -242,7 +242,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Student Details</h3>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="student_first_name"
@@ -272,7 +272,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="student_email"
@@ -306,7 +306,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="year_level"
@@ -487,7 +487,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
           {!skipParentDetails && (
             <>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="parent_first_name"
@@ -517,7 +517,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="parent_email"

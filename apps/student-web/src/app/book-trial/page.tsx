@@ -299,12 +299,17 @@ export default function BookTrialPage() {
       setCurrentStep(1);
     } else if (currentStep === 1) {
       // From contact form to confirmation
-      // Trigger form submission programmatically
+      // Trigger form submission programmatically - this will show field-level errors
       if (contactFormRef) {
-        contactFormRef.handleSubmit(
-          handleContactSubmit,
-          (errors: Record<string, { message?: string }>) => {
-            // Show detailed validation errors
+        // Trigger validation on all fields to show errors
+        contactFormRef.trigger().then((isValid) => {
+          if (isValid) {
+            // Form is valid, proceed with submission
+            contactFormRef.handleSubmit(handleContactSubmit)();
+          } else {
+            // Form is invalid - errors will be shown on individual fields via FormMessage
+            // Also show a toast with summary
+            const errors = contactFormRef.formState.errors;
             const errorMessages: string[] = [];
             
             if (errors.student_first_name) {
@@ -335,15 +340,9 @@ export default function BookTrialPage() {
                 description: errorMessages.join(', '),
                 variant: 'destructive',
               });
-            } else {
-              toast({
-                title: 'Please complete all required fields',
-                description: 'Some required fields are missing or invalid',
-                variant: 'destructive',
-              });
             }
           }
-        )();
+        });
       } else {
         toast({
           title: 'Form not ready',
@@ -371,7 +370,7 @@ export default function BookTrialPage() {
         onBack={handleBack}
         onConfirm={currentStep === 2 ? handleConfirmBooking : undefined}
         isSubmitting={isSubmitting}
-        canProceed={currentStep === 0 ? !!selectedSlot : currentStep === 1 ? isFormValid : true}
+        canProceed={currentStep === 0 ? !!selectedSlot : true}
         selectedSlot={selectedSlot}
       />
     </div>
