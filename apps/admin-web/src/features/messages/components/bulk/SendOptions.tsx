@@ -48,22 +48,6 @@ export function SendOptions({
             </div>
           </div>
 
-          <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-            <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                  Important Information
-                </h4>
-                <ul className="mt-2 text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                  <li>• Each recipient will receive an individual SMS message</li>
-                  <li>• Messages will appear in your communications inbox</li>
-                  <li>• Recipients without phone numbers will be skipped</li>
-                  <li>• You'll see a preview before sending</li>
-                </ul>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

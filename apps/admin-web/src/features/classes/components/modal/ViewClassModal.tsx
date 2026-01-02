@@ -3,7 +3,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from '@tanstack/react-query';
 import { classesApi } from "../../api";
 import { useClassDetails, classesKeys, useDeleteClass } from '../../hooks/useClassesQuery';
@@ -31,6 +32,7 @@ export function ViewClassModal({
   onClose, 
   onClassUpdated 
 }: ViewClassModalProps) {
+  const router = useRouter();
   // Use React Query hooks for data fetching
   const { data: classDetails, isLoading } = useClassDetails(classId || '', isOpen && !!classId);
   const { data: allSubjects = [] } = useSubjects();
@@ -75,6 +77,8 @@ export function ViewClassModal({
         status: data.status,
         subject_id: data.subjectId || null,
         room: data.room || null,
+        session_start_date: data.sessionStartDate || null,
+        session_end_date: data.sessionEndDate || null,
       };
       await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
       
@@ -178,7 +182,7 @@ export function ViewClassModal({
   if (!classData) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] max-w-[90vw]">
+        <SheetContent className="w-full md:w-[600px] md:max-w-none">
           <SheetHeader>
             <SheetTitle>Loading class...</SheetTitle>
           </SheetHeader>
@@ -189,7 +193,7 @@ export function ViewClassModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
+      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
         <Tabs 
           defaultValue="details" 
           value={activeTab} 
@@ -199,12 +203,30 @@ export function ViewClassModal({
           {/* Sticky Header */}
           <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
             <SheetHeader className="px-6 pt-6 pb-4">
-              <SheetTitle>
-                {isEditing ? 'Edit Class' : 'Class Details'}
-              </SheetTitle>
-              <SheetDescription className="text-lg font-medium">
-                {formatClassName(classData, subject)}
-              </SheetDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <SheetTitle>
+                    {isEditing ? 'Edit Class' : 'Class Details'}
+                  </SheetTitle>
+                  <SheetDescription className="text-lg font-medium">
+                    {formatClassName(classData, subject)}
+                  </SheetDescription>
+                </div>
+                {classId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      router.push(`/classes/${classId}`);
+                      onClose();
+                    }}
+                    className="shrink-0"
+                    title="Open in new page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </SheetHeader>
             <div className="px-6 pb-4">
               <TabsList className="w-full">

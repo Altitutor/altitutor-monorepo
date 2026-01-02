@@ -79,9 +79,6 @@ export function MessageComposer({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Write your message using variables like {'{first_name}'}, {'{last_name}'}, {'{classes}'}, {'{sender_name}'}
-      </p>
 
       <div className="grid grid-cols-2 gap-6 overflow-hidden">
         {/* Message Input */}

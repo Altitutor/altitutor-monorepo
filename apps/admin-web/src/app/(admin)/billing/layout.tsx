@@ -1,41 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/shared/utils/index';
-
-const tabs = [
-  { label: 'Payments', href: '/billing/payments' },
-  { label: 'Pricing', href: '/billing/pricing' },
-  { label: 'Subject Overrides', href: '/billing/pricing/subject-overrides' },
-];
-
 export default function BillingLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b bg-background sticky top-0 z-10">
-        <div className="px-6 py-3">
-          <h1 className="text-2xl font-bold mb-2">Billing</h1>
-          <div className="flex gap-4">
-            {tabs.map((tab) => (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                  pathname === tab.href
-                    ? 'bg-brand-darkBlue text-white'
-                    : 'text-muted-foreground hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70'
-                )}
-              >
-                {tab.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
       <div className="flex-1 overflow-auto">{children}</div>
     </div>
   );

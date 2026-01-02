@@ -7,12 +7,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@altitutor/ui';
-import { Calendar, FileText, Zap, Megaphone } from 'lucide-react';
+import { Calendar, FileText, Zap, Megaphone, Plus } from 'lucide-react';
 
 export function QuickActionsMenu() {
   const minimized = useChatStore(s => s.minimized);
-  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal } = useQuickActions();
 
   // Hide when messages are expanded (not minimized)
   if (!minimized) {
@@ -32,6 +35,23 @@ export function QuickActionsMenu() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="w-48">
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Plus className="h-4 w-4 mr-2" />
+              Add meeting
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => openBookingModal('TRIAL_SESSION')}>
+                Trial session
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openBookingModal('SUBSIDY_INTERVIEW')}>
+                Subsidy interview
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openBookingModal('DRAFTING')}>
+                Drafting
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem onClick={openAnnouncementsModal}>
             <Megaphone className="h-4 w-4 mr-2" />
             Make Announcement
@@ -42,7 +62,7 @@ export function QuickActionsMenu() {
           </DropdownMenuItem>
           <DropdownMenuItem onClick={openLogAbsenceDialog}>
             <Calendar className="h-4 w-4 mr-2" />
-            Log Absence
+            Log Student Absence
           </DropdownMenuItem>
           <DropdownMenuItem onClick={openLogStaffAbsenceDialog}>
             <Calendar className="h-4 w-4 mr-2" />

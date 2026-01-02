@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Separator, Badge, Button } from '@altitutor/ui';
 import { ExternalLink, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import { billingApi, type InvoiceRow, type InvoiceItemRow } from '../api/billing';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
@@ -16,6 +17,7 @@ type ViewInvoiceModalProps = {
 };
 
 export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModalProps) {
+  const router = useRouter();
   const [invoice, setInvoice] = useState<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null }) | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -119,7 +121,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   if (isLoading || !invoice) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] max-w-[90vw] overflow-y-auto p-0">
+        <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
           <SheetHeader className="px-6 py-4">
             <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
           </SheetHeader>
@@ -134,13 +136,31 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
+        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
-              <SheetTitle>Invoice Details</SheetTitle>
-              <SheetDescription className="text-lg font-medium">
-                Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
-              </SheetDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <SheetTitle>Invoice Details</SheetTitle>
+                  <SheetDescription className="text-lg font-medium">
+                    Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                  </SheetDescription>
+                </div>
+                {invoiceId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      router.push(`/invoices/${invoiceId}`);
+                      onClose();
+                    }}
+                    className="shrink-0"
+                    title="Open in new page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </SheetHeader>
             
             <div className="space-y-6">

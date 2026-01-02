@@ -7,9 +7,11 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Button, Input, Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
+import { Tabs, TabsList, TabsTrigger, useToast, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { addDays, format, endOfYear, isValid, parseISO } from 'date-fns';
+import { isValid, parseISO } from 'date-fns';
+import { BookSessionModal } from '@/features/bookings/components';
+import { Plus, ChevronDown } from 'lucide-react';
 
 // Get today's date in local timezone (YYYY-MM-DD format)
 const getTodayLocalDate = (): string => {
@@ -39,30 +41,46 @@ export default function SessionsPage() {
   const { toast } = useToast();
   const viewParam = search.get('view') || 'table';
   
-  // Initialize day from URL param or default to today
-  const dateParam = search.get('date');
-  const initialDate = isValidDateString(dateParam) 
-    ? dateParam! 
-    : getTodayLocalDate();
+  // Initialize date range from URL params or default to today
+  const fromParam = search.get('from');
+  const toParam = search.get('to');
+  const initialFrom = fromParam === '' ? '' : (isValidDateString(fromParam) ? fromParam! : getTodayLocalDate());
+  const initialTo = toParam === '' ? '' : (isValidDateString(toParam) ? toParam! : getTodayLocalDate());
   
-  const [day, setDay] = useState<string>(initialDate);
+  const [from, setFrom] = useState<string>(initialFrom);
+  const [to, setTo] = useState<string>(initialTo);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
 
-  // Sync day state with URL param when it changes
+  // Sync date range state with URL params when they change
+  // Only sync from URL to state, don't force defaults after initial load
   useEffect(() => {
-    const dateParam = search.get('date');
-    if (isValidDateString(dateParam) && dateParam !== day) {
-      setDay(dateParam!);
-    } else if (!dateParam && day !== getTodayLocalDate()) {
-      // If no date param and day is not today, reset to today
-      const today = getTodayLocalDate();
-      setDay(today);
+    const fromParam = search.get('from');
+    const toParam = search.get('to');
+    
+    if (fromParam !== null) {
+      if (isValidDateString(fromParam)) {
+        setFrom(fromParam);
+      } else if (fromParam === '') {
+        setFrom('');
+      }
     }
-  }, [search, day]);
+    // If fromParam is null, don't change state (allows cleared dates to stay cleared)
+    
+    if (toParam !== null) {
+      if (isValidDateString(toParam)) {
+        setTo(toParam);
+      } else if (toParam === '') {
+        setTo('');
+      }
+    }
+    // If toParam is null, don't change state (allows cleared dates to stay cleared)
+  }, [search]);
 
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
@@ -70,23 +88,54 @@ export default function SessionsPage() {
     router.push(`/sessions?${params.toString()}`);
   };
 
-  // Handle date change and update URL
-  const handleDateChange = (newDate: string) => {
-    if (!isValidDateString(newDate)) {
-      // Fallback to today if invalid
-      const today = getTodayLocalDate();
-      setDay(today);
+  // Handle date range changes and update URL
+  const handleFromChange = (newFrom: string) => {
+    // Allow empty string to clear the filter
+    if (newFrom === '') {
+      setFrom('');
       const params = new URLSearchParams(search.toString());
       params.set('view', 'table');
-      params.set('date', today);
+      params.delete('from'); // Remove from URL when cleared
+      params.set('to', to || '');
       router.push(`/sessions?${params.toString()}`);
       return;
     }
     
-    setDay(newDate);
+    if (!isValidDateString(newFrom)) {
+      // Invalid date - don't update, keep current value
+      return;
+    }
+    
+    setFrom(newFrom);
     const params = new URLSearchParams(search.toString());
     params.set('view', 'table');
-    params.set('date', newDate);
+    params.set('from', newFrom);
+    params.set('to', to || '');
+    router.push(`/sessions?${params.toString()}`);
+  };
+
+  const handleToChange = (newTo: string) => {
+    // Allow empty string to clear the filter
+    if (newTo === '') {
+      setTo('');
+      const params = new URLSearchParams(search.toString());
+      params.set('view', 'table');
+      params.set('from', from || '');
+      params.delete('to'); // Remove from URL when cleared
+      router.push(`/sessions?${params.toString()}`);
+      return;
+    }
+    
+    if (!isValidDateString(newTo)) {
+      // Invalid date - don't update, keep current value
+      return;
+    }
+    
+    setTo(newTo);
+    const params = new URLSearchParams(search.toString());
+    params.set('view', 'table');
+    params.set('from', from || '');
+    params.set('to', newTo);
     router.push(`/sessions?${params.toString()}`);
   };
 
@@ -110,15 +159,23 @@ export default function SessionsPage() {
       if (detail?.id) setActiveFileId(detail.id);
     };
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-student-modal', onOpenStudent as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-staff-modal', onOpenStaff as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-topic-modal', onOpenTopic as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-file-preview', onOpenFile as any);
     
     return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-student-modal', onOpenStudent as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-staff-modal', onOpenStaff as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-topic-modal', onOpenTopic as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-file-preview', onOpenFile as any);
     };
   }, []);
@@ -128,7 +185,42 @@ export default function SessionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as any)}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add meeting
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setBookingSessionType('TRIAL_SESSION');
+                  setBookingModalOpen(true);
+                }}
+              >
+                Trial session
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setBookingSessionType('SUBSIDY_INTERVIEW');
+                  setBookingModalOpen(true);
+                }}
+              >
+                Subsidy interview
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setBookingSessionType('DRAFTING');
+                  setBookingModalOpen(true);
+                }}
+              >
+                Drafting
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
             <TabsList>
               <TabsTrigger value="table">Table</TabsTrigger>
               <TabsTrigger value="calendar">Calendar</TabsTrigger>
@@ -137,68 +229,21 @@ export default function SessionsPage() {
         </div>
       </div>
 
-      {viewParam === 'table' && (
-        <div className="flex items-end gap-2">
-          <div>
-            <label className="block text-sm mb-1">Date</label>
-            <Input 
-              type="date" 
-              value={day} 
-              onChange={(e) => handleDateChange(e.target.value)} 
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                try {
-                  const prevDate = format(addDays(parseISO(day), -1), 'yyyy-MM-dd');
-                  handleDateChange(prevDate);
-                } catch {
-                  // Fallback if date parsing fails
-                  const today = getTodayLocalDate();
-                  handleDateChange(today);
-                }
-              }}
-            >
-              Prev
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                const today = getTodayLocalDate();
-                handleDateChange(today);
-              }}
-            >
-              Today
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                try {
-                  const nextDate = format(addDays(parseISO(day), 1), 'yyyy-MM-dd');
-                  handleDateChange(nextDate);
-                } catch {
-                  // Fallback if date parsing fails
-                  const today = getTodayLocalDate();
-                  handleDateChange(today);
-                }
-              }}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-
       <Suspense>
         {viewParam === 'table' ? (
           <SessionsTable 
-            rangeStart={day} 
-            rangeEnd={day}
+            rangeStart={from} 
+            rangeEnd={to}
             onOpenSession={(id) => setActiveSessionId(id as string)}
             onOpenStudent={(id) => setActiveStudentId(id as string)}
             onOpenStaff={(id) => setActiveStaffId(id as string)}
+            onFromChange={handleFromChange}
+            onToChange={handleToChange}
+            onResetDates={() => {
+              const today = getTodayLocalDate();
+              handleFromChange(today);
+              handleToChange(today);
+            }}
           />
         ) : (
           <SessionsCalendarView onOpenSession={(id) => setActiveSessionId(id as string)} />
@@ -237,6 +282,26 @@ export default function SessionsPage() {
         fileId={activeFileId}
         onClose={() => setActiveFileId(null)}
       />
+
+      {bookingSessionType && (
+        <BookSessionModal
+          isOpen={bookingModalOpen}
+          onClose={() => {
+            setBookingModalOpen(false);
+            setBookingSessionType(null);
+          }}
+          sessionType={bookingSessionType}
+          onBookingCreated={() => {
+            toast({
+              title: 'Success',
+              description: 'Session booked successfully',
+            });
+            // Optionally refresh the sessions list or navigate to the new session
+            setBookingModalOpen(false);
+            setBookingSessionType(null);
+          }}
+        />
+      )}
     </div>
   );
 }

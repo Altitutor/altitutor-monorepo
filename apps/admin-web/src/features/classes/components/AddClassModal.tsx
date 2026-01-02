@@ -36,11 +36,19 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   
   const [room, setRoom] = useState('');
   const [sessionStartDate, setSessionStartDate] = useState<string>('');
+  const [sessionEndDate, setSessionEndDate] = useState<string>('');
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    
+    // Validate date range
+    if (sessionStartDate && sessionEndDate && sessionStartDate > sessionEndDate) {
+      setError('Session start date must be before or equal to end date');
+      setLoading(false);
+      return;
+    }
     
     try {
       const payload: TablesInsert<'classes'> = {
@@ -53,6 +61,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         subject_id: selectedSubject?.id || null,
         room: room || null,
         session_start_date: sessionStartDate || null,
+        session_end_date: sessionEndDate || null,
       };
       await createMutation.mutateAsync(payload);
       
@@ -76,6 +85,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     
     setRoom('');
     setSessionStartDate('');
+    setSessionEndDate('');
   };
   
   return (
@@ -168,17 +178,33 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="session-start-date">Session Start Date (Optional)</Label>
-            <Input
-              id="session-start-date"
-              type="date"
-              value={sessionStartDate}
-              onChange={(e) => setSessionStartDate(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Leave empty to create sessions immediately. Set a future date to delay session creation until that date.
-            </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="session-start-date">Session Start Date (Optional)</Label>
+              <Input
+                id="session-start-date"
+                type="date"
+                value={sessionStartDate}
+                onChange={(e) => setSessionStartDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to create sessions from today. Set a future date to delay session creation.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="session-end-date">Session End Date (Optional)</Label>
+              <Input
+                id="session-end-date"
+                type="date"
+                value={sessionEndDate}
+                onChange={(e) => setSessionEndDate(e.target.value)}
+                min={sessionStartDate || undefined}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to create sessions until end of year. Set an end date to limit session creation.
+              </p>
+            </div>
           </div>
           
           

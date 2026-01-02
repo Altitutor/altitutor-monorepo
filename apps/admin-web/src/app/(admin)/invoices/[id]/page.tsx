@@ -1,0 +1,285 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button, Separator, Badge } from '@altitutor/ui';
+import { ExternalLink, Download, Loader2, ArrowLeft } from 'lucide-react';
+import { format } from 'date-fns';
+import { billingApi, type InvoiceRow, type InvoiceItemRow } from '@/features/billing/api/billing';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { cn } from '@/shared/utils';
+
+export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
+  const router = useRouter();
+  const [invoice, setInvoice] = useState<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null }) | null>(null);
+  const [invoiceItems, setInvoiceItems] = useState<InvoiceItemRow[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      try {
+        const foundInvoice = await billingApi.getInvoiceById(id);
+        
+        if (foundInvoice) {
+          setInvoice(foundInvoice);
+          
+          const items = await billingApi.getInvoiceItemsByInvoice(id);
+          setInvoiceItems(items);
+        }
+      } catch (error) {
+        console.error('Failed to load invoice:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (id) {
+      load();
+    }
+  }, [id]);
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return format(date, 'EEEE, MMMM d, yyyy');
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
+    let label = status;
+
+    switch (status) {
+      case 'paid':
+        variant = 'default';
+        label = 'Paid';
+        break;
+      case 'draft':
+        variant = 'outline';
+        label = 'Draft';
+        break;
+      case 'open':
+        variant = 'secondary';
+        label = 'Open';
+        break;
+      case 'void':
+      case 'uncollectible':
+      case 'disputed':
+        variant = 'destructive';
+        label = status.charAt(0).toUpperCase() + status.slice(1);
+        break;
+      default:
+        variant = 'outline';
+    }
+
+    return <Badge variant={variant} className="text-xs">{label}</Badge>;
+  };
+
+  const totalAmount = invoice?.amount_due_cents || 0;
+  const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
+  
+  const lineItemsSubtotal = invoiceItems.reduce((sum, item) => sum + (item.amount_cents || 0), 0);
+
+  const handleSessionClick = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!invoice) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push('/invoices')}
+            className="border"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Invoice Not Found</h1>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push('/invoices')}
+          className="border"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold tracking-tight">Invoice Details</h1>
+          <p className="text-lg text-muted-foreground mt-1">
+            Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {/* Invoice Information */}
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Invoice Information</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div className="text-sm font-medium text-muted-foreground">Student:</div>
+            <div className="text-sm">
+              {invoice.student ? (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-sm justify-start"
+                  onClick={() => setActiveStudentId(invoice.student!.id)}
+                >
+                  {invoice.student.first_name} {invoice.student.last_name}
+                </Button>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
+            </div>
+            
+            <div className="text-sm font-medium text-muted-foreground">Invoice Date:</div>
+            <div className="text-sm">{formatDate(invoice.invoice_date)}</div>
+            
+            <div className="text-sm font-medium text-muted-foreground">Status:</div>
+            <div className="text-sm">{getStatusBadge(invoice.status)}</div>
+            
+            <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
+            <div className="text-sm">
+              ${((invoice.amount_due_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
+            </div>
+            
+            <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
+            <div className="text-sm">
+              ${((invoice.amount_paid_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Invoice Line Items */}
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Line Items</h3>
+          {invoiceItems.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No line items</div>
+          ) : (
+            <div className="space-y-3">
+              {invoiceItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "flex items-start justify-between p-3 rounded-md border",
+                    item.session_id && "cursor-pointer hover:bg-muted/50 transition-colors"
+                  )}
+                  onClick={() => {
+                    if (item.session_id) {
+                      handleSessionClick(item.session_id);
+                    }
+                  }}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-sm", item.is_subsidy && "text-muted-foreground line-through")}>
+                        {item.description || 'Invoice item'}
+                      </span>
+                      {item.is_subsidy && (
+                        <Badge variant="outline" className="text-xs">Subsidy</Badge>
+                      )}
+                    </div>
+                    {item.session_id && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Click to view session
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-sm font-medium ml-4">
+                    ${((item.amount_cents || 0) / 100).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Total */}
+              <div className="flex items-center justify-between pt-3 border-t font-semibold">
+                <div className="text-sm">Total:</div>
+                <div className="text-sm">{totalAmountFormatted}</div>
+              </div>
+              
+              {/* Show warning if line items don't match total */}
+              {Math.abs(totalAmount - lineItemsSubtotal) > 1 && (
+                <div className="text-xs text-muted-foreground mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                  Note: Line items total (${(lineItemsSubtotal / 100).toFixed(2)}) differs from invoice total. 
+                  This may indicate missing fee items or other charges not yet synced from Stripe.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Actions */}
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Actions</h3>
+          <div className="flex gap-2">
+            {invoice.hosted_invoice_url && (
+              <Button variant="outline" asChild>
+                <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View on Stripe
+                </a>
+              </Button>
+            )}
+            {invoice.invoice_pdf && (
+              <Button variant="outline" asChild>
+                <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </a>
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Student Modal */}
+      <ViewStudentModal
+        isOpen={!!activeStudentId}
+        studentId={activeStudentId}
+        onClose={() => setActiveStudentId(null)}
+        onStudentUpdated={() => {}}
+      />
+
+      {/* Session Modal */}
+      <SessionModal
+        isOpen={!!activeSessionId}
+        sessionId={activeSessionId}
+        onClose={() => setActiveSessionId(null)}
+      />
+    </div>
+  );
+}

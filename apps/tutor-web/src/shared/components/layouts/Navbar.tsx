@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Button } from '@altitutor/ui';
+import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter } from 'next/navigation';
@@ -16,11 +16,13 @@ import {
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 
 export function Navbar() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
+  const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   // Only fetch staff data when user is authenticated
   const { data: staffRecord } = useCurrentStaff(!!user);
 
@@ -53,25 +55,41 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
       <div className="container mx-auto px-4 h-full flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <div className="h-12 flex items-center gap-1">
-            <Image 
-              src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
-              alt="Altitutor Tutor" 
-              width={160} 
-              height={36}
-              priority
-              className="object-contain"
-            />
-            <span 
-              className="text-brand-lightBlue font-normal leading-none"
-              style={{ 
-                fontFamily: 'Calibri, "Segoe UI", system-ui, -apple-system, sans-serif',
-                fontSize: '26px',
-                letterSpacing: '-0.02em'
-              }}
+          {/* Mobile Hamburger Menu Button */}
+          {user && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleMobileMenu}
+              className="md:hidden flex-shrink-0"
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
             >
-              TUTOR PORTAL
-            </span>
+              <AnimatedHamburgerIcon isOpen={isMobileMenuOpen} />
+            </Button>
+          )}
+          
+          {/* Desktop Logo - hidden on mobile */}
+          <div className="hidden md:flex items-center gap-1">
+            <div className="h-12 flex items-center gap-1">
+              <Image 
+                src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
+                alt="Altitutor Tutor" 
+                width={160} 
+                height={36}
+                priority
+                className="object-contain"
+              />
+              <span 
+                className="text-brand-lightBlue font-normal leading-none"
+                style={{ 
+                  fontFamily: 'Calibri, "Segoe UI", system-ui, -apple-system, sans-serif',
+                  fontSize: '26px',
+                  letterSpacing: '-0.02em'
+                }}
+              >
+                TUTOR PORTAL
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-4">

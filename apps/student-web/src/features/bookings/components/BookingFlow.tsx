@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
 import { Loader2, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
@@ -82,93 +83,130 @@ export function BookingFlow({
         ))}
       </div>
 
-      {/* Booking Summary Card - Show after time is selected */}
-      {selectedSlot && currentStep > 0 && (
+      {/* Pills for date/time and duration - Show only in details step (step 1) */}
+      {selectedSlot && currentStep === 1 && (
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary" className="text-sm py-1.5 px-3">
+            {new Date(selectedSlot.startAt).toLocaleDateString('en-AU', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              timeZone: 'Australia/Adelaide',
+            })}, {new Date(selectedSlot.startAt).toLocaleTimeString('en-AU', {
+              hour: 'numeric',
+              minute: '2-digit',
+              timeZone: 'Australia/Adelaide',
+            })} - {new Date(selectedSlot.endAt).toLocaleTimeString('en-AU', {
+              hour: 'numeric',
+              minute: '2-digit',
+              timeZone: 'Australia/Adelaide',
+            })}
+          </Badge>
+          <Badge variant="secondary" className="text-sm py-1.5 px-3">
+            {durationMinutes}m
+          </Badge>
+        </div>
+      )}
+
+      {/* Current Step Content */}
+      {currentStep === 0 || currentStep === 1 || currentStep === 2 ? (
+        // No card wrapper for mobile-friendly steps
+        <div className="space-y-6">
+          {currentStepData.component}
+          
+          {/* Navigation Buttons */}
+          <div className="flex gap-2 pt-4 border-t">
+            {!isFirstStep && (
+              <Button
+                variant="outline"
+                onClick={onBack}
+                disabled={isSubmitting}
+              >
+                Back
+              </Button>
+            )}
+            <div className="flex-1" />
+            {!isLastStep ? (
+              <Button
+                onClick={onNext}
+                disabled={isSubmitting}
+                className={cn(
+                  !canProceed && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                Next
+              </Button>
+            ) : (
+              <Button
+                onClick={onConfirm}
+                disabled={!canProceed || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  'Confirm Booking'
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        // Fallback card wrapper for any other steps
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-5 w-5" />
-                <span className="font-medium">
-                  {new Date(selectedSlot.startAt).toLocaleDateString('en-AU', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    timeZone: 'Australia/Adelaide',
-                  })}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-5 w-5" />
-                <span className="font-medium">
-                  {new Date(selectedSlot.startAt).toLocaleTimeString('en-AU', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    timeZone: 'Australia/Adelaide',
-                  })} - {new Date(selectedSlot.endAt).toLocaleTimeString('en-AU', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    timeZone: 'Australia/Adelaide',
-                  })}
-                </span>
-              </div>
-              <div className="text-muted-foreground">
-                <span className="font-medium">{durationMinutes} minutes</span>
+          <CardHeader>
+            <CardTitle>{currentStepData.title}</CardTitle>
+            {description && <CardDescription>{description}</CardDescription>}
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {currentStepData.component}
+              
+              {/* Navigation Buttons */}
+              <div className="flex gap-2 pt-4 border-t">
+                {!isFirstStep && (
+                  <Button
+                    variant="outline"
+                    onClick={onBack}
+                    disabled={isSubmitting}
+                  >
+                    Back
+                  </Button>
+                )}
+                <div className="flex-1" />
+                {!isLastStep ? (
+                  <Button
+                    onClick={onNext}
+                    disabled={isSubmitting}
+                    className={cn(
+                      !canProceed && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={onConfirm}
+                    disabled={!canProceed || isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Confirming...
+                      </>
+                    ) : (
+                      'Confirm Booking'
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Current Step Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{currentStepData.title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {currentStepData.component}
-            
-            {/* Navigation Buttons */}
-            <div className="flex gap-2 pt-4 border-t">
-              {!isFirstStep && (
-                <Button
-                  variant="outline"
-                  onClick={onBack}
-                  disabled={isSubmitting}
-                >
-                  Back
-                </Button>
-              )}
-              <div className="flex-1" />
-              {!isLastStep ? (
-                <Button
-                  onClick={onNext}
-                  disabled={!canProceed || isSubmitting}
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  onClick={onConfirm}
-                  disabled={!canProceed || isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Confirming...
-                    </>
-                  ) : (
-                    'Confirm Booking'
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

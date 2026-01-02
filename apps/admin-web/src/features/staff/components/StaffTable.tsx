@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, memo, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -24,15 +25,59 @@ interface StaffTableProps {
 }
 
 export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Initialize from URL params
+  const getSearchFromUrl = () => searchParams.get('search') || '';
+  const getArrayFromUrl = (key: string): string[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').filter(Boolean) : [];
+  };
+  const getSortFromUrl = (): { field: keyof Tables<'staff'>; direction: 'asc' | 'desc' } => {
+    const field = (searchParams.get('sort') || 'role') as keyof Tables<'staff'>;
+    const direction = (searchParams.get('order') || 'asc') as 'asc' | 'desc';
+    return { field, direction };
+  };
+  
+  const updateUrlParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/staff?${params.toString()}`);
+  };
+  
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
 
-  // Filter and sort state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilters, setRoleFilters] = useState<string[]>([]);
-  const [statusFilters, setStatusFilters] = useState<string[]>(['ACTIVE']);
-  const [sortField, setSortField] = useState<keyof Tables<'staff'>>('role');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Filter and sort state initialized from URL
+  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
+  const [roleFilters, setRoleFilters] = useState<string[]>(getArrayFromUrl('role'));
+  const [statusFilters, setStatusFilters] = useState<string[]>(getArrayFromUrl('status').length > 0 ? getArrayFromUrl('status') : ['ACTIVE']);
+  const sortFromUrl = getSortFromUrl();
+  const [sortField, setSortField] = useState<keyof Tables<'staff'>>(sortFromUrl.field);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortFromUrl.direction);
+  
+  // Sync from URL params
+  useEffect(() => {
+    setSearchTerm(getSearchFromUrl());
+    setRoleFilters(getArrayFromUrl('role'));
+    const statusFromUrl = getArrayFromUrl('status');
+    setStatusFilters(statusFromUrl.length > 0 ? statusFromUrl : ['ACTIVE']);
+    const sort = getSortFromUrl();
+    setSortField(sort.field);
+    setSortDirection(sort.direction);
+    const pageParam = Number(searchParams.get('page'));
+    if (pageParam) setPage(pageParam);
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    if (pageSizeParam) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const { 
     data, 
@@ -85,14 +130,17 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   }, []);
 
   const handleSort = useCallback((field: keyof Tables<'staff'>) => {
+    const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
+    const newField = sortField === field ? field : field;
+    setSortField(newField);
+    setSortDirection(newDirection);
     setPage(1);
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  }, [sortField]);
+    updateUrlParams({ 
+      sort: newField,
+      order: newDirection,
+      page: null 
+    });
+  }, [sortField, sortDirection, updateUrlParams]);
 
   const resetFilters = useCallback(() => {
     setSearchTerm('');
@@ -101,17 +149,33 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     setSortField('role');
     setSortDirection('asc');
     setPage(1);
-  }, []);
+    updateUrlParams({ 
+      search: null,
+      role: null,
+      status: null,
+      sort: null,
+      order: null,
+      page: null 
+    });
+  }, [updateUrlParams]);
 
   const handleRoleFiltersChange = useCallback((roles: string[]) => {
     setRoleFilters(roles);
     setPage(1);
-  }, []);
+    updateUrlParams({ 
+      role: roles.length > 0 ? roles.join(',') : null,
+      page: null 
+    });
+  }, [updateUrlParams]);
 
   const handleStatusFiltersChange = useCallback((statuses: string[]) => {
     setStatusFilters(statuses.length > 0 ? statuses : []);
     setPage(1);
-  }, []);
+    updateUrlParams({ 
+      status: statuses.length > 0 ? statuses.join(',') : null,
+      page: null 
+    });
+  }, [updateUrlParams]);
 
   // Loading state
   if (isLoading && staffMembers.length === 0) {
@@ -162,6 +226,10 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         onSearchChange={(value) => {
           setSearchTerm(value);
           setPage(1);
+          updateUrlParams({ 
+            search: value || null,
+            page: null 
+          });
         }}
         onRoleFiltersChange={handleRoleFiltersChange}
         onStatusFiltersChange={handleStatusFiltersChange}
@@ -210,10 +278,17 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         pageSize={pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={setPage}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
+        }}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);
+          updateUrlParams({ 
+            pageSize: size === 50 ? null : String(size),
+            page: null 
+          });
         }}
       />
 

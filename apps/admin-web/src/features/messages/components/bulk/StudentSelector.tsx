@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { X, Plus, Search, ChevronDown, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { 
   Button, 
@@ -64,6 +64,7 @@ export function StudentSelector({
   const [searchResults, setSearchResults] = useState<Tables<'students'>[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Filter popover states
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
@@ -164,7 +165,7 @@ export function StudentSelector({
         const selectedIds = new Set(selectedStudents.map(s => s.id));
         const filteredResults = results.filter(s => !selectedIds.has(s.id));
         setSearchResults(filteredResults);
-        setIsSearchPopoverOpen(filteredResults.length > 0);
+        setIsSearchPopoverOpen(filteredResults.length > 0 && trimmed.length > 0);
       } catch (error) {
         console.error('Error searching students:', error);
         toast({
@@ -590,22 +591,36 @@ export function StudentSelector({
       <div className="space-y-4">
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+          <Popover open={isSearchPopoverOpen && searchResults.length > 0 && searchQuery.trim().length > 0} onOpenChange={setIsSearchPopoverOpen}>
             <PopoverTrigger asChild>
-              <Input
-                placeholder="Search by student name or class..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => {
-                  if (searchResults.length > 0) {
-                    setIsSearchPopoverOpen(true);
-                  }
-                }}
-              />
+              <div className="relative w-full">
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Search by student name or class..."
+                  className="pl-10 w-full"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                  }}
+                  onFocus={() => {
+                    if (searchResults.length > 0 && searchQuery.trim().length > 0) {
+                      setIsSearchPopoverOpen(true);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    // Prevent popover from closing when typing
+                    e.stopPropagation();
+                  }}
+                />
+              </div>
             </PopoverTrigger>
-            <PopoverContent className="w-[600px] p-0" align="start">
+            <PopoverContent 
+              className="p-0" 
+              align="start" 
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              style={{ width: searchInputRef.current?.offsetWidth || '100%' }}
+            >
               <ScrollArea className="max-h-[400px]">
                 <div className="p-2">
                   {isSearching ? (
@@ -674,8 +689,8 @@ export function StudentSelector({
                   onChange={(e) => setSubjectSearchQuery(e.target.value)}
                   className="mb-3"
                 />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-1 pr-4">
                     {isSearchingSubjects ? (
                       <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -720,8 +735,8 @@ export function StudentSelector({
                   onChange={(e) => setClassSearchQuery(e.target.value)}
                   className="mb-3"
                 />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-1 pr-4">
                     {isSearchingClasses ? (
                       <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -766,8 +781,8 @@ export function StudentSelector({
                   onChange={(e) => setYearSearchQuery(e.target.value)}
                   className="mb-3"
                 />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-1 pr-4">
                     {filteredYearLevels.length === 0 ? (
                       <div className="p-3 text-center text-sm text-muted-foreground">
                         {yearSearchQuery ? 'No year levels match your search' : 'No year levels found'}

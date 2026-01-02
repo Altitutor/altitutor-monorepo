@@ -312,7 +312,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
 
   return (
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex-1">

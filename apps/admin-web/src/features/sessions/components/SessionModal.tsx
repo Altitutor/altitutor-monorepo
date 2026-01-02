@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@altitutor/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
 import { format } from 'date-fns';
+import { ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sessionsApi } from '../api/sessions';
@@ -22,6 +24,7 @@ import { Badge } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { Check, X } from 'lucide-react';
 import { SessionNotes } from './SessionNotes';
+import { formatTime } from '@/shared/utils/datetime';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -30,6 +33,7 @@ type SessionModalProps = {
 };
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
@@ -130,7 +134,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   if (isLoading || !data) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] max-w-[90vw] overflow-y-auto p-0">
+        <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
           <SheetHeader className="px-6 py-4">
             <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
           </SheetHeader>
@@ -255,13 +259,31 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
+        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
-              <SheetTitle>Session Details</SheetTitle>
-              <SheetDescription className="text-lg font-medium">
-                {sessionTitle}
-              </SheetDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <SheetTitle>Session Details</SheetTitle>
+                  <SheetDescription className="text-lg font-medium">
+                    {sessionTitle}
+                  </SheetDescription>
+                </div>
+                {sessionId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      router.push(`/sessions/${sessionId}`);
+                      onClose();
+                    }}
+                    className="shrink-0"
+                    title="Open in new page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </SheetHeader>
             
             <div className="space-y-6">
@@ -274,9 +296,19 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                   
                   <div className="text-sm font-medium text-muted-foreground">Time:</div>
                   <div className="text-sm">
-                    {session.class?.start_time && session.class?.end_time
-                      ? `${session.class.start_time} - ${session.class.end_time}`
-                      : '—'}
+                    {(() => {
+                      if (session.start_at && session.end_at) {
+                        const startDate = new Date(session.start_at);
+                        const endDate = new Date(session.end_at);
+                        const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+                        const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+                        return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+                      }
+                      if (session.class?.start_time && session.class?.end_time) {
+                        return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
+                      }
+                      return '—';
+                    })()}
                   </div>
                   
                   <div className="text-sm font-medium text-muted-foreground">Subject:</div>

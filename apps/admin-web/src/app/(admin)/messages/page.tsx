@@ -7,6 +7,7 @@ import { Composer } from '@/features/messages/components/Composer';
 import { InfoPanel } from '@/features/messages/components/InfoPanel';
 import { InfoModal } from '@/features/messages/components/InfoModal';
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
@@ -14,7 +15,10 @@ import { useMarkUnread } from '@/features/messages/api/mutations';
 import { useToast } from '@altitutor/ui';
 
 export default function MessagesPage() {
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const conversationParam = searchParams.get('conversation');
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(conversationParam);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,25 +54,40 @@ export default function MessagesPage() {
     enabled: !!activeConversationId,
   });
   
+  // Sync from URL params
   useEffect(() => {
-    // Auto-select most recent conversation when present
-    (async () => {
-      const supabase = getSupabaseClient() as any;
-      const { data } = await supabase
-        .from('conversations')
-        .select('id')
-        .order('last_message_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data?.id) setActiveConversationId(data.id);
-    })();
-  }, []);
+    const conversationId = searchParams.get('conversation');
+    if (conversationId) {
+      setActiveConversationId(conversationId);
+    } else if (!activeConversationId) {
+      // Auto-select most recent conversation when no URL param and no active conversation
+      (async () => {
+        const supabase = getSupabaseClient() as any;
+        const { data } = await supabase
+          .from('conversations')
+          .select('id')
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data?.id) {
+          setActiveConversationId(data.id);
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('conversation', data.id);
+          router.push(`/messages?${params.toString()}`);
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   
   const conversationTitle = activeConversation ? formatContactName(activeConversation) : 'Messages';
   
   const handleConversationSelect = (id: string) => {
     setActiveConversationId(id);
     setMobileView('thread');
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('conversation', id);
+    router.push(`/messages?${params.toString()}`);
   };
   
   const handleBack = () => {

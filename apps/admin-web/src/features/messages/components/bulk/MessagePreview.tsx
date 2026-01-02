@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
-import { Button, ScrollArea, Alert, AlertDescription } from '@altitutor/ui';
+import { Loader2 } from 'lucide-react';
+import { Button, ScrollArea } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -146,9 +146,6 @@ export function MessagePreview({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Review recipients and their personalized messages before sending
-      </p>
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
@@ -159,42 +156,10 @@ export function MessagePreview({
         </div>
       ) : (
         <>
-          <div className="p-6 space-y-4">
-            {/* Summary */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="border rounded-lg p-4">
-                <div className="text-2xl font-bold">{recipientsWithPhone.length}</div>
-                <div className="text-sm text-muted-foreground">Will receive message</div>
-              </div>
-              <div className="border rounded-lg p-4">
-                <div className="text-2xl font-bold">{students.length}</div>
-                <div className="text-sm text-muted-foreground">Students</div>
-              </div>
-              {sendToParents && (
-                <div className="border rounded-lg p-4">
-                  <div className="text-2xl font-bold">
-                    {recipients.filter(r => r.type === 'parent').length}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Parents</div>
-                </div>
-              )}
-            </div>
-
-            {/* Warning for missing phones */}
-            {recipientsWithoutPhone.length > 0 && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  {recipientsWithoutPhone.length} recipient{recipientsWithoutPhone.length !== 1 ? 's' : ''} without phone numbers will be skipped
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
           <div className="flex-1 p-6 grid grid-cols-2 gap-6 overflow-hidden">
             {/* Recipients List */}
             <div className="flex flex-col">
-              <h3 className="font-semibold text-sm mb-3">Recipients</h3>
+              <h3 className="font-semibold text-sm mb-3">Recipients ({recipientsWithPhone.length} / {recipients.length})</h3>
               <ScrollArea className="flex-1 border rounded-lg">
                 <div className="p-2">
                   {recipients.map((recipient) => (
@@ -212,7 +177,7 @@ export function MessagePreview({
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm">{recipient.name}</div>
                           <div className="text-xs mt-0.5">
-                            {recipient.type === 'parent' ? '👤 Parent' : '🎓 Student'}
+                            {recipient.type === 'parent' ? 'Parent' : 'Student'}
                             {!recipient.phone && ' • No phone'}
                           </div>
                         </div>

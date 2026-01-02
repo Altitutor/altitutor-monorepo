@@ -1,6 +1,7 @@
 export * from './components/accordion';
 export * from './components/alert-dialog';
 export * from './components/alert';
+export * from './components/animated-hamburger-icon';
 export * from './components/badge';
 export * from './components/button';
 export * from './components/calendar';
@@ -32,4 +33,5 @@ export * from './components/textarea';
 export * from './components/tooltip';
 export * from './components/use-toast';
 export * from './components/payment-method-card';
+export * from './components/booking-calendar-view';
 export * from './lib/enum-colors';

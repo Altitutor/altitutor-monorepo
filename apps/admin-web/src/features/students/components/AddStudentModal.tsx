@@ -232,7 +232,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Student</DialogTitle>
           <DialogDescription>

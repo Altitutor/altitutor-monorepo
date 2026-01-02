@@ -6,7 +6,7 @@ import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
 import { ClassCard } from '@/shared/components/ClassCard';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 interface CalendarViewProps {
   classes: Tables<'classes'>[];
@@ -299,97 +299,96 @@ export function CalendarView({
 
   
 
-  if (activeDays.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No classes found for the selected filters</p>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Search and Day Filter */}
       {showFilters && (
-        <div className="flex items-center gap-4">
+        <div className="flex justify-between items-center">
           <div className="relative w-64">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by subject, student, or staff..."
+              placeholder="Search classes"
               className="pl-8"
               value={searchTerm || ''}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
-          <div className="flex items-center gap-1">
-          <Button 
-            variant={dayFilter.includes(1) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(1)}
-          >
-            Mon
-          </Button>
-          <Button 
-            variant={dayFilter.includes(2) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(2)}
-          >
-            Tue
-          </Button>
-          <Button 
-            variant={dayFilter.includes(3) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(3)}
-          >
-            Wed
-          </Button>
-          <Button 
-            variant={dayFilter.includes(4) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(4)}
-          >
-            Thu
-          </Button>
-          <Button 
-            variant={dayFilter.includes(5) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(5)}
-          >
-            Fri
-          </Button>
-          <Button 
-            variant={dayFilter.includes(6) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(6)}
-          >
-            Sat
-          </Button>
-          <Button 
-            variant={dayFilter.includes(0) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(0)}
-          >
-            Sun
-          </Button>
-          {dayFilter.length > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={clearDayFilter}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Clear
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {dayFilter.length > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={clearDayFilter}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+            )}
+            <div className="flex items-center gap-1">
+              <Button 
+                variant={dayFilter.includes(1) ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => toggleDay(1)}
+              >
+                Mon
+              </Button>
+              <Button 
+                variant={dayFilter.includes(2) ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => toggleDay(2)}
+              >
+                Tue
+              </Button>
+              <Button 
+                variant={dayFilter.includes(3) ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => toggleDay(3)}
+              >
+                Wed
+              </Button>
+              <Button 
+                variant={dayFilter.includes(4) ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => toggleDay(4)}
+              >
+                Thu
+              </Button>
+              <Button 
+                variant={dayFilter.includes(5) ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => toggleDay(5)}
+              >
+                Fri
+              </Button>
+              <Button 
+                variant={dayFilter.includes(6) ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => toggleDay(6)}
+              >
+                Sat
+              </Button>
+              <Button 
+                variant={dayFilter.includes(0) ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => toggleDay(0)}
+              >
+                Sun
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Calendar Grid */}
-      <div className="flex-1 overflow-auto">
+      {activeDays.length === 0 ? (
+        <div className="flex items-center justify-center h-full">
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">No classes found for the selected filters</p>
+          </Card>
+        </div>
+      ) : (
+        /* Calendar Grid */
+        <div className="flex-1 overflow-auto">
         <div 
           className="grid gap-0 min-h-full relative bg-background"
           style={{ 
@@ -475,6 +474,7 @@ export function CalendarView({
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

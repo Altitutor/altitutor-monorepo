@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, Dispatch, SetStateAction, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -34,11 +35,44 @@ interface ClassesTableProps {
 }
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dayFilter, setDayFilter] = useState<number[]>([]);
+  // Initialize from URL params
+  const getSearchFromUrl = () => searchParams.get('search') || '';
+  const getNumberArrayFromUrl = (key: string): number[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').map(Number).filter(n => !isNaN(n)) : [];
+  };
+  
+  const updateUrlParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/classes?${params.toString()}`);
+  };
+  
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
+  
+  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
+  const [dayFilter, setDayFilter] = useState<number[]>(getNumberArrayFromUrl('day'));
+  
+  // Sync from URL params
+  useEffect(() => {
+    setSearchTerm(getSearchFromUrl());
+    setDayFilter(getNumberArrayFromUrl('day'));
+    const pageParam = Number(searchParams.get('page'));
+    if (pageParam) setPage(pageParam);
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    if (pageSizeParam) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const { 
     data, 
@@ -163,10 +197,18 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       if (prev.includes(day)) {
         const next = prev.filter(d => d !== day);
         setPage(1);
+        updateUrlParams({ 
+          day: next.length > 0 ? next.join(',') : null,
+          page: null 
+        });
         return next;
       } else {
         const next = [...prev, day];
         setPage(1);
+        updateUrlParams({ 
+          day: next.join(','),
+          page: null 
+        });
         return next;
       }
     });
@@ -175,6 +217,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const clearDayFilter = () => {
     setDayFilter([]);
     setPage(1);
+    updateUrlParams({ 
+      day: null,
+      page: null 
+    });
   };
 
   // Loading state
@@ -182,24 +228,22 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by subject, student, or staff..."
-                className="pl-8"
-                value={""}
-                disabled
-              />
-            </div>
-            
-            <div className="flex items-center gap-1">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                <Button key={day} variant="outline" size="sm" disabled>
-                  {day}
-                </Button>
-              ))}
-            </div>
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search classes"
+              className="pl-8"
+              value={""}
+              disabled
+            />
+          </div>
+          
+          <div className="flex items-center gap-1">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+              <Button key={day} variant="outline" size="sm" disabled>
+                {day}
+              </Button>
+            ))}
           </div>
         </div>
         
@@ -234,82 +278,86 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by subject, student, or staff..."
-              className="pl-8"
-              value={searchTerm || ''}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          
-          <div className="flex items-center gap-1">
+      {/* Search and filters with dynamic wrapping */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search classes"
+            className="pl-8"
+            value={searchTerm || ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSearchTerm(value);
+              setPage(1);
+              updateUrlParams({ 
+                search: value || null,
+                page: null 
+              });
+            }}
+          />
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-1">
+          <Button 
+            variant={dayFilter.includes(1) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(1)}
+          >
+            Mon
+          </Button>
+          <Button 
+            variant={dayFilter.includes(2) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(2)}
+          >
+            Tue
+          </Button>
+          <Button 
+            variant={dayFilter.includes(3) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(3)}
+          >
+            Wed
+          </Button>
+          <Button 
+            variant={dayFilter.includes(4) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(4)}
+          >
+            Thu
+          </Button>
+          <Button 
+            variant={dayFilter.includes(5) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(5)}
+          >
+            Fri
+          </Button>
+          <Button 
+            variant={dayFilter.includes(6) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(6)}
+          >
+            Sat
+          </Button>
+          <Button 
+            variant={dayFilter.includes(0) ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => toggleDay(0)}
+          >
+            Sun
+          </Button>
+          {dayFilter.length > 0 && (
             <Button 
-              variant={dayFilter.includes(1) ? 'default' : 'outline'} 
+              variant="ghost" 
               size="sm"
-              onClick={() => toggleDay(1)}
+              onClick={clearDayFilter}
+              className="text-muted-foreground hover:text-foreground"
             >
-              Mon
+              Clear
             </Button>
-            <Button 
-              variant={dayFilter.includes(2) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(2)}
-            >
-              Tue
-            </Button>
-            <Button 
-              variant={dayFilter.includes(3) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(3)}
-            >
-              Wed
-            </Button>
-            <Button 
-              variant={dayFilter.includes(4) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(4)}
-            >
-              Thu
-            </Button>
-            <Button 
-              variant={dayFilter.includes(5) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(5)}
-            >
-              Fri
-            </Button>
-            <Button 
-              variant={dayFilter.includes(6) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(6)}
-            >
-              Sat
-            </Button>
-            <Button 
-              variant={dayFilter.includes(0) ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => toggleDay(0)}
-            >
-              Sun
-            </Button>
-            {dayFilter.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={clearDayFilter}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Clear
-              </Button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -425,10 +473,17 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         pageSize={pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={setPage}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
+        }}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);
+          updateUrlParams({ 
+            pageSize: size === 50 ? null : String(size),
+            page: null 
+          });
         }}
       />
 

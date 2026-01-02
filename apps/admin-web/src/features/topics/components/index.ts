@@ -7,3 +7,4 @@ export * from './FilePreview';
 export * from './FilePreviewModal';
 export * from './FileCard';
 export * from './EditTopicFileModal';
+export * from './TopicsTable';
