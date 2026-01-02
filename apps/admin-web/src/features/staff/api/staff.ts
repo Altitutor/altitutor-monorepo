@@ -36,30 +36,6 @@ export interface StaffUpdateData extends Partial<StaffCreateData> {
   status?: string;
 }
 
-// Input from UI for inviting/creating staff (camelCase fields)
-export interface StaffInviteData {
-  first_name: string;
-  last_name: string;
-  email?: string | null;
-  phone_number?: string | null;
-  role: string;
-  status?: 'ACTIVE' | 'INACTIVE' | 'TRIAL';
-  office_key_number?: number | null;
-  has_parking_remote?: 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null;
-  availability_monday?: boolean;
-  availability_tuesday?: boolean;
-  availability_wednesday?: boolean;
-  availability_thursday?: boolean;
-  availability_friday?: boolean;
-  availability_saturday_am?: boolean;
-  availability_saturday_pm?: boolean;
-  availability_sunday_am?: boolean;
-  availability_sunday_pm?: boolean;
-  drafting_availability?: boolean;
-  trial_session_availability?: boolean;
-  subsidy_interview_availability?: boolean;
-}
-
 export const staffApi = {
   // Get all staff
   getAll: async (): Promise<Tables<'staff'>[]> => {
@@ -416,52 +392,24 @@ export const staffApi = {
     return staffApi.delete(id);
   },
 
-  // Invite a user by email and create the staff record - calls server-side API route
-  inviteStaff: async (data: StaffInviteData): Promise<{ staff: Tables<'staff'> }> => {
-    if (!data.email || data.email === '') {
-      throw new Error('Email is required to invite staff');
-    }
+  /**
+   * Create a new staff member without creating a user account
+   * Similar to createStudent - just creates the database record
+   */
+  createStaff: async (data: TablesInsert<'staff'>): Promise<Tables<'staff'>> => {
+    // Ensure id exists if the table requires it
+    const payload: TablesInsert<'staff'> = {
+      ...(data as TablesInsert<'staff'>),
+      id: (data as any)?.id ?? crypto.randomUUID(),
+    };
 
-    try {
-      const response = await fetch('/api/staff/invite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          first_name: data.first_name,
-          last_name: data.last_name,
-          email: data.email,
-          phone_number: data.phone_number,
-          role: data.role,
-          status: data.status,
-          office_key_number: data.office_key_number,
-          has_parking_remote: data.has_parking_remote,
-          availability_monday: data.availability_monday,
-          availability_tuesday: data.availability_tuesday,
-          availability_wednesday: data.availability_wednesday,
-          availability_thursday: data.availability_thursday,
-          availability_friday: data.availability_friday,
-          availability_saturday_am: data.availability_saturday_am,
-          availability_saturday_pm: data.availability_saturday_pm,
-          availability_sunday_am: data.availability_sunday_am,
-          availability_sunday_pm: data.availability_sunday_pm,
-          drafting_availability: data.drafting_availability,
-          trial_session_availability: data.trial_session_availability,
-          subsidy_interview_availability: data.subsidy_interview_availability,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to invite staff: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return { staff: result.data as Tables<'staff'> };
-    } catch (error) {
-      throw new Error(`Unexpected error inviting staff: ${error instanceof Error ? error.message : error}`);
-    }
+    const { data: created, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('staff')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return created as Tables<'staff'>;
   },
 
   // Create staff account (variant that doesn't require password - for existing users)

@@ -19,7 +19,7 @@ import { useToast } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { useInviteStaff } from '../hooks/useStaffQuery';
+import { useCreateStaff } from '../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useAssignSubjectToStaff } from '../hooks/useStaffQuery';
 import { formatSubjectDisplay } from '@/shared/utils';
@@ -75,7 +75,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalProps) {
   const { toast } = useToast();
-  const inviteStaffMutation = useInviteStaff();
+  const createStaffMutation = useCreateStaff();
   const assignSubjectMutation = useAssignSubjectToStaff();
   const { data: allSubjects = [] } = useSubjects();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,10 +121,11 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     setErrorMessage(null);
     
     try {
-      const staffData = {
+      const staffData: any = {
+        id: crypto.randomUUID(),
         first_name: formData.firstName,
         last_name: formData.lastName,
-        email: formData.email || undefined,
+        email: (formData.email || null) as any,
         phone_number: formData.phoneNumber || null,
         role: formData.role,
         status: 'ACTIVE' as const,
@@ -142,11 +143,16 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         drafting_availability: formData.drafting_availability,
         trial_session_availability: formData.trial_session_availability,
         subsidy_interview_availability: formData.subsidy_interview_availability,
+        user_id: null,
+        created_at: null,
+        created_by: null,
+        invite_token: null,
+        updated_at: null,
       };
       
-      // Create the staff member with user account using invitation
-      const result = await inviteStaffMutation.mutateAsync(staffData);
-      const staffId = result.staff.id;
+      // Create the staff member without creating a user account
+      const createdStaff = await createStaffMutation.mutateAsync(staffData);
+      const staffId = createdStaff.id;
       
       // Assign subjects if any were selected
       if (selectedSubjects.length > 0) {
@@ -165,7 +171,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       
       toast({
         title: 'Staff added successfully',
-        description: 'An invitation email has been sent with instructions to set up their account.',
+        description: 'Staff member has been added to the system.',
       });
       
       // Reset form and close modal
@@ -182,9 +188,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         errorMsg = error.message;
         
         // Check for specific Supabase errors
-        if (errorMsg.includes('User already registered')) {
-          errorMsg = 'A user with this email already exists';
-        } else if (errorMsg.includes('not allowed')) {
+        if (errorMsg.includes('not allowed')) {
           errorMsg = 'You do not have permission to add staff members';
         }
       }

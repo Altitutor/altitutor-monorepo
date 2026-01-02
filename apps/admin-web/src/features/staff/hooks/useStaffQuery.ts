@@ -155,11 +155,11 @@ export function useStaffSubjects(staffId: string) {
 }
 
 // Mutations
-export function useInviteStaff() {
+export function useCreateStaff() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: staffApi.inviteStaff,
+    mutationFn: staffApi.createStaff,
     onSuccess: () => {
       // Invalidate ONLY entity's minimal list
       queryClient.invalidateQueries({ queryKey: ['staff', 'minimal'] });
