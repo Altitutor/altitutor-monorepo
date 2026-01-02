@@ -6,7 +6,7 @@ import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { LogOut, User, Menu } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { format, isValid, parseISO } from 'date-fns';
@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  AnimatedHamburgerIcon,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { GlobalSearch } from '../GlobalSearch';
@@ -50,7 +51,7 @@ export function Navbar() {
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { data: staffRecord } = useCurrentStaff();
-  const { toggle: toggleMobileMenu } = useMobileMenu();
+  const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   
   // Initialize date from URL if on sessions page, otherwise use today
   const getInitialDate = (): string => {
@@ -186,9 +187,9 @@ export function Navbar() {
             size="icon"
             onClick={toggleMobileMenu}
             className="md:hidden flex-shrink-0"
-            aria-label="Toggle menu"
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
-            <Menu className="h-5 w-5" />
+            <AnimatedHamburgerIcon isOpen={isMobileMenuOpen} />
           </Button>
         )}
         

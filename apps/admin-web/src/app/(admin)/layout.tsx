@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, Menu, X, FileText, Home, CreditCard, Clock, Ban } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, Clock, Ban } from 'lucide-react';
+import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, LayoutGrid } from 'lucide-react';
@@ -16,6 +16,8 @@ import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { Breadcrumb } from '@/shared/components';
+import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
 
 const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
   ssr: false,
@@ -229,7 +231,7 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
           onClick={onToggle} 
           className="mr-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
         >
-          {collapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
+          <AnimatedHamburgerIcon isOpen={!collapsed} />
         </Button>
         {!collapsed && (
           <div className="flex items-center">
@@ -305,6 +307,7 @@ function AdminLayoutContent({
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isAnnouncementsModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeAnnouncementsModal } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
+  const breadcrumbs = useBreadcrumbs();
   
   // #region agent log
   useEffect(() => {
@@ -324,6 +327,9 @@ function AdminLayoutContent({
       <div className="flex h-[calc(100vh-var(--navbar-height))] overflow-hidden">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
         <div className="flex-1 overflow-auto relative">
+          <div className="px-6 pt-6 pb-0">
+            <Breadcrumb items={breadcrumbs} />
+          </div>
           {children}
           {/* Floating quick actions menu */}
           <QuickActionsMenu />
