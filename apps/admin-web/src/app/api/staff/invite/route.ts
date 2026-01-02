@@ -72,8 +72,8 @@ export async function POST(request: NextRequest) {
       role: body.role,
       status: body.status || 'ACTIVE',
       notes: body.notes || null,
-      office_key_number: body.office_key_number || null,
-      has_parking_remote: body.has_parking_remote || null,
+      office_key_number: body.office_key_number ?? null,
+      has_parking_remote: body.has_parking_remote ?? 'NONE',
       availability_monday: body.availability_monday || false,
       availability_tuesday: body.availability_tuesday || false,
       availability_wednesday: body.availability_wednesday || false,
@@ -83,6 +83,9 @@ export async function POST(request: NextRequest) {
       availability_saturday_pm: body.availability_saturday_pm || false,
       availability_sunday_am: body.availability_sunday_am || false,
       availability_sunday_pm: body.availability_sunday_pm || false,
+      drafting_availability: body.drafting_availability || false,
+      trial_session_availability: body.trial_session_availability || false,
+      subsidy_interview_availability: body.subsidy_interview_availability || false,
     };
 
     const { data: staffRecord, error: staffCreateError } = await supabase
