@@ -237,8 +237,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
     switch (step) {
       case 'select-student':
         return (
-          <div className="space-y-4">
-            <div className="relative">
+          <div className="flex flex-col h-full">
+            <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
@@ -252,7 +252,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
             {loadingStudents ? (
               <div className="py-8 text-center text-muted-foreground">Loading students...</div>
             ) : studentResults && studentResults.students && studentResults.students.length > 0 ? (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
                 {studentResults.students.map((student) => (
                   <div
                     key={student.id}
@@ -276,7 +276,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
                 ))}
                 {/* Pagination controls */}
                 {studentResults && studentResults.total > pageSize && (
-                  <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="flex items-center justify-between pt-4 border-t mt-4">
                     <Button
                       variant="outline"
                       size="sm"
@@ -564,7 +564,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>{getStepTitle()}</DialogTitle>
           <DialogDescription>{getStepDescription()}</DialogDescription>

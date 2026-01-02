@@ -3,40 +3,15 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { useBreadcrumbEntityName } from '@/shared/hooks/useBreadcrumbs';
 
 export interface BreadcrumbItem {
   label: string;
   href?: string;
-  entityId?: string;
-  entityType?: string | null;
 }
 
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
   className?: string;
-}
-
-function BreadcrumbItemComponent({ item, isLast }: { item: BreadcrumbItem; isLast: boolean }) {
-  const entityName = useBreadcrumbEntityName(item.entityId, item.entityType);
-  const displayLabel = entityName || item.label;
-
-  if (item.href && !isLast) {
-    return (
-      <Link
-        href={item.href}
-        className="hover:text-foreground transition-colors"
-      >
-        {displayLabel}
-      </Link>
-    );
-  }
-
-  return (
-    <span className={isLast ? 'text-foreground font-medium' : ''}>
-      {displayLabel}
-    </span>
-  );
 }
 
 export function Breadcrumb({ items, className }: BreadcrumbProps) {
@@ -54,7 +29,18 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
 
         return (
           <div key={index} className="flex items-center gap-2">
-            <BreadcrumbItemComponent item={item} isLast={isLast} />
+            {item.href && !isLast ? (
+              <Link
+                href={item.href}
+                className="hover:text-foreground transition-colors"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <span className={isLast ? 'text-foreground font-medium' : ''}>
+                {item.label}
+              </span>
+            )}
             {!isLast && (
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             )}

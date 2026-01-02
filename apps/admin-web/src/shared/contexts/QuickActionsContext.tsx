@@ -7,6 +7,8 @@ interface QuickActionsContextType {
   isLogAbsenceDialogOpen: boolean;
   isLogStaffAbsenceDialogOpen: boolean;
   isAnnouncementsModalOpen: boolean;
+  bookingSessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null;
+  isBookingModalOpen: boolean;
   openTutorLogModal: () => void;
   closeTutorLogModal: () => void;
   openLogAbsenceDialog: () => void;
@@ -15,6 +17,8 @@ interface QuickActionsContextType {
   closeLogStaffAbsenceDialog: () => void;
   openAnnouncementsModal: () => void;
   closeAnnouncementsModal: () => void;
+  openBookingModal: (sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => void;
+  closeBookingModal: () => void;
 }
 
 const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
@@ -24,6 +28,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
+  const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   const openTutorLogModal = useCallback(() => {
     setIsTutorLogModalOpen(true);
@@ -57,6 +63,16 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsAnnouncementsModalOpen(false);
   }, []);
 
+  const openBookingModal = useCallback((sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => {
+    setBookingSessionType(sessionType);
+    setIsBookingModalOpen(true);
+  }, []);
+
+  const closeBookingModal = useCallback(() => {
+    setIsBookingModalOpen(false);
+    setBookingSessionType(null);
+  }, []);
+
   return (
     <QuickActionsContext.Provider
       value={{
@@ -64,6 +80,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         isLogAbsenceDialogOpen,
         isLogStaffAbsenceDialogOpen,
         isAnnouncementsModalOpen,
+        bookingSessionType,
+        isBookingModalOpen,
         openTutorLogModal,
         closeTutorLogModal,
         openLogAbsenceDialog,
@@ -72,6 +90,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         closeLogStaffAbsenceDialog,
         openAnnouncementsModal,
         closeAnnouncementsModal,
+        openBookingModal,
+        closeBookingModal,
       }}
     >
       {children}

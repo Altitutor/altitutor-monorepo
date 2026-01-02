@@ -7,10 +7,11 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
+import { Tabs, TabsList, TabsTrigger, useToast, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { isValid, parseISO } from 'date-fns';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { BookSessionModal } from '@/features/bookings/components';
+import { Plus, ChevronDown } from 'lucide-react';
 
 // Get today's date in local timezone (YYYY-MM-DD format)
 const getTodayLocalDate = (): string => {
@@ -53,6 +54,8 @@ export default function SessionsPage() {
   const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
 
   // Sync date range state with URL params when they change
   // Only sync from URL to state, don't force defaults after initial load
@@ -156,15 +159,23 @@ export default function SessionsPage() {
       if (detail?.id) setActiveFileId(detail.id);
     };
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-student-modal', onOpenStudent as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-staff-modal', onOpenStaff as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-topic-modal', onOpenTopic as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('open-file-preview', onOpenFile as any);
     
     return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-student-modal', onOpenStudent as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-staff-modal', onOpenStaff as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-topic-modal', onOpenTopic as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.removeEventListener('open-file-preview', onOpenFile as any);
     };
   }, []);
@@ -174,7 +185,42 @@ export default function SessionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as any)}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add meeting
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setBookingSessionType('TRIAL_SESSION');
+                  setBookingModalOpen(true);
+                }}
+              >
+                Trial session
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setBookingSessionType('SUBSIDY_INTERVIEW');
+                  setBookingModalOpen(true);
+                }}
+              >
+                Subsidy interview
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setBookingSessionType('DRAFTING');
+                  setBookingModalOpen(true);
+                }}
+              >
+                Drafting
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
             <TabsList>
               <TabsTrigger value="table">Table</TabsTrigger>
               <TabsTrigger value="calendar">Calendar</TabsTrigger>
@@ -236,6 +282,26 @@ export default function SessionsPage() {
         fileId={activeFileId}
         onClose={() => setActiveFileId(null)}
       />
+
+      {bookingSessionType && (
+        <BookSessionModal
+          isOpen={bookingModalOpen}
+          onClose={() => {
+            setBookingModalOpen(false);
+            setBookingSessionType(null);
+          }}
+          sessionType={bookingSessionType}
+          onBookingCreated={() => {
+            toast({
+              title: 'Success',
+              description: 'Session booked successfully',
+            });
+            // Optionally refresh the sessions list or navigate to the new session
+            setBookingModalOpen(false);
+            setBookingSessionType(null);
+          }}
+        />
+      )}
     </div>
   );
 }

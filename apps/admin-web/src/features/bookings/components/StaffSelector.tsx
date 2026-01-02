@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { staffApi } from '@/features/staff/api/staff';
-import type { Tables } from '@altitutor/shared';
 
 interface StaffSelectorProps {
   availableStaffIds: string[];
@@ -30,15 +29,15 @@ export function StaffSelector({
   const availableStaff = useMemo(() => {
     if (!allStaff?.staff) return [];
     const availableSet = new Set(availableStaffIds);
-    return allStaff.staff.filter((s: Tables<'staff'>) => availableSet.has(s.id));
+    return allStaff.staff.filter((s) => availableSet.has(s.id));
   }, [allStaff, availableStaffIds]);
 
   const selectedStaff = useMemo(() => {
     if (!selectedStaffId || !allStaff?.staff) return null;
-    return allStaff.staff.find((s: Tables<'staff'>) => s.id === selectedStaffId) || null;
+    return allStaff.staff.find((s) => s.id === selectedStaffId) || null;
   }, [selectedStaffId, allStaff]);
 
-  const formatStaffName = (staff: Tables<'staff'>) => {
+  const formatStaffName = (staff: { first_name: string; last_name: string; email?: string | null }) => {
     return `${staff.first_name} ${staff.last_name}${staff.email ? ` (${staff.email})` : ''}`;
   };
 

@@ -94,12 +94,29 @@ export function AdminTrialContactForm({
   const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
   const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
 
-  // Fetch all subjects
+  // Fetch subjects filtered by curriculum/year level
   useEffect(() => {
     const fetchSubjects = async () => {
       setIsSearchingSubjects(true);
       try {
-        const subjects = await subjectsApi.getAllSubjects();
+        const params: {
+          curriculums?: string[];
+          yearLevels?: number[];
+          limit?: number;
+        } = {
+          limit: 100,
+        };
+        
+        // Filter by curriculum and year level if provided
+        if (curriculum) {
+          params.curriculums = [curriculum];
+        }
+        if (yearLevel) {
+          const yearLevelNum = yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10);
+          params.yearLevels = [yearLevelNum];
+        }
+        
+        const { subjects } = await subjectsApi.list(params);
         setAllSubjects(subjects || []);
       } catch (error) {
         console.error('Error fetching subjects:', error);
@@ -110,9 +127,9 @@ export function AdminTrialContactForm({
     };
 
     fetchSubjects();
-  }, []);
+  }, [curriculum, yearLevel]);
 
-  // Filter subjects by curriculum/year level
+  // Debounced subject search
   useEffect(() => {
     if (!isSubjectPopoverOpen) {
       setSubjectSearchQuery('');
@@ -122,29 +139,19 @@ export function AdminTrialContactForm({
 
     const timeoutId = setTimeout(async () => {
       if (subjectSearchQuery.trim().length === 0) {
-        // Filter by curriculum/year level
-        let filtered = allSubjects;
-        if (curriculum) {
-          filtered = filtered.filter((s) => s.curriculum === curriculum);
-        }
-        if (yearLevel) {
-          const yearLevelNum = yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10);
-          filtered = filtered.filter((s) => s.year_level === yearLevelNum);
-        }
-        setSubjectSearchResults(filtered);
+        // No search term - use filtered subjects (respect curriculum/year level)
+        setSubjectSearchResults(allSubjects);
         setIsSearchingSubjects(false);
       } else {
-        // Search all subjects when query is present
+        // Search term present - search ALL subjects (ignore filters)
         setIsSearchingSubjects(true);
         try {
-          // For admin, we can search all subjects without filters
-          const filtered = allSubjects.filter((s) => {
-            const searchLower = subjectSearchQuery.toLowerCase();
-            const nameMatch = s.name?.toLowerCase().includes(searchLower);
-            const curriculumMatch = s.curriculum?.toLowerCase().includes(searchLower);
-            return nameMatch || curriculumMatch;
+          const { subjects } = await subjectsApi.list({
+            search: subjectSearchQuery.trim(),
+            limit: 100,
+            offset: 0,
           });
-          setSubjectSearchResults(filtered);
+          setSubjectSearchResults(subjects || []);
         } catch (error) {
           console.error('Error searching subjects:', error);
           setSubjectSearchResults([]);
@@ -155,7 +162,7 @@ export function AdminTrialContactForm({
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen, allSubjects, curriculum, yearLevel]);
+  }, [subjectSearchQuery, isSubjectPopoverOpen, allSubjects]);
 
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
@@ -385,25 +392,29 @@ export function AdminTrialContactForm({
                         Add Subject
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80" align="start">
-                      <div className="space-y-2">
+                    <PopoverContent className="w-80 p-0" align="start">
+                      <div className="p-3">
                         <Input
                           placeholder="Search subjects..."
                           value={subjectSearchQuery}
                           onChange={(e) => setSubjectSearchQuery(e.target.value)}
+                          className="mb-3"
                         />
-                        <ScrollArea className="h-64">
-                          {isSearchingSubjects ? (
-                            <div className="flex items-center justify-center py-4">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            </div>
-                          ) : availableSubjects.length === 0 ? (
-                            <div className="text-center py-4 text-sm text-muted-foreground">
-                              No subjects found
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              {availableSubjects.map((subject) => (
+                        <ScrollArea className="h-[300px]">
+                          <div className="space-y-1 pr-4">
+                            {isSearchingSubjects ? (
+                              <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Searching...
+                              </div>
+                            ) : availableSubjects.length === 0 ? (
+                              <div className="p-3 text-center text-sm text-muted-foreground">
+                                {subjectSearchQuery
+                                  ? 'No subjects match your search'
+                                  : 'No available subjects found'}
+                              </div>
+                            ) : (
+                              availableSubjects.map((subject) => (
                                 <button
                                   key={subject.id}
                                   type="button"
@@ -412,9 +423,9 @@ export function AdminTrialContactForm({
                                 >
                                   {formatSubjectDisplay(subject)}
                                 </button>
-                              ))}
-                            </div>
-                          )}
+                              ))
+                            )}
+                          </div>
                         </ScrollArea>
                       </div>
                     </PopoverContent>
@@ -428,18 +439,22 @@ export function AdminTrialContactForm({
 
         {/* Parent Details */}
         <div className="space-y-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Parent/Guardian Details</h3>
             <FormField
               control={form.control}
               name="skip_parent_details"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
                   <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Skip parent details</FormLabel>
-                  </div>
+                  <FormLabel className="cursor-pointer text-sm font-normal">
+                    Skip parent details
+                  </FormLabel>
                 </FormItem>
               )}
             />
@@ -447,7 +462,6 @@ export function AdminTrialContactForm({
 
           {!skipParentDetails && (
             <>
-              <h3 className="text-lg font-semibold">Parent/Guardian Details</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button, Badge, Separator } from '@altitutor/ui';
 import { Input, Label } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
@@ -39,7 +39,6 @@ import { AddTopicModal } from '@/features/topics/components/AddTopicModal';
 import { AddResourceFileModal } from '@/features/topics/components/AddResourceFileModal';
 import { EditTopicFileModal } from '@/features/topics/components/EditTopicFileModal';
 import { deriveTopicFileCode, deriveTopicCode, buildTopicTree } from '@/features/topics/utils/codes';
-import { ViewTopicModal } from '@/features/topics/components/ViewTopicModal';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -50,16 +49,8 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export default function TopicDetailPage({ params }: { params: { id: string } }) {
-  const { id: topicId } = params;
+  const { id } = params;
   const router = useRouter();
-  const pathname = usePathname();
-  // Extract subjectId from pathname: /subjects/[subjectId]/topics/[topicId]
-  const pathSegments = pathname.split('/').filter(Boolean);
-  const subjectsIndex = pathSegments.indexOf('subjects');
-  const subjectId = subjectsIndex >= 0 && subjectsIndex < pathSegments.length - 1
-    ? pathSegments[subjectsIndex + 1]
-    : null;
-  
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
@@ -71,11 +62,11 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [reorderedChildren, setReorderedChildren] = useState<Array<{ id: string; index: number }>>([]);
   
-  const { data: topic, isLoading, error } = useTopicById(topicId);
+  const { data: topic, isLoading, error } = useTopicById(id);
   const { data: subjects = [] } = useSubjects();
   const { data: allTopics = [] } = useTopics();
   const { data: subjectTopics = [] } = useTopicsBySubject(topic?.subject_id || null);
-  const { data: topicFiles = [] } = useTopicFilesByTopic(topicId);
+  const { data: topicFiles = [] } = useTopicFilesByTopic(id);
   
   const updateTopicMutation = useUpdateTopic();
   const deleteTopicMutation = useDeleteTopic();
@@ -98,12 +89,8 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
         subject_id: topic.subject_id,
         parent_id: topic.parent_id || 'none',
       });
-      // Redirect if topic belongs to different subject
-      if (subjectId && topic.subject_id !== subjectId) {
-        router.replace(`/subjects/${topic.subject_id}/topics/${topicId}`);
-      }
     }
-  }, [topic, form, subjectId, topicId, router]);
+  }, [topic, form]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -126,7 +113,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
   };
 
   const onSubmit = async (values: FormData) => {
-    if (!topicId) return;
+    if (!id) return;
     
     try {
       const topicData: TablesUpdate<'topics'> = {
@@ -135,7 +122,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
         parent_id: values.parent_id === 'none' ? null : values.parent_id || null,
       };
 
-      await updateTopicMutation.mutateAsync({ id: topicId, data: topicData });
+      await updateTopicMutation.mutateAsync({ id, data: topicData });
       
       if (reorderedChildren.length > 0) {
         await updateTopicIndices.mutateAsync(reorderedChildren);
@@ -148,11 +135,6 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
         title: 'Topic updated',
         description: 'Topic has been updated successfully.',
       });
-      
-      // Redirect if subject changed
-      if (values.subject_id !== subjectId) {
-        router.push(`/subjects/${values.subject_id}/topics/${topicId}`);
-      }
     } catch (error) {
       console.error('Failed to update topic:', error);
       toast({
@@ -164,10 +146,10 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
   };
 
   const handleDelete = async () => {
-    if (!topicId || !subjectId) return;
+    if (!id) return;
 
     try {
-      await deleteTopicMutation.mutateAsync(topicId);
+      await deleteTopicMutation.mutateAsync(id);
       
       toast({
         title: 'Topic deleted',
@@ -175,7 +157,12 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
       });
       
       setShowDeleteDialog(false);
-      router.push(`/subjects/${subjectId}/topics`);
+      // Redirect to subject topics page
+      if (topic?.subject_id) {
+        router.push(`/subjects/${topic.subject_id}/topics`);
+      } else {
+        router.push('/subjects');
+      }
     } catch (error) {
       console.error('Failed to delete topic:', error);
       toast({
@@ -187,16 +174,14 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
   };
 
   // Get children topics
-  const childrenTopics = subjectTopics.filter(t => t.parent_id === topicId);
+  const childrenTopics = subjectTopics.filter(t => t.parent_id === id);
   
   // Get available parent topics (exclude self and descendants)
   const availableParents = subjectTopics.filter(t => 
-    t.id !== topicId && t.parent_id !== topicId
+    t.id !== id && t.parent_id !== id
   );
 
   const subject = subjects.find(s => s.id === topic?.subject_id);
-  // Use subjectId from path, or fallback to topic's subject_id
-  const effectiveSubjectId = subjectId || topic?.subject_id || '';
 
   if (isLoading) {
     return (
@@ -215,7 +200,13 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push(effectiveSubjectId ? `/subjects/${effectiveSubjectId}/topics` : '/subjects')}
+            onClick={() => {
+              if (topic?.subject_id) {
+                router.push(`/subjects/${topic.subject_id}/topics`);
+              } else {
+                router.push('/subjects');
+              }
+            }}
             className="border"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -241,7 +232,13 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push(effectiveSubjectId ? `/subjects/${effectiveSubjectId}/topics` : '/subjects')}
+          onClick={() => {
+            if (topic?.subject_id) {
+              router.push(`/subjects/${topic.subject_id}/topics`);
+            } else {
+              router.push('/subjects');
+            }
+          }}
           className="border"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -397,9 +394,8 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                   {topic.parent_id ? (
                     <button
                       onClick={() => {
-                        const parentTopic = allTopics.find(t => t.id === topic.parent_id);
-                        if (parentTopic) {
-                          router.push(`/subjects/${subjectId}/topics/${parentTopic.id}`);
+                        if (topic?.subject_id) {
+                          router.push(`/subjects/${topic.subject_id}/topics/${topic.parent_id}`);
                         }
                       }}
                       className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
@@ -468,7 +464,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                     size="sm" 
                     onClick={() => {
                       setIsAddTopicModalOpen(true);
-                      setAddTopicParentId(topicId);
+                      setAddTopicParentId(id);
                     }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -478,7 +474,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                 
                 {childrenTopics.length > 0 ? (
                   <div className="space-y-1">
-                    {buildTopicTree(subjectTopics, topicId).map((childTopic) => (
+                    {buildTopicTree(subjectTopics, id).map((childTopic) => (
                       <TopicNode
                         key={childTopic.id}
                         topic={childTopic}
@@ -486,8 +482,10 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                         level={0}
                         showAddTopic={false}
                         showAddResource={false}
-                        onTopicClick={(id) => {
-                          router.push(`/subjects/${subjectId}/topics/${topicId}`);
+                        onTopicClick={(topicId) => {
+                          if (topic?.subject_id) {
+                            router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
+                          }
                         }}
                         searchQuery=""
                       />
@@ -552,7 +550,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
           setIsAddResourceModalOpen(false);
         }}
         preselectedSubjectId={topic?.subject_id}
-        preselectedTopicId={topicId}
+        preselectedTopicId={id}
         onResourceAdded={() => {}}
       />
 

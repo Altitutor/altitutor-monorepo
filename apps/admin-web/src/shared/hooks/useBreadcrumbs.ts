@@ -12,6 +12,7 @@ import { subjectsApi } from '@/features/subjects/api';
 import { topicsApi } from '@/features/topics/api';
 import { formatClassShortName, formatSubjectShortName } from '@/shared/utils';
 import { deriveTopicCode } from '@/features/topics/utils/codes';
+import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
@@ -200,6 +201,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
             if (sessionData.session?.class) {
               const classData = await classesApi.getClassWithDetails(sessionData.session.class.id);
               if (classData.class && classData.subject) {
+                // Use formatClassShortName for session breadcrumb (same as class)
                 results[id] = formatClassShortName(classData.class, classData.subject);
               }
             }

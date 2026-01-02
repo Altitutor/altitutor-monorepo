@@ -14,6 +14,7 @@ import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
+import { BookSessionModal } from '@/features/bookings/components';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb } from '@/shared/components';
@@ -94,6 +95,11 @@ const navItems: NavItem[] = [
     title: 'Subjects',
     href: '/subjects',
     icon: Beaker,
+  },
+  {
+    title: 'Topics',
+    href: '/topics',
+    icon: Newspaper,
   },
 ];
 
@@ -298,6 +304,7 @@ function AdminLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
+  const { bookingSessionType, isBookingModalOpen, closeBookingModal } = useQuickActions();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isAnnouncementsModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeAnnouncementsModal } = useQuickActions();
@@ -353,6 +360,16 @@ function AdminLayoutContent({
                 isOpen={isAnnouncementsModalOpen}
                 onClose={closeAnnouncementsModal}
               />
+              {bookingSessionType && (
+                <BookSessionModal
+                  isOpen={isBookingModalOpen}
+                  onClose={closeBookingModal}
+                  sessionType={bookingSessionType}
+                  onBookingCreated={() => {
+                    closeBookingModal();
+                  }}
+                />
+              )}
             </>
           )}
         </div>

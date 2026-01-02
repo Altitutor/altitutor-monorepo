@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import type { CSSProperties } from 'react';
-import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay, parseISO } from 'date-fns';
+import { addDays, startOfWeek, format, differenceInMinutes, isSameDay, parseISO } from 'date-fns';
 import { Button } from './button';
 import { cn } from '../lib/cn';
-import type { Tables } from '@altitutor/shared';
+// Type import from shared package - using inline type definition to avoid tsconfig issues
 
 export interface BookingCalendarViewProps {
   /** The new session that will be booked (to highlight) */
@@ -25,13 +25,19 @@ export interface BookingCalendarViewProps {
     class_id?: string | null;
   }>;
   /** Subject data for color coding */
-  subjectsById?: Record<string, Tables<'subjects'>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  subjectsById?: Record<string, any>;
   /** Classes data */
-  classesById?: Record<string, Tables<'classes'>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  classesById?: Record<string, any>;
   /** Callback when clicking on an existing session */
   onSessionClick?: (sessionId: string) => void;
   /** Week anchor date (defaults to new session date) */
   weekAnchor?: Date;
+  /** Callback when week changes */
+  onWeekChange?: (weekStart: Date) => void;
+  /** Show only single day (hide navigation buttons) */
+  singleDay?: boolean;
 }
 
 export function BookingCalendarView({
@@ -41,11 +47,28 @@ export function BookingCalendarView({
   classesById = {},
   onSessionClick,
   weekAnchor,
+  onWeekChange,
+  singleDay = false,
 }: BookingCalendarViewProps) {
   const newSessionStart = parseISO(newSession.start_at);
-  const anchor = weekAnchor || newSessionStart;
-  const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
-  const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
+  const [anchor, setAnchor] = useState(weekAnchor || newSessionStart);
+  
+  // Update anchor when weekAnchor prop changes
+  useEffect(() => {
+    if (weekAnchor) {
+      setAnchor(weekAnchor);
+    }
+  }, [weekAnchor]);
+  
+  const weekStart = useMemo(() => {
+    if (singleDay) {
+      // For single day view, use the session date itself
+      const date = new Date(newSessionStart);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    }
+    return startOfWeek(anchor, { weekStartsOn: 1 });
+  }, [anchor, singleDay, newSessionStart]);
 
   // Combine existing sessions with the new session for display
   const allSessions = useMemo(() => {
@@ -101,7 +124,8 @@ export function BookingCalendarView({
     };
   };
 
-  const getSessionLabel = (session: typeof allSessions[0]): string => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getSessionLabel = (session: any): string => {
     const isNewSession = session.id === 'new-session-preview';
     if (isNewSession) {
       return 'New Session';
@@ -121,7 +145,13 @@ export function BookingCalendarView({
     return parts.join(' ');
   };
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days = useMemo(() => {
+    if (singleDay) {
+      // Show only the day of the session
+      return [newSessionStart];
+    }
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [singleDay, weekStart, newSessionStart]);
 
   const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (9 * 60);
 
@@ -132,41 +162,48 @@ export function BookingCalendarView({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            // This would need to be handled by parent component
-            // For now, just a placeholder
-          }}
-        >
-          Previous Week
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            // This would need to be handled by parent component
-          }}
-        >
-          Today
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            // This would need to be handled by parent component
-          }}
-        >
-          Next Week
-        </Button>
-      </div>
+      {!singleDay && (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const newAnchor = addDays(anchor, -7);
+              setAnchor(newAnchor);
+              onWeekChange?.(newAnchor);
+            }}
+          >
+            Previous Week
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const today = new Date();
+              setAnchor(today);
+              onWeekChange?.(today);
+            }}
+          >
+            Today
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const newAnchor = addDays(anchor, 7);
+              setAnchor(newAnchor);
+              onWeekChange?.(newAnchor);
+            }}
+          >
+            Next Week
+          </Button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto relative border rounded-lg">
         <div
           className="grid gap-0 min-h-full relative bg-background"
-          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))` }}
+          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(${days.length}, minmax(150px, 1fr))` }}
         >
           {/* Headers */}
           <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">
@@ -223,7 +260,8 @@ export function BookingCalendarView({
                           );
 
                           // Build overlap groups
-                          const groups: typeof daySessions[][] = [];
+                          type SessionItem = typeof allSessions[0];
+                          const groups: SessionItem[][] = [];
                           const processed = new Set<string>();
                           const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
 
@@ -231,7 +269,7 @@ export function BookingCalendarView({
                             if (processed.has(s.id)) return;
                             const sStart = toMinutes(parseISO(s.start_at));
                             const sEnd = toMinutes(parseISO(s.end_at));
-                            const group = [s];
+                            const group: SessionItem[] = [s];
                             processed.add(s.id);
 
                             daySessions.forEach((o) => {
@@ -259,7 +297,7 @@ export function BookingCalendarView({
                               const left = idx * columnWidth + 2.5;
 
                               const isNewSession = s.id === 'new-session-preview';
-                              const { className, style } = getSessionColor(s);
+                              const { className, style: sessionStyle } = getSessionColor(s);
                               const label = getSessionLabel(s);
 
                               blocks.push(
@@ -274,6 +312,7 @@ export function BookingCalendarView({
                                     zIndex: isNewSession ? 20 : 10,
                                     minHeight: '45px',
                                     cursor: onSessionClick && !isNewSession ? 'pointer' : 'default',
+                                    ...sessionStyle,
                                   }}
                                   onClick={() => {
                                     if (onSessionClick && !isNewSession) {
