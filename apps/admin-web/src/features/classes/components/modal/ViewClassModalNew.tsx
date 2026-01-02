@@ -75,6 +75,8 @@ export function ViewClassModalNew({
         status: data.status,
         subject_id: data.subjectId || null,
         room: data.room || null,
+        session_start_date: data.sessionStartDate || null,
+        session_end_date: data.sessionEndDate || null,
       };
       await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
       

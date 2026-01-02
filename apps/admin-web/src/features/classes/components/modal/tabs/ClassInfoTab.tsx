@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -6,6 +6,7 @@ import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
+import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@altitutor/ui";
-import { Loader2, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -25,6 +26,10 @@ import { getSubjectColorStyle } from "@/shared/utils";
 import { ClassStatusBadge } from "@altitutor/ui";
 import { formatSubjectDisplay } from "@/shared/utils";
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { calculateSessionChanges } from '../../../utils/calculateSessionChanges';
+import { sessionsApi } from '@/features/sessions/api/sessions';
+import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 
 // Form schema for class details
 const classInfoSchema = z.object({
@@ -35,6 +40,17 @@ const classInfoSchema = z.object({
   status: z.enum(['ACTIVE','INACTIVE','FULL']),
   subjectId: z.string().optional(),
   room: z.string().optional(),
+  sessionStartDate: z.string().optional().nullable(),
+  sessionEndDate: z.string().optional().nullable(),
+}).refine((data) => {
+  // Validate that end date is after start date if both are provided
+  if (data.sessionStartDate && data.sessionEndDate) {
+    return new Date(data.sessionStartDate) <= new Date(data.sessionEndDate);
+  }
+  return true;
+}, {
+  message: 'Session end date must be after or equal to start date',
+  path: ['sessionEndDate'],
 });
 
 type FormData = z.infer<typeof classInfoSchema>;
@@ -76,11 +92,32 @@ export function ClassInfoTab({
       status: 'ACTIVE' as const,
       subjectId: '',
       room: '',
+      sessionStartDate: null,
+      sessionEndDate: null,
     },
   });
 
   const hasResetRef = useRef(false);
   const [editKey, setEditKey] = useState(0);
+
+  // Fetch future sessions for this class when editing
+  const { data: futureSessionsData } = useQuery({
+    queryKey: ['classFutureSessions', classData.id, isEditing],
+    queryFn: async () => {
+      const now = new Date();
+      const endOfYear = new Date(now.getFullYear(), 11, 31);
+      const result = await sessionsApi.getAllSessionsWithDetails({
+        classId: classData.id,
+        rangeStart: now.toISOString().split('T')[0],
+        rangeEnd: endOfYear.toISOString().split('T')[0],
+      });
+      return result.sessions;
+    },
+    enabled: isEditing && !!classData.id,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const futureSessions = futureSessionsData || [];
 
   // Reset form values when entering edit mode - only once per edit session
   useEffect(() => {
@@ -94,6 +131,8 @@ export function ClassInfoTab({
         status: (classData.status as any) || 'ACTIVE',
         subjectId: classData.subject_id ?? undefined,
         room: classData.room || '',
+        sessionStartDate: classData.session_start_date || null,
+        sessionEndDate: classData.session_end_date || null,
       }, {
         keepDefaultValues: false
       });
@@ -107,6 +146,51 @@ export function ClassInfoTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, classData?.id]); // form is stable, don't include it
+
+  // Calculate session changes based on form values
+  const sessionChanges = useMemo(() => {
+    if (!isEditing || !classData) {
+      return null;
+    }
+
+    const formValues = form.getValues();
+    const newStartDate = formValues.sessionStartDate || null;
+    const newEndDate = formValues.sessionEndDate || null;
+    const newDayOfWeek = formValues.dayOfWeek;
+    const newStartTime = formValues.startTime;
+    const newEndTime = formValues.endTime;
+
+    // Check if dates/times actually changed
+    const datesChanged = 
+      classData.session_start_date !== newStartDate ||
+      classData.session_end_date !== newEndDate ||
+      classData.day_of_week !== newDayOfWeek ||
+      classData.start_time !== newStartTime ||
+      classData.end_time !== newEndTime;
+
+    if (!datesChanged) {
+      return null;
+    }
+
+    return calculateSessionChanges({
+      classData,
+      newStartDate,
+      newEndDate,
+      newDayOfWeek,
+      newStartTime,
+      newEndTime,
+      existingFutureSessions: futureSessions,
+    });
+  }, [
+    isEditing,
+    classData,
+    form.watch('sessionStartDate'),
+    form.watch('sessionEndDate'),
+    form.watch('dayOfWeek'),
+    form.watch('startTime'),
+    form.watch('endTime'),
+    futureSessions,
+  ]);
 
   return isEditing ? (
     <div className="flex flex-col h-full min-h-0">
@@ -294,6 +378,105 @@ export function ClassInfoTab({
                 )}
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sessionStartDate">Session Start Date (Optional)</Label>
+                  <Controller
+                    control={form.control}
+                    name="sessionStartDate"
+                    render={({ field }) => (
+                      <Input 
+                        id="sessionStartDate" 
+                        type="date"
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        disabled={isLoading} 
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty to create sessions from today
+                  </p>
+                  {form.formState.errors.sessionStartDate && (
+                    <p className="text-sm text-red-500">{form.formState.errors.sessionStartDate.message}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <Label htmlFor="sessionEndDate">Session End Date (Optional)</Label>
+                  <Controller
+                    control={form.control}
+                    name="sessionEndDate"
+                    render={({ field }) => (
+                      <Input 
+                        id="sessionEndDate" 
+                        type="date"
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        disabled={isLoading}
+                        min={form.watch('sessionStartDate') || undefined}
+                      />
+                    )}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty to create sessions until end of year
+                  </p>
+                  {form.formState.errors.sessionEndDate && (
+                    <p className="text-sm text-red-500">{form.formState.errors.sessionEndDate.message}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Warning preview for session changes */}
+              {sessionChanges && (sessionChanges.sessionsToDelete.length > 0 || sessionChanges.sessionsToCreate.length > 0) && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Session Changes Preview</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    {sessionChanges.sessionsToDelete.length > 0 && (
+                      <div>
+                        <p className="font-medium text-destructive">
+                          {sessionChanges.sessionsToDelete.length} future session(s) will be deleted:
+                        </p>
+                        <ul className="list-disc list-inside text-sm mt-1 space-y-1">
+                          {sessionChanges.sessionsToDelete.slice(0, 5).map((session) => {
+                            const date = session.start_at ? format(new Date(session.start_at), 'MMM d, yyyy') : 'Unknown';
+                            return (
+                              <li key={session.id}>{date}</li>
+                            );
+                          })}
+                          {sessionChanges.sessionsToDelete.length > 5 && (
+                            <li className="text-muted-foreground">
+                              ...and {sessionChanges.sessionsToDelete.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                    {sessionChanges.sessionsToCreate.length > 0 && (
+                      <div>
+                        <p className="font-medium text-green-600 dark:text-green-400">
+                          {sessionChanges.sessionsToCreate.length} new session(s) will be created:
+                        </p>
+                        <ul className="list-disc list-inside text-sm mt-1 space-y-1">
+                          {sessionChanges.sessionsToCreate.slice(0, 5).map((session, idx) => (
+                            <li key={idx}>{format(new Date(session.date), 'MMM d, yyyy')}</li>
+                          ))}
+                          {sessionChanges.sessionsToCreate.length > 5 && (
+                            <li className="text-muted-foreground">
+                              ...and {sessionChanges.sessionsToCreate.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Note: Only future sessions are affected. Past sessions are never modified.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {onDelete && (
                 <>
                   <Separator className="my-6" />
@@ -411,6 +594,17 @@ export function ClassInfoTab({
         
         <div className="text-sm font-medium">Room:</div>
         <div>{classData.room || '-'}</div>
+        
+        <div className="text-sm font-medium">Session Start Date:</div>
+        <div>{classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'From today'}</div>
+        
+        <div className="text-sm font-medium">Session End Date:</div>
+        <div>
+          {classData.session_end_date 
+            ? format(new Date(classData.session_end_date), 'MMM d, yyyy')
+            : `Until Dec 31, ${new Date(classData.session_start_date || new Date()).getFullYear()}`
+          }
+        </div>
       </div>
     </div>
   );

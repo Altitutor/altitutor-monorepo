@@ -226,6 +226,7 @@ export type Database = {
           id: string
           level: string | null
           room: string | null
+          session_end_date: string | null
           session_start_date: string | null
           start_time: string
           status: string
@@ -240,6 +241,7 @@ export type Database = {
           id: string
           level?: string | null
           room?: string | null
+          session_end_date?: string | null
           session_start_date?: string | null
           start_time: string
           status: string
@@ -254,6 +256,7 @@ export type Database = {
           id?: string
           level?: string | null
           room?: string | null
+          session_end_date?: string | null
           session_start_date?: string | null
           start_time?: string
           status?: string
