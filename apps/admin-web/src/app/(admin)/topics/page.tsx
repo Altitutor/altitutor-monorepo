@@ -4,15 +4,32 @@ import { useState } from 'react';
 import {
   TopicsTable,
   AddTopicModal,
+  ViewTopicModal,
 } from '@/features/topics';
 import { Button } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 
 export default function TopicsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   const handleTopicAdded = () => {
+    setRefreshCounter(prev => prev + 1);
+  };
+
+  const handleViewTopic = (topicId: string) => {
+    setSelectedTopicId(topicId);
+    setIsViewModalOpen(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setIsViewModalOpen(false);
+    setSelectedTopicId(null);
+  };
+
+  const handleTopicUpdated = () => {
     setRefreshCounter(prev => prev + 1);
   };
 
@@ -27,13 +44,21 @@ export default function TopicsPage() {
       </div>
       
       <TopicsTable 
-        onRefresh={refreshCounter} 
+        onRefresh={refreshCounter}
+        onViewTopic={handleViewTopic}
       />
       
       <AddTopicModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)}
         onTopicAdded={handleTopicAdded}
+      />
+
+      <ViewTopicModal
+        isOpen={isViewModalOpen}
+        onClose={handleCloseViewModal}
+        topicId={selectedTopicId}
+        onTopicUpdated={handleTopicUpdated}
       />
     </div>
   );

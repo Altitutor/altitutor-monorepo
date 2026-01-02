@@ -184,7 +184,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
   
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+      <SheetContent className="w-full md:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <SheetHeader>
           <SheetTitle>Edit Class: {classData.level}</SheetTitle>
         </SheetHeader>

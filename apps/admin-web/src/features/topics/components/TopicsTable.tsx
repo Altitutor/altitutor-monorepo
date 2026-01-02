@@ -20,6 +20,7 @@ import { SkeletonTable } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { 
   Search, 
+  ChevronLeft,
   ChevronRight,
   ChevronDown,
   Filter,
@@ -45,7 +46,7 @@ interface TopicsTableProps {
 
 type TopicWithSubject = Tables<'topics'> & { subject: Tables<'subjects'> };
 
-export function TopicsTable({ onRefresh: _onRefresh, onViewTopic: _onViewTopic }: TopicsTableProps) {
+export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableProps) {
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -239,8 +240,8 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic: _onViewTopic }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center gap-4">
-        <div className="relative w-64">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search topics..."
@@ -249,7 +250,7 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic: _onViewTopic }
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Clear Filters */}
           {activeFiltersCount > 0 && (
             <Button 
@@ -346,6 +347,7 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic: _onViewTopic }
                 onToggleExpansion={toggleTopicExpansion}
                 onFileClick={handleFileClick}
                 onFileDownload={handleFileDownload}
+                onViewTopic={onViewTopic}
                 level={0}
               />
             )}
@@ -366,7 +368,7 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic: _onViewTopic }
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1 || isLoading}
           >
-            Previous
+            <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground">
             Page {page} of {Math.ceil(total / pageSize)}
@@ -377,7 +379,7 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic: _onViewTopic }
             onClick={() => setPage(p => p + 1)}
             disabled={page >= Math.ceil(total / pageSize) || isLoading}
           >
-            Next
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -402,6 +404,7 @@ interface TopicRowsProps {
   onToggleExpansion: (topicId: string) => void;
   onFileClick: (fileId: string) => void;
   onFileDownload: (storagePath: string, filename: string) => void;
+  onViewTopic?: (topicId: string) => void;
   level: number;
   parentId?: string | null;
 }
@@ -413,6 +416,7 @@ function TopicRows({
   onToggleExpansion,
   onFileClick,
   onFileDownload,
+  onViewTopic,
   level,
   parentId = null,
 }: TopicRowsProps) {
@@ -457,6 +461,7 @@ function TopicRows({
             onToggleExpansion={onToggleExpansion}
             onFileClick={onFileClick}
             onFileDownload={onFileDownload}
+            onViewTopic={onViewTopic}
           />
         );
       })}
@@ -476,6 +481,7 @@ interface TopicRowProps {
   onToggleExpansion: (topicId: string) => void;
   onFileClick: (fileId: string) => void;
   onFileDownload: (storagePath: string, filename: string) => void;
+  onViewTopic?: (topicId: string) => void;
 }
 
 function TopicRow({
@@ -490,6 +496,7 @@ function TopicRow({
   onToggleExpansion,
   onFileClick,
   onFileDownload,
+  onViewTopic,
 }: TopicRowProps) {
   const { data: topicFiles = [] } = useTopicFilesByTopic(topic.id);
   const { data: childTopics = [] } = useChildTopics(isExpanded && hasChildren ? topic.id : null);
@@ -504,10 +511,19 @@ function TopicRow({
 
   const paddingLeft = level * 24;
 
+  const handleRowClick = () => {
+    if (onViewTopic) {
+      onViewTopic(topic.id);
+    }
+  };
+
   return (
     <>
-      <TableRow>
-        <TableCell className="w-12">
+      <TableRow 
+        className={onViewTopic ? "cursor-pointer hover:bg-muted/50" : undefined}
+        onClick={onViewTopic ? handleRowClick : undefined}
+      >
+        <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
           {hasChildren ? (
             <button
               onClick={() => onToggleExpansion(topic.id)}
@@ -538,7 +554,7 @@ function TopicRow({
             <span className="text-sm">{topic.name}</span>
           </div>
         </TableCell>
-        <TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
           <div className="space-y-1">
             {topicFiles.map((tf) => {
               const fileCode = deriveTopicFileCode(tf, topicCode, tf.type);
@@ -591,6 +607,7 @@ function TopicRow({
           onToggleExpansion={onToggleExpansion}
           onFileClick={onFileClick}
           onFileDownload={onFileDownload}
+          onViewTopic={onViewTopic}
           level={level + 1}
           parentId={topic.id}
         />

@@ -210,8 +210,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   if (isLoading && students.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="relative w-64">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search students..."
@@ -221,7 +221,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             />
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" disabled>
               <Filter className="h-4 w-4 mr-2" />
               Filters
@@ -266,8 +266,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="relative w-64">
+      {/* Search and filters with dynamic wrapping */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search students..."
@@ -277,7 +278,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           />
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Clear Filters */}
           {activeFiltersCount > 0 && (
             <Button 

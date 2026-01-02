@@ -10,6 +10,7 @@ import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import { Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { isValid, parseISO } from 'date-fns';
+import { DateRangePicker } from '@/shared/components/DateRangePicker';
 
 // Get today's date in local timezone (YYYY-MM-DD format)
 const getTodayLocalDate = (): string => {
@@ -39,30 +40,52 @@ export default function SessionsPage() {
   const { toast } = useToast();
   const viewParam = search.get('view') || 'table';
   
-  // Initialize day from URL param or default to today
-  const dateParam = search.get('date');
-  const initialDate = isValidDateString(dateParam) 
-    ? dateParam! 
-    : getTodayLocalDate();
+  // Initialize date range from URL params or default to today
+  const fromParam = search.get('from');
+  const toParam = search.get('to');
+  const initialFrom = isValidDateString(fromParam) ? fromParam! : getTodayLocalDate();
+  const initialTo = isValidDateString(toParam) ? toParam! : getTodayLocalDate();
   
-  const [day, setDay] = useState<string>(initialDate);
+  const [from, setFrom] = useState<string>(initialFrom);
+  const [to, setTo] = useState<string>(initialTo);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
-  // Sync day state with URL param when it changes
+  // Sync date range state with URL params when they change
   useEffect(() => {
-    const dateParam = search.get('date');
-    if (isValidDateString(dateParam) && dateParam !== day) {
-      setDay(dateParam!);
-    } else if (!dateParam && day !== getTodayLocalDate()) {
-      // If no date param and day is not today, reset to today
+    const fromParam = search.get('from');
+    const toParam = search.get('to');
+    if (fromParam !== null) {
+      if (isValidDateString(fromParam)) {
+        if (fromParam !== from) {
+          setFrom(fromParam);
+        }
+      } else if (fromParam === '' && from !== '') {
+        setFrom('');
+      }
+    } else if (from !== getTodayLocalDate()) {
+      // If no from param, default to today
       const today = getTodayLocalDate();
-      setDay(today);
+      setFrom(today);
     }
-  }, [search, day]);
+    
+    if (toParam !== null) {
+      if (isValidDateString(toParam)) {
+        if (toParam !== to) {
+          setTo(toParam);
+        }
+      } else if (toParam === '' && to !== '') {
+        setTo('');
+      }
+    } else if (to !== getTodayLocalDate()) {
+      // If no to param, default to today
+      const today = getTodayLocalDate();
+      setTo(today);
+    }
+  }, [search, from, to]);
 
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
@@ -70,23 +93,44 @@ export default function SessionsPage() {
     router.push(`/sessions?${params.toString()}`);
   };
 
-  // Handle date change and update URL
-  const handleDateChange = (newDate: string) => {
-    if (!isValidDateString(newDate)) {
-      // Fallback to today if invalid
+  // Handle date range changes and update URL
+  const handleFromChange = (newFrom: string) => {
+    if (!isValidDateString(newFrom)) {
       const today = getTodayLocalDate();
-      setDay(today);
+      setFrom(today);
       const params = new URLSearchParams(search.toString());
       params.set('view', 'table');
-      params.set('date', today);
+      params.set('from', today);
+      params.set('to', to);
       router.push(`/sessions?${params.toString()}`);
       return;
     }
     
-    setDay(newDate);
+    setFrom(newFrom);
     const params = new URLSearchParams(search.toString());
     params.set('view', 'table');
-    params.set('date', newDate);
+    params.set('from', newFrom);
+    params.set('to', to);
+    router.push(`/sessions?${params.toString()}`);
+  };
+
+  const handleToChange = (newTo: string) => {
+    if (!isValidDateString(newTo)) {
+      const today = getTodayLocalDate();
+      setTo(today);
+      const params = new URLSearchParams(search.toString());
+      params.set('view', 'table');
+      params.set('from', from);
+      params.set('to', today);
+      router.push(`/sessions?${params.toString()}`);
+      return;
+    }
+    
+    setTo(newTo);
+    const params = new URLSearchParams(search.toString());
+    params.set('view', 'table');
+    params.set('from', from);
+    params.set('to', newTo);
     router.push(`/sessions?${params.toString()}`);
   };
 
@@ -140,11 +184,13 @@ export default function SessionsPage() {
       <Suspense>
         {viewParam === 'table' ? (
           <SessionsTable 
-            rangeStart={day} 
-            rangeEnd={day}
+            rangeStart={from} 
+            rangeEnd={to}
             onOpenSession={(id) => setActiveSessionId(id as string)}
             onOpenStudent={(id) => setActiveStudentId(id as string)}
             onOpenStaff={(id) => setActiveStaffId(id as string)}
+            onFromChange={handleFromChange}
+            onToChange={handleToChange}
           />
         ) : (
           <SessionsCalendarView onOpenSession={(id) => setActiveSessionId(id as string)} />

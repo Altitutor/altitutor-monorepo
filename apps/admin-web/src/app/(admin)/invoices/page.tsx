@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import type { Tables } from '@altitutor/shared';
 import { TablePagination } from '@/shared/components/TablePagination';
+import { DateRangePicker } from '@/shared/components/DateRangePicker';
 
 export const dynamic = 'force-dynamic';
 
@@ -221,18 +222,18 @@ export default function InvoicesPage() {
         <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
       </div>
 
-      <div className="flex items-center gap-2 justify-end">
-        {/* Clear Filters */}
-        {activeFiltersCount > 0 && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={clearAllFilters}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Clear
-          </Button>
-        )}
+      <div className="flex flex-wrap items-center gap-2 justify-end">
+          {/* Clear Filters */}
+          {activeFiltersCount > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearAllFilters}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+          )}
 
         {/* Status Filter */}
         <Popover>
@@ -317,27 +318,19 @@ export default function InvoicesPage() {
           </PopoverContent>
         </Popover>
 
-        {/* Date Filters */}
-        <Input 
-          type="date" 
-          value={from} 
-          onChange={e => {
-            setFrom(e.target.value);
-            setPage(1);
-          }}
-          placeholder="From date"
-          className="w-auto min-w-[140px]"
-        />
-        <Input 
-          type="date" 
-          value={to} 
-          onChange={e => {
-            setTo(e.target.value);
-            setPage(1);
-          }}
-          placeholder="To date"
-          className="w-auto min-w-[140px]"
-        />
+          {/* Date Range Filters */}
+          <DateRangePicker
+            from={from}
+            to={to}
+            onFromChange={(newFrom) => {
+              setFrom(newFrom);
+              setPage(1);
+            }}
+            onToChange={(newTo) => {
+              setTo(newTo);
+              setPage(1);
+            }}
+          />
       </div>
 
       {/* <TestBillingRunner /> */}

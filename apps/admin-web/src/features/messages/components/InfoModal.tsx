@@ -12,7 +12,7 @@ interface InfoModalProps {
 export function InfoModal({ conversationId, isOpen, onClose }: InfoModalProps) {
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:w-[480px] sm:max-w-none overflow-y-auto">
+      <SheetContent className="w-full md:w-[480px] md:max-w-none overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Contact Information</SheetTitle>
         </SheetHeader>

@@ -232,8 +232,9 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="relative w-64">
+      {/* Search and filters with dynamic wrapping */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search classes"
@@ -246,7 +247,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           />
         </div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <Button 
             variant={dayFilter.includes(1) ? 'default' : 'outline'} 
             size="sm"

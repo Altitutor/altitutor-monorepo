@@ -6,7 +6,7 @@ import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { LogOut, User, Calendar } from 'lucide-react';
+import { LogOut, User, Menu } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { format, isValid, parseISO } from 'date-fns';
@@ -19,6 +19,7 @@ import {
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { GlobalSearch } from '../GlobalSearch';
+import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 
 // Get today's date in local timezone (YYYY-MM-DD format)
 const getTodayLocalDate = (): string => {
@@ -49,6 +50,7 @@ export function Navbar() {
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { data: staffRecord } = useCurrentStaff();
+  const { toggle: toggleMobileMenu } = useMobileMenu();
   
   // Initialize date from URL if on sessions page, otherwise use today
   const getInitialDate = (): string => {
@@ -63,7 +65,6 @@ export function Navbar() {
   
   const [selectedDate, setSelectedDate] = useState<string>(getInitialDate());
   const dateInputRefDesktop = useRef<HTMLInputElement>(null);
-  const dateInputRefMobile = useRef<HTMLInputElement>(null);
 
   // Sync date with URL when on sessions page
   useEffect(() => {
@@ -86,9 +87,6 @@ export function Navbar() {
     const handleScroll = () => {
       if (dateInputRefDesktop.current && document.activeElement === dateInputRefDesktop.current) {
         dateInputRefDesktop.current.blur();
-      }
-      if (dateInputRefMobile.current && document.activeElement === dateInputRefMobile.current) {
-        dateInputRefMobile.current.blur();
       }
     };
 
@@ -178,29 +176,24 @@ export function Navbar() {
     }
   };
 
-  // Handle button click to open date picker (mobile)
-  const handleDateButtonClickMobile = () => {
-    const input = dateInputRefMobile.current;
-    if (!input) return;
-    
-    // Try showPicker() if available (modern browsers)
-    if ('showPicker' in input && typeof input.showPicker === 'function') {
-      try {
-        input.showPicker();
-      } catch {
-        // Fallback if showPicker throws synchronously
-        input.click();
-      }
-      } else {
-        // Fallback: trigger click
-      input.click();
-    }
-  };
-
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
       <div className="container mx-auto px-4 h-full flex items-center gap-4">
-        <div className="flex items-center gap-3 min-w-[220px]">
+        {/* Mobile Hamburger Menu Button */}
+        {user && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleMobileMenu}
+            className="md:hidden flex-shrink-0"
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+        
+        {/* Desktop Logo - hidden on mobile */}
+        <div className="hidden md:flex items-center gap-3 min-w-[220px]">
           <div className="h-12 flex items-center gap-1">
             <Image 
               src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
@@ -213,69 +206,49 @@ export function Navbar() {
             />
           </div>
         </div>
-        <div className="flex-1 flex justify-center">
+        
+        {/* Search - same on desktop and mobile */}
+        <div className="flex-1 flex justify-center min-w-0">
           <GlobalSearch />
         </div>
-        <div className="flex items-center gap-4 min-w-[220px] justify-end">
-          {/* Date Picker */}
+        
+        <div className="flex items-center gap-4 flex-shrink-0 justify-end">
+          {/* Date Picker - Desktop only */}
           {user && (
-            <>
-              <div className="hidden md:flex items-center gap-2">
-                <div className="relative">
-                  <input
-                    ref={dateInputRefDesktop}
-                    type="date"
-                    value={selectedDate}
-                    onChange={handleDateChange}
-                    className="sr-only"
-                    aria-label="Select date"
-                    id="date-picker-desktop"
-                  />
-                  <Button
-                    variant="outline"
-                    className="h-9 px-3 text-sm font-normal cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDateButtonClickDesktop();
-                    }}
-                    type="button"
-                    data-date-picker-button
-                  >
-                    {formatDateDisplay(selectedDate)}
-                  </Button>
-                </div>
+            <div className="hidden md:flex items-center gap-2">
+              <div className="relative">
+                <input
+                  ref={dateInputRefDesktop}
+                  type="date"
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  className="sr-only"
+                  aria-label="Select date"
+                  id="date-picker-desktop"
+                />
+                <Button
+                  variant="outline"
+                  className="h-9 px-3 text-sm font-normal cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDateButtonClickDesktop();
+                  }}
+                  type="button"
+                  data-date-picker-button
+                >
+                  {formatDateDisplay(selectedDate)}
+                </Button>
               </div>
-              {/* Mobile date picker - icon only */}
-              <div className="md:hidden">
-                <div className="relative">
-                  <input
-                    ref={dateInputRefMobile}
-                    type="date"
-                    value={selectedDate}
-                    onChange={handleDateChange}
-                    className="sr-only"
-                    aria-label="Select date"
-                    id="date-picker-mobile"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDateButtonClickMobile();
-                    }}
-                    title="Select date"
-                    type="button"
-                    data-date-picker-button
-                  >
-                    <Calendar className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </>
+            </div>
           )}
-          <ThemeToggle />
+          
+          {/* Theme Toggle - Desktop only */}
+          <div className="hidden md:block">
+            <ThemeToggle />
+          </div>
+          
+          {/* Profile Menu */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

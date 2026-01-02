@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
 export interface TablePaginationProps {
@@ -104,7 +105,7 @@ export function TablePagination({
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1}>
-            Previous
+            <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-1">
             {pages.map((item, index) =>
@@ -126,7 +127,7 @@ export function TablePagination({
             )}
           </div>
           <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= pageCount}>
-            Next
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>

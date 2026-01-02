@@ -197,7 +197,7 @@ export function ViewTopicModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
+        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <SheetTitle className="text-xl">
               {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}

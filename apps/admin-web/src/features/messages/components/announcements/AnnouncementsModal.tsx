@@ -119,7 +119,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle>{getStepTitle()}</DialogTitle>
         </DialogHeader>

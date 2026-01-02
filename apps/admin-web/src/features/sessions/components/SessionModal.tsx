@@ -131,7 +131,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   if (isLoading || !data) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-[600px] max-w-[90vw] overflow-y-auto p-0">
+        <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
           <SheetHeader className="px-6 py-4">
             <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
           </SheetHeader>
@@ -256,7 +256,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-[600px] max-w-[90vw]">
+        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <SheetTitle>Session Details</SheetTitle>
