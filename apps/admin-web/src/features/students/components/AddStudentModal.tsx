@@ -19,15 +19,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@altitutor/ui";
+import { Checkbox } from "@altitutor/ui";
+import { PhoneInput } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { ScrollArea } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
 import { useCreateStudent } from '../hooks/useStudentsQuery';
-import type { TablesInsert, Tables } from '@altitutor/shared';
-import { PhoneInput } from '@altitutor/ui';
-import { SubjectSearchPopover } from '@/features/subjects/components';
-import { subjectsApi } from '@/features/subjects/api';
+import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { studentsApi } from '../api';
-import { getSubjectIcon } from '@/shared/utils';
-import { X } from 'lucide-react';
+import { formatSubjectDisplay } from '@/shared/utils';
+import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
+import type { Tables } from '@altitutor/shared';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -35,82 +41,84 @@ interface AddStudentModalProps {
   onStudentAdded: () => void;
 }
 
+// Schema for form validation
+const formSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  studentEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
+  studentPhone: z
+    .string()
+    .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
+    .optional()
+    .nullable(),
+  school: z.string().optional(),
+  curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE']).optional().nullable(),
+  yearLevel: z.union([
+    z.number().int().min(1).max(12),
+    z.string().regex(/^\d+$/).transform(Number),
+    z.literal('').transform(() => null),
+    z.null()
+  ]).optional().nullable(),
+  status: z.enum(['TRIAL', 'ACTIVE', 'INACTIVE', 'DISCONTINUED']),
+  
+  // Availability checkboxes - required values in schema
+  availability_monday: z.boolean(),
+  availability_tuesday: z.boolean(),
+  availability_wednesday: z.boolean(),
+  availability_thursday: z.boolean(),
+  availability_friday: z.boolean(),
+  availability_saturday_am: z.boolean(),
+  availability_saturday_pm: z.boolean(),
+  availability_sunday_am: z.boolean(),
+  availability_sunday_pm: z.boolean(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
 export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentModalProps) {
   const { toast } = useToast();
   const createStudentMutation = useCreateStudent();
-  const [loading, setLoading] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
+  const { data: allSubjects = [] } = useSubjects();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    studentEmail: '',
-    studentPhone: '',
-    school: '',
-    curriculum: '',
-    yearLevel: '',
-    status: 'TRIAL' as Tables<'students'>['status'],
-    // Availability fields
-    availabilityMonday: false,
-    availabilityTuesday: false,
-    availabilityWednesday: false,
-    availabilityThursday: false,
-    availabilityFriday: false,
-    availabilitySaturdayAm: false,
-    availabilitySaturdayPm: false,
-    availabilitySundayAm: false,
-    availabilitySundayPm: false,
+  const [isAddSubjectPopoverOpen, setIsAddSubjectPopoverOpen] = useState(false);
+  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
+  
+  const { 
+    control, 
+    register, 
+    handleSubmit, 
+    reset,
+    formState: { errors } 
+  } = useForm<FormData>({
+    // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      studentEmail: '',
+      studentPhone: '',
+      school: '',
+      curriculum: null,
+      yearLevel: null,
+      status: 'TRIAL',
+      availability_monday: false,
+      availability_tuesday: false,
+      availability_wednesday: false,
+      availability_thursday: false,
+      availability_friday: false,
+      availability_saturday_am: false,
+      availability_saturday_pm: false,
+      availability_sunday_am: false,
+      availability_sunday_pm: false,
+    }
   });
 
-  // Load subjects when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      loadSubjects();
-    }
-  }, [isOpen]);
-
-  const loadSubjects = async () => {
-    try {
-      const subjects = await subjectsApi.getAllSubjects();
-      setAllSubjects(subjects);
-    } catch (error) {
-      console.error('Failed to load subjects:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load subjects. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddSubject = (subject: Tables<'subjects'>) => {
-    setSelectedSubjects(prev => [...prev, subject]);
-  };
-
-  const handleRemoveSubject = (subjectId: string) => {
-    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
-  };
-
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit: SubmitHandler<FormData> = async (formData: FormData) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
     
-    if (!formData.firstName || !formData.lastName) {
-      toast({
-        title: "Validation Error",
-        description: "First name and last name are required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
     try {
       const studentData: any = {
         id: crypto.randomUUID(),
@@ -120,17 +128,17 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         phone: (formData.studentPhone || null) as any,
         school: formData.school || null,
         curriculum: (formData.curriculum || null) as any,
-        year_level: formData.yearLevel ? parseInt(formData.yearLevel) : null,
+        year_level: formData.yearLevel ?? null,
         status: formData.status,
-        availability_monday: formData.availabilityMonday,
-        availability_tuesday: formData.availabilityTuesday,
-        availability_wednesday: formData.availabilityWednesday,
-        availability_thursday: formData.availabilityThursday,
-        availability_friday: formData.availabilityFriday,
-        availability_saturday_am: formData.availabilitySaturdayAm,
-        availability_saturday_pm: formData.availabilitySaturdayPm,
-        availability_sunday_am: formData.availabilitySundayAm,
-        availability_sunday_pm: formData.availabilitySundayPm,
+        availability_monday: formData.availability_monday,
+        availability_tuesday: formData.availability_tuesday,
+        availability_wednesday: formData.availability_wednesday,
+        availability_thursday: formData.availability_thursday,
+        availability_friday: formData.availability_friday,
+        availability_saturday_am: formData.availability_saturday_am,
+        availability_saturday_pm: formData.availability_saturday_pm,
+        availability_sunday_am: formData.availability_sunday_am,
+        availability_sunday_pm: formData.availability_sunday_pm,
         created_at: null,
         created_by: null,
         invite_token: null,
@@ -163,50 +171,67 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         description: "Student added successfully.",
       });
       
+      // Reset form and close modal
+      reset();
+      setSelectedSubjects([]);
+      setSubjectSearchQuery('');
       onStudentAdded();
       onClose();
-      
-      // Reset form
-      setFormData({
-        firstName: '',
-        lastName: '',
-        studentEmail: '',
-        studentPhone: '',
-        school: '',
-        curriculum: '',
-        yearLevel: '',
-        status: 'TRIAL',
-        availabilityMonday: false,
-        availabilityTuesday: false,
-        availabilityWednesday: false,
-        availabilityThursday: false,
-        availabilityFriday: false,
-        availabilitySaturdayAm: false,
-        availabilitySaturdayPm: false,
-        availabilitySundayAm: false,
-        availabilitySundayPm: false,
-      });
-      setSelectedSubjects([]);
     } catch (error) {
       console.error('Error adding student:', error);
+      
+      let errorMsg = 'An unknown error occurred';
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      }
+      
+      setErrorMessage(errorMsg);
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add student.",
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleClose = () => {
-    if (!loading) {
+  const handleCloseModal = () => {
+    if (!isSubmitting) {
+      reset();
+      setErrorMessage(null);
+      setSelectedSubjects([]);
+      setSubjectSearchQuery('');
       onClose();
     }
   };
 
+  const handleAddSubject = (subjectId: string) => {
+    const subject = allSubjects.find(s => s.id === subjectId);
+    if (subject && !selectedSubjects.some(s => s.id === subjectId)) {
+      setSelectedSubjects(prev => [...prev, subject]);
+      setIsAddSubjectPopoverOpen(false);
+      setSubjectSearchQuery('');
+    }
+  };
+
+  const handleRemoveSubject = (subjectId: string) => {
+    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
+  };
+
+  const availableSubjects = allSubjects.filter(subject => 
+    !selectedSubjects.some(selected => selected.id === subject.id)
+  );
+
+  const filteredAvailableSubjects = availableSubjects.filter(subject => {
+    if (!subjectSearchQuery) return true;
+    const query = subjectSearchQuery.toLowerCase();
+    return formatSubjectDisplay(subject).toLowerCase().includes(query);
+  });
+
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleCloseModal}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Student</DialogTitle>
@@ -215,244 +240,408 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Student Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Student Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="firstName">First Name *</Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange('firstName', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="lastName">Last Name *</Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => handleInputChange('lastName', e.target.value)}
-                  required
-                />
-              </div>
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+            <div className="text-sm text-red-600">{errorMessage}</div>
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input 
+                id="firstName" 
+                {...register('firstName')} 
+                disabled={isSubmitting} 
+              />
+              {errors.firstName && (
+                <p className="text-sm text-red-500">{errors.firstName.message}</p>
+              )}
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="studentEmail">Student Email</Label>
-                <Input
-                  id="studentEmail"
-                  type="email"
-                  value={formData.studentEmail}
-                  onChange={(e) => handleInputChange('studentEmail', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="studentPhone">Student Phone</Label>
-                <PhoneInput
-                  value={formData.studentPhone}
-                  onChange={(value) => handleInputChange('studentPhone', value)}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input 
+                id="lastName" 
+                {...register('lastName')} 
+                disabled={isSubmitting} 
+              />
+              {errors.lastName && (
+                <p className="text-sm text-red-500">{errors.lastName.message}</p>
+              )}
             </div>
           </div>
-
-          {/* Academic Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Academic Information</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="school">School</Label>
-                <Input
-                  id="school"
-                  value={formData.school}
-                  onChange={(e) => handleInputChange('school', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="curriculum">Curriculum</Label>
-                <Select
-                  value={formData.curriculum}
-                  onValueChange={(value) => handleInputChange('curriculum', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select curriculum" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SACE">SACE</SelectItem>
-                    <SelectItem value="IB">IB</SelectItem>
-                    <SelectItem value="PRESACE">PRESACE</SelectItem>
-                    <SelectItem value="PRIMARY">PRIMARY</SelectItem>
-                    <SelectItem value="MEDICINE">MEDICINE</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="yearLevel">Year Level</Label>
-                <Input
-                  id="yearLevel"
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={formData.yearLevel}
-                  onChange={(e) => handleInputChange('yearLevel', e.target.value)}
-                />
-              </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="studentEmail">Student Email</Label>
+              <Input 
+                id="studentEmail" 
+                type="email" 
+                {...register('studentEmail')} 
+                disabled={isSubmitting} 
+              />
+              {errors.studentEmail && (
+                <p className="text-sm text-red-500">{errors.studentEmail.message}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="studentPhone">Student Phone</Label>
+              <Controller
+                control={control}
+                name="studentPhone"
+                render={({ field }) => (
+                  <PhoneInput
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    disabled={isSubmitting}
+                    error={errors.studentPhone?.message}
+                  />
+                )}
+              />
             </div>
           </div>
-
-          {/* Status */}
-          <div>
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={formData.status}
-                onValueChange={(value) => handleInputChange('status', value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Subjects */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Subjects</h3>
-              <SubjectSearchPopover
-                selectedSubjects={selectedSubjects}
-                onSelectSubject={handleAddSubject}
+          
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="school">School</Label>
+              <Input 
+                id="school" 
+                {...register('school')} 
+                disabled={isSubmitting} 
               />
             </div>
             
-            {selectedSubjects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No subjects selected</p>
-            ) : (
-              <div className="space-y-2">
-                {selectedSubjects.map((subject) => {
-                  const Icon = getSubjectIcon(subject.discipline);
-                  const subjectDisplay = [
-                    subject.curriculum,
-                    subject.year_level ? `Year ${subject.year_level}` : '',
-                    subject.name
-                  ].filter(Boolean).join(' ');
-                  
-                  return (
-                    <div
-                      key={subject.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium">{subjectDisplay}</div>
-                          {subject.level && (
-                            <p className="text-xs text-muted-foreground">{subject.level}</p>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveSubject(subject.id)}
-                        className="flex-shrink-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="curriculum">Curriculum</Label>
+              <Controller
+                control={control}
+                name="curriculum"
+                render={({ field }) => (
+                  <Select 
+                    disabled={isSubmitting}
+                    value={field.value || ''}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select curriculum" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SACE">SACE</SelectItem>
+                      <SelectItem value="IB">IB</SelectItem>
+                      <SelectItem value="PRESACE">PRESACE</SelectItem>
+                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
+                      <SelectItem value="MEDICINE">MEDICINE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="yearLevel">Year Level</Label>
+              <Controller
+                control={control}
+                name="yearLevel"
+                render={({ field }) => (
+                  <Input
+                    id="yearLevel"
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={field.value ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      field.onChange(value === '' || value === null || value === undefined ? null : parseInt(value, 10));
+                    }}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <Select 
+                  disabled={isSubmitting}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={'TRIAL'}>Trial</SelectItem>
+                    <SelectItem value={'ACTIVE'}>Active</SelectItem>
+                    <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
+                    <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.status && (
+              <p className="text-sm text-red-500">{errors.status.message}</p>
             )}
           </div>
-
-          {/* Availability */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Availability</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <h4 className="font-medium">Weekdays</h4>
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
-                  <label key={day} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData[`availability${day}` as keyof typeof formData] as boolean}
-                      onChange={(e) => handleInputChange(`availability${day}`, e.target.checked)}
-                      className="rounded"
+          
+          <div className="space-y-2">
+            <Label>Subjects</Label>
+            <div className="space-y-2">
+              {selectedSubjects.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedSubjects.map((subject) => (
+                    <Badge
+                      key={subject.id}
+                      variant="secondary"
+                      className="flex items-center gap-1 pr-1"
+                    >
+                      <span>{formatSubjectDisplay(subject)}</span>
+                      <button
+                        type="button"
+                        className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                        onClick={() => handleRemoveSubject(subject.id)}
+                        disabled={isSubmitting}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <Popover open={isAddSubjectPopoverOpen} onOpenChange={setIsAddSubjectPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-2"
+                    disabled={isSubmitting}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Subject</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[300px]" align="start">
+                  <div className="p-3">
+                    <Input
+                      placeholder="Search subjects..."
+                      value={subjectSearchQuery}
+                      onChange={(e) => setSubjectSearchQuery(e.target.value)}
+                      className="mb-3"
                     />
-                    <span className="text-sm">{day}</span>
-                  </label>
-                ))}
+                    <ScrollArea className="max-h-[300px]">
+                      <div className="space-y-1">
+                        {filteredAvailableSubjects.length === 0 ? (
+                          <div className="p-3 text-center text-sm text-muted-foreground">
+                            {subjectSearchQuery ? 'No subjects match your search' : 'No available subjects found'}
+                          </div>
+                        ) : (
+                          filteredAvailableSubjects.map(subject => (
+                            <Button
+                              key={subject.id}
+                              type="button"
+                              variant="ghost"
+                              className="w-full justify-start h-auto p-2"
+                              onClick={() => handleAddSubject(subject.id)}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex flex-col items-start">
+                                  <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                                </div>
+                              </div>
+                            </Button>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Availability</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_monday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_monday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_monday">Monday</Label>
               </div>
-              <div className="space-y-2">
-                <h4 className="font-medium">Saturday</h4>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.availabilitySaturdayAm}
-                    onChange={(e) => handleInputChange('availabilitySaturdayAm', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Morning</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.availabilitySaturdayPm}
-                    onChange={(e) => handleInputChange('availabilitySaturdayPm', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Afternoon</span>
-                </label>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_tuesday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_tuesday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_tuesday">Tuesday</Label>
               </div>
-              <div className="space-y-2">
-                <h4 className="font-medium">Sunday</h4>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.availabilitySundayAm}
-                    onChange={(e) => handleInputChange('availabilitySundayAm', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Morning</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.availabilitySundayPm}
-                    onChange={(e) => handleInputChange('availabilitySundayPm', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Afternoon</span>
-                </label>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_wednesday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_wednesday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_wednesday">Wednesday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_thursday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_thursday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_thursday">Thursday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_friday"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_friday" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_friday">Friday</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_saturday_am"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_saturday_am" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_saturday_am">Saturday AM</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_saturday_pm"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_saturday_pm" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_saturday_pm">Saturday PM</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_sunday_am"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_sunday_am" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_sunday_am">Sunday AM</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="availability_sunday_pm"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="availability_sunday_pm" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="availability_sunday_pm">Sunday PM</Label>
               </div>
             </div>
           </div>
-
+          
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={handleClose}
-              disabled={loading}
+              onClick={handleCloseModal}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Adding...' : 'Add Student'}
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Student'
+              )}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
-} 
+}

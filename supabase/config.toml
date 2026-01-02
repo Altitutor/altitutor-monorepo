@@ -175,10 +175,30 @@ pass = "env(RESEND_API_KEY)"
 admin_email = "noreply@altitutor.com"
 sender_name = "Altitutor"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Email templates with modern design
+[auth.email.template.confirmation]
+subject = "Confirm Your Signup - Altitutor"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.invite]
+subject = "You Have Been Invited to Altitutor"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Your Magic Link - Altitutor"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.recovery]
+subject = "Reset Your Password - Altitutor"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.email_change]
+subject = "Confirm Email Change - Altitutor"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.reauthentication]
+subject = "Confirm Your Identity - Altitutor"
+content_path = "./supabase/templates/reauthentication.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

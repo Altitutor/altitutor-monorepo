@@ -16,12 +16,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
+import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { ScrollArea } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
 import { useInviteStaff } from '../hooks/useStaffQuery';
+import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
+import { useAssignSubjectToStaff } from '../hooks/useStaffQuery';
+import { formatSubjectDisplay } from '@/shared/utils';
 // Use string literals for role/status
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Plus, X, Search } from 'lucide-react';
+import type { Tables } from '@altitutor/shared';
 
 interface AddStaffModalProps {
   isOpen: boolean;
@@ -40,6 +47,13 @@ const formSchema = z.object({
     .optional()
     .nullable(),
   role: z.enum(['TUTOR','ADMINSTAFF']),
+  officeKeyNumber: z.union([
+    z.number().int().positive(),
+    z.string().regex(/^\d+$/).transform(Number),
+    z.literal('').transform(() => null),
+    z.null()
+  ]).optional(),
+  hasParkingRemote: z.enum(['VIRTUAL', 'PHYSICAL', 'NONE']).nullable().optional(),
   
   // Availability checkboxes - required values in schema
   availability_monday: z.boolean(),
@@ -51,6 +65,10 @@ const formSchema = z.object({
   availability_saturday_pm: z.boolean(),
   availability_sunday_am: z.boolean(),
   availability_sunday_pm: z.boolean(),
+  // Session-type availability
+  drafting_availability: z.boolean(),
+  trial_session_availability: z.boolean(),
+  subsidy_interview_availability: z.boolean(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -58,8 +76,13 @@ type FormData = z.infer<typeof formSchema>;
 export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalProps) {
   const { toast } = useToast();
   const inviteStaffMutation = useInviteStaff();
+  const assignSubjectMutation = useAssignSubjectToStaff();
+  const { data: allSubjects = [] } = useSubjects();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [isAddSubjectPopoverOpen, setIsAddSubjectPopoverOpen] = useState(false);
+  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   
   const { 
     control, 
@@ -68,6 +91,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     reset,
     formState: { errors } 
   } = useForm<FormData>({
+    // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
     resolver: zodResolver(formSchema),
     defaultValues: {
       firstName: '',
@@ -75,6 +99,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       email: '',
       phoneNumber: '',
       role: 'TUTOR',
+      officeKeyNumber: null,
+      hasParkingRemote: 'NONE',
       availability_monday: false,
       availability_tuesday: false,
       availability_wednesday: false,
@@ -84,10 +110,13 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       availability_saturday_pm: false,
       availability_sunday_am: false,
       availability_sunday_pm: false,
+      drafting_availability: false,
+      trial_session_availability: false,
+      subsidy_interview_availability: false,
     }
   });
 
-  const onSubmit: SubmitHandler<FormData> = async (formData) => {
+  const onSubmit: SubmitHandler<FormData> = async (formData: FormData) => {
     setIsSubmitting(true);
     setErrorMessage(null);
     
@@ -99,6 +128,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         phone_number: formData.phoneNumber || null,
         role: formData.role,
         status: 'ACTIVE' as const,
+        office_key_number: formData.officeKeyNumber || null,
+        has_parking_remote: formData.hasParkingRemote || 'NONE',
         availability_monday: formData.availability_monday,
         availability_tuesday: formData.availability_tuesday,
         availability_wednesday: formData.availability_wednesday,
@@ -108,10 +139,29 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         availability_saturday_pm: formData.availability_saturday_pm,
         availability_sunday_am: formData.availability_sunday_am,
         availability_sunday_pm: formData.availability_sunday_pm,
+        drafting_availability: formData.drafting_availability,
+        trial_session_availability: formData.trial_session_availability,
+        subsidy_interview_availability: formData.subsidy_interview_availability,
       };
       
       // Create the staff member with user account using invitation
-      await inviteStaffMutation.mutateAsync(staffData);
+      const result = await inviteStaffMutation.mutateAsync(staffData);
+      const staffId = result.staff.id;
+      
+      // Assign subjects if any were selected
+      if (selectedSubjects.length > 0) {
+        for (const subject of selectedSubjects) {
+          try {
+            await assignSubjectMutation.mutateAsync({
+              staffId,
+              subjectId: subject.id,
+            });
+          } catch (error) {
+            console.error(`Failed to assign subject ${subject.id}:`, error);
+            // Continue with other subjects even if one fails
+          }
+        }
+      }
       
       toast({
         title: 'Staff added successfully',
@@ -120,6 +170,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       
       // Reset form and close modal
       reset();
+      setSelectedSubjects([]);
+      setSubjectSearchQuery('');
       onStaffAdded();
       onClose();
     } catch (error) {
@@ -153,9 +205,34 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     if (!isSubmitting) {
       reset();
       setErrorMessage(null);
+      setSelectedSubjects([]);
+      setSubjectSearchQuery('');
       onClose();
     }
   };
+
+  const handleAddSubject = (subjectId: string) => {
+    const subject = allSubjects.find(s => s.id === subjectId);
+    if (subject && !selectedSubjects.some(s => s.id === subjectId)) {
+      setSelectedSubjects(prev => [...prev, subject]);
+      setIsAddSubjectPopoverOpen(false);
+      setSubjectSearchQuery('');
+    }
+  };
+
+  const handleRemoveSubject = (subjectId: string) => {
+    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
+  };
+
+  const availableSubjects = allSubjects.filter(subject => 
+    !selectedSubjects.some(selected => selected.id === subject.id)
+  );
+
+  const filteredAvailableSubjects = availableSubjects.filter(subject => {
+    if (!subjectSearchQuery) return true;
+    const query = subjectSearchQuery.toLowerCase();
+    return formatSubjectDisplay(subject).toLowerCase().includes(query);
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>
@@ -174,7 +251,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
@@ -230,30 +307,159 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
             />
           </div>
           
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Controller
+                control={control}
+                name="role"
+                render={({ field }) => (
+                  <Select 
+                    disabled={isSubmitting}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={'TUTOR'}>Tutor</SelectItem>
+                      <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.role && (
+                <p className="text-sm text-red-500">{errors.role.message}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="hasParkingRemote">Parking Remote</Label>
+              <Controller
+                control={control}
+                name="hasParkingRemote"
+                render={({ field }) => (
+                  <Select 
+                    disabled={isSubmitting}
+                    value={field.value || 'NONE'}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="VIRTUAL">Virtual</SelectItem>
+                      <SelectItem value="PHYSICAL">Physical</SelectItem>
+                      <SelectItem value="NONE">None</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.hasParkingRemote && (
+                <p className="text-sm text-red-500">{errors.hasParkingRemote.message}</p>
+              )}
+            </div>
+          </div>
+          
           <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
+            <Label htmlFor="officeKeyNumber">Office Key Number</Label>
             <Controller
               control={control}
-              name="role"
+              name="officeKeyNumber"
               render={({ field }) => (
-                <Select 
+                <Input
+                  id="officeKeyNumber"
+                  type="number"
+                  value={field.value ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    field.onChange(value === '' || value === null || value === undefined ? null : parseInt(value, 10));
+                  }}
                   disabled={isSubmitting}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={'TUTOR'}>Tutor</SelectItem>
-                    <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="Enter key number"
+                />
               )}
             />
-            {errors.role && (
-              <p className="text-sm text-red-500">{errors.role.message}</p>
+            {errors.officeKeyNumber && (
+              <p className="text-sm text-red-500">{errors.officeKeyNumber.message}</p>
             )}
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Subjects</Label>
+            <div className="space-y-2">
+              {selectedSubjects.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedSubjects.map((subject) => (
+                    <Badge
+                      key={subject.id}
+                      variant="secondary"
+                      className="flex items-center gap-1 pr-1"
+                    >
+                      <span>{formatSubjectDisplay(subject)}</span>
+                      <button
+                        type="button"
+                        className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                        onClick={() => handleRemoveSubject(subject.id)}
+                        disabled={isSubmitting}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <Popover open={isAddSubjectPopoverOpen} onOpenChange={setIsAddSubjectPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-2"
+                    disabled={isSubmitting}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Subject</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[300px]" align="start">
+                  <div className="p-3">
+                    <Input
+                      placeholder="Search subjects..."
+                      value={subjectSearchQuery}
+                      onChange={(e) => setSubjectSearchQuery(e.target.value)}
+                      className="mb-3"
+                    />
+                    <ScrollArea className="max-h-[300px]">
+                      <div className="space-y-1">
+                        {filteredAvailableSubjects.length === 0 ? (
+                          <div className="p-3 text-center text-sm text-muted-foreground">
+                            {subjectSearchQuery ? 'No subjects match your search' : 'No available subjects found'}
+                          </div>
+                        ) : (
+                          filteredAvailableSubjects.map(subject => (
+                            <Button
+                              key={subject.id}
+                              type="button"
+                              variant="ghost"
+                              className="w-full justify-start h-auto p-2"
+                              onClick={() => handleAddSubject(subject.id)}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex flex-col items-start">
+                                  <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                                </div>
+                              </div>
+                            </Button>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
           
           <div className="space-y-2">
@@ -401,6 +607,59 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                   )}
                 />
                 <Label htmlFor="availability_sunday_pm">Sunday PM</Label>
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Session-Type Availability</Label>
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="drafting_availability"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="drafting_availability" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="drafting_availability">Available for Drafting Sessions</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="trial_session_availability"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="trial_session_availability" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="trial_session_availability">Available for Trial Sessions</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Controller
+                  control={control}
+                  name="subsidy_interview_availability"
+                  render={({ field }) => (
+                    <Checkbox 
+                      id="subsidy_interview_availability" 
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                />
+                <Label htmlFor="subsidy_interview_availability">Available for Subsidy Interviews</Label>
               </div>
             </div>
           </div>

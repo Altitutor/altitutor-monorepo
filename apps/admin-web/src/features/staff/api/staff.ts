@@ -44,6 +44,8 @@ export interface StaffInviteData {
   phone_number?: string | null;
   role: string;
   status?: 'ACTIVE' | 'INACTIVE' | 'TRIAL';
+  office_key_number?: number | null;
+  has_parking_remote?: 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null;
   availability_monday?: boolean;
   availability_tuesday?: boolean;
   availability_wednesday?: boolean;
@@ -53,6 +55,9 @@ export interface StaffInviteData {
   availability_saturday_pm?: boolean;
   availability_sunday_am?: boolean;
   availability_sunday_pm?: boolean;
+  drafting_availability?: boolean;
+  trial_session_availability?: boolean;
+  subsidy_interview_availability?: boolean;
 }
 
 export const staffApi = {
@@ -430,6 +435,8 @@ export const staffApi = {
           phone_number: data.phone_number,
           role: data.role,
           status: data.status,
+          office_key_number: data.office_key_number,
+          has_parking_remote: data.has_parking_remote,
           availability_monday: data.availability_monday,
           availability_tuesday: data.availability_tuesday,
           availability_wednesday: data.availability_wednesday,
@@ -439,6 +446,9 @@ export const staffApi = {
           availability_saturday_pm: data.availability_saturday_pm,
           availability_sunday_am: data.availability_sunday_am,
           availability_sunday_pm: data.availability_sunday_pm,
+          drafting_availability: data.drafting_availability,
+          trial_session_availability: data.trial_session_availability,
+          subsidy_interview_availability: data.subsidy_interview_availability,
         }),
       });
 

@@ -488,29 +488,42 @@ export function StudentSelector({
         return;
       }
 
-      const rpcData = rpcResult as { students: Array<{ id: string }>; total: number };
-      const studentIds = (rpcData.students || []).map(s => s.id);
+      const rpcData = rpcResult as { students: Array<{
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        status: string;
+        curriculum: string | null;
+        year_level: number | null;
+        school: string | null;
+        email: string | null;
+        phone: string | null;
+        created_at: string | null;
+        updated_at: string | null;
+      }>; total: number };
+      
+      // Transform RPC response to match Tables<'students'> format
+      const allActiveStudents = (rpcData.students || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status,
+        curriculum: s.curriculum || null,
+        year_level: s.year_level || null,
+        school: s.school || null,
+        email: s.email || null,
+        phone: s.phone || null,
+        created_at: s.created_at || null,
+        updated_at: s.updated_at || null,
+      })) as Tables<'students'>[];
 
-      if (studentIds.length === 0) {
+      if (allActiveStudents.length === 0) {
         toast({
           title: 'No students found',
           description: 'No active students found',
         });
         return;
       }
-
-      // Fetch full student records with phone and email
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
-        .in('id', studentIds)
-        .eq('status', 'ACTIVE')
-        .order('last_name', { ascending: true })
-        .order('first_name', { ascending: true });
-
-      if (studentsError) throw studentsError;
-
-      const allActiveStudents = (studentsData || []) as Tables<'students'>[];
 
       // Filter out already selected students
       const existingIds = new Set(selectedStudents.map(s => s.id));

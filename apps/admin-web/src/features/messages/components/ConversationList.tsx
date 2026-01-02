@@ -7,7 +7,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
 import { Badge } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Plus } from 'lucide-react';
 import { messagesKeys } from '../api/queryKeys';
+import { NewConversationDialog } from './NewConversationDialog';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -21,6 +24,7 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'unreplied'>('all');
+  const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
 
   useEffect(() => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -72,15 +76,32 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
     return filtered;
   }, [items, searchTerm, activeFilter]);
 
+  const handleNewConversation = (conversationId: string) => {
+    onSelect(conversationId);
+    setIsNewConversationDialogOpen(false);
+    // Invalidate conversations to refresh the list
+    qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+  };
+
   return (
     <div className="h-full border-r dark:border-brand-dark-border flex flex-col">
       <div className="p-3 flex-shrink-0">
-        <input 
-          className="w-full px-3 py-2 text-sm border rounded-md" 
-          placeholder="Search conversations" 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <input 
+            className="flex-1 min-w-0 px-3 py-2 text-sm border rounded-md" 
+            placeholder="Search conversations" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button
+            onClick={() => setIsNewConversationDialogOpen(true)}
+            size="sm"
+            className="h-[36px] w-[36px] p-0 flex-shrink-0"
+            title="New Conversation"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
         
         {/* Filter pills - hidden when searching */}
         {!searchTerm.trim() && (
@@ -147,6 +168,12 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
           })
         )}
       </div>
+
+      <NewConversationDialog
+        isOpen={isNewConversationDialogOpen}
+        onClose={() => setIsNewConversationDialogOpen(false)}
+        onConversationSelected={handleNewConversation}
+      />
     </div>
   );
 }
