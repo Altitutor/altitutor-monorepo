@@ -38,6 +38,7 @@ import { FileCard } from '@/features/topics/components/FileCard';
 import { AddTopicModal } from '@/features/topics/components/AddTopicModal';
 import { AddResourceFileModal } from '@/features/topics/components/AddResourceFileModal';
 import { EditTopicFileModal } from '@/features/topics/components/EditTopicFileModal';
+import { ViewTopicModal } from '@/features/topics/components/ViewTopicModal';
 import { deriveTopicFileCode, deriveTopicCode, buildTopicTree } from '@/features/topics/utils/codes';
 
 const formSchema = z.object({

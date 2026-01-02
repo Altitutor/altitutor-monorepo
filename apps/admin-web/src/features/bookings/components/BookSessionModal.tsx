@@ -57,38 +57,34 @@ export function BookSessionModal({
   
   // Track form validity state for reactive updates
   const [trialFormValid, setTrialFormValid] = useState(false);
+  
+  // Watch form values to trigger validity check
+  const watchedFirstName = trialContactFormRef?.watch('student_first_name');
+  const watchedLastName = trialContactFormRef?.watch('student_last_name');
+  const watchedEmail = trialContactFormRef?.watch('student_email');
+  const watchedPhone = trialContactFormRef?.watch('student_phone');
+  const watchedCurriculum = trialContactFormRef?.watch('curriculum');
+  const watchedSubjectIds = trialContactFormRef?.watch('subject_ids');
+  const formIsValid = trialContactFormRef?.formState.isValid ?? false;
+  
   useEffect(() => {
     if (trialContactFormRef) {
-      // Watch form state changes
-      const subscription = trialContactFormRef.formState.isValid;
-      // Check validity whenever form values change
-      const checkValidity = () => {
-        const formValues = trialContactFormRef.getValues();
-        const isValid = 
-          !!formValues.student_first_name &&
-          !!formValues.student_last_name &&
-          !!formValues.student_email &&
-          !!formValues.student_phone &&
-          !!formValues.curriculum &&
-          !!formValues.subject_ids &&
-          formValues.subject_ids.length > 0 &&
-          trialContactFormRef.formState.isValid;
-        setTrialFormValid(isValid);
-      };
-      
-      // Initial check
-      checkValidity();
-      
-      // Watch for changes
-      const unsubscribe = trialContactFormRef.watch(() => {
-        checkValidity();
-      });
-      
-      return () => unsubscribe();
+      // Check validity whenever watched values change
+      const formValues = trialContactFormRef.getValues();
+      const isValid = 
+        !!formValues.student_first_name &&
+        !!formValues.student_last_name &&
+        !!formValues.student_email &&
+        !!formValues.student_phone &&
+        !!formValues.curriculum &&
+        !!formValues.subject_ids &&
+        formValues.subject_ids.length > 0 &&
+        formIsValid;
+      setTrialFormValid(isValid);
     } else {
       setTrialFormValid(false);
     }
-  }, [trialContactFormRef]);
+  }, [trialContactFormRef, watchedFirstName, watchedLastName, watchedEmail, watchedPhone, watchedCurriculum, watchedSubjectIds, formIsValid]);
 
   // Search students
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
