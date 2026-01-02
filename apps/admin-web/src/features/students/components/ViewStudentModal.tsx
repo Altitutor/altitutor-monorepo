@@ -5,7 +5,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { studentsApi } from '../api';
 import { useStudentDetails, useUpdateStudent, studentsKeys } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
@@ -40,6 +41,7 @@ export function ViewStudentModal({
 }: ViewStudentModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const router = useRouter();
   
   // Use React Query hooks for data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
@@ -329,12 +331,30 @@ export function ViewStudentModal({
               {/* Sticky Header */}
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
-                  <SheetTitle>
-                    {isEditingDetails ? 'Edit Student' : 'Student Details'}
-                  </SheetTitle>
-                  <SheetDescription className="text-lg font-medium">
-                    {student.first_name} {student.last_name}
-                  </SheetDescription>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <SheetTitle>
+                        {isEditingDetails ? 'Edit Student' : 'Student Details'}
+                      </SheetTitle>
+                      <SheetDescription className="text-lg font-medium">
+                        {student.first_name} {student.last_name}
+                      </SheetDescription>
+                    </div>
+                    {studentId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          router.push(`/students/${studentId}`);
+                          onClose();
+                        }}
+                        className="shrink-0"
+                        title="Open in new page"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
                   <TabsList className="grid w-full grid-cols-5">

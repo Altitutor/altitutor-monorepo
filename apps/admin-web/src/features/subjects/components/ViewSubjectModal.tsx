@@ -56,6 +56,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@altitutor/ui";
 import { useRouter } from "next/navigation";
 import { Separator } from "@altitutor/ui";
+import { ExternalLink } from "lucide-react";
 
 export interface ViewSubjectModalProps {
   isOpen: boolean;
@@ -252,14 +253,32 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
-              <SheetTitle className="text-xl">
-                {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
-              </SheetTitle>
-              {!loading && subject && (
-                <SheetDescription className="text-lg font-medium">
-                  {subject.name}
-                </SheetDescription>
-              )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <SheetTitle className="text-xl">
+                    {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
+                  </SheetTitle>
+                  {!loading && subject && (
+                    <SheetDescription className="text-lg font-medium">
+                      {subject.name}
+                    </SheetDescription>
+                  )}
+                </div>
+                {subjectId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      router.push(`/subjects/${subjectId}`);
+                      onClose();
+                    }}
+                    className="shrink-0"
+                    title="Open in new page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </SheetHeader>
 
             {loading ? (

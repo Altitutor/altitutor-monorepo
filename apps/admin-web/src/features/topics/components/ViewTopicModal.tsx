@@ -31,7 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-import { PencilIcon, TrashIcon, Loader2, AlertTriangle } from 'lucide-react';
+import { PencilIcon, TrashIcon, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -78,6 +79,7 @@ export function ViewTopicModal({
   topicId,
   onTopicUpdated,
 }: ViewTopicModalProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
@@ -199,14 +201,32 @@ export function ViewTopicModal({
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
-            <SheetTitle className="text-xl">
-              {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
-            </SheetTitle>
-            {!isLoading && topic && (
-              <SheetDescription className="text-lg font-medium">
-                {topic.name}
-              </SheetDescription>
-            )}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <SheetTitle className="text-xl">
+                  {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
+                </SheetTitle>
+                {!isLoading && topic && (
+                  <SheetDescription className="text-lg font-medium">
+                    {topic.name}
+                  </SheetDescription>
+                )}
+              </div>
+              {topicId && topic && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
+                    onClose();
+                  }}
+                  className="shrink-0"
+                  title="Open in new page"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </SheetHeader>
           
           {/* Scrollable Content Area */}

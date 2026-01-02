@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Table,
@@ -19,7 +19,9 @@ import {
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
+import { TablePagination } from '@/shared/components/TablePagination';
 import { 
   Search, 
   ArrowUpDown,
@@ -29,7 +31,7 @@ import {
   Loader2
 } from 'lucide-react';
 import type { Tables, Enums } from '@altitutor/shared';
-import { cn, getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
+import { cn, getSubjectColorHex, getSubjectColorStyle, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
@@ -50,18 +52,67 @@ interface SubjectsTableProps {
 }
 
 export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSubject }: SubjectsTableProps) {
-  const _router = useRouter();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Initialize from URL params
+  const getSearchFromUrl = () => searchParams.get('search') || '';
+  const getArrayFromUrl = (key: string): string[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').filter(Boolean) : [];
+  };
+  const getNumberArrayFromUrl = (key: string): number[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').map(Number).filter(n => !isNaN(n)) : [];
+  };
+  const getSortFromUrl = (): { field: keyof Tables<'subjects'>; direction: 'asc' | 'desc' } => {
+    const field = (searchParams.get('sort') || 'name') as keyof Tables<'subjects'>;
+    const direction = (searchParams.get('order') || 'asc') as 'asc' | 'desc';
+    return { field, direction };
+  };
+  
+  const updateUrlParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/subjects?${params.toString()}`);
+  };
   
   // Track table width for responsive display
   const [tableRef, tableSize] = useElementSize<HTMLDivElement>();
 
-  // Filter and sort state
-  const [searchTerm, setSearchTerm] = useState('');
+  // Filter and sort state initialized from URL
+  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [curriculumFilters, setCurriculumFilters] = useState<Enums<'subject_curriculum'>[]>([]);
-  const [disciplineFilters, setDisciplineFilters] = useState<Enums<'subject_discipline'>[]>([]);
-  const [sortField, setSortField] = useState<keyof Tables<'subjects'>>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [curriculumFilters, setCurriculumFilters] = useState<Enums<'subject_curriculum'>[]>(getArrayFromUrl('curriculum') as Enums<'subject_curriculum'>[]);
+  const [disciplineFilters, setDisciplineFilters] = useState<Enums<'subject_discipline'>[]>(getArrayFromUrl('discipline') as Enums<'subject_discipline'>[]);
+  const [yearLevelFilters, setYearLevelFilters] = useState<number[]>(getNumberArrayFromUrl('yearLevel'));
+  const sortFromUrl = getSortFromUrl();
+  const [sortField, setSortField] = useState<keyof Tables<'subjects'>>(sortFromUrl.field);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortFromUrl.direction);
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
+  
+  // Sync from URL params
+  useEffect(() => {
+    setSearchTerm(getSearchFromUrl());
+    setCurriculumFilters(getArrayFromUrl('curriculum') as Enums<'subject_curriculum'>[]);
+    setDisciplineFilters(getArrayFromUrl('discipline') as Enums<'subject_discipline'>[]);
+    setYearLevelFilters(getNumberArrayFromUrl('yearLevel'));
+    const sort = getSortFromUrl();
+    setSortField(sort.field);
+    setSortDirection(sort.direction);
+    const pageParam = Number(searchParams.get('page'));
+    if (pageParam) setPage(pageParam);
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    if (pageSizeParam) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [_isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -78,6 +129,11 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
+      setPage(1); // Reset to first page on search
+      updateUrlParams({ 
+        search: searchTerm || null,
+        page: null 
+      });
     }, 300);
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
@@ -92,7 +148,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     return 'name';
   }, [sortField]);
 
-  // React Query hook for data fetching with server-side filtering
+  // React Query hook for data fetching with server-side filtering and pagination
   const { 
     data: subjectsData, 
     isLoading, 
@@ -100,13 +156,14 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     refetch,
     isFetching 
   } = useQuery({
-    queryKey: ['subjects-list', debouncedSearchTerm, curriculumFilters, disciplineFilters, rpcOrderBy, sortDirection],
+    queryKey: ['subjects-list', debouncedSearchTerm, curriculumFilters, disciplineFilters, yearLevelFilters, rpcOrderBy, sortDirection, page, pageSize],
     queryFn: () => subjectsApi.list({
       search: debouncedSearchTerm || undefined,
       curriculums: curriculumFilters.length > 0 ? curriculumFilters : undefined,
       disciplines: disciplineFilters.length > 0 ? disciplineFilters : undefined,
-      limit: 10000, // High limit to get all subjects
-      offset: 0,
+      yearLevels: yearLevelFilters.length > 0 ? yearLevelFilters : undefined,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
       orderBy: rpcOrderBy as 'name' | 'curriculum' | 'year_level' | 'discipline' | 'level',
       ascending: sortDirection === 'asc',
     }),
@@ -115,40 +172,96 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   });
 
   const subjects = subjectsData?.subjects || [];
+  const total = subjectsData?.total || 0;
+  
+  // Get unique year levels from all subjects for filter dropdown
+  // Fetch all subjects without pagination to get unique year levels
+  const { data: allSubjectsData } = useQuery({
+    queryKey: ['subjects-all-year-levels'],
+    queryFn: () => subjectsApi.list({
+      limit: 10000,
+      offset: 0,
+    }),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  
+  const uniqueYearLevels = useMemo(() => {
+    const allSubjects = allSubjectsData?.subjects || [];
+    const yearLevels = new Set<number>();
+    allSubjects.forEach(subject => {
+      if (subject.year_level != null) {
+        yearLevels.add(subject.year_level);
+      }
+    });
+    return Array.from(yearLevels).sort((a, b) => a - b);
+  }, [allSubjectsData]);
 
   // Filter toggle handlers
   const toggleCurriculumFilter = (curriculum: Enums<'subject_curriculum'>) => {
-    setCurriculumFilters(prev => 
-      prev.includes(curriculum) 
-        ? prev.filter(c => c !== curriculum)
-        : [...prev, curriculum]
-    );
+    const newFilters = curriculumFilters.includes(curriculum) 
+      ? curriculumFilters.filter(c => c !== curriculum)
+      : [...curriculumFilters, curriculum];
+    setCurriculumFilters(newFilters);
+    setPage(1); // Reset to first page when filter changes
+    updateUrlParams({ 
+      curriculum: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
   };
 
   const toggleDisciplineFilter = (discipline: Enums<'subject_discipline'>) => {
-    setDisciplineFilters(prev => 
-      prev.includes(discipline) 
-        ? prev.filter(d => d !== discipline)
-        : [...prev, discipline]
-    );
+    const newFilters = disciplineFilters.includes(discipline) 
+      ? disciplineFilters.filter(d => d !== discipline)
+      : [...disciplineFilters, discipline];
+    setDisciplineFilters(newFilters);
+    setPage(1); // Reset to first page when filter changes
+    updateUrlParams({ 
+      discipline: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
+  };
+
+  const toggleYearLevelFilter = (yearLevel: number) => {
+    const newFilters = yearLevelFilters.includes(yearLevel) 
+      ? yearLevelFilters.filter(y => y !== yearLevel)
+      : [...yearLevelFilters, yearLevel];
+    setYearLevelFilters(newFilters);
+    setPage(1); // Reset to first page when filter changes
+    updateUrlParams({ 
+      yearLevel: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
   };
 
   const clearAllFilters = () => {
     setCurriculumFilters([]);
     setDisciplineFilters([]);
+    setYearLevelFilters([]);
     setSearchTerm('');
+    setPage(1);
+    updateUrlParams({ 
+      search: null,
+      curriculum: null,
+      discipline: null,
+      yearLevel: null,
+      page: null 
+    });
   };
 
   // Subjects are already filtered and sorted server-side via RPC
   const filteredSubjects = subjects;
 
   const handleSort = (field: keyof Tables<'subjects'>) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+    const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
+    const newField = sortField === field ? field : field;
+    setSortField(newField);
+    setSortDirection(newDirection);
+    setPage(1); // Reset to first page when sort changes
+    updateUrlParams({ 
+      sort: newField,
+      order: newDirection,
+      page: null 
+    });
   };
   
   const handleSubjectClick = (id: string, e?: React.MouseEvent) => {
@@ -232,7 +345,8 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   // Count active filters
   const activeFiltersCount = 
     (curriculumFilters.length > 0 ? 1 : 0) +
-    (disciplineFilters.length > 0 ? 1 : 0);
+    (disciplineFilters.length > 0 ? 1 : 0) +
+    (yearLevelFilters.length > 0 ? 1 : 0);
 
   // Loading state
   if (isLoading && subjects.length === 0) {
@@ -256,10 +370,14 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
               <Filter className="h-4 w-4 mr-2" />
               Discipline
             </Button>
+            <Button variant="outline" size="sm" disabled>
+              <Filter className="h-4 w-4 mr-2" />
+              Year Level
+            </Button>
           </div>
         </div>
         
-        <SkeletonTable rows={8} columns={6} />
+        <SkeletonTable rows={8} columns={isSelectMode ? 6 : 5} />
         
         <div className="text-sm text-muted-foreground">
           Loading subjects...
@@ -292,7 +410,10 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
             placeholder="Search subjects..."
             className="pl-8"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSearchTerm(value);
+            }}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -397,6 +518,37 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
               </div>
             </PopoverContent>
           </Popover>
+
+          {/* Year Level Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={yearLevelFilters.length > 0 ? "secondary" : "outline"} 
+                size="sm"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Year Level {yearLevelFilters.length > 0 && `(${yearLevelFilters.length})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <div className="space-y-2">
+                <div className="font-medium text-sm mb-2">Year Level</div>
+                {uniqueYearLevels.length === 0 ? (
+                  <div className="text-sm text-muted-foreground p-2">Loading year levels...</div>
+                ) : (
+                  uniqueYearLevels.map((yearLevel) => (
+                    <label key={yearLevel} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={yearLevelFilters.includes(yearLevel)}
+                        onCheckedChange={() => toggleYearLevelFilter(yearLevel)}
+                      />
+                      <span className="text-sm">Year {yearLevel}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -412,20 +564,35 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                   />
                 </TableHead>
               )}
+              <TableHead className="cursor-pointer" onClick={() => handleSort('curriculum')}>
+                Curriculum
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  sortField === 'curriculum' ? "opacity-100" : "opacity-40"
+                )} />
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('year_level')}>
+                Year Level
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  sortField === 'year_level' ? "opacity-100" : "opacity-40"
+                )} />
+              </TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
-                Subject Name
+                Name
                 <ArrowUpDown className={cn(
                   "ml-2 h-4 w-4 inline",
                   sortField === 'name' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
+              <TableHead>Code</TableHead>
               <TableHead className="text-right">Color</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSubjects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isSelectMode ? 3 : 2} className="text-center h-24">
+                <TableCell colSpan={isSelectMode ? 6 : 5} className="text-center h-24">
                   {isLoading ? (
                     "Loading subjects..."
                   ) : searchTerm || activeFiltersCount > 0 ? (
@@ -439,11 +606,10 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
               filteredSubjects.map((subject) => {
                 const isSelected = selectedSubjectIds.has(subject.id);
                 const subjectColorHex = getSubjectColorHex(subject);
-                // Show full name if table width >= 600px, otherwise show short name
-                const showFullName = tableSize.width >= 600;
-                const displayName = showFullName 
-                  ? formatSubjectDisplay(subject) 
-                  : formatSubjectShortName(subject);
+                const { style, textColorClass } = getSubjectColorStyle(subject);
+                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                const shortName = formatSubjectShortName(subject);
+                
                 return (
                   <TableRow 
                     key={subject.id} 
@@ -461,8 +627,31 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                         />
                       </TableCell>
                     )}
-                    <TableCell className="font-medium" title={formatSubjectDisplay(subject)}>
-                      {displayName}
+                    <TableCell>
+                      {subject.curriculum ? (
+                        <Badge variant="outline">{subject.curriculum}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {subject.year_level != null ? (
+                        <Badge variant="outline">Year {subject.year_level}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {subject.name || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
+                        style={style.backgroundColor ? style : undefined}
+                      >
+                        {shortName}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {subjectColorHex ? (
@@ -486,12 +675,25 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
         </Table>
       </div>
 
-      {/* Results count */}
-      <div className="text-sm text-muted-foreground">
-        {filteredSubjects.length} subjects displayed
-        {filteredSubjects.length !== subjects.length && ` of ${subjects.length} total`}
-        {isFetching && <span className="ml-2">(Refreshing...)</span>}
-      </div>
+      {/* Pagination */}
+      <TablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        isFetching={isFetching}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
+        }}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+          updateUrlParams({ 
+            pageSize: newSize === 50 ? null : String(newSize),
+            page: null 
+          });
+        }}
+      />
 
       <ViewSubjectModal 
         isOpen={isViewModalOpen}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -44,18 +44,56 @@ interface StudentsTableProps {
 }
 
 export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStudentSelect, addModalState: _addModalState }: StudentsTableProps = {}) {
-  const _router = useRouter();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
-  // Local UI state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilters, setStatusFilters] = useState<Tables<'students'>['status'][]>(['ACTIVE', 'TRIAL']);
-  const [curriculumFilters, setCurriculumFilters] = useState<string[]>([]);
-  const [yearLevelFilters, setYearLevelFilters] = useState<number[]>([]);
-  const [subjectFilters, setSubjectFilters] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<keyof Tables<'students'>>('status');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  // Initialize state from URL params
+  const getSearchFromUrl = () => searchParams.get('search') || '';
+  const getStatusFiltersFromUrl = (): Tables<'students'>['status'][] => {
+    const statusParam = searchParams.get('status');
+    if (!statusParam) return ['ACTIVE', 'TRIAL'];
+    return statusParam.split(',').filter((s): s is Tables<'students'>['status'] => 
+      ['ACTIVE', 'TRIAL', 'INACTIVE'].includes(s)
+    );
+  };
+  const getArrayFromUrl = (key: string): string[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').filter(Boolean) : [];
+  };
+  const getNumberArrayFromUrl = (key: string): number[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').map(Number).filter(n => !isNaN(n)) : [];
+  };
+  const getSortFromUrl = (): { field: keyof Tables<'students'>; direction: 'asc' | 'desc' } => {
+    const field = (searchParams.get('sort') || 'status') as keyof Tables<'students'>;
+    const direction = (searchParams.get('order') || 'desc') as 'asc' | 'desc';
+    return { field, direction };
+  };
+  
+  // Local UI state initialized from URL
+  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
+  const [statusFilters, setStatusFilters] = useState<Tables<'students'>['status'][]>(getStatusFiltersFromUrl);
+  const [curriculumFilters, setCurriculumFilters] = useState<string[]>(getArrayFromUrl('curriculum'));
+  const [yearLevelFilters, setYearLevelFilters] = useState<number[]>(getNumberArrayFromUrl('yearLevel'));
+  const [subjectFilters, setSubjectFilters] = useState<string[]>(getArrayFromUrl('subject'));
+  const sortFromUrl = getSortFromUrl();
+  const [sortField, setSortField] = useState<keyof Tables<'students'>>(sortFromUrl.field);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortFromUrl.direction);
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
+  
+  // Sync URL params when state changes
+  const updateUrlParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/students?${params.toString()}`);
+  };
 
   const { 
     data,
@@ -125,45 +163,69 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     }
   }, [_onRefresh, refetch]);
 
-  // Reset to page 1 when search term or filters change
+  // Sync state from URL params on mount and when URL changes
   useEffect(() => {
-    setPage(1);
-  }, [searchTerm, statusFilters, curriculumFilters, yearLevelFilters, subjectFilters]);
+    setSearchTerm(getSearchFromUrl());
+    setStatusFilters(getStatusFiltersFromUrl());
+    setCurriculumFilters(getArrayFromUrl('curriculum'));
+    setYearLevelFilters(getNumberArrayFromUrl('yearLevel'));
+    setSubjectFilters(getArrayFromUrl('subject'));
+    const sort = getSortFromUrl();
+    setSortField(sort.field);
+    setSortDirection(sort.direction);
+    const pageParam = Number(searchParams.get('page'));
+    if (pageParam) setPage(pageParam);
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    if (pageSizeParam) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Filter toggle handlers
   const toggleStatusFilter = (status: Tables<'students'>['status']) => {
-    setStatusFilters(prev => 
-      prev.includes(status) 
-        ? prev.filter(s => s !== status)
-        : [...prev, status]
-    );
+    const newFilters = statusFilters.includes(status) 
+      ? statusFilters.filter(s => s !== status)
+      : [...statusFilters, status];
+    setStatusFilters(newFilters);
+    updateUrlParams({ 
+      status: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
     setPage(1);
   };
 
   const toggleCurriculumFilter = (curriculum: string) => {
-    setCurriculumFilters(prev => 
-      prev.includes(curriculum) 
-        ? prev.filter(c => c !== curriculum)
-        : [...prev, curriculum]
-    );
+    const newFilters = curriculumFilters.includes(curriculum) 
+      ? curriculumFilters.filter(c => c !== curriculum)
+      : [...curriculumFilters, curriculum];
+    setCurriculumFilters(newFilters);
+    updateUrlParams({ 
+      curriculum: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
     setPage(1);
   };
 
   const toggleYearLevelFilter = (yearLevel: number) => {
-    setYearLevelFilters(prev => 
-      prev.includes(yearLevel) 
-        ? prev.filter(y => y !== yearLevel)
-        : [...prev, yearLevel]
-    );
+    const newFilters = yearLevelFilters.includes(yearLevel) 
+      ? yearLevelFilters.filter(y => y !== yearLevel)
+      : [...yearLevelFilters, yearLevel];
+    setYearLevelFilters(newFilters);
+    updateUrlParams({ 
+      yearLevel: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
     setPage(1);
   };
 
   const toggleSubjectFilter = (subjectId: string) => {
-    setSubjectFilters(prev => 
-      prev.includes(subjectId) 
-        ? prev.filter(s => s !== subjectId)
-        : [...prev, subjectId]
-    );
+    const newFilters = subjectFilters.includes(subjectId) 
+      ? subjectFilters.filter(s => s !== subjectId)
+      : [...subjectFilters, subjectId];
+    setSubjectFilters(newFilters);
+    updateUrlParams({ 
+      subject: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
     setPage(1);
   };
 
@@ -174,16 +236,27 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     setSubjectFilters([]);
     setSearchTerm('');
     setPage(1);
+    updateUrlParams({ 
+      search: null,
+      status: null,
+      curriculum: null,
+      yearLevel: null,
+      subject: null,
+      page: null 
+    });
   };
 
   const handleSort = (field: keyof Tables<'students'>) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+    const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
+    const newField = sortField === field ? field : field;
+    setSortField(newField);
+    setSortDirection(newDirection);
     setPage(1);
+    updateUrlParams({ 
+      sort: newField,
+      order: newDirection,
+      page: null 
+    });
   };
   
   const handleStudentClick = (id: string) => {
@@ -274,7 +347,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             placeholder="Search students..."
             className="pl-8"
             value={searchTerm || ''}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSearchTerm(value);
+              updateUrlParams({ search: value || null });
+            }}
           />
         </div>
         
@@ -535,10 +612,17 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         pageSize={pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={(newPage) => setPage(newPage)}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
+        }}
         onPageSizeChange={(newSize) => {
           setPageSize(newSize);
           setPage(1);
+          updateUrlParams({ 
+            pageSize: newSize === 50 ? null : String(newSize),
+            page: null 
+          });
         }}
       />
 

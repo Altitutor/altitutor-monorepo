@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, useInvoicesList } from '@/features/billing';
 import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Checkbox, ScrollArea } from '@altitutor/ui';
@@ -24,15 +25,49 @@ type InvoiceWithStudent = InvoiceRow & {
 const INVOICE_STATUSES: InvoiceRow['status'][] = ['draft', 'open', 'paid', 'void', 'uncollectible', 'disputed'];
 
 export default function InvoicesPage() {
-  const [statusFilters, setStatusFilters] = useState<InvoiceRow['status'][]>([]);
-  const [studentFilters, setStudentFilters] = useState<string[]>([]);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  // Initialize from URL params
+  const getArrayFromUrl = (key: string): string[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').filter(Boolean) : [];
+  };
+  
+  const updateUrlParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/invoices?${params.toString()}`);
+  };
+  
+  const [statusFilters, setStatusFilters] = useState<InvoiceRow['status'][]>(getArrayFromUrl('status') as InvoiceRow['status'][]);
+  const [studentFilters, setStudentFilters] = useState<string[]>(getArrayFromUrl('student'));
+  const [from, setFrom] = useState(searchParams.get('from') || '');
+  const [to, setTo] = useState(searchParams.get('to') || '');
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [invoiceItemsMap, setInvoiceItemsMap] = useState<Record<string, InvoiceItemRow[]>>({});
+  
+  // Sync from URL params
+  useEffect(() => {
+    setStatusFilters(getArrayFromUrl('status') as InvoiceRow['status'][]);
+    setStudentFilters(getArrayFromUrl('student'));
+    setFrom(searchParams.get('from') || '');
+    setTo(searchParams.get('to') || '');
+    const pageParam = Number(searchParams.get('page'));
+    if (pageParam) setPage(pageParam);
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    if (pageSizeParam) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Fetch students for the filter using server-side search
   const { data: searchResults } = useQuery({
@@ -135,21 +170,27 @@ export default function InvoicesPage() {
 
   // Filter toggle handlers - reset page when filters change
   const toggleStatusFilter = (status: InvoiceRow['status']) => {
-    setStatusFilters(prev => 
-      prev.includes(status) 
-        ? prev.filter(s => s !== status)
-        : [...prev, status]
-    );
+    const newFilters = statusFilters.includes(status) 
+      ? statusFilters.filter(s => s !== status)
+      : [...statusFilters, status];
+    setStatusFilters(newFilters);
     setPage(1);
+    updateUrlParams({ 
+      status: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
   };
 
   const toggleStudentFilter = (studentId: string) => {
-    setStudentFilters(prev => 
-      prev.includes(studentId) 
-        ? prev.filter(id => id !== studentId)
-        : [...prev, studentId]
-    );
+    const newFilters = studentFilters.includes(studentId) 
+      ? studentFilters.filter(id => id !== studentId)
+      : [...studentFilters, studentId];
+    setStudentFilters(newFilters);
     setPage(1);
+    updateUrlParams({ 
+      student: newFilters.length > 0 ? newFilters.join(',') : null,
+      page: null 
+    });
   };
 
   const clearAllFilters = () => {
@@ -159,6 +200,13 @@ export default function InvoicesPage() {
     setTo('');
     setStudentSearchQuery('');
     setPage(1);
+    updateUrlParams({ 
+      status: null,
+      student: null,
+      from: null,
+      to: null,
+      page: null 
+    });
   };
 
   // Count active filters
@@ -325,10 +373,18 @@ export default function InvoicesPage() {
             onFromChange={(newFrom) => {
               setFrom(newFrom);
               setPage(1);
+              updateUrlParams({ 
+                from: newFrom || null,
+                page: null 
+              });
             }}
             onToChange={(newTo) => {
               setTo(newTo);
               setPage(1);
+              updateUrlParams({ 
+                to: newTo || null,
+                page: null 
+              });
             }}
           />
       </div>
@@ -433,10 +489,17 @@ export default function InvoicesPage() {
         pageSize={pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={(newPage) => setPage(newPage)}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
+        }}
         onPageSizeChange={(newSize) => {
           setPageSize(newSize);
           setPage(1);
+          updateUrlParams({ 
+            pageSize: newSize === 50 ? null : String(newSize),
+            page: null 
+          });
         }}
       />
 

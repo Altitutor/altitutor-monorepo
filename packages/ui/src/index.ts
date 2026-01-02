@@ -33,4 +33,5 @@ export * from './components/textarea';
 export * from './components/tooltip';
 export * from './components/use-toast';
 export * from './components/payment-method-card';
+export * from './components/booking-calendar-view';
 export * from './lib/enum-colors';

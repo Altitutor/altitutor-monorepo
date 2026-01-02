@@ -95,11 +95,6 @@ const navItems: NavItem[] = [
     href: '/subjects',
     icon: Beaker,
   },
-  {
-    title: 'Topics',
-    href: '/topics',
-    icon: Newspaper,
-  },
 ];
 
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {

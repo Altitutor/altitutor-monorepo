@@ -13,7 +13,7 @@ interface TimeSlotPickerProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
   subjectId?: string;
   durationMinutes?: number;
-  onSlotSelect: (startAt: string, endAt: string) => void;
+  onSlotSelect: (startAt: string, endAt: string, availableStaffIds: string[]) => void;
   selectedSlot?: { startAt: string; endAt: string } | null;
   className?: string;
 }
@@ -78,8 +78,8 @@ export function TimeSlotPicker({
         subject_id: subjectId,
       });
 
-      // Call onSlotSelect callback
-      onSlotSelect(slot.start_at, slot.end_at);
+      // Call onSlotSelect callback with available staff IDs
+      onSlotSelect(slot.start_at, slot.end_at, slot.available_staff_ids);
     } catch (error) {
       console.error('Failed to reserve slot:', error);
     }

@@ -49,11 +49,20 @@ import { subjectsApi } from '@/features/subjects/api/subjects';
 interface TopicsTableProps {
   onRefresh?: number;
   onViewTopic?: (topicId: string) => void;
+  subjectId?: string; // Optional: filter to a specific subject
+  basePath?: string; // Optional: base path for navigation (defaults to /topics)
+  hideSubjectFilter?: boolean; // Optional: hide subject filter UI when filtered to one subject
 }
 
 type TopicWithSubject = Tables<'topics'> & { subject: Tables<'subjects'> };
 
-export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableProps) {
+export function TopicsTable({ 
+  onRefresh: _onRefresh, 
+  onViewTopic,
+  subjectId,
+  basePath = '/topics',
+  hideSubjectFilter = false,
+}: TopicsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -73,13 +82,16 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
         params.set(key, value);
       }
     });
-    router.push(`/topics?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   };
   
   // Filter and search state initialized from URL
   const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [subjectFilters, setSubjectFilters] = useState<string[]>(getArrayFromUrl('subject'));
+  // If subjectId prop is provided, use it; otherwise use URL params
+  const [subjectFilters, setSubjectFilters] = useState<string[]>(
+    subjectId ? [subjectId] : getArrayFromUrl('subject')
+  );
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
   
@@ -158,6 +170,9 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
   }, [subjectSearchQuery, isSubjectPopoverOpen]);
 
   // React Query hook for data fetching with server-side filtering
+  // If subjectId prop is provided, always use it; otherwise use subjectFilters from URL
+  const effectiveSubjectIds = subjectId ? [subjectId] : (subjectFilters.length > 0 ? subjectFilters : undefined);
+  
   const { 
     data: topicsData, 
     isLoading, 
@@ -166,7 +181,7 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
     isFetching 
   } = useSearchTopics({
     search: debouncedSearchTerm || undefined,
-    subjectIds: subjectFilters.length > 0 ? subjectFilters : undefined,
+    subjectIds: effectiveSubjectIds,
     limit: pageSize,
     offset: (page - 1) * pageSize,
   });
@@ -313,17 +328,18 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
             </Button>
           )}
 
-          {/* Subject Filter */}
-          <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button 
-                variant={subjectFilters.length > 0 ? "secondary" : "outline"} 
-                size="sm"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Subject {subjectFilters.length > 0 && `(${subjectFilters.length})`}
-              </Button>
-            </PopoverTrigger>
+          {/* Subject Filter - hide if hideSubjectFilter is true */}
+          {!hideSubjectFilter && (
+            <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant={subjectFilters.length > 0 ? "secondary" : "outline"} 
+                  size="sm"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  Subject {subjectFilters.length > 0 && `(${subjectFilters.length})`}
+                </Button>
+              </PopoverTrigger>
             <PopoverContent className="w-[400px] p-0" align="end">
               <div className="p-3">
                 <Input
@@ -363,6 +379,7 @@ export function TopicsTable({ onRefresh: _onRefresh, onViewTopic }: TopicsTableP
               </div>
             </PopoverContent>
           </Popover>
+          )}
         </div>
       </div>
 

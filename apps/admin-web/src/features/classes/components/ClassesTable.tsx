@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, Dispatch, SetStateAction, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -34,11 +35,44 @@ interface ClassesTableProps {
 }
 
 export function ClassesTable({ addModalState }: ClassesTableProps) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dayFilter, setDayFilter] = useState<number[]>([]);
+  // Initialize from URL params
+  const getSearchFromUrl = () => searchParams.get('search') || '';
+  const getNumberArrayFromUrl = (key: string): number[] => {
+    const param = searchParams.get(key);
+    return param ? param.split(',').map(Number).filter(n => !isNaN(n)) : [];
+  };
+  
+  const updateUrlParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/classes?${params.toString()}`);
+  };
+  
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
+  
+  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
+  const [dayFilter, setDayFilter] = useState<number[]>(getNumberArrayFromUrl('day'));
+  
+  // Sync from URL params
+  useEffect(() => {
+    setSearchTerm(getSearchFromUrl());
+    setDayFilter(getNumberArrayFromUrl('day'));
+    const pageParam = Number(searchParams.get('page'));
+    if (pageParam) setPage(pageParam);
+    const pageSizeParam = Number(searchParams.get('pageSize'));
+    if (pageSizeParam) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const { 
     data, 
@@ -163,10 +197,18 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       if (prev.includes(day)) {
         const next = prev.filter(d => d !== day);
         setPage(1);
+        updateUrlParams({ 
+          day: next.length > 0 ? next.join(',') : null,
+          page: null 
+        });
         return next;
       } else {
         const next = [...prev, day];
         setPage(1);
+        updateUrlParams({ 
+          day: next.join(','),
+          page: null 
+        });
         return next;
       }
     });
@@ -175,6 +217,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const clearDayFilter = () => {
     setDayFilter([]);
     setPage(1);
+    updateUrlParams({ 
+      day: null,
+      page: null 
+    });
   };
 
   // Loading state
@@ -241,8 +287,13 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             className="pl-8"
             value={searchTerm || ''}
             onChange={(e) => {
-              setSearchTerm(e.target.value);
+              const value = e.target.value;
+              setSearchTerm(value);
               setPage(1);
+              updateUrlParams({ 
+                search: value || null,
+                page: null 
+              });
             }}
           />
         </div>
@@ -422,10 +473,17 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         pageSize={pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={setPage}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
+        }}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);
+          updateUrlParams({ 
+            pageSize: size === 50 ? null : String(size),
+            page: null 
+          });
         }}
       />
 

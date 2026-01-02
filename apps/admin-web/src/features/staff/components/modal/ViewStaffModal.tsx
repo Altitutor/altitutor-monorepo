@@ -3,7 +3,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from '@altitutor/ui';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { staffApi } from "../../api";
 import { useStaffDetails } from '../../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
@@ -35,6 +36,7 @@ export function ViewStaffModal({
   // Hooks
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const router = useRouter();
   
   // React Query hooks - fetch data only when modal is open and staffId exists
   const { data: staffData, isLoading } = useStaffDetails(staffId || '', isOpen && !!staffId);
@@ -308,12 +310,30 @@ export function ViewStaffModal({
               {/* Sticky Header */}
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
-                  <SheetTitle>
-                    {isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
-                  </SheetTitle>
-                  <SheetDescription className="text-lg font-medium">
-                    {staffMember.first_name} {staffMember.last_name}
-                  </SheetDescription>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <SheetTitle>
+                        {isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
+                      </SheetTitle>
+                      <SheetDescription className="text-lg font-medium">
+                        {staffMember.first_name} {staffMember.last_name}
+                      </SheetDescription>
+                    </div>
+                    {staffId && (
+                      <UIButton
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          router.push(`/staff/${staffId}`);
+                          onClose();
+                        }}
+                        className="shrink-0"
+                        title="Open in new page"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </UIButton>
+                    )}
+                  </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
                   <TabsList className="grid w-full grid-cols-4">
