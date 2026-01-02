@@ -58,7 +58,7 @@ const formSchema = z.object({
     z.string().regex(/^\d+$/).transform(Number),
     z.literal('').transform(() => null),
     z.null()
-  ]).optional().nullable().or(z.number().optional().nullable()),
+  ]).optional().nullable(),
   status: z.enum(['TRIAL', 'ACTIVE', 'INACTIVE', 'DISCONTINUED']),
   
   // Availability checkboxes - required values in schema
@@ -115,7 +115,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     }
   });
 
-  const onSubmit: SubmitHandler<FormData> = async (formData) => {
+  const onSubmit: SubmitHandler<FormData> = async (formData: FormData) => {
     setIsSubmitting(true);
     setErrorMessage(null);
     
@@ -247,7 +247,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
