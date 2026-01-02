@@ -142,8 +142,6 @@ export default function SessionsPage() {
           <SessionsTable 
             rangeStart={day} 
             rangeEnd={day}
-            date={day}
-            onDateChange={handleDateChange}
             onOpenSession={(id) => setActiveSessionId(id as string)}
             onOpenStudent={(id) => setActiveStudentId(id as string)}
             onOpenStaff={(id) => setActiveStaffId(id as string)}
