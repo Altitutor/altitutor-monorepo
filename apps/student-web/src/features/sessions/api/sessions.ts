@@ -1,5 +1,6 @@
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
 type StudentSessionBase = Database['public']['Views']['vstudent_session_base']['Row'];
 
@@ -27,11 +28,15 @@ export const sessionsApi = {
   list: async (rangeStart: string, rangeEnd: string): Promise<StudentSessionWithStaff[]> => {
     const supabase = getSupabaseClient();
     
+    // Convert date strings to UTC timestamps (interpret as local timezone)
+    const utcStart = dateStringToUtcStart(rangeStart);
+    const utcEnd = dateStringToUtcEnd(rangeEnd);
+    
     const { data, error } = await supabase
       .from('vstudent_session_base')
       .select('*')
-      .gte('start_at', rangeStart)
-      .lte('start_at', rangeEnd)
+      .gte('start_at', utcStart)
+      .lte('start_at', utcEnd)
       .order('start_at', { ascending: true });
     
     if (error) throw error;

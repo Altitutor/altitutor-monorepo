@@ -71,3 +71,31 @@ export function formatTimeHHMM(timeString: string | null | undefined): string {
   return '';
 }
 
+/**
+ * Convert a date string (YYYY-MM-DD) to UTC timestamp for start of day
+ * Interprets the date as local timezone and converts to UTC
+ * Example: "2024-01-15" -> "2024-01-14T13:30:00.000Z" (if in GMT+10:30)
+ */
+export function dateStringToUtcStart(dateString: string): string {
+  if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    throw new Error(`Invalid date string format: ${dateString}. Expected YYYY-MM-DD`);
+  }
+  // Create date at midnight in local timezone, then convert to UTC
+  const localDate = new Date(`${dateString}T00:00:00`);
+  return localDate.toISOString();
+}
+
+/**
+ * Convert a date string (YYYY-MM-DD) to UTC timestamp for end of day
+ * Interprets the date as local timezone and converts to UTC
+ * Example: "2024-01-15" -> "2024-01-15T13:29:59.999Z" (if in GMT+10:30)
+ */
+export function dateStringToUtcEnd(dateString: string): string {
+  if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    throw new Error(`Invalid date string format: ${dateString}. Expected YYYY-MM-DD`);
+  }
+  // Create date at end of day in local timezone, then convert to UTC
+  const localDate = new Date(`${dateString}T23:59:59.999`);
+  return localDate.toISOString();
+}
+

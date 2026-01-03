@@ -114,6 +114,12 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
       return;
     }
 
+    if (!selectedSession.sessionsStudentsId) {
+      setErrorMessage('Missing session enrollment ID. Please refresh and try again.');
+      setStep('error');
+      return;
+    }
+
     // Create operation
     const operation: AbsenceOperation = {
       student_id: studentId,

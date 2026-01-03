@@ -52,7 +52,7 @@ export const absencesApi = {
 
   /**
    * Get current student's future sessions with session-student enrollment details
-   * Uses vstudent_session_base view to get sessions with sessions_students_id
+   * Uses vstudent_session_base view to get sessions with session_student_id
    */
   getStudentFutureSessions: async (weeksAhead: number = 8): Promise<StudentSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -60,7 +60,7 @@ export const absencesApi = {
     const maxDate = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
 
     try {
-      // Get sessions from vstudent_session_base view (includes sessions_students_id)
+      // Get sessions from vstudent_session_base view (includes session_student_id)
       const { data, error } = await supabase
         .from('vstudent_session_base')
         .select('*')
@@ -77,17 +77,21 @@ export const absencesApi = {
           const sessionDate = new Date(session.start_at || 0);
           return sessionDate <= maxDate;
         })
+        .filter((session: any) => {
+          // Filter out sessions without session_student_id (required for absence logging)
+          return !!session.session_student_id;
+        })
         .map((session: any) => {
           // Extract class and subject from the view data
           // vstudent_session_base includes class and subject fields
-          return {
+          const mappedSession = {
             id: session.session_id,
             start_at: session.start_at,
             end_at: session.end_at,
             class_id: session.class_id,
             type: session.session_type,
             billing_type: null,
-            status: 'SCHEDULED',
+            status: 'SCHEDULED' as const,
             subject_id: session.subject_id,
             created_at: session.session_created_at,
             updated_at: session.session_updated_at,
@@ -114,8 +118,10 @@ export const absencesApi = {
               created_at: null,
               updated_at: null,
             } as Tables<'subjects'> : null,
-            sessionsStudentsId: session.sessions_students_id,
+            sessionsStudentsId: session.session_student_id,
           } as StudentSession;
+          
+          return mappedSession;
         });
 
       return sessions;

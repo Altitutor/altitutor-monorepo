@@ -2,6 +2,7 @@ import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
 /**
  * Sessions API client for working with session data
@@ -67,8 +68,9 @@ export const sessionsApi = {
     
     try {
       // Convert date strings to timestamptz for RPC
-      const rangeStart = args?.rangeStart ? `${args.rangeStart}T00:00:00Z` : null;
-      const rangeEnd = args?.rangeEnd ? `${args.rangeEnd}T23:59:59Z` : null;
+      // Interpret dates as local timezone and convert to UTC
+      const rangeStart = args?.rangeStart ? dateStringToUtcStart(args.rangeStart) : null;
+      const rangeEnd = args?.rangeEnd ? dateStringToUtcEnd(args.rangeEnd) : null;
       
       // Determine status filter
       const statuses = args?.includeInactive ? ['ACTIVE', 'INACTIVE'] : ['ACTIVE'];

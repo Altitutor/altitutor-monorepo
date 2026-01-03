@@ -22,6 +22,7 @@ import {
 import { format } from 'date-fns';
 import { useToast } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
+import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 import {
   getStudentsBySubject,
   getStudentsByClass,
@@ -366,8 +367,9 @@ export function StudentSelector({
     try {
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const startIso = `${dateStr}T00:00:00Z`;
-      const endIso = `${dateStr}T23:59:59Z`;
+      // Convert date string to UTC (interpret as local timezone)
+      const startIso = dateStringToUtcStart(dateStr);
+      const endIso = dateStringToUtcEnd(dateStr);
       
       // Use RPC function to search sessions
       const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
