@@ -1,12 +1,10 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStudentSessions } from '../hooks/useSessions';
 import { cn } from '@/shared/utils/index';
-import { getSubjectColorHex } from '@/shared/utils';
 import { StudentSessionsCard } from './StudentSessionsCard';
 import { SessionHoverTooltip } from './SessionHoverTooltip';
 import { Button } from "@altitutor/ui";
@@ -126,9 +124,11 @@ export function StudentSessionsCalendarView() {
                           </div>
                         )}
                         {(() => {
-                        const daySessions = getDaySessions(d).sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+                        const daySessions = getDaySessions(d).filter((s): s is typeof s & { start_at: string; end_at: string; session_id: string } => 
+                          s.start_at !== null && s.end_at !== null && s.session_id !== null
+                        ).sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
                         // Build overlap groups
-                        const groups: typeof daySessions[][] = [];
+                        const groups: (typeof daySessions)[] = [];
                         const processed = new Set<string>();
                         const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
                         daySessions.forEach((s) => {

@@ -27,4 +27,47 @@ export function getDayShortName(dayIndex: number): string {
   return daysShort[dayIndex] ?? '';
 }
 
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  if (isNaN(dateObj.getTime())) return '';
+  
+  // Format as "Mon, Jan 15, 2024"
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  };
+  
+  return dateObj.toLocaleDateString('en-US', options);
+}
+
+export function formatTimeHHMM(timeString: string | null | undefined): string {
+  if (!timeString) return '';
+
+  // If it's already in HH:mm or HH:mm:ss format, extract HH:mm
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeString)) {
+    const [hoursStr, minutesStr] = timeString.split(':');
+    const hours = String(hoursStr).padStart(2, '0');
+    const minutes = String(minutesStr).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  // If it's an ISO datetime string, parse and format
+  try {
+    const date = new Date(timeString);
+    if (!isNaN(date.getTime())) {
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+  } catch (e) {
+    // Fall through to return empty string
+  }
+
+  return '';
+}
 

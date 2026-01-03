@@ -1,5 +1,4 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
 
 export interface PaymentMethodData {
   id: string;

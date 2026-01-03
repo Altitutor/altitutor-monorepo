@@ -16,7 +16,6 @@ import { useInvoicesWithItems } from '../hooks';
 import { formatDateTime } from '@/shared/utils';
 
 type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
-type Invoice = Database['public']['Views']['vstudent_invoices']['Row'];
 
 const getStatusVariant = (status: InvoiceStatus): 'default' | 'secondary' | 'destructive' => {
   switch (status) {

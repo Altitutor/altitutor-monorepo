@@ -193,11 +193,10 @@ export function BookDraftingSessionModal({
 
   // Get the created session details for success step (to show staff info)
   const bookedSession = createdSessionId && daySessions
-    ? daySessions.find(s => s.id === createdSessionId)
+    ? daySessions.find(s => s.session_id === createdSessionId)
     : null;
 
   const currentStepData = steps[currentStep];
-  const isLastStep = currentStep === steps.length - 1;
   const isFirstStep = currentStep === 0;
 
   const renderStepContent = () => {
@@ -255,7 +254,7 @@ export function BookDraftingSessionModal({
                   subject: subject || null,
                   staff: bookedSession?.staff || [],
                 }}
-                existingSessions={(daySessions || []).filter(s => s.id !== createdSessionId)}
+                existingSessions={(daySessions || []).filter(s => s.session_id !== createdSessionId)}
               />
             </div>
           )}

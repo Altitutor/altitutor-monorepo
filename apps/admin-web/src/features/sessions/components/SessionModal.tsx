@@ -25,6 +25,7 @@ import { getSubjectColorStyle } from '@/shared/utils';
 import { Check, X } from 'lucide-react';
 import { SessionNotes } from './SessionNotes';
 import { formatTime } from '@/shared/utils/datetime';
+import { SendRegistrationInviteDialog } from '@/features/students/components/SendRegistrationInviteDialog';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -41,6 +42,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [selectedStudentForInvite, setSelectedStudentForInvite] = useState<string | null>(null);
+  const [isRegistrationInviteDialogOpen, setIsRegistrationInviteDialogOpen] = useState(false);
   const openWindow = useChatStore(s => s.openWindow);
 
   useEffect(() => {
@@ -340,13 +343,36 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-                  {studentsData.length > 0 && (
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs text-muted-foreground">Planned</span>
-                      <span className="text-xs text-muted-foreground">Actual</span>
-                      <span className="text-xs text-muted-foreground">Invoice</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-4">
+                    {session.type === 'TRIAL_SESSION' && studentsData.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // For now, show dialog for first student
+                          // Later can be enhanced to show a list
+                          if (studentsData.length === 1) {
+                            setSelectedStudentForInvite(studentsData[0].student.id);
+                            setIsRegistrationInviteDialogOpen(true);
+                          } else {
+                            // Multiple students - for now, show for first one
+                            // TODO: Could show a dropdown or list
+                            setSelectedStudentForInvite(studentsData[0].student.id);
+                            setIsRegistrationInviteDialogOpen(true);
+                          }
+                        }}
+                      >
+                        Send Registration Link
+                      </Button>
+                    )}
+                    {studentsData.length > 0 && (
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs text-muted-foreground">Planned</span>
+                        <span className="text-xs text-muted-foreground">Actual</span>
+                        <span className="text-xs text-muted-foreground">Invoice</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {studentsData.length === 0 ? (
                   <div className="text-center py-4 text-sm text-muted-foreground">
@@ -616,6 +642,18 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           onStaffUpdated={() => {
             // Optionally refresh session data
           }}
+        />
+      )}
+
+      {/* Registration Invite Dialog */}
+      {selectedStudentForInvite && (
+        <SendRegistrationInviteDialog
+          isOpen={isRegistrationInviteDialogOpen}
+          onClose={() => {
+            setIsRegistrationInviteDialogOpen(false);
+            setSelectedStudentForInvite(null);
+          }}
+          studentId={selectedStudentForInvite}
         />
       )}
     </>

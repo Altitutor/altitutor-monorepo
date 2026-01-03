@@ -1,9 +1,7 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Database } from '@altitutor/shared';
-import { useSupabaseClient, getSupabaseClient } from '@/shared/lib/supabase/client';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 // Auth types - role checking is now done via staff table in database
 export type UserRole = 'ADMINSTAFF' | 'TUTOR' | 'STUDENT';

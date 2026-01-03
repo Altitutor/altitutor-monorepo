@@ -15,11 +15,9 @@ import { Button } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink, X } from 'lucide-react';
 import type { Database } from '@altitutor/shared';
 import { useInvoicesWithItems } from '../hooks';
-import { formatDateTime } from '@/shared/utils';
 import { DateRangePicker } from '@/shared/components';
 
 type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
-type Invoice = Database['public']['Views']['vstudent_invoices']['Row'];
 
 const getStatusVariant = (status: InvoiceStatus): 'default' | 'secondary' | 'destructive' => {
   switch (status) {

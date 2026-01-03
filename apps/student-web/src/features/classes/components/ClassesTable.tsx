@@ -23,7 +23,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 
 export function ClassesTable({}: ClassesTableProps) {
   const { data: classes, isLoading, error } = useStudentClasses();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm] = useState('');
 
   if (isLoading) {
     return (

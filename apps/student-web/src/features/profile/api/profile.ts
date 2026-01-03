@@ -8,7 +8,6 @@ function getSupabaseClient() {
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 type StudentRow = Database['public']['Tables']['students']['Row'];
-type StudentUpdate = Database['public']['Tables']['students']['Update'];
 
 export interface StudentProfileUpdate {
   first_name?: string;

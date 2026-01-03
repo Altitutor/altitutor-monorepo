@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ClassesTable } from '@/features/classes/components';
-import { StudentSessionsCalendarView } from '@/features/sessions/components';
+import { StudentSessionsCalendarView, LogAbsenceDialog } from '@/features/sessions/components';
 import { BookDraftingSessionModal } from '@/features/bookings/components/BookDraftingSessionModal';
 import { Button } from '@altitutor/ui';
-import { PenTool } from 'lucide-react';
+import { PenTool, CalendarX } from 'lucide-react';
 
 export default function ClassesPage() {
   const searchParams = useSearchParams();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
 
   // Check for URL param to open modal
   useEffect(() => {
@@ -49,6 +50,12 @@ export default function ClassesPage() {
         <div>
           <h2 className="text-2xl font-semibold mb-4">Timetable</h2>
           <StudentSessionsCalendarView />
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => setIsAbsenceModalOpen(true)} variant="outline">
+              <CalendarX className="mr-2 h-4 w-4" />
+              Log Absence
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -59,6 +66,12 @@ export default function ClassesPage() {
         onBookingCreated={() => {
           // Optionally refresh data or show notification
         }}
+      />
+
+      {/* Absence Logging Modal */}
+      <LogAbsenceDialog
+        isOpen={isAbsenceModalOpen}
+        onClose={() => setIsAbsenceModalOpen(false)}
       />
     </div>
   );

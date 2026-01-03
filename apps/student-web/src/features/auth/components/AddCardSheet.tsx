@@ -24,7 +24,7 @@ interface AddCardSheetProps {
   onSuccess?: () => void;
 }
 
-function AddCardForm({ studentId, onSuccess, onClose }: AddCardSheetProps & { onClose: () => void }) {
+function AddCardForm({ studentId: _studentId, onSuccess, onClose }: AddCardSheetProps & { onClose: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();

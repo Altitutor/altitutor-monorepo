@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Popover, PopoverContent, PopoverTrigger, Separator, Badge } from '@altitutor/ui';
+import { Popover, PopoverContent, PopoverTrigger, Separator, Badge, Button } from '@altitutor/ui';
 import type { Database } from '@altitutor/shared';
 import { formatSessionType, getSubjectColorStyle, formatSubjectDisplay } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useMediaQuery } from '@/shared/hooks';
 import { cn } from '@/shared/utils';
+import { LogAbsenceDialog } from './LogAbsenceDialog';
+import { CalendarX } from 'lucide-react';
+import type { StudentSession as AbsenceStudentSession } from '../types/absence';
 
 type StudentSession = Database['public']['Views']['vstudent_session_base']['Row'];
 
@@ -110,6 +113,7 @@ function StaffCard({ staff }: { staff: StaffMember }) {
 export function SessionHoverTooltip({ session, children }: SessionHoverTooltipProps) {
   const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)'); // md breakpoint
 
   // Get current student ID
@@ -271,8 +275,33 @@ export function SessionHoverTooltip({ session, children }: SessionHoverTooltipPr
               </div>
             )}
           </div>
+
+          {/* Reschedule Session Button */}
+          {absenceSession && !isCurrentStudentAbsent && (
+            <>
+              <Separator />
+              <div>
+                <Button
+                  onClick={() => {
+                    setIsAbsenceModalOpen(true);
+                    setIsOpen(false);
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <CalendarX className="mr-2 h-4 w-4" />
+                  Reschedule Session
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </PopoverContent>
+      <LogAbsenceDialog
+        isOpen={isAbsenceModalOpen}
+        onClose={() => setIsAbsenceModalOpen(false)}
+        initialSession={absenceSession}
+      />
     </Popover>
   );
 }

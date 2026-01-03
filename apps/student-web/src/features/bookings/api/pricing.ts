@@ -22,7 +22,7 @@ export const pricingApi = {
   ): Promise<SessionPrice> {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
-    const { data, error } = await supabase.rpc('calculate_session_price', {
+    const { data, error } = await (supabase.rpc as any)('calculate_session_price', {
       p_subject_id: subjectId,
       p_billing_type: 'DRAFTING',
       p_start_at: startAt,
@@ -31,6 +31,10 @@ export const pricingApi = {
 
     if (error) {
       throw error;
+    }
+
+    if (!data || typeof data !== 'object' || !('amount_cents' in data) || !('currency' in data)) {
+      throw new Error('Invalid response from calculate_session_price');
     }
 
     return data as SessionPrice;

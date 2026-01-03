@@ -26,7 +26,7 @@ export function TimeSlotPicker({
   onSlotSelect,
   selectedSlot,
   className,
-  allowAnonymous = false,
+  allowAnonymous: _allowAnonymous = false,
 }: TimeSlotPickerProps) {
   // Calculate minimum booking date (today + 1 day minimum advance, can be configured)
   // For now, we'll use 1 day minimum - this should match the database setting

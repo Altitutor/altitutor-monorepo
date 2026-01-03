@@ -7,6 +7,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/functions/**'
       - 'supabase/config.toml'
+      - 'supabase/templates/**'
   workflow_dispatch:
 
 permissions:
@@ -75,6 +76,16 @@ jobs:
           ./scripts/deploy-config.sh $SUPABASE_PROJECT_ID
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+
+      - name: Install jq (for email template deployment)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Deploy email templates
+        run: |
+          echo "📧 Deploying email templates..."
+          cd supabase
+          chmod +x ./scripts/deploy-email-templates.sh
+          ./scripts/deploy-email-templates.sh $SUPABASE_PROJECT_ID
 
 
 

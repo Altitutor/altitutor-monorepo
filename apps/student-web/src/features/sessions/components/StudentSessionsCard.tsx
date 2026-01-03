@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Database } from '@altitutor/shared';
 import { formatTime } from '@/shared/utils/datetime';
-import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
+import { getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 type StudentSession = Database['public']['Views']['vstudent_session_base']['Row'];

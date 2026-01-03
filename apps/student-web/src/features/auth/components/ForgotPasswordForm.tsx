@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuthStore } from '@/features/auth/hooks';
-import { AuthState as AuthStore } from '@/features/auth/types';
 import { Button } from '@altitutor/ui';
 import {
   Form,
