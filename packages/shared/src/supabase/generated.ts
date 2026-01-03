@@ -4520,6 +4520,7 @@ export type Database = {
           subject_id: string | null
           subject_level: string | null
           subject_name: string | null
+          subject_year_level: number | null
         }
         Relationships: [
           {
