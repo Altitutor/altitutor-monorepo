@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStudentSessions } from '../hooks/useSessions';
 import { cn } from '@/shared/utils/index';
 import { getSubjectColorHex } from '@/shared/utils';
@@ -66,10 +67,14 @@ export function StudentSessionsCalendarView() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>Previous</Button>
+      <div className="flex gap-2 justify-end">
+        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
         <Button variant="outline" onClick={() => setAnchor(new Date())}>Today</Button>
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>Next</Button>
+        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="flex-1 overflow-auto relative">

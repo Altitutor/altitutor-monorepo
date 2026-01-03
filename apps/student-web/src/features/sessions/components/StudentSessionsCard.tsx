@@ -147,7 +147,7 @@ export function StudentSessionsCard({
           <div className="flex items-start justify-between gap-2">
             <div className={cn('flex-1 min-w-0', isCalendarView ? 'overflow-visible' : 'overflow-hidden')}>
               <div className={cn('flex items-center gap-2', isCalendarView && 'flex-wrap')}>
-                {shouldUseCompact ? (
+                {shouldUseCompact && !isCalendarView ? (
                   <span className={cn('font-semibold text-xs', isCalendarView ? 'break-words' : 'truncate')}>
                     {subjectDisplayShort}
                   </span>
@@ -155,7 +155,10 @@ export function StudentSessionsCard({
                   <TooltipProvider delayDuration={100}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={cn('font-semibold text-sm', isCalendarView ? 'break-words' : 'truncate')} title={subjectDisplay}>
+                        <span className={cn(
+                          'font-semibold',
+                          isCalendarView ? 'text-xs break-words' : 'text-sm truncate'
+                        )} title={subjectDisplay}>
                           {subjectDisplay}
                         </span>
                       </TooltipTrigger>
