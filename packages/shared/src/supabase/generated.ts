@@ -5754,6 +5754,15 @@ export type Database = {
         Returns: undefined
       }
       build_fuzzy_like: { Args: { p_text: string }; Returns: string }
+      calculate_session_price: {
+        Args: {
+          p_billing_type: Database["public"]["Enums"]["billing_type"]
+          p_end_at: string
+          p_start_at: string
+          p_subject_id: string
+        }
+        Returns: Json
+      }
       cleanup_expired_reservations: { Args: never; Returns: number }
       create_admin_trial_booking: {
         Args: {
@@ -5969,6 +5978,10 @@ export type Database = {
       }
       log_student_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
+        Returns: Json
+      }
+      log_student_absences_self: {
+        Args: { logged_by_student_id: string; operations: Json }
         Returns: Json
       }
       map_day_to_number: { Args: { day_string: string }; Returns: number }
