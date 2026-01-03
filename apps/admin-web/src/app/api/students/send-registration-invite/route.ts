@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { randomUUID } from 'crypto';
+import type { Tables } from '@altitutor/shared';
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       .from('students')
       .select('id, first_name, last_name, email, phone, status, user_id, invite_token')
       .eq('id', studentId)
-      .single();
+      .single<Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'user_id' | 'invite_token'>>();
 
     if (studentError || !student) {
       return NextResponse.json(
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       // Update student with invite token
       const { error: updateError } = await supabase
         .from('students')
+        // @ts-expect-error - TypeScript inference issue with Supabase client
         .update({ invite_token: token })
         .eq('id', studentId);
 

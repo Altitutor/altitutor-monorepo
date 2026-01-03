@@ -145,14 +145,24 @@ export function SessionHoverTooltip({ session, children }: SessionHoverTooltipPr
   }
   const subjectDisplay = subjectParts.length > 0 ? subjectParts.join(' ') : formatSessionType(session.session_type);
 
-  // Format time
+  // Format time (using Adelaide timezone)
   const timeDisplay = session.start_at && session.end_at
     ? (() => {
         const startDate = new Date(session.start_at);
         const endDate = new Date(session.end_at);
-        const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-        const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-        return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+        const startTime = startDate.toLocaleTimeString('en-AU', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'Australia/Adelaide',
+          hour12: true,
+        });
+        const endTime = endDate.toLocaleTimeString('en-AU', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'Australia/Adelaide',
+          hour12: true,
+        });
+        return `${startTime} - ${endTime}`;
       })()
     : session.start_time && session.end_time
     ? `${formatTime(session.start_time)} - ${formatTime(session.end_time)}`
@@ -177,6 +187,45 @@ export function SessionHoverTooltip({ session, children }: SessionHoverTooltipPr
     level: session.subject_level || null,
     color: session.subject_color || null,
   } as any : null;
+
+  // Convert session to AbsenceStudentSession format for LogAbsenceDialog
+  const absenceSession: AbsenceStudentSession | null = 
+    session.session_student_id && session.session_id ? {
+      id: session.session_id,
+      start_at: session.start_at,
+      end_at: session.end_at,
+      class_id: session.class_id,
+      type: session.session_type || 'CLASS',
+      billing_type: null,
+      status: 'SCHEDULED',
+      subject_id: session.subject_id,
+      created_at: null,
+      updated_at: null,
+      class: session.class_id ? {
+        id: session.class_id,
+        day_of_week: session.day_of_week,
+        start_time: session.start_time,
+        end_time: session.end_time,
+        room: session.room,
+        level: (session as any).class_level,
+        status: session.class_status || 'ACTIVE',
+        subject_id: session.subject_id,
+        created_at: null,
+        updated_at: null,
+      } as any : null,
+      subject: session.subject_id ? {
+        id: session.subject_id,
+        name: session.subject_name || null,
+        curriculum: session.subject_curriculum || null,
+        discipline: null,
+        level: session.subject_level || null,
+        color: session.subject_color || null,
+        year_level: (session as any).subject_year_level ?? null,
+        created_at: null,
+        updated_at: null,
+      } as any : null,
+      sessionsStudentsId: session.session_student_id,
+    } : null;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>

@@ -10,9 +10,9 @@ type RegistrationFormValues = {
     last_name: string;
     email: string;
     phone: string;
-    school: string;
-    curriculum: string | undefined;
-    year_level: number | undefined;
+    school?: string;
+    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
+    year_level?: number;
     subject_ids: string[];
   };
   parents: Array<{

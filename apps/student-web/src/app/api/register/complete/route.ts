@@ -127,14 +127,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email is already in use by another auth user
-    const { data: existingAuthUser } = await supabaseAdmin.auth.admin.getUserByEmail(student.email);
-    if (existingAuthUser?.user) {
-      return NextResponse.json(
-        { error: 'An account with this email already exists' },
-        { status: 409 }
-      );
-    }
+    // Note: We'll check for email conflicts during auth user creation
+    // The createUser call will fail if the email already exists
 
     // Call the database function to atomically update student, parents, and subjects
     const { data: dbResult, error: dbError } = await supabaseAdmin.rpc(
@@ -170,14 +164,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!dbResult || !dbResult.success) {
+    // Type the RPC result properly
+    type CompleteRegistrationResult = {
+      success: boolean;
+      student_id?: string;
+      error?: string;
+      message?: string;
+    };
+
+    const result = dbResult as CompleteRegistrationResult | null;
+
+    if (!result || !result.success) {
       return NextResponse.json(
-        { error: dbResult?.error || 'Registration failed' },
+        { error: result?.error || 'Registration failed' },
         { status: 400 }
       );
     }
 
-    const studentId = dbResult.student_id;
+    const studentId = result.student_id;
+
+    if (!studentId) {
+      return NextResponse.json(
+        { error: 'Registration failed: Student ID not returned' },
+        { status: 500 }
+      );
+    }
 
     // Now create auth user and link it to the student
     // Use the invite_token in user_metadata so the trigger links it
@@ -194,6 +205,13 @@ export async function POST(request: NextRequest) {
 
     if (createAuthError) {
       console.error('Failed to create auth user:', createAuthError);
+      // Check if error is due to email already existing
+      if (createAuthError.message?.includes('already registered') || createAuthError.message?.includes('already exists')) {
+        return NextResponse.json(
+          { error: 'An account with this email already exists', alreadyRegistered: true },
+          { status: 409 }
+        );
+      }
       // Note: The database function already updated the student, but we can't rollback
       // In a real scenario, we might want to revert the student status
       // For now, we'll return an error and the student can try again with a new token
@@ -233,7 +251,7 @@ export async function POST(request: NextRequest) {
       const { error: linkError } = await supabaseAdmin
         .from('students')
         .update({ user_id: authData.user.id })
-        .eq('id', studentId);
+        .eq('id', studentId!);
 
       if (linkError) {
         console.error('Failed to link user:', linkError);

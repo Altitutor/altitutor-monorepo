@@ -96,7 +96,23 @@ export function StudentSessionsCard({
   const subjectDisplayShort = session.subject_name || formatSessionType(session.session_type);
   
   const timeRange = session.start_at && session.end_at
-    ? `${formatTime(new Date(session.start_at).toTimeString().slice(0, 5))} - ${formatTime(new Date(session.end_at).toTimeString().slice(0, 5))}`
+    ? (() => {
+        const startDate = new Date(session.start_at);
+        const endDate = new Date(session.end_at);
+        const startTime = startDate.toLocaleTimeString('en-AU', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'Australia/Adelaide',
+          hour12: true,
+        });
+        const endTime = endDate.toLocaleTimeString('en-AU', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'Australia/Adelaide',
+          hour12: true,
+        });
+        return `${startTime} - ${endTime}`;
+      })()
     : '';
   
   const subjectColorHex = (session as any).subject_color || null;

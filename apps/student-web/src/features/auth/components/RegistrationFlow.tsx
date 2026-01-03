@@ -27,7 +27,7 @@ const registrationSchema = z.object({
     school: z.string().optional(),
     curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY']).optional(),
     year_level: z.coerce.number().int().min(0).max(13).optional(),
-    subject_ids: z.array(z.string().uuid()).default([]),
+    subject_ids: z.array(z.string().uuid()),
   }),
   // Parents
   parents: z.array(z.object({
@@ -39,15 +39,15 @@ const registrationSchema = z.object({
   })).min(1, 'At least one parent is required'),
   // Availability
   availability: z.object({
-    monday: z.boolean().default(false),
-    tuesday: z.boolean().default(false),
-    wednesday: z.boolean().default(false),
-    thursday: z.boolean().default(false),
-    friday: z.boolean().default(false),
-    saturday_am: z.boolean().default(false),
-    saturday_pm: z.boolean().default(false),
-    sunday_am: z.boolean().default(false),
-    sunday_pm: z.boolean().default(false),
+    monday: z.boolean(),
+    tuesday: z.boolean(),
+    wednesday: z.boolean(),
+    thursday: z.boolean(),
+    friday: z.boolean(),
+    saturday_am: z.boolean(),
+    saturday_pm: z.boolean(),
+    sunday_am: z.boolean(),
+    sunday_pm: z.boolean(),
   }).refine(
     (data) => Object.values(data).some((val) => val === true),
     { message: 'At least one availability day must be selected' }
@@ -124,7 +124,7 @@ export function RegistrationFlow({
         last_name: initialData.student.last_name,
         email: initialData.student.email,
         phone: initialData.student.phone,
-        school: initialData.student.school || '',
+        school: initialData.student.school || undefined,
         curriculum: (initialData.student.curriculum as 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY') || undefined,
         year_level: initialData.student.year_level || undefined,
         subject_ids: initialData.subjects.map((s) => s.id),

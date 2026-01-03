@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
@@ -43,6 +43,38 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setLoading(true);
     setError(null);
     
+    // Validate required fields
+    if (!level.trim()) {
+      setError('Class level is required');
+      setLoading(false);
+      return;
+    }
+    
+    if (!dayOfWeek) {
+      setError('Day of week is required');
+      setLoading(false);
+      return;
+    }
+    
+    const dayOfWeekNum = parseInt(dayOfWeek, 10);
+    if (isNaN(dayOfWeekNum) || dayOfWeekNum < 0 || dayOfWeekNum > 6) {
+      setError('Invalid day of week');
+      setLoading(false);
+      return;
+    }
+    
+    if (!startTime.trim()) {
+      setError('Start time is required');
+      setLoading(false);
+      return;
+    }
+    
+    if (!endTime.trim()) {
+      setError('End time is required');
+      setLoading(false);
+      return;
+    }
+    
     // Validate date range
     if (sessionStartDate && sessionEndDate && sessionStartDate > sessionEndDate) {
       setError('Session start date must be before or equal to end date');
@@ -53,13 +85,13 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     try {
       const payload: TablesInsert<'classes'> = {
         id: crypto.randomUUID(),
-        level: level,
-        day_of_week: parseInt(dayOfWeek, 10),
-        start_time: startTime,
-        end_time: endTime,
+        level: level.trim(),
+        day_of_week: dayOfWeekNum,
+        start_time: startTime.trim(),
+        end_time: endTime.trim(),
         status: 'ACTIVE',
         subject_id: selectedSubject?.id || null,
-        room: room || null,
+        room: room.trim() || null,
         session_start_date: sessionStartDate || null,
         session_end_date: sessionEndDate || null,
       };
@@ -68,8 +100,20 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       onClassAdded();
       resetForm();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create class');
+    } catch (err: any) {
+      let errorMessage = 'Failed to create class';
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (err?.details) {
+        errorMessage = err.details;
+      } else if (err?.hint) {
+        errorMessage = err.hint;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      setError(errorMessage);
       console.error('Error creating class:', err);
     } finally {
       setLoading(false);
@@ -93,6 +137,9 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle>Add New Class</DialogTitle>
+          <DialogDescription>
+            Create a new class with schedule, subject, and session details.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
