@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, BookOpen, CreditCard, User, PenTool } from 'lucide-react';
+import { Home, Calendar, BookOpen, CreditCard, User } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
@@ -29,11 +29,6 @@ const navItems: NavItem[] = [
     title: 'Classes',
     href: '/classes',
     icon: Calendar,
-  },
-  {
-    title: 'Book Drafting Session',
-    href: '/booking/drafting',
-    icon: PenTool,
   },
   {
     title: 'Resources',

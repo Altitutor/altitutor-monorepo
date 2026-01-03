@@ -171,11 +171,11 @@ export function StudentSessionsCard({
               </div>
               <p className="text-xs text-muted-foreground mt-1 truncate">
                 {isCalendarView ? (
-                  (session as any).room ? `Room: ${(session as any).room}` : ''
+                  formatSessionType(session.session_type)
                 ) : (
                   <>
                     {timeRange}
-                    {(session as any).room && ` • Room: ${(session as any).room}`}
+                    {formatSessionType(session.session_type) && ` • ${formatSessionType(session.session_type)}`}
                   </>
                 )}
               </p>

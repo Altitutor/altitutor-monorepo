@@ -8,6 +8,7 @@ import { useStudentSessions } from '../hooks/useSessions';
 import { cn } from '@/shared/utils/index';
 import { getSubjectColorHex } from '@/shared/utils';
 import { StudentSessionsCard } from './StudentSessionsCard';
+import { SessionHoverTooltip } from './SessionHoverTooltip';
 import { Button } from "@altitutor/ui";
 
 export function StudentSessionsCalendarView() {
@@ -59,15 +60,16 @@ export function StudentSessionsCalendarView() {
   // Helpers to compute block positions
   const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (timeRange.startHour * 60);
 
-  // Current time indicator
+  // Current time indicator - only show if within the visible time window
   const now = new Date();
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
   const currentMinutesFromStart = minutesFromStart(now);
-  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * slotHeight);
+  const totalMinutesInRange = slots.length * 60; // Total minutes in the visible time range
+  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < totalMinutesInRange;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex gap-2 justify-end">
+    <div className="flex flex-col">
+      <div className="flex gap-2 justify-end mb-3">
         <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -77,20 +79,20 @@ export function StudentSessionsCalendarView() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto relative">
+      <div className="relative overflow-x-auto">
         <div
-          className="grid gap-0 min-h-full relative bg-background"
-          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))` }}
+          className="grid gap-0 relative bg-background"
+          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))`, minWidth: 'max-content' }}
         >
           {/* Headers */}
-          <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">Time</div>
+          <div className="sticky z-20 p-2 text-center font-medium bg-background border-b border-r text-xs" style={{ top: '-1.5rem' }}>Time</div>
           {days.map((d) => {
             const isToday = isSameDay(d, now);
             return (
               <div key={d.toISOString()} className={cn(
-                "sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm",
+                "sticky z-20 p-2 text-center font-medium bg-background border-b border-r text-sm",
                 isToday && "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-              )}>
+              )} style={{ top: '-1.5rem' }}>
                 {format(d, 'EEE dd MMM')}
               </div>
             );
@@ -173,16 +175,20 @@ export function StudentSessionsCalendarView() {
                                 className="absolute"
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                               >
-                                <StudentSessionsCard
-                                  session={s}
-                                  staff={s.staff || []}
-                                  students={s.students || []}
-                                  isCalendarView={true}
-                                  cardHeight={cardHeight}
-                                  cardWidth={cardWidth}
-                                  isExtra={isExtra}
-                                  isNotAttending={isNotAttending}
-                                />
+                                <SessionHoverTooltip session={s}>
+                                  <div className="h-full w-full">
+                                    <StudentSessionsCard
+                                      session={s}
+                                      staff={s.staff || []}
+                                      students={s.students || []}
+                                      isCalendarView={true}
+                                      cardHeight={cardHeight}
+                                      cardWidth={cardWidth}
+                                      isExtra={isExtra}
+                                      isNotAttending={isNotAttending}
+                                    />
+                                  </div>
+                                </SessionHoverTooltip>
                               </div>
                             );
                           });

@@ -1,18 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookingFlow } from '@/features/bookings/components/BookingFlow';
-import { TimeSlotPicker } from '@/features/bookings/components/TimeSlotPicker';
-import { useStudentSubjects } from '@/features/bookings/hooks/useStudentSubjects';
-import { useCreateBooking } from '@/features/bookings/hooks/useCreateBooking';
-import { useMyReservations } from '@/features/bookings/hooks/useReservations';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@altitutor/ui';
-import { Loader2 } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
 
 export default function BookDraftingPage() {
   const router = useRouter();
+  
+  useEffect(() => {
+    // Redirect to classes page where the booking modal is available
+    router.replace('/classes');
+  }, [router]);
+
+  return null;
   const { toast } = useToast();
   const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
   const { data: reservations } = useMyReservations();
