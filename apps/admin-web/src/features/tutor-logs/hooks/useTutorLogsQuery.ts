@@ -18,8 +18,16 @@ export const tutorLogsKeys = {
  * Get all tutor logs with pagination support
  */
 export function useTutorLogs(params?: { limit?: number; offset?: number; dateFrom?: string; dateTo?: string }) {
+  // Use individual values in query key instead of object to ensure stability
+  // This prevents React Query from treating it as a new query when object reference changes
+  const limit = params?.limit;
+  const offset = params?.offset;
+  const dateFrom = params?.dateFrom;
+  const dateTo = params?.dateTo;
+  const queryKey = [...tutorLogsKeys.lists(), limit, offset, dateFrom, dateTo];
+  
   return useQuery({
-    queryKey: [...tutorLogsKeys.lists(), params],
+    queryKey: queryKey,
     queryFn: () => tutorLogsApi.getAllTutorLogs(params),
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes

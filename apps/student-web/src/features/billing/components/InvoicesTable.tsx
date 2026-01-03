@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   Table,
   TableBody,
@@ -58,10 +59,24 @@ export function InvoicesTable() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   
-  const { data: invoices, isLoading, error } = useInvoicesWithItems({
-    from: from || undefined,
-    to: to || undefined,
-  });
+  // Debounce date values to prevent query from running on every keystroke
+  // Only debounce if the date is incomplete (partial typing)
+  const debouncedFrom = useDebounce(from, 500);
+  const debouncedTo = useDebounce(to, 500);
+  
+  // Memoize params object to prevent creating new object on every render
+  // This ensures React Query doesn't see it as a new query key
+  // Only include complete dates (YYYY-MM-DD format) to prevent API errors with partial dates
+  const params = useMemo(() => {
+    const isCompleteFrom = /^\d{4}-\d{2}-\d{2}$/.test(debouncedFrom);
+    const isCompleteTo = /^\d{4}-\d{2}-\d{2}$/.test(debouncedTo);
+    return { 
+      from: (debouncedFrom && isCompleteFrom) ? debouncedFrom : undefined, 
+      to: (debouncedTo && isCompleteTo) ? debouncedTo : undefined 
+    };
+  }, [debouncedFrom, debouncedTo]);
+  
+  const { data: invoices, isLoading, error } = useInvoicesWithItems(params);
 
   const hasActiveFilters = from || to;
 

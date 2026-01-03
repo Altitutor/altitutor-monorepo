@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, useInvoicesList } from '@/features/billing';
 import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
@@ -55,6 +56,14 @@ export default function InvoicesPage() {
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [invoiceItemsMap, setInvoiceItemsMap] = useState<Record<string, InvoiceItemRow[]>>({});
+  
+  // Debounce date values to prevent query from running on every keystroke
+  const debouncedFrom = useDebounce(from, 500);
+  const debouncedTo = useDebounce(to, 500);
+  
+  // Only include complete dates (YYYY-MM-DD format) to prevent API errors with partial dates
+  const isCompleteFrom = /^\d{4}-\d{2}-\d{2}$/.test(debouncedFrom);
+  const isCompleteTo = /^\d{4}-\d{2}-\d{2}$/.test(debouncedTo);
   
   // Sync from URL params
   useEffect(() => {
@@ -113,6 +122,7 @@ export default function InvoicesPage() {
   const allStudents = searchResults?.students || [];
 
   // Fetch invoices with pagination
+  // Use debounced and validated dates to prevent API calls with partial/invalid dates
   const { 
     data, 
     isLoading, 
@@ -121,8 +131,8 @@ export default function InvoicesPage() {
   } = useInvoicesList({
     statuses: statusFilters,
     studentIds: studentFilters,
-    from: from || undefined,
-    to: to || undefined,
+    from: (debouncedFrom && isCompleteFrom) ? debouncedFrom : undefined,
+    to: (debouncedTo && isCompleteTo) ? debouncedTo : undefined,
     page,
     pageSize,
   });

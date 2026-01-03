@@ -28,8 +28,19 @@ export function useStaffFutureSessions(staffId: string | null, weeksAhead: numbe
  * Hook to get available replacement staff
  */
 export function useAvailableReplacementStaff(params: GetReplacementStaffParams | null) {
+  // Use individual values in query key instead of object to ensure stability
+  // This prevents React Query from treating it as a new query when object reference changes
+  // Sort excludeStaffIds array for consistent query key
+  const excludeStaffIdsKey = params?.excludeStaffIds ? [...params.excludeStaffIds].sort().join(',') : null;
+  const queryKey = [
+    'availableReplacementStaff',
+    params?.sessionId,
+    params?.subjectId,
+    excludeStaffIdsKey,
+  ];
+  
   return useQuery<ReplacementStaff[], Error>({
-    queryKey: ['availableReplacementStaff', params],
+    queryKey: queryKey,
     queryFn: () => {
       if (!params) throw new Error('Parameters are required');
       return staffAbsencesApi.getAvailableReplacementStaff(params);
