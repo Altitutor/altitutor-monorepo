@@ -264,27 +264,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create a session for the user to auto-login
-    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: student.email,
-    });
-
-    if (sessionError) {
-      console.error('Failed to generate session:', sessionError);
-      // Account is created, but they'll need to login manually
-      return NextResponse.json({
-        success: true,
-        message: 'Account created successfully. Please login.',
-        redirectTo: '/login',
-      }, { status: 200 });
-    }
-
+    // Return success - the frontend will handle signing in the user
+    // This is more secure than generating magic links server-side
     return NextResponse.json({
       success: true,
       message: 'Registration completed successfully',
       redirectTo: '/dashboard',
-      session: sessionData,
     }, { status: 200 });
   } catch (error) {
     console.error('Unexpected error completing registration:', error);

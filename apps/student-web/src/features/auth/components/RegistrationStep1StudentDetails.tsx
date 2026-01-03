@@ -11,6 +11,7 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
@@ -315,7 +316,7 @@ export function RegistrationStep1StudentDetails({
 
       {/* Subjects */}
       <div className="space-y-2">
-        <FormLabel>Subjects</FormLabel>
+        <Label>Subjects</Label>
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedSubjects.map((subject) => {
             const { style, textColorClass } = getSubjectColorStyle(subject);

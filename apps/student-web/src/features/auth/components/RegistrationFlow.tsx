@@ -7,9 +7,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@altitutor/ui';
 import { Card, CardContent } from '@altitutor/ui';
+import { Form } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { useToast } from '@altitutor/ui';
+import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { RegistrationStep1StudentDetails } from './RegistrationStep1StudentDetails';
 import { RegistrationStep2ParentDetails } from './RegistrationStep2ParentDetails';
 import { RegistrationStep3Availability } from './RegistrationStep3Availability';
@@ -113,6 +115,7 @@ export function RegistrationFlow({
 }: RegistrationFlowProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const supabase = useSupabaseClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<RegistrationFormValues>({
@@ -188,6 +191,11 @@ export function RegistrationFlow({
   };
 
   const handleSubmit = async () => {
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return;
+    }
+
     const isValid = await form.trigger();
     if (!isValid) {
       toast({
@@ -243,19 +251,39 @@ export function RegistrationFlow({
 
       toast({
         title: 'Registration Successful!',
-        description: 'Your account has been created successfully.',
+        description: 'Signing you in...',
       });
 
-      // Redirect based on response
-      if (data.session) {
-        // Auto-login with magic link
-        if (data.session.properties?.action_link) {
-          window.location.href = data.session.properties.action_link;
-        } else {
-          router.push(data.redirectTo || '/dashboard');
+      // Sign in the user with the credentials they just created
+      try {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.student.email,
+          password: formData.password,
+        });
+
+        if (signInError) {
+          console.error('Sign in error:', signInError);
+          // Account created but auto-login failed, redirect to login
+          toast({
+            title: 'Account Created',
+            description: 'Your account was created successfully. Please sign in.',
+            variant: 'default',
+          });
+          router.push('/login?registered=success');
+          return;
         }
-      } else {
-        router.push(data.redirectTo || '/login');
+
+        // Use full page redirect to ensure cookies are properly set
+        window.location.href = data.redirectTo || '/dashboard';
+      } catch (signInErr) {
+        console.error('Auto-login error:', signInErr);
+        // Redirect to login page
+        toast({
+          title: 'Account Created',
+          description: 'Your account was created successfully. Please sign in.',
+          variant: 'default',
+        });
+        router.push('/login?registered=success');
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -315,62 +343,64 @@ export function RegistrationFlow({
         {/* Current Step Content */}
         <Card>
           <CardContent className="pt-6">
-            <div className="space-y-6">
-              {currentStep === 0 && (
-                <RegistrationStep1StudentDetails
-                  form={form}
-                  initialSubjects={initialData.subjects}
-                />
-              )}
-              {currentStep === 1 && (
-                <RegistrationStep2ParentDetails form={form} />
-              )}
-              {currentStep === 2 && (
-                <RegistrationStep3Availability form={form} />
-              )}
-              {currentStep === 3 && (
-                <RegistrationStep4Password form={form} />
-              )}
-              {currentStep === 4 && (
-                <RegistrationStep5Confirm form={form} />
-              )}
+            <Form {...form}>
+              <div className="space-y-6">
+                {currentStep === 0 && (
+                  <RegistrationStep1StudentDetails
+                    form={form}
+                    initialSubjects={initialData.subjects}
+                  />
+                )}
+                {currentStep === 1 && (
+                  <RegistrationStep2ParentDetails form={form} />
+                )}
+                {currentStep === 2 && (
+                  <RegistrationStep3Availability form={form} />
+                )}
+                {currentStep === 3 && (
+                  <RegistrationStep4Password form={form} />
+                )}
+                {currentStep === 4 && (
+                  <RegistrationStep5Confirm form={form} />
+                )}
 
-              {/* Navigation Buttons */}
-              <div className="flex gap-2 pt-4 border-t">
-                {!isFirstStep && (
-                  <Button
-                    variant="outline"
-                    onClick={handleBack}
-                    disabled={isSubmitting}
-                  >
-                    Back
-                  </Button>
-                )}
-                <div className="flex-1" />
-                {!isLastStep ? (
-                  <Button
-                    onClick={handleNext}
-                    disabled={isSubmitting}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Completing Registration...
-                      </>
-                    ) : (
-                      'Complete Registration'
-                    )}
-                  </Button>
-                )}
+                {/* Navigation Buttons */}
+                <div className="flex gap-2 pt-4 border-t">
+                  {!isFirstStep && (
+                    <Button
+                      variant="outline"
+                      onClick={handleBack}
+                      disabled={isSubmitting}
+                    >
+                      Back
+                    </Button>
+                  )}
+                  <div className="flex-1" />
+                  {!isLastStep ? (
+                    <Button
+                      onClick={handleNext}
+                      disabled={isSubmitting}
+                    >
+                      Next
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Completing Registration...
+                        </>
+                      ) : (
+                        'Complete Registration'
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
+            </Form>
           </CardContent>
         </Card>
       </div>
