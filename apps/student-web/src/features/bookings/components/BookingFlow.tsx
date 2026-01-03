@@ -22,7 +22,7 @@ interface BookingFlowProps {
   onConfirm?: () => void;
   isSubmitting?: boolean;
   canProceed?: boolean;
-  selectedSlot?: { startAt: string; endAt: string } | null;
+  selectedSlot?: { startAt: string; endAt: string; availableStaffIds?: string[] } | null;
 }
 
 export function BookingFlow({

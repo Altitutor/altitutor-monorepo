@@ -1,82 +1,35 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@altitutor/ui';
-import { Calendar, Table } from 'lucide-react';
-import { ClassesTable, TimetableView, ViewClassModal } from '@/features/classes/components';
-import { useStudentClasses } from '@/features/classes/hooks';
-
-type ViewMode = 'table' | 'calendar';
+import { ClassesTable } from '@/features/classes/components';
+import { StudentSessionsCalendarView } from '@/features/sessions/components';
 
 export default function ClassesPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const { data: classes } = useStudentClasses();
-
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b">
+      <div className="p-6 border-b">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
           <p className="text-muted-foreground mt-1">
             View your enrolled classes and sessions
           </p>
         </div>
-        
-        {/* View Toggle */}
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('table')}
-          >
-            <Table className="h-4 w-4 mr-2" />
-            Table
-          </Button>
-          <Button
-            variant={viewMode === 'calendar' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('calendar')}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Calendar
-          </Button>
-        </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        {viewMode === 'table' ? (
-          <ClassesTable onClassClick={(classId) => setSelectedClassId(classId)} />
-        ) : (
-          <TimetableView 
-            classes={(classes || []).filter((c): c is NonNullable<typeof c> & { class_id: string; day_of_week: number; start_time: string; end_time: string } => 
-              c !== null && 
-              c.class_id !== null && 
-              c.day_of_week !== null && 
-              c.start_time !== null && 
-              c.end_time !== null
-            ).map(c => ({
-              class_id: c.class_id!,
-              day_of_week: c.day_of_week!,
-              start_time: c.start_time!,
-              end_time: c.end_time!,
-              room: c.room,
-              subject_name: c.subject_name || '',
-              subject_curriculum: c.subject_curriculum,
-              enrollment_status: c.enrollment_status || ''
-            }))} 
-            onClassClick={(classId) => setSelectedClassId(classId)} 
-          />
-        )}
-      </div>
+      <div className="flex-1 overflow-auto p-6 space-y-8">
+        {/* Classes Section */}
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Classes</h2>
+          <ClassesTable />
+        </div>
 
-      {/* View Class Modal */}
-      <ViewClassModal
-        classId={selectedClassId}
-        onClose={() => setSelectedClassId(null)}
-      />
+        {/* Sessions Section */}
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Sessions</h2>
+          <StudentSessionsCalendarView />
+        </div>
+      </div>
     </div>
   );
 }

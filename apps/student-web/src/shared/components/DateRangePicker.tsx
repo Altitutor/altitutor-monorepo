@@ -137,70 +137,48 @@ export function DateRangePicker({
 
   const handleFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFrom = e.target.value;
-    
     // Always pass through the value, even if empty or partial
     // Let the parent component handle validation
     if (!newFrom) {
       onFromChange('');
       return;
     }
-    
-    // Check if it's a complete date (YYYY-MM-DD format)
+    // Only validate range if both dates are complete (YYYY-MM-DD format)
     const isCompleteDate = /^\d{4}-\d{2}-\d{2}$/.test(newFrom);
+    const isCompleteToDate = /^\d{4}-\d{2}-\d{2}$/.test(toValue);
     
-    if (isCompleteDate) {
-      // Complete date - validate range if both dates are complete
-      const isCompleteToDate = /^\d{4}-\d{2}-\d{2}$/.test(toValue);
-      
-      if (isCompleteToDate) {
-        const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, toValue);
-        onFromChange(adjustedFrom);
-        if (adjustedTo !== toValue) {
-          onToChange(adjustedTo);
-        }
-      } else {
-        // From is complete but to is not - just pass through
-        onFromChange(newFrom);
+    if (isCompleteDate && isCompleteToDate) {
+      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, toValue);
+      onFromChange(adjustedFrom);
+      if (adjustedTo !== toValue) {
+        onToChange(adjustedTo);
       }
     } else {
-      // Partial or invalid input - pass it through
-      // The browser's date input will handle validation visually
-      // We don't validate partial dates to avoid errors while typing
+      // Partial input - just pass it through without validation
       onFromChange(newFrom);
     }
   };
 
   const handleToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTo = e.target.value;
-    
     // Always pass through the value, even if empty or partial
     // Let the parent component handle validation
     if (!newTo) {
       onToChange('');
       return;
     }
-    
-    // Check if it's a complete date (YYYY-MM-DD format)
+    // Only validate range if both dates are complete (YYYY-MM-DD format)
     const isCompleteDate = /^\d{4}-\d{2}-\d{2}$/.test(newTo);
+    const isCompleteFromDate = /^\d{4}-\d{2}-\d{2}$/.test(fromValue);
     
-    if (isCompleteDate) {
-      // Complete date - validate range if both dates are complete
-      const isCompleteFromDate = /^\d{4}-\d{2}-\d{2}$/.test(fromValue);
-      
-      if (isCompleteFromDate) {
-        const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(fromValue, newTo);
-        onToChange(adjustedTo);
-        if (adjustedFrom !== fromValue) {
-          onFromChange(adjustedFrom);
-        }
-      } else {
-        // To is complete but from is not - just pass through
-        onToChange(newTo);
+    if (isCompleteDate && isCompleteFromDate) {
+      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(fromValue, newTo);
+      onToChange(adjustedTo);
+      if (adjustedFrom !== fromValue) {
+        onFromChange(adjustedFrom);
       }
     } else {
-      // Partial or invalid input - pass it through
-      // The browser's date input will handle validation visually
-      // We don't validate partial dates to avoid errors while typing
+      // Partial input - just pass it through without validation
       onToChange(newTo);
     }
   };

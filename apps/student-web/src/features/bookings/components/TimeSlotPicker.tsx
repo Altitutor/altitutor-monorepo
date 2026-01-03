@@ -12,7 +12,7 @@ interface TimeSlotPickerProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
   subjectId?: string;
   durationMinutes?: number;
-  onSlotSelect: (startAt: string, endAt: string) => void;
+  onSlotSelect: (startAt: string, endAt: string, availableStaffIds: string[]) => void;
   selectedSlot?: { startAt: string; endAt: string } | null;
   className?: string;
   allowAnonymous?: boolean; // Skip reservations for anonymous users
@@ -95,7 +95,7 @@ export function TimeSlotPicker({
 
     // Just select the slot, don't auto-proceed
     // The parent component will handle proceeding when "Next" is clicked
-    onSlotSelect(slot.start_at, slot.end_at);
+    onSlotSelect(slot.start_at, slot.end_at, slot.available_staff_ids);
   };
 
   const formatTime = (isoString: string) => {

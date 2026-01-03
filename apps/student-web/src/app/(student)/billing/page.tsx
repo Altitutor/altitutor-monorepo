@@ -1,7 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
-import { PaymentMethodCard, PaymentHistoryTable } from '@/features/billing/components';
+import { PaymentMethodCard, InvoicesTable } from '@/features/billing/components';
 import { usePreWarmBilling } from '@/features/billing/hooks/usePreWarmBilling';
 
 // Mark this page as dynamic to prevent static generation
@@ -13,33 +12,25 @@ export default function BillingPage() {
   usePreWarmBilling();
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing & Payments</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your payment methods and view payment history
+          Manage your payment methods and view invoices
         </p>
       </div>
       
       {/* Payment Method Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment Method</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PaymentMethodCard />
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Payment Method</h2>
+        <PaymentMethodCard />
+      </div>
       
-      {/* Payment History Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PaymentHistoryTable />
-        </CardContent>
-      </Card>
+      {/* Invoices Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Invoices</h2>
+        <InvoicesTable />
+      </div>
     </div>
   );
 }

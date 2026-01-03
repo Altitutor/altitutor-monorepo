@@ -52,12 +52,14 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         setData(result);
         
         // Fetch all topics for the subject to derive topic codes
-        if (result.session?.class?.subject?.id) {
+        // Use session's subject if available, otherwise fall back to class's subject
+        const subjectId = (result.session as any)?.subject?.id || result.session?.class?.subject?.id;
+        if (subjectId) {
           const supabaseClient = (await import('@/shared/lib/supabase/client')).getSupabaseClient() as SupabaseClient<Database>;
           const { data: topicsData } = await supabaseClient
             .from('topics')
             .select('*')
-            .eq('subject_id', result.session.class.subject.id)
+            .eq('subject_id', subjectId)
             .order('index', { ascending: true });
           
           setAllTopics(topicsData || []);
@@ -149,7 +151,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const { session, sessionsStudents, sessionsStaff, tutorLog, notes } = data;
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
-  const subject = session.class?.subject;
+  // Use session's subject if available, otherwise fall back to class's subject
+  const subject = (session as any).subject || session.class?.subject;
 
   // Build student attendance map from tutor log
   const actualStudentAttendance: Record<string, { attended: boolean }> = {};

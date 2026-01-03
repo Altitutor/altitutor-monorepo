@@ -19,7 +19,7 @@ export default function BookDraftingPage() {
   const createBooking = useCreateBooking();
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
-  const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds: string[] } | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,9 +28,41 @@ export default function BookDraftingPage() {
     (r) => r.start_at === selectedSlot?.startAt && r.end_at === selectedSlot?.endAt
   );
 
-  const handleSlotSelect = (startAt: string, endAt: string) => {
-    setSelectedSlot({ startAt, endAt });
-    setCurrentStep(1); // Move to confirmation step
+  const handleSlotSelect = (startAt: string, endAt: string, availableStaffIds: string[]) => {
+    setSelectedSlot({ startAt, endAt, availableStaffIds });
+    setCurrentStep(2); // Move to confirmation step
+  };
+
+  const handleNext = () => {
+    if (currentStep === 0) {
+      // From subject selection to time selection
+      if (!selectedSubjectId) {
+        toast({
+          title: 'Please select a subject',
+          description: 'You must select a subject before continuing',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setCurrentStep(1);
+    } else if (currentStep === 1) {
+      // From time selection to confirmation
+      if (!selectedSlot) {
+        toast({
+          title: 'Please select a time slot',
+          description: 'You must select a time slot before continuing',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setCurrentStep(2);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
   const handleConfirmBooking = async () => {
@@ -45,11 +77,19 @@ export default function BookDraftingPage() {
 
     setIsSubmitting(true);
     try {
+      // Use the first available staff_id from the selected slot to avoid "No staff available" error
+      // The create_booking_session function will auto-assign if staff_id is not provided,
+      // but passing a staff_id ensures we use a staff member that was available when the slot was selected
+      const staffId = selectedSlot.availableStaffIds && selectedSlot.availableStaffIds.length > 0
+        ? selectedSlot.availableStaffIds[0]
+        : undefined;
+
       const sessionId = await createBooking.mutateAsync({
         session_type: 'DRAFTING',
         start_at: selectedSlot.startAt,
         end_at: selectedSlot.endAt,
         subject_id: selectedSubjectId,
+        staff_id: staffId,
         reservation_id: activeReservation?.id,
       });
 
@@ -58,7 +98,7 @@ export default function BookDraftingPage() {
         description: 'Your drafting session has been booked successfully',
       });
 
-      router.push(`/sessions/${sessionId}`);
+      router.push('/dashboard');
     } catch (error: any) {
       toast({
         title: 'Booking Failed',
@@ -208,8 +248,13 @@ export default function BookDraftingPage() {
         steps={steps}
         currentStep={currentStep}
         onStepChange={setCurrentStep}
+        onNext={handleNext}
+        onBack={handleBack}
+        onConfirm={currentStep === 2 ? handleConfirmBooking : undefined}
+        isSubmitting={isSubmitting}
+        canProceed={currentStep === 0 ? !!selectedSubjectId : currentStep === 1 ? !!selectedSlot : true}
+        selectedSlot={selectedSlot}
       />
     </div>
   );
 }
-

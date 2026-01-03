@@ -21,7 +21,7 @@ export default function BookTrialPage() {
   
   // Initialize state from query params
   const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds?: string[] } | null>(null);
   const [currentStep, setCurrentStep] = useState(() => {
     const stepParam = searchParams.get('step');
     return stepParam ? parseInt(stepParam, 10) : 0;
@@ -38,7 +38,7 @@ export default function BookTrialPage() {
     if (timeParam) {
       const [startAt, endAt] = timeParam.split('/');
       if (startAt && endAt && !selectedSlot) {
-        setSelectedSlot({ startAt, endAt });
+        setSelectedSlot({ startAt, endAt, availableStaffIds: [] });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,8 +65,8 @@ export default function BookTrialPage() {
     }
   }, [currentStep, selectedSlot, router]);
 
-  const handleSlotSelect = (startAt: string, endAt: string) => {
-    setSelectedSlot({ startAt, endAt });
+  const handleSlotSelect = (startAt: string, endAt: string, availableStaffIds: string[]) => {
+    setSelectedSlot({ startAt, endAt, availableStaffIds });
     // Don't auto-proceed - user clicks Next button
   };
 

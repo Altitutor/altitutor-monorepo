@@ -9,17 +9,17 @@ export function useBilling() {
   });
 }
 
-export function useInvoices() {
+export function useInvoices(params?: { from?: string; to?: string }) {
   return useQuery<Invoice[]>({
-    queryKey: ['student', 'invoices'],
-    queryFn: billingApi.getInvoices,
+    queryKey: ['student', 'invoices', params],
+    queryFn: () => billingApi.getInvoices(params),
   });
 }
 
-export function useInvoicesWithItems() {
+export function useInvoicesWithItems(params?: { from?: string; to?: string }) {
   return useQuery<InvoiceWithItems[]>({
-    queryKey: ['student', 'invoices', 'with-items'],
-    queryFn: billingApi.getInvoicesWithItems,
+    queryKey: ['student', 'invoices', 'with-items', params],
+    queryFn: () => billingApi.getInvoicesWithItems(params),
   });
 }
 

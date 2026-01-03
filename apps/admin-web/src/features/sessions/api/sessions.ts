@@ -491,11 +491,12 @@ export const sessionsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
-      // 1. Get session with class and subject
+      // 1. Get session with class and subject (both session's subject and class's subject)
       const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
         .select(`
           *,
+          subject:subjects(*),
           class:classes(
             *,
             subject:subjects(*)

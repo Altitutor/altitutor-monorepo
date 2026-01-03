@@ -116,5 +116,50 @@ export function getSubjectColorStyle(
   };
 }
 
+/**
+ * Get subject color as hex string, with fallback
+ */
+export function getSubjectColorHex(subject: Tables<'subjects'> | null | undefined): string | null {
+  if (!subject?.color) return null;
+  return subject.color.startsWith('#') ? subject.color : `#${subject.color}`;
+}
+
+/**
+ * Get icon stroke color based on background color luminance
+ * Returns a contrasting stroke color (light for dark backgrounds, dark for light backgrounds)
+ */
+export function getIconStrokeColor(hex: string | null | undefined): string {
+  if (!hex) return 'currentColor'; // Use default text color if no background
+  
+  // Ensure hex has # prefix
+  const hexColor = hex.startsWith('#') ? hex : `#${hex}`;
+  
+  // Calculate luminance
+  const luminance = getLuminance(hexColor);
+  
+  // Use light stroke for dark backgrounds, dark stroke for light backgrounds
+  return luminance > 0.5 ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+}
+
+/**
+ * Format a session type to a human-readable display name
+ * Converts enum values like 'TRIAL_SESSION' to 'Trial Session'
+ */
+export function formatSessionType(type: string | null | undefined): string {
+  if (!type) return 'Meeting';
+  
+  const typeMap: Record<string, string> = {
+    'CLASS': 'Class',
+    'DRAFTING': 'Drafting',
+    'EXAM_COURSE': 'Exam Course',
+    'SUBSIDY_INTERVIEW': 'Subsidy Interview',
+    'TRIAL_SESSION': 'Trial Session',
+  };
+  
+  return typeMap[type] || type.split('_').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+}
+
 // Re-export enum color utilities from shared UI package
 export * from '@altitutor/ui'; 
