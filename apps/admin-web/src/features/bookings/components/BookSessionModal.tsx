@@ -70,21 +70,19 @@ export function BookSessionModal({
   useEffect(() => {
     if (trialContactFormRef) {
       // Check validity whenever watched values change
+      // Only require: first_name, last_name, and phone
       const formValues = trialContactFormRef.getValues();
-      const isValid = 
-        !!formValues.student_first_name &&
-        !!formValues.student_last_name &&
-        !!formValues.student_email &&
-        !!formValues.student_phone &&
-        !!formValues.curriculum &&
-        !!formValues.subject_ids &&
-        formValues.subject_ids.length > 0 &&
-        formIsValid;
+      // Check if required fields have values and don't have errors
+      const firstNameValid = !!formValues.student_first_name && !trialContactFormRef.formState.errors.student_first_name;
+      const lastNameValid = !!formValues.student_last_name && !trialContactFormRef.formState.errors.student_last_name;
+      const phoneValid = !!formValues.student_phone && !trialContactFormRef.formState.errors.student_phone;
+      
+      const isValid = firstNameValid && lastNameValid && phoneValid;
       setTrialFormValid(isValid);
     } else {
       setTrialFormValid(false);
     }
-  }, [trialContactFormRef, watchedFirstName, watchedLastName, watchedEmail, watchedPhone, watchedCurriculum, watchedSubjectIds, formIsValid]);
+  }, [trialContactFormRef, watchedFirstName, watchedLastName, watchedPhone]);
 
   // Search students
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
@@ -262,7 +260,8 @@ export function BookSessionModal({
 
     // For trial-contact step, validate form and show errors if invalid
     if (currentStepId === 'trial-contact' && trialContactFormRef) {
-      const isValid = await trialContactFormRef.trigger();
+      // Trigger validation only on required fields
+      const isValid = await trialContactFormRef.trigger(['student_first_name', 'student_last_name', 'student_phone']);
       if (!isValid) {
         // Form is invalid - errors will be shown on individual fields via FormMessage
         // Also show a toast with summary
@@ -275,20 +274,8 @@ export function BookSessionModal({
         if (errors.student_last_name) {
           errorMessages.push('Student last name is required');
         }
-        if (errors.student_email) {
-          errorMessages.push(`Student email: ${errors.student_email.message || 'is invalid'}`);
-        }
         if (errors.student_phone) {
           errorMessages.push('Student phone number is required');
-        }
-        if (errors.curriculum) {
-          errorMessages.push('Please select a curriculum');
-        }
-        if (errors.subject_ids) {
-          errorMessages.push(`Subjects: ${errors.subject_ids.message || 'Please select at least one subject'}`);
-        }
-        if (errors.parent_email && !trialContactFormRef.getValues('skip_parent_details')) {
-          errorMessages.push(`Parent email: ${errors.parent_email.message || 'is invalid'}`);
         }
         
         if (errorMessages.length > 0) {
@@ -396,9 +383,9 @@ export function BookSessionModal({
           id: crypto.randomUUID(),
           first_name: trialContactData.student_first_name,
           last_name: trialContactData.student_last_name,
-          email: trialContactData.student_email,
+          email: trialContactData.student_email || null,
           phone: trialContactData.student_phone,
-          curriculum: trialContactData.curriculum,
+          curriculum: trialContactData.curriculum || null,
           year_level: trialContactData.year_level ? (trialContactData.year_level === 'Reception' ? 0 : parseInt(trialContactData.year_level, 10)) : null,
           status: 'TRIAL',
           created_at: null,
@@ -412,8 +399,8 @@ export function BookSessionModal({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const createdStudent = await createStudent.mutateAsync(studentData as any);
 
-        // Assign subjects
-        if (trialContactData.subject_ids.length > 0) {
+        // Assign subjects if provided
+        if (trialContactData.subject_ids && trialContactData.subject_ids.length > 0) {
           await Promise.all(
             trialContactData.subject_ids.map((subjectId) =>
               studentsApi.assignSubjectToStudent(createdStudent.id, subjectId)

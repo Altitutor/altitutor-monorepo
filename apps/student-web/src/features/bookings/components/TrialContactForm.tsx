@@ -32,19 +32,47 @@ const trialContactSchema = z.object({
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY'], {
     required_error: 'Please select a curriculum',
   }),
-  year_level: z.enum(['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']).optional(),
+  year_level: z.enum(['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'], {
+    required_error: 'Please select a year level',
+  }),
   subject_ids: z.array(z.string().uuid()).min(1, 'Please select at least one subject'),
   skip_parent_details: z.boolean().default(false),
   parent_first_name: z.string().max(100).optional(),
   parent_last_name: z.string().max(100).optional(),
   parent_email: z.string().email('Invalid email address').optional().or(z.literal('')),
   parent_phone: z.string().optional(),
-}).refine((data) => {
-  // If not skipping parent details, require parent fields
+}).superRefine((data, ctx) => {
+  // If not skipping parent details, require all parent fields
   if (!data.skip_parent_details) {
-    return true; // All parent fields are optional even when not skipping
+    if (!data.parent_first_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Parent first name is required',
+        path: ['parent_first_name'],
+      });
+    }
+    if (!data.parent_last_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Parent last name is required',
+        path: ['parent_last_name'],
+      });
+    }
+    if (!data.parent_email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Parent email is required',
+        path: ['parent_email'],
+      });
+    }
+    if (!data.parent_phone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Parent phone number is required',
+        path: ['parent_phone'],
+      });
+    }
   }
-  return true;
 });
 
 export type TrialContactFormValues = z.infer<typeof trialContactSchema>;
@@ -312,7 +340,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               name="year_level"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Year Level</FormLabel>
+                  <FormLabel>Year Level *</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -493,7 +521,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                   name="parent_first_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel>First Name *</FormLabel>
                       <FormControl>
                         <Input {...field} value={field.value || ''} />
                       </FormControl>
@@ -507,7 +535,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                   name="parent_last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Last Name *</FormLabel>
                       <FormControl>
                         <Input {...field} value={field.value || ''} />
                       </FormControl>
@@ -523,7 +551,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                   name="parent_email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email *</FormLabel>
                       <FormControl>
                         <Input type="email" {...field} value={field.value || ''} />
                       </FormControl>
@@ -537,7 +565,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                   name="parent_phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone</FormLabel>
+                      <FormLabel>Phone *</FormLabel>
                       <FormControl>
                         <PhoneInput
                           value={field.value || ''}

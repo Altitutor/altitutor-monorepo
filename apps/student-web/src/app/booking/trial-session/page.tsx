@@ -343,11 +343,27 @@ export default function BookTrialPage() {
             if (errors.curriculum) {
               errorMessages.push('Please select a curriculum');
             }
+            if (errors.year_level) {
+              errorMessages.push('Please select a year level');
+            }
             if (errors.subject_ids) {
               errorMessages.push(`Subjects: ${errors.subject_ids.message || 'Please select at least one subject'}`);
             }
-            if (errors.parent_email && !contactFormRef.getValues('skip_parent_details')) {
-              errorMessages.push(`Parent email: ${errors.parent_email.message || 'is invalid'}`);
+            // Check parent fields if not skipping
+            const skipParentDetails = contactFormRef.getValues('skip_parent_details');
+            if (!skipParentDetails) {
+              if (errors.parent_first_name) {
+                errorMessages.push('Parent first name is required');
+              }
+              if (errors.parent_last_name) {
+                errorMessages.push('Parent last name is required');
+              }
+              if (errors.parent_email) {
+                errorMessages.push(`Parent email: ${errors.parent_email.message || 'is invalid'}`);
+              }
+              if (errors.parent_phone) {
+                errorMessages.push('Parent phone number is required');
+              }
             }
             
             if (errorMessages.length > 0) {

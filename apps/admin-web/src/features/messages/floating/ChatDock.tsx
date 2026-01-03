@@ -254,7 +254,7 @@ export function ChatDock() {
   const chatButton = (
     <div className="fixed bottom-4 right-4 z-50">
       <div 
-        className="w-16 h-16 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 transition-transform"
+        className="w-16 h-16 rounded-full bg-accent text-accent-foreground dark:text-gray-900 flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 transition-transform"
         onClick={toggleMinimize}
         title={minimized ? "Open chat" : "Close chat"}
       >

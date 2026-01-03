@@ -27,13 +27,11 @@ import { subjectsApi } from '@/features/subjects/api/subjects';
 const adminTrialContactSchema = z.object({
   student_first_name: z.string().min(1, 'First name is required').max(100),
   student_last_name: z.string().min(1, 'Last name is required').max(100),
-  student_email: z.string().email('Invalid email address'),
+  student_email: z.string().email('Invalid email address').optional().or(z.literal('')),
   student_phone: z.string().min(1, 'Phone number is required'),
-  curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY'], {
-    required_error: 'Please select a curriculum',
-  }),
+  curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY']).optional(),
   year_level: z.enum(['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']).optional(),
-  subject_ids: z.array(z.string().uuid()).min(1, 'Please select at least one subject'),
+  subject_ids: z.array(z.string().uuid()).optional(),
   skip_parent_details: z.boolean().default(false),
   parent_first_name: z.string().max(100).optional(),
   parent_last_name: z.string().max(100).optional(),
@@ -271,7 +269,7 @@ export function AdminTrialContactForm({
               name="student_email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email *</FormLabel>
+                  <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input type="email" {...field} />
                   </FormControl>
@@ -301,7 +299,7 @@ export function AdminTrialContactForm({
               name="curriculum"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Curriculum *</FormLabel>
+                  <FormLabel>Curriculum</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -353,7 +351,7 @@ export function AdminTrialContactForm({
             name="subject_ids"
             render={() => (
               <FormItem>
-                <FormLabel>Subjects *</FormLabel>
+                <FormLabel>Subjects</FormLabel>
                 <div className="space-y-2">
                   {selectedSubjects.length > 0 && (
                     <div className="flex flex-wrap gap-2">
