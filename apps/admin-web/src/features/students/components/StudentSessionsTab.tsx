@@ -30,6 +30,7 @@ import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 import { cn, formatSessionType } from '@/shared/utils';
 import { CalendarIcon, Check, X, ArrowUpDown } from 'lucide-react';
 import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
+import { DateRangePicker } from '@/shared/components/DateRangePicker';
 
 interface StudentSessionsTabProps {
   student: Tables<'students'>;
@@ -52,9 +53,9 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  // Filter state - default to past sessions only (end date = today)
-  const [dateRangeStart, setDateRangeStart] = useState<string>('');
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>(getTodayLocalDate());
+  // Filter state - default: start date today, end date unset
+  const [dateRangeStart, setDateRangeStart] = useState<string>(getTodayLocalDate());
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>('');
   const [selectedClassId, setSelectedClassId] = useState<string>('ALL');
 
   // Sort state
@@ -242,14 +243,17 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
         </div>
         {viewMode === 'table' ? (
           <>
-            <div className="flex gap-4 items-end">
+            <div className="flex flex-wrap items-center gap-2">
               <div>
                 <label className="block text-sm mb-1">Start Date</label>
-                <Input type="date" disabled />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">End Date</label>
-                <Input type="date" disabled />
+                <DateRangePicker
+                  from=""
+                  to=""
+                  onFromChange={() => {}}
+                  onToChange={() => {}}
+                  fromPlaceholder="Start date"
+                  toPlaceholder="End date"
+                />
               </div>
               <div>
                 <label className="block text-sm mb-1">Class</label>
@@ -300,21 +304,16 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
 
       {/* Filters - only show in table view */}
       {viewMode === 'table' && (
-        <div className="flex gap-4 items-end">
+        <div className="flex flex-wrap items-center gap-2">
           <div>
-            <label className="block text-sm mb-1">Start Date</label>
-            <Input 
-              type="date" 
-              value={dateRangeStart}
-              onChange={(e) => setDateRangeStart(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">End Date</label>
-            <Input 
-              type="date" 
-              value={dateRangeEnd}
-              onChange={(e) => setDateRangeEnd(e.target.value)}
+            <label className="block text-sm mb-1">Date Range</label>
+            <DateRangePicker
+              from={dateRangeStart}
+              to={dateRangeEnd}
+              onFromChange={setDateRangeStart}
+              onToChange={setDateRangeEnd}
+              fromPlaceholder="Start date"
+              toPlaceholder="End date"
             />
           </div>
           <div>

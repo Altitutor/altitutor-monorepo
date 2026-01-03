@@ -18,6 +18,7 @@ import type { TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
+import { ClassSessionsTab } from './tabs/ClassSessionsTab';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -193,7 +194,7 @@ export function ViewClassModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
         <Tabs 
           defaultValue="details" 
           value={activeTab} 
@@ -233,53 +234,66 @@ export function ViewClassModal({
                 <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
                 <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
                 <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
+                <TabsTrigger value="sessions" className="flex-1">Sessions</TabsTrigger>
               </TabsList>
             </div>
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="p-6">
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <TabsContent value="details" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                  <ClassInfoTab
-                    classData={classData}
-                    subject={subject}
-                    subjects={allSubjects}
-                    isEditing={isEditing}
-                    isLoading={isLoading}
-                    onEdit={() => setIsEditing(true)}
-                    onCancelEdit={() => setIsEditing(false)}
-                    onSubmit={handleClassUpdate}
-                    onDelete={isEditing ? handleDeleteClass : undefined}
-                    isDeleting={isDeleting}
-                  />
-                </TabsContent>
-            
-            <TabsContent value="students" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <ClassStudentsTab
-                classData={classData}
-                classSubject={subject || undefined}
-                classStaff={classStaff}
-                classStudents={classStudents}
-                allStudents={allStudentsData}
-                loadingStudents={false}
-                onStudentsUpdated={() => {}}
-              />
+          <div className="flex-1 min-h-0 relative">
+            <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+              <div className="p-6">
+                <ClassInfoTab
+                  classData={classData}
+                  subject={subject}
+                  subjects={allSubjects}
+                  isEditing={isEditing}
+                  isLoading={isLoading}
+                  onEdit={() => setIsEditing(true)}
+                  onCancelEdit={() => setIsEditing(false)}
+                  onSubmit={handleClassUpdate}
+                  onDelete={isEditing ? handleDeleteClass : undefined}
+                  isDeleting={isDeleting}
+                />
+              </div>
+            </TabsContent>
+        
+            <TabsContent value="students" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="h-full p-6">
+                <ClassStudentsTab
+                  classData={classData}
+                  classSubject={subject || undefined}
+                  classStaff={classStaff}
+                  classStudents={classStudents}
+                  allStudents={allStudentsData}
+                  loadingStudents={false}
+                  onStudentsUpdated={() => {}}
+                />
+              </div>
             </TabsContent>
             
-                <TabsContent value="staff" className="h-full overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                  <ClassStaffTab
-                    classData={classData}
-                    classStaff={classStaff}
-                    allStaff={allStaffData}
-                    loadingStaff={false}
-                    onAssignStaff={handleAssignStaff}
-                    onRemoveStaff={handleRemoveStaff}
-                  />
-                </TabsContent>
+            <TabsContent value="staff" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="h-full p-6">
+                <ClassStaffTab
+                  classData={classData}
+                  classStaff={classStaff}
+                  allStaff={allStaffData}
+                  loadingStaff={false}
+                  onAssignStaff={handleAssignStaff}
+                  onRemoveStaff={handleRemoveStaff}
+                />
               </div>
-            </div>
+            </TabsContent>
+        
+            <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="h-full p-6">
+                <ClassSessionsTab
+                  classData={classData}
+                  classStudents={classStudents}
+                  classStaff={classStaff}
+                />
+              </div>
+            </TabsContent>
           </div>
         </Tabs>
         

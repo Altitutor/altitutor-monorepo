@@ -61,7 +61,7 @@ export default function BookTrialPage() {
     const timeChanged = currentParams.get('time') !== (selectedSlot ? `${selectedSlot.startAt}/${selectedSlot.endAt}` : null);
     
     if (stepChanged || timeChanged) {
-      router.replace(`/book-trial?${params.toString()}`, { scroll: false });
+      router.replace(`/booking/trial-session?${params.toString()}`, { scroll: false });
     }
   }, [currentStep, selectedSlot, router]);
 
@@ -136,9 +136,25 @@ export default function BookTrialPage() {
         description: 'Your trial session has been booked successfully',
       });
 
-      // Redirect to success page (we'll create a simple success message for now)
-      // For now, redirect to home with success message
-      router.push(`/?bookingSuccess=true&sessionId=${session_id}`);
+      // Store booking data in sessionStorage for the success page
+      const bookingData = {
+        session_id,
+        start_at: selectedSlot.startAt,
+        end_at: selectedSlot.endAt,
+        student_first_name: contactData.student_first_name,
+        student_last_name: contactData.student_last_name,
+        student_email: contactData.student_email,
+        student_phone: contactData.student_phone,
+        curriculum: contactData.curriculum,
+        year_level: contactData.year_level,
+        subject_ids: contactData.subject_ids,
+        subjects: selectedSubjects.length > 0 ? selectedSubjects : undefined,
+      };
+      
+      sessionStorage.setItem('trial_booking_data', JSON.stringify(bookingData));
+
+      // Redirect to success page
+      router.push(`/booking-success?sessionId=${session_id}`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create booking. Please try again.';
       toast({

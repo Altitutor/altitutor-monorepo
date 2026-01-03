@@ -14,6 +14,7 @@ import type { Tables } from '@altitutor/shared';
 import { StaffDetailsTab, StaffDetailsFormData } from '@/features/staff/components/modal/tabs/StaffDetailsTab';
 import { ClassesTab } from '@/features/staff/components/modal/tabs/ClassesTab';
 import { StudentsTab } from '@/features/staff/components/modal/tabs/StudentsTab';
+import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
@@ -257,10 +258,11 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="classes">Classes</TabsTrigger>
           <TabsTrigger value="students">Students</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
         </TabsList>
 
@@ -326,6 +328,12 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
             staffId={id}
             isOpen={true}
           />
+        </TabsContent>
+
+        <TabsContent value="sessions" className="space-y-6">
+          {staffMember && (
+            <StaffSessionsTab staff={staffMember} />
+          )}
         </TabsContent>
 
         <TabsContent value="messages" className="space-y-6">

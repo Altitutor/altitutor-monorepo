@@ -51,7 +51,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/reset-password') || 
     pathname.startsWith('/invite/') || 
     pathname.startsWith('/auth/') ||
-    pathname.startsWith('/book-trial');
+    pathname.startsWith('/booking/trial-session') ||
+    pathname.startsWith('/booking-success');
 
   // For public paths, allow access without authentication checks
   if (isPublicPath) {
