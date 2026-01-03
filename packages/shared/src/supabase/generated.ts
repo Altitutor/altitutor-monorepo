@@ -4515,6 +4515,7 @@ export type Database = {
           subject_id: string | null
           subject_level: string | null
           subject_name: string | null
+          subject_year_level: number | null
         }
         Relationships: [
           {
@@ -5752,7 +5753,61 @@ export type Database = {
         Returns: undefined
       }
       build_fuzzy_like: { Args: { p_text: string }; Returns: string }
+      calculate_session_price: {
+        Args: {
+          p_billing_type: Database["public"]["Enums"]["billing_type"]
+          p_end_at: string
+          p_start_at: string
+          p_subject_id: string
+        }
+        Returns: Json
+      }
       cleanup_expired_reservations: { Args: never; Returns: number }
+      complete_student_registration: {
+        Args: {
+          p_availability_friday?: boolean
+          p_availability_monday?: boolean
+          p_availability_saturday_am?: boolean
+          p_availability_saturday_pm?: boolean
+          p_availability_sunday_am?: boolean
+          p_availability_sunday_pm?: boolean
+          p_availability_thursday?: boolean
+          p_availability_tuesday?: boolean
+          p_availability_wednesday?: boolean
+          p_curriculum?: string
+          p_parents?: Json
+          p_school?: string
+          p_student_email: string
+          p_student_first_name: string
+          p_student_last_name: string
+          p_student_phone: string
+          p_subject_ids?: string[]
+          p_token: string
+          p_year_level?: number
+        }
+        Returns: Json
+      }
+      create_admin_trial_booking: {
+        Args: {
+          p_created_by: string
+          p_curriculum?: string
+          p_end_at: string
+          p_parent_email?: string
+          p_parent_first_name?: string
+          p_parent_last_name?: string
+          p_parent_phone?: string
+          p_skip_parent_details?: boolean
+          p_staff_id?: string
+          p_start_at: string
+          p_student_email?: string
+          p_student_first_name: string
+          p_student_last_name: string
+          p_student_phone: string
+          p_subject_ids?: string[]
+          p_year_level?: number
+        }
+        Returns: Json
+      }
       create_booking_session: {
         Args: {
           p_created_by?: string
@@ -5876,6 +5931,14 @@ export type Database = {
         Args: { p_curriculum: string; p_name: string; p_year_level: number }
         Returns: string
       }
+      get_available_reschedule_sessions: {
+        Args: {
+          p_date_range_days?: number
+          p_original_session_id: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
       get_available_slots: {
         Args: {
           p_duration_minutes?: number
@@ -5950,6 +6013,12 @@ export type Database = {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
+      log_student_absences_self: {
+        Args: { logged_by_student_id: string; operations: Json }
+        Returns: Json
+      }
+      map_day_to_number: { Args: { day_string: string }; Returns: number }
+      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string

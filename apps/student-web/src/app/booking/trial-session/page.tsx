@@ -21,7 +21,7 @@ export default function BookTrialPage() {
   
   // Initialize state from query params
   const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds?: string[] } | null>(null);
   const [currentStep, setCurrentStep] = useState(() => {
     const stepParam = searchParams.get('step');
     return stepParam ? parseInt(stepParam, 10) : 0;
@@ -29,7 +29,7 @@ export default function BookTrialPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStudentExistsError, setShowStudentExistsError] = useState(false);
   const [contactFormRef, setContactFormRef] = useState<UseFormReturn<TrialContactFormValues> | null>(null);
-  const [isFormValid, setIsFormValid] = useState(false);
+  const [_isFormValid, setIsFormValid] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
 
   // Initialize selectedSlot from query params on mount
@@ -38,7 +38,7 @@ export default function BookTrialPage() {
     if (timeParam) {
       const [startAt, endAt] = timeParam.split('/');
       if (startAt && endAt && !selectedSlot) {
-        setSelectedSlot({ startAt, endAt });
+        setSelectedSlot({ startAt, endAt, availableStaffIds: [] });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,12 +61,12 @@ export default function BookTrialPage() {
     const timeChanged = currentParams.get('time') !== (selectedSlot ? `${selectedSlot.startAt}/${selectedSlot.endAt}` : null);
     
     if (stepChanged || timeChanged) {
-      router.replace(`/book-trial?${params.toString()}`, { scroll: false });
+      router.replace(`/booking/trial-session?${params.toString()}`, { scroll: false });
     }
   }, [currentStep, selectedSlot, router]);
 
-  const handleSlotSelect = (startAt: string, endAt: string) => {
-    setSelectedSlot({ startAt, endAt });
+  const handleSlotSelect = (startAt: string, endAt: string, availableStaffIds: string[]) => {
+    setSelectedSlot({ startAt, endAt, availableStaffIds });
     // Don't auto-proceed - user clicks Next button
   };
 
@@ -136,9 +136,25 @@ export default function BookTrialPage() {
         description: 'Your trial session has been booked successfully',
       });
 
-      // Redirect to success page (we'll create a simple success message for now)
-      // For now, redirect to home with success message
-      router.push(`/?bookingSuccess=true&sessionId=${session_id}`);
+      // Store booking data in sessionStorage for the success page
+      const bookingData = {
+        session_id,
+        start_at: selectedSlot.startAt,
+        end_at: selectedSlot.endAt,
+        student_first_name: contactData.student_first_name,
+        student_last_name: contactData.student_last_name,
+        student_email: contactData.student_email,
+        student_phone: contactData.student_phone,
+        curriculum: contactData.curriculum,
+        year_level: contactData.year_level,
+        subject_ids: contactData.subject_ids,
+        subjects: selectedSubjects.length > 0 ? selectedSubjects : undefined,
+      };
+      
+      sessionStorage.setItem('trial_booking_data', JSON.stringify(bookingData));
+
+      // Redirect to success page
+      router.push(`/booking-success?sessionId=${session_id}`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create booking. Please try again.';
       toast({
@@ -327,11 +343,27 @@ export default function BookTrialPage() {
             if (errors.curriculum) {
               errorMessages.push('Please select a curriculum');
             }
+            if (errors.year_level) {
+              errorMessages.push('Please select a year level');
+            }
             if (errors.subject_ids) {
               errorMessages.push(`Subjects: ${errors.subject_ids.message || 'Please select at least one subject'}`);
             }
-            if (errors.parent_email && !contactFormRef.getValues('skip_parent_details')) {
-              errorMessages.push(`Parent email: ${errors.parent_email.message || 'is invalid'}`);
+            // Check parent fields if not skipping
+            const skipParentDetails = contactFormRef.getValues('skip_parent_details');
+            if (!skipParentDetails) {
+              if (errors.parent_first_name) {
+                errorMessages.push('Parent first name is required');
+              }
+              if (errors.parent_last_name) {
+                errorMessages.push('Parent last name is required');
+              }
+              if (errors.parent_email) {
+                errorMessages.push(`Parent email: ${errors.parent_email.message || 'is invalid'}`);
+              }
+              if (errors.parent_phone) {
+                errorMessages.push('Parent phone number is required');
+              }
             }
             
             if (errorMessages.length > 0) {

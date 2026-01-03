@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { SessionsTable } from '@/features/sessions';
 import { SessionsCalendarView } from '@/features/sessions';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
@@ -56,27 +56,39 @@ export default function SessionsPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
+  
+  // Refs to store debounce timers
+  const fromDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const toDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync date range state with URL params when they change
   // Only sync from URL to state, don't force defaults after initial load
+  // Skip syncing if we're currently debouncing to avoid conflicts
   useEffect(() => {
+    // Don't sync if we have active debounce timers (user is typing)
+    if (fromDebounceTimerRef.current || toDebounceTimerRef.current) {
+      return;
+    }
+    
     const fromParam = search.get('from');
     const toParam = search.get('to');
     
     if (fromParam !== null) {
       if (isValidDateString(fromParam)) {
-        setFrom(fromParam);
+        // Only update if different to avoid unnecessary re-renders
+        setFrom((prev) => prev !== fromParam ? fromParam : prev);
       } else if (fromParam === '') {
-        setFrom('');
+        setFrom((prev) => prev !== '' ? '' : prev);
       }
     }
     // If fromParam is null, don't change state (allows cleared dates to stay cleared)
     
     if (toParam !== null) {
       if (isValidDateString(toParam)) {
-        setTo(toParam);
+        // Only update if different to avoid unnecessary re-renders
+        setTo((prev) => prev !== toParam ? toParam : prev);
       } else if (toParam === '') {
-        setTo('');
+        setTo((prev) => prev !== '' ? '' : prev);
       }
     }
     // If toParam is null, don't change state (allows cleared dates to stay cleared)
@@ -88,56 +100,90 @@ export default function SessionsPage() {
     router.push(`/sessions?${params.toString()}`);
   };
 
-  // Handle date range changes and update URL
+  // Handle date range changes and update URL with debouncing
   const handleFromChange = (newFrom: string) => {
-    // Allow empty string to clear the filter
+    // Clear any existing debounce timer
+    if (fromDebounceTimerRef.current) {
+      clearTimeout(fromDebounceTimerRef.current);
+      fromDebounceTimerRef.current = null;
+    }
+    
+    // Always update state immediately to allow partial input while typing
+    // This prevents the controlled/uncontrolled input warning and keeps UI responsive
+    setFrom(newFrom);
+    
+    // Allow empty string to clear the filter immediately (no debounce needed)
     if (newFrom === '') {
-      setFrom('');
       const params = new URLSearchParams(search.toString());
       params.set('view', 'table');
       params.delete('from'); // Remove from URL when cleared
       params.set('to', to || '');
-      router.push(`/sessions?${params.toString()}`);
+      router.replace(`/sessions?${params.toString()}`);
       return;
     }
     
-    if (!isValidDateString(newFrom)) {
-      // Invalid date - don't update, keep current value
-      return;
-    }
-    
-    setFrom(newFrom);
-    const params = new URLSearchParams(search.toString());
-    params.set('view', 'table');
-    params.set('from', newFrom);
-    params.set('to', to || '');
-    router.push(`/sessions?${params.toString()}`);
+    // Debounce URL updates - only update URL after user stops typing
+    fromDebounceTimerRef.current = setTimeout(() => {
+      // Only update URL if the date is complete and valid
+      if (isValidDateString(newFrom)) {
+        const params = new URLSearchParams(search.toString());
+        params.set('view', 'table');
+        params.set('from', newFrom);
+        params.set('to', to || '');
+        router.replace(`/sessions?${params.toString()}`);
+      }
+      // If invalid/partial, don't update URL - just keep the state updated
+      // The date input will handle validation visually
+    }, 500); // 500ms debounce delay
   };
 
   const handleToChange = (newTo: string) => {
-    // Allow empty string to clear the filter
+    // Clear any existing debounce timer
+    if (toDebounceTimerRef.current) {
+      clearTimeout(toDebounceTimerRef.current);
+      toDebounceTimerRef.current = null;
+    }
+    
+    // Always update state immediately to allow partial input while typing
+    // This prevents the controlled/uncontrolled input warning and keeps UI responsive
+    setTo(newTo);
+    
+    // Allow empty string to clear the filter immediately (no debounce needed)
     if (newTo === '') {
-      setTo('');
       const params = new URLSearchParams(search.toString());
       params.set('view', 'table');
       params.set('from', from || '');
       params.delete('to'); // Remove from URL when cleared
-      router.push(`/sessions?${params.toString()}`);
+      router.replace(`/sessions?${params.toString()}`);
       return;
     }
     
-    if (!isValidDateString(newTo)) {
-      // Invalid date - don't update, keep current value
-      return;
-    }
-    
-    setTo(newTo);
-    const params = new URLSearchParams(search.toString());
-    params.set('view', 'table');
-    params.set('from', from || '');
-    params.set('to', newTo);
-    router.push(`/sessions?${params.toString()}`);
+    // Debounce URL updates - only update URL after user stops typing
+    toDebounceTimerRef.current = setTimeout(() => {
+      // Only update URL if the date is complete and valid
+      if (isValidDateString(newTo)) {
+        const params = new URLSearchParams(search.toString());
+        params.set('view', 'table');
+        params.set('from', from || '');
+        params.set('to', newTo);
+        router.replace(`/sessions?${params.toString()}`);
+      }
+      // If invalid/partial, don't update URL - just keep the state updated
+      // The date input will handle validation visually
+    }, 500); // 500ms debounce delay
   };
+  
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (fromDebounceTimerRef.current) {
+        clearTimeout(fromDebounceTimerRef.current);
+      }
+      if (toDebounceTimerRef.current) {
+        clearTimeout(toDebounceTimerRef.current);
+      }
+    };
+  }, []);
 
 
   // Listen for events fired from SessionModal to open student/staff/topic/file modals
@@ -185,6 +231,12 @@ export default function SessionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
         <div className="flex items-center gap-4">
+          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
+            <TabsList>
+              <TabsTrigger value="table">Table</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button>
@@ -220,12 +272,6 @@ export default function SessionsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
-            <TabsList>
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
       </div>
 

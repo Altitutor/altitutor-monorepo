@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, CreditCard } from 'lucide-react';
-import { useCreateSetupIntent, usePaymentMethods } from '../hooks/usePaymentMethods';
+import { useCreateSetupIntent } from '../hooks/usePaymentMethods';
 import { useToast } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
 

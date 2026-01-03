@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
           return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+          cookiesToSet.forEach(({ name, value }) => {
             req.cookies.set(name, value);
           });
           supabaseResponse = NextResponse.next({
@@ -50,8 +50,10 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/forgot-password') || 
     pathname.startsWith('/reset-password') || 
     pathname.startsWith('/invite/') || 
+    pathname.startsWith('/register/') ||
     pathname.startsWith('/auth/') ||
-    pathname.startsWith('/book-trial');
+    pathname.startsWith('/booking/trial-session') ||
+    pathname.startsWith('/booking-success');
 
   // For public paths, allow access without authentication checks
   if (isPublicPath) {
@@ -63,7 +65,6 @@ export async function middleware(req: NextRequest) {
   // getSession() reads from cookies without validation (insecure)
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser();
 
   // Determine portal URLs based on environment

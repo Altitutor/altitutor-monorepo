@@ -18,6 +18,7 @@ import type { TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from '@/features/classes/components/modal/tabs/ClassInfoTab';
 import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/ClassStudentsTab';
 import { ClassStaffTab } from '@/features/classes/components/modal/tabs/ClassStaffTab';
+import { ClassSessionsTab } from '@/features/classes/components/modal/tabs/ClassSessionsTab';
 
 export default function ClassDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -202,6 +203,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
           <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
           <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
           <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
+          <TabsTrigger value="sessions" className="flex-1">Sessions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-6">
@@ -259,6 +261,16 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
             onAssignStaff={handleAssignStaff}
             onRemoveStaff={handleRemoveStaff}
           />
+        </TabsContent>
+
+        <TabsContent value="sessions" className="space-y-6">
+          {classData && (
+            <ClassSessionsTab
+              classData={classData}
+              classStudents={classStudents}
+              classStaff={classStaff}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

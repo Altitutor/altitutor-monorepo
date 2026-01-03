@@ -182,7 +182,7 @@ export async function PATCH(request: NextRequest) {
  * GET /api/profile
  * Get student's own profile (alternative to using vstudent_profile view directly)
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get the authenticated user's supabase client
     const userClient = createClient();

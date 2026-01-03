@@ -14,11 +14,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { StudentsTab } from './tabs/StudentsTab';
+import { StaffSessionsTab } from './tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -58,6 +61,10 @@ export function ViewStaffModal({
   // Subject modal state
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+  
+  // Nested modal states
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   
   // Temporary subjects state for editing (not saved until form submit)
   const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
@@ -336,10 +343,11 @@ export function ViewStaffModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="students">Students</TabsTrigger>
+                    <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                   </TabsList>
                 </div>
@@ -390,6 +398,14 @@ export function ViewStaffModal({
                       staffId={staffId || ''}
                       isOpen={isOpen}
                     />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full p-6">
+                    {staffMember && (
+                      <StaffSessionsTab staff={staffMember} />
+                    )}
                   </div>
                 </TabsContent>
 

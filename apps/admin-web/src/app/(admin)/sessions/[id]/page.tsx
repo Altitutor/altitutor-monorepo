@@ -75,8 +75,8 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   };
 
   const handleOpenTopic = (topicId: string) => {
-    // Get subject ID from session's class if available
-    const subjectId = data?.session?.class?.subject?.id;
+    // Get subject ID from session's subject if available, otherwise from class's subject
+    const subjectId = (data?.session as any)?.subject?.id || data?.session?.class?.subject?.id;
     if (subjectId) {
       router.push(`/subjects/${subjectId}/topics/${topicId}`);
     } else {
@@ -142,7 +142,8 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   const { session, sessionsStudents, sessionsStaff, tutorLog, notes } = data;
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
-  const subject = session.class?.subject;
+  // Use session's subject if available, otherwise fall back to class's subject
+  const subject = (session as any).subject || session.class?.subject;
 
   // Build student attendance map from tutor log
   const actualStudentAttendance: Record<string, { attended: boolean }> = {};

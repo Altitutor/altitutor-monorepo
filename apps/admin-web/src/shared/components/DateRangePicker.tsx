@@ -24,6 +24,10 @@ export function DateRangePicker({
   toPlaceholder = 'To date',
   className,
 }: DateRangePickerProps) {
+  // Ensure values are always strings to prevent controlled/uncontrolled input warning
+  const fromValue = from ?? '';
+  const toValue = to ?? '';
+
   // Ensure from <= to
   const ensureValidRange = (newFrom: string, newTo: string) => {
     if (!newFrom || !newTo) return { from: newFrom, to: newTo };
@@ -48,23 +52,23 @@ export function DateRangePicker({
   };
 
   const handleFromIncrement = () => {
-    if (!from) return;
+    if (!fromValue) return;
     try {
-      const date = parseISO(from);
+      const date = parseISO(fromValue);
       if (!isValid(date)) return;
       const newDate = addDays(date, 1);
       const newFrom = format(newDate, 'yyyy-MM-dd');
       
       // If from === to, increment both dates together
-      if (from === to && to) {
+      if (fromValue === toValue && toValue) {
         onFromChange(newFrom);
         onToChange(newFrom);
         return;
       }
       
-      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, to);
+      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, toValue);
       onFromChange(adjustedFrom);
-      if (adjustedTo !== to) {
+      if (adjustedTo !== toValue) {
         onToChange(adjustedTo);
       }
     } catch {
@@ -73,15 +77,15 @@ export function DateRangePicker({
   };
 
   const handleFromDecrement = () => {
-    if (!from) return;
+    if (!fromValue) return;
     try {
-      const date = parseISO(from);
+      const date = parseISO(fromValue);
       if (!isValid(date)) return;
       const newDate = subDays(date, 1);
       const newFrom = format(newDate, 'yyyy-MM-dd');
-      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, to);
+      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, toValue);
       onFromChange(adjustedFrom);
-      if (adjustedTo !== to) {
+      if (adjustedTo !== toValue) {
         onToChange(adjustedTo);
       }
     } catch {
@@ -90,15 +94,15 @@ export function DateRangePicker({
   };
 
   const handleToIncrement = () => {
-    if (!to) return;
+    if (!toValue) return;
     try {
-      const date = parseISO(to);
+      const date = parseISO(toValue);
       if (!isValid(date)) return;
       const newDate = addDays(date, 1);
       const newTo = format(newDate, 'yyyy-MM-dd');
-      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(from, newTo);
+      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(fromValue, newTo);
       onToChange(adjustedTo);
-      if (adjustedFrom !== from) {
+      if (adjustedFrom !== fromValue) {
         onFromChange(adjustedFrom);
       }
     } catch {
@@ -107,23 +111,23 @@ export function DateRangePicker({
   };
 
   const handleToDecrement = () => {
-    if (!to) return;
+    if (!toValue) return;
     try {
-      const date = parseISO(to);
+      const date = parseISO(toValue);
       if (!isValid(date)) return;
       const newDate = subDays(date, 1);
       const newTo = format(newDate, 'yyyy-MM-dd');
       
       // If from === to, decrement both dates together
-      if (from === to && from) {
+      if (fromValue === toValue && fromValue) {
         onFromChange(newTo);
         onToChange(newTo);
         return;
       }
       
-      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(from, newTo);
+      const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(fromValue, newTo);
       onToChange(adjustedTo);
-      if (adjustedFrom !== from) {
+      if (adjustedFrom !== fromValue) {
         onFromChange(adjustedFrom);
       }
     } catch {
@@ -133,27 +137,71 @@ export function DateRangePicker({
 
   const handleFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFrom = e.target.value;
+    
+    // Always pass through the value, even if empty or partial
+    // Let the parent component handle validation
     if (!newFrom) {
       onFromChange('');
       return;
     }
-    const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, to);
-    onFromChange(adjustedFrom);
-    if (adjustedTo !== to) {
-      onToChange(adjustedTo);
+    
+    // Check if it's a complete date (YYYY-MM-DD format)
+    const isCompleteDate = /^\d{4}-\d{2}-\d{2}$/.test(newFrom);
+    
+    if (isCompleteDate) {
+      // Complete date - validate range if both dates are complete
+      const isCompleteToDate = /^\d{4}-\d{2}-\d{2}$/.test(toValue);
+      
+      if (isCompleteToDate) {
+        const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(newFrom, toValue);
+        onFromChange(adjustedFrom);
+        if (adjustedTo !== toValue) {
+          onToChange(adjustedTo);
+        }
+      } else {
+        // From is complete but to is not - just pass through
+        onFromChange(newFrom);
+      }
+    } else {
+      // Partial or invalid input - pass it through
+      // The browser's date input will handle validation visually
+      // We don't validate partial dates to avoid errors while typing
+      onFromChange(newFrom);
     }
   };
 
   const handleToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTo = e.target.value;
+    
+    // Always pass through the value, even if empty or partial
+    // Let the parent component handle validation
     if (!newTo) {
       onToChange('');
       return;
     }
-    const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(from, newTo);
-    onToChange(adjustedTo);
-    if (adjustedFrom !== from) {
-      onFromChange(adjustedFrom);
+    
+    // Check if it's a complete date (YYYY-MM-DD format)
+    const isCompleteDate = /^\d{4}-\d{2}-\d{2}$/.test(newTo);
+    
+    if (isCompleteDate) {
+      // Complete date - validate range if both dates are complete
+      const isCompleteFromDate = /^\d{4}-\d{2}-\d{2}$/.test(fromValue);
+      
+      if (isCompleteFromDate) {
+        const { from: adjustedFrom, to: adjustedTo } = ensureValidRange(fromValue, newTo);
+        onToChange(adjustedTo);
+        if (adjustedFrom !== fromValue) {
+          onFromChange(adjustedFrom);
+        }
+      } else {
+        // To is complete but from is not - just pass through
+        onToChange(newTo);
+      }
+    } else {
+      // Partial or invalid input - pass it through
+      // The browser's date input will handle validation visually
+      // We don't validate partial dates to avoid errors while typing
+      onToChange(newTo);
     }
   };
 
@@ -171,7 +219,7 @@ export function DateRangePicker({
       <div className="relative w-auto min-w-[140px]">
         <Input
           type="date"
-          value={from}
+          value={fromValue}
           onChange={handleFromChange}
           placeholder={fromPlaceholder}
           className="pr-16 pl-8 text-center [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full cursor-pointer"
@@ -184,7 +232,7 @@ export function DateRangePicker({
         >
           <ChevronLeft className="h-4 w-4 text-muted-foreground" />
         </button>
-        {from && (
+        {fromValue && (
           <button
             type="button"
             onClick={handleFromClear}
@@ -208,7 +256,7 @@ export function DateRangePicker({
       <div className="relative w-auto min-w-[140px]">
         <Input
           type="date"
-          value={to}
+          value={toValue}
           onChange={handleToChange}
           placeholder={toPlaceholder}
           className="pr-16 pl-8 text-center [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full cursor-pointer"
@@ -221,7 +269,7 @@ export function DateRangePicker({
         >
           <ChevronLeft className="h-4 w-4 text-muted-foreground" />
         </button>
-        {to && (
+        {toValue && (
           <button
             type="button"
             onClick={handleToClear}

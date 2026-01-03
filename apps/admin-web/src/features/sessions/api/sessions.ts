@@ -2,6 +2,7 @@ import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
 /**
  * Sessions API client for working with session data
@@ -67,8 +68,9 @@ export const sessionsApi = {
     
     try {
       // Convert date strings to timestamptz for RPC
-      const rangeStart = args?.rangeStart ? `${args.rangeStart}T00:00:00Z` : null;
-      const rangeEnd = args?.rangeEnd ? `${args.rangeEnd}T23:59:59Z` : null;
+      // Interpret dates as local timezone and convert to UTC
+      const rangeStart = args?.rangeStart ? dateStringToUtcStart(args.rangeStart) : null;
+      const rangeEnd = args?.rangeEnd ? dateStringToUtcEnd(args.rangeEnd) : null;
       
       // Determine status filter
       const statuses = args?.includeInactive ? ['ACTIVE', 'INACTIVE'] : ['ACTIVE'];
@@ -116,11 +118,6 @@ export const sessionsApi = {
         total: number;
       };
       
-      // #region agent log
-      const sampleStudent = Object.values(rpcData.sessionStudents || {})[0]?.[0];
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sessions.ts:104',message:'RPC result received - checking is_extra field',data:{hasRpcResult:!!rpcResult,sessionStudentsKeys:rpcData.sessionStudents?Object.keys(rpcData.sessionStudents):[],sampleStudentHasIsExtra:'is_extra' in (sampleStudent||{}),sampleStudentIsExtra:sampleStudent?.is_extra,sampleStudentKeys:Object.keys(sampleStudent||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      
       // Transform sessions
       const sessions = (rpcData.sessions || []) as Tables<'sessions'>[];
       
@@ -128,11 +125,6 @@ export const sessionsApi = {
       const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = {};
       Object.entries(rpcData.sessionStudents || {}).forEach(([sessionId, students]) => {
         sessionStudents[sessionId] = (students || []).map((s: any) => {
-          // #region agent log
-          if (s.first_name === 'Elliot' && s.last_name === 'Koh') {
-            fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sessions.ts:122',message:'Elliot Koh raw data from RPC',data:{raw_is_extra:s.is_extra,raw_is_extra_type:typeof s.is_extra,raw_student:s},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          }
-          // #endregion
           const mapped = {
             id: s.id,
             first_name: s.first_name,
@@ -147,11 +139,6 @@ export const sessionsApi = {
             sessions_students_id: s.sessions_students_id ?? undefined,
             is_extra: s.is_extra ?? false,
           };
-          // #region agent log
-          if (s.first_name === 'Elliot' && s.last_name === 'Koh') {
-            fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sessions.ts:137',message:'Elliot Koh mapped data',data:{mapped_is_extra:mapped.is_extra,mapped_is_extra_type:typeof mapped.is_extra,mapped_student:mapped},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          }
-          // #endregion
           return mapped;
         }) as Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>;
       });
@@ -506,11 +493,12 @@ export const sessionsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
-      // 1. Get session with class and subject
+      // 1. Get session with class and subject (both session's subject and class's subject)
       const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
         .select(`
           *,
+          subject:subjects(*),
           class:classes(
             *,
             subject:subjects(*)

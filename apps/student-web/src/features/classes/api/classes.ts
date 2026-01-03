@@ -1,10 +1,5 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
-
-// Lazy client creation to avoid issues during static generation
-function getSupabaseClient() {
-  return createClientComponentClient<Database>();
-}
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 type StudentClass = Database['public']['Views']['vstudent_classes']['Row'];
 type StudentClassDetail = Database['public']['Views']['vstudent_class_detail']['Row'];
@@ -15,12 +10,34 @@ export const classesApi = {
    */
   list: async (): Promise<StudentClass[]> => {
     const supabase = getSupabaseClient();
+    
+    // Verify we have a session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error('[classesApi.list] Session error:', sessionError);
+      throw new Error(`Session error: ${sessionError.message}`);
+    }
+    if (!session) {
+      throw new Error('No active session. Please log in again.');
+    }
+    
     const { data, error } = await supabase
       .from('vstudent_classes')
       .select('*')
       .order('day_of_week', { ascending: true });
     
-    if (error) throw error;
+    if (error) {
+      console.error('[classesApi.list] Error fetching classes:', error);
+      console.error('[classesApi.list] Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw error;
+    }
+    
+    console.log('[classesApi.list] Successfully fetched classes:', data?.length || 0);
     return (data || []) as StudentClass[];
   },
   

@@ -49,19 +49,20 @@ export function PaymentMethodsList({ paymentMethods }: PaymentMethodsListProps) 
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl">
         {paymentMethods.map((method) => {
           const deleting = isDeleting(method.id);
           
           return (
-            <PaymentMethodCard
-              key={method.id}
-              paymentMethod={mapToCardData(method)}
-              isDeleting={deleting}
-              onSetDefault={handleSetDefault}
-              onDelete={handleDeleteClick}
-              showActions={true}
-            />
+            <div key={method.id} className="w-full max-w-sm">
+              <PaymentMethodCard
+                paymentMethod={mapToCardData(method)}
+                isDeleting={deleting}
+                onSetDefault={handleSetDefault}
+                onDelete={handleDeleteClick}
+                showActions={true}
+              />
+            </div>
           );
         })}
       </div>

@@ -4,7 +4,7 @@ import { ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, Calendar, Clock } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
 interface BookingFlowProps {
@@ -22,7 +22,7 @@ interface BookingFlowProps {
   onConfirm?: () => void;
   isSubmitting?: boolean;
   canProceed?: boolean;
-  selectedSlot?: { startAt: string; endAt: string } | null;
+  selectedSlot?: { startAt: string; endAt: string; availableStaffIds?: string[] } | null;
 }
 
 export function BookingFlow({
@@ -30,7 +30,7 @@ export function BookingFlow({
   description,
   steps,
   currentStep,
-  onStepChange,
+  onStepChange: _onStepChange,
   onNext,
   onBack,
   onConfirm,

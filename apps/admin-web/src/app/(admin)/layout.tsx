@@ -311,14 +311,6 @@ function AdminLayoutContent({
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   
-  // #region agent log
-  useEffect(() => {
-    if (currentStaff) {
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'layout.tsx:214',message:'Current staff record before passing to dialog',data:{currentStaff:{id:currentStaff.id,role:currentStaff.role,status:currentStaff.status}},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    }
-  }, [currentStaff]);
-  // #endregion
-  
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };

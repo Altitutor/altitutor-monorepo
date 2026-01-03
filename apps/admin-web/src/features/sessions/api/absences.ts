@@ -118,7 +118,7 @@ export const absencesApi = {
   },
 
   /**
-   * Get available sessions for rescheduling based on criteria:
+   * Get available sessions for rescheduling using RPC function
    * - Future sessions (start_at > now)
    * - Same subject as original session
    * - Different class than original session
@@ -132,104 +132,60 @@ export const absencesApi = {
     const { originalSessionId, studentId, dateRangeDays } = params;
 
     try {
-      // First, get the original session details
-      const { data: originalSession, error: originalError } = await supabase
-        .from('sessions')
-        .select(`
-          *,
-          class:classes(
-            id,
-            subject_id,
-            subject:subjects(*)
-          )
-        `)
-        .eq('id', originalSessionId)
-        .single();
+      // Call RPC function to get available reschedule sessions
+      const { data, error } = await supabase.rpc('get_available_reschedule_sessions', {
+        p_original_session_id: originalSessionId,
+        p_student_id: studentId,
+        p_date_range_days: dateRangeDays,
+      });
 
-      if (originalError) throw originalError;
-      if (!originalSession || !originalSession.class?.subject_id) {
-        throw new Error('Original session not found or has no subject');
+      if (error) {
+        console.error('Error getting available reschedule sessions:', error);
+        throw error;
       }
 
-      const subjectId = originalSession.class.subject_id;
-      const originalDate = new Date(originalSession.start_at || '');
-      const now = new Date();
+      // RPC returns JSONB array, Supabase should parse it automatically
+      // Handle case where data might be null, undefined, or already parsed
+      if (!data) {
+        return [];
+      }
 
-      // Calculate date range
-      const startDate = new Date(originalDate);
-      startDate.setDate(startDate.getDate() - dateRangeDays);
-      const endDate = new Date(originalDate);
-      endDate.setDate(endDate.getDate() + dateRangeDays);
-
-      // Ensure start date is not in the past
-      const effectiveStartDate = startDate < now ? now : startDate;
-
-      // Get sessions with the same subject, different class, within date range
-      const { data: sessions, error: sessionsError } = await supabase
-        .from('sessions')
-        .select(`
-          *,
-          class:classes!inner(
-            *,
-            subject:subjects(*)
-          )
-        `)
-        .eq('class.subject_id', subjectId)
-        .neq('class_id', originalSession.class_id)
-        .gte('start_at', effectiveStartDate.toISOString())
-        .lte('start_at', endDate.toISOString())
-        .order('start_at', { ascending: true });
-
-      if (sessionsError) throw sessionsError;
-
-      // Get sessions where student is already enrolled (check ALL enrollments, not just planned_absence=false)
-      // This prevents duplicate key errors when trying to reschedule to a session the student is already in
-      const { data: existingEnrollments, error: enrollmentsError } = await supabase
-        .from('sessions_students')
-        .select('session_id')
-        .eq('student_id', studentId);
-        // Removed .eq('planned_absence', false) to check ALL enrollments
-
-      if (enrollmentsError) throw enrollmentsError;
-
-      const enrolledSessionIds = new Set(
-        (existingEnrollments || []).map((e) => e.session_id)
-      );
-
-      // Filter out sessions where student is already enrolled
-      const availableSessions: RescheduleSession[] = (sessions || [])
-        .filter((session: any) => !enrolledSessionIds.has(session.id))
-        .map((session: any) => {
-          // Count students in this session
-          return {
-            ...session,
-            class: session.class || null,
-            subject: session.class?.subject || null,
-          } as RescheduleSession;
-        });
-
-      // Get student counts for each session
-      if (availableSessions.length > 0) {
-        const sessionIds = availableSessions.map((s) => s.id);
-        const { data: studentCounts, error: countError } = await supabase
-          .from('sessions_students')
-          .select('session_id')
-          .in('session_id', sessionIds)
-          .eq('planned_absence', false);
-
-        if (!countError && studentCounts) {
-          const countsMap = studentCounts.reduce((acc: Record<string, number>, row) => {
-            acc[row.session_id] = (acc[row.session_id] || 0) + 1;
-            return acc;
-          }, {});
-
-          availableSessions.forEach((session) => {
-            session.studentCount = countsMap[session.id] || 0;
-          });
+      // If data is a string (unparsed JSONB), parse it
+      let sessions: any[] = [];
+      if (typeof data === 'string') {
+        try {
+          sessions = JSON.parse(data);
+        } catch (e) {
+          console.error('Error parsing RPC response:', e);
+          return [];
         }
+      } else if (Array.isArray(data)) {
+        sessions = data;
+      } else {
+        // If it's an object with an error, return empty array
+        if (data && typeof data === 'object' && 'error' in data) {
+          console.error('RPC returned error:', data.error);
+          return [];
+        }
+        return [];
       }
 
-      return availableSessions;
+      // Transform RPC response to RescheduleSession format
+      return sessions.map((session: any) => ({
+        id: session.id,
+        start_at: session.start_at,
+        end_at: session.end_at,
+        class_id: session.class_id,
+        type: session.type,
+        status: session.status,
+        billing_type: null,
+        subject_id: session.class?.subject_id || null,
+        created_at: session.created_at,
+        updated_at: session.updated_at,
+        class: session.class || null,
+        subject: session.subject || null,
+        studentCount: session.studentCount || 0,
+      })) as RescheduleSession[];
     } catch (error) {
       console.error('Error getting available reschedule sessions:', error);
       throw error;

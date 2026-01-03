@@ -11,20 +11,19 @@ import {
 } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { useStudentClasses } from '../hooks';
-import { cn, formatSubjectDisplay } from '@/shared/utils';
+import { cn } from '@/shared/utils';
 import { getSubjectCurriculumColor } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { Loader2 } from 'lucide-react';
 
 interface ClassesTableProps {
-  onClassClick?: (classId: string) => void;
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export function ClassesTable({ onClassClick }: ClassesTableProps) {
+export function ClassesTable({}: ClassesTableProps) {
   const { data: classes, isLoading, error } = useStudentClasses();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm] = useState('');
 
   if (isLoading) {
     return (
@@ -69,30 +68,40 @@ export function ClassesTable({ onClassClick }: ClassesTableProps) {
             <TableHead>Time</TableHead>
             <TableHead>Subject</TableHead>
             <TableHead>Room</TableHead>
-            <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredClasses.map((classItem) => (
-            <TableRow 
-              key={classItem.enrollment_id || ''}
-              className={cn(
-                "cursor-pointer",
-                onClassClick && "hover:bg-muted/50"
-              )}
-              onClick={() => classItem.class_id && onClassClick?.(classItem.class_id)}
-            >
-              <TableCell className="font-medium">
-                {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
-              </TableCell>
-              <TableCell>
-                {classItem.start_time && classItem.end_time 
-                  ? `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
-                  : '-'
-                }
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
+          {filteredClasses.map((classItem) => {
+            // Format subject as {curriculum} {year_level} {name} {level}
+            const subjectParts: string[] = [];
+            if (classItem.subject_curriculum) {
+              subjectParts.push(classItem.subject_curriculum);
+            }
+            if (classItem.subject_year_level !== null && classItem.subject_year_level !== undefined) {
+              subjectParts.push(String(classItem.subject_year_level));
+            }
+            if (classItem.subject_name) {
+              subjectParts.push(classItem.subject_name);
+            }
+            if (classItem.class_level) {
+              subjectParts.push(classItem.class_level);
+            }
+            const subjectDisplay = subjectParts.join(' ') || '-';
+
+            return (
+              <TableRow 
+                key={classItem.enrollment_id || ''}
+              >
+                <TableCell className="font-medium">
+                  {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
+                </TableCell>
+                <TableCell>
+                  {classItem.start_time && classItem.end_time 
+                    ? `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
+                    : '-'
+                  }
+                </TableCell>
+                <TableCell>
                   <Badge
                     variant="outline"
                     className={cn(
@@ -100,21 +109,13 @@ export function ClassesTable({ onClassClick }: ClassesTableProps) {
                       getSubjectCurriculumColor(classItem.subject_curriculum)
                     )}
                   >
-                    {classItem.subject_curriculum}
+                    {subjectDisplay}
                   </Badge>
-                  <span>{classItem.subject_name}</span>
-                </div>
-              </TableCell>
-              <TableCell>{classItem.room || '-'}</TableCell>
-              <TableCell>
-                <Badge
-                  variant={classItem.enrollment_status === 'ACTIVE' ? 'default' : 'secondary'}
-                >
-                  {classItem.enrollment_status}
-                </Badge>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+                <TableCell>{classItem.room || '-'}</TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

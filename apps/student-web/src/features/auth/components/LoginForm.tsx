@@ -86,7 +86,7 @@ export function LoginForm() {
         </div>
         <h1 className="text-2xl font-bold">Welcome Back</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          Sign in to access your admin dashboard
+          Sign in to access your Student Dashboard
         </p>
       </div>
 

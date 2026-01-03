@@ -163,12 +163,6 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             const cls: any = (data as any)?.classesById?.[s.class_id];
                             const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
                             const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                            // #region agent log
-                            const elliotStudent = sessionStudents.find((st: any) => st.first_name === 'Elliot' && st.last_name === 'Koh');
-                            if (elliotStudent) {
-                              fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SessionsCalendarView.tsx:175',message:'Elliot Koh in SessionsCalendarView',data:{is_extra:elliotStudent.is_extra,is_extra_type:typeof elliotStudent.is_extra,student:elliotStudent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                            }
-                            // #endregion
                             const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
                             // Calculate actual pixel dimensions for smart sizing

@@ -26,6 +26,7 @@ import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
 import type { UseFormReturn } from 'react-hook-form';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
+import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 
 export interface BookSessionModalProps {
   isOpen: boolean;
@@ -57,40 +58,14 @@ export function BookSessionModal({
   
   // Track form validity state for reactive updates
   const [trialFormValid, setTrialFormValid] = useState(false);
-  
-  // Watch form values to trigger validity check
-  const watchedFirstName = trialContactFormRef?.watch('student_first_name');
-  const watchedLastName = trialContactFormRef?.watch('student_last_name');
-  const watchedEmail = trialContactFormRef?.watch('student_email');
-  const watchedPhone = trialContactFormRef?.watch('student_phone');
-  const watchedCurriculum = trialContactFormRef?.watch('curriculum');
-  const watchedSubjectIds = trialContactFormRef?.watch('subject_ids');
-  const formIsValid = trialContactFormRef?.formState.isValid ?? false;
-  
-  useEffect(() => {
-    if (trialContactFormRef) {
-      // Check validity whenever watched values change
-      const formValues = trialContactFormRef.getValues();
-      const isValid = 
-        !!formValues.student_first_name &&
-        !!formValues.student_last_name &&
-        !!formValues.student_email &&
-        !!formValues.student_phone &&
-        !!formValues.curriculum &&
-        !!formValues.subject_ids &&
-        formValues.subject_ids.length > 0 &&
-        formIsValid;
-      setTrialFormValid(isValid);
-    } else {
-      setTrialFormValid(false);
-    }
-  }, [trialContactFormRef, watchedFirstName, watchedLastName, watchedEmail, watchedPhone, watchedCurriculum, watchedSubjectIds, formIsValid]);
 
-  // Search students
+  // Search students - filter by status for drafting sessions (only active students)
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
-    queryKey: ['students', 'search', studentSearch],
+    queryKey: ['students', 'search', studentSearch, sessionType],
     queryFn: async () => {
-      const result = await studentsApi.searchStudents(studentSearch);
+      // For drafting sessions, only show active students (status = 'ACTIVE')
+      const statuses = sessionType === 'DRAFTING' ? (['ACTIVE'] as Tables<'students'>['status'][]) : undefined;
+      const result = await studentsApi.searchStudents(studentSearch, statuses);
       return result;
     },
     enabled: isOpen && studentSearch.length >= 2,
@@ -262,7 +237,8 @@ export function BookSessionModal({
 
     // For trial-contact step, validate form and show errors if invalid
     if (currentStepId === 'trial-contact' && trialContactFormRef) {
-      const isValid = await trialContactFormRef.trigger();
+      // Trigger validation only on required fields
+      const isValid = await trialContactFormRef.trigger(['student_first_name', 'student_last_name', 'student_phone']);
       if (!isValid) {
         // Form is invalid - errors will be shown on individual fields via FormMessage
         // Also show a toast with summary
@@ -275,20 +251,8 @@ export function BookSessionModal({
         if (errors.student_last_name) {
           errorMessages.push('Student last name is required');
         }
-        if (errors.student_email) {
-          errorMessages.push(`Student email: ${errors.student_email.message || 'is invalid'}`);
-        }
         if (errors.student_phone) {
           errorMessages.push('Student phone number is required');
-        }
-        if (errors.curriculum) {
-          errorMessages.push('Please select a curriculum');
-        }
-        if (errors.subject_ids) {
-          errorMessages.push(`Subjects: ${errors.subject_ids.message || 'Please select at least one subject'}`);
-        }
-        if (errors.parent_email && !trialContactFormRef.getValues('skip_parent_details')) {
-          errorMessages.push(`Parent email: ${errors.parent_email.message || 'is invalid'}`);
         }
         
         if (errorMessages.length > 0) {
@@ -396,9 +360,9 @@ export function BookSessionModal({
           id: crypto.randomUUID(),
           first_name: trialContactData.student_first_name,
           last_name: trialContactData.student_last_name,
-          email: trialContactData.student_email,
+          email: trialContactData.student_email || null,
           phone: trialContactData.student_phone,
-          curriculum: trialContactData.curriculum,
+          curriculum: trialContactData.curriculum || null,
           year_level: trialContactData.year_level ? (trialContactData.year_level === 'Reception' ? 0 : parseInt(trialContactData.year_level, 10)) : null,
           status: 'TRIAL',
           created_at: null,
@@ -412,8 +376,8 @@ export function BookSessionModal({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const createdStudent = await createStudent.mutateAsync(studentData as any);
 
-        // Assign subjects
-        if (trialContactData.subject_ids.length > 0) {
+        // Assign subjects if provided
+        if (trialContactData.subject_ids && trialContactData.subject_ids.length > 0) {
           await Promise.all(
             trialContactData.subject_ids.map((subjectId) =>
               studentsApi.assignSubjectToStudent(createdStudent.id, subjectId)
@@ -565,6 +529,7 @@ export function BookSessionModal({
             onSubmit={handleTrialContactSubmit}
             defaultValues={trialContactData || undefined}
             onFormReady={setTrialContactFormRef}
+            onValidityChange={setTrialFormValid}
           />
         );
 
@@ -576,23 +541,41 @@ export function BookSessionModal({
                 <p className="text-sm text-muted-foreground">
                   Choose the subject for the drafting session
                 </p>
-                {studentSubjects && studentSubjects.length > 0 ? (
-                  <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {studentSubjects.map((subject) => (
-                        <SelectItem key={subject.id} value={subject.id}>
-                          {formatSubjectDisplay(subject)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>Student has no subjects assigned. Please assign subjects first.</p>
+                {selectedSubjectId ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 p-3 border rounded-md bg-muted/50">
+                      {(() => {
+                        // Check student subjects first, then all subjects
+                        const subject = studentSubjects?.find((s) => s.id === selectedSubjectId) ||
+                                       subjects?.find((s) => s.id === selectedSubjectId);
+                        return subject ? formatSubjectDisplay(subject) : 'Unknown subject';
+                      })()}
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedSubjectId('')}
+                    >
+                      Change
+                    </Button>
                   </div>
+                ) : (
+                  <SubjectSearchPopover
+                    selectedSubjects={[]}
+                    onSelectSubject={(subject) => setSelectedSubjectId(subject.id)}
+                    initialSubjects={studentSubjects || []}
+                    trigger={
+                      <Button variant="outline" className="w-full justify-start">
+                        {studentSubjects && studentSubjects.length > 0
+                          ? 'Select subject (shows student subjects, type to search all)'
+                          : 'Select subject'}
+                      </Button>
+                    }
+                  />
+                )}
+                {studentSubjects && studentSubjects.length === 0 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Student has no subjects assigned. You can still search and select any subject.
+                  </p>
                 )}
               </>
             ) : (
@@ -668,28 +651,108 @@ export function BookSessionModal({
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Booking Details</h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    <div className="text-sm font-medium text-muted-foreground">Student:</div>
-                    <div className="text-sm">
-                      {selectedStudentId
-                        ? (() => {
-                            const student = studentsData?.find((s) => s.id === selectedStudentId);
-                            return student ? formatStudentDisplay(student) : 'Unknown';
-                          })()
-                        : trialContactData
-                        ? `${trialContactData.student_first_name} ${trialContactData.student_last_name}`
-                        : 'Unknown'}
-                    </div>
-                    
-                    {selectedSubjectId && (() => {
-                      const subjectList = sessionType === 'DRAFTING' ? studentSubjects : subjects;
-                      const subject = subjectList?.find((s) => s.id === selectedSubjectId);
-                      return subject ? (
-                        <>
-                          <div className="text-sm font-medium text-muted-foreground">Subject:</div>
-                          <div className="text-sm">{formatSubjectDisplay(subject)}</div>
-                        </>
-                      ) : null;
-                    })()}
+                    {sessionType === 'TRIAL_SESSION' && trialContactData ? (
+                      <>
+                        {/* Show all student details for trial session */}
+                        <div className="text-sm font-medium text-muted-foreground">First Name:</div>
+                        <div className="text-sm">{trialContactData.student_first_name}</div>
+                        
+                        <div className="text-sm font-medium text-muted-foreground">Last Name:</div>
+                        <div className="text-sm">{trialContactData.student_last_name}</div>
+                        
+                        {trialContactData.student_email && (
+                          <>
+                            <div className="text-sm font-medium text-muted-foreground">Email:</div>
+                            <div className="text-sm">{trialContactData.student_email}</div>
+                          </>
+                        )}
+                        
+                        <div className="text-sm font-medium text-muted-foreground">Phone:</div>
+                        <div className="text-sm">{trialContactData.student_phone}</div>
+                        
+                        {trialContactData.curriculum && (
+                          <>
+                            <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
+                            <div className="text-sm">{trialContactData.curriculum}</div>
+                          </>
+                        )}
+                        
+                        {trialContactData.year_level && (
+                          <>
+                            <div className="text-sm font-medium text-muted-foreground">Year Level:</div>
+                            <div className="text-sm">{trialContactData.year_level}</div>
+                          </>
+                        )}
+                        
+                        {trialContactData.subject_ids && trialContactData.subject_ids.length > 0 && subjects && (
+                          <>
+                            <div className="text-sm font-medium text-muted-foreground">Subjects:</div>
+                            <div className="text-sm">
+                              {trialContactData.subject_ids
+                                .map((id) => {
+                                  const subject = subjects.find((s) => s.id === id);
+                                  return subject ? formatSubjectDisplay(subject) : null;
+                                })
+                                .filter(Boolean)
+                                .join(', ')}
+                            </div>
+                          </>
+                        )}
+                        
+                        {!trialContactData.skip_parent_details && (
+                          <>
+                            {trialContactData.parent_first_name && (
+                              <>
+                                <div className="text-sm font-medium text-muted-foreground">Parent First Name:</div>
+                                <div className="text-sm">{trialContactData.parent_first_name}</div>
+                              </>
+                            )}
+                            {trialContactData.parent_last_name && (
+                              <>
+                                <div className="text-sm font-medium text-muted-foreground">Parent Last Name:</div>
+                                <div className="text-sm">{trialContactData.parent_last_name}</div>
+                              </>
+                            )}
+                            {trialContactData.parent_email && (
+                              <>
+                                <div className="text-sm font-medium text-muted-foreground">Parent Email:</div>
+                                <div className="text-sm">{trialContactData.parent_email}</div>
+                              </>
+                            )}
+                            {trialContactData.parent_phone && (
+                              <>
+                                <div className="text-sm font-medium text-muted-foreground">Parent Phone:</div>
+                                <div className="text-sm">{trialContactData.parent_phone}</div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Existing student display */}
+                        <div className="text-sm font-medium text-muted-foreground">Student:</div>
+                        <div className="text-sm">
+                          {selectedStudentId
+                            ? (() => {
+                                const student = studentsData?.find((s) => s.id === selectedStudentId);
+                                return student ? formatStudentDisplay(student) : 'Unknown';
+                              })()
+                            : 'Unknown'}
+                        </div>
+                        
+                        {selectedSubjectId && (() => {
+                          const subjectList = sessionType === 'DRAFTING' ? studentSubjects : subjects;
+                          const subject = subjectList?.find((s) => s.id === selectedSubjectId);
+                          return subject ? (
+                            <>
+                              <div className="text-sm font-medium text-muted-foreground">Subject:</div>
+                              <div className="text-sm">{formatSubjectDisplay(subject)}</div>
+                            </>
+                          ) : null;
+                        })()}
+                      </>
+                    )}
                     
                     <div className="text-sm font-medium text-muted-foreground">Date & Time:</div>
                     <div className="text-sm">

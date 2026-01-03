@@ -31,12 +31,23 @@ export const billingApi = {
   /**
    * Get invoices history
    * Uses vstudent_invoices view which follows the vstudent_* pattern
+   * Supports optional date range filtering
    */
-  getInvoices: async (): Promise<Invoice[]> => {
+  getInvoices: async (params?: { from?: string; to?: string }): Promise<Invoice[]> => {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
+    let query = supabase
       .from('vstudent_invoices')
-      .select('*')
+      .select('*');
+    
+    // Apply date range filters if provided
+    if (params?.from) {
+      query = query.gte('invoice_date', params.from);
+    }
+    if (params?.to) {
+      query = query.lte('invoice_date', params.to);
+    }
+    
+    const { data, error } = await query
       .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false });
     
@@ -61,9 +72,10 @@ export const billingApi = {
 
   /**
    * Get invoices with their items
+   * Supports optional date range filtering
    */
-  getInvoicesWithItems: async (): Promise<InvoiceWithItems[]> => {
-    const invoices = await billingApi.getInvoices();
+  getInvoicesWithItems: async (params?: { from?: string; to?: string }): Promise<InvoiceWithItems[]> => {
+    const invoices = await billingApi.getInvoices(params);
     const invoicesWithItems = await Promise.all(
       invoices
         .filter((invoice) => invoice.id != null) // Filter out invoices without IDs

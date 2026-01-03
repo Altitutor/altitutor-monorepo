@@ -13,10 +13,6 @@ export function PaymentMethodCard() {
   const { data: profile } = useProfile();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:12',message:'Component render',data:{isLoading,hasBilling:!!billing,hasProfile:!!profile,billingKeys:billing?Object.keys(billing):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
-  // #endregion
-
   // Get student ID from billing view (primary) or profile view (fallback)
   // Both views return the student_id, so we should always have it once data loads
   const studentId = billing?.student_id || profile?.id;
@@ -29,10 +25,6 @@ export function PaymentMethodCard() {
     );
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:28',message:'Before parsing payment_methods',data:{hasBilling:!!billing,hasPaymentMethodsField:!!billing?.payment_methods,paymentMethodsType:billing?.payment_methods?typeof billing.payment_methods:null,isArray:Array.isArray(billing?.payment_methods),paymentMethodsPreview:billing?.payment_methods?JSON.stringify(billing.payment_methods).substring(0,300):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,C'})}).catch(()=>{});
-  // #endregion
-
   // Handle payment_methods - should already be transformed to array by API layer
   const paymentMethods = billing?.payment_methods ?? [];
   
@@ -41,10 +33,6 @@ export function PaymentMethodCard() {
     console.log('[PaymentMethodCard] Billing data:', billing);
     console.log('[PaymentMethodCard] Payment methods:', paymentMethods);
   }
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PaymentMethodCard.tsx:58',message:'Final payment methods state',data:{finalLength:paymentMethods.length,hasPaymentMethods:paymentMethods.length>0,studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'})}).catch(()=>{});
-  // #endregion
   
   const hasPaymentMethods = paymentMethods.length > 0;
 

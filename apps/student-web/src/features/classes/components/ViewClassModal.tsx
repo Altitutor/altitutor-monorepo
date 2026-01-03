@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@alti
 import { Loader2, Calendar, Clock, MapPin, User } from 'lucide-react';
 import { useClassDetails, useClassSessions } from '../hooks';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
-import { formatDate, formatDateTime } from '@/shared/utils';
+import { formatDateTime } from '@/shared/utils';
 import { getSubjectCurriculumColor } from '@/shared/utils';
 import { cn } from '@/shared/utils';
 

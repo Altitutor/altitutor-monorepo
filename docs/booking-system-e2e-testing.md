@@ -193,7 +193,7 @@ SELECT * FROM slot_reservations WHERE expires_at > NOW(); -- Should not include 
 
 #### Test Case 2: Trial Session Booking
 
-1. **Navigate to `/book-trial`**
+1. **Navigate to `/booking/trial-session`**
    - Verify page loads
 
 2. **Step 1: Select Subject (Optional)**

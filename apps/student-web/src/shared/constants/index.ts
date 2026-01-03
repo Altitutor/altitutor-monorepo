@@ -26,4 +26,15 @@ export const DATE_FORMAT = 'dd MMM yyyy';
 export const DATE_TIME_FORMAT = 'dd MMM yyyy HH:mm';
 
 // Theme
-export const THEME_LOCAL_STORAGE_KEY = 'altitutor-theme'; 
+export const THEME_LOCAL_STORAGE_KEY = 'altitutor-theme';
+
+// Venue information
+export const VENUE_ADDRESS = 'Level 1 / 17A Solomon St, Adelaide SA 5000, Australia';
+export const VENUE_COORDINATES = {
+  lat: -34.924080,
+  lng: 138.596008,
+};
+
+// Contact information
+export const CONTACT_PHONE = '+61 483 849 842';
+export const CONTACT_EMAIL = 'admin@altitutor.com'; 

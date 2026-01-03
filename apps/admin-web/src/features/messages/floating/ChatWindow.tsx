@@ -65,7 +65,7 @@ export function ChatWindow({ descriptor }: Props) {
 
   return (
     <div 
-      className={`w-[320px] shadow-lg rounded-md border bg-background dark:bg-brand-dark-card overflow-hidden ${descriptor.minimized ? 'h-auto' : ''}`}
+      className={`w-[calc(100vw-2rem)] max-w-[320px] shadow-lg rounded-md border bg-background dark:bg-brand-dark-card overflow-hidden ${descriptor.minimized ? 'h-auto' : ''}`}
       onClick={(e) => {
         // If minimized and clicked anywhere except buttons, expand it
         if (descriptor.minimized && !(e.target as HTMLElement).closest('button')) {
@@ -106,7 +106,7 @@ export function ChatWindow({ descriptor }: Props) {
         </div>
       </div>
       {!descriptor.minimized && (
-        <div className="flex flex-col h-[380px]">
+        <div className="flex flex-col h-[380px] max-h-[calc(100vh-8rem)]">
           <MessageThread conversationId={descriptor.conversationId} />
           <Composer conversationId={descriptor.conversationId} />
         </div>

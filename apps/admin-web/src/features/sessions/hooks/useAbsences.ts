@@ -28,8 +28,17 @@ export function useStudentFutureSessions(studentId: string | null, weeksAhead: n
  * Hook to get available reschedule sessions
  */
 export function useAvailableRescheduleSessions(params: GetRescheduleSessionsParams | null) {
+  // Use individual values in query key instead of object to ensure stability
+  // This prevents React Query from treating it as a new query when object reference changes
+  const queryKey = [
+    'availableRescheduleSessions',
+    params?.originalSessionId,
+    params?.studentId,
+    params?.dateRangeDays,
+  ];
+  
   return useQuery<RescheduleSession[], Error>({
-    queryKey: ['availableRescheduleSessions', params],
+    queryKey: queryKey,
     queryFn: () => {
       if (!params) throw new Error('Parameters are required');
       return absencesApi.getAvailableRescheduleSessions(params);

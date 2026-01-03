@@ -9,17 +9,29 @@ export function useBilling() {
   });
 }
 
-export function useInvoices() {
+export function useInvoices(params?: { from?: string; to?: string }) {
+  // Use individual values in query key instead of object to ensure stability
+  // This prevents React Query from treating it as a new query when object reference changes
+  const from = params?.from;
+  const to = params?.to;
+  const queryKey = ['student', 'invoices', from, to];
+  
   return useQuery<Invoice[]>({
-    queryKey: ['student', 'invoices'],
-    queryFn: billingApi.getInvoices,
+    queryKey: queryKey,
+    queryFn: () => billingApi.getInvoices(params),
   });
 }
 
-export function useInvoicesWithItems() {
+export function useInvoicesWithItems(params?: { from?: string; to?: string }) {
+  // Use individual values in query key instead of object to ensure stability
+  // This prevents React Query from treating it as a new query when object reference changes
+  const from = params?.from;
+  const to = params?.to;
+  const queryKey = ['student', 'invoices', 'with-items', from, to];
+  
   return useQuery<InvoiceWithItems[]>({
-    queryKey: ['student', 'invoices', 'with-items'],
-    queryFn: billingApi.getInvoicesWithItems,
+    queryKey: queryKey,
+    queryFn: () => billingApi.getInvoicesWithItems(params),
   });
 }
 

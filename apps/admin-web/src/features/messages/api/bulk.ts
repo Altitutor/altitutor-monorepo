@@ -2,6 +2,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatClassShortName, formatClassName } from '@/shared/utils';
+import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
 /**
  * Search active students by name and classes
@@ -167,9 +168,9 @@ export async function getStudentsByYearLevel(yearLevel: number): Promise<Tables<
 export async function getStudentsBySessionDate(date: string): Promise<Tables<'students'>[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   
-  // Query sessions on this date
-  const startIso = `${date}T00:00:00Z`;
-  const endIso = `${date}T23:59:59Z`;
+  // Query sessions on this date (interpret date as local timezone and convert to UTC)
+  const startIso = dateStringToUtcStart(date);
+  const endIso = dateStringToUtcEnd(date);
   
   const { data: sessions, error: sessionsError } = await supabase
     .from('sessions')

@@ -27,7 +27,7 @@ export function QuickActionsMenu() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="w-16 h-16 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 transition-transform"
+            className="w-16 h-16 rounded-full bg-accent text-accent-foreground dark:text-gray-900 flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 transition-transform"
             title="Quick Actions"
             aria-label="Quick Actions"
           >

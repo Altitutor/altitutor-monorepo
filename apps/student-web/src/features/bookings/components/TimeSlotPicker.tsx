@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, addDays, startOfWeek, eachDayOfInterval, isSameDay, parseISO, isBefore, isPast } from 'date-fns';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
 import type { GetAvailableSlotsParams, AvailableSlot } from '../api/availability';
 import { cn } from '@/shared/utils';
+import { CONTACT_PHONE } from '@/shared/constants';
 
 interface TimeSlotPickerProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
   subjectId?: string;
   durationMinutes?: number;
-  onSlotSelect: (startAt: string, endAt: string) => void;
+  onSlotSelect: (startAt: string, endAt: string, availableStaffIds: string[]) => void;
   selectedSlot?: { startAt: string; endAt: string } | null;
   className?: string;
   allowAnonymous?: boolean; // Skip reservations for anonymous users
@@ -25,7 +26,7 @@ export function TimeSlotPicker({
   onSlotSelect,
   selectedSlot,
   className,
-  allowAnonymous = false,
+  allowAnonymous: _allowAnonymous = false,
 }: TimeSlotPickerProps) {
   // Calculate minimum booking date (today + 1 day minimum advance, can be configured)
   // For now, we'll use 1 day minimum - this should match the database setting
@@ -67,6 +68,43 @@ export function TimeSlotPicker({
 
   const { data: slots, isLoading } = useAvailableSlots(params);
 
+  // Check for slots in a wider range (next 12 weeks) to determine if any slots exist
+  const wideRangeParams: GetAvailableSlotsParams = {
+    start_date: format(minBookingDate, 'yyyy-MM-dd'),
+    end_date: format(addDays(minBookingDate, 84), 'yyyy-MM-dd'), // 12 weeks
+    session_type: sessionType,
+    subject_id: subjectId,
+    duration_minutes: durationMinutes,
+  };
+  const { data: allSlots } = useAvailableSlots(wideRangeParams);
+
+  // Auto-jump to first week with slots
+  useEffect(() => {
+    if (!isLoading && allSlots && currentWeekStart.getTime() === minBookingWeekStart.getTime()) {
+      // Find the first week with available slots
+      const allAvailableSlots = allSlots.filter(slot => {
+        const slotDate = parseISO(slot.start_at);
+        return slot.is_available && slot.available_staff_ids.length > 0 && !isPast(slotDate);
+      });
+
+      if (allAvailableSlots.length > 0) {
+        // Find the earliest slot
+        const earliestSlot = allAvailableSlots.reduce((earliest, current) => {
+          return parseISO(current.start_at) < parseISO(earliest.start_at) ? current : earliest;
+        });
+
+        const earliestSlotDate = parseISO(earliestSlot.start_at);
+        const earliestWeekStart = startOfWeek(earliestSlotDate, { weekStartsOn: 1 });
+        
+        // Only jump if it's different from current week
+        if (earliestWeekStart.getTime() !== currentWeekStart.getTime()) {
+          setCurrentWeekStart(earliestWeekStart);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, allSlots]);
+
   // Group slots by date and filter out past slots
   const slotsByDate = useMemo(() => {
     const grouped: Record<string, AvailableSlot[]> = {};
@@ -88,6 +126,15 @@ export function TimeSlotPicker({
     return grouped;
   }, [slots]);
 
+  // Check if there are any slots ever available
+  const hasAnySlots = useMemo(() => {
+    if (!allSlots) return true; // Assume slots exist while loading
+    return allSlots.some(slot => {
+      const slotDate = parseISO(slot.start_at);
+      return slot.is_available && slot.available_staff_ids.length > 0 && !isPast(slotDate);
+    });
+  }, [allSlots]);
+
   const handleSlotClick = (slot: AvailableSlot) => {
     if (!slot.is_available || slot.available_staff_ids.length === 0) {
       return;
@@ -95,7 +142,7 @@ export function TimeSlotPicker({
 
     // Just select the slot, don't auto-proceed
     // The parent component will handle proceeding when "Next" is clicked
-    onSlotSelect(slot.start_at, slot.end_at);
+    onSlotSelect(slot.start_at, slot.end_at, slot.available_staff_ids);
   };
 
   const formatTime = (isoString: string) => {
@@ -139,6 +186,18 @@ export function TimeSlotPicker({
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : !hasAnySlots ? (
+        <div className="text-center py-12 space-y-4">
+          <p className="text-muted-foreground">
+            No slots available at the moment.
+          </p>
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Contact us</p>
+            <a href={`tel:${CONTACT_PHONE}`} className="text-sm font-medium hover:underline">
+              {CONTACT_PHONE}
+            </a>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-7 gap-2">

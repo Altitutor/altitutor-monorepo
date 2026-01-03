@@ -1,0 +1,117 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@altitutor/shared';
+
+// Mark this route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get('token');
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Missing token parameter' },
+        { status: 400 }
+      );
+    }
+
+    // Use service role client to bypass RLS (this is a public endpoint for registration validation)
+    const supabaseAdmin = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Check if token exists in students table
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from('students')
+      .select('id, first_name, last_name, email, phone, school, curriculum, year_level, status, user_id, invite_token')
+      .eq('invite_token', token)
+      .maybeSingle();
+
+    if (studentError) {
+      console.error('Error fetching student:', studentError);
+      return NextResponse.json(
+        { error: 'Failed to validate token', details: studentError.message },
+        { status: 500 }
+      );
+    }
+
+    if (!student) {
+      return NextResponse.json(
+        { valid: false, error: 'Invalid or expired token' },
+        { status: 404 }
+      );
+    }
+
+    // Check if student already has an account or is already ACTIVE
+    if (student.user_id || student.status === 'ACTIVE') {
+      return NextResponse.json({
+        valid: false,
+        alreadyRegistered: true,
+        error: 'This student already has an account',
+      }, { status: 200 });
+    }
+
+    // Fetch parents linked to this student
+    const { data: parentsData, error: parentsError } = await supabaseAdmin
+      .from('parents_students')
+      .select('parent_id, parents(id, first_name, last_name, email, phone)')
+      .eq('student_id', student.id);
+
+    const parents = parentsData
+      ?.map((ps: any) => ps.parents)
+      .filter((p: any) => p !== null) || [];
+
+    // Fetch subjects for this student
+    const { data: subjectsData, error: subjectsError } = await supabaseAdmin
+      .from('students_subjects')
+      .select('subject_id, subjects(id, name, year_level, curriculum, color)')
+      .eq('student_id', student.id);
+
+    const subjects = subjectsData
+      ?.map((item: any) => item.subjects)
+      .filter((s: any) => s !== null) || [];
+
+    return NextResponse.json({
+      valid: true,
+      alreadyRegistered: false,
+      student: {
+        id: student.id,
+        first_name: student.first_name,
+        last_name: student.last_name,
+        email: student.email || '',
+        phone: student.phone || '',
+        school: student.school || '',
+        curriculum: student.curriculum || '',
+        year_level: student.year_level || null,
+      },
+      parents: parents.map((p: any) => ({
+        id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        email: p.email || '',
+        phone: p.phone || '',
+      })),
+      subjects: subjects.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        year_level: s.year_level,
+        curriculum: s.curriculum,
+        color: s.color,
+      })),
+    }, { status: 200 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { status: 500 }
+    );
+  }
+}
