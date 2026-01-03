@@ -14,6 +14,7 @@ interface SubjectSearchPopoverProps {
   onSelectSubject: (subject: Tables<'subjects'>) => void;
   trigger?: React.ReactNode;
   align?: 'start' | 'center' | 'end';
+  initialSubjects?: Tables<'subjects'>[]; // Subjects to show initially when search is empty
 }
 
 export function SubjectSearchPopover({
@@ -21,6 +22,7 @@ export function SubjectSearchPopover({
   onSelectSubject,
   trigger,
   align = 'end',
+  initialSubjects = [],
 }: SubjectSearchPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,16 +39,21 @@ export function SubjectSearchPopover({
 
     const timeoutId = setTimeout(async () => {
       if (searchQuery.trim().length === 0) {
-        // If no search query, get all subjects (first page)
-        setIsSearching(true);
-        try {
-          const { subjects } = await subjectsApi.list({ limit: 100, offset: 0 });
-          setSearchResults(subjects);
-        } catch (error) {
-          console.error('Error fetching subjects:', error);
-          setSearchResults([]);
-        } finally {
+        // If no search query and initialSubjects provided, use those; otherwise get all subjects
+        if (initialSubjects.length > 0) {
+          setSearchResults(initialSubjects);
           setIsSearching(false);
+        } else {
+          setIsSearching(true);
+          try {
+            const { subjects } = await subjectsApi.list({ limit: 100, offset: 0 });
+            setSearchResults(subjects);
+          } catch (error) {
+            console.error('Error fetching subjects:', error);
+            setSearchResults([]);
+          } finally {
+            setIsSearching(false);
+          }
         }
       } else {
         // Search with query
@@ -68,7 +75,7 @@ export function SubjectSearchPopover({
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, isOpen]);
+  }, [searchQuery, isOpen, initialSubjects]);
 
   const handleSelectSubject = (subject: Tables<'subjects'>) => {
     onSelectSubject(subject);

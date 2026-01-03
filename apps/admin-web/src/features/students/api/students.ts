@@ -405,7 +405,7 @@ export const studentsApi = {
    * Search students by name, email, or status
    * Uses server-side RPC search to avoid pagination limits
    */
-  searchStudents: async (query: string): Promise<Tables<'students'>[]> => {
+  searchStudents: async (query: string, statuses?: Tables<'students'>['status'][]): Promise<Tables<'students'>[]> => {
     try {
       const trimmed = query.trim();
       if (!trimmed) return [];
@@ -413,15 +413,24 @@ export const studentsApi = {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
       // Use server-side search function to avoid pagination limits
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+      // Build params object - only include p_statuses if we want to filter by status
+      // If omitted, RPC will use default ARRAY['ACTIVE', 'TRIAL']
+      const rpcParams: Record<string, unknown> = {
         p_search: trimmed,
-        p_statuses: undefined, // Search all statuses
         p_include_relationships: false,
         p_limit: 1000, // Reasonable limit for search results
         p_offset: 0,
         p_order_by: 'last_name',
         p_ascending: true,
-      });
+      };
+      
+      // Only add p_statuses if we want to filter (for drafting sessions, filter to ACTIVE only)
+      // If omitted, RPC uses default which includes ACTIVE and TRIAL
+      if (statuses && statuses.length > 0) {
+        rpcParams.p_statuses = statuses;
+      }
+      
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', rpcParams);
 
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];

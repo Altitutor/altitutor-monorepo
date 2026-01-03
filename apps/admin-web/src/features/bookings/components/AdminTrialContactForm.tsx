@@ -211,13 +211,31 @@ export function AdminTrialContactForm({
     }
   }, [form, onFormReady]);
 
-  // Watch form validity
-  const isValid = form.formState.isValid;
+  // Watch form validity - only check required fields (first_name, last_name, phone)
+  const watchedFirstName = form.watch('student_first_name');
+  const watchedLastName = form.watch('student_last_name');
+  const watchedPhone = form.watch('student_phone');
+  const errors = form.formState.errors;
+  const isValidRequiredFields = useMemo(() => {
+    const firstName = watchedFirstName?.trim() || '';
+    const lastName = watchedLastName?.trim() || '';
+    const phone = watchedPhone?.trim() || '';
+    
+    return (
+      firstName.length > 0 &&
+      !errors.student_first_name &&
+      lastName.length > 0 &&
+      !errors.student_last_name &&
+      phone.length > 0 &&
+      !errors.student_phone
+    );
+  }, [watchedFirstName, watchedLastName, watchedPhone, errors]);
+  
   useEffect(() => {
     if (onValidityChange) {
-      onValidityChange(isValid);
+      onValidityChange(isValidRequiredFields);
     }
-  }, [isValid, onValidityChange]);
+  }, [isValidRequiredFields, onValidityChange]);
 
   // Notify parent of selected subjects changes
   useEffect(() => {
