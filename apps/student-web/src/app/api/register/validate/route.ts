@@ -51,14 +51,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if student already has an account or is already ACTIVE
-    if (student.user_id || student.status === 'ACTIVE') {
+    // Check if student is already fully registered (has account AND status is ACTIVE)
+    if (student.user_id && student.status === 'ACTIVE') {
       return NextResponse.json({
         valid: false,
         alreadyRegistered: true,
-        error: 'This student already has an account',
+        error: 'This student is already fully registered',
       }, { status: 200 });
     }
+    
+    // If student has account but hasn't registered (status != ACTIVE), allow registration
+    // The registration flow will skip password creation since they already have an account
+    const hasAccount = !!student.user_id;
+    const skipPassword = hasAccount; // Skip password if they already have an account
 
     // Fetch parents linked to this student
     const { data: parentsData, error: parentsError } = await supabaseAdmin
@@ -83,6 +88,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       valid: true,
       alreadyRegistered: false,
+      hasAccount, // Indicate if student already has an account (skip password step)
+      skipPassword, // Flag to skip password creation in registration flow
       student: {
         id: student.id,
         first_name: student.first_name,

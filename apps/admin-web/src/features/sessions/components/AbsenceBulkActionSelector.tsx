@@ -2,10 +2,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { RadioGroup, RadioGroupItem, Label, Button } from '@altitutor/ui';
-import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import type { AbsenceAction, RescheduleSession, StudentSession } from '../types/absence';
 import { useAvailableRescheduleSessions } from '../hooks';
-import { ArrowRight, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, X } from 'lucide-react';
 import { WeekViewCalendar } from './WeekViewCalendar';
 import { SessionsCard } from './SessionsCard';
 import type { Tables } from '@altitutor/shared';
@@ -30,9 +29,9 @@ export function AbsenceBulkActionSelector({
   sessions,
   studentId,
   onDecisionsChange,
-  onBack,
-  onConfirm,
-  canProceed,
+  onBack: _onBack,
+  onConfirm: _onConfirm,
+  canProceed: _canProceed,
   excludeSessionIds = [],
 }: AbsenceBulkActionSelectorProps) {
   const [decisions, setDecisions] = useState<Map<string, SessionDecision>>(() => {

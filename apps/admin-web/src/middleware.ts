@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
           return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+          cookiesToSet.forEach(({ name, value }) => {
             req.cookies.set(name, value);
           });
           supabaseResponse = NextResponse.next({
@@ -41,7 +41,6 @@ export async function middleware(req: NextRequest) {
   // getSession() reads from cookies without validation (insecure)
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser();
 
   // For API routes, we just refresh the token but don't redirect

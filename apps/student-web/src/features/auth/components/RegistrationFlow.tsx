@@ -97,6 +97,7 @@ interface RegistrationFlowProps {
   };
   currentStep: number;
   onStepChange: (step: number) => void;
+  skipPassword?: boolean; // Skip password step if student already has an account
 }
 
 const STEPS = [
@@ -112,7 +113,12 @@ export function RegistrationFlow({
   initialData,
   currentStep,
   onStepChange,
+  skipPassword = false,
 }: RegistrationFlowProps) {
+  // Adjust steps based on skipPassword flag
+  const steps = skipPassword 
+    ? STEPS.filter(step => step.id !== 'password')
+    : STEPS;
   const router = useRouter();
   const { toast } = useToast();
   const supabase = useSupabaseClient();
@@ -161,13 +167,16 @@ export function RegistrationFlow({
     // Validate current step before proceeding
     const fieldsToValidate: (keyof RegistrationFormValues)[] = [];
     
-    if (currentStep === 0) {
+    // Map current step to actual step index (accounting for skipped password step)
+    const actualStep = skipPassword && currentStep >= 3 ? currentStep + 1 : currentStep;
+    
+    if (actualStep === 0) {
       fieldsToValidate.push('student');
-    } else if (currentStep === 1) {
+    } else if (actualStep === 1) {
       fieldsToValidate.push('parents');
-    } else if (currentStep === 2) {
+    } else if (actualStep === 2) {
       fieldsToValidate.push('availability');
-    } else if (currentStep === 3) {
+    } else if (actualStep === 3 && !skipPassword) {
       fieldsToValidate.push('password', 'confirmPassword');
     }
 
@@ -229,8 +238,9 @@ export function RegistrationFlow({
           },
           parents: formData.parents,
           subject_ids: formData.student.subject_ids,
-          password: formData.password,
-          confirmPassword: formData.confirmPassword,
+          password: skipPassword ? undefined : formData.password,
+          confirmPassword: skipPassword ? undefined : formData.confirmPassword,
+          skipPassword,
         }),
       });
 
@@ -251,14 +261,21 @@ export function RegistrationFlow({
 
       toast({
         title: 'Registration Successful!',
-        description: 'Signing you in...',
+        description: skipPassword ? 'Redirecting to dashboard...' : 'Signing you in...',
       });
+
+      // If skipping password, student already has an account - redirect to dashboard
+      if (skipPassword) {
+        const redirectUrl = data.redirectTo || '/dashboard';
+        window.location.replace(redirectUrl);
+        return;
+      }
 
       // Sign in the user with the credentials they just created
       try {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: formData.student.email,
-          password: formData.password,
+          password: formData.password!,
         });
 
         if (signInError) {
@@ -273,8 +290,27 @@ export function RegistrationFlow({
           return;
         }
 
+        // Verify session is established before redirecting
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          console.warn('Session not established after sign-in, redirecting to login');
+          toast({
+            title: 'Account Created',
+            description: 'Your account was created successfully. Please sign in.',
+            variant: 'default',
+          });
+          router.push('/login?registered=success');
+          return;
+        }
+
         // Use full page redirect to ensure cookies are properly set
-        window.location.href = data.redirectTo || '/dashboard';
+        // This ensures a complete page reload and proper session establishment
+        const redirectUrl = data.redirectTo || '/dashboard';
+        
+        // Force a hard redirect - this ensures the page fully reloads
+        // and the middleware can properly check authentication
+        window.location.replace(redirectUrl);
       } catch (signInErr) {
         console.error('Auto-login error:', signInErr);
         // Redirect to login page
@@ -297,8 +333,8 @@ export function RegistrationFlow({
     }
   };
 
-  const currentStepData = STEPS[currentStep];
-  const isLastStep = currentStep === STEPS.length - 1;
+  const currentStepData = steps[currentStep];
+  const isLastStep = currentStep === steps.length - 1;
   const isFirstStep = currentStep === 0;
 
   return (
@@ -314,7 +350,7 @@ export function RegistrationFlow({
 
         {/* Step Indicator */}
         <div className="flex items-center justify-center space-x-2">
-          {STEPS.map((step, index) => (
+          {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
               <div
                 className={cn(
@@ -328,7 +364,7 @@ export function RegistrationFlow({
               >
                 {index + 1}
               </div>
-              {index < STEPS.length - 1 && (
+              {index < steps.length - 1 && (
                 <div
                   className={cn(
                     'w-12 h-0.5 mx-2',
@@ -357,10 +393,10 @@ export function RegistrationFlow({
                 {currentStep === 2 && (
                   <RegistrationStep3Availability form={form} />
                 )}
-                {currentStep === 3 && (
+                {!skipPassword && currentStep === 3 && (
                   <RegistrationStep4Password form={form} />
                 )}
-                {currentStep === 4 && (
+                {(skipPassword ? currentStep === 3 : currentStep === 4) && (
                   <RegistrationStep5Confirm form={form} />
                 )}
 

@@ -10,9 +10,10 @@ import {
   TableRow,
 } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
+import type { Tables } from '@altitutor/shared';
 import { useStudentClasses } from '../hooks';
 import { cn } from '@/shared/utils';
-import { getSubjectCurriculumColor } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { Loader2 } from 'lucide-react';
 
@@ -102,15 +103,27 @@ export function ClassesTable({}: ClassesTableProps) {
                   }
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "font-normal",
-                      getSubjectCurriculumColor(classItem.subject_curriculum)
-                    )}
-                  >
-                    {subjectDisplay}
-                  </Badge>
+                  {(() => {
+                    // Create a minimal subject-like object for getSubjectColorStyle
+                    const subjectForColor = classItem.subject_color 
+                      ? { color: classItem.subject_color } as Tables<'subjects'>
+                      : null;
+                    const { style, textColorClass } = getSubjectColorStyle(subjectForColor);
+                    const defaultClass = !classItem.subject_color ? 'bg-gray-100 text-gray-800 border-gray-300' : '';
+                    return (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "font-normal",
+                          defaultClass || textColorClass,
+                          !defaultClass && 'border-0'
+                        )}
+                        style={style.backgroundColor ? style : undefined}
+                      >
+                        {subjectDisplay}
+                      </Badge>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell>{classItem.room || '-'}</TableCell>
               </TableRow>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { Button, ScrollArea } from '@altitutor/ui';
+import { ScrollArea } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -32,9 +32,9 @@ export function MessagePreview({
   students,
   message,
   sendToParents,
-  onSend,
-  onBack,
-  isSending = false,
+  onSend: _onSend,
+  onBack: _onBack,
+  isSending: _isSending = false,
 }: MessagePreviewProps) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
@@ -120,7 +120,6 @@ export function MessagePreview({
   }, [students, sendToParents]);
 
   const recipientsWithPhone = recipients.filter(r => r.phone);
-  const recipientsWithoutPhone = recipients.filter(r => !r.phone);
 
   const selectedRecipient = recipients.find(r => r.id === selectedRecipientId);
 

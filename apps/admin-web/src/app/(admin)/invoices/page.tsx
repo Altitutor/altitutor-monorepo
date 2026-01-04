@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, useInvoicesList } from '@/features/billing';
-import { TestBillingRunner } from '@/features/billing/components/TestBillingRunner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Checkbox, ScrollArea } from '@altitutor/ui';
 import { Filter, X } from 'lucide-react';
 import { cn } from '@/shared/utils';
@@ -17,11 +16,6 @@ import { TablePagination } from '@/shared/components/TablePagination';
 import { DateRangePicker } from '@/shared/components/DateRangePicker';
 
 export const dynamic = 'force-dynamic';
-
-type InvoiceWithStudent = InvoiceRow & { 
-  student?: { id: string; first_name: string; last_name: string } | null;
-  items?: InvoiceItemRow[];
-};
 
 const INVOICE_STATUSES: InvoiceRow['status'][] = ['draft', 'open', 'paid', 'void', 'uncollectible', 'disputed'];
 

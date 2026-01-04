@@ -1,7 +1,6 @@
 'use client';
 
 import { Button, Checkbox, Label } from '@altitutor/ui';
-import { AlertCircle } from 'lucide-react';
 
 interface SendOptionsProps {
   sendToParents: boolean;

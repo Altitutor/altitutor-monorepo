@@ -1,10 +1,5 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
-
-// Lazy client creation to avoid issues during static generation
-function getSupabaseClient() {
-  return createClientComponentClient<Database>();
-}
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 type StudentRow = Database['public']['Tables']['students']['Row'];
@@ -32,6 +27,7 @@ export interface StudentProfileUpdate {
 export const profileApi = {
   /**
    * Get profile from vstudent_profile view
+   * Pattern: Read through views (client-side), Write through API routes (server-side)
    */
   getProfile: async (): Promise<StudentProfile | null> => {
     const supabase = getSupabaseClient();

@@ -154,13 +154,6 @@ export function StaffDetailsTab({
         ? staffMember.status 
         : 'ACTIVE'; // Default to ACTIVE if invalid
       
-      console.log('[StaffDetailsTab] Resetting form with values:', {
-        role,
-        status,
-        staffMemberRole: staffMember.role,
-        staffMemberStatus: staffMember.status
-      });
-      
       const resetValues: FormData = {
         firstName: staffMember.first_name || '',
         lastName: staffMember.last_name || '',
@@ -183,12 +176,7 @@ export function StaffDetailsTab({
         trial_session_availability: !!staffMember.trial_session_availability,
         subsidy_interview_availability: !!staffMember.subsidy_interview_availability,
       };
-      console.log('[StaffDetailsTab] Calling form.reset with values:', resetValues);
       form.reset(resetValues);
-      // Force a re-render by getting values after reset
-      setTimeout(() => {
-        console.log('[StaffDetailsTab] Form values after reset:', form.getValues());
-      }, 0);
       hasResetRef.current = true;
     } else if (!isEditing) {
       // Reset the flag when exiting edit mode
@@ -198,21 +186,12 @@ export function StaffDetailsTab({
   }, [isEditing, staffMember.id, staffMember.role, staffMember.status]); // Include role and status in deps
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    console.log('[StaffDetailsTab] Form submit event triggered', e);
     e.preventDefault();
-    console.log('[StaffDetailsTab] Calling form.handleSubmit');
-    console.log('[StaffDetailsTab] Form state:', {
-      isValid: form.formState.isValid,
-      errors: form.formState.errors,
-      values: form.getValues()
-    });
     const result = form.handleSubmit(
       (data) => {
-        console.log('[StaffDetailsTab] Form validation passed, data:', data);
         onSubmit(data as unknown as FormData);
       },
       (errors) => {
-        console.error('[StaffDetailsTab] Form validation failed, errors:', errors);
         // Show error toast with validation errors
         const errorMessages = Object.entries(errors).map(([field, error]) => {
           if (error && typeof error === 'object' && 'message' in error) {
@@ -379,13 +358,11 @@ export function StaffDetailsTab({
                     render={({ field }) => {
                       // Ensure we always pass a valid string or undefined (not empty string)
                       const selectValue = field.value && (field.value === 'TUTOR' || field.value === 'ADMINSTAFF') ? field.value : undefined;
-                      console.log('[StaffDetailsTab] Role Select render - field.value:', field.value, 'selectValue:', selectValue);
                       return (
                       <Select 
                         disabled={isLoading}
                         value={selectValue}
                         onValueChange={(value) => {
-                          console.log('[StaffDetailsTab] Role changed to:', value);
                           field.onChange(value);
                         }}
                       >
@@ -410,13 +387,11 @@ export function StaffDetailsTab({
                     render={({ field }) => {
                       // Ensure we always pass a valid string or undefined (not empty string)
                       const selectValue = field.value && (field.value === 'ACTIVE' || field.value === 'INACTIVE' || field.value === 'TRIAL') ? field.value : undefined;
-                      console.log('[StaffDetailsTab] Status Select render - field.value:', field.value, 'selectValue:', selectValue);
                       return (
                       <Select 
                         disabled={isLoading}
                         value={selectValue}
                         onValueChange={(value) => {
-                          console.log('[StaffDetailsTab] Status changed to:', value);
                           field.onChange(value);
                         }}
                       >

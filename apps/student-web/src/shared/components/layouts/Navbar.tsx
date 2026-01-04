@@ -15,38 +15,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import type { Database } from '@altitutor/shared';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
-
-// Lazy client creation to avoid issues during static generation
-function getSupabaseClient() {
-  return createClientComponentClient<Database>();
-}
+import { useProfile } from '@/features/profile';
 
 export function Navbar() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
-  const [studentRecord, setStudentRecord] = useState<any>(null);
-
-  useEffect(() => {
-    const loadStudent = async () => {
-      if (!user) return;
-      
-      const supabase = getSupabaseClient();
-      const { data } = await supabase
-        .from('vstudent_profile')
-        .select('first_name, last_name')
-        .maybeSingle();
-      
-      setStudentRecord(data);
-    };
-
-    loadStudent();
-  }, [user]);
+  const { data: profile } = useProfile();
 
   const handleLogout = async () => {
     try {
@@ -59,17 +36,22 @@ export function Navbar() {
 
   // Get user initials
   const getInitials = () => {
-    if (studentRecord?.first_name && studentRecord?.last_name) {
-      return `${studentRecord.first_name.charAt(0)}${studentRecord.last_name.charAt(0)}`.toUpperCase();
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase();
     }
     return user?.email?.charAt(0).toUpperCase() || 'U';
   };
 
   // Get user full name
   const getFullName = () => {
-    if (studentRecord?.first_name && studentRecord?.last_name) {
-      return `${studentRecord.first_name} ${studentRecord.last_name}`;
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
     }
+    // Fallback to first name only if available
+    if (profile?.first_name) {
+      return profile.first_name;
+    }
+    // Final fallback to email username
     return user?.email?.split('@')[0] || 'User';
   };
 

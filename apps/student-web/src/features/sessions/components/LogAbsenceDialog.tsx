@@ -37,6 +37,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
   const [targetSession, setTargetSession] = useState<RescheduleSession | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Get current student ID
   useEffect(() => {
@@ -56,26 +57,51 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
   // Log absences mutation
   const logAbsencesMutation = useLogAbsences();
 
-  // Reset state when dialog closes
+  // Initialize step only when dialog first opens
   useEffect(() => {
-    if (!isOpen) {
-      // Reset to initial step based on whether initialSession is provided
+    if (isOpen && !hasInitialized) {
+      // Set initial step based on whether initialSession is provided
+      if (initialSession) {
+        setStep('reschedule');
+        setSelectedSessionId(initialSession.id);
+      } else {
+        setStep('select-session');
+      }
+      setHasInitialized(true);
+    } else if (!isOpen) {
+      // Reset when dialog closes
+      setHasInitialized(false);
       setStep(initialSession ? 'reschedule' : 'select-session');
       setSelectedSessionId(initialSession?.id || null);
       setSelectedTargetSessionId(null);
       setTargetSession(null);
       setErrorMessage('');
-    } else if (initialSession) {
-      // If initial session provided, start at reschedule step
-      setStep('reschedule');
-      setSelectedSessionId(initialSession.id);
     }
-  }, [isOpen, initialSession]);
+  }, [isOpen, initialSession, hasInitialized]);
+
+  // Store the initial session data to use as fallback after reschedule
+  const [storedSessionData, setStoredSessionData] = useState<StudentSession | null>(null);
+
+  // Update stored session data when initialSession changes
+  useEffect(() => {
+    if (initialSession) {
+      setStoredSessionData(initialSession);
+    }
+  }, [initialSession]);
 
   const selectedSession = useMemo(() => {
-    if (!futureSessions) return null;
-    return futureSessions.find((s) => s.id === selectedSessionId) || null;
-  }, [futureSessions, selectedSessionId]);
+    if (!futureSessions) {
+      // If futureSessions hasn't loaded yet, use stored data or initialSession
+      return storedSessionData || initialSession || null;
+    }
+    const found = futureSessions.find((s) => s.id === selectedSessionId);
+    if (found) return found;
+    // Fallback to stored data if session is no longer in futureSessions (e.g., after reschedule)
+    if (selectedSessionId && storedSessionData?.id === selectedSessionId) {
+      return storedSessionData;
+    }
+    return initialSession || null;
+  }, [futureSessions, selectedSessionId, storedSessionData, initialSession]);
 
   const handleSelectSession = (sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -170,6 +196,16 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         );
 
       case 'reschedule':
+        // Show loading state while sessions are being fetched
+        if (loadingSessions && !selectedSession) {
+          return (
+            <div className="py-8 text-center text-muted-foreground">
+              Loading sessions...
+            </div>
+          );
+        }
+        // If we don't have a session after loading, show error
+        // selectedSession should have fallback to storedSessionData or initialSession
         if (!selectedSession) {
           return (
             <div className="py-8 text-center text-muted-foreground">

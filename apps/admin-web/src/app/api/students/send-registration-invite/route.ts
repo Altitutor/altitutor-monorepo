@@ -3,6 +3,9 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { randomUUID } from 'crypto';
 import type { Tables } from '@altitutor/shared';
+import { sendEmail } from '@/shared/lib/email';
+import { getInviteEmailTemplate } from '@/shared/lib/email-templates';
+import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { studentId, token: existingToken, sendEmail, sendSms } = body;
+    const { studentId, token: existingToken, sendEmail: shouldSendEmail, sendSms: shouldSendSms } = body;
 
     if (!studentId) {
       return NextResponse.json(
@@ -58,13 +61,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if student already has an account
-    if (student.user_id || student.status === 'ACTIVE') {
+    // Check if student is already fully registered (has account AND status is ACTIVE)
+    if (student.user_id && student.status === 'ACTIVE') {
       return NextResponse.json(
-        { error: 'This student already has an account' },
+        { error: 'This student is already fully registered' },
         { status: 400 }
       );
     }
+    
+    // If student has account but hasn't registered (status != ACTIVE), allow registration link
+    // This will skip password creation in the registration flow
 
     // Generate or use existing token
     let token = existingToken || student.invite_token;
@@ -107,7 +113,7 @@ export async function POST(request: NextRequest) {
     const recipients = parents.length > 0 ? parents : (student.email || student.phone ? [student] : []);
 
     // Send email if requested
-    if (sendEmail) {
+    if (shouldSendEmail) {
       const emailRecipients = recipients.filter((r: any) => r.email);
       
       if (emailRecipients.length === 0) {
@@ -117,14 +123,52 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // TODO: Implement actual email sending using your email service
-      // For now, just return success
-      // In production, you would send emails to all recipients
-      console.log('Would send registration email to:', emailRecipients.map((r: any) => r.email));
+      // Send emails to all recipients
+      let emailSuccessCount = 0;
+      let emailFailureCount = 0;
+      const emailErrors: string[] = [];
+
+      const emailPromises = emailRecipients.map(async (recipient: any) => {
+        try {
+          const html = getInviteEmailTemplate({
+            firstName: recipient.first_name,
+            lastName: recipient.last_name,
+            inviteUrl: registrationUrl,
+            linkType: 'registration',
+            studentName: `${student.first_name} ${student.last_name}`,
+          });
+
+          await sendEmail({
+            to: recipient.email,
+            subject: `Complete Registration for ${student.first_name} ${student.last_name} - Altitutor`,
+            html,
+          });
+
+          emailSuccessCount++;
+        } catch (error) {
+          const errorMsg = `Failed to send email to ${recipient.email}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          console.error('Failed to send email:', errorMsg, error);
+          emailErrors.push(errorMsg);
+          emailFailureCount++;
+        }
+      });
+
+      await Promise.all(emailPromises);
+
+      // If all emails failed, return error
+      if (emailSuccessCount === 0 && emailFailureCount > 0) {
+        return NextResponse.json(
+          { 
+            error: 'Failed to send email to any recipients',
+            details: emailErrors 
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Send SMS if requested
-    if (sendSms) {
+    if (shouldSendSms) {
       const smsRecipients = recipients.filter((r: any) => r.phone);
       
       if (smsRecipients.length === 0) {
@@ -134,17 +178,182 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // TODO: Implement actual SMS sending using your SMS service
-      // For now, just return success
-      // In production, you would send SMS to all recipients
-      console.log('Would send registration SMS to:', smsRecipients.map((r: any) => r.phone));
+      // Send SMS to all recipients using the same pattern as invite SMS
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: string[] = [];
+
+      for (const recipient of smsRecipients) {
+        try {
+          // Get or create contact record for this phone number
+          const { data: contact, error: contactError } = await supabaseAdmin
+            .from('contacts')
+            .select('id, phone_e164')
+            .eq('student_id', studentId)
+            .eq('phone_e164', recipient.phone)
+            .maybeSingle<{ id: string; phone_e164: string }>();
+
+          let contactId = contact?.id;
+
+          // If no contact exists, create one
+          if (!contactId) {
+            const { data: newContact, error: createContactError } = await supabaseAdmin
+              .from('contacts')
+              .insert({
+                phone_e164: recipient.phone,
+                contact_type: 'STUDENT',
+                student_id: studentId,
+              })
+              .select('id')
+              .single<{ id: string }>();
+
+            if (createContactError || !newContact) {
+              const errorMsg = `Failed to create contact: ${createContactError?.message || 'Unknown error'}`;
+              console.error('Failed to create contact:', createContactError);
+              errors.push(errorMsg);
+              failureCount++;
+              continue; // Skip this recipient
+            }
+
+            contactId = newContact.id;
+          }
+
+          // Get an owned number for sending
+          const { data: ownedNumber, error: ownedError } = await supabaseAdmin
+            .from('owned_numbers')
+            .select('id, phone_e164')
+            .limit(1)
+            .single<{ id: string; phone_e164: string }>();
+
+          if (ownedError || !ownedNumber) {
+            const errorMsg = `No owned number found: ${ownedError?.message || 'Unknown error'}`;
+            console.error('No owned number found:', ownedError);
+            errors.push(errorMsg);
+            failureCount++;
+            continue; // Skip this recipient
+          }
+
+          // Get or create conversation
+          let conversationId: string;
+          const { data: existingConvo, error: convoFetchError } = await supabaseAdmin
+            .from('conversations')
+            .select('id')
+            .eq('contact_id', contactId)
+            .eq('owned_number_id', ownedNumber.id)
+            .maybeSingle<{ id: string }>();
+
+          if (existingConvo) {
+            conversationId = existingConvo.id;
+          } else {
+            const { data: newConvo, error: convoCreateError } = await supabaseAdmin
+              .from('conversations')
+              .insert({
+                contact_id: contactId,
+                owned_number_id: ownedNumber.id,
+              })
+              .select('id')
+              .single<{ id: string }>();
+
+            if (convoCreateError || !newConvo) {
+              const errorMsg = `Failed to create conversation: ${convoCreateError?.message || 'Unknown error'}`;
+              console.error('Failed to create conversation:', convoCreateError);
+              errors.push(errorMsg);
+              failureCount++;
+              continue; // Skip this recipient
+            }
+
+            conversationId = newConvo.id;
+          }
+
+          // Create message body using template
+          const messageBody = getInviteSmsTemplate({
+            firstName: recipient.first_name || 'there',
+            inviteUrl: registrationUrl,
+            linkType: 'registration',
+            studentName: `${student.first_name} ${student.last_name}`,
+          });
+
+          // Create message record
+          // Note: from_number_e164 and to_number_e164 are required fields
+          
+          const { data: message, error: messageError } = await supabaseAdmin
+            .from('messages')
+            .insert({
+              conversation_id: conversationId,
+              body: messageBody,
+              direction: 'OUTBOUND',
+              status: 'QUEUED',
+              from_number_e164: ownedNumber.phone_e164,
+              to_number_e164: recipient.phone,
+            })
+            .select('id')
+            .single<{ id: string }>();
+
+          if (messageError || !message) {
+            const errorMsg = `Failed to create message: ${messageError?.message || 'Unknown error'}`;
+            console.error('Failed to create message:', messageError);
+            errors.push(errorMsg);
+            failureCount++;
+            continue; // Skip this recipient
+          }
+
+          // Call the send-sms edge function
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+          
+          if (!supabaseUrl || !supabaseAnonKey) {
+            const errorMsg = 'Missing Supabase URL or anon key';
+            console.error('Missing Supabase configuration:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseAnonKey });
+            errors.push(errorMsg);
+            failureCount++;
+            continue;
+          }
+
+          const sendSmsResponse = await fetch(`${supabaseUrl}/functions/v1/send-sms`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+            },
+            body: JSON.stringify({ messageId: message.id }),
+          });
+
+          if (!sendSmsResponse.ok) {
+            const errorData = await sendSmsResponse.json().catch(() => ({ error: 'Unknown error' }));
+            const errorMsg = `Edge function failed: ${errorData.error || sendSmsResponse.statusText}`;
+            console.error('Failed to send SMS via edge function:', errorData);
+            errors.push(errorMsg);
+            failureCount++;
+            // Continue with other recipients even if one fails
+          } else {
+            successCount++;
+          }
+        } catch (smsError) {
+          const errorMsg = `Exception sending SMS to ${recipient.phone}: ${smsError instanceof Error ? smsError.message : 'Unknown error'}`;
+          console.error('Exception sending SMS:', smsError);
+          errors.push(errorMsg);
+          failureCount++;
+          // Continue with other recipients even if one fails
+        }
+      }
+
+      // If all failed, return error with details
+      if (successCount === 0 && failureCount > 0) {
+        return NextResponse.json(
+          { 
+            error: 'Failed to send SMS to any recipients',
+            details: errors
+          },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
       success: true,
       token,
       registrationUrl,
-      message: sendEmail || sendSms ? 'Registration invite sent successfully' : 'Registration link generated',
+      message: shouldSendEmail || shouldSendSms ? 'Registration invite sent successfully' : 'Registration link generated',
     }, { status: 200 });
   } catch (error) {
     console.error('Unexpected error sending registration invite:', error);

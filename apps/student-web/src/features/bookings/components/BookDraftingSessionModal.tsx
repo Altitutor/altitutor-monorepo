@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -27,12 +27,16 @@ export interface BookDraftingSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onBookingCreated?: (sessionId: string) => void;
+  originalSessionId?: string | null; // Optional: if provided, this is a reschedule operation
+  originalSubjectId?: string | null; // Optional: subject ID from the original session (for reschedule)
 }
 
 export function BookDraftingSessionModal({
   isOpen,
   onClose,
   onBookingCreated,
+  originalSessionId = null,
+  originalSubjectId = null,
 }: BookDraftingSessionModalProps) {
   const { toast } = useToast();
   const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
@@ -47,6 +51,20 @@ export function BookDraftingSessionModal({
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
   const [subjectError, setSubjectError] = useState(false);
   const [timeError, setTimeError] = useState(false);
+
+  // Auto-select subject from original session when rescheduling
+  useEffect(() => {
+    if (isOpen && originalSubjectId && subjects) {
+      // Verify the subject is still available to the student
+      const subjectExists = subjects.some(s => s.id === originalSubjectId);
+      if (subjectExists && !selectedSubjectId) {
+        // Only set if not already selected (to avoid overriding user selection)
+        setSelectedSubjectId(originalSubjectId);
+        // Auto-advance to time selection step if subject is pre-selected
+        setCurrentStep(1);
+      }
+    }
+  }, [isOpen, originalSubjectId, subjects, selectedSubjectId]);
 
   // Get the active reservation for the selected slot
   const activeReservation = reservations?.find(
@@ -132,6 +150,7 @@ export function BookDraftingSessionModal({
         subject_id: selectedSubjectId,
         staff_id: staffId,
         reservation_id: activeReservation?.id,
+        original_session_id: originalSessionId || undefined,
       });
 
       setCreatedSessionId(sessionId);
@@ -416,9 +435,13 @@ export function BookDraftingSessionModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="w-full md:max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>Book Drafting Session</DialogTitle>
+          <DialogTitle>
+            {originalSessionId ? 'Reschedule Drafting Session' : 'Book Drafting Session'}
+          </DialogTitle>
           <DialogDescription>
-            Schedule a one-on-one drafting session with a tutor
+            {originalSessionId 
+              ? 'Select a new time for your drafting session. Your original session will be marked as an absence.'
+              : 'Schedule a one-on-one drafting session with a tutor'}
           </DialogDescription>
         </DialogHeader>
 

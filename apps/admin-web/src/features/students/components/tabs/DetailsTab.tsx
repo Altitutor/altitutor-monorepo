@@ -28,7 +28,7 @@ import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor,
 import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
-import { SendInviteDialog } from '../SendInviteDialog';
+import { SendStudentInviteDialog } from '../SendStudentInviteDialog';
 
 export interface DetailsFormData {
   // Student details
@@ -110,6 +110,7 @@ export function DetailsTab({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
 
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
@@ -382,73 +383,120 @@ export function DetailsTab({
               {/* Account Section */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Account</h3>
-                {!student.user_id ? (
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      This student does not have an associated user account yet. Send them an invite to create one.
-                    </p>
-                    
-                    <Button
-                      variant="default"
-                      onClick={() => setInviteDialogOpen(true)}
-                      className="justify-start w-fit"
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Send Invite
-                    </Button>
-
-                    <SendInviteDialog
-                      isOpen={inviteDialogOpen}
-                      onClose={() => setInviteDialogOpen(false)}
-                      student={student}
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Send a password reset link to this student's email address.
-                    </p>
-                    
-                    <div className="flex flex-col space-y-3">
-                      <Button
-                        variant="outline"
-                        onClick={onPasswordResetRequest}
-                        disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
-                        className="justify-start w-fit"
-                      >
-                        {isLoadingAccount ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Sending reset link...
-                          </>
-                        ) : hasPasswordResetLinkSent ? (
-                          <>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Reset link sent
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Send password reset email
-                          </>
-                        )}
-                      </Button>
+                {(() => {
+                  const isRegistered = student.status === 'ACTIVE';
+                  const hasAccount = !!student.user_id;
                   
-                      {!student.email && (
-                        <p className="text-sm text-orange-600">
-                          No email address set. Please add a student email above.
+                  // Case 1: Registered but no account -> Send Invite
+                  if (isRegistered && !hasAccount) {
+                    return (
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          This student has completed registration but does not have an associated user account yet. Send them an invite to create one.
+                        </p>
+                        
+                        <Button
+                          variant="default"
+                          onClick={() => {
+                            setInviteDialogType('invite');
+                            setInviteDialogOpen(true);
+                          }}
+                          className="justify-start w-fit"
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Send Invite
+                        </Button>
+
+                        <SendStudentInviteDialog
+                          isOpen={inviteDialogOpen}
+                          onClose={() => setInviteDialogOpen(false)}
+                          student={student}
+                          linkType={inviteDialogType}
+                        />
+                      </div>
+                    );
+                  }
+                  
+                  // Case 2 & 3: Has account but not registered OR no account and not registered -> Send Registration Link
+                  if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+                    return (
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          {hasAccount 
+                            ? 'This student has an account but has not completed registration. Send them a registration link to complete the process.'
+                            : 'This student has not completed registration. Send them a registration link to complete account setup and registration.'}
+                        </p>
+                        
+                        <Button
+                          variant="default"
+                          onClick={() => {
+                            setInviteDialogType('registration');
+                            setInviteDialogOpen(true);
+                          }}
+                          className="justify-start w-fit"
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Send Registration Link
+                        </Button>
+
+                        <SendStudentInviteDialog
+                          isOpen={inviteDialogOpen}
+                          onClose={() => setInviteDialogOpen(false)}
+                          student={student}
+                          linkType={inviteDialogType}
+                        />
+                      </div>
+                    );
+                  }
+                  
+                  // Case 4: Registered AND has account -> Show Reset Password
+                  return (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Send a password reset link to this student's email address.
+                      </p>
+                      
+                      <div className="flex flex-col space-y-3">
+                        <Button
+                          variant="outline"
+                          onClick={onPasswordResetRequest}
+                          disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
+                          className="justify-start w-fit"
+                        >
+                          {isLoadingAccount ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Sending reset link...
+                            </>
+                          ) : hasPasswordResetLinkSent ? (
+                            <>
+                              <Mail className="mr-2 h-4 w-4" />
+                              Reset link sent
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="mr-2 h-4 w-4" />
+                              Send password reset email
+                            </>
+                          )}
+                        </Button>
+                    
+                        {!student.email && (
+                          <p className="text-sm text-orange-600">
+                            No email address set. Please add a student email above.
+                          </p>
+                        )}
+                      </div>
+                    
+                      {hasPasswordResetLinkSent && (
+                        <p className="text-sm text-green-600">
+                          A password reset link has been sent to {student.email}.
+                          The student needs to check their email to set a new password.
                         </p>
                       )}
                     </div>
-                  
-                    {hasPasswordResetLinkSent && (
-                      <p className="text-sm text-green-600">
-                        A password reset link has been sent to {student.email}.
-                        The student needs to check their email to set a new password.
-                      </p>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {onDelete && (
@@ -753,73 +801,120 @@ export function DetailsTab({
       {/* Account Section */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Account</h3>
-        {!student.user_id ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              This student does not have an associated user account yet. Send them an invite to create one.
-            </p>
-            
-            <Button
-              variant="default"
-              onClick={() => setInviteDialogOpen(true)}
-              className="justify-start w-fit"
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Send Invite
-            </Button>
-
-            <SendInviteDialog
-              isOpen={inviteDialogOpen}
-              onClose={() => setInviteDialogOpen(false)}
-              student={student}
-            />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Send a password reset link to this student's email address.
-            </p>
-            
-            <div className="flex flex-col space-y-3">
-              <Button
-                variant="outline"
-                onClick={onPasswordResetRequest}
-                disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
-                className="justify-start w-fit"
-              >
-                {isLoadingAccount ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending reset link...
-                  </>
-                ) : hasPasswordResetLinkSent ? (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Reset link sent
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Send password reset email
-                  </>
-                )}
-              </Button>
+        {(() => {
+          const isRegistered = student.status === 'ACTIVE';
+          const hasAccount = !!student.user_id;
           
-              {!student.email && (
-                <p className="text-sm text-orange-600">
-                  No email address set. Please add a student email above.
+          // Case 1: Registered but no account -> Send Invite
+          if (isRegistered && !hasAccount) {
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  This student has completed registration but does not have an associated user account yet. Send them an invite to create one.
+                </p>
+                
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setInviteDialogType('invite');
+                    setInviteDialogOpen(true);
+                  }}
+                  className="justify-start w-fit"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Send Invite
+                </Button>
+
+                <SendStudentInviteDialog
+                  isOpen={inviteDialogOpen}
+                  onClose={() => setInviteDialogOpen(false)}
+                  student={student}
+                  linkType={inviteDialogType}
+                />
+              </div>
+            );
+          }
+          
+          // Case 2 & 3: Has account but not registered OR no account and not registered -> Send Registration Link
+          if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {hasAccount 
+                    ? 'This student has an account but has not completed registration. Send them a registration link to complete the process.'
+                    : 'This student has not completed registration. Send them a registration link to complete account setup and registration.'}
+                </p>
+                
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setInviteDialogType('registration');
+                    setInviteDialogOpen(true);
+                  }}
+                  className="justify-start w-fit"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Send Registration Link
+                </Button>
+
+                <SendStudentInviteDialog
+                  isOpen={inviteDialogOpen}
+                  onClose={() => setInviteDialogOpen(false)}
+                  student={student}
+                  linkType={inviteDialogType}
+                />
+              </div>
+            );
+          }
+          
+          // Case 4: Registered AND has account -> Show Reset Password
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Send a password reset link to this student's email address.
+              </p>
+              
+              <div className="flex flex-col space-y-3">
+                <Button
+                  variant="outline"
+                  onClick={onPasswordResetRequest}
+                  disabled={isLoadingAccount || hasPasswordResetLinkSent || !student.email}
+                  className="justify-start w-fit"
+                >
+                  {isLoadingAccount ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending reset link...
+                    </>
+                  ) : hasPasswordResetLinkSent ? (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Reset link sent
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Send password reset email
+                    </>
+                  )}
+                </Button>
+            
+                {!student.email && (
+                  <p className="text-sm text-orange-600">
+                    No email address set. Please add a student email above.
+                  </p>
+                )}
+              </div>
+            
+              {hasPasswordResetLinkSent && (
+                <p className="text-sm text-green-600">
+                  A password reset link has been sent to {student.email}.
+                  The student needs to check their email to set a new password.
                 </p>
               )}
             </div>
-          
-            {hasPasswordResetLinkSent && (
-              <p className="text-sm text-green-600">
-                A password reset link has been sent to {student.email}.
-                The student needs to check their email to set a new password.
-              </p>
-            )}
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

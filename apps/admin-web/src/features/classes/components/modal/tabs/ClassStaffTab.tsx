@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -12,9 +12,12 @@ import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { useToast } from "@altitutor/ui";
+import { AssignStaffModal } from '@/features/enrollments';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 interface ClassStaffTabProps {
   classData: Tables<'classes'>;
+  classSubject?: Tables<'subjects'>;
   classStaff: Tables<'staff'>[];
   allStaff: Tables<'staff'>[];
   loadingStaff: boolean;
@@ -23,7 +26,8 @@ interface ClassStaffTabProps {
 }
 
 export function ClassStaffTab({
-  classData: _classData,
+  classData,
+  classSubject,
   classStaff,
   allStaff,
   loadingStaff,
@@ -41,6 +45,12 @@ export function ClassStaffTab({
   // Modal state for staff viewing
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  
+  // Assign staff modal state
+  const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
+  
+  // Get current staff for assignment
+  const { data: currentStaff } = useCurrentStaff();
 
   // Fetch subjects for all staff members
   useEffect(() => {
@@ -77,20 +87,33 @@ export function ClassStaffTab({
     setIsStaffModalOpen(true);
   };
 
-  const handleAssignStaff = async (staffId: string) => {
-    setAssigningStaff(prev => new Set(prev).add(staffId));
-    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
-    
+  // Handle assignment from modal
+  const handleAssignStaffFromModal = useCallback(async (params: {
+    staffId: string;
+    classId: string;
+    assignedAt: Date;
+    currentStaffId: string;
+  }) => {
     try {
-      await onAssignStaff(staffId);
-    } finally {
-      setAssigningStaff(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(staffId);
-        return newSet;
+      await onAssignStaff(params.staffId);
+      toast({
+        title: 'Success',
+        description: 'Staff assigned to class successfully.',
       });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to assign staff. Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
     }
-  };
+  }, [onAssignStaff, toast]);
+
+  // Memoize the close handler to prevent infinite loops
+  const handleCloseAssignModal = useCallback(() => {
+    setIsAssignStaffModalOpen(false);
+  }, []);
 
   const handleRemoveStaff = async (staffId: string) => {
     setRemovingStaff(prev => new Set(prev).add(staffId));
@@ -150,59 +173,17 @@ export function ClassStaffTab({
           </div>
         )}
         
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Staff</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[300px]" align="end">
-            <div className="p-3">
-              <Input
-                placeholder="Search staff..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-3"
-              />
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1">
-                  {filteredAvailableStaff.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No staff match your search' : 'No available staff found'}
-                    </div>
-                  ) : (
-                    filteredAvailableStaff.map(staff => (
-                      <Button
-                        key={staff.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-2"
-                        onClick={() => handleAssignStaff(staff.id)}
-                        disabled={assigningStaff.has(staff.id)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">{staff.first_name} {staff.last_name}</div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <StaffRoleBadge value={staff.role as any} />
-                              <StaffStatusBadge value={staff.status as any} />
-                            </div>
-                            {staff.email && (
-                              <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
-                            )}
-                          </div>
-                          {assigningStaff.has(staff.id) && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </PopoverContent>
-        </Popover>
+        {currentStaff && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="ml-auto flex items-center gap-2"
+            onClick={() => setIsAssignStaffModalOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Staff</span>
+          </Button>
+        )}
       </div>
       
       {loadingStaff ? (
@@ -213,59 +194,15 @@ export function ClassStaffTab({
         <div className="flex-1 flex flex-col justify-center items-center">
           <UserCheck className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No staff assigned</p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Assign staff
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]" align="center">
-              <div className="p-3">
-                <Input
-                  placeholder="Search staff..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
-                    {filteredAvailableStaff.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        No staff found
-                      </div>
-                    ) : (
-                      filteredAvailableStaff.map(staff => (
-                        <Button
-                          key={staff.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2"
-                          onClick={() => handleAssignStaff(staff.id)}
-                          disabled={assigningStaff.has(staff.id)}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col items-start">
-                            <div className="font-medium">{staff.first_name} {staff.last_name}</div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <StaffRoleBadge value={staff.role as any} />
-                              <StaffStatusBadge value={staff.status as any} />
-                            </div>
-                              {staff.email && (
-                                <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
-                              )}
-                            </div>
-                            {assigningStaff.has(staff.id) && (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+          {currentStaff && (
+            <Button 
+              variant="outline"
+              onClick={() => setIsAssignStaffModalOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Assign staff
+            </Button>
+          )}
         </div>
       ) : (
         <ScrollArea className="flex-1 min-h-0">
@@ -324,6 +261,21 @@ export function ClassStaffTab({
             // Refresh would be handled by parent component
             // since we don't have direct access to refresh function here
           }}
+        />
+      )}
+      
+      {/* Assign Staff Modal */}
+      {currentStaff && classSubject && (
+        <AssignStaffModal
+          isOpen={isAssignStaffModalOpen}
+          onClose={handleCloseAssignModal}
+          context="class"
+          classData={classData}
+          classSubject={classSubject}
+          classStaff={classStaff}
+          assignedStaffIds={classStaff.map(s => s.id)}
+          onAssign={handleAssignStaffFromModal}
+          currentStaffId={currentStaff.id}
         />
       )}
     </div>

@@ -20,8 +20,7 @@ import type {
   StudentSession,
   RescheduleSession,
 } from '../types/absence';
-import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
-import { Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
 import type { Tables, Database } from '@altitutor/shared';
@@ -42,7 +41,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
-  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<
+  const [_rescheduledSessionsMap, setRescheduledSessionsMap] = useState<
     Map<string, RescheduleSession>
   >(new Map());
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -127,9 +126,9 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
     return futureSessions.filter((s) => selectedSessionIds.has(s.id));
   }, [futureSessions, selectedSessionIds]);
 
-  const currentSession = selectedSessionsArray[currentSessionIndex];
+  const _currentSession = selectedSessionsArray[currentSessionIndex];
 
-  const sessionsMap = useMemo(() => {
+  const _sessionsMap = useMemo(() => {
     const map = new Map<string, StudentSession>();
     futureSessions?.forEach((session) => {
       map.set(session.id, session);

@@ -41,49 +41,34 @@ export async function POST(request: Request) {
       },
     });
 
-    // Query staff record to verify role and status before RPC call
-    const { data: staffRecord, error: staffQueryError } = await supabase
-      .from('staff')
-      .select('id, role, status')
-      .eq('id', staffId)
-      .single();
-
     // Clean up operations - remove replacement_staff_id for 'log' actions
-    const cleanedOperations = operations.map((op: any) => {
-      if (op.action === 'log') {
-        const { replacement_staff_id, ...rest } = op;
+    const cleanedOperations = operations.map((op: unknown) => {
+      const operation = op as { action: string; replacement_staff_id?: unknown };
+      if (operation.action === 'log') {
+        const { replacement_staff_id: _replacement_staff_id, ...rest } = operation;
         return rest;
       }
       return op;
     });
 
-    console.log('Calling log_staff_absences RPC with:', {
-      operationsCount: cleanedOperations.length,
-      loggedByStaffId: staffId,
-      operations: cleanedOperations,
-    });
-
     // Call the RPC function
-    const { data, error } = await supabase.rpc('log_staff_absences' as any, {
-      operations: cleanedOperations as any,
+    const { data, error } = await supabase.rpc('log_staff_absences', {
+      operations: cleanedOperations as unknown as Database['public']['Functions']['log_staff_absences']['Args']['operations'],
       logged_by_staff_id: staffId,
     });
 
     if (error) {
-      console.error('Error calling log_staff_absences RPC:', error);
       return NextResponse.json(
         { error: error.message || 'Failed to log staff absences' },
         { status: 500 }
       );
     }
 
-    console.log('RPC response:', data);
-
     // Check if the RPC function returned an error in the result
     if (data && typeof data === 'object' && 'success' in data && !data.success) {
-      console.error('RPC function returned error:', data);
+      const errorData = data as { error?: string };
       return NextResponse.json(
-        { error: (data as any).error || 'Failed to log staff absences' },
+        { error: errorData.error || 'Failed to log staff absences' },
         { status: 400 }
       );
     }

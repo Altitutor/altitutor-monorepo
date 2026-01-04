@@ -21,8 +21,8 @@ export function MessageComposer({
   students,
   message,
   onMessageChange,
-  onNext,
-  onBack,
+  onNext: _onNext,
+  onBack: _onBack,
 }: MessageComposerProps) {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [studentClasses, setStudentClasses] = useState<
