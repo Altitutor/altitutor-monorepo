@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
@@ -10,15 +10,15 @@ import { Loader2, Plus, Pencil, X } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { ViewClassModal, CalendarView } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
-import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/shared/components/modals';
-import { getDayOfWeek } from '@/shared/utils/datetime';
+import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useStudentClasses, useAllClassesForStudent, type StudentClass } from '@/features/students/hooks/useStudentClasses';
+import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
 import { studentsApi } from '@/features/students/api/students';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 type ViewMode = 'table' | 'calendar';
 
@@ -26,20 +26,6 @@ interface ClassesTabProps {
   student: Tables<'students'>;
   onStudentUpdated?: () => void;
 }
-
-// Sort classes by day of week, then by start time
-const sortClasses = (classes: StudentClass[]): StudentClass[] => {
-  return [...classes].sort((a, b) => {
-    const dayA = a.class.day_of_week === 0 ? 7 : a.class.day_of_week;
-    const dayB = b.class.day_of_week === 0 ? 7 : b.class.day_of_week;
-    
-    if (dayA !== dayB) {
-      return dayA - dayB;
-    }
-    
-    return a.class.start_time.localeCompare(b.class.start_time);
-  });
-};
 
 export function ClassesTab({
   student,
@@ -51,18 +37,13 @@ export function ClassesTab({
   
   // Use React Query hooks for data fetching
   const { data: classesData = [], isLoading, error } = useStudentClasses(student.id);
-  const { data: allClassesData = [] } = useAllClassesForStudent(student.id);
   const { data: studentWithSubjects } = useStudentWithSubjects(student.id);
   
   const studentSubjects = useMemo(() => studentWithSubjects?.subjects || [], [studentWithSubjects?.subjects]);
-  const classes = useMemo(() => sortClasses(classesData), [classesData]);
+  const classes = useMemo(() => classesData, [classesData]);
   
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  
-  // Subjects editing state
-  const [isEditingSubjects, setIsEditingSubjects] = useState(false);
-  const [tempStudentSubjects, setTempStudentSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [initialFilteredSubjects, setInitialFilteredSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -70,6 +51,7 @@ export function ClassesTab({
   
   // Modal states for enrollment workflows
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [isEnrollModalSubjectId, setIsEnrollModalSubjectId] = useState<string | null>(null);
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
@@ -87,13 +69,37 @@ export function ClassesTab({
     timetableStudents[c.class.id] = c.students || [];
   });
 
+  // Group classes by subject
+  const classesBySubject = useMemo(() => {
+    const grouped: Record<string, StudentClass[]> = {};
+    
+    // Add all student subjects (even if they have no classes)
+    studentSubjects.forEach(subject => {
+      grouped[subject.id] = [];
+    });
+    
+    // Group classes by subject
+    classes.forEach(classData => {
+      if (classData.subject) {
+        const subjectId = classData.subject.id;
+        if (!grouped[subjectId]) {
+          grouped[subjectId] = [];
+        }
+        grouped[subjectId].push(classData);
+      }
+    });
+    
+    return grouped;
+  }, [classes, studentSubjects]);
+
   // Modal handlers
   const handleClassClick = (classId: string) => {
     setSelectedClassId(classId);
     setIsClassModalOpen(true);
   };
 
-  const openEnrollModal = () => {
+  const openEnrollModal = (subjectId?: string) => {
+    setIsEnrollModalSubjectId(subjectId || null);
     setIsEnrollModalOpen(true);
   };
 
@@ -123,6 +129,7 @@ export function ClassesTab({
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
       // Invalidate queries to trigger refetch
+      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
       await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
       await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
       onStudentUpdated?.();
@@ -199,28 +206,16 @@ export function ClassesTab({
     }
   };
 
-  // Fetch all classes for enrollment modal
-  const fetchClassesForEnrollment = useCallback(async (): Promise<ClassWithExpandedSubject[]> => {
-    if (!studentSubjects || studentSubjects.length === 0) {
-      return [];
-    }
-    
-    const { getSupabaseClient } = await import('@/shared/lib/supabase/client');
+  // Fetch classes for enrollment modal - filtered by subject ID
+  const fetchClassesForSubject = useCallback(async (subjectId: string): Promise<ClassWithExpandedSubject[]> => {
     const supabase = getSupabaseClient();
     
-    // Get subject IDs for filtering
-    const subjectIds = studentSubjects.map(s => s.id);
-    
-    // Get enrolled class IDs to filter out - use classesData directly to avoid closure issues
-    const enrolledClassIds = (classesData || []).map(c => c.class.id);
-    
-    // Use search_classes_admin RPC to fetch all classes linked to student's subjects
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
       p_search: undefined,
-      p_statuses: undefined, // Get all statuses
-      p_subject_ids: subjectIds,
+      p_statuses: ['ACTIVE'],
+      p_subject_ids: [subjectId], // Filter by specific subject
       p_include_relationships: true,
-      p_limit: 10000, // High limit to get all classes
+      p_limit: 10000,
       p_offset: 0,
       p_order_by: 'day_of_week',
       p_ascending: true,
@@ -270,7 +265,7 @@ export function ClassesTab({
       school: string | null;
     }
     
-    const rpcData = rpcResult as { 
+    const rpcData = rpcResult as unknown as { 
       classes: RPCClass[]; 
       classSubjects: Record<string, RPCSubject>; 
       classStudents: Record<string, RPCStudent[]>; 
@@ -281,41 +276,52 @@ export function ClassesTab({
     const rpcClasses = rpcData.classes || [];
     
     // Transform RPC response to match ClassWithExpandedSubject format
-    const classes: ClassWithExpandedSubject[] = rpcClasses
-      .filter(c => !enrolledClassIds.includes(c.id)) // Filter out classes student is already enrolled in
-      .map(c => ({
-        ...c,
-        subject: rpcData.classSubjects?.[c.id] as Tables<'subjects'> | undefined,
-        staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
-          id: s.id,
-          first_name: s.first_name,
-          last_name: s.last_name,
-          role: s.role,
-          status: s.status,
-          email: s.email || null,
-          phone_number: s.phone_number || null,
-          created_at: s.created_at || null,
-          updated_at: s.updated_at || null,
-        })),
-        students: (rpcData.classStudents?.[c.id] || []).map((s) => ({
-          id: s.id,
-          first_name: s.first_name,
-          last_name: s.last_name,
-          status: s.status,
-          curriculum: s.curriculum || null,
-          year_level: s.year_level || null,
-          school: s.school || null,
-          email: s.email || null,
-          phone: s.phone || null,
-          created_at: s.created_at || null,
-          updated_at: s.updated_at || null,
-        }))
-      })) as ClassWithExpandedSubject[];
+    const allClasses: ClassWithExpandedSubject[] = rpcClasses.map(c => ({
+      id: c.id,
+      day_of_week: c.day_of_week,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      status: c.status as Tables<'classes'>['status'],
+      room: c.room,
+      level: c.level,
+      subject_id: c.subject_id,
+      created_at: null,
+      updated_at: null,
+      created_by: null,
+      session_start_date: null,
+      session_end_date: null,
+      subject: rpcData.classSubjects?.[c.id] as Tables<'subjects'> | undefined,
+      staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        role: s.role as Tables<'staff'>['role'],
+        status: s.status as Tables<'staff'>['status'],
+        email: s.email || null,
+        phone_number: s.phone_number || null,
+        created_at: null,
+        updated_at: null,
+      })),
+      students: (rpcData.classStudents?.[c.id] || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status as Tables<'students'>['status'],
+        curriculum: s.curriculum || null,
+        year_level: s.year_level || null,
+        school: s.school || null,
+        email: null,
+        phone: null,
+        phone_number: null,
+        created_at: null,
+        updated_at: null,
+      }))
+    })) as unknown as ClassWithExpandedSubject[];
     
-    return classes;
-  }, [studentSubjects, classesData]);
+    return allClasses;
+  }, []);
 
-  // Fetch all classes for change class modal
+  // Fetch classes for change class modal
   const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
     const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
     return classes.map(c => {
@@ -328,99 +334,25 @@ export function ClassesTab({
     });
   };
 
-  // Fetch initial subjects filtered by curriculum and year level
-  useEffect(() => {
-    const fetchInitialSubjects = async () => {
-      if (!student.curriculum || !student.year_level) {
-        setInitialFilteredSubjects([]);
-        return;
-      }
-
-      try {
-        const { subjects } = await subjectsApi.list({
-          curriculums: [student.curriculum],
-          yearLevels: [student.year_level],
-          limit: 100,
-          offset: 0,
-        });
-        setInitialFilteredSubjects(subjects);
-      } catch (error) {
-        console.error('Error fetching initial subjects:', error);
-        setInitialFilteredSubjects([]);
-      }
-    };
-
-    fetchInitialSubjects();
-  }, [student.curriculum, student.year_level]);
-
-  // Handle starting subject edit
-  const handleStartEditSubjects = () => {
-    setTempStudentSubjects([...studentSubjects]);
-    setIsEditingSubjects(true);
-  };
-
-  // Handle canceling subject edit
-  const handleCancelEditSubjects = () => {
-    setTempStudentSubjects([]);
-    setIsEditingSubjects(false);
-  };
-
   // Handle adding a subject
-  const handleAddSubject = (subject: Tables<'subjects'>) => {
-    if (!tempStudentSubjects.some(s => s.id === subject.id)) {
-      setTempStudentSubjects([...tempStudentSubjects, subject]);
-    }
-  };
-
-  // Handle removing a subject
-  const handleRemoveSubject = (subjectId: string) => {
-    setTempStudentSubjects(tempStudentSubjects.filter(s => s.id !== subjectId));
-  };
-
-  // Handle saving subject changes
-  const handleSaveSubjects = async () => {
+  const handleAddSubject = async (subject: Tables<'subjects'>) => {
     try {
-      const currentSubjectIds = new Set(studentSubjects.map(s => s.id));
-      const newSubjectIds = new Set(tempStudentSubjects.map(s => s.id));
-
-      // Find subjects to add
-      const subjectsToAdd = tempStudentSubjects.filter(s => !currentSubjectIds.has(s.id));
-      // Find subjects to remove
-      const subjectsToRemove = studentSubjects.filter(s => !newSubjectIds.has(s.id));
-
-      // Apply changes
-      for (const subject of subjectsToAdd) {
-        await studentsApi.assignSubjectToStudent(student.id, subject.id);
-      }
-      for (const subject of subjectsToRemove) {
-        await studentsApi.removeSubjectFromStudent(student.id, subject.id);
-      }
-
-      // Invalidate queries to refetch
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(student.id) });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
-      
-      setIsEditingSubjects(false);
-      setTempStudentSubjects([]);
+      await studentsApi.assignSubjectToStudent(student.id, subject.id);
+      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
       onStudentUpdated?.();
-
       toast({
         title: 'Success',
-        description: 'Subjects updated successfully.',
+        description: 'Subject added successfully.',
       });
     } catch (error) {
-      console.error('Failed to update subjects:', error);
+      console.error('Failed to add subject:', error);
       toast({
-        title: 'Update failed',
-        description: 'There was an error updating subjects. Please try again.',
+        title: 'Add failed',
+        description: 'There was an error adding the subject. Please try again.',
         variant: 'destructive',
       });
     }
   };
-
-  // Get display subjects (temp when editing, actual otherwise)
-  const displaySubjects = isEditingSubjects ? tempStudentSubjects : studentSubjects;
 
   if (isLoading) {
     return (
@@ -443,199 +375,37 @@ export function ClassesTab({
     );
   }
 
-  if (classes.length === 0) {
-    return (
-      <>
-        <div className="flex-1 h-full flex flex-col space-y-4">
-          {/* Subjects Section */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-medium">Subjects</h3>
-              {!isEditingSubjects ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={handleStartEditSubjects}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCancelEditSubjects}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleSaveSubjects}
-                  >
-                    Save
-                  </Button>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {displaySubjects.length > 0 ? (
-                displaySubjects.map((subject) => {
-                  const shortName = formatSubjectShortName(subject);
-                  const { style, textColorClass } = getSubjectColorStyle(subject);
-                  const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                  return (
-                    <Badge
-                      key={subject.id}
-                      className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
-                      style={style.backgroundColor ? style : undefined}
-                    >
-                      <span>{shortName}</span>
-                      {isEditingSubjects && (
-                        <button
-                          type="button"
-                          className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveSubject(subject.id);
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </Badge>
-                  );
-                })
-              ) : (
-                <p className="text-sm text-muted-foreground">No subjects assigned</p>
-              )}
-              {isEditingSubjects && (
-                <SubjectSearchPopover
-                  selectedSubjects={tempStudentSubjects}
-                  onSelectSubject={handleAddSubject}
-                  initialSubjects={initialFilteredSubjects}
-                  trigger={
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      <span>Add Subject</span>
-                    </Button>
-                  }
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Enrolled Classes Section */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-medium">Enrolled Classes</h3>
-              <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={openEnrollModal}>
-                <Plus className="h-4 w-4" />
-                <span>Add Class</span>
-              </Button>
-            </div>
-            <div className="py-4">
-              <p className="text-sm text-muted-foreground">
-                This student is not currently enrolled in any classes.
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Modals */}
-        {currentStaff && (
-          <EnrollStudentModal
-            isOpen={isEnrollModalOpen}
-            onClose={() => setIsEnrollModalOpen(false)}
-            context="student"
-            student={student}
-            studentSubjects={studentSubjects}
-            enrolledClassIds={classes.map(c => c.class.id)}
-            onFetchClasses={fetchClassesForEnrollment}
-            onEnroll={handleEnroll}
-            currentStaffId={currentStaff.id}
-          />
-        )}
-      </>
-    );
-  }
-
   if (!currentStaff) {
     return null;
   }
 
   return (
     <>
-      <div className="flex-1 h-full flex flex-col space-y-4">
-        {/* Subjects Section */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-medium">Subjects</h3>
-            {!isEditingSubjects ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleStartEditSubjects}
-              >
+      <div className="flex-1 h-full flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-medium">Classes</h3>
+          
+          {!isEditMode ? (
+            <div className="flex items-center gap-2">
+              {/* View Mode Selector */}
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                <TabsList>
+                  <TabsTrigger value="table">Table</TabsTrigger>
+                  <TabsTrigger value="calendar">Calendar</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
+              <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
               </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCancelEditSubjects}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleSaveSubjects}
-                >
-                  Save
-                </Button>
-              </div>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {displaySubjects.length > 0 ? (
-              displaySubjects.map((subject) => {
-                const shortName = formatSubjectShortName(subject);
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                return (
-                  <Badge
-                    key={subject.id}
-                    className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
-                    style={style.backgroundColor ? style : undefined}
-                  >
-                    <span>{shortName}</span>
-                    {isEditingSubjects && (
-                      <button
-                        type="button"
-                        className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveSubject(subject.id);
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </Badge>
-                );
-              })
-            ) : (
-              <p className="text-sm text-muted-foreground">No subjects assigned</p>
-            )}
-            {isEditingSubjects && (
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
               <SubjectSearchPopover
-                selectedSubjects={tempStudentSubjects}
+                selectedSubjects={studentSubjects}
                 onSelectSubject={handleAddSubject}
-                initialSubjects={initialFilteredSubjects}
                 trigger={
                   <Button variant="outline" size="sm" className="flex items-center gap-2">
                     <Plus className="h-4 w-4" />
@@ -643,86 +413,96 @@ export function ClassesTab({
                   </Button>
                 }
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Enrolled Classes Section */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-medium">Enrolled Classes</h3>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {/* View Mode Selector */}
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-              <TabsList>
-                <TabsTrigger value="table">Table</TabsTrigger>
-                <TabsTrigger value="calendar">Calendar</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            
-            <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={openEnrollModal}>
-              <Plus className="h-4 w-4" />
-              <span>Add Class</span>
-            </Button>
-          </div>
-        </div>
-      
-        {/* Conditional View Rendering */}
-        {viewMode === 'table' ? (
-          <ScrollArea className="flex-1">
-            <div className="space-y-6">
-              {/* Group classes by day */}
-              {(() => {
-                const classesByDay: Record<string, StudentClass[]> = {};
-                
-                classes.forEach(classData => {
-                  const day = getDayOfWeek(classData.class.day_of_week);
-                  if (!classesByDay[day]) {
-                    classesByDay[day] = [];
-                  }
-                  classesByDay[day].push(classData);
-                });
-                
-                // Sort days in weekday order
-                const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                const sortedDays = Object.keys(classesByDay).sort((a, b) => {
-                  return dayOrder.indexOf(a) - dayOrder.indexOf(b);
-                });
-                
-                return sortedDays.map(day => (
-                  <div key={day}>
-                    <h4 className="text-sm font-semibold mb-2">{day}</h4>
-                    <div className="space-y-2">
-                      {classesByDay[day].map(studentClass => (
-                        <ClassCard
-                          key={studentClass.class.id}
-                          class={studentClass.class}
-                          subject={studentClass.subject}
-                          staff={studentClass.staff}
-                          students={studentClass.students}
-                          onClick={() => handleClassClick(studentClass.class.id)}
-                          onChangeClass={() => openChangeClassModal(studentClass.class.id)}
-                          onUnenroll={() => openUnenrollModal(studentClass.class.id)}
-                        />
-                      ))}
+        {/* Content Area - Takes remaining space and scrolls */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {viewMode === 'table' ? (
+            <ScrollArea className="h-full">
+              <div className="space-y-4">
+                {Object.entries(classesBySubject).map(([subjectId, subjectClasses]) => {
+                  const subject = studentSubjects.find(s => s.id === subjectId);
+                  if (!subject) return null;
+                  
+                  const shortName = formatSubjectShortName(subject);
+                  const { style, textColorClass } = getSubjectColorStyle(subject);
+                  const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                  
+                  return (
+                    <div key={subjectId} className="flex items-start gap-4">
+                      {/* Subject Pill */}
+                      <div className="flex-shrink-0 pt-2">
+                        <Badge
+                          className={defaultClass || `${textColorClass} flex items-center gap-1 pr-1`}
+                          style={style.backgroundColor ? style : undefined}
+                        >
+                          <span>{shortName}</span>
+                        </Badge>
+                      </div>
+                      
+                      {/* Class Cards */}
+                      <div className="flex-1 space-y-2">
+                        {subjectClasses.length > 0 ? (
+                          subjectClasses.map(classData => (
+                            <ClassCard
+                              key={classData.class.id}
+                              class={classData.class}
+                              subject={classData.subject}
+                              staff={classData.staff}
+                              students={classData.students}
+                              onClick={() => handleClassClick(classData.class.id)}
+                              onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
+                              onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
+                              hideActions={!isEditMode}
+                            />
+                          ))
+                        ) : (
+                          <div
+                            className="border-2 border-dashed rounded-lg p-4 flex items-center justify-center hover:border-primary/50 transition-colors cursor-pointer"
+                            onClick={() => openEnrollModal(subjectId)}
+                          >
+                            <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              <span>Add Class</span>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  );
+                })}
+                
+                {Object.keys(classesBySubject).length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No subjects assigned. Add a subject to get started.</p>
                   </div>
-                ));
-              })()}
+                )}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="h-full overflow-hidden">
+              <CalendarView
+                classes={timetableClasses}
+                classSubjects={timetableSubjects}
+                classStaff={timetableStaff}
+                classStudents={timetableStudents}
+                onClassClick={(cls) => handleClassClick(cls.id)}
+                showFilters={false}
+              />
             </div>
-          </ScrollArea>
-        ) : (
-          <div className="flex-1 overflow-hidden">
-            <CalendarView
-              classes={timetableClasses}
-              classSubjects={timetableSubjects}
-              classStaff={timetableStaff}
-              classStudents={timetableStudents}
-              onClassClick={(cls) => handleClassClick(cls.id)}
-              showFilters={false}
-            />
+          )}
+        </div>
+
+        {/* Edit Mode Footer - Sticky at bottom */}
+        {isEditMode && (
+          <div className="border-t pt-4 mt-4 flex-shrink-0 bg-background">
+            <div className="flex justify-end">
+              <Button variant="default" onClick={() => setIsEditMode(false)}>
+                Save
+              </Button>
+            </div>
           </div>
         )}
       
@@ -747,12 +527,16 @@ export function ClassesTab({
       {/* Enrollment Modals */}
       <EnrollStudentModal
         isOpen={isEnrollModalOpen}
-        onClose={() => setIsEnrollModalOpen(false)}
+        onClose={() => {
+          setIsEnrollModalOpen(false);
+          setIsEnrollModalSubjectId(null);
+        }}
         context="student"
         student={student}
         studentSubjects={studentSubjects}
         enrolledClassIds={classes.map(c => c.class.id)}
-        onFetchClasses={fetchClassesForEnrollment}
+        onFetchClasses={isEnrollModalSubjectId ? () => fetchClassesForSubject(isEnrollModalSubjectId) : undefined}
+        subjectId={isEnrollModalSubjectId || undefined}
         onEnroll={handleEnroll}
         currentStaffId={currentStaff.id}
       />
@@ -793,4 +577,4 @@ export function ClassesTab({
       )}
     </>
   );
-} 
+}

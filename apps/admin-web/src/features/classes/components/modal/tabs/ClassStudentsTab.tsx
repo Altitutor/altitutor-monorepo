@@ -5,7 +5,7 @@ import { ScrollArea, Button } from "@altitutor/ui";
 import { Loader2, Users, Plus } from "lucide-react";
 import { ViewStudentModal } from '@/features/students';
 import { StudentCard } from '@/shared/components/StudentCard';
-import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/shared/components/modals';
+import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { classesApi } from '@/shared/api';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useToast } from "@altitutor/ui";

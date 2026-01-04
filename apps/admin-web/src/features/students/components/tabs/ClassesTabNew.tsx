@@ -7,7 +7,7 @@ import { ClassCard } from '@/shared/components/ClassCard';
 import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useToast } from "@altitutor/ui";
-import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/shared/components/modals';
+import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 
 type ViewMode = 'table' | 'timetable';
 

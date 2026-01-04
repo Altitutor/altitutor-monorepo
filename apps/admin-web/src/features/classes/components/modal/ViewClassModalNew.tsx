@@ -13,7 +13,7 @@ import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTabNew } from './tabs/ClassStudentsTabNew';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
-import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/shared/components/modals';
+import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 
 interface ViewClassModalNewProps {
   isOpen: boolean;
