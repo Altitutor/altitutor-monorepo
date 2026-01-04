@@ -144,10 +144,6 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         trial_session_availability: formData.trial_session_availability,
         subsidy_interview_availability: formData.subsidy_interview_availability,
         user_id: null,
-        created_at: null,
-        created_by: null,
-        invite_token: null,
-        updated_at: null,
       };
       
       // Create the staff member without creating a user account
