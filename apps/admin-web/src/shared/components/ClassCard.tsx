@@ -121,7 +121,7 @@ export function ClassCard({
         defaultBorderClass,
         isSelecting
           ? isSelected
-            ? 'bg-primary/5 border-primary'
+            ? 'bg-primary/10 border-primary border-2'
             : 'hover:bg-muted/50 cursor-pointer'
           : onClick
           ? 'hover:bg-muted/50 cursor-pointer'

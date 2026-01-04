@@ -199,8 +199,42 @@ export function ClassStudentsTab({
   };
 
   // Fetch all students for enrollment modal
-  const fetchStudentsForEnrollment = async () => {
-    return allStudents;
+  const fetchStudentsForEnrollment = async (): Promise<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[] }>> => {
+    if (!classSubject) {
+      return allStudents.map(s => ({ ...s, subjects: [] }));
+    }
+    
+    // Get all students with their subjects and classes
+    const { studentSubjects, studentClasses } = await import('@/features/students/api').then(m => 
+      m.studentsApi.getDetailsForStudentIds(allStudents.map(s => s.id))
+    );
+    
+    // Filter students:
+    // 1. Must be linked to the class subject
+    // 2. Must NOT be enrolled in ANY class of that subject
+    const eligibleStudents = allStudents.filter(student => {
+      const studentSubjIds = studentSubjects[student.id]?.map(s => s.id) || [];
+      
+      // Must have the class subject
+      if (!studentSubjIds.includes(classSubject.id)) {
+        return false;
+      }
+      
+      // Must NOT be enrolled in any class of this subject
+      const studentCls = studentClasses[student.id] || [];
+      const hasClassOfSubject = studentCls.some(cls => cls.subject_id === classSubject.id);
+      if (hasClassOfSubject) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    // Return with subjects attached
+    return eligibleStudents.map(s => ({
+      ...s,
+      subjects: studentSubjects[s.id] || []
+    }));
   };
 
   // Fetch all classes for change class modal

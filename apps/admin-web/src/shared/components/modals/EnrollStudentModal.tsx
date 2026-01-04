@@ -106,14 +106,12 @@ export function EnrollStudentModal({
     
     // Set default filters based on context
     if (context === 'class' && classSubject) {
-      if (classSubject.year_level) {
-        setYearLevelFilters([classSubject.year_level]);
-      }
+      // Remove year level filter for class context
+      setYearLevelFilters([]);
       setSubjectFilters([classSubject.id]);
     } else if (context === 'student' && student) {
-      if (student.year_level) {
-        setYearLevelFilters([student.year_level]);
-      }
+      // Remove year level filter for student context
+      setYearLevelFilters([]);
       // For students, filter by subjects with no enrollment (will be handled in filtering logic)
       const studentSubjectIds = studentSubjects.map(s => s.id);
       setSubjectFilters(studentSubjectIds);
@@ -152,26 +150,25 @@ export function EnrollStudentModal({
     }
   }, [step, selectedStudentId, selectedClassId, enrollmentDate, context, student, classData]);
 
-  // Filter logic
+  // Filter logic for students (class context)
   const filteredStudents = useMemo(() => {
     if (context !== 'class') return [];
     
     return students.filter(s => {
-      // Exclude already enrolled students
+      // Exclude already enrolled students in this class
       if (enrolledStudentIds.includes(s.id)) return false;
       
-      // Year level filter
-      if (yearLevelFilters.length > 0 && s.year_level && !yearLevelFilters.includes(s.year_level)) {
-        return false;
-      }
-      
-      // Subject filter (AND logic - student must have ALL selected subjects)
-      if (subjectFilters.length > 0) {
+      // Subject filter: student must be linked to the class subject
+      if (classSubject && subjectFilters.length > 0) {
         const studentSubjectIds = s.subjects?.map(sub => sub.id) || [];
-        const hasAllSubjects = subjectFilters.every(filterId => 
-          studentSubjectIds.includes(filterId)
-        );
-        if (!hasAllSubjects) return false;
+        // Student must have the class subject
+        if (!studentSubjectIds.includes(classSubject.id)) return false;
+        
+        // Exclude students who are enrolled in ANY class of this subject
+        // We need to check if student is enrolled in any class with this subject
+        // This will be handled by checking if student has classes with this subject_id
+        // For now, we'll filter based on the data we have
+        // The parent component should pass students that are not enrolled in classes of this subject
       }
       
       // Search filter
@@ -183,23 +180,35 @@ export function EnrollStudentModal({
       
       return true;
     });
-  }, [students, enrolledStudentIds, yearLevelFilters, subjectFilters, searchQuery, context]);
+  }, [students, enrolledStudentIds, subjectFilters, searchQuery, context, classSubject]);
 
+  // Filter logic for classes (student context)
   const filteredClasses = useMemo(() => {
     if (context !== 'student') return [];
+    
+    // Get student's enrolled classes grouped by subject
+    const studentEnrolledClassesBySubject = new Map<string, Set<string>>();
+    classes.forEach(c => {
+      if (enrolledClassIds.includes(c.id) && c.subject_id) {
+        if (!studentEnrolledClassesBySubject.has(c.subject_id)) {
+          studentEnrolledClassesBySubject.set(c.subject_id, new Set());
+        }
+        studentEnrolledClassesBySubject.get(c.subject_id)!.add(c.id);
+      }
+    });
     
     return classes.filter(c => {
       // Exclude already enrolled classes
       if (enrolledClassIds.includes(c.id)) return false;
       
-      // Year level filter
-      if (yearLevelFilters.length > 0 && c.subject?.year_level) {
-        if (!yearLevelFilters.includes(c.subject.year_level)) return false;
-      }
-      
-      // Subject filter (OR logic)
+      // Subject filter: only show classes for subjects the student is linked to
       if (subjectFilters.length > 0 && c.subject_id) {
         if (!subjectFilters.includes(c.subject_id)) return false;
+        
+        // Exclude classes where student is already enrolled in ANY class of that subject
+        if (studentEnrolledClassesBySubject.has(c.subject_id)) {
+          return false;
+        }
       }
       
       // Day filter
@@ -216,7 +225,7 @@ export function EnrollStudentModal({
       
       return true;
     });
-  }, [classes, enrolledClassIds, yearLevelFilters, subjectFilters, dayFilters, searchQuery, context]);
+  }, [classes, enrolledClassIds, subjectFilters, dayFilters, searchQuery, context]);
 
   // Get available filter options
   const availableYearLevels = useMemo(() => {
@@ -363,6 +372,18 @@ export function EnrollStudentModal({
         {/* Step 1: Select Student or Class */}
         {step === 1 && (
           <div className="space-y-4">
+            {/* Show class card at top for class context */}
+            {context === 'class' && classData && classSubject && (
+              <div className="mb-4">
+                <ClassCard
+                  class={classData}
+                  subject={classSubject}
+                  staff={classStaff}
+                  students={[]}
+                />
+              </div>
+            )}
+            
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -376,106 +397,54 @@ export function EnrollStudentModal({
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Filter className="h-3 w-3" />
-                <span>Filters:</span>
+            {(context === 'student' && dayFilters.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Filter className="h-3 w-3" />
+                  <span>Filters:</span>
+                </div>
+                
+                {/* Day Filter (only for student context) */}
+                {context === 'student' && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                        Day {dayFilters.length > 0 && `(${dayFilters.length})`}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56" align="start">
+                      <div className="space-y-2">
+                        <div className="font-medium text-sm">Days</div>
+                        <div className="space-y-2">
+                          {availableDays.map(day => (
+                            <label key={day} className="flex items-center space-x-2 cursor-pointer">
+                              <Checkbox
+                                checked={dayFilters.includes(day)}
+                                onCheckedChange={() => toggleDay(day)}
+                              />
+                              <span className="text-sm">{getDayOfWeek(day)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+                
+                {/* Clear Filters */}
+                {dayFilters.length > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 text-xs" 
+                    onClick={clearFilters}
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear
+                  </Button>
+                )}
               </div>
-              
-              {/* Year Level Filter */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
-                    Year Level {yearLevelFilters.length > 0 && `(${yearLevelFilters.length})`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56" align="start">
-                  <div className="space-y-2">
-                    <div className="font-medium text-sm">Year Levels</div>
-                    <ScrollArea className="max-h-60">
-                      <div className="space-y-2">
-                        {availableYearLevels.map(level => (
-                          <label key={level} className="flex items-center space-x-2 cursor-pointer">
-                            <Checkbox
-                              checked={yearLevelFilters.includes(level)}
-                              onCheckedChange={() => toggleYearLevel(level)}
-                            />
-                            <span className="text-sm">Year {level}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              
-              {/* Subject Filter */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
-                    Subject {subjectFilters.length > 0 && `(${subjectFilters.length})`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64" align="start">
-                  <div className="space-y-2">
-                    <div className="font-medium text-sm">Subjects</div>
-                    <ScrollArea className="max-h-60">
-                      <div className="space-y-2">
-                        {availableSubjects.map(subject => (
-                          <label key={subject.id} className="flex items-center space-x-2 cursor-pointer">
-                            <Checkbox
-                              checked={subjectFilters.includes(subject.id)}
-                              onCheckedChange={() => toggleSubject(subject.id)}
-                            />
-                            <span className="text-sm">{formatSubjectDisplay(subject)}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              
-              {/* Day Filter (only for student context) */}
-              {context === 'student' && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                      Day {dayFilters.length > 0 && `(${dayFilters.length})`}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56" align="start">
-                    <div className="space-y-2">
-                      <div className="font-medium text-sm">Days</div>
-                      <div className="space-y-2">
-                        {availableDays.map(day => (
-                          <label key={day} className="flex items-center space-x-2 cursor-pointer">
-                            <Checkbox
-                              checked={dayFilters.includes(day)}
-                              onCheckedChange={() => toggleDay(day)}
-                            />
-                            <span className="text-sm">{getDayOfWeek(day)}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-              
-              {/* Clear Filters */}
-              {(yearLevelFilters.length > 0 || subjectFilters.length > 0 || dayFilters.length > 0) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-7 text-xs" 
-                  onClick={clearFilters}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
+            )}
 
             <ScrollArea className="h-[400px]">
               {isFetching ? (
@@ -530,6 +499,28 @@ export function EnrollStudentModal({
         {/* Step 2: Select Enrollment Date */}
         {step === 2 && (
           <div className="space-y-4">
+            {/* Show student card for class context */}
+            {context === 'class' && selectedStudent && (
+              <div className="mb-4">
+                <StudentCard
+                  student={selectedStudent as Tables<'students'>}
+                  subjects={('subjects' in selectedStudent ? (selectedStudent as any).subjects : []) || []}
+                  showSubjects={true}
+                />
+              </div>
+            )}
+            
+            {/* Show student card for student context */}
+            {context === 'student' && student && (
+              <div className="mb-4">
+                <StudentCard
+                  student={student}
+                  subjects={studentSubjects || []}
+                  showSubjects={true}
+                />
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="enrollment-date">Enrollment Start Date</Label>
               <div className="relative">
@@ -546,6 +537,30 @@ export function EnrollStudentModal({
                 Student will be added to all sessions on or after this date
               </p>
             </div>
+            
+            {/* Show class card for student context */}
+            {context === 'student' && selectedClass && (
+              <div className="mt-4">
+                <ClassCard
+                  class={selectedClass}
+                  subject={selectedClass.subject}
+                  staff={selectedClass.staff || []}
+                  students={selectedClass.students || []}
+                />
+              </div>
+            )}
+            
+            {/* Show class card for class context */}
+            {context === 'class' && classData && classSubject && (
+              <div className="mt-4">
+                <ClassCard
+                  class={classData}
+                  subject={classSubject}
+                  staff={classStaff}
+                  students={[]}
+                />
+              </div>
+            )}
           </div>
         )}
 
