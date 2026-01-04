@@ -54,9 +54,9 @@ export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
 
 /**
  * Format a subject short name for compact display
- * Format: {curriculum} {year_level}{nickname} (no space between year_level and nickname)
+ * Format: {curriculum} {year_level}{nickname} {level} (no space between year_level and nickname)
  * Where nickname is the first 4 letters of the subject name, capitalized
- * Example: "SACE 12MATH" for "SACE 12 Mathematics"
+ * Example: "SACE 12MATH Standard" for "SACE 12 Mathematics Standard"
  */
 export function formatSubjectShortName(subject: Tables<'subjects'>): string {
   const parts: string[] = [];
@@ -72,6 +72,11 @@ export function formatSubjectShortName(subject: Tables<'subjects'>): string {
   
   if (yearLevel || nickname) {
     parts.push(`${yearLevel}${nickname}`);
+  }
+  
+  // Add level
+  if (subject.level) {
+    parts.push(subject.level);
   }
   
   return parts.filter(Boolean).join(' ').trim();

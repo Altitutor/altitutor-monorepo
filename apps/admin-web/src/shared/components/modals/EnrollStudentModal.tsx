@@ -10,6 +10,7 @@ import { Badge } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { Loader2, Search, ChevronLeft, ChevronRight, AlertTriangle, Calendar as CalendarIcon, Filter, X } from 'lucide-react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { StudentCard } from '../StudentCard';
@@ -19,6 +20,7 @@ import { getEnrollmentConflicts, getMidnightAdelaide } from '@/shared/utils/enro
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { cn } from '@/shared/utils';
+import { studentsApi } from '@/features/students/api';
 
 type EnrollmentContext = 'class' | 'student';
 
@@ -39,7 +41,7 @@ interface EnrollStudentModalProps {
   enrolledClassIds?: string[];
   
   // Data fetching
-  onFetchStudents?: () => Promise<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[] }>>;
+  onFetchStudents?: () => Promise<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[]; isAlreadyEnrolled?: boolean; existingClassSubject?: Tables<'subjects'> }>>;
   onFetchClasses?: () => Promise<ClassWithExpandedSubject[]>;
   
   // Enrollment handler
@@ -84,7 +86,7 @@ export function EnrollStudentModal({
   const [isEnrolling, setIsEnrolling] = useState(false);
   
   // Data state
-  const [students, setStudents] = useState<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[] }>>([]);
+  const [students, setStudents] = useState<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[]; isAlreadyEnrolled?: boolean; existingClassSubject?: Tables<'subjects'> }>>([]);
   const [classes, setClasses] = useState<ClassWithExpandedSubject[]>([]);
   
   // Conflicts
@@ -92,6 +94,10 @@ export function EnrollStudentModal({
     sameSubjectWarning: string | null;
     timeOverlapWarnings: string[];
   }>({ sameSubjectWarning: null, timeOverlapWarnings: [] });
+  
+  // Warning state for greyed out student selection
+  const [showEnrolledWarning, setShowEnrolledWarning] = useState(false);
+  const [warningStudent, setWarningStudent] = useState<{ student: Tables<'students'>; subject: Tables<'subjects'> } | null>(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -136,40 +142,93 @@ export function EnrollStudentModal({
     }
   }, [isOpen, step, context, onFetchStudents, onFetchClasses]);
 
+  // Get selected data for display (moved before useEffect to ensure it's available)
+  const selectedStudent = context === 'student' 
+    ? student 
+    : students.find(s => s.id === selectedStudentId);
+  
+  const selectedClass: ClassWithExpandedSubject | undefined = context === 'class'
+    ? classData ? {
+        ...classData,
+        subject: classSubject,
+        staff: classStaff,
+        students: []
+      } as ClassWithExpandedSubject
+    : undefined
+    : classes.find(c => c.id === selectedClassId);
+
   // Check for conflicts when moving to summary
   useEffect(() => {
-    if (step === 3 && selectedStudentId && selectedClassId) {
+    if (step === 3 && selectedStudentId && selectedClassId && selectedClass) {
       const finalStudentId = context === 'student' ? student!.id : selectedStudentId;
       const finalClassId = context === 'class' ? classData!.id : selectedClassId;
       
-      getEnrollmentConflicts(
-        finalStudentId,
-        finalClassId,
-        getMidnightAdelaide(new Date(enrollmentDate))
-      ).then(setConflicts);
+      let duplicateSubjectWarning: string | null = null;
+      let cancelled = false;
+      
+      // Check for duplicate subject enrollment (student context)
+      const checkDuplicateSubject = async () => {
+        if (cancelled) return;
+        
+        if (context === 'student' && selectedClass && student) {
+          const selectedClassSubjectId = selectedClass.subject_id;
+          if (selectedClassSubjectId && selectedClass.subject) {
+            try {
+              const { studentClasses } = await studentsApi.getDetailsForStudentIds([student.id]);
+              const enrolledClasses = studentClasses[student.id] || [];
+              const hasClassWithSameSubject = enrolledClasses.some(c => c.subject_id === selectedClassSubjectId);
+              
+              if (hasClassWithSameSubject && !cancelled) {
+                const existingClass = enrolledClasses.find(c => c.subject_id === selectedClassSubjectId);
+                if (existingClass?.subject) {
+                  const subjectDisplay = formatSubjectDisplay(existingClass.subject);
+                  duplicateSubjectWarning = `${student.first_name} ${student.last_name} is already enrolled in a ${subjectDisplay} class. Do you want to proceed?`;
+                }
+              }
+            } catch (error) {
+              if (!cancelled) {
+                console.error('Error checking duplicate subject enrollment:', error);
+              }
+            }
+          }
+        }
+        
+        if (cancelled) return;
+        
+        // Check for other conflicts
+        const conflictData = await getEnrollmentConflicts(
+          finalStudentId,
+          finalClassId,
+          getMidnightAdelaide(new Date(enrollmentDate))
+        );
+        
+        if (!cancelled) {
+          // Merge all warnings
+          setConflicts({
+            sameSubjectWarning: duplicateSubjectWarning || conflictData.sameSubjectWarning,
+            timeOverlapWarnings: conflictData.timeOverlapWarnings || []
+          });
+        }
+      };
+      
+      checkDuplicateSubject();
+      
+      return () => {
+        cancelled = true;
+      };
+    } else if (step !== 3) {
+      // Reset conflicts when not on step 3
+      setConflicts({ sameSubjectWarning: null, timeOverlapWarnings: [] });
     }
-  }, [step, selectedStudentId, selectedClassId, enrollmentDate, context, student, classData]);
+  }, [step, selectedStudentId, selectedClassId, enrollmentDate, context, student, classData, selectedClass]);
 
   // Filter logic for students (class context)
   const filteredStudents = useMemo(() => {
     if (context !== 'class') return [];
     
     return students.filter(s => {
-      // Exclude already enrolled students in this class
+      // Exclude already enrolled students in this specific class
       if (enrolledStudentIds.includes(s.id)) return false;
-      
-      // Subject filter: student must be linked to the class subject
-      if (classSubject && subjectFilters.length > 0) {
-        const studentSubjectIds = s.subjects?.map(sub => sub.id) || [];
-        // Student must have the class subject
-        if (!studentSubjectIds.includes(classSubject.id)) return false;
-        
-        // Exclude students who are enrolled in ANY class of this subject
-        // We need to check if student is enrolled in any class with this subject
-        // This will be handled by checking if student has classes with this subject_id
-        // For now, we'll filter based on the data we have
-        // The parent component should pass students that are not enrolled in classes of this subject
-      }
       
       // Search filter
       if (searchQuery.trim()) {
@@ -180,7 +239,31 @@ export function EnrollStudentModal({
       
       return true;
     });
-  }, [students, enrolledStudentIds, subjectFilters, searchQuery, context, classSubject]);
+  }, [students, enrolledStudentIds, searchQuery, context]);
+  
+  // Handle student selection with warning for already enrolled students
+  const handleStudentClick = (student: Tables<'students'> & { isAlreadyEnrolled?: boolean; existingClassSubject?: Tables<'subjects'> }) => {
+    if (student.isAlreadyEnrolled && student.existingClassSubject) {
+      setWarningStudent({ student, subject: student.existingClassSubject });
+      setShowEnrolledWarning(true);
+    } else {
+      setSelectedStudentId(student.id);
+    }
+  };
+  
+  // Handle warning confirmation
+  const handleWarningConfirm = () => {
+    if (warningStudent) {
+      setSelectedStudentId(warningStudent.student.id);
+      setShowEnrolledWarning(false);
+      setWarningStudent(null);
+    }
+  };
+  
+  const handleWarningCancel = () => {
+    setShowEnrolledWarning(false);
+    setWarningStudent(null);
+  };
 
   // Filter logic for classes (student context)
   const filteredClasses = useMemo(() => {
@@ -332,20 +415,6 @@ export function EnrollStudentModal({
     }
   };
 
-  // Get selected data for display
-  const selectedStudent = context === 'student' 
-    ? student 
-    : students.find(s => s.id === selectedStudentId);
-  
-  const selectedClass: ClassWithExpandedSubject | undefined = context === 'class'
-    ? classData ? {
-        ...classData,
-        subject: classSubject,
-        staff: classStaff,
-        students: []
-      } as ClassWithExpandedSubject
-    : undefined
-    : classes.find(c => c.id === selectedClassId);
 
   // Calculate first session date
   const firstSessionDate = selectedClass && enrollmentDate && selectedClass.day_of_week !== undefined && selectedClass.start_time
@@ -380,6 +449,17 @@ export function EnrollStudentModal({
                   subject={classSubject}
                   staff={classStaff}
                   students={[]}
+                />
+              </div>
+            )}
+            
+            {/* Show student card at top for student context */}
+            {context === 'student' && student && (
+              <div className="mb-4">
+                <StudentCard
+                  student={student}
+                  subjects={studentSubjects || []}
+                  showSubjects={true}
                 />
               </div>
             )}
@@ -458,16 +538,26 @@ export function EnrollStudentModal({
                       No students found
                     </p>
                   ) : (
-                    filteredStudents.map((s) => (
-                      <StudentCard
-                        key={s.id}
-                        student={s}
-                        subjects={s.subjects || []}
-                        isSelecting
-                        isSelected={selectedStudentId === s.id}
-                        onClick={() => setSelectedStudentId(s.id)}
-                      />
-                    ))
+                    filteredStudents.map((s) => {
+                      const isGreyedOut = s.isAlreadyEnrolled || false;
+                      return (
+                        <div
+                          key={s.id}
+                          className={cn(
+                            "relative",
+                            isGreyedOut && "opacity-50"
+                          )}
+                        >
+                          <StudentCard
+                            student={s}
+                            subjects={s.subjects || []}
+                            isSelecting
+                            isSelected={selectedStudentId === s.id}
+                            onClick={() => handleStudentClick(s)}
+                          />
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               ) : (
@@ -655,6 +745,26 @@ export function EnrollStudentModal({
           </div>
         </DialogFooter>
       </DialogContent>
+      
+      {/* Warning Dialog for Already Enrolled Student */}
+      <AlertDialog open={showEnrolledWarning} onOpenChange={setShowEnrolledWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Student Already Enrolled</AlertDialogTitle>
+            <AlertDialogDescription>
+              {warningStudent && (
+                <p>
+                  This student is already enrolled in a class for {formatSubjectDisplay(warningStudent.subject)}. Do you want to proceed?
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleWarningCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleWarningConfirm}>Proceed</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

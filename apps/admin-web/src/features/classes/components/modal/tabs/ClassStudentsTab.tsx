@@ -199,42 +199,78 @@ export function ClassStudentsTab({
   };
 
   // Fetch all students for enrollment modal
-  const fetchStudentsForEnrollment = async (): Promise<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[] }>> => {
+  const fetchStudentsForEnrollment = async (): Promise<Array<Tables<'students'> & { subjects?: Tables<'subjects'>[]; isAlreadyEnrolled?: boolean; existingClassSubject?: Tables<'subjects'> }>> => {
     if (!classSubject) {
       return allStudents.map(s => ({ ...s, subjects: [] }));
     }
     
-    // Get all students with their subjects and classes
-    const { studentSubjects, studentClasses } = await import('@/features/students/api').then(m => 
-      m.studentsApi.getDetailsForStudentIds(allStudents.map(s => s.id))
-    );
+    const { getSupabaseClient } = await import('@/shared/lib/supabase/client');
+    const supabase = getSupabaseClient();
     
-    // Filter students:
-    // 1. Must be linked to the class subject
-    // 2. Must NOT be enrolled in ANY class of that subject
-    const eligibleStudents = allStudents.filter(student => {
-      const studentSubjIds = studentSubjects[student.id]?.map(s => s.id) || [];
-      
-      // Must have the class subject
-      if (!studentSubjIds.includes(classSubject.id)) {
-        return false;
-      }
-      
-      // Must NOT be enrolled in any class of this subject
-      const studentCls = studentClasses[student.id] || [];
-      const hasClassOfSubject = studentCls.some(cls => cls.subject_id === classSubject.id);
-      if (hasClassOfSubject) {
-        return false;
-      }
-      
-      return true;
+    // Use search_students_admin RPC to fetch all students linked to this subject
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+      p_search: undefined,
+      p_statuses: undefined, // Get all statuses
+      p_subject_ids: [classSubject.id],
+      p_include_relationships: true,
+      p_limit: 10000, // High limit to get all students
+      p_offset: 0,
+      p_order_by: 'last_name',
+      p_ascending: true,
     });
     
-    // Return with subjects attached
-    return eligibleStudents.map(s => ({
-      ...s,
-      subjects: studentSubjects[s.id] || []
-    }));
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return [];
+    
+    const rpcData = rpcResult as { students: Array<{
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      status: string;
+      curriculum: string | null;
+      year_level: number | null;
+      school: string | null;
+      email: string | null;
+      phone: string | null;
+      created_at: string | null;
+      updated_at: string | null;
+    }>; total: number };
+    const rpcStudents = rpcData.students || [];
+    
+    // Transform RPC response to match Tables<'students'> format
+    const students = rpcStudents.map((s) => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      status: s.status,
+      curriculum: s.curriculum || null,
+      year_level: s.year_level || null,
+      school: s.school || null,
+      email: s.email || null,
+      phone: s.phone || null,
+      created_at: s.created_at || null,
+      updated_at: s.updated_at || null,
+    })) as Tables<'students'>[];
+    
+    // Get student subjects and classes to check enrollment status
+    const studentIds = students.map(s => s.id);
+    const { studentSubjects, studentClasses } = await import('@/features/students/api').then(m => 
+      m.studentsApi.getDetailsForStudentIds(studentIds)
+    );
+    
+    // Check which students are already enrolled in a class for this subject
+    return students.map(student => {
+      const studentCls = studentClasses[student.id] || [];
+      const hasClassOfSubject = studentCls.some(cls => cls.subject_id === classSubject.id);
+      const existingClass = hasClassOfSubject ? studentCls.find(cls => cls.subject_id === classSubject.id) : null;
+      
+      return {
+        ...student,
+        subjects: studentSubjects[student.id] || [],
+        isAlreadyEnrolled: hasClassOfSubject,
+        existingClassSubject: existingClass?.subject || undefined
+      };
+    });
   };
 
   // Fetch all classes for change class modal
