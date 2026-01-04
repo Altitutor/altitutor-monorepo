@@ -6053,6 +6053,7 @@ export type Database = {
           p_order_by?: string
           p_search?: string
           p_statuses?: string[]
+          p_subject_ids?: string[]
         }
         Returns: Json
       }
@@ -6096,6 +6097,7 @@ export type Database = {
           p_order_by?: string
           p_search?: string
           p_statuses?: string[]
+          p_subject_ids?: string[]
         }
         Returns: Json
       }
@@ -6108,6 +6110,7 @@ export type Database = {
           p_order_by?: string
           p_search?: string
           p_statuses?: string[]
+          p_subject_ids?: string[]
         }
         Returns: Json
       }
