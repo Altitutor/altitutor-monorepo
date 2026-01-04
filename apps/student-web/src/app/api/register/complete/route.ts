@@ -120,9 +120,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (studentCheck.user_id || studentCheck.status === 'ACTIVE') {
+    // Check if student is already fully registered (has account AND status is ACTIVE)
+    if (studentCheck.user_id && studentCheck.status === 'ACTIVE') {
       return NextResponse.json(
-        { error: 'This student already has an account', alreadyRegistered: true },
+        { error: 'This student is already fully registered', alreadyRegistered: true },
+        { status: 400 }
+      );
+    }
+    
+    // If skipPassword is true, student should already have an account
+    if (skipPassword && !studentCheck.user_id) {
+      return NextResponse.json(
+        { error: 'Cannot skip password: student does not have an account', alreadyRegistered: false },
         { status: 400 }
       );
     }
@@ -190,11 +199,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Now create auth user and link it to the student
+    // If skipPassword is true, student already has an account - just verify registration completed
+    if (skipPassword) {
+      // Verify student was updated correctly
+      const { data: updatedStudent, error: updateError } = await supabaseAdmin
+        .from('students')
+        .select('id, user_id, status')
+        .eq('id', studentId)
+        .single();
+
+      if (updateError) {
+        console.error('Failed to verify student update:', updateError);
+        return NextResponse.json(
+          { error: 'Failed to verify registration' },
+          { status: 500 }
+        );
+      }
+
+      // Verify student has account and is now ACTIVE
+      if (!updatedStudent.user_id) {
+        return NextResponse.json(
+          { error: 'Student account not found. Please contact support.' },
+          { status: 500 }
+        );
+      }
+
+      // Registration complete - return success (student already has account, no need to sign in)
+      return NextResponse.json({
+        success: true,
+        message: 'Registration completed successfully',
+        redirectTo: '/dashboard',
+      }, { status: 200 });
+    }
+
+    // Create auth user and link it to the student (normal flow)
     // Use the invite_token in user_metadata so the trigger links it
     const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: student.email,
-      password: password,
+      password: password!,
       email_confirm: true, // Auto-confirm email (Option A - confirm on link click)
       user_metadata: {
         first_name: student.first_name,

@@ -40,6 +40,7 @@ export default function RegisterPage({ params }: { params: { token: string } }) 
   const [isLoading, setIsLoading] = useState(true);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [skipPassword, setSkipPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(() => {
     const stepParam = searchParams.get('step');
     return stepParam ? parseInt(stepParam, 10) : 0;
@@ -75,6 +76,7 @@ export default function RegisterPage({ params }: { params: { token: string } }) 
           parents: data.parents || [],
           subjects: data.subjects || [],
         });
+        setSkipPassword(data.skipPassword || data.hasAccount || false);
       } catch (err) {
         console.error('Failed to validate token:', err);
         setError('Failed to load registration form. Please try again.');
@@ -131,6 +133,7 @@ export default function RegisterPage({ params }: { params: { token: string } }) 
       initialData={registrationData}
       currentStep={currentStep}
       onStepChange={setCurrentStep}
+      skipPassword={skipPassword}
     />
   );
 }

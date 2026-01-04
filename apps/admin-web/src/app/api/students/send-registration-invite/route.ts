@@ -58,13 +58,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if student already has an account
-    if (student.user_id || student.status === 'ACTIVE') {
+    // Check if student is already fully registered (has account AND status is ACTIVE)
+    if (student.user_id && student.status === 'ACTIVE') {
       return NextResponse.json(
-        { error: 'This student already has an account' },
+        { error: 'This student is already fully registered' },
         { status: 400 }
       );
     }
+    
+    // If student has account but hasn't registered (status != ACTIVE), allow registration link
+    // This will skip password creation in the registration flow
 
     // Generate or use existing token
     let token = existingToken || student.invite_token;
