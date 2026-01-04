@@ -20,8 +20,6 @@ import { getExistingConversationForRelated } from '@/features/messages/api/queri
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { Notes } from '@/shared/components/Notes';
 import { useNotes } from '@/shared/hooks/useNotes';
 
@@ -65,9 +63,6 @@ export function ViewStaffModal({
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
   
-  // Nested modal states
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   
   // Temporary subjects state for editing (not saved until form submit)
   const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
@@ -103,14 +98,11 @@ export function ViewStaffModal({
 
   // Update staff handler
   const handleStaffUpdate = async (data: StaffDetailsFormData) => {
-    console.log('[ViewStaffModal] handleStaffUpdate called with data:', data);
     if (!staffMember) {
-      console.error('[ViewStaffModal] handleStaffUpdate: staffMember is null');
       return;
     }
     
     try {
-      console.log('[ViewStaffModal] Starting staff update...');
       setLoadingStaffUpdate(true);
       // Map form data to staff update
       const updateData = {
@@ -136,12 +128,7 @@ export function ViewStaffModal({
         trial_session_availability: data.trial_session_availability,
         subsidy_interview_availability: data.subsidy_interview_availability,
       };
-      console.log('[ViewStaffModal] Calling staffApi.updateStaff with:', {
-        id: staffMember.id,
-        data: updateData
-      });
       await staffApi.updateStaff(staffMember.id, updateData);
-      console.log('[ViewStaffModal] Staff update API call completed');
       
       // Apply subject changes
       for (const subjectId of subjectsToAdd) {
@@ -162,17 +149,14 @@ export function ViewStaffModal({
       // Reset edit mode
       setIsEditing(false);
       
-      console.log('[ViewStaffModal] Staff update successful, showing toast');
       toast({
         title: 'Staff updated',
         description: 'Staff member has been updated successfully.',
       });
       
       // Notify parent of update
-      console.log('[ViewStaffModal] Calling onStaffUpdated');
       onStaffUpdated();
     } catch (err) {
-      console.error('[ViewStaffModal] Failed to update staff:', err);
       toast({
         title: 'Update failed',
         description: 'There was an error updating the staff member. Please try again.',
@@ -200,7 +184,6 @@ export function ViewStaffModal({
       onClose();
       onStaffUpdated();
     } catch (err) {
-      console.error('Failed to delete staff:', err);
       toast({
         title: 'Delete failed',
         description: 'There was an error deleting the staff member. Please try again.',
@@ -239,7 +222,6 @@ export function ViewStaffModal({
         description: `A password reset link has been sent to ${staffMember.email}.`,
       });
     } catch (err) {
-      console.error('Password reset error:', err);
       toast({
         title: 'Password reset failed',
         description: 'There was an error resetting the password. Please try again.',
@@ -453,23 +435,14 @@ export function ViewStaffModal({
                     type="button"
                     disabled={loadingStaffUpdate}
                     onClick={() => {
-                      console.log('[ViewStaffModal] Save Changes button clicked, isLoading:', loadingStaffUpdate);
                       const form = document.getElementById('staff-edit-form') as HTMLFormElement;
-                      console.log('[ViewStaffModal] Form element found:', form);
                       if (form) {
                         const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-                        console.log('[ViewStaffModal] Submit button found:', submitButton);
                         if (submitButton) {
-                          console.log('[ViewStaffModal] Clicking submit button');
                           submitButton.click();
-                          console.log('[ViewStaffModal] Submit button clicked');
                         } else {
-                          console.log('[ViewStaffModal] No submit button found, calling form.requestSubmit()');
                           form.requestSubmit();
-                          console.log('[ViewStaffModal] form.requestSubmit() called');
                         }
-                      } else {
-                        console.error('[ViewStaffModal] Form element not found!');
                       }
                     }}
                   >

@@ -8,7 +8,7 @@ interface StaffAvatarProps {
   lastName: string;
 }
 
-export function StaffAvatar({ staffId, firstName, lastName }: StaffAvatarProps) {
+export function StaffAvatar({ firstName, lastName }: StaffAvatarProps) {
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   const fullName = `${firstName} ${lastName}`;
   

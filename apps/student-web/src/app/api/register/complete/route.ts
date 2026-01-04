@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       subject_ids,
       password,
       confirmPassword,
+      skipPassword,
     } = body;
 
     // Validate required fields

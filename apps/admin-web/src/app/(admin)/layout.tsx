@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, Clock, Ban } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, MessageCircle, LayoutGrid } from 'lucide-react';
+import { Beaker, Newspaper, ClipboardList, MessageCircle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';

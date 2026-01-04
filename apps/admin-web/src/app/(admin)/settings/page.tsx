@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { LayoutGrid, Clock, Ban, FileText, CreditCard, Calendar } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
+import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
 export default function SettingsPage() {
   const settingsSections = [

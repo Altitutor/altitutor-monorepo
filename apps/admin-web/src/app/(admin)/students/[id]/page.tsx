@@ -33,7 +33,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   
   // Use React Query hooks for data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(id, !!id);
-  const { data: allSubjects = [] } = useSubjects();
   const updateStudentMutation = useUpdateStudent();
   
   // Extract data from studentDetails
@@ -88,9 +87,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   useEffect(() => {
     if (id) {
       getExistingConversationForRelated(id, 'student').then((convId) => {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('[StudentDetailPage] Existing conversation ID for student', id, ':', convId);
-        }
         setConversationId(convId);
       });
     }
@@ -157,9 +153,12 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       });
     } catch (error) {
       console.error('Failed to update details:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to update details. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to update details. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -106,7 +106,7 @@ export function ClassesTable({}: ClassesTableProps) {
                   {(() => {
                     // Create a minimal subject-like object for getSubjectColorStyle
                     const subjectForColor = classItem.subject_color 
-                      ? { color: classItem.subject_color } as Pick<Tables<'subjects'>, 'color'>
+                      ? { color: classItem.subject_color } as Tables<'subjects'>
                       : null;
                     const { style, textColorClass } = getSubjectColorStyle(subjectForColor);
                     const defaultClass = !classItem.subject_color ? 'bg-gray-100 text-gray-800 border-gray-300' : '';

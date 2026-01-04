@@ -187,9 +187,12 @@ export function ViewStudentModal({
       });
     } catch (error) {
       console.error('Failed to update details:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to update details. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to update details. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -221,9 +224,12 @@ export function ViewStudentModal({
       });
     } catch (error) {
       console.error('Failed to send password reset:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to send password reset link. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to send password reset link. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -309,9 +315,12 @@ export function ViewStudentModal({
       });
     } catch (error) {
       console.error('Failed to delete student:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to delete student. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to delete student. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

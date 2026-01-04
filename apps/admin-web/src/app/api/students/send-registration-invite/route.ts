@@ -199,7 +199,6 @@ export async function POST(request: NextRequest) {
           if (!contactId) {
             const { data: newContact, error: createContactError } = await supabaseAdmin
               .from('contacts')
-              // @ts-ignore - TypeScript inference issue with Supabase client
               .insert({
                 phone_e164: recipient.phone,
                 contact_type: 'STUDENT',
@@ -248,7 +247,6 @@ export async function POST(request: NextRequest) {
           } else {
             const { data: newConvo, error: convoCreateError } = await supabaseAdmin
               .from('conversations')
-              // @ts-ignore - TypeScript inference issue with Supabase client
               .insert({
                 contact_id: contactId,
                 owned_number_id: ownedNumber.id,
@@ -280,7 +278,6 @@ export async function POST(request: NextRequest) {
           
           const { data: message, error: messageError } = await supabaseAdmin
             .from('messages')
-            // @ts-ignore - TypeScript inference issue with Supabase client
             .insert({
               conversation_id: conversationId,
               body: messageBody,

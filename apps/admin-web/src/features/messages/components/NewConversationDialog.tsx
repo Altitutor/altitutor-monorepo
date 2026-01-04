@@ -9,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from '@altitutor/ui';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { studentsApi } from '@/features/students/api';
 import { getExistingConversationForRelated, ensureConversationForContact } from '../api/queries';
 import { ensureContactForStudent } from '../utils/contactHelpers';
 import type { Database, Tables } from '@altitutor/shared';
