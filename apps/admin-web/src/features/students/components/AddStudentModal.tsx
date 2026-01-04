@@ -47,8 +47,12 @@ const formSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   studentEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
   studentPhone: z
-    .string()
-    .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
+    .union([
+      z.string().regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format'),
+      z.literal(''),
+      z.null()
+    ])
+    .transform((val) => val === '' ? null : val)
     .optional()
     .nullable(),
   school: z.string().optional(),
