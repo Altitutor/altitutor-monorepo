@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -28,20 +28,35 @@ export function SubjectSearchPopover({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Tables<'subjects'>[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Use ref to track initialSubjects without causing re-renders
+  const initialSubjectsRef = useRef(initialSubjects);
+  
+  // Update ref when initialSubjects changes (but don't trigger effect)
+  useEffect(() => {
+    initialSubjectsRef.current = initialSubjects;
+  }, [initialSubjects]);
 
-  // Debounced server-side search
+  // Reset state when popover closes
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery('');
       setSearchResults([]);
+    }
+  }, [isOpen]);
+
+  // Debounced server-side search
+  useEffect(() => {
+    if (!isOpen) {
       return;
     }
 
     const timeoutId = setTimeout(async () => {
       if (searchQuery.trim().length === 0) {
         // If no search query and initialSubjects provided, use those; otherwise get all subjects
-        if (initialSubjects.length > 0) {
-          setSearchResults(initialSubjects);
+        const currentInitialSubjects = initialSubjectsRef.current;
+        if (currentInitialSubjects.length > 0) {
+          setSearchResults(currentInitialSubjects);
           setIsSearching(false);
         } else {
           setIsSearching(true);
@@ -75,7 +90,7 @@ export function SubjectSearchPopover({
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, isOpen, initialSubjects]);
+  }, [searchQuery, isOpen]);
 
   const handleSelectSubject = (subject: Tables<'subjects'>) => {
     onSelectSubject(subject);
