@@ -150,18 +150,24 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       const createdStaff = await createStaffMutation.mutateAsync(staffData);
       const staffId = createdStaff.id;
       
-      // Assign subjects if any were selected
+      // Assign subjects if any were selected (in parallel for better performance)
       if (selectedSubjects.length > 0) {
-        for (const subject of selectedSubjects) {
-          try {
-            await assignSubjectMutation.mutateAsync({
-              staffId,
-              subjectId: subject.id,
-            });
-          } catch (error) {
-            console.error(`Failed to assign subject ${subject.id}:`, error);
-            // Continue with other subjects even if one fails
-          }
+        try {
+          await Promise.all(
+            selectedSubjects.map(subject =>
+              assignSubjectMutation.mutateAsync({
+                staffId,
+                subjectId: subject.id,
+              })
+            )
+          );
+        } catch (subjectError) {
+          console.error('Failed to assign some subjects:', subjectError);
+          toast({
+            title: "Warning",
+            description: "Staff member created but some subjects could not be assigned.",
+            variant: "default",
+          });
         }
       }
       
