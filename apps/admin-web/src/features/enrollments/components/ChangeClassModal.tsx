@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { ClassCard } from '@/shared/components/ClassCard';
@@ -34,19 +33,32 @@ export function ChangeClassModal({
     new Date().toISOString().split('T')[0]
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const [dayFilters, setDayFilters] = useState<number[]>([]);
   const [timeOverlapWarning, setTimeOverlapWarning] = useState<string | null>(null);
 
-  // Fetch data
+  // Fetch data using RPC (no search query passed - we filter client-side)
   const { classes, isFetching } = useChangeClassData({
     isOpen,
     step,
-    onFetchClasses,
+    oldClassSubjectId: oldClassSubject?.id,
+    searchQuery: '', // Don't pass search to RPC - we filter client-side
   });
+
+  // Get available days from classes
+  const availableDays = useMemo(() => {
+    const daysSet = new Set<number>();
+    classes.forEach(c => {
+      if (c.day_of_week !== undefined && c.day_of_week !== null) {
+        daysSet.add(c.day_of_week);
+      }
+    });
+    return Array.from(daysSet).sort();
+  }, [classes]);
 
   // Filter classes
   const filteredClasses = useMemo(() => {
-    return filterClassesForChange(classes, oldClass, searchQuery);
-  }, [classes, oldClass, searchQuery]);
+    return filterClassesForChange(classes, oldClass, searchQuery, dayFilters);
+  }, [classes, oldClass, searchQuery, dayFilters]);
 
   // Get selected new class for display
   const selectedNewClass = classes.find(c => c.id === selectedNewClassId);
@@ -70,9 +82,23 @@ export function ChangeClassModal({
       setSelectedNewClassId(null);
       setChangeoverDate(new Date().toISOString().split('T')[0]);
       setSearchQuery('');
+      setDayFilters([]);
       setTimeOverlapWarning(null);
     }
   }, [isOpen]);
+
+  const toggleDay = useCallback((day: number) => {
+    setDayFilters(prev => 
+      prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setDayFilters([]);
+  }, []);
 
   // Check for time conflicts when moving to summary
   useEffect(() => {
@@ -102,24 +128,20 @@ export function ChangeClassModal({
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>Change Class</DialogTitle>
-          <DialogDescription>
-            Move the student from their current class to a different class with the same subject.
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
+        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4 flex flex-col">
           {/* Always show student and old class at top */}
-          <div className="space-y-3 pb-4 border-b mb-4">
-            <div>
-              <Label className="text-xs text-muted-foreground">Student</Label>
+          <div className="space-y-2 mb-4 flex-shrink-0">
+            <div className="mb-2">
               <StudentCard
                 student={student}
                 subjects={studentSubjects}
+                showSubjects={true}
               />
             </div>
             
-            <div>
-              <Label className="text-xs text-muted-foreground">Current Class</Label>
+            <div className="mb-2">
               <ClassCard
                 class={oldClass}
                 subject={oldClassSubject}
@@ -135,29 +157,37 @@ export function ChangeClassModal({
               filteredClasses={filteredClasses}
               selectedNewClassId={selectedNewClassId}
               searchQuery={searchQuery}
+              dayFilters={dayFilters}
+              availableDays={availableDays}
               onSearchChange={setSearchQuery}
+              onToggleDay={toggleDay}
+              onClearFilters={clearFilters}
               onSelectClass={setSelectedNewClassId}
             />
           )}
 
           {/* Step 2: Select Changeover Date */}
           {step === 2 && (
-            <ChangeClassStep2SelectDate
-              changeoverDate={changeoverDate}
-              onDateChange={setChangeoverDate}
-            />
+            <div className="flex-1 overflow-y-auto">
+              <ChangeClassStep2SelectDate
+                changeoverDate={changeoverDate}
+                onDateChange={setChangeoverDate}
+              />
+            </div>
           )}
 
           {/* Step 3: Summary & Confirm */}
           {step === 3 && (
-            <ChangeClassStep3Summary
-              oldClass={oldClass}
-              oldClassSubject={oldClassSubject}
-              oldClassStaff={oldClassStaff}
-              selectedNewClass={selectedNewClass}
-              changeoverDate={changeoverDate}
-              timeOverlapWarning={timeOverlapWarning}
-            />
+            <div className="flex-1 overflow-y-auto">
+              <ChangeClassStep3Summary
+                oldClass={oldClass}
+                oldClassSubject={oldClassSubject}
+                oldClassStaff={oldClassStaff}
+                selectedNewClass={selectedNewClass}
+                changeoverDate={changeoverDate}
+                timeOverlapWarning={timeOverlapWarning}
+              />
+            </div>
           )}
         </div>
 

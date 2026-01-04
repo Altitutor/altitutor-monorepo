@@ -258,8 +258,8 @@ export function ViewClassModal({
               </div>
             </TabsContent>
         
-            <TabsContent value="students" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="h-full p-6">
+            <TabsContent value="students" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+              <div className="p-6">
                 <ClassStudentsTab
                   classData={classData}
                   classSubject={subject || undefined}
@@ -272,10 +272,11 @@ export function ViewClassModal({
               </div>
             </TabsContent>
             
-            <TabsContent value="staff" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="h-full p-6">
+            <TabsContent value="staff" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+              <div className="p-6">
                 <ClassStaffTab
                   classData={classData}
+                  classSubject={subject || undefined}
                   classStaff={classStaff}
                   allStaff={allStaffData}
                   loadingStaff={false}

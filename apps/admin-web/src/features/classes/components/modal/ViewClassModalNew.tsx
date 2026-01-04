@@ -323,6 +323,7 @@ export function ViewClassModalNew({
               <TabsContent value="staff" className="mt-4">
                 <ClassStaffTab
                   classData={classData}
+                  classSubject={subject || undefined}
                   classStaff={classStaff}
                   allStaff={allStaffData}
                   loadingStaff={false}

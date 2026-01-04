@@ -66,9 +66,6 @@ export function UnenrollStudentModal({
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>Unenroll Student from Class</DialogTitle>
-          <DialogDescription>
-            Remove the student from this class. They will be removed from all future sessions.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
@@ -112,10 +109,6 @@ export function UnenrollStudentModal({
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={isUnenrolling}>
-              Cancel
-            </Button>
-            
             {step === 1 ? (
               <Button onClick={handleNext}>
                 Next

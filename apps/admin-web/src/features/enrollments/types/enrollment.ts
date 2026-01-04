@@ -79,8 +79,8 @@ export interface ChangeClassModalProps {
   oldClassSubject?: Tables<'subjects'>;
   oldClassStaff?: Tables<'staff'>[];
   
-  // Available classes to switch to
-  onFetchClasses: () => Promise<ClassWithExpandedSubject[]>;
+  // Available classes to switch to (optional - uses RPC if not provided)
+  onFetchClasses?: () => Promise<ClassWithExpandedSubject[]>;
   
   // Change class handler
   onChange: (params: {
@@ -113,6 +113,59 @@ export interface UnenrollStudentModalProps {
     unenrolledAt: Date;
     reason: string;
     staffId: string;
+  }) => Promise<void>;
+  
+  currentStaffId: string;
+}
+
+// Assign Staff Modal Types
+export type AssignStaffContext = 'staff' | 'class';
+
+export interface StaffConflictInfo {
+  conflictingClass: {
+    id: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    subject?: Tables<'subjects'> | null;
+  };
+}
+
+export interface ClassConflictInfo {
+  conflictingStaff: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface StaffUnavailabilityInfo {
+  staffName: string;
+  dayOfWeek: number;
+}
+
+export interface AssignStaffModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  context: AssignStaffContext;
+  
+  // When context is 'staff'
+  staff?: Tables<'staff'>;
+  staffSubjects?: Tables<'subjects'>[];
+  assignedClassIds?: string[];
+  
+  // When context is 'class'
+  classData?: Tables<'classes'>;
+  classSubject?: Tables<'subjects'>;
+  classStaff?: Tables<'staff'>[];
+  assignedStaffIds?: string[];
+  
+  // Assignment handler
+  onAssign: (params: {
+    staffId: string;
+    classId: string;
+    assignedAt: Date;
+    currentStaffId: string;
   }) => Promise<void>;
   
   currentStaffId: string;

@@ -41,7 +41,7 @@ export function Step2SelectEnrollmentDate({
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
       {/* Show student card for class context */}
       {context === 'class' && selectedStudent && (
-        <div className="mb-4">
+        <div className="mb-2">
           <StudentCard
             student={selectedStudent as Tables<'students'>}
             subjects={('subjects' in selectedStudent ? (selectedStudent as any).subjects : []) || []}
@@ -52,7 +52,7 @@ export function Step2SelectEnrollmentDate({
       
       {/* Show student card for student context */}
       {context === 'student' && student && (
-        <div className="mb-4">
+        <div className="mb-2">
           <StudentCard
             student={student}
             subjects={studentSubjects || []}
@@ -63,7 +63,7 @@ export function Step2SelectEnrollmentDate({
       
       {/* Show class card for student context */}
       {context === 'student' && selectedClass && (
-        <div className="mb-4">
+        <div className="mb-2">
           <ClassCard
             class={selectedClass}
             subject={selectedClass.subject}
@@ -75,7 +75,7 @@ export function Step2SelectEnrollmentDate({
       
       {/* Show class card for class context */}
       {context === 'class' && classData && classSubject && (
-        <div className="mb-4">
+        <div className="mb-2">
           <ClassCard
             class={classData}
             subject={classSubject}

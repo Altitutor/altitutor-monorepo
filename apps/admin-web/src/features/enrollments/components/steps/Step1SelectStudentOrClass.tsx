@@ -9,9 +9,10 @@ import { Loader2, Search, Filter, X } from 'lucide-react';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { cn } from '@/shared/utils';
+import { cn, formatClassName } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext, StudentWithEnrollmentInfo } from '../../types/enrollment';
+import type { ClassConflictInfo } from '../../hooks/useClassConflicts';
 
 interface Step1SelectStudentOrClassProps {
   context: EnrollmentContext;
@@ -46,6 +47,9 @@ interface Step1SelectStudentOrClassProps {
   
   // Warning handling
   onStudentClick: (student: StudentWithEnrollmentInfo) => void;
+  
+  // Conflict information (for student context)
+  classConflicts?: Map<string, ClassConflictInfo>;
 }
 
 export function Step1SelectStudentOrClass({
@@ -69,6 +73,7 @@ export function Step1SelectStudentOrClass({
   onToggleDay,
   onClearFilters,
   onStudentClick,
+  classConflicts,
 }: Step1SelectStudentOrClassProps) {
   return (
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
@@ -196,18 +201,42 @@ export function Step1SelectStudentOrClass({
                 No classes found
               </p>
             ) : (
-              filteredClasses.map((c) => (
-                <ClassCard
-                  key={c.id}
-                  class={c}
-                  subject={c.subject}
-                  staff={c.staff || []}
-                  students={c.students || []}
-                  isSelecting
-                  isSelected={selectedClassId === c.id}
-                  onClick={() => onSelectClass(c.id)}
-                />
-              ))
+              filteredClasses.map((c) => {
+                const conflictInfo = classConflicts?.get(c.id);
+                const hasConflict = !!conflictInfo;
+                
+                return (
+                  <div
+                    key={c.id}
+                    className="relative"
+                  >
+                    {hasConflict && conflictInfo && (
+                      <div className="absolute bottom-2 left-2 right-2 z-20 pointer-events-none">
+                        <div className="bg-red-500 text-white text-xs px-2 py-1 rounded shadow-sm">
+                          Conflict with {formatClassName(
+                            {
+                              id: conflictInfo.conflictingClass.id,
+                              day_of_week: conflictInfo.conflictingClass.day_of_week,
+                              start_time: conflictInfo.conflictingClass.start_time,
+                              end_time: conflictInfo.conflictingClass.end_time,
+                            } as Tables<'classes'>,
+                            conflictInfo.conflictingClass.subject || null
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <ClassCard
+                      class={c}
+                      subject={c.subject}
+                      staff={c.staff || []}
+                      students={c.students || []}
+                      isSelecting
+                      isSelected={selectedClassId === c.id}
+                      onClick={() => onSelectClass(c.id)}
+                    />
+                  </div>
+                );
+              })
             )}
           </div>
         )}

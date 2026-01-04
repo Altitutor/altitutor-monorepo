@@ -1,8 +1,10 @@
-export { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from './components';
+export { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal, AssignStaffModal } from './components';
 export type { 
   EnrollStudentModalProps, 
   ChangeClassModalProps,
   UnenrollStudentModalProps,
-  EnrollmentContext 
+  AssignStaffModalProps,
+  EnrollmentContext,
+  AssignStaffContext
 } from './types/enrollment';
 

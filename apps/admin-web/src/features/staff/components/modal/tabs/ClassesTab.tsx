@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
@@ -17,11 +17,12 @@ import { getDayOfWeek } from '@/shared/utils/datetime';
 import { formatTime } from '@/shared/utils/datetime';
 import { useStaffClasses, type StaffClass } from '@/features/staff/hooks/useStaffClasses';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
-import { useStaffWithSubjectsById, staffKeys } from '@/features/staff/hooks/useStaffQuery';
+import { useStaffWithSubjectsById, staffKeys, useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { staffApi } from '@/features/staff/api/staff';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { AssignStaffModal } from '@/features/enrollments';
 
 type ViewMode = 'table' | 'calendar';
 
@@ -85,6 +86,17 @@ export function ClassesTab({
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   
+  // Assign staff modal state
+  const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
+  
+  // Get current staff for assignment
+  const { data: currentStaff } = useCurrentStaff();
+
+  // Memoize the close handler to prevent infinite loops
+  const handleCloseAssignModal = useCallback(() => {
+    setIsAssignStaffModalOpen(false);
+  }, []);
+  
   // Prepare data for timetable view
   const timetableClasses = classes.map(c => c.class);
   const timetableSubjects: Record<string, Tables<'subjects'>> = {};
@@ -96,13 +108,15 @@ export function ClassesTab({
     timetableStaff[c.class.id] = c.staff;
   });
 
-  // Handle class assignment
-  const handleAssignClass = async (classId: string) => {
-    setAssigningClasses(prev => new Set(prev).add(classId));
-    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
-    
+  // Handle class assignment (used by modal)
+  const handleAssignStaff = useCallback(async (params: {
+    staffId: string;
+    classId: string;
+    assignedAt: Date;
+    currentStaffId: string;
+  }) => {
     try {
-      await classesApi.assignStaff(classId, staff.id);
+      await classesApi.assignStaff(params.classId, params.staffId, params.currentStaffId);
       // Invalidate queries to trigger refetch
       await queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] });
       await queryClient.invalidateQueries({ queryKey: ['classes', 'withDetails'] });
@@ -119,14 +133,9 @@ export function ClassesTab({
         description: "There was an error assigning the staff member to the class. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setAssigningClasses(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(classId);
-        return newSet;
-      });
+      throw error;
     }
-  };
+  }, [staff.id, queryClient, onStaffUpdated, toast]);
 
   const handleClassClick = (classId: string) => {
     setSelectedClassId(classId);
@@ -226,6 +235,7 @@ export function ClassesTab({
       }
 
       // Invalidate queries to refetch
+      await queryClient.invalidateQueries({ queryKey: staffKeys.detail(staff.id) });
       await queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staff.id) });
       await queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] });
       
@@ -357,57 +367,17 @@ export function ClassesTab({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-medium">Classes</h3>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span>Add Class</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 w-[400px]" align="end">
-                <div className="p-3">
-                  <Input
-                    placeholder="Search classes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="mb-3"
-                  />
-                  <ScrollArea className="max-h-[300px]">
-                    <div className="space-y-1">
-                      {filteredAvailableClasses.length === 0 ? (
-                        <div className="p-3 text-center text-sm text-muted-foreground">
-                          {searchQuery ? 'No classes match your search' : 'No available classes found'}
-                        </div>
-                      ) : (
-                        filteredAvailableClasses.map(classData => (
-                          <Button
-                            key={classData.class.id}
-                            variant="ghost"
-                            className="w-full justify-start h-auto p-3"
-                            onClick={() => handleAssignClass(classData.class.id)}
-                            disabled={assigningClasses.has(classData.class.id)}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <div className="flex flex-col items-start">
-                                <div className="font-medium">
-                                  {getSubjectDisplay(classData)}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {getDayOfWeek(classData.class.day_of_week)} • {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
-                                </div>
-                              </div>
-                              {assigningClasses.has(classData.class.id) && (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              )}
-                            </div>
-                          </Button>
-                        ))
-                      )}
-                    </div>
-                  </ScrollArea>
-                </div>
-              </PopoverContent>
-            </Popover>
+            {currentStaff && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsAssignStaffModalOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Class</span>
+              </Button>
+            )}
           </div>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
@@ -523,57 +493,15 @@ export function ClassesTab({
             </TabsList>
           </Tabs>
           
-          <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                <span>Add Class</span>
-              </Button>
-            </PopoverTrigger>
-          <PopoverContent className="p-0 w-[400px]" align="end">
-            <div className="p-3">
-              <Input
-                placeholder="Search classes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-3"
-              />
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1">
-                  {filteredAvailableClasses.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No classes match your search' : 'No available classes found'}
-                    </div>
-                  ) : (
-                    filteredAvailableClasses.map(classData => (
-                      <Button
-                        key={classData.class.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-3"
-                        onClick={() => handleAssignClass(classData.class.id)}
-                        disabled={assigningClasses.has(classData.class.id)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">
-                              {getSubjectDisplay(classData)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {getDayOfWeek(classData.class.day_of_week)} • {formatTime(classData.class.start_time)} - {formatTime(classData.class.end_time)}
-                            </div>
-                          </div>
-                          {assigningClasses.has(classData.class.id) && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </PopoverContent>
-        </Popover>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex items-center gap-2"
+            onClick={() => setIsAssignStaffModalOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Class</span>
+          </Button>
         </div>
       </div>
       
@@ -665,6 +593,20 @@ export function ClassesTab({
             queryClient.invalidateQueries({ queryKey: ['staff', staff.id, 'classes'] });
             queryClient.invalidateQueries({ queryKey: ['classes', 'withDetails'] });
           }}
+        />
+      )}
+      
+      {/* Assign Staff Modal */}
+      {currentStaff && (
+        <AssignStaffModal
+          isOpen={isAssignStaffModalOpen}
+          onClose={handleCloseAssignModal}
+          context="staff"
+          staff={staff}
+          staffSubjects={staffSubjects}
+          assignedClassIds={classes.map(c => c.class.id)}
+          onAssign={handleAssignStaff}
+          currentStaffId={currentStaff.id}
         />
       )}
     </div>

@@ -12,6 +12,7 @@ import {
   useEnrollmentConflicts,
   useEnrollmentData,
   useEnrollmentFlow,
+  useClassConflicts,
 } from '../hooks';
 import {
   Step1SelectStudentOrClass,
@@ -64,15 +65,19 @@ export function EnrollStudentModal({
     ? student 
     : students.find(s => s.id === selectedStudentId);
   
-  const selectedClass: ClassWithExpandedSubject | undefined = context === 'class'
-    ? classData ? {
+  const selectedClass: ClassWithExpandedSubject | undefined = useMemo(() => {
+    if (context === 'class') {
+      return classData ? {
         ...classData,
         subject: classSubject,
         staff: classStaff,
         students: []
       } as ClassWithExpandedSubject
-    : undefined
-    : classes.find(c => c.id === selectedClassId);
+      : undefined;
+    } else {
+      return classes.find(c => c.id === selectedClassId);
+    }
+  }, [context, classData, classSubject, classStaff, classes, selectedClassId]);
 
   // Filters
   const defaultSubjectFilters = useMemo(() => {
@@ -101,7 +106,7 @@ export function EnrollStudentModal({
     defaultSubjectFilters,
   });
 
-  // Conflicts
+  // Conflicts for step 3 (selected class)
   const conflicts = useEnrollmentConflicts({
     step,
     context,
@@ -111,6 +116,13 @@ export function EnrollStudentModal({
     student,
     classData,
     selectedClass,
+  });
+
+  // Conflicts for step 1 (all classes in student context)
+  const classConflicts = useClassConflicts({
+    studentId: context === 'student' ? student?.id : null,
+    classes: filteredClasses,
+    enabled: context === 'student' && step === 1 && !!student?.id,
   });
 
   // Flow management
@@ -181,68 +193,71 @@ export function EnrollStudentModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <DialogTitle>
               {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
             </DialogTitle>
           </DialogHeader>
 
-          {/* Step 1: Select Student or Class */}
-          {step === 1 && (
-            <Step1SelectStudentOrClass
-              context={context}
-              isFetching={isFetching}
-              classData={classData}
-              classSubject={classSubject}
-              classStaff={classStaff}
-              student={student}
-              studentSubjects={studentSubjects}
-              filteredStudents={filteredStudents}
-              filteredClasses={filteredClasses}
-              availableDays={availableDays}
-              selectedStudentId={selectedStudentId}
-              selectedClassId={selectedClassId}
-              onSelectStudent={setSelectedStudentId}
-              onSelectClass={setSelectedClassId}
-              searchQuery={filters.searchQuery}
-              dayFilters={filters.dayFilters}
-              onSearchChange={setSearchQuery}
-              onToggleDay={toggleDay}
-              onClearFilters={clearFilters}
-              onStudentClick={handleStudentClick}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
+            {/* Step 1: Select Student or Class */}
+            {step === 1 && (
+              <Step1SelectStudentOrClass
+                context={context}
+                isFetching={isFetching}
+                classData={classData}
+                classSubject={classSubject}
+                classStaff={classStaff}
+                student={student}
+                studentSubjects={studentSubjects}
+                filteredStudents={filteredStudents}
+                filteredClasses={filteredClasses}
+                availableDays={availableDays}
+                selectedStudentId={selectedStudentId}
+                selectedClassId={selectedClassId}
+                onSelectStudent={setSelectedStudentId}
+                onSelectClass={setSelectedClassId}
+                searchQuery={filters.searchQuery}
+                dayFilters={filters.dayFilters}
+                onSearchChange={setSearchQuery}
+                onToggleDay={toggleDay}
+                onClearFilters={clearFilters}
+                onStudentClick={handleStudentClick}
+                classConflicts={classConflicts}
+              />
+            )}
 
-          {/* Step 2: Select Enrollment Date */}
-          {step === 2 && (
-            <Step2SelectEnrollmentDate
-              context={context}
-              enrollmentDate={enrollmentDate}
-              onDateChange={setEnrollmentDate}
-              classData={classData}
-              classSubject={classSubject}
-              classStaff={classStaff}
-              selectedStudent={selectedStudent}
-              student={student}
-              studentSubjects={studentSubjects}
-              selectedClass={selectedClass}
-            />
-          )}
+            {/* Step 2: Select Enrollment Date */}
+            {step === 2 && (
+              <Step2SelectEnrollmentDate
+                context={context}
+                enrollmentDate={enrollmentDate}
+                onDateChange={setEnrollmentDate}
+                classData={classData}
+                classSubject={classSubject}
+                classStaff={classStaff}
+                selectedStudent={selectedStudent}
+                student={student}
+                studentSubjects={studentSubjects}
+                selectedClass={selectedClass}
+              />
+            )}
 
-          {/* Step 3: Summary & Confirm */}
-          {step === 3 && (
-            <Step3SummaryAndConfirm
-              context={context}
-              selectedStudent={selectedStudent}
-              selectedClass={selectedClass}
-              studentSubjects={studentSubjects}
-              enrollmentDate={enrollmentDate}
-              conflicts={conflicts}
-            />
-          )}
+            {/* Step 3: Summary & Confirm */}
+            {step === 3 && (
+              <Step3SummaryAndConfirm
+                context={context}
+                selectedStudent={selectedStudent}
+                selectedClass={selectedClass}
+                studentSubjects={studentSubjects}
+                enrollmentDate={enrollmentDate}
+                conflicts={conflicts}
+              />
+            )}
+          </div>
 
-          <DialogFooter className="flex justify-between sm:justify-between">
+          <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
             <div className="flex gap-2">
               {step > 1 && (
                 <Button variant="outline" onClick={handleBack} disabled={isEnrolling}>

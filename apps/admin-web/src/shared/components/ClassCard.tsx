@@ -37,6 +37,7 @@ interface ClassCardProps {
   isSelected?: boolean;
   compact?: boolean; // Compact mode for calendar views
   isCalendarView?: boolean; // If true, subtitle shows only room (no date/time)
+  hideActions?: boolean; // If true, hide the action menu button
   // Smart sizing props
   cardHeight?: number; // Height in pixels
   cardWidth?: number; // Width in pixels
@@ -55,6 +56,7 @@ export function ClassCard({
   isSelected = false,
   compact: forceCompact = false,
   isCalendarView = false,
+  hideActions = false,
   cardHeight,
   cardWidth
 }: ClassCardProps) {
@@ -99,7 +101,7 @@ export function ClassCard({
   const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
   const staffNames = staff.map(s => `${s.first_name} ${s.last_name}`).join(', ');
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasMenuActions = onChangeClass || onUnenroll;
+  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll);
   
   // Get subject color for the card (border and icon only)
   const subjectColorHex = getSubjectColorHex(subject);

@@ -32,17 +32,16 @@ export function UnenrollStep1DateAndReason({
   onReasonChange,
 }: UnenrollStep1DateAndReasonProps) {
   return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs text-muted-foreground">Student</Label>
+    <div className="flex flex-col flex-1 min-h-0 space-y-4">
+      <div className="mb-2">
         <StudentCard
           student={student}
           subjects={studentSubjects}
+          showSubjects={true}
         />
       </div>
 
-      <div>
-        <Label className="text-xs text-muted-foreground">Class</Label>
+      <div className="mb-2">
         <ClassCard
           class={classData}
           subject={classSubject}
@@ -77,9 +76,6 @@ export function UnenrollStep1DateAndReason({
           onChange={(e) => onReasonChange(e.target.value)}
           rows={4}
         />
-        <p className="text-xs text-muted-foreground">
-          This will be saved as a note for record-keeping
-        </p>
       </div>
     </div>
   );
