@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
 
 export async function POST(request: NextRequest) {
   try {
@@ -187,10 +188,39 @@ export async function POST(request: NextRequest) {
       inviteUrl = `${baseUrl}/invite/${token}`;
     }
 
-    // Create message body
-    const messageBody = `Hi ${record.first_name}, you've been invited to create your Altitutor account. Click here to get started: ${inviteUrl}`;
+    // Create message body using template
+    const messageBody = getInviteSmsTemplate({
+      firstName: record.first_name,
+      inviteUrl,
+      linkType: 'invite',
+    });
 
     // Create message record
+    // Note: Need to get from/to numbers from conversation
+    const { data: convData, error: convDataError } = await supabase
+      .from('conversations')
+      .select('owned_number:owned_numbers(phone_e164), contact:contacts(phone_e164)')
+      .eq('id', conversationId)
+      .single();
+
+    if (convDataError || !convData) {
+      console.error('Failed to fetch conversation data:', convDataError);
+      return NextResponse.json(
+        { error: 'Failed to fetch conversation data' },
+        { status: 500 }
+      );
+    }
+
+    const fromNumber = (convData as any).owned_number?.phone_e164;
+    const toNumber = (convData as any).contact?.phone_e164;
+
+    if (!fromNumber || !toNumber) {
+      return NextResponse.json(
+        { error: 'Missing phone numbers in conversation' },
+        { status: 500 }
+      );
+    }
+
     const { data: message, error: messageError } = await supabase
       .from('messages')
       // @ts-expect-error - TypeScript inference issue with Supabase client
@@ -198,7 +228,9 @@ export async function POST(request: NextRequest) {
         conversation_id: conversationId,
         body: messageBody,
         direction: 'OUTBOUND',
-        status: 'PENDING',
+        status: 'QUEUED',
+        from_number_e164: fromNumber,
+        to_number_e164: toNumber,
       })
       .select('id')
       .single<{ id: string }>();

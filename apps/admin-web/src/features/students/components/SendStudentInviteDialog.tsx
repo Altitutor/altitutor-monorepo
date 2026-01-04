@@ -244,7 +244,10 @@ export function SendStudentInviteDialog({
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || 'Failed to send SMS');
+          const errorMessage = error.error || 'Failed to send SMS';
+          const errorDetails = error.details ? ` Details: ${error.details.join('; ')}` : '';
+          console.error('SMS send error:', error);
+          throw new Error(errorMessage + errorDetails);
         }
 
         setSmsSent(true);

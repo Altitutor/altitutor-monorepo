@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
+import { sendEmail } from '@/shared/lib/email';
+import { getInviteEmailTemplate } from '@/shared/lib/email-templates';
 
 export async function POST(request: NextRequest) {
   try {
@@ -112,30 +114,33 @@ export async function POST(request: NextRequest) {
       inviteUrl = `${baseUrl}/invite/${token}`;
     }
 
-    // Send email using Supabase's email service
-    // Note: For now, we'll use a simple approach. In production, you might want to use
-    // a custom email template or a service like SendGrid/Resend
-    const _emailBody = `
-      <h2>Hello ${record.first_name} ${record.last_name},</h2>
-      <p>You've been invited to create your Altitutor account.</p>
-      <p>Click the link below to set up your account:</p>
-      <p><a href="${inviteUrl}">${inviteUrl}</a></p>
-      <p>If you didn't expect this invitation, you can safely ignore this email.</p>
-      <p>Best regards,<br/>The Altitutor Team</p>
-    `;
+    // Send email using Resend
+    try {
+      const html = getInviteEmailTemplate({
+        firstName: record.first_name,
+        lastName: record.last_name,
+        inviteUrl,
+        linkType: 'invite',
+      });
 
-    // For now, we'll use Supabase's built-in email (resetPasswordForEmail as a workaround)
-    // In production, you should set up a proper email service
-    // This is a placeholder - you'll need to implement actual email sending
-    
-    // TODO: Implement proper email sending with a service like Resend or SendGrid
-    // For now, we'll just return success
-    // In production, you would actually send the email here
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Invite email would be sent', 
-      inviteUrl // Return URL for testing
-    }, { status: 200 });
+      await sendEmail({
+        to: record.email,
+        subject: `You've Been Invited to Altitutor`,
+        html,
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Invite email sent successfully',
+        inviteUrl // Return URL for reference
+      }, { status: 200 });
+    } catch (error) {
+      console.error('Failed to send invite email:', error);
+      return NextResponse.json(
+        { error: `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Unexpected error sending invite email:', error);
     return NextResponse.json(
