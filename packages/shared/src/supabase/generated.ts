@@ -2503,7 +2503,7 @@ export type Database = {
           availability_wednesday: boolean | null
           created_at: string | null
           drafting_availability: boolean | null
-          email: string
+          email: string | null
           first_name: string
           has_parking_remote: string | null
           id: string
@@ -2531,7 +2531,7 @@ export type Database = {
           availability_wednesday?: boolean | null
           created_at?: string | null
           drafting_availability?: boolean | null
-          email: string
+          email?: string | null
           first_name: string
           has_parking_remote?: string | null
           id: string
@@ -2559,7 +2559,7 @@ export type Database = {
           availability_wednesday?: boolean | null
           created_at?: string | null
           drafting_availability?: boolean | null
-          email?: string
+          email?: string | null
           first_name?: string
           has_parking_remote?: string | null
           id?: string
