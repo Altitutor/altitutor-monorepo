@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       billing_pricing: {
@@ -2498,7 +2503,7 @@ export type Database = {
           availability_wednesday: boolean | null
           created_at: string | null
           drafting_availability: boolean | null
-          email: string
+          email: string | null
           first_name: string
           has_parking_remote: string | null
           id: string
@@ -2526,7 +2531,7 @@ export type Database = {
           availability_wednesday?: boolean | null
           created_at?: string | null
           drafting_availability?: boolean | null
-          email: string
+          email?: string | null
           first_name: string
           has_parking_remote?: string | null
           id: string
@@ -2554,7 +2559,7 @@ export type Database = {
           availability_wednesday?: boolean | null
           created_at?: string | null
           drafting_availability?: boolean | null
-          email?: string
+          email?: string | null
           first_name?: string
           has_parking_remote?: string | null
           id?: string
@@ -5856,29 +5861,29 @@ export type Database = {
       format_class_full_name:
         | {
             Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               p_curriculum: string
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_end_time: string
               p_name: string
@@ -5890,27 +5895,27 @@ export type Database = {
       format_class_short_name:
         | {
             Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               p_curriculum: string
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_name: string
               p_start_time: string
@@ -6347,4 +6352,3 @@ export const Constants = {
     },
   },
 } as const
-
