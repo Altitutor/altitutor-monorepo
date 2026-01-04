@@ -19,6 +19,8 @@ import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
 import { ClassSessionsTab } from './tabs/ClassSessionsTab';
+import { Notes } from '@/shared/components/Notes';
+import { useNotes } from '@/shared/hooks/useNotes';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ export function ViewClassModal({
   const { data: allStudentsData = [] } = useStudents();
   const { data: allStaffData = [] } = useStaff();
   const updateClassMutation = useUpdateClass();
+  const { data: notes = [] } = useNotes('classes', classId || '', isOpen && !!classId);
   
   // Extract data from classDetails
   const classData = classDetails?.class || null;
@@ -235,6 +238,7 @@ export function ViewClassModal({
                 <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
                 <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
                 <TabsTrigger value="sessions" className="flex-1">Sessions</TabsTrigger>
+                <TabsTrigger value="notes" className="flex-1">Notes</TabsTrigger>
               </TabsList>
             </div>
           </div>
@@ -292,6 +296,19 @@ export function ViewClassModal({
                   classData={classData}
                   classStudents={classStudents}
                   classStaff={classStaff}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="notes" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+              <div className="p-6">
+                <Notes
+                  targetType="classes"
+                  targetId={classId || ''}
+                  notes={notes}
+                  onNoteAdded={() => {
+                    queryClient.invalidateQueries({ queryKey: ['notes', 'classes', classId] });
+                  }}
                 />
               </div>
             </TabsContent>

@@ -25,6 +25,9 @@ import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/stude
 import { ViewParentModal } from './ViewParentModal';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { ParentSearchPopover } from './ParentSearchPopover';
+import { Notes } from '@/shared/components/Notes';
+import { useNotes } from '@/shared/hooks/useNotes';
+import { Separator } from '@altitutor/ui';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -47,6 +50,7 @@ export function ViewStudentModal({
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
   const { data: allSubjects = [] } = useSubjects();
   const updateStudentMutation = useUpdateStudent();
+  const { data: notes = [] } = useNotes('students', studentId || '', isOpen && !!studentId);
   
   // Extract data from studentDetails
   const student = studentDetails?.student || null;
@@ -357,12 +361,13 @@ export function ViewStudentModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-5">
+                  <TabsList className="grid w-full grid-cols-6">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="billing">Billing</TabsTrigger>
+                    <TabsTrigger value="notes">Notes</TabsTrigger>
                   </TabsList>
                 </div>
               </div>
@@ -443,6 +448,19 @@ export function ViewStudentModal({
                 <TabsContent value="billing" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
                   <div className="p-6">
                     <StudentBillingTab student={student} />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="notes" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    <Notes
+                      targetType="students"
+                      targetId={studentId || ''}
+                      notes={notes}
+                      onNoteAdded={() => {
+                        queryClient.invalidateQueries({ queryKey: ['notes', 'students', studentId] });
+                      }}
+                    />
                   </div>
                 </TabsContent>
               </div>

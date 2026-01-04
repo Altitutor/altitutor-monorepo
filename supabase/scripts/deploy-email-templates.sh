@@ -31,15 +31,34 @@ declare -A TEMPLATES=(
     ["reauthentication"]="reauthentication.html"
 )
 
+# Get the supabase directory (parent of scripts directory)
+SUPABASE_DIR="$(dirname "$0")/.."
+CONFIG_FILE="$SUPABASE_DIR/config.toml"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "❌ Error: config.toml not found at $CONFIG_FILE"
+    exit 1
+fi
+
 # Extract subjects from config.toml
 declare -A SUBJECTS=()
+current_template=""
 while IFS= read -r line; do
     if [[ $line =~ ^\[auth\.email\.template\.(.+)\] ]]; then
         current_template="${BASH_REMATCH[1]}"
     elif [[ $line =~ ^subject\s*=\s*\"(.+)\" ]] && [ -n "$current_template" ]; then
         SUBJECTS["$current_template"]="${BASH_REMATCH[1]}"
+        current_template=""  # Reset after finding subject
     fi
-done < config.toml
+done < "$CONFIG_FILE"
+
+# Debug: Show extracted subjects
+if [ ${#SUBJECTS[@]} -eq 0 ]; then
+    echo "⚠️  Warning: No subjects extracted from config.toml"
+    echo "   Config file: $CONFIG_FILE"
+else
+    echo "✅ Found ${#SUBJECTS[@]} email template subject(s)"
+fi
 
 # Build the mailer_templates JSON payload
 TEMPLATES_DIR="$(dirname "$0")/../templates"
