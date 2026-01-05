@@ -4998,6 +4998,58 @@ export type Database = {
           },
         ]
       }
+      vtutor_notes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          note: string | null
+          staff: Json | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          note?: string | null
+          staff?: never
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          note?: string | null
+          staff?: never
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vtutor_profile: {
         Row: {
           availability_friday: boolean | null
