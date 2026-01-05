@@ -18,14 +18,27 @@ BEGIN
   SELECT id INTO default_owned_number_id
   FROM public.owned_numbers
   WHERE is_default = true
+    AND sender_type = 'PHONE'
   LIMIT 1;
   
   IF default_owned_number_id IS NULL THEN
     -- Create a default owned number if none exists
-    INSERT INTO public.owned_numbers (id, phone_e164, label, is_default)
-    VALUES (gen_random_uuid(), '+61400000000', 'Default Test Number', true)
-    ON CONFLICT (phone_e164) DO UPDATE SET is_default = true
-    RETURNING id INTO default_owned_number_id;
+    -- Check if phone number already exists first (can't use ON CONFLICT with partial unique index)
+    SELECT id INTO default_owned_number_id
+    FROM public.owned_numbers
+    WHERE phone_e164 = '+61400000000'
+    LIMIT 1;
+    
+    IF default_owned_number_id IS NULL THEN
+      INSERT INTO public.owned_numbers (id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default)
+      VALUES (gen_random_uuid(), '+61400000000', NULL, 'PHONE', 'Default Test Number', true)
+      RETURNING id INTO default_owned_number_id;
+    ELSE
+      -- Update existing to be default
+      UPDATE public.owned_numbers
+      SET is_default = true
+      WHERE id = default_owned_number_id;
+    END IF;
   END IF;
   -- ========================
   -- PARENTS

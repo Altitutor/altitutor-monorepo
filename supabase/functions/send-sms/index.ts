@@ -117,24 +117,41 @@ Deno.serve(async (req: Request) => {
 
     const { data: owned, error: onErr } = await supabase
       .from('owned_numbers')
-      .select('phone_e164, messaging_service_sid')
+      .select('phone_e164, messaging_service_sid, alphanumeric_sender_id, sender_type, label')
       .eq('id', convo.owned_number_id)
       .maybeSingle();
     if (onErr || !owned) throw onErr || new Error('owned number not found');
-    console.log('[send-sms] Loaded owned number', { from: owned.phone_e164, messaging_service_sid: owned.messaging_service_sid || null });
+    
+    // Determine from value based on sender type
+    const fromValue = owned.sender_type === 'ALPHANUMERIC'
+      ? owned.alphanumeric_sender_id
+      : owned.phone_e164;
+    
+    console.log('[send-sms] Loaded owned number', { 
+      sender_type: owned.sender_type,
+      from: fromValue, 
+      messaging_service_sid: owned.messaging_service_sid || null 
+    });
 
     const statusCallback = new URL('/functions/v1/twilio-status', supabaseUrl).toString();
     const tw = await callTwilioSend(
       contact.phone_e164,
       message.body,
-      owned.phone_e164 || undefined,
+      fromValue || undefined,
       owned.messaging_service_sid || undefined,
       statusCallback
     );
 
     const { data: updatedRow, error: updErr } = await supabase
       .from('messages')
-      .update({ message_sid: tw.sid, status: 'SENDING', status_updated_at: new Date().toISOString(), sent_at: new Date().toISOString(), from_number_e164: owned.phone_e164 || null, to_number_e164: contact.phone_e164 })
+      .update({ 
+        message_sid: tw.sid, 
+        status: 'SENDING', 
+        status_updated_at: new Date().toISOString(), 
+        sent_at: new Date().toISOString(), 
+        from_number_e164: owned.sender_type === 'PHONE' ? owned.phone_e164 : null, // NULL for alphanumeric
+        to_number_e164: contact.phone_e164 
+      })
       .eq('id', messageId)
       .select('id')
       .single();

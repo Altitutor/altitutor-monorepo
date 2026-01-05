@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
-import { ScrollArea } from '@altitutor/ui';
+import { Loader2, Smartphone } from 'lucide-react';
+import { ScrollArea, Card, CardContent } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -10,6 +10,7 @@ import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Sender } from '../../api/queries';
 
 interface Recipient {
   id: string;
@@ -23,6 +24,7 @@ interface MessagePreviewProps {
   students: Tables<'students'>[];
   message: string;
   sendToParents: boolean;
+  selectedSender: Sender | null;
   onSend: () => void;
   onBack: () => void;
   isSending?: boolean;
@@ -32,6 +34,7 @@ export function MessagePreview({
   students,
   message,
   sendToParents,
+  selectedSender,
   onSend: _onSend,
   onBack: _onBack,
   isSending: _isSending = false,
@@ -143,8 +146,28 @@ export function MessagePreview({
     return replaceVariables(message, student, classes, senderName);
   };
 
+  const getSenderDisplayName = (sender: Sender | null): string => {
+    if (!sender) return 'Unknown';
+    if (sender.sender_type === 'ALPHANUMERIC') {
+      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
+    }
+    return sender.label || sender.phone_e164 || 'Unknown';
+  };
+
   return (
     <div className="space-y-4">
+      {/* Sender Display Card */}
+      {selectedSender && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Sending from:</span>
+              <span className="text-sm font-semibold">{getSenderDisplayName(selectedSender)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">

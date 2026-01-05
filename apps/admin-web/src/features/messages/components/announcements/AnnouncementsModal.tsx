@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
@@ -9,6 +9,7 @@ import { StudentSelector } from '../bulk/StudentSelector';
 import { MessageComposer } from '../bulk/MessageComposer';
 import { MessagePreview } from '../bulk/MessagePreview';
 import { useAnnouncements } from '@/features/messages/hooks/useAnnouncements';
+import { useAvailableSenders } from '@/features/messages/api/queries';
 
 type Step = 'select' | 'compose' | 'preview' | 'success';
 
@@ -20,20 +21,38 @@ interface AnnouncementsModalProps {
 export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps) {
   const { toast } = useToast();
   const { sendAnnouncements, isLoading: isSending } = useAnnouncements();
+  const { data: availableSenders, isLoading: isLoadingSenders } = useAvailableSenders();
 
   const [step, setStep] = useState<Step>('select');
   const [selectedStudents, setSelectedStudents] = useState<Tables<'students'>[]>([]);
   const [message, setMessage] = useState('');
   const [sendToParents, setSendToParents] = useState(false);
+  const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<{
     sent: number;
     failed: number;
     skipped: number;
   } | null>(null);
 
+  // Set default sender when senders load
+  useEffect(() => {
+    if (availableSenders && availableSenders.length > 0 && !selectedSenderId) {
+      const defaultSender = availableSenders.find(s => s.is_default) || availableSenders[0];
+      setSelectedSenderId(defaultSender.id);
+    }
+  }, [availableSenders, selectedSenderId]);
+
   const handleSend = async () => {
+    if (!selectedSenderId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a sender',
+        variant: 'destructive',
+      });
+      return;
+    }
     try {
-      const result = await sendAnnouncements(selectedStudents, message, sendToParents);
+      const result = await sendAnnouncements(selectedStudents, message, sendToParents, selectedSenderId);
       setSendResult(result);
       setStep('success');
       
@@ -57,6 +76,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     setSelectedStudents([]);
     setMessage('');
     setSendToParents(false);
+    setSelectedSenderId(null);
     setSendResult(null);
     onClose();
   };
@@ -66,6 +86,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     setSelectedStudents([]);
     setMessage('');
     setSendToParents(false);
+    setSelectedSenderId(null);
     setSendResult(null);
   };
 
@@ -142,6 +163,10 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
               students={selectedStudents}
               message={message}
               onMessageChange={setMessage}
+              availableSenders={availableSenders || []}
+              selectedSenderId={selectedSenderId}
+              onSenderChange={setSelectedSenderId}
+              isLoadingSenders={isLoadingSenders}
               onNext={() => setStep('preview')}
               onBack={() => setStep('select')}
             />
@@ -152,6 +177,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
               students={selectedStudents}
               message={message}
               sendToParents={sendToParents}
+              selectedSender={availableSenders?.find(s => s.id === selectedSenderId) || null}
               onSend={handleSend}
               onBack={() => setStep('compose')}
               isSending={isSending}

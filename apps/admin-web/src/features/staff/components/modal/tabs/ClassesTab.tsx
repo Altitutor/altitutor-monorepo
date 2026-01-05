@@ -385,6 +385,20 @@ export function ClassesTab({
             </p>
           </div>
         </div>
+        
+        {/* Assign Staff Modal */}
+        {currentStaff && (
+          <AssignStaffModal
+            isOpen={isAssignStaffModalOpen}
+            onClose={handleCloseAssignModal}
+            context="staff"
+            staff={staff}
+            staffSubjects={staffSubjects}
+            assignedClassIds={classes.map(c => c.class.id)}
+            onAssign={handleAssignStaff}
+            currentStaffId={currentStaff.id}
+          />
+        )}
       </div>
     );
   }

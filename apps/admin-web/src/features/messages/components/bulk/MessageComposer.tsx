@@ -2,17 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button, Textarea, ScrollArea } from '@altitutor/ui';
+import { Button, Textarea, ScrollArea, RadioGroup, RadioGroupItem, Label } from '@altitutor/ui';
 import { MessageTemplatesPicker } from '../MessageTemplatesPicker';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
+import type { Sender } from '../../api/queries';
 
 interface MessageComposerProps {
   students: Tables<'students'>[];
   message: string;
   onMessageChange: (message: string) => void;
+  availableSenders: Sender[];
+  selectedSenderId: string | null;
+  onSenderChange: (senderId: string) => void;
+  isLoadingSenders: boolean;
   onNext: () => void;
   onBack: () => void;
 }
@@ -21,6 +26,10 @@ export function MessageComposer({
   students,
   message,
   onMessageChange,
+  availableSenders,
+  selectedSenderId,
+  onSenderChange,
+  isLoadingSenders,
   onNext: _onNext,
   onBack: _onBack,
 }: MessageComposerProps) {
@@ -77,8 +86,40 @@ export function MessageComposer({
     setPreviewIndex(Math.min(students.length - 1, previewIndex + 1));
   };
 
+  const getSenderDisplayName = (sender: Sender): string => {
+    if (sender.sender_type === 'ALPHANUMERIC') {
+      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
+    }
+    return sender.label || sender.phone_e164 || 'Unknown';
+  };
+
   return (
     <div className="space-y-4">
+      {/* Sender Selection */}
+      <div className="border rounded-lg p-4 bg-muted/30">
+        <Label className="text-sm font-semibold mb-3 block">Send From</Label>
+        {isLoadingSenders ? (
+          <div className="text-sm text-muted-foreground">Loading senders...</div>
+        ) : availableSenders.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No senders available</div>
+        ) : (
+          <RadioGroup value={selectedSenderId || ''} onValueChange={onSenderChange}>
+            <div className="space-y-2">
+              {availableSenders.map((sender) => (
+                <div key={sender.id} className="flex items-center space-x-2">
+                  <RadioGroupItem value={sender.id} id={`sender-${sender.id}`} />
+                  <Label htmlFor={`sender-${sender.id}`} className="text-sm cursor-pointer">
+                    {getSenderDisplayName(sender)}
+                    {sender.is_default && (
+                      <span className="ml-2 text-xs text-muted-foreground">(Default)</span>
+                    )}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </RadioGroup>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-6 overflow-hidden">
         {/* Message Input */}

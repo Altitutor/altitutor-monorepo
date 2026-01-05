@@ -11,8 +11,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
-import { useMarkUnread } from '@/features/messages/api/mutations';
-import { useToast } from '@altitutor/ui';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -23,9 +21,6 @@ export default function MessagesPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const { toast } = useToast();
-  
-  const markUnread = useMarkUnread();
   
   // Fetch active conversation details for header
   const { data: activeConversation } = useQuery({
@@ -94,24 +89,6 @@ export default function MessagesPage() {
     setMobileView('list');
   };
   
-  const handleMarkUnread = async () => {
-    if (!activeConversationId) return;
-    try {
-      await markUnread.mutateAsync(activeConversationId);
-      toast({
-        title: "Success",
-        description: "Conversation marked as unread.",
-      });
-    } catch (error) {
-      console.error('Failed to mark as unread:', error);
-      toast({
-        title: "Error",
-        description: "Failed to mark conversation as unread.",
-        variant: "destructive",
-      });
-    }
-  };
-  
   return (
     <div className="p-0 h-full overflow-hidden">
       <div className="flex h-full">
@@ -143,7 +120,6 @@ export default function MessagesPage() {
             title={conversationTitle}
             onSearchToggle={() => setIsSearching(!isSearching)}
             onInfoToggle={() => setShowInfoModal(true)}
-            onMarkUnread={activeConversationId ? handleMarkUnread : undefined}
             onBack={handleBack}
             showBackButton={mobileView === 'thread'}
           />

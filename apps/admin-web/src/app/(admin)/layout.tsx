@@ -310,6 +310,8 @@ function AdminLayoutContent({
   const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isAnnouncementsModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeAnnouncementsModal } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
+  const pathname = usePathname();
+  const showBreadcrumbs = pathname !== '/messages';
   
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
@@ -321,9 +323,11 @@ function AdminLayoutContent({
       <div className="flex h-[calc(100vh-var(--navbar-height))] overflow-hidden">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
         <div className="flex-1 overflow-auto relative">
-          <div className="px-6 pt-6 pb-0">
-            <Breadcrumb items={breadcrumbs} />
-          </div>
+          {showBreadcrumbs && (
+            <div className="px-6 pt-6 pb-0">
+              <Breadcrumb items={breadcrumbs} />
+            </div>
+          )}
           {children}
           {/* Floating quick actions menu */}
           <QuickActionsMenu />

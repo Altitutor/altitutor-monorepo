@@ -1,13 +1,12 @@
 'use client';
 
 import { Button } from "@altitutor/ui";
-import { Search, Info, MailPlus, ArrowLeft } from 'lucide-react';
+import { Search, Info, ArrowLeft } from 'lucide-react';
 
 interface Props {
   title?: string;
   onSearchToggle?: () => void;
   onInfoToggle?: () => void;
-  onMarkUnread?: () => void;
   onBack?: () => void;
   showBackButton?: boolean;
 }
@@ -16,7 +15,6 @@ export function ConversationHeader({
   title, 
   onSearchToggle, 
   onInfoToggle,
-  onMarkUnread,
   onBack,
   showBackButton = false
 }: Props) {
@@ -34,11 +32,6 @@ export function ConversationHeader({
         {onSearchToggle && (
           <Button variant="ghost" size="icon" onClick={onSearchToggle}>
             <Search className="h-4 w-4" />
-          </Button>
-        )}
-        {onMarkUnread && (
-          <Button variant="ghost" size="icon" onClick={onMarkUnread}>
-            <MailPlus className="h-4 w-4" />
           </Button>
         )}
         {onInfoToggle && (

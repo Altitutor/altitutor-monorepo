@@ -8,9 +8,10 @@ import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Plus } from 'lucide-react';
+import { Plus, Mail } from 'lucide-react';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
+import { useMarkUnread } from '../api/mutations';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -25,6 +26,8 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'unreplied'>('all');
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
+  const [hoveredConversationId, setHoveredConversationId] = useState<string | null>(null);
+  const markUnreadMutation = useMarkUnread();
 
   useEffect(() => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -142,28 +145,55 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
             const phoneNumber = c.contacts?.phone_e164;
             const isActive = c.id === activeConversationId;
             const showUnreadDot = isUnread(c);
+            const isRead = !showUnreadDot;
+            const isHovered = hoveredConversationId === c.id;
             const lastMessageTime = c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+            
+            const handleMarkUnread = (e: React.MouseEvent) => {
+              e.stopPropagation();
+              markUnreadMutation.mutate(c.id);
+            };
+            
             return (
-              <button
+              <div
                 key={c.id}
-                className={`w-full text-left p-3 hover:bg-muted ${isActive ? 'md:bg-muted' : ''}`}
-                onClick={() => onSelect(c.id)}
+                className={`relative w-full ${isActive ? 'md:bg-muted' : ''}`}
+                onMouseEnter={() => setHoveredConversationId(c.id)}
+                onMouseLeave={() => setHoveredConversationId(null)}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {showUnreadDot && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                    )}
-                    <div className="text-sm font-medium truncate">{title}</div>
+                <button
+                  className={`w-full text-left p-3 hover:bg-muted ${isActive ? 'md:bg-muted' : ''}`}
+                  onClick={() => onSelect(c.id)}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {showUnreadDot && (
+                        <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                      )}
+                      <div className="text-sm font-medium truncate">{title}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {phoneNumber && (
+                        <div className="text-xs text-muted-foreground shrink-0">{phoneNumber}</div>
+                      )}
+                      {isHovered && isRead && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 shrink-0"
+                          onClick={handleMarkUnread}
+                          title="Mark as unread"
+                        >
+                          <Mail className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  {phoneNumber && (
-                    <div className="text-xs text-muted-foreground ml-2 shrink-0">{phoneNumber}</div>
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {c.last_message_at ? `${formatConversationDate(c.last_message_at)} ${lastMessageTime}` : ''}
-                </div>
-              </button>
+                  <div className="text-xs text-muted-foreground">
+                    {c.last_message_at ? `${formatConversationDate(c.last_message_at)} ${lastMessageTime}` : ''}
+                  </div>
+                </button>
+              </div>
             );
           })
         )}

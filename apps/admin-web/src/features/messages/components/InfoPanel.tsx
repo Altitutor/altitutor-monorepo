@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Skeleton, useToast, Button } from "@altitutor/ui";
 import { Loader2 } from "lucide-react";
 import { messagesKeys } from '../api/queryKeys';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Student tabs and components
 import { 
@@ -64,6 +65,12 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
   const [staffSubjectsToAdd, setStaffSubjectsToAdd] = useState<string[]>([]);
   const [staffSubjectsToRemove, setStaffSubjectsToRemove] = useState<string[]>([]);
   
+  // Password reset state
+  const [isLoadingAccountStudent, setIsLoadingAccountStudent] = useState(false);
+  const [hasPasswordResetLinkSentStudent, setHasPasswordResetLinkSentStudent] = useState(false);
+  const [isLoadingAccountStaff, setIsLoadingAccountStaff] = useState(false);
+  const [hasPasswordResetLinkSentStaff, setHasPasswordResetLinkSentStaff] = useState(false);
+  
   // All subjects for selection
   const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
   
@@ -79,6 +86,14 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     };
     fetchSubjects();
   }, []);
+  
+  // Reset password reset state when conversation changes
+  useEffect(() => {
+    setHasPasswordResetLinkSentStudent(false);
+    setHasPasswordResetLinkSentStaff(false);
+    setIsLoadingAccountStudent(false);
+    setIsLoadingAccountStaff(false);
+  }, [conversationId]);
   
   // Base query - only fetch contact info (lightweight, no nested subjects)
   const queryKey = conversationId ? messagesKeys.conversationContact(conversationId) : ['conversation-contact'];
@@ -100,7 +115,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
             parent_id,
             staff_id,
             students (
-              id, first_name, last_name, email, phone, status, year_level, curriculum
+              id, first_name, last_name, email, phone, status, year_level, curriculum, user_id
             ),
             parents (
               id, first_name, last_name, email, phone,
@@ -111,7 +126,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
               )
             ),
             staff (
-              id, first_name, last_name, email, phone_number, role, status
+              id, first_name, last_name, email, phone_number, role, status, user_id
             )
           )
         `)
@@ -213,7 +228,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
   // STUDENT contact
   if (contactType === 'STUDENT' && contact.students) {
     const student = contact.students;
-    const studentSubjects = (student as any).subjects || [];
+    const studentSubjects = studentSubjectsData || [];
     
     const handleStartEditStudent = () => {
       setTempStudentSubjects([...studentSubjects]);
@@ -298,6 +313,51 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
       setIsSubjectModalOpen(true);
     };
     
+    const handlePasswordResetRequestStudent = async () => {
+      if (!student || !student.email) {
+        toast({
+          title: "Error",
+          description: "No email address found for this student.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        setIsLoadingAccountStudent(true);
+        const baseUrl = typeof window !== 'undefined' 
+          ? window.location.origin 
+          : (process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001');
+        
+        const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.resetPasswordForEmail(
+          student.email,
+          {
+            redirectTo: `${baseUrl}/auth/callback`,
+          }
+        );
+        
+        if (error) throw error;
+        
+        setHasPasswordResetLinkSentStudent(true);
+        
+        toast({
+          title: "Password reset link sent",
+          description: `A password reset link has been sent to ${student.email}.`,
+        });
+      } catch (err) {
+        console.error('Failed to send password reset:', err);
+        toast({
+          title: "Error",
+          description: err instanceof Error 
+            ? err.message 
+            : "Failed to send password reset link. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingAccountStudent(false);
+      }
+    };
+    
     return (
       <>
         <div className={`border-l dark:border-brand-dark-border flex flex-col ${className}`}>
@@ -340,9 +400,9 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                         onSelectSubject={handleAssignSubjectToStudent}
                       />
                     }
-                    isLoadingAccount={false}
-                    hasPasswordResetLinkSent={false}
-                    onPasswordResetRequest={async () => {}}
+                    isLoadingAccount={isLoadingAccountStudent}
+                    hasPasswordResetLinkSent={hasPasswordResetLinkSentStudent}
+                    onPasswordResetRequest={handlePasswordResetRequestStudent}
                   />
                 </TabsContent>
                 
@@ -422,7 +482,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
   // STAFF contact
   if (contactType === 'STAFF' && contact.staff) {
     const staff = contact.staff;
-    const staffSubjects = (staff as any).subjects || [];
+    const staffSubjects = staffSubjectsData || [];
     
     const handleStartEditStaff = () => {
       setTempStaffSubjects([...staffSubjects]);
@@ -524,6 +584,62 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
       setIsSubjectModalOpen(true);
     };
     
+    const handlePasswordResetRequestStaff = async () => {
+      if (!staff || !staff.email) {
+        toast({
+          title: 'Error',
+          description: 'No email address found for this staff member.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      try {
+        setIsLoadingAccountStaff(true);
+        const baseUrl = typeof window !== 'undefined' 
+          ? window.location.origin 
+          : (process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3000');
+        
+        // Determine redirect URL based on staff role
+        let redirectUrl: string;
+        if (staff.role === 'TUTOR') {
+          const tutorUrl = process.env.NODE_ENV === 'development'
+            ? 'http://localhost:3002'
+            : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+          redirectUrl = `${tutorUrl}/auth/callback`;
+        } else {
+          redirectUrl = `${baseUrl}/auth/callback`;
+        }
+        
+        const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.resetPasswordForEmail(
+          staff.email,
+          {
+            redirectTo: redirectUrl,
+          }
+        );
+        
+        if (error) throw error;
+        
+        setHasPasswordResetLinkSentStaff(true);
+        
+        toast({
+          title: 'Password reset link sent',
+          description: `A password reset link has been sent to ${staff.email}.`,
+        });
+      } catch (err) {
+        console.error('Failed to send password reset:', err);
+        toast({
+          title: 'Error',
+          description: err instanceof Error 
+            ? err.message 
+            : 'Failed to send password reset link. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoadingAccountStaff(false);
+      }
+    };
+    
     return (
       <>
         <div className={`border-l dark:border-brand-dark-border flex flex-col ${className}`}>
@@ -565,9 +681,9 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
                         onSelectSubject={(subject) => handleAssignSubjectToStaff(subject.id)}
                       />
                     }
-                    isLoadingAccount={false}
-                    hasPasswordResetLinkSent={false}
-                    onPasswordResetRequest={async () => {}}
+                    isLoadingAccount={isLoadingAccountStaff}
+                    hasPasswordResetLinkSent={hasPasswordResetLinkSentStaff}
+                    onPasswordResetRequest={handlePasswordResetRequestStaff}
                   />
                 </TabsContent>
                 

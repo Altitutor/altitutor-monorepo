@@ -264,4 +264,31 @@ async function ensureConversation(contactId: string, ownedNumberId: string): Pro
   return created?.id as string;
 }
 
+export type Sender = {
+  id: string;
+  phone_e164: string | null;
+  alphanumeric_sender_id: string | null;
+  sender_type: 'PHONE' | 'ALPHANUMERIC';
+  label: string | null;
+  is_default: boolean;
+};
+
+export function useAvailableSenders() {
+  return useQuery({
+    queryKey: ['owned_numbers', 'senders'],
+    queryFn: async (): Promise<Sender[]> => {
+      const supabase = getSupabaseClient() as any;
+      const { data, error } = await supabase
+        .from('owned_numbers')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default')
+        .order('is_default', { ascending: false })
+        .order('label');
+      
+      if (error) throw error;
+      return (data || []) as Sender[];
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
 

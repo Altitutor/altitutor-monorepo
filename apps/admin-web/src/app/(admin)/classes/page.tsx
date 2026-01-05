@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { ClassesTable, ViewClassModal } from '@/features/classes';
+import { ClassesTable, ViewClassModal, AddClassModal } from '@/features/classes';
 import { CalendarView } from '@/features/classes/components/CalendarView';
 import { Button, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
@@ -72,6 +72,15 @@ export default function ClassesPage() {
           />
         )}
       </Suspense>
+
+      {/* Add Class Modal */}
+      <AddClassModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        onClassAdded={() => {
+          refetch();
+        }}
+      />
 
       {/* Class Detail Modal for Calendar View */}
       {selectedClassId && (
