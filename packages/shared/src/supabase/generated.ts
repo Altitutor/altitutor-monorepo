@@ -1624,7 +1624,7 @@ export type Database = {
           direction: string
           error_code: number | null
           error_message: string | null
-          from_number_e164: string
+          from_number_e164: string | null
           id: string
           is_announcement: boolean
           message_sid: string | null
@@ -1646,7 +1646,7 @@ export type Database = {
           direction: string
           error_code?: number | null
           error_message?: string | null
-          from_number_e164: string
+          from_number_e164?: string | null
           id?: string
           is_announcement?: boolean
           message_sid?: string | null
@@ -1668,7 +1668,7 @@ export type Database = {
           direction?: string
           error_code?: number | null
           error_message?: string | null
-          from_number_e164?: string
+          from_number_e164?: string | null
           id?: string
           is_announcement?: boolean
           message_sid?: string | null

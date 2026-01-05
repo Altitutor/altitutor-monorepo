@@ -444,7 +444,11 @@ export function useMessagesForContact(contactId: string | null) {
       }
       
       // Create a map of conversation_id -> sender info
-      const senderMap = new Map(
+      type SenderInfo = {
+        owned_number_id: string;
+        sender: any;
+      };
+      const senderMap = new Map<string, SenderInfo>(
         (conversations || []).map((c: any) => [
           c.id,
           {

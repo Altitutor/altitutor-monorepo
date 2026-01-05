@@ -166,31 +166,45 @@ export function ChatDock() {
     incrementUnreadRef.current = incrementUnread;
   });
 
-  // Fetch active conversation details for header
-  const { data: activeConversation } = useQuery({
-    queryKey: ['conversation-header', activeConversationId],
+  // Get contactId from conversationId
+  const { data: activeContactId } = useQuery({
+    queryKey: ['contact-from-conversation', activeConversationId],
     queryFn: async () => {
       if (!activeConversationId) return null;
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data, error } = await supabase
         .from('conversations')
+        .select('contact_id')
+        .eq('id', activeConversationId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.contact_id || null;
+    },
+    enabled: !!activeConversationId,
+  });
+
+  // Fetch active contact details for header
+  const { data: activeContact } = useQuery({
+    queryKey: ['contact-header', activeContactId],
+    queryFn: async () => {
+      if (!activeContactId) return null;
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const { data, error } = await supabase
+        .from('contacts')
         .select(`
           id,
-          contacts (
-            id,
-            phone_e164,
-            contact_type,
-            students (id, first_name, last_name),
-            parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-            staff (id, first_name, last_name)
-          )
+          phone_e164,
+          contact_type,
+          students (id, first_name, last_name),
+          parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
+          staff (id, first_name, last_name)
         `)
-        .eq('id', activeConversationId)
+        .eq('id', activeContactId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!activeConversationId,
+    enabled: !!activeContactId,
   });
 
   useEffect(() => {
@@ -243,8 +257,8 @@ export function ChatDock() {
 
   // Compute display title (non-hook computation, can be after hooks but before early return)
   const displayTitle = useMemo(() => {
-    return activeConversation ? formatContactName(activeConversation) : 'Messages';
-  }, [activeConversation]);
+    return activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
+  }, [activeContact]);
 
   // Early return after all hooks
   if (isMessagesPage) return null;
@@ -286,13 +300,13 @@ export function ChatDock() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Chat thread - full width now */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {activeConversationId ? (
+          {activeContactId ? (
             <>
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                <MessageThread conversationId={activeConversationId} />
+                <MessageThread contactId={activeContactId} />
               </div>
               <div className="flex-shrink-0">
-                <Composer conversationId={activeConversationId} />
+                <Composer contactId={activeContactId} />
               </div>
             </>
           ) : (

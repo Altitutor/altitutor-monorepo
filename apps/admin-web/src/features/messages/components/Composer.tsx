@@ -9,7 +9,7 @@ import { getStudentClasses } from '../api/bulk';
 import { messagesKeys } from '../api/queryKeys';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useAvailableSenders } from '../api/queries';
+import { useAvailableSenders, type Sender } from '../api/queries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -154,7 +154,7 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
     }
   };
 
-  const getSenderDisplayName = (sender: typeof availableSenders[0] | undefined): string => {
+  const getSenderDisplayName = (sender: Sender | undefined): string => {
     if (!sender) return 'Select sender';
     if (sender.sender_type === 'ALPHANUMERIC') {
       return sender.alphanumeric_sender_id || sender.label || 'Unknown';
