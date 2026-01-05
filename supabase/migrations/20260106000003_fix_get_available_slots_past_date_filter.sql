@@ -1,7 +1,6 @@
--- Migration: Update get_available_slots to use session duration for slot generation
--- Description: Instead of using global slot_duration_minutes setting, use the session duration
--- (p_duration_minutes) to generate slots. This means slots will be generated at intervals
--- matching the session duration (e.g., 45-minute sessions generate slots every 45 minutes).
+-- Migration: Fix get_available_slots to include past date filtering
+-- Description: The previous migration removed past date filtering logic. This migration adds it back
+-- while preserving the session-duration-based slot generation.
 
 CREATE OR REPLACE FUNCTION public.get_available_slots(
   p_start_date DATE,
@@ -22,6 +21,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_booking_buffer INTEGER;
+  v_min_advance_days INTEGER;
   v_current_date DATE;
   v_day_of_week INTEGER;
   v_opening_start TIME;
@@ -30,11 +30,28 @@ DECLARE
   v_slot_end TIMESTAMPTZ;
   v_slot_start_time TIME;
   v_available_staff UUID[];
+  v_now_adelaide TIMESTAMPTZ;
+  v_min_booking_date DATE;
 BEGIN
-  -- Get booking buffer setting (slot_duration_minutes is no longer needed)
+  -- Clean up expired reservations at the start of the function call
+  DELETE FROM slot_reservations WHERE expires_at <= NOW();
+  
+  -- Get booking settings
   SELECT 
-    COALESCE((SELECT setting_value::INTEGER FROM booking_settings WHERE setting_key = 'booking_buffer_minutes'), 0)
-  INTO v_booking_buffer;
+    COALESCE((SELECT setting_value::INTEGER FROM booking_settings WHERE setting_key = 'booking_buffer_minutes'), 0),
+    COALESCE((SELECT setting_value::INTEGER FROM booking_settings WHERE setting_key = 'min_advance_booking_days'), 1)
+  INTO v_booking_buffer, v_min_advance_days;
+  
+  -- Get current time in Adelaide timezone
+  v_now_adelaide := NOW() AT TIME ZONE 'Australia/Adelaide';
+  
+  -- Calculate minimum booking date (today + minimum advance days)
+  v_min_booking_date := (v_now_adelaide::DATE) + (v_min_advance_days || ' days')::INTERVAL;
+  
+  -- Ensure start_date is at least the minimum booking date
+  IF p_start_date < v_min_booking_date THEN
+    p_start_date := v_min_booking_date;
+  END IF;
 
   -- Loop through each day in the date range
   v_current_date := p_start_date;
@@ -61,8 +78,21 @@ BEGIN
       v_slot_start := (v_current_date::TEXT || ' ' || v_slot_start_time::TEXT)::TIMESTAMP AT TIME ZONE 'Australia/Adelaide';
       v_slot_end := v_slot_start + (p_duration_minutes || ' minutes')::INTERVAL;
       
+      -- Skip if slot is in the past
+      IF v_slot_start < v_now_adelaide THEN
+        v_slot_start_time := v_slot_start_time + (p_duration_minutes || ' minutes')::INTERVAL;
+        CONTINUE;
+      END IF;
+      
+      -- Skip if slot doesn't meet minimum advance booking requirement
+      IF v_slot_start::DATE < v_min_booking_date THEN
+        v_slot_start_time := v_slot_start_time + (p_duration_minutes || ' minutes')::INTERVAL;
+        CONTINUE;
+      END IF;
+      
       -- Check if slot end time exceeds opening hours
-      IF v_slot_end::TIME > v_opening_end THEN
+      -- FIX: Convert to Adelaide timezone before extracting TIME component
+      IF (v_slot_end AT TIME ZONE 'Australia/Adelaide')::TIME > v_opening_end THEN
         v_slot_start_time := v_opening_end; -- Move to next day
         CONTINUE;
       END IF;
@@ -173,6 +203,5 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_available_slots IS 'Calculate available booking slots based on opening hours, staff availability, blockouts, existing sessions, and reservations. Slots are generated at intervals matching the session duration.';
-
+COMMENT ON FUNCTION public.get_available_slots IS 'Calculate available booking slots based on opening hours, staff availability, blockouts, existing sessions, and reservations. Slots are generated at intervals matching the session duration. Filters out past dates and enforces minimum advance booking days requirement.';
 
