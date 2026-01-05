@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, Settings, Home, ClipboardList, BookOpen, Ban } from 'lucide-react';
+import { Calendar, Home, BookOpen, Ban, User } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
@@ -26,18 +26,14 @@ const navItems: NavItem[] = [
     icon: Home,
   },
   {
-    type: 'heading',
-    title: 'SCHEDULING',
-  },
-  {
-    title: 'Sessions',
-    href: '/session-logs',
-    icon: ClipboardList,
-  },
-  {
     title: 'Classes',
     href: '/classes',
     icon: Calendar,
+  },
+  {
+    title: 'Resources',
+    href: '/resources',
+    icon: BookOpen,
   },
   {
     title: 'Blockout Dates',
@@ -45,13 +41,9 @@ const navItems: NavItem[] = [
     icon: Ban,
   },
   {
-    type: 'heading',
-    title: 'RESOURCES',
-  },
-  {
-    title: 'Resources',
-    href: '/resources',
-    icon: BookOpen,
+    title: 'My Profile',
+    href: '/my-profile',
+    icon: User,
   },
 ];
 
@@ -147,20 +139,6 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
             </nav>
           </ScrollArea>
           
-          <div className="border-t dark:border-brand-dark-border p-2">
-            <Link 
-              href="/my-account"
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === '/my-account'
-                  ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                  : navHoverStyles
-              )}
-            >
-              <Settings className="h-5 w-5" />
-              <span>My Account</span>
-            </Link>
-          </div>
         </div>
       </div>
     </>
@@ -233,22 +211,6 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
           })}
         </nav>
       </ScrollArea>
-      
-      <div className="border-t dark:border-brand-dark-border p-2">
-        <Link 
-          href="/my-account"
-          className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-            pathname === '/my-account'
-              ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-              : navHoverStyles,
-            collapsed && "justify-center px-0"
-          )}
-        >
-          <Settings className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
-          {!collapsed && <span>My Account</span>}
-        </Link>
-      </div>
     </div>
   );
 }
