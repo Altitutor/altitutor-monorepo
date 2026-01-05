@@ -35,6 +35,37 @@ export function useTutorLogs(params?: { limit?: number; offset?: number; dateFro
 }
 
 /**
+ * Search tutor logs with filters and relationships
+ * Filters by session date (Adelaide timezone), not tutor log created date
+ */
+export function useSearchTutorLogs(args?: {
+  search?: string;
+  rangeStart?: string; // YYYY-MM-DD format (Adelaide timezone)
+  rangeEnd?: string; // YYYY-MM-DD format (Adelaide timezone)
+  staffId?: string;
+  limit?: number;
+  offset?: number;
+  orderBy?: 'session_start_at' | 'created_at';
+  ascending?: boolean;
+}) {
+  const search = args?.search;
+  const rangeStart = args?.rangeStart;
+  const rangeEnd = args?.rangeEnd;
+  const staffId = args?.staffId;
+  const limit = args?.limit;
+  const offset = args?.offset;
+  const orderBy = args?.orderBy;
+  const ascending = args?.ascending;
+  
+  return useQuery({
+    queryKey: [...tutorLogsKeys.lists(), 'search', search, rangeStart, rangeEnd, staffId, limit, offset, orderBy, ascending],
+    queryFn: () => tutorLogsApi.searchTutorLogs(args),
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+/**
  * Get a single tutor log with details
  */
 export function useTutorLog(id: string) {

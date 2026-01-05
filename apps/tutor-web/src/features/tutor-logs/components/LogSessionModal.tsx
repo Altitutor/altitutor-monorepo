@@ -323,7 +323,9 @@ export function LogSessionModal({
       case 6:
         return true;
       case 7:
-        return true;
+        return true; // Notes step
+      case 8:
+        return true; // Confirmation step - always allow submission
       default:
         return false;
     }

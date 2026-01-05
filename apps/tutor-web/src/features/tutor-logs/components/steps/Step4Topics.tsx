@@ -4,13 +4,15 @@ import { useState, useEffect } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
 import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { topicsApi } from '@/features/topics/api/topics';
+import { sessionsApi } from '@/features/sessions/api/sessions';
+import { subjectsApi } from '@/features/subjects/api/subjects';
 import { deriveTopicCode } from '@/features/topics/utils/codes';
+import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 type TopicItem = {
   topicId: string;
@@ -26,6 +28,7 @@ type Step4TopicsProps = {
 export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
   const [subjectTopics, setSubjectTopics] = useState<Tables<'topics'>[]>([]);
   const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
+  const [subjectsMap, setSubjectsMap] = useState<Map<string, Tables<'subjects'>>>(new Map());
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -34,38 +37,50 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      try {
+        // Get session to find subject from vtutor_sessions view
+        const sessionData = await sessionsApi.getSession(sessionId);
 
-      // Get session to find subject from vtutor_sessions view
-      const { data: sessionData } = await supabase
-        .from('vtutor_sessions')
-        .select('*')
-        .eq('session_id', sessionId)
-        .maybeSingle();
+        if (!sessionData) {
+          setIsLoading(false);
+          return;
+        }
 
-      if (!sessionData) return;
+        const subjectId = sessionData.subject_id;
 
-      const subjectId = sessionData.subject_id;
+        // Get topics for this subject using vtutor_topics view
+        if (subjectId) {
+          const topicsData = await topicsApi.getTopicsBySubject(subjectId);
+          // Filter out topics with null IDs (shouldn't happen, but type safety)
+          setSubjectTopics((topicsData || []).filter((t): t is Tables<'topics'> => t.id !== null && t.name !== null && t.index !== null && t.subject_id !== null));
+        }
 
-      // Get topics for this subject
-      if (subjectId) {
-        const { data: topicsData } = await supabase
-          .from('topics')
-          .select('*')
-          .eq('subject_id', subjectId)
-          .order('index');
+        // Get all topics for search using vtutor_topics view
+        const allTopicsData = await topicsApi.getAllTopics();
+        // Filter out topics with null IDs (shouldn't happen, but type safety)
+        const validTopics = (allTopicsData || []).filter((t): t is Tables<'topics'> => t.id !== null && t.name !== null && t.index !== null && t.subject_id !== null);
+        setAllTopics(validTopics);
 
-        setSubjectTopics(topicsData || []);
+        // Fetch subjects for all topics
+        if (validTopics.length > 0) {
+          const subjectIds = [...new Set(validTopics.map((t) => t.subject_id).filter((id): id is string => id !== null))];
+          if (subjectIds.length > 0) {
+            const allSubjects = await subjectsApi.getAllSubjects();
+            const subjects = new Map<string, Tables<'subjects'>>();
+            allSubjects.forEach((s) => {
+              if (s.id && subjectIds.includes(s.id)) {
+                subjects.set(s.id, s as Tables<'subjects'>);
+              }
+            });
+            setSubjectsMap(subjects);
+          }
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+        setIsLoading(false);
       }
-
-      // Get all topics for search
-      const { data: allTopicsData } = await supabase
-        .from('topics')
-        .select('*')
-        .order('name');
-
-      setAllTopics(allTopicsData || []);
-      setIsLoading(false);
     };
 
     fetchData();
@@ -219,21 +234,52 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
 
           <div className="max-h-60 overflow-y-auto space-y-1">
             {allTopics
-              .filter(
-                (topic) =>
-                  !isTopicSelected(topic.id) &&
-                  (searchTerm === '' || topic.name.toLowerCase().includes(searchTerm.toLowerCase()))
-              )
-              .map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => handleAddTopic(topic.id)}
-                  className="w-full text-left p-2 hover:bg-accent rounded-md transition-colors"
-                >
-                  {topic.name}
-                </button>
-              ))}
+              .filter((topic) => {
+                if (isTopicSelected(topic.id)) return false;
+                if (searchTerm === '') return true;
+                
+                const searchLower = searchTerm.toLowerCase();
+                const topicName = topic.name.toLowerCase();
+                const topicCode = deriveTopicCode(topic, allTopics).toLowerCase();
+                const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
+                const subjectName = subject ? formatSubjectShortName(subject).toLowerCase() : '';
+                
+                return (
+                  topicName.includes(searchLower) ||
+                  topicCode.includes(searchLower) ||
+                  subjectName.includes(searchLower)
+                );
+              })
+              .map((topic) => {
+                const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
+                const topicCode = deriveTopicCode(topic, allTopics);
+                const { style, textColorClass } = getSubjectColorStyle(subject);
+                const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+                
+                return (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    onClick={() => handleAddTopic(topic.id)}
+                    className="w-full text-left p-2 hover:bg-accent rounded-md transition-colors flex items-center gap-2"
+                  >
+                    {subject && (
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-xs px-2 py-0.5 shrink-0",
+                          defaultClass || textColorClass
+                        )}
+                        style={style.backgroundColor ? style : undefined}
+                      >
+                        {formatSubjectShortName(subject)}
+                      </Badge>
+                    )}
+                    <span className="text-sm font-mono text-muted-foreground shrink-0">{topicCode}</span>
+                    <span className="flex-1">{topic.name}</span>
+                  </button>
+                );
+              })}
           </div>
 
           <Button variant="outline" size="sm" onClick={() => setShowSearch(false)}>
