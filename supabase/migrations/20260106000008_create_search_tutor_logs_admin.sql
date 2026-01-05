@@ -411,3 +411,4 @@ GRANT EXECUTE ON FUNCTION search_tutor_logs_admin TO authenticated;
 
 COMMENT ON FUNCTION search_tutor_logs_admin IS 'Admin search function for tutor logs with filtering by session date (Adelaide timezone), searchable staff filter, and relationship loading.';
 
+

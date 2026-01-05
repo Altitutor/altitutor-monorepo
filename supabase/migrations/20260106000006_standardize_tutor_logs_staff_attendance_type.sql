@@ -9,7 +9,13 @@
 --   - This eliminates the need for mapping logic in frontend code
 
 -- ========================
--- 1. MIGRATE EXISTING DATA
+-- 1. DROP CONSTRAINT FIRST (to allow data migration)
+-- ========================
+ALTER TABLE public.tutor_logs_staff_attendance
+DROP CONSTRAINT IF EXISTS tutor_logs_staff_attendance_type_check;
+
+-- ========================
+-- 2. MIGRATE EXISTING DATA
 -- ========================
 UPDATE public.tutor_logs_staff_attendance
 SET type = CASE
@@ -21,17 +27,15 @@ END
 WHERE type IN ('PRIMARY', 'ASSISTANT', 'TRIAL');
 
 -- ========================
--- 2. UPDATE CONSTRAINT
+-- 3. ADD NEW CONSTRAINT
 -- ========================
-ALTER TABLE public.tutor_logs_staff_attendance
-DROP CONSTRAINT IF EXISTS tutor_logs_staff_attendance_type_check;
 
 ALTER TABLE public.tutor_logs_staff_attendance
 ADD CONSTRAINT tutor_logs_staff_attendance_type_check
 CHECK (type IN ('MAIN_TUTOR', 'SECONDARY_TUTOR', 'TRIAL_TUTOR'));
 
 -- ========================
--- 3. VERIFY MIGRATION
+-- 4. VERIFY MIGRATION
 -- ========================
 -- Check that all records were migrated successfully
 DO $$
