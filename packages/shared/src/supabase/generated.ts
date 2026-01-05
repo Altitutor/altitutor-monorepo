@@ -5768,6 +5768,13 @@ export type Database = {
         }
         Returns: Json
       }
+      can_student_read_file: { Args: { file_path: string }; Returns: boolean }
+      can_tutor_access_subject: {
+        Args: { subject_id: string }
+        Returns: boolean
+      }
+      can_tutor_create_file: { Args: { file_path: string }; Returns: boolean }
+      can_tutor_read_file: { Args: { file_path: string }; Returns: boolean }
       cleanup_expired_reservations: { Args: never; Returns: number }
       complete_student_registration: {
         Args: {
