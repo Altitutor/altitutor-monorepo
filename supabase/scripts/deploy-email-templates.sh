@@ -43,12 +43,30 @@ fi
 # Extract subjects from config.toml
 declare -A SUBJECTS=()
 current_template=""
-while IFS= read -r line; do
-    if [[ $line =~ ^\[auth\.email\.template\.(.+)\] ]]; then
+
+# Debug: Show config file path
+echo "📄 Reading config from: $CONFIG_FILE"
+
+while IFS= read -r line || [ -n "$line" ]; do
+    # Skip empty lines and comments
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    
+    # Trim leading/trailing whitespace
+    line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    
+    # Match section header: [auth.email.template.xxx]
+    if [[ $line =~ ^\[auth\.email\.template\.([^]]+)\] ]]; then
         current_template="${BASH_REMATCH[1]}"
-    elif [[ $line =~ ^subject\s*=\s*\"(.+)\" ]] && [ -n "$current_template" ]; then
-        SUBJECTS["$current_template"]="${BASH_REMATCH[1]}"
+        echo "🔍 Found template section: $current_template"
+    # Match subject line: subject = "xxx" (with optional whitespace)
+    elif [[ $line =~ ^subject[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]] && [ -n "$current_template" ]; then
+        subject_value="${BASH_REMATCH[1]}"
+        SUBJECTS["$current_template"]="$subject_value"
+        echo "  ✅ Extracted subject: $subject_value"
         current_template=""  # Reset after finding subject
+    elif [[ $line =~ ^\[ ]] && [ -n "$current_template" ]; then
+        # New section started without finding subject - reset
+        current_template=""
     fi
 done < "$CONFIG_FILE"
 
@@ -56,13 +74,17 @@ done < "$CONFIG_FILE"
 if [ ${#SUBJECTS[@]} -eq 0 ]; then
     echo "⚠️  Warning: No subjects extracted from config.toml"
     echo "   Config file: $CONFIG_FILE"
+    echo "   This may indicate a parsing issue or missing subjects in config.toml"
 else
-    echo "✅ Found ${#SUBJECTS[@]} email template subject(s)"
+    echo "✅ Successfully extracted ${#SUBJECTS[@]} email template subject(s)"
 fi
 
 # Build the mailer_templates JSON payload
 TEMPLATES_DIR="$(dirname "$0")/../templates"
 PAYLOAD_TEMPLATES="{}"
+TEMPLATES_PREPARED=0
+
+echo "📦 Preparing email templates..."
 
 for template_name in "${!TEMPLATES[@]}"; do
     template_file="${TEMPLATES[$template_name]}"
@@ -80,25 +102,52 @@ for template_name in "${!TEMPLATES[@]}"; do
     fi
     
     # Read template content and escape JSON
-    content=$(cat "$template_path" | jq -Rs .)
+    if ! content=$(cat "$template_path" | jq -Rs .); then
+        echo "❌ Error: Failed to read or parse template file: $template_path"
+        continue
+    fi
     
     # Build template JSON object
-    template_json=$(jq -n \
+    if ! template_json=$(jq -n \
         --arg subject "$subject" \
         --argjson content "$content" \
-        '{subject: $subject, content: $content}')
+        '{subject: $subject, content: $content}'); then
+        echo "❌ Error: Failed to build JSON for template: $template_name"
+        continue
+    fi
     
     # Add to payload
-    PAYLOAD_TEMPLATES=$(echo "$PAYLOAD_TEMPLATES" | jq --arg name "$template_name" --argjson template "$template_json" '.[$name] = $template')
+    if ! PAYLOAD_TEMPLATES=$(echo "$PAYLOAD_TEMPLATES" | jq --arg name "$template_name" --argjson template "$template_json" '.[$name] = $template'); then
+        echo "❌ Error: Failed to add template to payload: $template_name"
+        continue
+    fi
     
     echo "✅ Prepared template: $template_name"
+    TEMPLATES_PREPARED=$((TEMPLATES_PREPARED + 1))
 done
 
+# Validate we have templates to deploy
+if [ $TEMPLATES_PREPARED -eq 0 ]; then
+    echo "❌ Error: No templates were prepared for deployment"
+    echo "   Check that:"
+    echo "   1. Subjects are correctly defined in config.toml"
+    echo "   2. Template files exist in $TEMPLATES_DIR"
+    exit 1
+fi
+
+echo "✅ Prepared $TEMPLATES_PREPARED template(s) for deployment"
+
 # Build final payload
-PAYLOAD=$(jq -n --argjson templates "$PAYLOAD_TEMPLATES" '{mailer_templates: $templates}')
+if ! PAYLOAD=$(jq -n --argjson templates "$PAYLOAD_TEMPLATES" '{mailer_templates: $templates}'); then
+    echo "❌ Error: Failed to build final payload"
+    exit 1
+fi
 
 # Deploy templates via Management API
 echo "🚀 Uploading templates to Supabase..."
+echo "📋 Payload summary:"
+echo "$PAYLOAD" | jq '.mailer_templates | keys' 2>/dev/null || echo "   (unable to parse payload)"
+
 RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
     "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
@@ -110,7 +159,19 @@ BODY=$(echo "$RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
     echo "🎉 Email templates deployed successfully!"
-    echo "📊 Response: $BODY" | jq '.' 2>/dev/null || echo "$BODY"
+    echo "📊 Verifying deployment..."
+    
+    # Extract and show the deployed template subjects for verification
+    if command -v jq >/dev/null 2>&1; then
+        echo "$BODY" | jq -r '
+            .mailer_subjects_confirmation // empty | "  ✅ Confirmation: " + .,
+            .mailer_subjects_invite // empty | "  ✅ Invite: " + .,
+            .mailer_subjects_magic_link // empty | "  ✅ Magic Link: " + .,
+            .mailer_subjects_recovery // empty | "  ✅ Recovery: " + .,
+            .mailer_subjects_email_change // empty | "  ✅ Email Change: " + .,
+            .mailer_subjects_reauthentication // empty | "  ✅ Reauthentication: " + .
+        ' 2>/dev/null || true
+    fi
 else
     echo "❌ Error deploying templates. HTTP $HTTP_CODE"
     echo "Response: $BODY"
