@@ -286,7 +286,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
               className="pl-10"
             />
           </div>
-          <div className="max-h-[400px] overflow-y-auto space-y-1">
+          <div className="space-y-1">
             {renderFilteredTopicTree(null)}
           </div>
         </>

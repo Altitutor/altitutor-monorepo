@@ -91,7 +91,7 @@ export function Step0StaffSelector({
       ) : staff.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">No staff found</div>
       ) : (
-        <div className="space-y-3 max-h-[500px] overflow-y-auto">
+        <div className="space-y-3">
           {staff.map((staffMember) => (
             <div
               key={staffMember.id}

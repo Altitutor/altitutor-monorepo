@@ -312,8 +312,8 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
 
   return (
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
-      <DialogContent className="w-full md:max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <DialogTitle>{getStepTitle() || 'Tutor Log'}</DialogTitle>
@@ -333,8 +333,10 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-[400px]">
-          {renderStep()}
+        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+          <div className="h-full overflow-y-auto">
+            {renderStep()}
+          </div>
         </div>
 
         <div className="flex justify-between px-6 py-4 border-t bg-background">

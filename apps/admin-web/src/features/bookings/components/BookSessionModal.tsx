@@ -820,8 +820,8 @@ export function BookSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="w-full md:max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>Book {getSessionTypeLabel()}</DialogTitle>
           <DialogDescription>
             Create a new {getSessionTypeLabel().toLowerCase()} booking
@@ -829,7 +829,7 @@ export function BookSessionModal({
         </DialogHeader>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-center space-x-2 px-6 py-4 border-b overflow-x-auto">
+        <div className="flex-shrink-0 flex items-center justify-center space-x-2 px-6 py-4 border-b overflow-x-auto">
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center flex-shrink-0">
               <div
@@ -855,11 +855,13 @@ export function BookSessionModal({
         </div>
 
         {/* Current Step Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-[400px]">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold">{currentStepData?.title}</h3>
+        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+          <div className="h-full overflow-y-auto">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">{currentStepData?.title}</h3>
+            </div>
+            {renderStepContent()}
           </div>
-          {renderStepContent()}
         </div>
 
         {/* Footer with Back/Next buttons */}
