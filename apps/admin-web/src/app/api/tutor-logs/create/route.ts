@@ -65,18 +65,27 @@ export async function POST(request: Request) {
       studentIds: tf.studentIds || [],
     }));
 
-    const notes = data.notes || [];
+    // Ensure notes is an array of non-empty strings
+    // Filter out any invalid values and ensure all are strings
+    const notes: string[] = Array.isArray(data.notes)
+      ? data.notes
+          .filter((note): note is string => typeof note === 'string' && note.trim().length > 0)
+          .map((note) => String(note).trim())
+      : [];
 
-    // Call the RPC function
-    const { data: result, error } = await supabase.rpc('create_tutor_log' as any, {
+    // Prepare RPC parameters
+    const rpcParams = {
       p_session_id: data.sessionId,
       p_created_by: createdBy,
-      p_staff_attendance: staffAttendance as any,
-      p_student_attendance: studentAttendance as any,
-      p_topics: topics as any,
-      p_topic_files: topicFiles as any,
-      p_notes: notes as any,
-    });
+      p_staff_attendance: staffAttendance.length > 0 ? staffAttendance : [],
+      p_student_attendance: studentAttendance.length > 0 ? studentAttendance : [],
+      p_topics: topics.length > 0 ? topics : [],
+      p_topic_files: topicFiles.length > 0 ? topicFiles : [],
+      p_notes: notes.length > 0 ? notes : [],
+    };
+
+    // Call the RPC function
+    const { data: result, error } = await supabase.rpc('create_tutor_log' as any, rpcParams);
 
     if (error) {
       console.error('Error calling create_tutor_log RPC:', error);
