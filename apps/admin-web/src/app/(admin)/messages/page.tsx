@@ -15,59 +15,81 @@ import { formatContactName } from '@/features/messages/utils/formatContactName';
 export default function MessagesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const conversationParam = searchParams.get('conversation');
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(conversationParam);
+  const conversationParam = searchParams.get('conversation'); // For backward compatibility
+  const contactParam = searchParams.get('contact');
+  const [activeContactId, setActiveContactId] = useState<string | null>(contactParam);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInfoModal, setShowInfoModal] = useState(false);
   
-  // Fetch active conversation details for header
-  const { data: activeConversation } = useQuery({
-    queryKey: ['conversation', activeConversationId],
+  // Convert conversationId to contactId if provided (backward compatibility)
+  useEffect(() => {
+    if (conversationParam && !contactParam) {
+      const supabase = getSupabaseClient() as any;
+      supabase
+        .from('conversations')
+        .select('contact_id')
+        .eq('id', conversationParam)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          if (data?.contact_id) {
+            setActiveContactId(data.contact_id);
+            // Update URL to use contact instead of conversation
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete('conversation');
+            params.set('contact', data.contact_id);
+            router.replace(`/messages?${params.toString()}`);
+          }
+        });
+    }
+  }, [conversationParam, contactParam, searchParams, router]);
+  
+  // Fetch active contact details for header
+  const { data: activeContact } = useQuery({
+    queryKey: ['contact', activeContactId],
     queryFn: async () => {
-      if (!activeConversationId) return null;
+      if (!activeContactId) return null;
       const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
-        .from('conversations')
+        .from('contacts')
         .select(`
           id,
-          contacts (
-            id,
-            phone_e164,
-            contact_type,
-            students (id, first_name, last_name),
-            parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-            staff (id, first_name, last_name)
-          )
+          phone_e164,
+          contact_type,
+          students (id, first_name, last_name),
+          parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
+          staff (id, first_name, last_name)
         `)
-        .eq('id', activeConversationId)
+        .eq('id', activeContactId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!activeConversationId,
+    enabled: !!activeContactId,
   });
   
   // Sync from URL params
   useEffect(() => {
-    const conversationId = searchParams.get('conversation');
-    if (conversationId) {
-      setActiveConversationId(conversationId);
-    } else if (!activeConversationId) {
-      // Auto-select most recent conversation when no URL param and no active conversation
+    const contactId = searchParams.get('contact');
+    if (contactId) {
+      setActiveContactId(contactId);
+    } else if (!activeContactId && !conversationParam) {
+      // Auto-select most recent contact when no URL param
       (async () => {
+        const { useConversationsByContact } = await import('@/features/messages/api/queries');
+        // This will be handled by the hook, but we can select the first one
         const supabase = getSupabaseClient() as any;
         const { data } = await supabase
           .from('conversations')
-          .select('id')
+          .select('contact_id')
           .order('last_message_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (data?.id) {
-          setActiveConversationId(data.id);
+        if (data?.contact_id) {
+          setActiveContactId(data.contact_id);
           const params = new URLSearchParams(searchParams.toString());
-          params.set('conversation', data.id);
+          params.set('contact', data.contact_id);
           router.push(`/messages?${params.toString()}`);
         }
       })();
@@ -75,13 +97,14 @@ export default function MessagesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
   
-  const conversationTitle = activeConversation ? formatContactName(activeConversation) : 'Messages';
+  const conversationTitle = activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
   
-  const handleConversationSelect = (id: string) => {
-    setActiveConversationId(id);
+  const handleContactSelect = (contactId: string) => {
+    setActiveContactId(contactId);
     setMobileView('thread');
     const params = new URLSearchParams(searchParams.toString());
-    params.set('conversation', id);
+    params.delete('conversation'); // Remove old param
+    params.set('contact', contactId);
     router.push(`/messages?${params.toString()}`);
   };
   
@@ -103,8 +126,8 @@ export default function MessagesPage() {
           md:w-[260px]
         `}>
           <ConversationList 
-            activeConversationId={activeConversationId} 
-            onSelect={handleConversationSelect}
+            activeContactId={activeContactId} 
+            onSelect={handleContactSelect}
           />
         </div>
         
@@ -124,16 +147,16 @@ export default function MessagesPage() {
             showBackButton={mobileView === 'thread'}
           />
           <div className="flex-1 flex flex-col min-h-0">
-            {activeConversationId ? (
+            {activeContactId ? (
               <>
                 <MessageThread 
-                  conversationId={activeConversationId} 
+                  contactId={activeContactId} 
                   isSearching={isSearching}
                   searchTerm={searchTerm}
                   onSearchTermChange={setSearchTerm}
                   onExitSearch={() => setIsSearching(false)}
                 />
-                <Composer conversationId={activeConversationId} onTyping={() => setIsSearching(false)} />
+                <Composer contactId={activeContactId} onTyping={() => setIsSearching(false)} />
               </>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -148,13 +171,13 @@ export default function MessagesPage() {
             - Shown on wide screens (xl+): 480px fixed width
         */}
         <div className="hidden xl:flex xl:flex-col w-[480px] flex-shrink-0 min-h-0">
-          <InfoPanel conversationId={activeConversationId} className="flex-1 overflow-y-auto" />
+          <InfoPanel contactId={activeContactId} className="flex-1 overflow-y-auto" />
         </div>
       </div>
       
       {/* Info Modal for mobile and medium screens */}
       <InfoModal 
-        conversationId={activeConversationId}
+        contactId={activeContactId}
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
       />

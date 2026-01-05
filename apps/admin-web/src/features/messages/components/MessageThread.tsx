@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useMemo } from 'react';
-import { useMessages } from '../api/queries';
+import { useMessagesForContact } from '../api/queries';
 import { useMarkRead } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,90 +9,101 @@ import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferent
 import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
 import { X } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { Button, Badge } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Props {
-  conversationId: string;
+  contactId: string;
   isSearching?: boolean;
   searchTerm?: string;
   onSearchTermChange?: (term: string) => void;
   onExitSearch?: () => void;
 }
 
-export function MessageThread({ conversationId, isSearching = false, searchTerm = '', onSearchTermChange, onExitSearch }: Props) {
-  const { data, fetchNextPage, hasNextPage } = useMessages(conversationId);
+export function MessageThread({ contactId, isSearching = false, searchTerm = '', onSearchTermChange, onExitSearch }: Props) {
+  const { data, fetchNextPage, hasNextPage } = useMessagesForContact(contactId);
   const markRead = useMarkRead();
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const isInitialLoad = useRef(true);
-  const prevConversationId = useRef(conversationId);
+  const prevContactId = useRef(contactId);
   const lastMarkedMessageId = useRef<string | null>(null);
   const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Reset initial load flag when conversation changes
+  // Reset initial load flag when contact changes
   useEffect(() => {
-    if (prevConversationId.current !== conversationId) {
+    if (prevContactId.current !== contactId) {
       isInitialLoad.current = true;
-      prevConversationId.current = conversationId;
-      lastMarkedMessageId.current = null; // Reset when conversation changes
+      prevContactId.current = contactId;
+      lastMarkedMessageId.current = null; // Reset when contact changes
       // Cancel any pending markRead calls
       if (markReadTimeoutRef.current) {
         clearTimeout(markReadTimeoutRef.current);
         markReadTimeoutRef.current = null;
       }
     }
-  }, [conversationId]);
+  }, [contactId]);
 
   useEffect(() => {
-    // realtime subscription for this conversation's messages
+    if (!contactId) return;
+    
+    // Get all conversation IDs for this contact to subscribe to all of them
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    const channel = supabase
-      .channel(`messages-${conversationId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload: any) => {
-        // Patch cache with new message for instant rendering
-        qc.setQueryData(messagesKeys.messages(conversationId), (old: any) => {
-          if (!old?.pages) return old;
-          const newItem = (payload as any).new;
-          const pages = [...old.pages];
-          if (pages[0]) {
-            // Check if message already exists to prevent duplicates
-            const exists = pages[0].items.some((m: any) => m.id === newItem.id);
-            if (!exists) {
-              pages[0] = { ...pages[0], items: [newItem, ...pages[0].items] };
-            }
-          }
-          return { ...old, pages };
-        });
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload: any) => {
-        // Patch cache with updated message
-        qc.setQueryData(messagesKeys.messages(conversationId), (old: any) => {
-          if (!old?.pages) return old;
-          const updatedItem = (payload as any).new;
-          const pages = old.pages.map((page: any) => ({
-            ...page,
-            items: page.items.map((m: any) => m.id === updatedItem.id ? { ...m, ...updatedItem } : m)
-          }));
-          return { ...old, pages };
-        });
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${conversationId}` }, () => {
-        qc.invalidateQueries({ queryKey: messagesKeys.messages(conversationId) });
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [conversationId, qc]);
+    
+    // Fetch conversation IDs for this contact
+    supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .in('status', ['OPEN', 'SNOOZED'])
+      .then(({ data: conversations }) => {
+        if (!conversations || conversations.length === 0) return;
+        
+        const conversationIds = conversations.map((c: any) => c.id);
+        
+        // Subscribe to messages from all conversations for this contact
+        const channel = supabase
+          .channel(`messages-contact-${contactId}`)
+          .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'messages',
+            filter: `conversation_id=in.(${conversationIds.join(',')})`
+          }, () => {
+            // Invalidate to refetch all messages for this contact
+            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId) });
+          })
+          .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'messages',
+            filter: `conversation_id=in.(${conversationIds.join(',')})`
+          }, () => {
+            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId) });
+          })
+          .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'conversations',
+            filter: `contact_id=eq.${contactId}`
+          }, () => {
+            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId) });
+          })
+          .subscribe();
+        
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      });
+  }, [contactId, qc]);
 
   // Mark conversation as read - debounced and only when last message changes
   useEffect(() => {
     const last = data?.pages?.flatMap(p => p.items)?.[0];
     const lastMessageId = last?.id;
-    const currentConversationId = conversationId; // Capture for closure
+    const currentContactId = contactId; // Capture for closure
     
     // Only mark as read if:
     // 1. We have a last message ID
@@ -103,25 +114,25 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
         clearTimeout(markReadTimeoutRef.current);
       }
       
-      // Debounce markRead to avoid excessive calls when switching conversations quickly
+      // Debounce markRead to avoid excessive calls when switching contacts quickly
       markReadTimeoutRef.current = setTimeout(() => {
-        // Double-check we're still on the same conversation
-        if (prevConversationId.current === currentConversationId) {
-          markRead.mutate({ conversationId: currentConversationId, lastMessageId });
+        // Double-check we're still on the same contact
+        if (prevContactId.current === currentContactId) {
+          markRead.mutate({ contactId: currentContactId, lastMessageId });
           lastMarkedMessageId.current = lastMessageId;
         }
         markReadTimeoutRef.current = null;
       }, 500); // 500ms debounce
     }
     
-    // Cleanup timeout on unmount or conversation change
+    // Cleanup timeout on unmount or contact change
     return () => {
       if (markReadTimeoutRef.current) {
         clearTimeout(markReadTimeoutRef.current);
         markReadTimeoutRef.current = null;
       }
     };
-  }, [data, conversationId, markRead]);
+  }, [data, contactId, markRead]);
 
   // Auto-scroll to bottom on initial load and when new messages arrive
   useEffect(() => {
@@ -283,6 +294,16 @@ export function MessageThread({ conversationId, isSearching = false, searchTerm 
                     )}
                     
                     <div className={`max-w-[80%] ${m.direction === 'OUTBOUND' ? 'text-right' : ''}`}>
+                      {/* Sender badge for outbound messages */}
+                      {m.direction === 'OUTBOUND' && m.sender && (
+                        <div className={`mb-1 ${m.direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                            From: {m.sender.sender_type === 'ALPHANUMERIC' 
+                              ? (m.sender.alphanumeric_sender_id || m.sender.label || 'Unknown')
+                              : (m.sender.label || m.sender.phone_e164 || 'Unknown')}
+                          </Badge>
+                        </div>
+                      )}
                       <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${m.direction === 'OUTBOUND' ? 'bg-brand-lightBlue text-brand-dark-bg' : 'bg-muted'}`}>
                         {isSearching && searchTerm ? highlightText(m.body, searchTerm) : m.body}
                       </div>

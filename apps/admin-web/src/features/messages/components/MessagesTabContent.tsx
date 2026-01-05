@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button as UIButton } from '@altitutor/ui';
 import { MessageThread } from './MessageThread';
 import { Composer } from './Composer';
 import { useChatStore } from '../state/chatStore';
-import { ensureConversationForRelated } from '../api/queries';
+import { getContactIdByRelatedId } from '../api/queries';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface MessagesTabContentProps {
-  conversationId: string | null;
+  conversationId: string | null; // For backward compatibility, will be converted to contactId
   title: string;
   onClose: () => void;
   // For creating conversation on first message
@@ -23,18 +26,35 @@ export function MessagesTabContent({
   relatedId,
   relatedType
 }: MessagesTabContentProps) {
-  const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
+  const [contactId, setContactId] = useState<string | null>(null);
 
-  const handleFirstMessage = async (_messageBody: string) => {
-    // Create conversation on first send
-    if (!conversationId && relatedId && relatedType) {
-      const newConvId = await ensureConversationForRelated(relatedId, relatedType);
-      if (newConvId) {
-        setConversationId(newConvId);
-        return newConvId;
-      }
+  // Convert conversationId to contactId if provided (for backward compatibility)
+  useEffect(() => {
+    if (initialConversationId && !relatedId) {
+      // If we have a conversationId but no relatedId, fetch the contactId from conversation
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      supabase
+        .from('conversations')
+        .select('contact_id')
+        .eq('id', initialConversationId)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          if (data?.contact_id) {
+            setContactId(data.contact_id);
+          }
+        });
+    } else if (relatedId && relatedType) {
+      // Get contactId from relatedId
+      getContactIdByRelatedId(relatedId, relatedType).then((cid) => {
+        setContactId(cid);
+      });
     }
-    return conversationId;
+  }, [initialConversationId, relatedId, relatedType]);
+
+  const handleFirstMessage = async (_messageBody: string, _selectedSenderId: string) => {
+    // ContactId should already be set from useEffect
+    // This is just for backward compatibility
+    return contactId;
   };
 
   return (
@@ -45,26 +65,39 @@ export function MessagesTabContent({
         <UIButton
           size="sm"
           onClick={() => {
-            if (conversationId) {
-              useChatStore.getState().openWindow({ conversationId, title });
-              onClose();
+            if (contactId) {
+              // For pop out, we still need a conversationId - use the first/default one
+              const supabase = getSupabaseClient() as SupabaseClient<Database>;
+              supabase
+                .from('conversations')
+                .select('id')
+                .eq('contact_id', contactId)
+                .in('status', ['OPEN', 'SNOOZED'])
+                .limit(1)
+                .maybeSingle()
+                .then(({ data }: any) => {
+                  if (data?.id) {
+                    useChatStore.getState().openWindow({ conversationId: data.id, title });
+                    onClose();
+                  }
+                });
             }
           }}
-          disabled={!conversationId}
+          disabled={!contactId}
         >
           Pop out
         </UIButton>
       </div>
       
       {/* Scrollable Message Thread */}
-      {conversationId ? (
+      {contactId ? (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <MessageThread conversationId={conversationId} />
+            <MessageThread contactId={contactId} />
           </div>
           {/* Fixed Footer with Composer */}
           <div className="flex-shrink-0 border-t bg-background">
-            <Composer conversationId={conversationId} />
+            <Composer contactId={contactId} onBeforeSend={handleFirstMessage} />
           </div>
         </>
       ) : relatedId && relatedType ? (
@@ -74,7 +107,7 @@ export function MessagesTabContent({
           </div>
           {/* Fixed Footer with Composer */}
           <div className="flex-shrink-0 border-t bg-background">
-            <Composer conversationId={null} onBeforeSend={handleFirstMessage} />
+            <Composer contactId={null} onBeforeSend={handleFirstMessage} />
           </div>
         </>
       ) : (

@@ -126,8 +126,14 @@ export function useConversationDetails(conversationId: string | null) {
   });
 }
 
-export async function ensureConversationForContact(contactId: string): Promise<string> {
+export async function ensureConversationForContact(contactId: string, ownedNumberId?: string): Promise<string> {
   const supabase = (getSupabaseClient() as any);
+  
+  // If ownedNumberId is provided, use it; otherwise find default
+  if (ownedNumberId) {
+    return ensureConversation(contactId, ownedNumberId);
+  }
+  
   // Find default owned number
   const { data: owned, error: ownedErr } = await supabase
     .from('owned_numbers')
@@ -136,16 +142,16 @@ export async function ensureConversationForContact(contactId: string): Promise<s
     .limit(1)
     .maybeSingle();
   if (ownedErr) throw ownedErr;
-  const ownedNumberId = owned?.id;
+  const defaultOwnedNumberId = owned?.id;
 
-  if (!ownedNumberId) {
+  if (!defaultOwnedNumberId) {
     // fallback to any owned number
     const { data: anyOwned } = await supabase.from('owned_numbers').select('id').limit(1).maybeSingle();
     if (!anyOwned?.id) throw new Error('No owned numbers configured');
     const { id } = anyOwned;
     return ensureConversation(contactId, id);
   }
-  return ensureConversation(contactId, ownedNumberId);
+  return ensureConversation(contactId, defaultOwnedNumberId);
 }
 
 // Helper to get contact ID from student/staff/parent ID
@@ -288,6 +294,202 @@ export function useAvailableSenders() {
       return (data || []) as Sender[];
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+export type AggregatedConversation = {
+  contactId: string;
+  contact: any;
+  conversations: Array<{
+    id: string;
+    owned_number_id: string;
+    owned_number: any;
+    last_message_at: string | null;
+    last_message_id: string | null;
+    last_message: any;
+    status: string;
+  }>;
+  latestMessageAt: string | null;
+  latestMessage: any;
+  unreadCount: number;
+};
+
+/**
+ * Aggregates conversations by contact - shows one "conversation" per contact
+ * combining all conversations from different senders
+ */
+export function useConversationsByContact() {
+  return useQuery({
+    queryKey: messagesKeys.conversationsByContact(),
+    queryFn: async (): Promise<AggregatedConversation[]> => {
+      const supabase = getSupabaseClient() as any;
+      
+      // Fetch all conversations with nested data
+      const { data: conversations, error } = await supabase
+        .from('conversations')
+        .select(`
+          id, status, last_message_at, last_message_id,
+          assigned_staff_id, contact_id, owned_number_id,
+          contacts!inner(
+            id, phone_e164, contact_type, student_id, parent_id, staff_id,
+            students(id, first_name, last_name),
+            parents(id, first_name, last_name),
+            staff(id, first_name, last_name)
+          ),
+          owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label),
+          conversation_reads(id, last_read_message_id, last_read_at)
+        `)
+        .in('status', ['OPEN', 'SNOOZED'])
+        .order('last_message_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Batch fetch last messages
+      const messageIds = (conversations || [])
+        .map((conv: any) => conv.last_message_id)
+        .filter(Boolean);
+      
+      let messageMap = new Map();
+      if (messageIds.length > 0) {
+        const { data: messages } = await supabase
+          .from('messages')
+          .select('id, direction, created_at')
+          .in('id', messageIds);
+        
+        if (messages) {
+          messageMap = new Map(messages.map((m: any) => [m.id, m]));
+        }
+      }
+      
+      // Group conversations by contact_id
+      const byContact = new Map<string, AggregatedConversation>();
+      
+      for (const conv of conversations || []) {
+        const contactId = conv.contact_id;
+        
+        if (!byContact.has(contactId)) {
+          byContact.set(contactId, {
+            contactId,
+            contact: conv.contacts,
+            conversations: [],
+            latestMessageAt: null,
+            latestMessage: null,
+            unreadCount: 0,
+          });
+        }
+        
+        const aggregated = byContact.get(contactId)!;
+        const lastMessage = conv.last_message_id ? messageMap.get(conv.last_message_id) : null;
+        
+        aggregated.conversations.push({
+          id: conv.id,
+          owned_number_id: conv.owned_number_id,
+          owned_number: conv.owned_numbers,
+          last_message_at: conv.last_message_at,
+          last_message_id: conv.last_message_id,
+          last_message: lastMessage,
+          status: conv.status,
+        });
+        
+        // Track latest message across all conversations
+        if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
+          aggregated.latestMessageAt = conv.last_message_at;
+          aggregated.latestMessage = lastMessage;
+        }
+        
+        // Count unread (no conversation_reads entry means unread)
+        if (!conv.conversation_reads || conv.conversation_reads.length === 0) {
+          aggregated.unreadCount++;
+        }
+      }
+      
+      // Convert to array and sort by latest message time
+      return Array.from(byContact.values()).sort((a, b) => {
+        if (!a.latestMessageAt && !b.latestMessageAt) return 0;
+        if (!a.latestMessageAt) return 1;
+        if (!b.latestMessageAt) return -1;
+        return b.latestMessageAt.localeCompare(a.latestMessageAt);
+      });
+    },
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnWindowFocus: false, // Realtime handles updates
+  });
+}
+
+/**
+ * Fetches messages from all conversations for a given contact
+ * Merges and sorts chronologically
+ */
+export function useMessagesForContact(contactId: string | null) {
+  return useInfiniteQuery({
+    queryKey: messagesKeys.messagesForContact(contactId || ''),
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
+      if (!contactId) return { items: [], nextCursor: undefined };
+      
+      const supabase = getSupabaseClient() as any;
+      
+      // Get all conversation IDs for this contact
+      const { data: conversations, error: convError } = await supabase
+        .from('conversations')
+        .select('id, owned_number_id, owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label)')
+        .eq('contact_id', contactId)
+        .in('status', ['OPEN', 'SNOOZED']);
+      
+      if (convError) throw convError;
+      
+      const conversationIds = (conversations || []).map((c: any) => c.id);
+      if (conversationIds.length === 0) {
+        return { items: [], nextCursor: undefined };
+      }
+      
+      // Create a map of conversation_id -> sender info
+      const senderMap = new Map(
+        (conversations || []).map((c: any) => [
+          c.id,
+          {
+            owned_number_id: c.owned_number_id,
+            sender: c.owned_numbers,
+          },
+        ])
+      );
+      
+      // Fetch messages from all conversations
+      let query = supabase
+        .from('messages')
+        .select('*, staff:created_by_staff_id(id, first_name, last_name)')
+        .in('conversation_id', conversationIds)
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE);
+      
+      if (pageParam) {
+        query = query.lt('created_at', pageParam);
+      }
+      
+      const { data: messages, error } = await query;
+      if (error) throw error;
+      
+      // Attach sender info to each message
+      const enrichedMessages = (messages || []).map((msg: any) => {
+        const senderInfo = senderMap.get(msg.conversation_id);
+        return {
+          ...msg,
+          sender: senderInfo?.sender || null,
+          conversation_owned_number_id: senderInfo?.owned_number_id || null,
+        };
+      });
+      
+      const nextCursor = enrichedMessages.length === PAGE_SIZE 
+        ? enrichedMessages[enrichedMessages.length - 1].created_at 
+        : undefined;
+      
+      return { items: enrichedMessages, nextCursor };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: !!contactId,
+    staleTime: 1000 * 60, // 1 minute
+    retry: 1,
+    refetchOnWindowFocus: false, // Realtime handles updates
   });
 }
 

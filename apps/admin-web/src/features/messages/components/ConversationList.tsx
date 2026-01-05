@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useConversations } from '../api/queries';
+import { useConversationsByContact } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
@@ -16,17 +16,17 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Props {
-  activeConversationId?: string | null;
-  onSelect: (conversationId: string) => void;
+  activeContactId?: string | null;
+  onSelect: (contactId: string) => void;
 }
 
-export function ConversationList({ activeConversationId, onSelect }: Props) {
-  const { data } = useConversations();
+export function ConversationList({ activeContactId, onSelect }: Props) {
+  const { data } = useConversationsByContact();
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'unreplied'>('all');
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
-  const [hoveredConversationId, setHoveredConversationId] = useState<string | null>(null);
+  const [hoveredContactId, setHoveredContactId] = useState<string | null>(null);
   const markUnreadMutation = useMarkUnread();
 
   useEffect(() => {
@@ -34,7 +34,11 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
     const channel = supabase
       .channel('conversations-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-        qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+        qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
+        qc.invalidateQueries({ queryKey: messagesKeys.conversations() }); // Also invalidate old for backward compat
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
       })
       .subscribe();
     return () => {
@@ -44,15 +48,14 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
 
   const items = data || [];
   
-  // Check if conversation is unread (no conversation_reads entries exist)
-  const isUnread = (conversation: any) => {
-    return !conversation.conversation_reads || conversation.conversation_reads.length === 0;
+  // Check if aggregated conversation is unread (has unreadCount > 0)
+  const isUnread = (aggregated: any) => {
+    return aggregated.unreadCount > 0;
   };
   
-  // Check if conversation is unreplied (last message is inbound)
-  const isUnreplied = (conversation: any) => {
-    // Check if the last message (stored in messages field from query) is inbound
-    return conversation.messages?.direction === 'INBOUND';
+  // Check if aggregated conversation is unreplied (last message is inbound)
+  const isUnreplied = (aggregated: any) => {
+    return aggregated.latestMessage?.direction === 'INBOUND';
   };
 
   // Filter conversations by contact name/phone or filter pills
@@ -79,10 +82,21 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
     return filtered;
   }, [items, searchTerm, activeFilter]);
 
-  const handleNewConversation = (conversationId: string) => {
-    onSelect(conversationId);
+  const handleNewConversation = async (conversationId: string) => {
+    // Get contactId from conversation
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('contact_id')
+      .eq('id', conversationId)
+      .maybeSingle();
+    
+    if (conv?.contact_id) {
+      onSelect(conv.contact_id);
+    }
     setIsNewConversationDialogOpen(false);
     // Invalidate conversations to refresh the list
+    qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
     qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
   };
 
@@ -140,30 +154,34 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
             {searchTerm ? 'No conversations found.' : 'No conversations yet.'}
           </div>
         ) : (
-          filteredItems.map((c: any) => {
-            const title = formatContactName(c);
-            const phoneNumber = c.contacts?.phone_e164;
-            const isActive = c.id === activeConversationId;
-            const showUnreadDot = isUnread(c);
+          filteredItems.map((aggregated: any) => {
+            const title = formatContactName({ contacts: aggregated.contact });
+            const phoneNumber = aggregated.contact?.phone_e164;
+            const isActive = aggregated.contactId === activeContactId;
+            const showUnreadDot = isUnread(aggregated);
             const isRead = !showUnreadDot;
-            const isHovered = hoveredConversationId === c.id;
-            const lastMessageTime = c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+            const isHovered = hoveredContactId === aggregated.contactId;
+            const lastMessageTime = aggregated.latestMessageAt ? new Date(aggregated.latestMessageAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
             
+            // Mark all conversations for this contact as unread
             const handleMarkUnread = (e: React.MouseEvent) => {
               e.stopPropagation();
-              markUnreadMutation.mutate(c.id);
+              // Mark all conversations for this contact as unread
+              aggregated.conversations.forEach((conv: any) => {
+                markUnreadMutation.mutate(conv.id);
+              });
             };
             
             return (
               <div
-                key={c.id}
+                key={aggregated.contactId}
                 className={`relative w-full ${isActive ? 'md:bg-muted' : ''}`}
-                onMouseEnter={() => setHoveredConversationId(c.id)}
-                onMouseLeave={() => setHoveredConversationId(null)}
+                onMouseEnter={() => setHoveredContactId(aggregated.contactId)}
+                onMouseLeave={() => setHoveredContactId(null)}
               >
                 <button
                   className={`w-full text-left p-3 hover:bg-muted ${isActive ? 'md:bg-muted' : ''}`}
-                  onClick={() => onSelect(c.id)}
+                  onClick={() => onSelect(aggregated.contactId)}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -171,6 +189,11 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
                         <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                       )}
                       <div className="text-sm font-medium truncate">{title}</div>
+                      {aggregated.conversations.length > 1 && (
+                        <Badge variant="outline" className="text-[9px] px-1">
+                          {aggregated.conversations.length} senders
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {phoneNumber && (
@@ -190,7 +213,7 @@ export function ConversationList({ activeConversationId, onSelect }: Props) {
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {c.last_message_at ? `${formatConversationDate(c.last_message_at)} ${lastMessageTime}` : ''}
+                    {aggregated.latestMessageAt ? `${formatConversationDate(aggregated.latestMessageAt)} ${lastMessageTime}` : ''}
                   </div>
                 </button>
               </div>

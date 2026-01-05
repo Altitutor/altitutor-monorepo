@@ -9,60 +9,63 @@ import { getStudentClasses } from '../api/bulk';
 import { messagesKeys } from '../api/queryKeys';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useAvailableSenders } from '../api/queries';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Props {
-  conversationId: string | null;
+  contactId: string | null;
   onTyping?: () => void;
-  onBeforeSend?: (messageBody: string) => Promise<string | null>;
+  onBeforeSend?: (messageBody: string, selectedSenderId: string) => Promise<string | null>;
 }
 
-export function Composer({ conversationId: initialConversationId, onTyping, onBeforeSend }: Props) {
+export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
   const [text, setText] = useState('');
-  const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
+  const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: currentStaff } = useCurrentStaff();
+  const { data: availableSenders, isLoading: isLoadingSenders } = useAvailableSenders();
+  
+  // Set default sender when senders load
+  useEffect(() => {
+    if (availableSenders && availableSenders.length > 0 && !selectedSenderId) {
+      const defaultSender = availableSenders.find(s => s.is_default) || availableSenders[0];
+      setSelectedSenderId(defaultSender.id);
+    }
+  }, [availableSenders, selectedSenderId]);
 
-  // Fetch conversation data to get student/parent info for variable replacement
-  const { data: conversationData } = useQuery({
-    queryKey: conversationId ? messagesKeys.conversationInfo(conversationId) : ['conversation-for-template'],
+  // Fetch contact data to get student/parent info for variable replacement
+  const { data: contactData } = useQuery({
+    queryKey: contactId ? ['contact-for-template', contactId] : ['contact-for-template'],
     queryFn: async () => {
-      if (!conversationId) return null;
+      if (!contactId) return null;
       
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       const { data, error } = await supabase
-        .from('conversations')
+        .from('contacts')
         .select(`
           id,
-          contacts (
+          contact_type,
+          students (id, first_name, last_name),
+          parents (
             id,
-            contact_type,
-            students (id, first_name, last_name),
-            parents (
-              id,
-              first_name,
-              last_name,
-              parents_students (
-                students (id, first_name, last_name)
-              )
+            first_name,
+            last_name,
+            parents_students (
+              students (id, first_name, last_name)
             )
           )
         `)
-        .eq('id', conversationId)
+        .eq('id', contactId)
         .maybeSingle();
       
       if (error) throw error;
       return data;
     },
-    enabled: !!conversationId,
+    enabled: !!contactId,
   });
-
-  // Update conversationId if prop changes
-  useEffect(() => {
-    setConversationId(initialConversationId);
-  }, [initialConversationId]);
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -79,26 +82,20 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
 
   const onSend = async () => {
     const body = text.trim();
-    if (!body) return;
+    if (!body || !contactId || !selectedSenderId) return;
     setText('');
     
     try {
-      // If no conversation yet, create it first via onBeforeSend
-      let targetConvId = conversationId;
-      if (!targetConvId && onBeforeSend) {
-        targetConvId = await onBeforeSend(body);
-        if (targetConvId) {
-          setConversationId(targetConvId);
-        }
+      // Call onBeforeSend if provided (for backward compatibility)
+      if (onBeforeSend) {
+        await onBeforeSend(body, selectedSenderId);
       }
       
-      if (!targetConvId) {
-        setText(body);
-        console.error('[Composer] No conversation ID available');
-        return;
-      }
-      
-      await send.mutateAsync({ conversationId: targetConvId, body });
+      await send.mutateAsync({ 
+        contactId, 
+        body,
+        selectedSenderId 
+      });
     } catch (e) {
       console.error(e);
       setText(body);
@@ -112,9 +109,9 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
       ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
       : null;
     
-    // Try to replace variables if we have conversation data
-    if (conversationData?.contacts) {
-      const contact = conversationData.contacts;
+    // Try to replace variables if we have contact data
+    if (contactData) {
+      const contact = contactData;
       
       // Check if it's a student contact
       if (contact.contact_type === 'STUDENT' && contact.students) {
@@ -157,12 +154,40 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
     }
   };
 
+  const getSenderDisplayName = (sender: typeof availableSenders[0] | undefined): string => {
+    if (!sender) return 'Select sender';
+    if (sender.sender_type === 'ALPHANUMERIC') {
+      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
+    }
+    return sender.label || sender.phone_e164 || 'Unknown';
+  };
+
   return (
     <div className="border-t p-2 dark:border-brand-dark-border flex-shrink-0">
+      {/* Sender selector */}
+      {contactId && availableSenders && availableSenders.length > 0 && (
+        <div className="mb-2">
+          <Select value={selectedSenderId || ''} onValueChange={setSelectedSenderId}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select sender">
+                {selectedSenderId && getSenderDisplayName(availableSenders.find(s => s.id === selectedSenderId))}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {availableSenders.map((sender) => (
+                <SelectItem key={sender.id} value={sender.id}>
+                  {getSenderDisplayName(sender)}
+                  {sender.is_default && ' (Default)'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="flex items-start gap-2">
         <MessageTemplatesPicker 
           onSelect={handleTemplateSelect}
-          disabled={send.isPending}
+          disabled={send.isPending || !contactId || !selectedSenderId}
         />
         <textarea
           ref={textareaRef}
@@ -177,11 +202,12 @@ export function Composer({ conversationId: initialConversationId, onTyping, onBe
             }
           }}
           rows={1}
+          disabled={!contactId || !selectedSenderId}
         />
         <button
-          className="px-3 py-2 text-sm rounded-md bg-brand-lightBlue text-brand-dark-bg hover:opacity-90 shrink-0"
+          className="px-3 py-2 text-sm rounded-md bg-brand-lightBlue text-brand-dark-bg hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onSend}
-          disabled={send.isPending}
+          disabled={send.isPending || !contactId || !selectedSenderId || !text.trim()}
         >
           Send
         </button>

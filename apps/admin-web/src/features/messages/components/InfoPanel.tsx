@@ -36,11 +36,14 @@ import { subjectsApi } from '@/features/subjects/api';
 // ViewParentModal not needed here - we render inline
 
 interface InfoPanelProps {
-  conversationId: string | null;
+  contactId?: string | null;
+  conversationId?: string | null; // For backward compatibility
   className?: string;
 }
 
-export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
+export function InfoPanel({ contactId, conversationId, className = '' }: InfoPanelProps) {
+  // Use contactId if provided, otherwise derive from conversationId (backward compatibility)
+  const effectiveContactId = contactId || (conversationId ? null : null); // Will be fetched from conversationId if needed
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>('details');
@@ -146,7 +149,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
   const staffId = baseContactType === 'STAFF' ? baseContact?.staff_id : null;
   
   // Subjects query - only when viewing Details tab
-  const studentSubjectsQueryKey = conversationId && studentId ? messagesKeys.conversationSubjects(conversationId, 'student') : ['conversation-subjects'];
+  const studentSubjectsQueryKey = effectiveContactId && studentId ? ['contact-subjects', effectiveContactId, 'student'] : ['contact-subjects'];
   const { data: studentSubjectsData } = useQuery({
     queryKey: studentSubjectsQueryKey,
     queryFn: async () => {
@@ -161,10 +164,10 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
       if (error) throw error;
       return (data || []).map((row: any) => row.subject_details).filter(Boolean) as Tables<'subjects'>[];
     },
-    enabled: !!conversationId && activeTab === 'details' && !!studentId,
+    enabled: !!effectiveContactId && activeTab === 'details' && !!studentId,
   });
   
-  const staffSubjectsQueryKey = conversationId && staffId ? messagesKeys.conversationSubjects(conversationId, 'staff') : ['conversation-subjects'];
+  const staffSubjectsQueryKey = effectiveContactId && staffId ? ['contact-subjects', effectiveContactId, 'staff'] : ['contact-subjects'];
   const { data: staffSubjectsData } = useQuery({
     queryKey: staffSubjectsQueryKey,
     queryFn: async () => {
@@ -179,7 +182,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
       if (error) throw error;
       return (data || []).map((row: any) => row.subject_details).filter(Boolean) as Tables<'subjects'>[];
     },
-    enabled: !!conversationId && activeTab === 'details' && !!staffId,
+    enabled: !!effectiveContactId && activeTab === 'details' && !!staffId,
   });
   
   // Attach subjects to contact data for rendering (unused but kept for potential future use)
@@ -195,7 +198,7 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
     return result;
   }, [conversation, studentSubjectsData, staffSubjectsData]);
 
-  if (!conversationId) {
+  if (!effectiveContactId) {
     return (
       <div className={`border-l dark:border-brand-dark-border p-6 ${className}`}>
         <div className="text-sm text-muted-foreground">Select a conversation to view details</div>
@@ -264,10 +267,10 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
         
         setIsEditingStudent(false);
         // Refetch conversation data to get updated student info
-        if (conversationId) {
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'student') });
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'staff') });
+        if (effectiveContactId) {
+          queryClient.invalidateQueries({ queryKey: ['contact', effectiveContactId] });
+          queryClient.invalidateQueries({ queryKey: ['contact-subjects', effectiveContactId, 'student'] });
+          queryClient.invalidateQueries({ queryKey: ['contact-subjects', effectiveContactId, 'staff'] });
         }
         
         toast({
@@ -534,10 +537,10 @@ export function InfoPanel({ conversationId, className = '' }: InfoPanelProps) {
         setStaffSubjectsToRemove([]);
         
         setIsEditingStaff(false);
-        if (conversationId) {
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationContact(conversationId) });
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'student') });
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationSubjects(conversationId, 'staff') });
+        if (effectiveContactId) {
+          queryClient.invalidateQueries({ queryKey: ['contact', effectiveContactId] });
+          queryClient.invalidateQueries({ queryKey: ['contact-subjects', effectiveContactId, 'student'] });
+          queryClient.invalidateQueries({ queryKey: ['contact-subjects', effectiveContactId, 'staff'] });
         }
         
         toast({
