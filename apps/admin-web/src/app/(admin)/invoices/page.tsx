@@ -17,6 +17,28 @@ import { DateRangePicker } from '@/shared/components/DateRangePicker';
 
 export const dynamic = 'force-dynamic';
 
+// Get today's date in local timezone (YYYY-MM-DD format)
+const getTodayLocalDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Validate date string format (YYYY-MM-DD)
+const isValidDateString = (dateString: string | null): boolean => {
+  if (!dateString) return false;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(dateString)) return false;
+  try {
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+  } catch {
+    return false;
+  }
+};
+
 const INVOICE_STATUSES: InvoiceRow['status'][] = ['draft', 'open', 'paid', 'void', 'uncollectible', 'disputed'];
 
 export default function InvoicesPage() {
@@ -43,8 +65,13 @@ export default function InvoicesPage() {
   
   const [statusFilters, setStatusFilters] = useState<InvoiceRow['status'][]>(getArrayFromUrl('status') as InvoiceRow['status'][]);
   const [studentFilters, setStudentFilters] = useState<string[]>(getArrayFromUrl('student'));
-  const [from, setFrom] = useState(searchParams.get('from') || '');
-  const [to, setTo] = useState(searchParams.get('to') || '');
+  // Default both dates to today if not provided or invalid
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
+  const initialFrom = (fromParam && isValidDateString(fromParam)) ? fromParam : getTodayLocalDate();
+  const initialTo = (toParam && isValidDateString(toParam)) ? toParam : getTodayLocalDate();
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
@@ -63,8 +90,24 @@ export default function InvoicesPage() {
   useEffect(() => {
     setStatusFilters(getArrayFromUrl('status') as InvoiceRow['status'][]);
     setStudentFilters(getArrayFromUrl('student'));
-    setFrom(searchParams.get('from') || '');
-    setTo(searchParams.get('to') || '');
+    
+    // Only sync valid dates from URL, default to today if missing or invalid
+    // Note: searchParams.get() returns null if param doesn't exist, empty string if param exists but is empty
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+    
+    if (fromParam && fromParam !== '' && isValidDateString(fromParam)) {
+      setFrom(fromParam);
+    } else {
+      setFrom(getTodayLocalDate());
+    }
+    
+    if (toParam && toParam !== '' && isValidDateString(toParam)) {
+      setTo(toParam);
+    } else {
+      setTo(getTodayLocalDate());
+    }
+    
     const pageParam = Number(searchParams.get('page'));
     if (pageParam) setPage(pageParam);
     const pageSizeParam = Number(searchParams.get('pageSize'));
@@ -200,25 +243,27 @@ export default function InvoicesPage() {
   const clearAllFilters = () => {
     setStatusFilters([]);
     setStudentFilters([]);
-    setFrom('');
-    setTo('');
+    const today = getTodayLocalDate();
+    setFrom(today);
+    setTo(today);
     setStudentSearchQuery('');
     setPage(1);
     updateUrlParams({ 
       status: null,
       student: null,
-      from: null,
-      to: null,
+      from: today,
+      to: today,
       page: null 
     });
   };
 
-  // Count active filters
+  // Count active filters (dates always have values now, so only count if they differ from today)
+  const today = getTodayLocalDate();
   const activeFiltersCount = 
     (statusFilters.length > 0 ? 1 : 0) +
     (studentFilters.length > 0 ? 1 : 0) +
-    (from ? 1 : 0) +
-    (to ? 1 : 0);
+    (from && from !== today ? 1 : 0) +
+    (to && to !== today ? 1 : 0);
 
   // Filter students based on search query
   const filteredStudents = allStudents.filter((student) => {
@@ -378,7 +423,7 @@ export default function InvoicesPage() {
               setFrom(newFrom);
               setPage(1);
               updateUrlParams({ 
-                from: newFrom || null,
+                from: newFrom,
                 page: null 
               });
             }}
@@ -386,7 +431,7 @@ export default function InvoicesPage() {
               setTo(newTo);
               setPage(1);
               updateUrlParams({ 
-                to: newTo || null,
+                to: newTo,
                 page: null 
               });
             }}

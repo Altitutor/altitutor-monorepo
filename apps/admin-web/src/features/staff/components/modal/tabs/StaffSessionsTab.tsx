@@ -31,9 +31,10 @@ const getTodayLocalDate = (): string => {
 };
 
 export function StaffSessionsTab({ staff }: StaffSessionsTabProps) {
-  // Filter state - default: start date today, end date unset, class unset
-  const [dateRangeStart, setDateRangeStart] = useState<string>(getTodayLocalDate());
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>('');
+  // Filter state - default: both dates today, class unset
+  const today = getTodayLocalDate();
+  const [dateRangeStart, setDateRangeStart] = useState<string>(today);
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(today);
   const [selectedClassId, setSelectedClassId] = useState<string>('ALL');
   
   // Student filter state
@@ -128,8 +129,6 @@ export function StaffSessionsTab({ staff }: StaffSessionsTabProps) {
             to={dateRangeEnd}
             onFromChange={setDateRangeStart}
             onToChange={setDateRangeEnd}
-            fromPlaceholder="Start date"
-            toPlaceholder="End date"
           />
         </div>
 
