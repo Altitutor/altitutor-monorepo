@@ -16,7 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type StaffAttendanceItem = {
   staffId: string;
   attended: boolean;
-  type: 'PRIMARY' | 'ASSISTANT' | 'TRIAL';
+  type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
 };
 
 type Step2StaffAttendanceProps = {
@@ -65,8 +65,8 @@ export function Step2StaffAttendance({
           attended: !ss.planned_absence, // Default to true unless planned absence
           type:
             ss.staff_id === currentStaffId
-              ? ('PRIMARY' as const)
-              : ('ASSISTANT' as const),
+              ? ('MAIN_TUTOR' as const)
+              : (ss.type || ('SECONDARY_TUTOR' as const)),
         }));
         onUpdate(initialAttendance);
       }
@@ -87,22 +87,22 @@ export function Step2StaffAttendance({
       updated.push({
         staffId,
         attended,
-        type: staffId === currentStaffId ? 'PRIMARY' : 'ASSISTANT',
+        type: staffId === currentStaffId ? 'MAIN_TUTOR' : 'SECONDARY_TUTOR',
       });
     }
 
     onUpdate(updated);
   };
 
-  const handleTypeChange = (staffId: string, type: 'PRIMARY' | 'ASSISTANT' | 'TRIAL') => {
-    // Only one PRIMARY allowed
+  const handleTypeChange = (staffId: string, type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR') => {
+    // Only one MAIN_TUTOR allowed
     const updated = staffAttendance.map((sa) => {
       if (sa.staffId === staffId) {
         return { ...sa, type };
       }
-      // If setting this to PRIMARY, change other PRIMARY to ASSISTANT
-      if (type === 'PRIMARY' && sa.type === 'PRIMARY') {
-        return { ...sa, type: 'ASSISTANT' as const };
+      // If setting this to MAIN_TUTOR, change other MAIN_TUTOR to SECONDARY_TUTOR
+      if (type === 'MAIN_TUTOR' && sa.type === 'MAIN_TUTOR') {
+        return { ...sa, type: 'SECONDARY_TUTOR' as const };
       }
       return sa;
     });
@@ -170,7 +170,7 @@ export function Step2StaffAttendance({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select which staff members attended this session. Only one PRIMARY tutor is allowed.
+        Select which staff members attended this session. Only one Main Tutor is allowed.
       </p>
       
       {sessionStaff.length === 0 ? (
@@ -183,7 +183,7 @@ export function Step2StaffAttendance({
             const staff = ss.staff;
             const attendance = getStaffAttendance(ss.staff_id);
             const isAttended = attendance?.attended ?? !ss.planned_absence;
-            const type = attendance?.type ?? (ss.staff_id === currentStaffId ? 'PRIMARY' : 'ASSISTANT');
+            const type = attendance?.type ?? (ss.staff_id === currentStaffId ? 'MAIN_TUTOR' : (ss.type || 'SECONDARY_TUTOR'));
 
             return (
               <div key={ss.staff_id} className="flex items-center gap-3">
@@ -205,16 +205,16 @@ export function Step2StaffAttendance({
                   <Select
                     value={type}
                     onValueChange={(value) =>
-                      handleTypeChange(ss.staff_id, value as 'PRIMARY' | 'ASSISTANT' | 'TRIAL')
+                      handleTypeChange(ss.staff_id, value as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR')
                     }
                   >
                     <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PRIMARY">Primary</SelectItem>
-                      <SelectItem value="ASSISTANT">Assistant</SelectItem>
-                      <SelectItem value="TRIAL">Trial</SelectItem>
+                      <SelectItem value="MAIN_TUTOR">Main Tutor</SelectItem>
+                      <SelectItem value="SECONDARY_TUTOR">Secondary Tutor</SelectItem>
+                      <SelectItem value="TRIAL_TUTOR">Trial Tutor</SelectItem>
                     </SelectContent>
                   </Select>
                 )}

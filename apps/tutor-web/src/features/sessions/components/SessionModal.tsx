@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@altitutor/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from '@altitutor/ui';
 import { Separator, Badge } from '@altitutor/ui';
 import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
@@ -14,6 +14,10 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useSessionNotes } from '../hooks/useSessionNotes';
 import { SessionNotes } from './SessionNotes';
+import { LogSessionModal } from '@/features/tutor-logs/components/LogSessionModal';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
+import { StudentAvatar } from './StudentAvatar';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -26,9 +30,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [tutorLog, setTutorLog] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   
   // Fetch session notes
   const { data: notesData } = useSessionNotes(sessionId || '');
+  const { data: currentStaff } = useCurrentStaff();
 
   useEffect(() => {
     const load = async () => {
@@ -43,15 +49,37 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         const logResult = await tutorLogsApi.getTutorLogBySessionId(sessionId);
         setTutorLog(logResult);
         
-        // Topics should come from vtutor_topics view
-        if (result?.subject_id) {
+        // Fetch all topics for the subject to derive topic codes
+        // Use session's subject_id from result
+        const subjectId = result?.subject_id;
+        if (subjectId) {
           const { topicsApi } = await import('@/features/topics/api');
-          const topicsData = await topicsApi.getTopicsBySubject(result.subject_id);
+          const topicsData = await topicsApi.getTopicsBySubject(subjectId);
           // Filter to ensure valid topics
           const validTopics = (topicsData || []).filter((t: any): t is any => 
             t && typeof t.id === 'string' && typeof t.name === 'string'
           );
           setAllTopics(validTopics as any);
+        }
+        
+        // Also fetch topics if tutor log exists and has topics with subject_id
+        if (logResult?.topics && Array.isArray(logResult.topics) && logResult.topics.length > 0) {
+          const firstTopic = logResult.topics[0] as any;
+          const topicSubjectId = firstTopic?.subject_id;
+          if (topicSubjectId && topicSubjectId !== subjectId) {
+            // If different subject, fetch those topics too
+            const { topicsApi } = await import('@/features/topics/api');
+            const topicsData = await topicsApi.getTopicsBySubject(topicSubjectId);
+            const validTopics = (topicsData || []).filter((t: any): t is any => 
+              t && typeof t.id === 'string' && typeof t.name === 'string'
+            );
+            // Merge with existing topics
+            setAllTopics((prev) => {
+              const existingIds = new Set(prev.map((t: any) => t.id));
+              const newTopics = validTopics.filter((t: any) => !existingIds.has(t.id));
+              return [...prev, ...newTopics] as any;
+            });
+          }
         }
       } catch (error) {
         console.error('Failed to load session:', error);
@@ -319,6 +347,100 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
             <Separator />
 
+            {/* Tutor Log Section */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Tutor Log</h3>
+                {!hasTutorLog && sessionId && currentStaff?.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsLogSessionModalOpen(true)}
+                  >
+                    Add Tutor Log
+                  </Button>
+                )}
+              </div>
+
+              {/* Topics Covered Section */}
+              {hasTutorLog && tutorLog.topics && tutorLog.topics.length > 0 && (
+                <div className="space-y-4 mb-4">
+                  {tutorLog.topics.map((topicData: any) => {
+                    // vtutor_tutor_log returns topics with topic_id, topic_name, etc.
+                    // Find the complete topic record from allTopics
+                    const topic = allTopics.find(t => t.id === topicData.topic_id);
+                    const topicName = topicData.topic_name || topic?.name || 'Unknown Topic';
+                    const topicCode = topic ? deriveTopicCode(topic, allTopics) : '';
+                    
+                    // Get files for this topic from tutorLog.files
+                    const topicFiles = (tutorLog.files || []).filter((f: any) => f.topic_id === topicData.topic_id);
+                    
+                    // Get student IDs from topicData.student_ids (array of IDs)
+                    const studentIds = topicData.student_ids || [];
+                    
+                    return (
+                      <div key={topicData.id} className="border rounded-lg p-4 space-y-3">
+                        <div>
+                          <div className="font-medium">
+                            {topicCode ? `${topicCode} ` : ''}{topicName}
+                          </div>
+                        </div>
+                        
+                        {topicFiles.length > 0 && (
+                          <div>
+                            <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
+                            <div className="space-y-1">
+                              {topicFiles.map((fileData: any) => {
+                                const fileCode = topicCode 
+                                  ? deriveTopicFileCode(
+                                      {
+                                        id: fileData.topics_files_id,
+                                        index: 1, // We don't have index in view, use placeholder
+                                        type: fileData.type,
+                                        is_solutions: fileData.is_solutions,
+                                      } as any,
+                                      topicCode,
+                                      fileData.type
+                                    )
+                                  : fileData.filename;
+                                
+                                return (
+                                  <div
+                                    key={fileData.id}
+                                    className="text-sm text-muted-foreground"
+                                  >
+                                    {fileCode}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {studentIds.length > 0 && (
+                          <div>
+                            <div className="text-xs font-medium text-muted-foreground mb-1">Students:</div>
+                            <div className="text-sm text-muted-foreground">
+                              {studentIds.length} student{studentIds.length !== 1 ? 's' : ''} assigned
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* No Tutor Log Message */}
+              {!hasTutorLog && (
+                <div className="text-center py-4 text-sm text-muted-foreground">
+                  This session has not been logged yet.
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
             {/* Session Notes Section */}
             {sessionId && (
               <SessionNotes
@@ -330,6 +452,22 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           </div>
         </div>
       </SheetContent>
+      
+      {/* Log Session Modal */}
+      {currentStaff?.id && (
+        <LogSessionModal
+          isOpen={isLogSessionModalOpen}
+          onClose={() => {
+            setIsLogSessionModalOpen(false);
+            // Refresh session data to show new tutor log
+            if (sessionId) {
+              handleRefresh();
+            }
+          }}
+          currentStaffId={currentStaff.id}
+          preselectedSessionId={sessionId || undefined}
+        />
+      )}
     </Sheet>
   );
 }

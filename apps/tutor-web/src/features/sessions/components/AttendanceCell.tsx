@@ -10,7 +10,7 @@ type AttendanceCellProps = {
     onClick: () => void;
   };
   linkText?: string;
-  staffType?: 'PRIMARY' | 'ASSISTANT' | 'TRIAL';
+  staffType?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
 };
 
 export function AttendanceCell({ status, linkTo, linkText, staffType }: AttendanceCellProps) {
