@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils';
+import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
 
 export interface BookDraftingSessionModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export function BookDraftingSessionModal({
   const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
   const { data: reservations } = useMyReservations();
   const createBooking = useCreateBooking();
+  const { data: durationMinutes = 60 } = useSessionDurationMinutes('DRAFTING');
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds: string[] } | null>(null);
@@ -255,7 +257,7 @@ export function BookDraftingSessionModal({
                   })}
                 </div>
                 <div className="text-muted-foreground font-medium">Duration:</div>
-                <div>60 minutes</div>
+                <div>{durationMinutes} minutes</div>
               </div>
             </div>
           </div>
@@ -337,7 +339,7 @@ export function BookDraftingSessionModal({
                 <TimeSlotPicker
                   sessionType="DRAFTING"
                   subjectId={selectedSubjectId}
-                  durationMinutes={60}
+                  durationMinutes={durationMinutes}
                   onSlotSelect={(startAt, endAt, availableStaffIds) => {
                     handleSlotSelect(startAt, endAt, availableStaffIds);
                     setTimeError(false);
@@ -388,7 +390,7 @@ export function BookDraftingSessionModal({
                       </div>
                       
                       <div className="text-sm font-medium text-muted-foreground">Duration:</div>
-                      <div className="text-sm">60 minutes</div>
+                      <div className="text-sm">{durationMinutes} minutes</div>
 
                       {sessionPrice && (
                         <>

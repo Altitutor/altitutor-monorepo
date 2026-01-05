@@ -300,11 +300,17 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                             From: {m.sender.sender_type === 'ALPHANUMERIC' 
                               ? (m.sender.alphanumeric_sender_id || m.sender.label || 'Unknown')
-                              : (m.sender.label || m.sender.phone_e164 || 'Unknown')}
+                              : (m.sender.phone_e164 || m.sender.label || 'Unknown')}
                           </Badge>
                         </div>
                       )}
-                      <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${m.direction === 'OUTBOUND' ? 'bg-brand-lightBlue text-brand-dark-bg' : 'bg-muted'}`}>
+                      <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
+                        m.direction === 'OUTBOUND' 
+                          ? (m.sender?.sender_type === 'ALPHANUMERIC' 
+                              ? 'bg-brand-mediumBlue text-white' 
+                              : 'bg-brand-lightBlue text-brand-dark-bg')
+                          : 'bg-muted'
+                      }`}>
                         {isSearching && searchTerm ? highlightText(m.body, searchTerm) : m.body}
                       </div>
                       <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${m.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>

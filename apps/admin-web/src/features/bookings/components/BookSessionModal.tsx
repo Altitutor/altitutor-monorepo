@@ -27,6 +27,7 @@ import type { Tables } from '@altitutor/shared';
 import type { UseFormReturn } from 'react-hook-form';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
+import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
 
 export interface BookSessionModalProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export function BookSessionModal({
   const { toast } = useToast();
   const createBooking = useCreateBooking();
   const createStudent = useCreateStudent();
+  const { data: durationMinutes = 60 } = useSessionDurationMinutes(sessionType);
 
   // State management
   const [currentStep, setCurrentStep] = useState(0);
@@ -615,7 +617,7 @@ export function BookSessionModal({
             <TimeSlotPicker
               sessionType={sessionType}
               subjectId={selectedSubjectId || undefined}
-              durationMinutes={60}
+              durationMinutes={durationMinutes}
               onSlotSelect={handleSlotSelect}
               selectedSlot={selectedSlot ? { startAt: selectedSlot.startAt, endAt: selectedSlot.endAt } : null}
             />
@@ -764,7 +766,7 @@ export function BookSessionModal({
                     </div>
                     
                     <div className="text-sm font-medium text-muted-foreground">Duration:</div>
-                    <div className="text-sm">60 minutes</div>
+                    <div className="text-sm">{durationMinutes} minutes</div>
                   </div>
                 </div>
 

@@ -159,7 +159,15 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
     if (sender.sender_type === 'ALPHANUMERIC') {
       return sender.alphanumeric_sender_id || sender.label || 'Unknown';
     }
-    return sender.label || sender.phone_e164 || 'Unknown';
+    return sender.phone_e164 || sender.label || 'Unknown';
+  };
+
+  const getSenderDisplayForSelect = (sender: Sender | undefined): string => {
+    if (!sender) return 'Select sender';
+    if (sender.sender_type === 'ALPHANUMERIC') {
+      return `From: ${sender.alphanumeric_sender_id || sender.label || 'Unknown'}`;
+    }
+    return `From: ${sender.phone_e164 || sender.label || 'Unknown'}`;
   };
 
   return (
@@ -170,13 +178,13 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
           <Select value={selectedSenderId || ''} onValueChange={setSelectedSenderId}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="Select sender">
-                {selectedSenderId && getSenderDisplayName(availableSenders.find(s => s.id === selectedSenderId))}
+                {selectedSenderId && getSenderDisplayForSelect(availableSenders.find(s => s.id === selectedSenderId))}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {availableSenders.map((sender) => (
                 <SelectItem key={sender.id} value={sender.id}>
-                  {getSenderDisplayName(sender)}
+                  {getSenderDisplayForSelect(sender)}
                   {sender.is_default && ' (Default)'}
                 </SelectItem>
               ))}
