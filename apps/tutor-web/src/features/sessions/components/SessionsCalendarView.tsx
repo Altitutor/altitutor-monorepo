@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
-import { Button, Card } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePrecreateSessions } from '../hooks/usePrecreateSessions';
 import { useSessions } from '../hooks/useSessionsQuery';
-import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { getSubjectDisciplineColor, getSubjectCurriculumColor } from '@/shared/utils';
+import { SessionCard } from './SessionCard';
 
 type Props = { onOpenSession?: (id: string) => void };
 
@@ -35,34 +35,6 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
       .filter((s: any) => s.start_at && isSameDay(new Date(s.start_at), d));
   };
 
-  const getDisplayLabel = (s: any): string => {
-    // vtutor_sessions view has flattened subject fields
-    if (s.subject_name) {
-      const parts: string[] = [];
-      if (s.subject_curriculum) parts.push(String(s.subject_curriculum));
-      if (s.subject_year_level != null) parts.push(String(s.subject_year_level));
-      if (s.subject_name) parts.push(s.subject_name);
-      if (s.class_level) parts.push(String(s.class_level));
-      return parts.join(' ');
-    }
-    return s.type === 'CLASS' ? 'Class' : 'Meeting';
-  };
-
-  const getSessionColorClasses = (s: any): string => {
-    if (!s.subject_curriculum && !s.subject_discipline) {
-      return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
-    }
-    if (s.subject_discipline) {
-      const disciplineColor = getSubjectDisciplineColor(s.subject_discipline);
-      return `${disciplineColor} border-2 dark:bg-opacity-80`;
-    }
-    if (s.subject_curriculum) {
-      const curriculumColor = getSubjectCurriculumColor(s.subject_curriculum);
-      return `${curriculumColor} border-2 dark:bg-opacity-80`;
-    }
-    return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
-  };
-
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // Helpers to compute block positions
@@ -75,27 +47,31 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>Previous</Button>
+    <div className="flex flex-col">
+      <div className="flex gap-2 justify-end mb-3">
+        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
         <Button variant="outline" onClick={() => setAnchor(new Date())}>Today</Button>
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>Next</Button>
+        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
 
-      <div className="flex-1 overflow-auto relative">
+      <div className="relative overflow-x-auto">
         <div
-          className="grid gap-0 min-h-full relative bg-background"
-          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))` }}
+          className="grid gap-0 relative bg-background"
+          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))`, minWidth: 'max-content' }}
         >
           {/* Headers */}
-          <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">Time</div>
+          <div className="sticky z-20 p-2 text-center font-medium bg-background border-b border-r text-xs" style={{ top: '-1.5rem' }}>Time</div>
           {days.map((d) => {
             const isToday = isSameDay(d, now);
             return (
               <div key={d.toISOString()} className={cn(
-                "sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm",
+                "sticky z-20 p-2 text-center font-medium bg-background border-b border-r text-sm",
                 isToday && "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-              )}>
+              )} style={{ top: '-1.5rem' }}>
                 {format(d, 'EEE dd MMM')}
               </div>
             );
@@ -135,18 +111,21 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                         const processed = new Set<string>();
                         const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
                         daySessions.forEach((s: any) => {
-                          if (processed.has(s.id)) return;
+                          // Use session_id from vtutor_sessions view
+                          const sessionId = s.session_id || s.id;
+                          if (processed.has(sessionId)) return;
                           const sStart = toMinutes(new Date(s.start_at));
                           const sEnd = toMinutes(new Date(s.end_at));
                           const group = [s];
-                          processed.add(s.id);
+                          processed.add(sessionId);
                           daySessions.forEach((o: any) => {
-                            if (processed.has(o.id)) return;
+                            const otherSessionId = o.session_id || o.id;
+                            if (processed.has(otherSessionId)) return;
                             const oStart = toMinutes(new Date(o.start_at));
                             const oEnd = toMinutes(new Date(o.end_at));
                             if (sStart < oEnd && sEnd > oStart) {
                               group.push(o);
-                              processed.add(o.id);
+                              processed.add(otherSessionId);
                             }
                           });
                           groups.push(group);
@@ -161,19 +140,28 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             const top = Math.max(0, (minutesFromStart(sStart) / 60) * slotHeight);
                             const height = Math.max(30, (differenceInMinutes(sEnd, sStart) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
+                            
+                            // Calculate actual pixel dimensions for smart sizing
+                            const cardHeight = Math.max(height, 45);
+                            const estimatedColumnWidth = 180;
+                            const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
+                            
+                            // Use session_id from vtutor_sessions view
+                            const sessionId = s.session_id || s.id;
+                            
                             blocks.push(
                               <div
-                                key={s.id}
-                                className={cn('absolute cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] rounded p-2 border text-xs font-medium overflow-hidden', getSessionColorClasses(s))}
-                                style={{ top: `${top}px`, height: `${height}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
-                                onClick={() => onOpenSession && onOpenSession(s.id)}
+                                key={sessionId}
+                                className="absolute"
+                                style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                               >
-                                <div className="font-semibold truncate text-xs leading-tight">
-                                  {getDisplayLabel(s)}
-                                </div>
-                                <div className="text-xs opacity-90 truncate leading-tight mt-1">
-                                  {format(new Date(s.start_at), 'HH:mm')} - {format(new Date(s.end_at), 'HH:mm')}
-                                </div>
+                                <SessionCard
+                                  session={s}
+                                  onClick={() => onOpenSession && onOpenSession(sessionId)}
+                                  isCalendarView={true}
+                                  cardHeight={cardHeight}
+                                  cardWidth={cardWidth}
+                                />
                               </div>
                             );
                           });

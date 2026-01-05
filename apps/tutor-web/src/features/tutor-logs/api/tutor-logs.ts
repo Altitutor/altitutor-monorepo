@@ -32,6 +32,28 @@ export const tutorLogsApi = {
   },
 
   /**
+   * Get tutor log by session ID
+   * Uses vtutor_tutor_log view
+   */
+  getTutorLogBySessionId: async (sessionId: string) => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { data, error } = await supabase
+      .from('vtutor_tutor_log')
+      .select('*')
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+    
+    return data;
+  },
+
+  /**
    * Get all tutor logs for the current tutor
    * Note: vtutor_tutor_log is a single-log view, so we can't list all logs directly.
    * This would require a different approach or a list view.

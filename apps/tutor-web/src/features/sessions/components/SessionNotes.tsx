@@ -1,0 +1,269 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { Textarea } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Card, CardContent } from '@altitutor/ui';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@altitutor/ui';
+import { format } from 'date-fns';
+import { MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCreateSessionNote, useUpdateNote, useDeleteNote } from '../hooks/useSessionNotes';
+import type { Tables } from '@altitutor/shared';
+
+type NoteWithStaff = Tables<'notes'> & {
+  staff?: Tables<'staff'> | null;
+};
+
+type SessionNotesProps = {
+  sessionId: string;
+  notes: NoteWithStaff[];
+  onNoteAdded?: () => void;
+};
+
+export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProps) {
+  const [newNote, setNewNote] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const { data: currentStaff } = useCurrentStaff();
+  const createNoteMutation = useCreateSessionNote();
+  const updateNoteMutation = useUpdateNote();
+  const deleteNoteMutation = useDeleteNote();
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [newNote]);
+
+  const handleSubmit = async () => {
+    if (!newNote.trim() || !currentStaff?.id) return;
+
+    try {
+      await createNoteMutation.mutateAsync({
+        sessionId,
+        note: newNote.trim(),
+      });
+      setNewNote('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+      onNoteAdded?.();
+    } catch (error) {
+      console.error('Failed to create note:', error);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // CMD+Enter (Mac) or Ctrl+Enter (Windows/Linux) to submit
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const formatAuthorName = (staff: Tables<'staff'> | null | undefined) => {
+    if (!staff) return 'Unknown';
+    return `${staff.first_name} ${staff.last_name}`.trim() || 'Unknown';
+  };
+
+  const handleEdit = (note: NoteWithStaff) => {
+    setEditingNoteId(note.id);
+    setEditingNoteText(note.note);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNoteId(null);
+    setEditingNoteText('');
+  };
+
+  const handleSaveEdit = async (noteId: string) => {
+    if (!editingNoteText.trim()) return;
+
+    try {
+      await updateNoteMutation.mutateAsync({
+        noteId,
+        note: editingNoteText.trim(),
+      });
+      setEditingNoteId(null);
+      setEditingNoteText('');
+      onNoteAdded?.();
+    } catch (error) {
+      console.error('Failed to update note:', error);
+    }
+  };
+
+  const handleDelete = async (noteId: string) => {
+    if (!confirm('Are you sure you want to delete this note?')) return;
+
+    try {
+      await deleteNoteMutation.mutateAsync(noteId);
+      onNoteAdded?.();
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, noteId: string) => {
+    // CMD+Enter (Mac) or Ctrl+Enter (Windows/Linux) to save
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSaveEdit(noteId);
+    }
+    // Escape to cancel
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
+  };
+
+  // Auto-resize edit textarea
+  useEffect(() => {
+    if (editTextareaRef.current && editingNoteId) {
+      editTextareaRef.current.style.height = 'auto';
+      editTextareaRef.current.style.height = `${editTextareaRef.current.scrollHeight}px`;
+    }
+  }, [editingNoteText, editingNoteId]);
+
+  // Filter notes to only show those created by current tutor
+  const tutorNotes = notes.filter((note) => note.created_by === currentStaff?.id);
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Session Notes</h3>
+
+      {/* Notes List */}
+      {tutorNotes.length > 0 && (
+        <div className="space-y-3">
+          {tutorNotes.map((note) => (
+            <Card key={note.id} className="group">
+              <CardContent className="p-4">
+                <div className="flex gap-3">
+                  {/* Avatar */}
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                    {note.staff
+                      ? `${note.staff.first_name?.[0] || ''}${note.staff.last_name?.[0] || ''}`.toUpperCase()
+                      : '?'}
+                  </div>
+
+                  {/* Note content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-sm font-medium text-foreground">
+                        {formatAuthorName(note.staff)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(note.created_at), 'MMM d, yyyy h:mm a')}
+                      </span>
+                    </div>
+                    {editingNoteId === note.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          ref={editTextareaRef}
+                          value={editingNoteText}
+                          onChange={(e) => setEditingNoteText(e.target.value)}
+                          onKeyDown={(e) => handleEditKeyDown(e, note.id)}
+                          className="min-h-[80px] resize-none text-sm"
+                          autoFocus
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => handleSaveEdit(note.id)}
+                            disabled={!editingNoteText.trim() || updateNoteMutation.isPending}
+                            size="sm"
+                            variant="default"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            onClick={handleCancelEdit}
+                            disabled={updateNoteMutation.isPending}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
+                        {note.note}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions menu - only show for notes created by current tutor */}
+                  {editingNoteId !== note.id && note.created_by === currentStaff?.id && (
+                    <div className="flex-shrink-0">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(note)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(note.id)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* New Note Input */}
+      <div className="space-y-2 pt-2">
+        <Textarea
+          ref={textareaRef}
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Add a note..."
+          className="min-h-[80px] resize-none text-sm"
+          disabled={createNoteMutation.isPending || !currentStaff}
+        />
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {createNoteMutation.isPending ? 'Posting...' : ''}
+          </span>
+          <Button
+            onClick={handleSubmit}
+            disabled={!newNote.trim() || createNoteMutation.isPending || !currentStaff}
+            size="sm"
+            variant="default"
+          >
+            Post
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

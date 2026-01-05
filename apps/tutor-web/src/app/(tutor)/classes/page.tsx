@@ -1,9 +1,27 @@
 'use client';
 
+import { useState } from 'react';
 import { TutorClassesTable } from '@/features/classes/components/TutorClassesTable';
 import { SessionsCalendarView } from '@/features/sessions/components/SessionsCalendarView';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
 
 export default function ClassesPage() {
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+
+  const handleOpenSession = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setIsSessionModalOpen(true);
+  };
+
+  const handleCloseSessionModal = () => {
+    setIsSessionModalOpen(false);
+    // Delay clearing sessionId to allow exit animation
+    setTimeout(() => {
+      setSelectedSessionId(null);
+    }, 300);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -27,9 +45,16 @@ export default function ClassesPage() {
         {/* Timetable Section */}
         <div>
           <h2 className="text-2xl font-semibold mb-4">Timetable</h2>
-          <SessionsCalendarView />
+          <SessionsCalendarView onOpenSession={handleOpenSession} />
         </div>
       </div>
+
+      {/* Session Modal */}
+      <SessionModal
+        isOpen={isSessionModalOpen}
+        sessionId={selectedSessionId}
+        onClose={handleCloseSessionModal}
+      />
     </div>
   );
 }
