@@ -137,6 +137,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify payment method exists before completing registration
+    const { data: paymentMethods, error: pmError } = await supabaseAdmin
+      .from('student_payment_methods')
+      .select('id')
+      .eq('student_id', studentCheck.id)
+      .limit(1);
+
+    if (pmError) {
+      console.error('Error checking payment methods:', pmError);
+      return NextResponse.json(
+        { error: 'Failed to verify payment method' },
+        { status: 500 }
+      );
+    }
+
+    if (!paymentMethods || paymentMethods.length === 0) {
+      return NextResponse.json(
+        { error: 'Payment method is required. Please add a payment method before completing registration.' },
+        { status: 400 }
+      );
+    }
+
     // Note: We'll check for email conflicts during auth user creation
     // The createUser call will fail if the email already exists
 

@@ -17,9 +17,9 @@ import { Input } from '@altitutor/ui';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { authApi } from '@/features/auth/api';
-import type { Database } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 
-type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
+type StaffProfile = Tables<'staff'>;
 
 const updatePasswordSchema = z.object({
   password: z.string()
@@ -36,7 +36,7 @@ const updatePasswordSchema = z.object({
 type UpdatePasswordData = z.infer<typeof updatePasswordSchema>;
 
 interface AccountTabProps {
-  profile: StudentProfile;
+  profile: StaffProfile;
 }
 
 export function AccountTab({ profile }: AccountTabProps) {

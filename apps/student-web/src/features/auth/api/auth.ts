@@ -1,7 +1,7 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@altitutor/shared';
-import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest } from '../types';
+import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest, UpdatePasswordRequest } from '../types';
 
 export const authApi = {
   /**
@@ -169,6 +169,56 @@ export const authApi = {
     } catch (error) {
       console.error('Get session error:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Update password for authenticated user
+   */
+  async updatePassword(data: UpdatePasswordRequest) {
+    try {
+      const supabase = getSupabaseClient();
+      
+      // Verify user is authenticated
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('You must be logged in to update your password.');
+      }
+
+      // Update the user's password
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        password: data.password
+      });
+      
+      if (updateError) {
+        console.error('Password update error:', updateError);
+        
+        // Provide more specific error messages
+        if (updateError.message.includes('same as the old password')) {
+          throw new Error('New password must be different from your current password.');
+        } else if (updateError.message.includes('password')) {
+          throw new Error('Password does not meet security requirements. Please choose a stronger password.');
+        } else {
+          throw new Error(updateError.message || 'Failed to update password. Please try again.');
+        }
+      }
+
+      if (!updateData.user) {
+        throw new Error('Failed to update password. Please try again.');
+      }
+
+      return { 
+        message: 'Password updated successfully',
+        user: updateData.user 
+      };
+    } catch (error) {
+      console.error('Password update error:', error);
+      
+      if (error instanceof Error) {
+        throw error; // Re-throw custom errors
+      }
+      
+      throw new Error('An unexpected error occurred. Please try again.');
     }
   },
 }; 

@@ -81,6 +81,7 @@ export function Navbar() {
                 height={36}
                 priority
                 className="object-contain"
+                style={{ width: "auto" }}
               />
               <span 
                 className="text-brand-lightBlue font-normal leading-none"

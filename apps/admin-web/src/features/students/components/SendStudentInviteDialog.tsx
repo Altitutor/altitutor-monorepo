@@ -40,12 +40,32 @@ export function SendStudentInviteDialog({
   const [copied, setCopied] = useState(false);
   const [parents, setParents] = useState<Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }>>([]);
 
-  // Fetch parent data
+  // Fetch parent data and existing token
   useEffect(() => {
     if (!isOpen || !student.id) return;
 
     const fetchData = async () => {
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      
+      // Fetch student with invite_token to check for existing token
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .select('invite_token')
+        .eq('id', student.id)
+        .single();
+
+      // If there's an existing token, use it instead of generating a new one
+      if (!studentError && studentData?.invite_token) {
+        setToken(studentData.invite_token);
+        const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
+        if (linkType === 'invite') {
+          const url = `${baseUrl}/invite/${studentData.invite_token}`;
+          setInviteUrl(url);
+        } else {
+          const url = `${baseUrl}/register/${studentData.invite_token}`;
+          setInviteUrl(url);
+        }
+      }
       
       // Fetch parents
       const { data: parentsData, error: parentsError } = await supabase
@@ -62,9 +82,12 @@ export function SendStudentInviteDialog({
     };
 
     fetchData();
-  }, [isOpen, student.id]);
+  }, [isOpen, student.id, linkType]);
 
   const handleGenerateToken = useCallback(async () => {
+    // Skip if we already have a token
+    if (token) return;
+
     try {
       setIsGenerating(true);
       
@@ -119,9 +142,9 @@ export function SendStudentInviteDialog({
     } finally {
       setIsGenerating(false);
     }
-  }, [student.id, linkType, toast]);
+  }, [student.id, linkType, token, toast]);
 
-  // Generate token when modal opens (or reuse existing one)
+  // Generate token when modal opens ONLY if no existing token
   useEffect(() => {
     if (isOpen && !token) {
       handleGenerateToken();

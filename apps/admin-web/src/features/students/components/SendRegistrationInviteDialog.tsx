@@ -45,10 +45,10 @@ export function SendRegistrationInviteDialog({
     const fetchData = async () => {
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       
-      // Fetch student
+      // Fetch student INCLUDING invite_token
       const { data: studentData, error: studentError } = await supabase
         .from('students')
-        .select('id, first_name, last_name, email, phone')
+        .select('id, first_name, last_name, email, phone, invite_token')
         .eq('id', studentId)
         .single();
 
@@ -62,6 +62,14 @@ export function SendRegistrationInviteDialog({
       }
 
       setStudent(studentData);
+
+      // If there's an existing token, use it instead of generating a new one
+      if (studentData.invite_token) {
+        setToken(studentData.invite_token);
+        const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
+        const url = `${baseUrl}/register/${studentData.invite_token}`;
+        setInviteUrl(url);
+      }
 
       // Fetch parents
       const { data: parentsData, error: parentsError } = await supabase
@@ -81,6 +89,9 @@ export function SendRegistrationInviteDialog({
   }, [isOpen, studentId, toast]);
 
   const handleGenerateToken = useCallback(async () => {
+    // Skip if we already have a token
+    if (token) return;
+
     try {
       setIsGenerating(true);
       const response = await fetch('/api/students/send-registration-invite', {
@@ -111,9 +122,9 @@ export function SendRegistrationInviteDialog({
     } finally {
       setIsGenerating(false);
     }
-  }, [studentId, toast]);
+  }, [studentId, token, toast]);
 
-  // Generate token when modal opens (or reuse existing one)
+  // Generate token when modal opens ONLY if no existing token
   useEffect(() => {
     if (isOpen && !token) {
       handleGenerateToken();

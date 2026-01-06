@@ -13,6 +13,9 @@ import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { invitesApi } from '@/features/auth/api/invites';
 import { getInviteUrlForStaff } from '@/shared/utils/invites';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
 
 interface SendInviteDialogProps {
@@ -39,7 +42,32 @@ export function SendInviteDialog({
   const hasEmail = !!staffMember.email;
   const hasPhone = !!staffMember.phone_number;
 
+  // Fetch existing token when dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchExistingToken = async () => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data } = await supabase
+        .from('staff')
+        .select('invite_token')
+        .eq('id', staffMember.id)
+        .single();
+
+      if (data?.invite_token) {
+        setToken(data.invite_token);
+        const url = getInviteUrlForStaff(data.invite_token, staffMember.role);
+        setInviteUrl(url);
+      }
+    };
+
+    fetchExistingToken();
+  }, [isOpen, staffMember.id, staffMember.role]);
+
   const handleGenerateToken = useCallback(async () => {
+    // Skip if we already have a token
+    if (token) return;
+
     try {
       setIsGenerating(true);
       const result = await invitesApi.generateInviteToken({
@@ -61,9 +89,9 @@ export function SendInviteDialog({
     } finally {
       setIsGenerating(false);
     }
-  }, [staffMember.id, staffMember.role, toast]);
+  }, [staffMember.id, staffMember.role, token, toast]);
 
-  // Generate token when modal opens (or reuse existing one)
+  // Generate token when modal opens ONLY if no existing token
   useEffect(() => {
     if (isOpen && !token) {
       handleGenerateToken();

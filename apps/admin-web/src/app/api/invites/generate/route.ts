@@ -41,14 +41,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if the staff/student already has an account
-    let existingRecord: { id: string; user_id: string | null };
+    // Check if the staff/student already has an account and fetch invite_token
+    let existingRecord: { id: string; user_id: string | null; invite_token: string | null };
     if (type === 'staff') {
       const { data: staffRecord, error: fetchError } = await supabase
         .from('staff')
-        .select('id, user_id')
+        .select('id, user_id, invite_token')
         .eq('id', id)
-        .single<{ id: string; user_id: string | null }>();
+        .single<{ id: string; user_id: string | null; invite_token: string | null }>();
       
       if (fetchError) {
         return NextResponse.json(
@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
     } else {
       const { data: studentRecord, error: fetchError } = await supabase
         .from('students')
-        .select('id, user_id')
+        .select('id, user_id, invite_token')
         .eq('id', id)
-        .single<{ id: string; user_id: string | null }>();
+        .single<{ id: string; user_id: string | null; invite_token: string | null }>();
       
       if (fetchError) {
         return NextResponse.json(
@@ -83,51 +83,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate secure random UUID token
-    const token = randomUUID();
+    // Reuse existing token if available, otherwise generate new one
+    let token = existingRecord.invite_token;
 
-    // Update the respective table with the invite token
-    let data: { id: string } | null = null;
-    let error;
-    
-    if (type === 'staff') {
-      const result = await supabase
-        .from('staff')
-        // @ts-expect-error - TypeScript inference issue with Supabase client
-        .update({ invite_token: token })
-        .eq('id', id)
-        .select('id')
-        .single<{ id: string }>();
-      data = result.data;
-      error = result.error;
-    } else {
-      const result = await supabase
-        .from('students')
-        // @ts-expect-error - TypeScript inference issue with Supabase client
-        .update({ invite_token: token })
-        .eq('id', id)
-        .select('id')
-        .single<{ id: string }>();
-      data = result.data;
-      error = result.error;
+    if (!token) {
+      // Generate secure random UUID token
+      token = randomUUID();
+
+      // Update the respective table with the invite token
+      let data: { id: string } | null = null;
+      let error;
+      
+      if (type === 'staff') {
+        const result = await supabase
+          .from('staff')
+          // @ts-expect-error - TypeScript inference issue with Supabase client
+          .update({ invite_token: token })
+          .eq('id', id)
+          .select('id')
+          .single<{ id: string }>();
+        data = result.data;
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from('students')
+          // @ts-expect-error - TypeScript inference issue with Supabase client
+          .update({ invite_token: token })
+          .eq('id', id)
+          .select('id')
+          .single<{ id: string }>();
+        data = result.data;
+        error = result.error;
+      }
+
+      if (error) {
+        console.error('Failed to update invite token:', error);
+        return NextResponse.json(
+          { error: `Failed to generate invite token: ${error.message}` },
+          { status: 500 }
+        );
+      }
+
+      if (!data) {
+        return NextResponse.json(
+          { error: `${type} not found` },
+          { status: 404 }
+        );
+      }
     }
 
-    if (error) {
-      console.error('Failed to update invite token:', error);
-      return NextResponse.json(
-        { error: `Failed to generate invite token: ${error.message}` },
-        { status: 500 }
-      );
-    }
-
-    if (!data) {
-      return NextResponse.json(
-        { error: `${type} not found` },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ token, id: data.id }, { status: 200 });
+    return NextResponse.json({ token, id: existingRecord.id }, { status: 200 });
   } catch (error) {
     console.error('Unexpected error generating invite token:', error);
     return NextResponse.json(
