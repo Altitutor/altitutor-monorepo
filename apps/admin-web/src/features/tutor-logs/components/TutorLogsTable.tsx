@@ -34,7 +34,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
 import Link from 'next/link';
 

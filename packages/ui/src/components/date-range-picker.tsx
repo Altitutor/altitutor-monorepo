@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
+import { Button } from './button';
+import { Input } from './input';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { parseISO, format, addDays, subDays, isValid, isAfter, setDate, setMonth, setYear, getDate, getMonth, getYear } from 'date-fns';
-import { cn } from '@/shared/utils';
+import { cn } from '../lib/cn';
 
 interface DateRangePickerProps {
   from: string; // YYYY-MM-DD or empty string
@@ -704,3 +704,4 @@ export function DateRangePicker({
     </div>
   );
 }
+

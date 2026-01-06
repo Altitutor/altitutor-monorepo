@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { SessionsTable } from '@/features/sessions/components/SessionsTable';
 import { useStaffClasses } from '@/features/staff/hooks/useStaffClasses';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';

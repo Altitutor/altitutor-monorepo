@@ -10,4 +10,7 @@ export { ToastProviderWrapper } from './toast-provider-wrapper';
 
 // Breadcrumb component
 export { Breadcrumb } from './Breadcrumb';
-export type { BreadcrumbItem } from './Breadcrumb'; 
+export type { BreadcrumbItem } from './Breadcrumb';
+
+// Logout confirmation modal
+export { LogoutConfirmationModal } from './logout-confirmation-modal'; 

@@ -13,7 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import type { Tables } from '@altitutor/shared';
 import { TablePagination } from '@/shared/components/TablePagination';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 
 export const dynamic = 'force-dynamic';
 

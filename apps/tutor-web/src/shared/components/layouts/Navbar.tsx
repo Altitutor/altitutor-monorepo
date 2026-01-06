@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
@@ -17,6 +18,7 @@ import {
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 
 export function Navbar() {
   const router = useRouter();
@@ -25,6 +27,7 @@ export function Navbar() {
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   // Only fetch staff data when user is authenticated
   const { data: staffRecord } = useCurrentStaff(!!user);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -112,7 +115,7 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>
@@ -125,6 +128,11 @@ export function Navbar() {
           )}
         </div>
       </div>
+      <LogoutConfirmationModal
+        open={showLogoutModal}
+        onOpenChange={setShowLogoutModal}
+        onConfirm={handleLogout}
+      />
     </nav>
   );
 } 

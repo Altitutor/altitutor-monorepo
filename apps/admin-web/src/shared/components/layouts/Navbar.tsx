@@ -21,6 +21,7 @@ import {
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { GlobalSearch } from '../GlobalSearch';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 
 // Get today's date in local timezone (YYYY-MM-DD format)
 const getTodayLocalDate = (): string => {
@@ -66,6 +67,7 @@ export function Navbar() {
   
   const [selectedDate, setSelectedDate] = useState<string>(getInitialDate());
   const dateInputRefDesktop = useRef<HTMLInputElement>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Sync date with URL when on sessions page
   useEffect(() => {
@@ -268,7 +270,7 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>
@@ -281,6 +283,11 @@ export function Navbar() {
           )}
         </div>
       </div>
+      <LogoutConfirmationModal
+        open={showLogoutModal}
+        onOpenChange={setShowLogoutModal}
+        onConfirm={handleLogout}
+      />
     </nav>
   );
 } 

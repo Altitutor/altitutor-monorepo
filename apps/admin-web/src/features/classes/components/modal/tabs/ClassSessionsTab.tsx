@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { SessionsTable } from '@/features/sessions/components/SessionsTable';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 
 interface ClassSessionsTabProps {

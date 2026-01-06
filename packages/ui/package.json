@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@radix-ui/react-tooltip": "^1.2.8",
+    "date-fns": "^4.1.0",
     "react-phone-number-input": "^3.4.14"
   }
 }

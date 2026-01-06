@@ -7,4 +7,7 @@ export { ThemeToggle } from './theme-toggle';
 
 // Card components
 export { StudentCard } from './StudentCard';
-export { StaffCard } from './StaffCard'; 
+export { StaffCard } from './StaffCard';
+
+// Logout confirmation modal
+export { LogoutConfirmationModal } from './logout-confirmation-modal'; 

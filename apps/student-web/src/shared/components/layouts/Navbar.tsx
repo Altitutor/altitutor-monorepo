@@ -1,10 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
@@ -17,13 +18,31 @@ import {
 } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useProfile } from '@/features/profile';
+import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   const { data: profile } = useProfile();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Check if current route is a public route (routes that don't have the student sidebar)
+  const isPublicRoute = 
+    pathname === '/' ||
+    pathname.startsWith('/login') || 
+    pathname.startsWith('/forgot-password') || 
+    pathname.startsWith('/reset-password') || 
+    pathname.startsWith('/invite/') || 
+    pathname.startsWith('/register/') ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/booking/trial-session') ||
+    pathname.startsWith('/booking-success');
+
+  // Show dashboard button if user is logged in and on a public route
+  const showDashboardButton = user && isPublicRoute;
 
   const handleLogout = async () => {
     try {
@@ -87,6 +106,11 @@ export function Navbar() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          {showDashboardButton && (
+            <Button variant="outline" asChild>
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+          )}
           <ThemeToggle />
           {user ? (
             <DropdownMenu>
@@ -100,13 +124,13 @@ export function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="flex items-center cursor-pointer">
+                  <Link href="/my-profile" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>
@@ -119,6 +143,11 @@ export function Navbar() {
           )}
         </div>
       </div>
+      <LogoutConfirmationModal
+        open={showLogoutModal}
+        onOpenChange={setShowLogoutModal}
+        onConfirm={handleLogout}
+      />
     </nav>
   );
 } 

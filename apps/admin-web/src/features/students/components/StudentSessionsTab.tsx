@@ -30,7 +30,7 @@ import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 import { cn, formatSessionType } from '@/shared/utils';
 import { CalendarIcon, Check, X, ArrowUpDown } from 'lucide-react';
 import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 
 interface StudentSessionsTabProps {
   student: Tables<'students'>;
