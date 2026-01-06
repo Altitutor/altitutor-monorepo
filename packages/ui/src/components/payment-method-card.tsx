@@ -17,6 +17,7 @@ export interface PaymentMethodCardData {
 interface PaymentMethodCardProps {
   paymentMethod: PaymentMethodCardData;
   isDeleting?: boolean;
+  isSettingDefault?: boolean;
   onSetDefault?: (id: string) => void;
   onDelete?: (id: string) => void;
   showActions?: boolean;
@@ -60,6 +61,7 @@ function formatExpiryYear(year: number): string {
 export function PaymentMethodCard({
   paymentMethod,
   isDeleting = false,
+  isSettingDefault = false,
   onSetDefault,
   onDelete,
   showActions = true,
@@ -67,6 +69,7 @@ export function PaymentMethodCard({
 }: PaymentMethodCardProps) {
   const gradient = getCardBrandColor(paymentMethod.card_brand);
   const brandName = getCardBrandName(paymentMethod.card_brand);
+  const isLoading = isDeleting || isSettingDefault;
 
   return (
     <div
@@ -74,7 +77,7 @@ export function PaymentMethodCard({
         'relative overflow-hidden rounded-xl shadow-lg transition-all duration-300',
         'flex flex-col w-[267px]', // Fixed width
         paymentMethod.is_default && !isDeleting && 'ring-2 ring-primary ring-offset-2',
-        isDeleting && 'opacity-60',
+        isLoading && 'opacity-60',
         className
       )}
     >
@@ -93,10 +96,16 @@ export function PaymentMethodCard({
             <CreditCard className="h-5 w-5" />
             <span className="text-xs font-medium opacity-90">{brandName}</span>
           </div>
-          {paymentMethod.is_default && !isDeleting && (
+          {paymentMethod.is_default && !isLoading && (
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-xs">
               <Check className="h-3 w-3 mr-1" />
               Default
+            </Badge>
+          )}
+          {isSettingDefault && (
+            <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-xs">
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              Setting...
             </Badge>
           )}
           {isDeleting && (
@@ -134,31 +143,49 @@ export function PaymentMethodCard({
       </div>
 
       {/* Actions Bar - Overlay on hover */}
-      {showActions && !paymentMethod.is_default && !isDeleting && (
+      {showActions && !paymentMethod.is_default && !isLoading && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
           {onSetDefault && (
             <Button
               variant="default"
               size="sm"
+              disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
                 onSetDefault(paymentMethod.id);
               }}
             >
-              Set Default
+              {isSettingDefault ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Setting...
+                </>
+              ) : (
+                'Set Default'
+              )}
             </Button>
           )}
           {onDelete && (
             <Button
               variant="destructive"
               size="sm"
+              disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(paymentMethod.id);
               }}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Remove
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove
+                </>
+              )}
             </Button>
           )}
         </div>

@@ -39,18 +39,10 @@ export function PaymentMethodCard() {
   return (
     <div className="space-y-4">
       {hasPaymentMethods ? (
-        <>
-          <PaymentMethodsList paymentMethods={paymentMethods} />
-          <Button 
-            onClick={() => setIsModalOpen(true)} 
-            variant="outline" 
-            className="w-full"
-            disabled={!studentId}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Another Payment Method
-          </Button>
-        </>
+        <PaymentMethodsList 
+          paymentMethods={paymentMethods} 
+          onAddPaymentMethod={studentId ? () => setIsModalOpen(true) : undefined}
+        />
       ) : (
         <div className="text-center py-8 space-y-4">
           <div className="flex justify-center">

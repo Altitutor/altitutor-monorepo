@@ -5,12 +5,40 @@ import { PaymentMethodCard, type PaymentMethodCardData } from '@altitutor/ui';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { useSetDefaultPaymentMethod, useDeletePaymentMethod } from '../hooks/usePaymentMethods';
 import type { PaymentMethodData } from '../api/payment-methods';
+import { Plus } from 'lucide-react';
+import { cn } from '@/shared/utils';
 
 interface PaymentMethodsListProps {
   paymentMethods: PaymentMethodData[];
+  onAddPaymentMethod?: () => void;
 }
 
-export function PaymentMethodsList({ paymentMethods }: PaymentMethodsListProps) {
+function AddCardButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'relative overflow-hidden rounded-xl shadow-lg transition-all duration-300',
+        'flex flex-col items-center justify-center w-[267px]', // Same width as PaymentMethodCard
+        'border-2 border-dashed border-muted-foreground/30',
+        'bg-muted/20 hover:bg-muted/40',
+        'cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+        'aspect-[1.586/1]', // Same aspect ratio as PaymentMethodCard
+        'hover:border-primary/50 hover:bg-muted/30'
+      )}
+    >
+      <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+        <div className="p-3 rounded-full bg-background/50">
+          <Plus className="h-6 w-6" />
+        </div>
+        <span className="text-sm font-medium">Add Payment Method</span>
+      </div>
+    </button>
+  );
+}
+
+export function PaymentMethodsList({ paymentMethods, onAddPaymentMethod }: PaymentMethodsListProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const setDefaultMutation = useSetDefaultPaymentMethod();
   const deleteMutation = useDeletePaymentMethod();
@@ -38,6 +66,10 @@ export function PaymentMethodsList({ paymentMethods }: PaymentMethodsListProps) 
     return deleteMutation.isPending && deleteMutation.variables === paymentMethodId;
   };
 
+  const isSettingDefault = (paymentMethodId: string) => {
+    return setDefaultMutation.isPending && setDefaultMutation.variables === paymentMethodId;
+  };
+
   const mapToCardData = (method: PaymentMethodData): PaymentMethodCardData => ({
     id: method.id,
     card_brand: method.card_brand,
@@ -52,18 +84,23 @@ export function PaymentMethodsList({ paymentMethods }: PaymentMethodsListProps) 
       <div className="flex flex-wrap gap-4">
         {paymentMethods.map((method) => {
           const deleting = isDeleting(method.id);
+          const settingDefault = isSettingDefault(method.id);
           
           return (
             <PaymentMethodCard
               key={method.id}
               paymentMethod={mapToCardData(method)}
               isDeleting={deleting}
+              isSettingDefault={settingDefault}
               onSetDefault={handleSetDefault}
               onDelete={handleDeleteClick}
               showActions={true}
             />
           );
         })}
+        {onAddPaymentMethod && (
+          <AddCardButton onClick={onAddPaymentMethod} />
+        )}
       </div>
 
       <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>

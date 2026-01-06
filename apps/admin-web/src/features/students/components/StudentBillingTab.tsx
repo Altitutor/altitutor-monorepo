@@ -44,6 +44,8 @@ async function fetchStudentPaymentMethods(studentId: string): Promise<PaymentMet
 export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
   const [isSubsidyModalOpen, setIsSubsidyModalOpen] = useState(false);
+  const [loadingMethodId, setLoadingMethodId] = useState<string | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'setDefault' | 'delete' | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -58,6 +60,8 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
   });
 
   const handleSetDefault = async (methodId: string) => {
+    setLoadingMethodId(methodId);
+    setLoadingAction('setDefault');
     try {
       await paymentMethodsApi.setDefaultPaymentMethod(methodId, student.id);
       toast({
@@ -72,6 +76,9 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
         description: error.message || 'Failed to set default payment method',
         variant: 'destructive',
       });
+    } finally {
+      setLoadingMethodId(null);
+      setLoadingAction(null);
     }
   };
 
@@ -90,6 +97,8 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
 
     if (!confirm('Remove this payment method?')) return;
 
+    setLoadingMethodId(methodId);
+    setLoadingAction('delete');
     try {
       await paymentMethodsApi.deletePaymentMethod(methodId, student.id);
       toast({
@@ -104,6 +113,9 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
         description: error.message || 'Failed to remove payment method',
         variant: 'destructive',
       });
+    } finally {
+      setLoadingMethodId(null);
+      setLoadingAction(null);
     }
   };
 
@@ -172,10 +184,15 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
                 is_default: method.is_default,
               };
 
+              const isDeleting = loadingMethodId === method.id && loadingAction === 'delete';
+              const isSettingDefault = loadingMethodId === method.id && loadingAction === 'setDefault';
+
               return (
                 <PaymentMethodCard
                   key={method.id}
                   paymentMethod={cardData}
+                  isDeleting={isDeleting}
+                  isSettingDefault={isSettingDefault}
                   onSetDefault={handleSetDefault}
                   onDelete={handleRemoveMethod}
                   showActions={true}
