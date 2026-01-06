@@ -209,6 +209,26 @@ Deno.serve(async (req: Request) => {
         return json({ error: 'Failed to set default payment method' }, 500);
       }
 
+      // Update Stripe's default payment method
+      const { data: billing, error: billingError } = await supabaseService
+        .from('students_billing')
+        .select('stripe_customer_id')
+        .eq('student_id', targetStudentId)
+        .maybeSingle();
+
+      if (billing?.stripe_customer_id) {
+        try {
+          await stripe.customers.update(billing.stripe_customer_id, {
+            invoice_settings: {
+              default_payment_method: paymentMethod.stripe_payment_method_id,
+            },
+          });
+        } catch (stripeError: any) {
+          console.error('[payment-methods] Failed to update Stripe default payment method:', stripeError?.message);
+          // Don't fail the request - DB update succeeded, webhook can sync later
+        }
+      }
+
       return json({ success: true, message: 'Default payment method updated' });
 
     } else if (action === 'delete') {

@@ -196,8 +196,8 @@ export function StudentStripeSyncModal({
   }, [linkedCustomer, studentId]);
 
   const paymentMethodsMatch = (
-    dbMethods: Array<{ card_last4: string }>,
-    stripeMethods: Array<{ last4: string }>
+    dbMethods: Array<{ card_last4: string; is_default: boolean }>,
+    stripeMethods: Array<{ last4: string; is_default: boolean }>
   ): boolean => {
     const dbLast4s = dbMethods
       .map(m => m.card_last4?.trim())
@@ -208,9 +208,23 @@ export function StudentStripeSyncModal({
       .filter((last4): last4 is string => !!last4)
       .sort();
     
+    // Both empty counts as match
     if (dbLast4s.length === 0 && stripeLast4s.length === 0) return true;
+    // Different lengths means no match
     if (dbLast4s.length !== stripeLast4s.length) return false;
-    return JSON.stringify(dbLast4s) === JSON.stringify(stripeLast4s);
+    // Payment methods must match
+    if (JSON.stringify(dbLast4s) !== JSON.stringify(stripeLast4s)) return false;
+    
+    // Check that default payment methods match
+    const dbDefault = dbMethods.find(m => m.is_default)?.card_last4?.trim();
+    const stripeDefault = stripeMethods.find(m => m.is_default)?.last4?.trim();
+    
+    // Both have no default (or both empty) counts as match
+    if (!dbDefault && !stripeDefault) return true;
+    // One has default and other doesn't - no match
+    if (!dbDefault || !stripeDefault) return false;
+    // Defaults must match
+    return dbDefault === stripeDefault;
   };
 
   // Calculate matches for linked customer
@@ -218,7 +232,8 @@ export function StudentStripeSyncModal({
     if (!linkedCustomer || !student) return null;
     
     const stripePaymentMethods = linkedCustomer.payment_methods.map(pm => ({
-      last4: pm.card?.last4 || ''
+      last4: pm.card?.last4 || '',
+      is_default: pm.is_default || false
     }));
     
     return {
