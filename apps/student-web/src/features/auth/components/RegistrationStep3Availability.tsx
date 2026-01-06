@@ -27,6 +27,7 @@ type RegistrationFormValues = {
   };
   password: string;
   confirmPassword: string;
+  paymentMethodVerified: boolean;
 };
 
 interface RegistrationStep3AvailabilityProps {

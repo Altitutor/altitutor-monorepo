@@ -59,7 +59,7 @@ const registrationSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   // Payment method verification
-  paymentMethodVerified: z.boolean().default(false),
+  paymentMethodVerified: z.boolean(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],

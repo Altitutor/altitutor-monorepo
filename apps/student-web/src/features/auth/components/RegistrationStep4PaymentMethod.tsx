@@ -14,7 +14,7 @@ type RegistrationFormValues = {
   availability: any;
   password: string;
   confirmPassword: string;
-  paymentMethodVerified?: boolean;
+  paymentMethodVerified: boolean;
 };
 
 interface RegistrationStep4PaymentMethodProps {
@@ -155,7 +155,7 @@ function PaymentForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="cardNumber">Card Number</Label>
-        <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
+        <div className="rounded-md p-3 bg-white dark:bg-gray-800">
           <CardNumberElement 
             id="cardNumber"
             options={elementOptions}

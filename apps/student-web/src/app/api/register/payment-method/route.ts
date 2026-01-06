@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { getServerSupabaseClient } from '@/shared/lib/supabase/server';
 
 // Mark this route as dynamic
 export const dynamic = 'force-dynamic';
@@ -8,6 +8,9 @@ export const dynamic = 'force-dynamic';
  * Proxy endpoint for registration payment method setup
  * Uses Supabase Edge Function which has Stripe secret key configured in Supabase
  * This avoids needing STRIPE_SECRET_KEY in Next.js environment variables
+ * 
+ * Note: This endpoint is public (no auth required) - security is handled by
+ * the edge function validating the registration token
  */
 export async function POST(request: NextRequest) {
   try {
@@ -28,9 +31,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use Supabase client to invoke the edge function
+    // Use server Supabase client to invoke the edge function
     // The edge function will handle token validation and Stripe operations
-    const supabase = getSupabaseClient();
+    // No auth headers needed - edge function validates registrationToken instead
+    const supabase = getServerSupabaseClient();
     
     const { data, error } = await supabase.functions.invoke('payment-methods', {
       body: {
