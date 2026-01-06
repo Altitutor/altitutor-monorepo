@@ -228,8 +228,8 @@ export function CreateEditTemplateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onKeyDown={handleKeyDown}>
-        <DialogHeader>
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0" onKeyDown={handleKeyDown}>
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
           <DialogDescription>
             {template 
@@ -238,7 +238,7 @@ export function CreateEditTemplateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6 overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6 overflow-hidden min-h-0 px-6 py-4">
           {/* Left Panel - Main editing area */}
           <div className="flex flex-col space-y-4 overflow-hidden">
             <div className="space-y-2">
@@ -350,7 +350,7 @@ export function CreateEditTemplateDialog({
                   </div>
                 ) : (
                   <div className="flex justify-start">
-                    <div className="bg-blue-500 text-white p-3 rounded-lg max-w-[90%]">
+                    <div className="bg-brand-lightBlue text-brand-dark-bg p-3 rounded-lg max-w-[90%]">
                       <p className="whitespace-pre-wrap text-sm">{previewMessage || 'Start typing to see preview...'}</p>
                     </div>
                   </div>
@@ -360,7 +360,7 @@ export function CreateEditTemplateDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>

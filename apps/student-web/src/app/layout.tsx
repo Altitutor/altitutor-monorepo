@@ -12,6 +12,13 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Altitutor Student',
   description: 'Student portal for Altitutor',
+  icons: {
+    icon: [
+      { url: '/images/logo-icon-light.svg', media: '(prefers-color-scheme: light)' },
+      { url: '/images/logo-icon-dark.svg', media: '(prefers-color-scheme: dark)' },
+    ],
+    apple: '/images/logo-icon-light.svg',
+  },
 }
 
 export default function RootLayout({
