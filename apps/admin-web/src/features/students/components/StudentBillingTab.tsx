@@ -161,7 +161,7 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-wrap gap-4">
             {paymentMethods.map((method) => {
               const cardData: PaymentMethodCardData = {
                 id: method.id,

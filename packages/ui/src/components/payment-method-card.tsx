@@ -72,7 +72,7 @@ export function PaymentMethodCard({
     <div
       className={cn(
         'relative overflow-hidden rounded-xl shadow-lg transition-all duration-300',
-        'flex flex-col',
+        'flex flex-col w-[267px]', // Fixed width
         paymentMethod.is_default && !isDeleting && 'ring-2 ring-primary ring-offset-2',
         isDeleting && 'opacity-60',
         className
@@ -84,7 +84,7 @@ export function PaymentMethodCard({
           'relative p-5 text-white flex flex-col justify-between',
           'bg-gradient-to-br',
           gradient,
-          'aspect-[1.586/1]', // Credit card aspect ratio (85.60mm × 53.98mm)
+          'aspect-[1.586/1] w-full', // Credit card aspect ratio (85.60mm × 53.98mm) - height calculated from width
         )}
       >
         {/* Card Header */}
@@ -109,9 +109,9 @@ export function PaymentMethodCard({
 
         {/* Card Number */}
         <div className="mb-4 flex-1 flex items-center">
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <div className="text-[10px] text-white/60 mb-1.5 uppercase tracking-wider">Card Number</div>
-            <div className="text-xl font-mono tracking-widest">
+            <div className="text-base font-mono tracking-widest whitespace-nowrap">
               •••• •••• •••• {paymentMethod.card_last4}
             </div>
           </div>
