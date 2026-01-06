@@ -39,17 +39,27 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false }
   });
 
-  // Create client with user's JWT for auth verification
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return json({ error: 'Missing authorization header' }, 401);
-  
-  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false }
-  });
+  // Parse body first to check if this is a registration flow
+  const body = await req.json();
+  const { action, studentId, paymentMethodId, email, name, registrationToken } = body;
 
-  try {
+  // Check if this is a registration flow (no auth required)
+  const isRegistrationFlow = !!registrationToken;
+
+  let authenticatedStudentId: string | null = null;
+  let isAdminStaff = false;
+
+  if (!isRegistrationFlow) {
+    // Normal flow: require authentication
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return json({ error: 'Missing authorization header' }, 401);
+    
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false }
+    });
+
     // Verify user is authenticated
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
@@ -63,10 +73,9 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', user.id)
       .maybeSingle();
     
-    const isAdminStaff = staff && staff.role === 'ADMINSTAFF' && staff.status === 'ACTIVE';
+    isAdminStaff = staff && staff.role === 'ADMINSTAFF' && staff.status === 'ACTIVE';
 
     // Get student record for non-admin users
-    let authenticatedStudentId: string | null = null;
     if (!isAdminStaff) {
       const { data: student, error: studentError } = await supabaseService
         .from('students')
@@ -79,9 +88,37 @@ Deno.serve(async (req: Request) => {
       }
       authenticatedStudentId = student.id;
     }
+  } else {
+    // Registration flow: validate token instead of auth
+    if (!registrationToken) {
+      return json({ error: 'Registration token required' }, 400);
+    }
 
-    const body = await req.json();
-    const { action, studentId, paymentMethodId, email, name } = body;
+    // Validate token and get student (same validation as /api/register/validate)
+    const { data: student, error: studentError } = await supabaseService
+      .from('students')
+      .select('id, status, user_id')
+      .eq('invite_token', registrationToken)
+      .maybeSingle();
+
+    if (studentError || !student) {
+      return json({ error: 'Invalid or expired registration token' }, 404);
+    }
+
+    // Security check: prevent reuse of token for already registered students
+    if (student.user_id && student.status === 'ACTIVE') {
+      return json({ error: 'Student already registered' }, 400);
+    }
+
+    authenticatedStudentId = student.id;
+    
+    // Security: Only allow specific actions for registration flow
+    if (action !== 'create_setup_intent' && action !== 'verify_payment_method') {
+      return json({ error: 'Action not allowed for registration flow' }, 403);
+    }
+  }
+
+  try {
 
     if (!action) {
       return json({ error: 'Missing action parameter' }, 400);
@@ -161,12 +198,19 @@ Deno.serve(async (req: Request) => {
 
       // Create a SetupIntent for card verification (no charge)
       // This is Stripe's recommended way to save payment methods
+      const setupIntentMetadata: Record<string, string> = {
+        student_id: targetStudentId,
+      };
+      
+      // Add registration token to metadata if this is a registration flow
+      if (isRegistrationFlow && registrationToken) {
+        setupIntentMetadata.registration_token = registrationToken;
+      }
+      
       const setupIntent = await stripe.setupIntents.create({
         customer: customerId,
         payment_method_types: ['card'],
-        metadata: {
-          student_id: targetStudentId,
-        },
+        metadata: setupIntentMetadata,
       });
 
       return json({
@@ -301,8 +345,29 @@ Deno.serve(async (req: Request) => {
 
       return json({ success: true, message: 'Payment method deleted' });
 
+    } else if (action === 'verify_payment_method') {
+      // Verify that student has at least one payment method
+      const { data: paymentMethods, error: pmError } = await supabaseService
+        .from('student_payment_methods')
+        .select('id')
+        .eq('student_id', targetStudentId)
+        .limit(1);
+
+      if (pmError) {
+        return json({ error: 'Failed to verify payment method' }, 500);
+      }
+
+      if (!paymentMethods || paymentMethods.length === 0) {
+        return json({ verified: false, error: 'No payment method found' }, 400);
+      }
+
+      return json({
+        verified: true,
+        message: 'Payment method verified',
+      });
+
     } else {
-      return json({ error: 'Invalid action. Use "create_setup_intent", "set_default", or "delete"' }, 400);
+      return json({ error: 'Invalid action. Use "create_setup_intent", "set_default", "delete", or "verify_payment_method"' }, 400);
     }
 
   } catch (e: any) {
