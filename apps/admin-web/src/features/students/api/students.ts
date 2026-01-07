@@ -935,11 +935,17 @@ export const studentsApi = {
       
       if (error) throw error;
       
-      if (!data.success) {
+      if (!data) {
+        throw new Error('No data returned from discontinue_student');
+      }
+      
+      const result = data as { success: boolean; error?: string; sessions?: Array<{ id: string; type: string; start_at: string; subject_id: string | null }> };
+      
+      if (!result.success) {
         return {
           success: false,
-          error: data.error || 'Failed to discontinue student',
-          sessions: data.sessions || undefined,
+          error: result.error || 'Failed to discontinue student',
+          sessions: result.sessions || undefined,
         };
       }
       
@@ -962,8 +968,14 @@ export const studentsApi = {
       
       if (error) throw error;
       
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to re-enroll student');
+      if (!data) {
+        throw new Error('No data returned from re_enroll_student');
+      }
+      
+      const result = data as { success: boolean; error?: string };
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to re-enroll student');
       }
     } catch (error) {
       console.error('Error re-enrolling student:', error);

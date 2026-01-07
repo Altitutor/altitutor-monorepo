@@ -13,6 +13,11 @@ export async function syncStudentToStripeCustomer(
   
   const stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-12-15.clover' });
   
+  if (!supabaseAdmin) {
+    console.warn('[sync-customer] Supabase admin client not available');
+    return;
+  }
+  
   // Get student data
   const { data: student, error: studentError } = await supabaseAdmin
     .from('students')

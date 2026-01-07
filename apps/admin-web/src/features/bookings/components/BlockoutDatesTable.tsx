@@ -263,21 +263,9 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
     setEndDate(utcToAdelaideDate(blockout.end_at));
     setReason(blockout.reason || '');
     
-    // Try to set selected staff from blockout data
-    if ('staff' in blockout && blockout.staff) {
-      const staffData = blockout.staff as { first_name: string; last_name: string; id?: string };
-      setSelectedStaff({
-        id: blockout.staff_id,
-        first_name: staffData.first_name,
-        last_name: staffData.last_name,
-        role: null,
-        status: null,
-        email: null,
-        phone_number: null,
-        created_at: null,
-        updated_at: null,
-      } as Tables<'staff'>);
-    }
+    // Don't set selectedStaff here - we only have partial staff data from the blockout
+    // The staff_id is already set, which is sufficient for the form
+    setSelectedStaff(null);
   };
 
   const handleSave = async () => {

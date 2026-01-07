@@ -15,7 +15,6 @@ import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/fe
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
-import { studentsApi } from '@/features/students/api/students';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
