@@ -921,4 +921,53 @@ export const studentsApi = {
       throw new Error(`Failed to update parent: ${error instanceof Error ? error.message : error}`);
     }
   },
+
+  /**
+   * Discontinue a student
+   */
+  discontinueStudent: async (studentId: string, staffId: string): Promise<{ success: boolean; error?: string; sessions?: Array<{ id: string; type: string; start_at: string; subject_id: string | null }> }> => {
+    try {
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const { data, error } = await supabase.rpc('discontinue_student', {
+        p_student_id: studentId,
+        p_discontinued_by: staffId,
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        return {
+          success: false,
+          error: data.error || 'Failed to discontinue student',
+          sessions: data.sessions || undefined,
+        };
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error discontinuing student:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Re-enroll a discontinued student
+   */
+  reEnrollStudent: async (studentId: string): Promise<void> => {
+    try {
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const { data, error } = await supabase.rpc('re_enroll_student', {
+        p_student_id: studentId,
+      });
+      
+      if (error) throw error;
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to re-enroll student');
+      }
+    } catch (error) {
+      console.error('Error re-enrolling student:', error);
+      throw error;
+    }
+  },
 }; 

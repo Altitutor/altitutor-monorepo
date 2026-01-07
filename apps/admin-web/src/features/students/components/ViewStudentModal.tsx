@@ -28,6 +28,7 @@ import { ParentSearchPopover } from './ParentSearchPopover';
 import { Notes } from '@/shared/components/Notes';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { Separator } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -349,8 +350,19 @@ export function ViewStudentModal({
                       <SheetTitle>
                         {isEditingDetails ? 'Edit Student' : 'Student Details'}
                       </SheetTitle>
-                      <SheetDescription className="text-lg font-medium">
+                      <SheetDescription className="text-lg font-medium flex items-center gap-2">
                         {student.first_name} {student.last_name}
+                        <Badge 
+                          variant={
+                            student.status === 'ACTIVE' ? 'success' :
+                            student.status === 'TRIAL' ? 'secondary' :
+                            student.status === 'DISCONTINUED' ? 'destructive' :
+                            'outline'
+                          }
+                          className="text-xs"
+                        >
+                          {student.status}
+                        </Badge>
                       </SheetDescription>
                     </div>
                     {studentId && (
