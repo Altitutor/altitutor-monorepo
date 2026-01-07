@@ -39,8 +39,6 @@ export function usePaymentMethods() {
           filter: `student_id=eq.${studentId}`,
         },
         (payload) => {
-          console.log('[payment-methods] Real-time update received:', payload.eventType, payload);
-          
           // When a new payment method is inserted, replace the optimistic placeholder
           // by matching the stripe_payment_method_id
           if (payload.eventType === 'INSERT') {
@@ -82,10 +80,7 @@ export function usePaymentMethods() {
         }
       )
       .subscribe((status) => {
-        console.log('[payment-methods] Subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('[payment-methods] Successfully subscribed to real-time updates');
-        } else if (status === 'CHANNEL_ERROR') {
+        if (status === 'CHANNEL_ERROR') {
           console.error('[payment-methods] Real-time subscription error - falling back to polling');
         }
       });

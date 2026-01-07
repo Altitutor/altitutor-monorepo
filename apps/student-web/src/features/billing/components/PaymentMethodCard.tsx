@@ -28,12 +28,6 @@ export function PaymentMethodCard() {
   // Handle payment_methods - should already be transformed to array by API layer
   const paymentMethods = billing?.payment_methods ?? [];
   
-  // Debug logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[PaymentMethodCard] Billing data:', billing);
-    console.log('[PaymentMethodCard] Payment methods:', paymentMethods);
-  }
-  
   const hasPaymentMethods = paymentMethods.length > 0;
 
   return (

@@ -10,7 +10,8 @@ import {
   DialogFooter,
 } from '@altitutor/ui';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@altitutor/ui';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2, Check, Upload, X, File } from 'lucide-react';
+import { sessionFilesApi } from '../api/session-files';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { BookingConfirmationCalendar } from './BookingConfirmationCalendar';
 import { useStudentSubjects } from '../hooks/useStudentSubjects';
@@ -43,7 +44,7 @@ export function BookDraftingSessionModal({
   const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
   const { data: reservations } = useMyReservations();
   const createBooking = useCreateBooking();
-  const { data: durationMinutes = 60 } = useSessionDurationMinutes('DRAFTING');
+  const { data: durationMinutes = 60 } = useSessionDurationMinutes('DRAFTING', { enabled: isOpen });
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds: string[] } | null>(null);
@@ -53,6 +54,9 @@ export function BookDraftingSessionModal({
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
   const [subjectError, setSubjectError] = useState(false);
   const [timeError, setTimeError] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
   // Auto-select subject from original session when rescheduling
   useEffect(() => {
@@ -89,6 +93,9 @@ export function BookDraftingSessionModal({
     setCreatedSessionId(null);
     setSubjectError(false);
     setTimeError(false);
+    setSelectedFiles([]);
+    setUploadingFiles(false);
+    setUploadProgress({});
     onClose();
   };
 
@@ -107,7 +114,7 @@ export function BookDraftingSessionModal({
       setSubjectError(false);
       setCurrentStep(1);
     } else if (currentStep === 1) {
-      // From time selection to confirmation
+      // From time selection to file upload
       if (!selectedSlot) {
         setTimeError(true);
         toast({
@@ -119,6 +126,9 @@ export function BookDraftingSessionModal({
       }
       setTimeError(false);
       setCurrentStep(2);
+    } else if (currentStep === 2) {
+      // From file upload to confirmation (files are optional)
+      setCurrentStep(3);
     }
   };
 
@@ -140,24 +150,71 @@ export function BookDraftingSessionModal({
 
     setIsSubmitting(true);
     try {
-      // Use the first available staff_id from the selected slot to avoid "No staff available" error
-      const staffId = selectedSlot.availableStaffIds && selectedSlot.availableStaffIds.length > 0
-        ? selectedSlot.availableStaffIds[0]
-        : undefined;
+      // Validate that staff is still available before booking
+      if (!selectedSlot.availableStaffIds || selectedSlot.availableStaffIds.length === 0) {
+        toast({
+          title: 'Slot No Longer Available',
+          description: 'This time slot is no longer available. Please select another time.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
+      // Don't pass staff_id - let the database function auto-assign based on current availability
+      // This ensures we get the most up-to-date staff availability
       const sessionId = await createBooking.mutateAsync({
         session_type: 'DRAFTING',
         start_at: selectedSlot.startAt,
         end_at: selectedSlot.endAt,
         subject_id: selectedSubjectId,
-        staff_id: staffId,
+        staff_id: undefined, // Let function auto-assign
         reservation_id: activeReservation?.id,
         original_session_id: originalSessionId || undefined,
       });
 
       setCreatedSessionId(sessionId);
+
+      // Upload files if any were selected
+      if (selectedFiles.length > 0) {
+        setUploadingFiles(true);
+        try {
+          await Promise.all(
+            selectedFiles.map(async (file, index) => {
+              try {
+                await sessionFilesApi.uploadSessionFile({
+                  sessionId,
+                  file,
+                  displayOrder: index,
+                });
+                setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+              } catch (error: any) {
+                console.error(`Failed to upload ${file.name}:`, {
+                  error,
+                  message: error?.message,
+                  statusCode: error?.statusCode,
+                  errorCode: error?.error?.code,
+                  errorMessage: error?.error?.message,
+                  fileName: file.name,
+                  fileSize: file.size,
+                  fileType: file.type,
+                  sessionId,
+                });
+                toast({
+                  title: 'File Upload Failed',
+                  description: `Failed to upload ${file.name}: ${error?.message || error?.error?.message || 'Unknown error'}. You can add it later.`,
+                  variant: 'destructive',
+                });
+              }
+            })
+          );
+        } finally {
+          setUploadingFiles(false);
+        }
+      }
+
       setBookingSuccess(true);
-      setCurrentStep(3); // Move to success step
+      setCurrentStep(4); // Move to success step
       onBookingCreated?.(sessionId);
     } catch (error: any) {
       toast({
@@ -170,6 +227,62 @@ export function BookDraftingSessionModal({
     }
   };
 
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    
+    const newFiles = Array.from(files).filter(file => {
+      // Validate file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        toast({
+          title: 'File Too Large',
+          description: `${file.name} exceeds the 50MB limit`,
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
+      // Validate file type
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+        'image/gif',
+        'image/webp',
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: 'Invalid File Type',
+          description: `${file.name} is not a supported file type`,
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
+      return true;
+    });
+    
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   const formatSubjectDisplay = (subject: Tables<'subjects'>) => {
     const parts = [
       subject.curriculum,
@@ -179,10 +292,11 @@ export function BookDraftingSessionModal({
     return parts.join(' ');
   };
 
-  // Steps for indicator (only show 3 steps, success is not a step)
+  // Steps for indicator (only show 4 steps, success is not a step)
   const steps = [
     { id: 'subject', title: 'Select Subject' },
     { id: 'time', title: 'Select Time' },
+    { id: 'files', title: 'Upload Files' },
     { id: 'confirm', title: 'Confirm Booking' },
   ];
 
@@ -221,7 +335,7 @@ export function BookDraftingSessionModal({
   const isFirstStep = currentStep === 0;
 
   const renderStepContent = () => {
-    if (bookingSuccess && currentStep === 3) {
+    if (bookingSuccess && currentStep === 4) {
       const subject = subjects?.find((s) => s.id === selectedSubjectId);
       return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
@@ -360,6 +474,82 @@ export function BookDraftingSessionModal({
           </div>
         );
 
+      case 'files':
+        return (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Optionally upload files for your drafting session (PDFs, Word documents, images, etc.)
+            </p>
+            
+            {/* File Upload Area */}
+            <div
+              className={cn(
+                'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+                'hover:border-primary/50 cursor-pointer',
+                'bg-muted/50'
+              )}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleFileSelect(e.dataTransfer.files);
+              }}
+            >
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                id="file-upload"
+                onChange={(e) => handleFileSelect(e.target.files)}
+                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.png,.jpeg,.jpg,.gif,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/png,image/jpeg,image/jpg,image/gif,image/webp"
+              />
+              <label htmlFor="file-upload" className="cursor-pointer">
+                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-sm font-medium mb-1">
+                  Click to upload or drag and drop
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  PDF, Word, Excel, PowerPoint, Images (Max 50MB per file)
+                </p>
+              </label>
+            </div>
+
+            {/* Selected Files List */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Selected Files ({selectedFiles.length})</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="flex items-center justify-between p-3 border rounded-lg bg-background"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <File className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFile(index)}
+                        className="flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
       case 'confirm':
         return (
           <div className="space-y-4">
@@ -402,6 +592,27 @@ export function BookDraftingSessionModal({
                       )}
                     </div>
                   </div>
+
+                  {/* Files Section */}
+                  {selectedFiles.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3">Files to Upload ({selectedFiles.length})</h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {selectedFiles.map((file, index) => (
+                          <div
+                            key={`${file.name}-${index}`}
+                            className="flex items-center gap-3 p-3 border rounded-lg bg-background"
+                          >
+                            <File className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right side - Calendar */}
@@ -507,16 +718,16 @@ export function BookDraftingSessionModal({
                 )}
               </div>
               <div className="flex gap-2">
-                {currentStep === 2 ? (
+                {currentStep === 3 ? (
                   // Confirmation step - show Confirm Booking button
                   <Button
                     onClick={handleConfirmBooking}
-                    disabled={isSubmitting || !selectedSlot || !selectedSubjectId}
+                    disabled={isSubmitting || uploadingFiles || !selectedSlot || !selectedSubjectId}
                   >
-                    {isSubmitting ? (
+                    {isSubmitting || uploadingFiles ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Confirming...
+                        {uploadingFiles ? 'Uploading files...' : 'Confirming...'}
                       </>
                     ) : (
                       'Confirm Booking'

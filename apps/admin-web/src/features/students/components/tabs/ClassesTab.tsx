@@ -574,52 +574,54 @@ export function ClassesTab({
                   </div>
                 )}
                 
-                {/* Actions Section */}
-                <div className="mt-8 pt-6 border-t">
-                  <h4 className="text-sm font-medium mb-4">Actions</h4>
-                  <div className="flex gap-2">
-                    {(student.status === 'TRIAL' || student.status === 'ACTIVE') && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleDiscontinue}
-                        disabled={isDiscontinuing}
-                      >
-                        {isDiscontinuing ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Discontinuing...
-                          </>
-                        ) : (
-                          <>
-                            <UserX className="h-4 w-4 mr-2" />
-                            Discontinue
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    {student.status === 'DISCONTINUED' && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleReEnroll}
-                        disabled={isReEnrolling}
-                      >
-                        {isReEnrolling ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Re-enrolling...
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="h-4 w-4 mr-2" />
-                            Re-enroll
-                          </>
-                        )}
-                      </Button>
-                    )}
+                {/* Actions Section - Only show in edit mode */}
+                {isEditMode && (
+                  <div className="mt-8 pt-6 border-t">
+                    <h4 className="text-sm font-medium mb-4">Actions</h4>
+                    <div className="flex gap-2">
+                      {(student.status === 'TRIAL' || student.status === 'ACTIVE') && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDiscontinue}
+                          disabled={isDiscontinuing}
+                        >
+                          {isDiscontinuing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Discontinuing...
+                            </>
+                          ) : (
+                            <>
+                              <UserX className="h-4 w-4 mr-2" />
+                              Discontinue
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {student.status === 'DISCONTINUED' && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleReEnroll}
+                          disabled={isReEnrolling}
+                        >
+                          {isReEnrolling ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Re-enrolling...
+                            </>
+                          ) : (
+                            <>
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Re-enroll
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </ScrollArea>
           ) : (

@@ -109,8 +109,6 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
 
         // Optimistically add to cache - ensure we handle null payment_methods
         queryClient.setQueryData(['payment-methods'], (old: any) => {
-          console.log('[AddPaymentMethod] Optimistic update - old data:', old);
-          
           if (!old) {
             // If no data exists, create a minimal structure
             const newData = {
@@ -119,7 +117,6 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
               payment_methods: [optimisticPaymentMethod],
               default_payment_method: null,
             };
-            console.log('[AddPaymentMethod] Created new data structure:', newData);
             return newData;
           }
           
@@ -141,7 +138,6 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
             ...old,
             payment_methods: [...existingMethods, optimisticPaymentMethod],
           };
-          console.log('[AddPaymentMethod] Updated data:', updatedData);
           return updatedData;
         });
 

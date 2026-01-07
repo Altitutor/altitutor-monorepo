@@ -42,8 +42,18 @@ export async function uploadSessionFile({ sessionId, file }: UploadSessionFileOp
     });
   
   if (error) {
-    console.error('Storage upload error:', error);
-    throw new Error(`Failed to upload file: ${error.message}`);
+    console.error('Storage upload error:', {
+      error,
+      message: error.message,
+      statusCode: (error as any).statusCode,
+      errorCode: (error as any).code,
+      path,
+      sessionId,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+    });
+    throw error; // Throw the original error so we can inspect it
   }
   
   // Get public URL (will require authentication to access due to bucket policies)

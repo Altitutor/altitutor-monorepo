@@ -10,6 +10,8 @@ export function useCreateBooking() {
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['available-slots'] });
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      // Invalidate student sessions queries (matches ['student', 'sessions', ...])
+      queryClient.invalidateQueries({ queryKey: ['student', 'sessions'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['students'] });
     },

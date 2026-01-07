@@ -42,11 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
-          console.log('Auth state changed:', { event: _event, hasSession: !!session });
-        }
-        
         // For SIGNED_OUT events, set user to null immediately
         if (_event === 'SIGNED_OUT') {
           setSession(null);

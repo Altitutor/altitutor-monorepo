@@ -1,6 +1,6 @@
-import type { Tables, TablesInsert } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { uploadSessionFile, deleteSessionFile, getSessionFileSignedUrl } from '@/shared/lib/supabase/storage';
+import { deleteSessionFile, getSessionFileSignedUrl } from '@/shared/lib/supabase/storage';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -15,89 +15,34 @@ export interface SessionFileWithUrl extends Tables<'sessions_files'> {
 
 export const sessionFilesApi = {
   /**
-   * Upload a file for a session and create database records
+   * Upload a file for a session via API route
+   * Uses API route to handle database writes (following pattern: students write through API)
    */
   uploadSessionFile: async (params: {
     sessionId: string;
     file: File;
     displayOrder?: number;
   }): Promise<Tables<'sessions_files'>> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('User not authenticated');
+    // Create FormData for file upload
+    const formData = new FormData();
+    formData.append('file', params.file);
+    if (params.displayOrder !== undefined) {
+      formData.append('displayOrder', params.displayOrder.toString());
     }
 
-    // Get current student ID (for created_by, though it will be NULL for students)
-    const { data: studentId } = await supabase.rpc('current_student_id');
-    
-    // Upload to storage
-    const { path } = await uploadSessionFile({
-      sessionId: params.sessionId,
-      file: params.file,
+    // Call API route
+    const response = await fetch(`/api/sessions/${params.sessionId}/files`, {
+      method: 'POST',
+      body: formData,
     });
-    
-    // Create file database record
-    const fileData: TablesInsert<'files'> = {
-      mimetype: params.file.type,
-      filename: params.file.name,
-      size_bytes: params.file.size,
-      metadata: {
-        originalName: params.file.name,
-        uploadedAt: new Date().toISOString(),
-      },
-      storage_provider: 'supabase',
-      bucket: 'session-files',
-      storage_path: path,
-      created_by: null, // Students don't have staff ID
-    };
-    
-    const { data: createdFile, error: fileError } = await supabase
-      .from('files')
-      .insert(fileData)
-      .select()
-      .single();
-    
-    if (fileError) {
-      // Clean up storage file if database insert fails
-      try {
-        await deleteSessionFile(path);
-      } catch (cleanupError) {
-        console.error('Failed to cleanup storage file after database error:', cleanupError);
-      }
-      console.error('Failed to create file record:', fileError);
-      throw fileError;
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `Failed to upload file: ${response.statusText}`);
     }
-    
-    // Create sessions_files link
-    const sessionFileData: TablesInsert<'sessions_files'> = {
-      session_id: params.sessionId,
-      file_id: createdFile.id,
-      display_order: params.displayOrder ?? 0,
-      created_by: null, // Students don't have staff ID
-    };
-    
-    const { data: createdSessionFile, error: sessionFileError } = await supabase
-      .from('sessions_files')
-      .insert(sessionFileData)
-      .select()
-      .single();
-    
-    if (sessionFileError) {
-      // Clean up file record and storage if link creation fails
-      try {
-        await supabase.from('files').delete().eq('id', createdFile.id);
-        await deleteSessionFile(path);
-      } catch (cleanupError) {
-        console.error('Failed to cleanup after session_file link error:', cleanupError);
-      }
-      console.error('Failed to create session_file link:', sessionFileError);
-      throw sessionFileError;
-    }
-    
-    return createdSessionFile as Tables<'sessions_files'>;
+
+    const result = await response.json();
+    return result.sessionFile as Tables<'sessions_files'>;
   },
 
   /**

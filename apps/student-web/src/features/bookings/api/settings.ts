@@ -8,7 +8,7 @@ export type BookingSettingsRow = Tables<'booking_settings'>;
 export const bookingSettingsApi = {
   async getSettingValue(settingKey: string): Promise<string | null> {
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('booking_settings')
+      .from('vbooking_settings')
       .select('setting_value')
       .eq('setting_key', settingKey)
       .single();
