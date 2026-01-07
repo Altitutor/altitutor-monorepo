@@ -7,8 +7,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
-import { usePrecreateSessions } from '@/features/sessions';
-import { format } from 'date-fns';
 
 // Import step components
 import { Step1SessionPicker } from './steps/Step1SessionPicker';
@@ -44,18 +42,6 @@ export function LogSessionModal({
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const createMutation = useCreateTutorLog();
-  const { mutate: precreate } = usePrecreateSessions();
-
-  // Precreate sessions for today when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      precreate({ 
-        start_date: today, 
-        end_date: today,
-      });
-    }
-  }, [isOpen, precreate]);
 
   // Set preselected session when modal opens
   useEffect(() => {

@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { usePrecreateSessions } from '../hooks/usePrecreateSessions';
 import { useSessions } from '../hooks/useSessionsQuery';
 import { cn } from '@/shared/utils/index';
 import { SessionCard } from './SessionCard';
@@ -15,16 +14,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const [anchor, setAnchor] = useState<Date>(new Date());
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
-  const { mutate: precreate } = usePrecreateSessions();
   const { data: sessions = [] } = useSessions();
-
-  // Precreate a bit ahead/behind for smoothness
-  const preStart = format(addDays(weekStart, -7), 'yyyy-MM-dd');
-  const preEnd = format(addDays(weekEnd, 21), 'yyyy-MM-dd');
-
-  useEffect(() => {
-    precreate({ start_date: preStart, end_date: preEnd });
-  }, [preStart, preEnd]);
 
   // Time grid similar to classes timetable
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours

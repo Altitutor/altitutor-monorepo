@@ -623,19 +623,8 @@ export const classPlansApi = {
         }
       }
 
-      // Step 6: Generate sessions using precreate_sessions RPC
-      // Sessions are created from sessionStartDate until end of year
-      const yearEnd = new Date(plan.year, 11, 31);
-      const { error: sessionError } = await supabase.rpc('precreate_sessions', {
-        start_date: format(sessionStartDate, 'yyyy-MM-dd'),
-        end_date: format(yearEnd, 'yyyy-MM-dd'),
-        p_created_by: staffId,
-        p_class_id: undefined,
-      });
-
-      if (sessionError) throw sessionError;
-
-      // Step 7: Mark plan as applied
+      // Step 6: Mark plan as applied
+      // Note: Sessions are automatically created by database triggers when classes are created
       await classPlansApi.updateClassPlan(planId, {});
       const { error: updateError } = await supabase
         .from('draft_class_plans')
