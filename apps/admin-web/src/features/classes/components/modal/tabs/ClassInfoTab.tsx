@@ -596,13 +596,22 @@ export function ClassInfoTab({
         <div>{classData.room || '-'}</div>
         
         <div className="text-sm font-medium">Session Start Date:</div>
-        <div>{classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'From today'}</div>
+        <div>
+          {classData.session_start_date 
+            ? format(new Date(classData.session_start_date), 'MMM d, yyyy')
+            : classData.created_at 
+              ? format(new Date(classData.created_at), 'MMM d, yyyy')
+              : 'Not set'
+          }
+        </div>
         
         <div className="text-sm font-medium">Session End Date:</div>
         <div>
           {classData.session_end_date 
             ? format(new Date(classData.session_end_date), 'MMM d, yyyy')
-            : `Until Dec 31, ${new Date(classData.session_start_date || new Date()).getFullYear()}`
+            : classData.created_at
+              ? `Dec 31, ${new Date(classData.created_at).getFullYear()}`
+              : 'Not set'
           }
         </div>
       </div>
