@@ -607,18 +607,24 @@ export const classesApi = {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
-      const payload: TablesInsert<'classes_students'> = {
-        id: crypto.randomUUID(),
-        class_id: classId,
-        student_id: studentId,
-        enrolled_at: enrolledAt.toISOString(),
-        enrolled_by: staffId,
-      };
+      // Use RPC function for enrollment with status validation
+      const { data: enrollmentId, error: rpcError } = await supabase.rpc('enroll_student_in_class', {
+        p_class_id: classId,
+        p_student_id: studentId,
+        p_enrolled_at: enrolledAt.toISOString(),
+        p_enrolled_by: staffId,
+      });
+      
+      if (rpcError) throw rpcError;
+      if (!enrollmentId) throw new Error('Enrollment failed: no enrollment ID returned');
+      
+      // Fetch the created enrollment record
       const { data, error } = await supabase
         .from('classes_students')
-        .insert(payload)
         .select()
+        .eq('id', enrollmentId)
         .single();
+      
       if (error) throw error;
       return data as Tables<'classes_students'>;
     } catch (error) {

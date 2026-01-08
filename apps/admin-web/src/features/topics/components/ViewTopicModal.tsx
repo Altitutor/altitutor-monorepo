@@ -47,6 +47,7 @@ import {
   useTopicsBySubject,
   useTopicFilesByTopic,
   useUpdateTopicIndices,
+  useDeleteTopicFile,
 } from '../hooks';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { TopicNode } from './TopicsHierarchy';
@@ -100,6 +101,7 @@ export function ViewTopicModal({
   const updateTopicMutation = useUpdateTopic();
   const deleteTopicMutation = useDeleteTopic();
   const updateTopicIndices = useUpdateTopicIndices();
+  const deleteTopicFileMutation = useDeleteTopicFile();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -405,6 +407,9 @@ export function ViewTopicModal({
                                 setEditingFileId(id);
                                 setIsEditFileModalOpen(true);
                               }}
+                              onDelete={async (id) => {
+                                await deleteTopicFileMutation.mutateAsync(id);
+                              }}
                             />
                           );
                         })}
@@ -592,6 +597,9 @@ export function ViewTopicModal({
           topicFileId={editingFileId}
           currentTopicId={topic.id}
           currentSubjectId={topic.subject_id}
+          onDeleted={() => {
+            if (onTopicUpdated) onTopicUpdated();
+          }}
         />
       )}
 

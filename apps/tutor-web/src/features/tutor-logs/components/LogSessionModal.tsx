@@ -7,8 +7,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
-import { usePrecreateSessions } from '@/features/sessions';
-import { format } from 'date-fns';
 
 // Import step components
 import { Step1SessionPicker } from './steps/Step1SessionPicker';
@@ -26,27 +24,33 @@ type LogSessionModalProps = {
   onClose: () => void;
   currentStaffId: string;
   adminMode?: boolean;
+  preselectedSessionId?: string; // If provided, skip Step 1 (session selection)
 };
 
-export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = false }: LogSessionModalProps) {
+export function LogSessionModal({ 
+  isOpen, 
+  onClose, 
+  currentStaffId, 
+  adminMode = false,
+  preselectedSessionId 
+}: LogSessionModalProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(currentStaffId);
   const [formData, setFormData] = useState<Partial<TutorLogFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const createMutation = useCreateTutorLog();
-  const { mutate: precreate } = usePrecreateSessions();
 
-  // Precreate sessions for today when modal opens
+  // Set preselected session when modal opens
   useEffect(() => {
-    if (isOpen) {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      precreate({ 
-        start_date: today, 
-        end_date: today,
-      });
+    if (isOpen && preselectedSessionId) {
+      setFormData({ sessionId: preselectedSessionId });
+      // Skip Step 0 (session selection) if session is preselected - start at Step 1
+      setCurrentStep(0); // Will be treated as Step 1 (Staff Attendance) in renderStep
     }
-  }, [isOpen, precreate]);
+  }, [isOpen, preselectedSessionId]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -55,10 +59,14 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       setSelectedStaffId(currentStaffId);
       setFormData({});
       setIsSubmitting(false);
+      setSubmissionState('idle');
+      setSubmissionError(null);
     }
   }, [isOpen, currentStaffId]);
 
-  const totalSteps = adminMode ? 10 : 9; // Extra step for staff selection in admin mode
+  // Calculate total steps: if session is preselected, skip Step 1 (session selection)
+  const skipSessionStep = !!preselectedSessionId;
+  const totalSteps = adminMode ? 10 : (skipSessionStep ? 8 : 9); // Extra step for staff selection in admin mode
 
   const handleNext = () => {
     if (currentStep < totalSteps - 1) {
@@ -75,17 +83,26 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
   const handleSubmit = async () => {
     if (!formData.sessionId) return;
 
+    setSubmissionState('submitting');
+    setSubmissionError(null);
     setIsSubmitting(true);
     try {
       await createMutation.mutateAsync({
         data: formData as TutorLogFormData,
       });
-      onClose();
+      setSubmissionState('success');
     } catch (error) {
       console.error('Failed to create tutor log:', error);
-      alert('Failed to submit log. Please try again.');
+      setSubmissionState('error');
+      setSubmissionError(error instanceof Error ? error.message : 'Failed to submit log. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (submissionState === 'success') {
+      onClose();
     }
   };
 
@@ -96,6 +113,11 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
   const getStepTitle = () => {
     if (adminMode && currentStep === 0) return 'Select Staff Member';
     const stepIndex = adminMode ? currentStep - 1 : currentStep;
+    
+    // If session is preselected, skip Step 0 (Select Session)
+    // So stepIndex 0 becomes Staff Attendance (index 1 in titles array)
+    const adjustedStepIndex = skipSessionStep ? stepIndex + 1 : stepIndex;
+    
     const titles = [
       'Select Session',
       'Staff Attendance',
@@ -107,10 +129,60 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       'Notes',
       'Confirmation',
     ];
-    return titles[stepIndex] || 'Log Session';
+    return titles[adjustedStepIndex] || 'Log Session';
   };
 
   const renderStep = () => {
+    // Success state
+    if (submissionState === 'success') {
+      return (
+        <div className="py-12 text-center space-y-4">
+          <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/20 mx-auto flex items-center justify-center">
+            <svg
+              className="h-8 w-8 text-green-600 dark:text-green-400"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <div className="text-lg font-semibold">Tutor Log Submitted Successfully!</div>
+          <div className="text-sm text-muted-foreground">
+            The session has been logged and saved.
+          </div>
+        </div>
+      );
+    }
+
+    // Error state
+    if (submissionState === 'error') {
+      return (
+        <div className="py-12 text-center space-y-4">
+          <div className="h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/20 mx-auto flex items-center justify-center">
+            <svg
+              className="h-8 w-8 text-red-600 dark:text-red-400"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </div>
+          <div className="text-lg font-semibold">Failed to Submit Tutor Log</div>
+          <div className="text-sm text-muted-foreground">
+            {submissionError || 'An error occurred while submitting the log.'}
+          </div>
+        </div>
+      );
+    }
+
     if (adminMode && currentStep === 0) {
       return (
         <div className="space-y-4">
@@ -127,9 +199,14 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     }
 
     const stepIndex = adminMode ? currentStep - 1 : currentStep;
+    
+    // If session is preselected, skip Step 0 (session selection)
+    // Map stepIndex 0 -> Staff Attendance (case 1), stepIndex 1 -> Student Attendance (case 2), etc.
+    const actualStepIndex = skipSessionStep ? stepIndex + 1 : stepIndex;
 
-    switch (stepIndex) {
+    switch (actualStepIndex) {
       case 0:
+        // Only show session picker if session is not preselected
         return (
           <Step1SessionPicker
             staffId={selectedStaffId}
@@ -211,10 +288,14 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
   const canGoNext = () => {
     if (adminMode && currentStep === 0) return !!selectedStaffId;
     const stepIndex = adminMode ? currentStep - 1 : currentStep;
+    
+    // If session is preselected, skip Step 0 (session selection)
+    const actualStepIndex = skipSessionStep ? stepIndex + 1 : stepIndex;
 
-    switch (stepIndex) {
+    switch (actualStepIndex) {
       case 0:
-        return !!formData.sessionId;
+        // Session selection step - only check if not preselected
+        return skipSessionStep || !!formData.sessionId;
       case 1:
         return (formData.staffAttendance || []).length > 0;
       case 2:
@@ -224,49 +305,76 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 4:
         return true; // Can proceed even with no student assignments
       case 5:
-        return (formData.topicFiles || []).length > 0;
+        return true; // Allow proceeding with no files selected
       case 6:
         return true;
       case 7:
-        return true;
+        return true; // Notes step
+      case 8:
+        return true; // Confirmation step - always allow submission
       default:
         return false;
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {getStepTitle()} ({currentStep + 1}/{totalSteps})
-          </DialogTitle>
+    <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+          <DialogTitle>{getStepTitle() || 'Tutor Log'}</DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4 min-h-[400px]">{renderStep()}</div>
+        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+          <div className="h-full overflow-y-auto">
+            {renderStep()}
+          </div>
+        </div>
 
-        <div className="flex justify-between mt-6 pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Previous
-          </Button>
-
-          {currentStep < totalSteps - 1 ? (
-            <Button onClick={handleNext} disabled={!canGoNext()}>
-              Next
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
+        <div className="flex justify-between px-6 py-4 border-t bg-background">
+          {submissionState === 'success' ? (
+            <>
+              <div></div>
+              <Button onClick={handleClose}>
+                Close
+              </Button>
+            </>
+          ) : submissionState === 'error' ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setSubmissionState('idle')}
+              >
+                Try Again
+              </Button>
+              <Button onClick={onClose}>
+                Close
+              </Button>
+            </>
           ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !canGoNext()}
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Log'}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 0}
+              >
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Previous
+              </Button>
+
+              {currentStep < totalSteps - 1 ? (
+                <Button onClick={handleNext} disabled={!canGoNext()}>
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={submissionState === 'submitting' || !canGoNext()}
+                >
+                  {submissionState === 'submitting' ? 'Submitting...' : 'Submit Log'}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </DialogContent>

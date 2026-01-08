@@ -1629,7 +1629,7 @@ export type Database = {
           direction: string
           error_code: number | null
           error_message: string | null
-          from_number_e164: string
+          from_number_e164: string | null
           id: string
           is_announcement: boolean
           message_sid: string | null
@@ -1651,7 +1651,7 @@ export type Database = {
           direction: string
           error_code?: number | null
           error_message?: string | null
-          from_number_e164: string
+          from_number_e164?: string | null
           id?: string
           is_announcement?: boolean
           message_sid?: string | null
@@ -1673,7 +1673,7 @@ export type Database = {
           direction?: string
           error_code?: number | null
           error_message?: string | null
-          from_number_e164?: string
+          from_number_e164?: string | null
           id?: string
           is_announcement?: boolean
           message_sid?: string | null
@@ -2037,6 +2037,107 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_subjects"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions_files: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_order: number
+          file_id: string
+          id: string
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          file_id: string
+          id?: string
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          file_id?: string
+          id?: string
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
           },
         ]
       }
@@ -4998,6 +5099,58 @@ export type Database = {
           },
         ]
       }
+      vtutor_notes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          note: string | null
+          staff: Json | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          note?: string | null
+          staff?: never
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          note?: string | null
+          staff?: never
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vtutor_profile: {
         Row: {
           availability_friday: boolean | null
@@ -5773,7 +5926,15 @@ export type Database = {
         }
         Returns: Json
       }
+      can_student_access_session_file: {
+        Args: { session_id: string }
+        Returns: boolean
+      }
       can_student_read_file: { Args: { file_path: string }; Returns: boolean }
+      can_tutor_access_session_file: {
+        Args: { session_id: string }
+        Returns: boolean
+      }
       can_tutor_access_subject: {
         Args: { subject_id: string }
         Returns: boolean
@@ -5781,6 +5942,10 @@ export type Database = {
       can_tutor_create_file: { Args: { file_path: string }; Returns: boolean }
       can_tutor_read_file: { Args: { file_path: string }; Returns: boolean }
       cleanup_expired_reservations: { Args: never; Returns: number }
+      cleanup_session_files: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       complete_student_registration: {
         Args: {
           p_availability_friday?: boolean
@@ -5871,6 +6036,19 @@ export type Database = {
       current_staff_id: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
       current_tutor_id: { Args: never; Returns: string }
+      discontinue_student: {
+        Args: { p_discontinued_by: string; p_student_id: string }
+        Returns: Json
+      }
+      enroll_student_in_class: {
+        Args: {
+          p_class_id: string
+          p_enrolled_at: string
+          p_enrolled_by: string
+          p_student_id: string
+        }
+        Returns: string
+      }
       format_class_full_name:
         | {
             Args: {
@@ -5973,6 +6151,10 @@ export type Database = {
         }[]
       }
       get_service_role_key: { Args: never; Returns: string }
+      get_session_id_from_storage_path: {
+        Args: { file_path: string }
+        Returns: string
+      }
       get_student_subjects: {
         Args: { student_id: string }
         Returns: {
@@ -6048,6 +6230,7 @@ export type Database = {
         }
         Returns: number
       }
+      re_enroll_student: { Args: { p_student_id: string }; Returns: Json }
       reschedule_drafting_session: {
         Args: {
           p_created_by?: string
@@ -6178,6 +6361,19 @@ export type Database = {
           p_offset?: number
           p_search?: string
           p_subject_ids?: string[]
+        }
+        Returns: Json
+      }
+      search_tutor_logs_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_range_end?: string
+          p_range_start?: string
+          p_search?: string
+          p_staff_id?: string
         }
         Returns: Json
       }

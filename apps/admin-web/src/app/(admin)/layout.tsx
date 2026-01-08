@@ -88,6 +88,11 @@ const navItems: NavItem[] = [
     icon: FileText,
   },
   {
+    title: 'Tutor logs',
+    href: '/tutor-logs',
+    icon: ClipboardList,
+  },
+  {
     type: 'heading',
     title: 'RESOURCES',
   },

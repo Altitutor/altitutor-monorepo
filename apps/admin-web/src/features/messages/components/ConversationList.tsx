@@ -189,11 +189,6 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
                         <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                       )}
                       <div className="text-sm font-medium truncate">{title}</div>
-                      {aggregated.conversations.length > 1 && (
-                        <Badge variant="outline" className="text-[9px] px-1">
-                          {aggregated.conversations.length} senders
-                        </Badge>
-                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {phoneNumber && (

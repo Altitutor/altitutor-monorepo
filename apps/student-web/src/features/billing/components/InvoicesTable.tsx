@@ -15,7 +15,7 @@ import { Button } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink, X } from 'lucide-react';
 import type { Database } from '@altitutor/shared';
 import { useInvoicesWithItems } from '../hooks';
-import { DateRangePicker } from '@/shared/components';
+import { DateRangePicker } from '@altitutor/ui';
 
 type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
 

@@ -17,6 +17,7 @@ type RegistrationFormValues = {
   availability: any;
   password: string;
   confirmPassword: string;
+  paymentMethodVerified: boolean;
 };
 
 interface RegistrationStep4PasswordProps {

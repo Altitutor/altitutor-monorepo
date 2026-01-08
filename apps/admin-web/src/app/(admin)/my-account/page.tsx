@@ -1,206 +1,91 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Separator } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
-import { ArrowLeft, Mail, Phone, Calendar, User, UserCircle, ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
-import { useAuthStore } from '@/shared/lib/supabase/auth';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { useProfile } from '@/features/profile';
+import { Loader2 } from 'lucide-react';
+import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
+import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
+import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
 
-export const dynamic = 'force-dynamic';
+const VALID_TABS = ['details', 'availability', 'account'] as const;
+type TabValue = typeof VALID_TABS[number];
 
 export default function MyAccountPage() {
+  const { data: profile, isLoading } = useProfile();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuthStore();
-  const { data: staffRecord, isLoading: staffLoading } = useCurrentStaff();
-  const [error] = useState<string | null>(null);
+  
+  // Get tab from query params, default to 'details'
+  const tabFromQuery = searchParams.get('tab') as TabValue | null;
+  const initialTab = tabFromQuery && VALID_TABS.includes(tabFromQuery) ? tabFromQuery : 'details';
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
 
-  useEffect(() => {
-    if (!staffRecord && user) {
-      // error handling is managed via isLoading/error below
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    const newTab = value as TabValue;
+    setActiveTab(newTab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (newTab === 'details') {
+      params.delete('tab'); // Remove param for default tab
+    } else {
+      params.set('tab', newTab);
     }
-  }, [user, staffRecord]);
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
-  if (!user) {
+  // Sync with URL on mount/query param change
+  useEffect(() => {
+    const tabFromQuery = searchParams.get('tab') as TabValue | null;
+    const validTab = tabFromQuery && VALID_TABS.includes(tabFromQuery) ? tabFromQuery : 'details';
+    setActiveTab(validTab);
+  }, [searchParams]);
+
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Not authenticated</h2>
-          <p className="text-gray-600 mb-4">Please log in to view your account details.</p>
-          <Link href="/login">
-            <Button>Go to Login</Button>
-          </Link>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="p-6">
+        <p className="text-muted-foreground">Profile not found</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.back()}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-        <h1 className="text-3xl font-bold">My Account</h1>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
+        <p className="text-muted-foreground mt-1">
+          Update your personal information and preferences
+        </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Account Information
-            </CardTitle>
-            <CardDescription>
-              Your authentication and account details
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Email</span>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-gray-400" />
-                <span className="font-medium">{user.email}</span>
-              </div>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Account ID</span>
-              <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                {user.id}
-              </span>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Role</span>
-              <Badge variant={staffRecord?.role === 'ADMINSTAFF' ? 'default' : 'secondary'}>
-                {staffRecord?.role || 'Loading...'}
-              </Badge>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Account Created</span>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <span className="text-sm">
-                  {new Date(user.created_at).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="account">Account</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserCircle className="h-5 w-5" />
-              Staff Information
-            </CardTitle>
-            <CardDescription>
-              Your staff profile and contact details
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {staffLoading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                <p className="text-sm text-gray-600 mt-2">Loading staff information...</p>
-              </div>
-            ) : error ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            ) : staffRecord ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Full Name</span>
-                  <span className="font-medium">
-                    {staffRecord.first_name} {staffRecord.last_name}
-                  </span>
-                </div>
-                
-                <Separator />
-                
-                {staffRecord.phone_number && (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Phone</span>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        <span className="font-medium">{staffRecord.phone_number}</span>
-                      </div>
-                    </div>
-                    <Separator />
-                  </>
-                )}
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Status</span>
-                  <Badge variant={staffRecord.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                    {staffRecord.status}
-                  </Badge>
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Staff Since</span>
-                  <span className="text-sm">
-                    {new Date(staffRecord.created_at || '').toLocaleDateString()}
-                  </span>
-                </div>
-                
-                
-              </>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-sm text-gray-600">No staff record found</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Contact an administrator to set up your staff profile
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="details" className="mt-6">
+          <DetailsTab profile={profile} />
+        </TabsContent>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" />
-            Security & Access
-          </CardTitle>
-          <CardDescription>
-            Manage your account security and access permissions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-gray-600">
-            <p className="mb-4">
-              Your account permissions are managed through your staff role. Contact an administrator 
-              if you need to change your access level or update your account details.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="availability" className="mt-6">
+          <AvailabilityTab profile={profile} />
+        </TabsContent>
+
+        <TabsContent value="account" className="mt-6">
+          <AccountTab profile={profile} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-
-

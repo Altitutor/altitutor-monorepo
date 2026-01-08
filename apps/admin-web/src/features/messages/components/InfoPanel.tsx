@@ -42,8 +42,6 @@ interface InfoPanelProps {
 }
 
 export function InfoPanel({ contactId, conversationId, className = '' }: InfoPanelProps) {
-  // Use contactId if provided, otherwise derive from conversationId (backward compatibility)
-  const effectiveContactId = contactId || (conversationId ? null : null); // Will be fetched from conversationId if needed
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>('details');
@@ -90,57 +88,76 @@ export function InfoPanel({ contactId, conversationId, className = '' }: InfoPan
     fetchSubjects();
   }, []);
   
-  // Reset password reset state when conversation changes
+  // Reset password reset state when contact changes
   useEffect(() => {
     setHasPasswordResetLinkSentStudent(false);
     setHasPasswordResetLinkSentStaff(false);
     setIsLoadingAccountStudent(false);
     setIsLoadingAccountStaff(false);
-  }, [conversationId]);
+  }, [contactId, conversationId]);
   
-  // Base query - only fetch contact info (lightweight, no nested subjects)
-  const queryKey = conversationId ? messagesKeys.conversationContact(conversationId) : ['conversation-contact'];
-  const { data: conversation, isLoading } = useQuery({
+  // Get contactId from conversationId if needed (backward compatibility)
+  const { data: contactIdFromConversation } = useQuery({
+    queryKey: ['contact-from-conversation', conversationId],
+    queryFn: async () => {
+      if (!conversationId || contactId) return null;
+      const supabase = getSupabaseClient() as any;
+      const { data } = await supabase
+        .from('conversations')
+        .select('contact_id')
+        .eq('id', conversationId)
+        .maybeSingle();
+      return data?.contact_id || null;
+    },
+    enabled: !!conversationId && !contactId,
+  });
+  
+  const effectiveContactId = contactId || contactIdFromConversation;
+  
+  // Base query - fetch contact info directly with all needed fields
+  const queryKey = effectiveContactId ? ['contact', effectiveContactId] : ['contact'];
+  const { data: contactData, isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      if (!conversationId) return null;
+      if (!effectiveContactId) return null;
       
       const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
-        .from('conversations')
+        .from('contacts')
         .select(`
           id,
-          contacts (
-            id,
-            phone_e164,
-            contact_type,
-            student_id,
-            parent_id,
-            staff_id,
-            students (
-              id, first_name, last_name, email, phone, status, year_level, curriculum, user_id
-            ),
-            parents (
-              id, first_name, last_name, email, phone,
-              parents_students (
-                students (
-                  id, first_name, last_name, email, phone, status, year_level, curriculum
-                )
+          phone_e164,
+          contact_type,
+          student_id,
+          parent_id,
+          staff_id,
+          students (
+            id, first_name, last_name, email, phone, status, year_level, curriculum, user_id
+          ),
+          parents (
+            id, first_name, last_name, email, phone,
+            parents_students (
+              students (
+                id, first_name, last_name, email, phone, status, year_level, curriculum
               )
-            ),
-            staff (
-              id, first_name, last_name, email, phone_number, role, status, user_id
             )
+          ),
+          staff (
+            id, first_name, last_name, email, phone_number, role, status, user_id
           )
         `)
-        .eq('id', conversationId)
+        .eq('id', effectiveContactId)
         .maybeSingle();
       
       if (error) throw error;
-      return data;
+      // Return in conversation format for backward compatibility
+      return { contacts: data };
     },
-    enabled: !!conversationId,
+    enabled: !!effectiveContactId,
   });
+  
+  // Map to conversation format for backward compatibility
+  const conversation = contactData;
   
   // Fetch subjects only when Details tab is active and we have a student/staff
   const baseContact = conversation?.contacts;

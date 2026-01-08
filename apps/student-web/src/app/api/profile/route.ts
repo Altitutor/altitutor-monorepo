@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
+import { syncStudentToStripeCustomer } from '@/shared/lib/stripe/sync-customer';
 
 type VStudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 
@@ -142,6 +143,15 @@ export async function PATCH(request: NextRequest) {
           // Don't fail the request, but log the error
         }
       }
+    }
+    
+    // Sync to Stripe if name or email changed
+    const nameOrEmailChanged = updates.first_name || updates.last_name || updates.email;
+    if (nameOrEmailChanged) {
+      syncStudentToStripeCustomer(studentId).catch((error) => {
+        console.error('[profile-update] Failed to sync to Stripe:', error);
+        // Don't fail the request - Stripe sync is non-critical
+      });
     }
     
     return NextResponse.json({

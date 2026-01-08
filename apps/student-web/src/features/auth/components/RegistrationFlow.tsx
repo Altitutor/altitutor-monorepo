@@ -16,6 +16,7 @@ import { RegistrationStep1StudentDetails } from './RegistrationStep1StudentDetai
 import { RegistrationStep2ParentDetails } from './RegistrationStep2ParentDetails';
 import { RegistrationStep3Availability } from './RegistrationStep3Availability';
 import { RegistrationStep4Password } from './RegistrationStep4Password';
+import { RegistrationStep4PaymentMethod } from './RegistrationStep4PaymentMethod';
 import { RegistrationStep5Confirm } from './RegistrationStep5Confirm';
 
 // Registration form schema
@@ -57,12 +58,17 @@ const registrationSchema = z.object({
   // Password
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
+  // Payment method verification
+  paymentMethodVerified: z.boolean(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 }).refine(
   (data) => data.parents.some((p) => p.email && p.email.trim() !== '' && p.phone && p.phone.trim() !== ''),
   { message: 'At least one parent must have both email and phone', path: ['parents'] }
+).refine(
+  (data) => data.paymentMethodVerified === true,
+  { message: 'Payment method must be verified', path: ['paymentMethodVerified'] }
 );
 
 type RegistrationFormValues = z.infer<typeof registrationSchema>;
@@ -105,6 +111,7 @@ const STEPS = [
   { id: 'parents', title: 'Parent Details' },
   { id: 'availability', title: 'Availability' },
   { id: 'password', title: 'Password' },
+  { id: 'payment', title: 'Payment Method' },
   { id: 'confirm', title: 'Confirm' },
 ];
 
@@ -148,18 +155,19 @@ export function RegistrationFlow({
           }))
         : [{ first_name: '', last_name: '', email: '', phone: '' }],
       availability: {
-        monday: false,
-        tuesday: false,
-        wednesday: false,
-        thursday: false,
-        friday: false,
-        saturday_am: false,
-        saturday_pm: false,
-        sunday_am: false,
-        sunday_pm: false,
+        monday: true,
+        tuesday: true,
+        wednesday: true,
+        thursday: true,
+        friday: true,
+        saturday_am: true,
+        saturday_pm: true,
+        sunday_am: true,
+        sunday_pm: true,
       },
       password: '',
       confirmPassword: '',
+      paymentMethodVerified: false,
     },
   });
 
@@ -167,17 +175,31 @@ export function RegistrationFlow({
     // Validate current step before proceeding
     const fieldsToValidate: (keyof RegistrationFormValues)[] = [];
     
-    // Map current step to actual step index (accounting for skipped password step)
-    const actualStep = skipPassword && currentStep >= 3 ? currentStep + 1 : currentStep;
+    // Determine which step we're on based on currentStep and skipPassword
+    // Steps when skipPassword=false: student(0), parents(1), availability(2), password(3), payment(4), confirm(5)
+    // Steps when skipPassword=true: student(0), parents(1), availability(2), payment(3), confirm(4)
     
-    if (actualStep === 0) {
+    if (currentStep === 0) {
       fieldsToValidate.push('student');
-    } else if (actualStep === 1) {
+    } else if (currentStep === 1) {
       fieldsToValidate.push('parents');
-    } else if (actualStep === 2) {
+    } else if (currentStep === 2) {
       fieldsToValidate.push('availability');
-    } else if (actualStep === 3 && !skipPassword) {
+    } else if (currentStep === 3 && !skipPassword) {
+      // Password step (only when not skipping password)
       fieldsToValidate.push('password', 'confirmPassword');
+    } else if ((skipPassword && currentStep === 3) || (!skipPassword && currentStep === 4)) {
+      // Payment method step - verify payment method is verified
+      const paymentMethodVerified = form.getValues('paymentMethodVerified');
+      if (!paymentMethodVerified) {
+        toast({
+          title: 'Payment Method Required',
+          description: 'Please add and verify a payment method before proceeding.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      fieldsToValidate.push('paymentMethodVerified');
     }
 
     const isValid = await form.trigger(fieldsToValidate as any);
@@ -202,6 +224,17 @@ export function RegistrationFlow({
   const handleSubmit = async () => {
     // Prevent multiple submissions
     if (isSubmitting) {
+      return;
+    }
+
+    // Verify payment method before submitting
+    const paymentMethodVerified = form.getValues('paymentMethodVerified');
+    if (!paymentMethodVerified) {
+      toast({
+        title: 'Payment Method Required',
+        description: 'Please add and verify a payment method before completing registration.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -396,7 +429,14 @@ export function RegistrationFlow({
                 {!skipPassword && currentStep === 3 && (
                   <RegistrationStep4Password form={form} />
                 )}
-                {(skipPassword ? currentStep === 3 : currentStep === 4) && (
+                {(skipPassword && currentStep === 3) || (!skipPassword && currentStep === 4) ? (
+                  <RegistrationStep4PaymentMethod 
+                    form={form} 
+                    token={token}
+                    studentId={initialData.student.id}
+                  />
+                ) : null}
+                {(skipPassword ? currentStep === 4 : currentStep === 5) && (
                   <RegistrationStep5Confirm form={form} />
                 )}
 

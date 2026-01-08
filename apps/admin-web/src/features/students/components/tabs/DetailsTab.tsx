@@ -229,23 +229,6 @@ export function DetailsTab({
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => handleInputChange('status', value as Tables<'students'>['status'])}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                    <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                    <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                    <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
               {/* Subjects Field */}
               <div>

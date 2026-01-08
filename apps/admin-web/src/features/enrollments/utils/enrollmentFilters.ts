@@ -14,6 +14,9 @@ export function filterStudents(
     // Exclude already enrolled students in this specific class
     if (enrolledStudentIds.includes(s.id)) return false;
     
+    // Only show ACTIVE students for enrollment
+    if (s.status !== 'ACTIVE') return false;
+    
     // Search filter
     if (filters.searchQuery.trim()) {
       const query = filters.searchQuery.toLowerCase();

@@ -49,16 +49,19 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
         .in('id', topicIds);
       setTopicsData(topicsRes || []);
 
-      // Get files for each topic
+      // Get files for each topic using vtutor_topics_files view
       const filesMap: Record<string, Array<Tables<'topics_files'>>> = {};
       for (const topicId of topicIds) {
         const { data } = await supabase
-          .from('topics_files')
+          .from('vtutor_topics_files')
           .select('*')
           .eq('topic_id', topicId)
           .order('type')
           .order('index');
-        filesMap[topicId] = data || [];
+        // Filter out files with null IDs (shouldn't happen, but type safety)
+        filesMap[topicId] = (data || []).filter((f): f is Tables<'topics_files'> => 
+          f.id !== null && f.file_id !== null && f.topic_id !== null && f.index !== null
+        );
       }
       setFilesData(filesMap);
       setIsLoading(false);

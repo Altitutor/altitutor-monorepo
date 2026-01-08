@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
+import { syncStudentToStripeCustomer } from '@/shared/lib/stripe/sync-customer';
 
 export async function PATCH(
   request: NextRequest,
@@ -128,6 +129,15 @@ export async function PATCH(
         { error: `Failed to update student: ${updateError.message}` },
         { status: 500 }
       );
+    }
+
+    // Sync to Stripe if name or email changed
+    const nameOrEmailChanged = body.first_name || body.last_name || body.email;
+    if (nameOrEmailChanged) {
+      syncStudentToStripeCustomer(studentId).catch((error) => {
+        console.error('[student-update] Failed to sync to Stripe:', error);
+        // Don't fail the request - Stripe sync is non-critical
+      });
     }
 
     return NextResponse.json({ data: updatedStudent }, { status: 200 });

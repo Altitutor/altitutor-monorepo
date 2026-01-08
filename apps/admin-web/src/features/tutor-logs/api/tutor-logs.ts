@@ -255,6 +255,146 @@ export const tutorLogsApi = {
   },
 
   /**
+   * Search tutor logs with filters and relationships (admin only)
+   * Filters by session date (Adelaide timezone), not tutor log created date
+   */
+  searchTutorLogs: async (args?: {
+    search?: string;
+    rangeStart?: string; // YYYY-MM-DD format (Adelaide timezone)
+    rangeEnd?: string; // YYYY-MM-DD format (Adelaide timezone)
+    staffId?: string;
+    limit?: number;
+    offset?: number;
+    orderBy?: 'session_start_at' | 'created_at';
+    ascending?: boolean;
+  }): Promise<{
+    tutorLogs: Array<{
+      id: string;
+      session_id: string;
+      created_by: string;
+      created_at: string;
+      session_start_at: string;
+      session_end_at: string;
+      session_type: string;
+      class_id: string | null;
+      subject_id: string | null;
+    }>;
+    sessions: Record<string, Tables<'sessions'>>;
+    sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>;
+    sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>;
+    classesById: Record<string, Tables<'classes'>>;
+    subjectsById: Record<string, Tables<'subjects'>>;
+    staffAttendance: Record<string, Array<{
+      staff_id: string;
+      first_name: string;
+      last_name: string;
+      role: string;
+      attended: boolean;
+      type: string | null;
+    }>>;
+    studentAttendance: Record<string, Array<{
+      student_id: string;
+      first_name: string;
+      last_name: string;
+      attended: boolean;
+    }>>;
+    topics: Record<string, Array<{
+      topic_id: string;
+      code: string;
+      name: string;
+    }>>;
+    topicFiles: Record<string, Array<{
+      file_id: string;
+      code: string;
+      file_type: string;
+    }>>;
+    total: number;
+  }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    try {
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_tutor_logs_admin', {
+        p_search: args?.search?.trim() || undefined,
+        p_range_start: args?.rangeStart || undefined,
+        p_range_end: args?.rangeEnd || undefined,
+        p_staff_id: args?.staffId || undefined,
+        p_limit: args?.limit || 50,
+        p_offset: args?.offset || 0,
+        p_order_by: args?.orderBy || 'session_start_at',
+        p_ascending: args?.ascending !== undefined ? args.ascending : false,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) {
+        return {
+          tutorLogs: [],
+          sessions: {},
+          sessionStudents: {},
+          sessionStaff: {},
+          classesById: {},
+          subjectsById: {},
+          staffAttendance: {},
+          studentAttendance: {},
+          topics: {},
+          topicFiles: {},
+          total: 0,
+        };
+      }
+
+      const rpcData = rpcResult as {
+        tutorLogs: any[];
+        sessions: Record<string, any>;
+        sessionStudents: Record<string, any[]>;
+        sessionStaff: Record<string, any[]>;
+        classesById: Record<string, any>;
+        subjectsById: Record<string, any>;
+        staffAttendance: Record<string, any[]>;
+        studentAttendance: Record<string, any[]>;
+        topics: Record<string, any[]>;
+        topicFiles: Record<string, any[]>;
+        total: number;
+      };
+
+      return {
+        tutorLogs: (rpcData.tutorLogs || []) as any[],
+        sessions: (rpcData.sessions || {}) as Record<string, Tables<'sessions'>>,
+        sessionStudents: (rpcData.sessionStudents || {}) as Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>,
+        sessionStaff: (rpcData.sessionStaff || {}) as Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>,
+        classesById: (rpcData.classesById || {}) as Record<string, Tables<'classes'>>,
+        subjectsById: (rpcData.subjectsById || {}) as Record<string, Tables<'subjects'>>,
+        staffAttendance: (rpcData.staffAttendance || {}) as Record<string, Array<{
+          staff_id: string;
+          first_name: string;
+          last_name: string;
+          role: string;
+          attended: boolean;
+          type: string | null;
+        }>>,
+        studentAttendance: (rpcData.studentAttendance || {}) as Record<string, Array<{
+          student_id: string;
+          first_name: string;
+          last_name: string;
+          attended: boolean;
+        }>>,
+        topics: (rpcData.topics || {}) as Record<string, Array<{
+          topic_id: string;
+          code: string;
+          name: string;
+        }>>,
+        topicFiles: (rpcData.topicFiles || {}) as Record<string, Array<{
+          file_id: string;
+          code: string;
+          file_type: string;
+        }>>,
+        total: rpcData.total || 0,
+      };
+    } catch (error) {
+      console.error('Error searching tutor logs:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Update a tutor log (admin only)
    */
   updateTutorLog: async (id: string, updates: Partial<TutorLogFormData>): Promise<void> => {

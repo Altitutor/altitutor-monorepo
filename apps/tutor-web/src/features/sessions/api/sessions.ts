@@ -53,13 +53,14 @@ export const sessionsApi = {
   /**
    * Get a session by ID
    * Uses vtutor_sessions view
+   * Note: The view uses 'session_id' as the column name, not 'id'
    */
   getSession: async (id: string) => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data, error } = await supabase
       .from('vtutor_sessions')
       .select('*')
-      .eq('id', id)
+      .eq('session_id', id)
       .maybeSingle();
     if (error && error.code !== 'PGRST116') throw error;
     return data ?? null;

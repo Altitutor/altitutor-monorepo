@@ -5,5 +5,10 @@ export * from './layouts';
 export { ThemeProvider } from './theme-provider';
 export { ThemeToggle } from './theme-toggle';
 
-// Date range picker
-export { DateRangePicker } from './DateRangePicker'; 
+// Date range picker - now exported from @altitutor/ui
+
+// Toast provider
+export { ToastProviderWrapper } from './toast-provider-wrapper';
+
+// Logout confirmation modal
+export { LogoutConfirmationModal } from './logout-confirmation-modal'; 

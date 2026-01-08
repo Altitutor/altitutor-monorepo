@@ -44,8 +44,9 @@ export default function SessionsPage() {
   // Initialize date range from URL params or default to today
   const fromParam = search.get('from');
   const toParam = search.get('to');
-  const initialFrom = fromParam === '' ? '' : (isValidDateString(fromParam) ? fromParam! : getTodayLocalDate());
-  const initialTo = toParam === '' ? '' : (isValidDateString(toParam) ? toParam! : getTodayLocalDate());
+  // Default both dates to today if not provided or invalid
+  const initialFrom = (fromParam && isValidDateString(fromParam)) ? fromParam : getTodayLocalDate();
+  const initialTo = (toParam && isValidDateString(toParam)) ? toParam : getTodayLocalDate();
   
   const [from, setFrom] = useState<string>(initialFrom);
   const [to, setTo] = useState<string>(initialTo);
@@ -61,6 +62,29 @@ export default function SessionsPage() {
   const fromDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const toDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Clean up empty date params from URL on mount
+  useEffect(() => {
+    const fromParam = search.get('from');
+    const toParam = search.get('to');
+    
+    // If we have empty date params, clean them up and set to today
+    if ((fromParam === '' || (fromParam && !isValidDateString(fromParam))) ||
+        (toParam === '' || (toParam && !isValidDateString(toParam)))) {
+      const params = new URLSearchParams(search.toString());
+      const today = getTodayLocalDate();
+      
+      if (fromParam === '' || (fromParam && !isValidDateString(fromParam))) {
+        params.set('from', today);
+      }
+      if (toParam === '' || (toParam && !isValidDateString(toParam))) {
+        params.set('to', today);
+      }
+      
+      router.replace(`/sessions?${params.toString()}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
   // Sync date range state with URL params when they change
   // Only sync from URL to state, don't force defaults after initial load
   // Skip syncing if we're currently debouncing to avoid conflicts
@@ -73,25 +97,23 @@ export default function SessionsPage() {
     const fromParam = search.get('from');
     const toParam = search.get('to');
     
-    if (fromParam !== null) {
-      if (isValidDateString(fromParam)) {
-        // Only update if different to avoid unnecessary re-renders
-        setFrom((prev) => prev !== fromParam ? fromParam : prev);
-      } else if (fromParam === '') {
-        setFrom((prev) => prev !== '' ? '' : prev);
-      }
+    // Only sync valid dates from URL, default to today if missing or invalid
+    // Note: search.get() returns null if param doesn't exist, empty string if param exists but is empty
+    if (fromParam && fromParam !== '' && isValidDateString(fromParam)) {
+      setFrom((prev) => prev !== fromParam ? fromParam : prev);
+    } else {
+      // If param is missing or empty, default to today
+      const today = getTodayLocalDate();
+      setFrom((prev) => prev !== today ? today : prev);
     }
-    // If fromParam is null, don't change state (allows cleared dates to stay cleared)
     
-    if (toParam !== null) {
-      if (isValidDateString(toParam)) {
-        // Only update if different to avoid unnecessary re-renders
-        setTo((prev) => prev !== toParam ? toParam : prev);
-      } else if (toParam === '') {
-        setTo((prev) => prev !== '' ? '' : prev);
-      }
+    if (toParam && toParam !== '' && isValidDateString(toParam)) {
+      setTo((prev) => prev !== toParam ? toParam : prev);
+    } else {
+      // If param is missing or empty, default to today
+      const today = getTodayLocalDate();
+      setTo((prev) => prev !== today ? today : prev);
     }
-    // If toParam is null, don't change state (allows cleared dates to stay cleared)
   }, [search]);
 
   const setView = (v: 'table' | 'calendar') => {
@@ -112,16 +134,6 @@ export default function SessionsPage() {
     // This prevents the controlled/uncontrolled input warning and keeps UI responsive
     setFrom(newFrom);
     
-    // Allow empty string to clear the filter immediately (no debounce needed)
-    if (newFrom === '') {
-      const params = new URLSearchParams(search.toString());
-      params.set('view', 'table');
-      params.delete('from'); // Remove from URL when cleared
-      params.set('to', to || '');
-      router.replace(`/sessions?${params.toString()}`);
-      return;
-    }
-    
     // Debounce URL updates - only update URL after user stops typing
     fromDebounceTimerRef.current = setTimeout(() => {
       // Only update URL if the date is complete and valid
@@ -129,7 +141,12 @@ export default function SessionsPage() {
         const params = new URLSearchParams(search.toString());
         params.set('view', 'table');
         params.set('from', newFrom);
-        params.set('to', to || '');
+        // Always set 'to' to ensure it's in URL (defaults to today if not set)
+        if (to && isValidDateString(to)) {
+          params.set('to', to);
+        } else {
+          params.set('to', getTodayLocalDate());
+        }
         router.replace(`/sessions?${params.toString()}`);
       }
       // If invalid/partial, don't update URL - just keep the state updated
@@ -148,23 +165,18 @@ export default function SessionsPage() {
     // This prevents the controlled/uncontrolled input warning and keeps UI responsive
     setTo(newTo);
     
-    // Allow empty string to clear the filter immediately (no debounce needed)
-    if (newTo === '') {
-      const params = new URLSearchParams(search.toString());
-      params.set('view', 'table');
-      params.set('from', from || '');
-      params.delete('to'); // Remove from URL when cleared
-      router.replace(`/sessions?${params.toString()}`);
-      return;
-    }
-    
     // Debounce URL updates - only update URL after user stops typing
     toDebounceTimerRef.current = setTimeout(() => {
       // Only update URL if the date is complete and valid
       if (isValidDateString(newTo)) {
         const params = new URLSearchParams(search.toString());
         params.set('view', 'table');
-        params.set('from', from || '');
+        // Always set 'from' to ensure it's in URL (defaults to today if not set)
+        if (from && isValidDateString(from)) {
+          params.set('from', from);
+        } else {
+          params.set('from', getTodayLocalDate());
+        }
         params.set('to', newTo);
         router.replace(`/sessions?${params.toString()}`);
       }

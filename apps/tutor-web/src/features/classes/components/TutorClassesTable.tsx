@@ -60,6 +60,21 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
     );
   });
 
+  // Sort classes: first by day (ascending), then by time (ascending)
+  const sortedClasses = [...filteredClasses].sort((a: any, b: any) => {
+    // First sort by day_of_week (1-7, Monday-Sunday)
+    const dayA = a.day_of_week ?? 999; // Put null days at the end
+    const dayB = b.day_of_week ?? 999;
+    if (dayA !== dayB) {
+      return dayA - dayB;
+    }
+    
+    // If same day, sort by start_time
+    const timeA = a.start_time || '';
+    const timeB = b.start_time || '';
+    return timeA.localeCompare(timeB);
+  });
+
   return (
     <div className="space-y-4">
       <Table>
@@ -72,7 +87,7 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredClasses.map((classItem: any) => {
+          {sortedClasses.map((classItem: any) => {
             // Format subject as {curriculum} {year_level} {name} {level}
             const subjectParts: string[] = [];
             if (classItem.subject_curriculum) {

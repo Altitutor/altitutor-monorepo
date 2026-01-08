@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { SessionsTable } from '@/features/sessions/components/SessionsTable';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 
 interface ClassSessionsTabProps {
@@ -22,9 +22,10 @@ const getTodayLocalDate = (): string => {
 };
 
 export function ClassSessionsTab({ classData, classStudents, classStaff }: ClassSessionsTabProps) {
-  // Filter state - default: start date today, end date unset, student unset, staff unset
-  const [dateRangeStart, setDateRangeStart] = useState<string>(getTodayLocalDate());
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>('');
+  // Filter state - default: both dates today, student unset, staff unset
+  const today = getTodayLocalDate();
+  const [dateRangeStart, setDateRangeStart] = useState<string>(today);
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(today);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('ALL');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('ALL');
 
@@ -75,8 +76,6 @@ export function ClassSessionsTab({ classData, classStudents, classStaff }: Class
             to={dateRangeEnd}
             onFromChange={setDateRangeStart}
             onToChange={setDateRangeEnd}
-            fromPlaceholder="Start date"
-            toPlaceholder="End date"
           />
         </div>
 

@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type StaffAttendanceItem = {
   staffId: string;
   attended: boolean;
-  type: 'PRIMARY' | 'ASSISTANT' | 'TRIAL';
+  type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
 };
 
 type Step2StaffAttendanceProps = {
@@ -36,27 +36,54 @@ export function Step2StaffAttendance({
   useEffect(() => {
     const fetchSessionStaff = async () => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      
+      // Use vtutor_session_detail view to get staff (tutors can't access sessions_staff directly)
       const { data, error } = await supabase
-        .from('sessions_staff')
-        .select('*, staff:staff!sessions_staff_staff_id_fkey(*)')
-        .eq('session_id', sessionId);
+        .from('vtutor_session_detail')
+        .select('*')
+        .eq('session_id', sessionId)
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching session staff:', error);
+        setIsLoading(false);
         return;
       }
 
-      setSessionStaff(data as any);
+      if (!data) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Extract staff from vtutor_session_detail (staff is an array in the view)
+      const staffArray = (data.staff || []) as any[];
+      
+      // Transform to match expected format
+      // Note: vtutor_session_detail doesn't include planned_absence, so we default to false
+      const transformedStaff = staffArray.map((staffMember: any) => ({
+        staff_id: staffMember.id,
+        staff: {
+          id: staffMember.id,
+          first_name: staffMember.first_name,
+          last_name: staffMember.last_name,
+          role: staffMember.role,
+          subjects: staffMember.subjects || [],
+        },
+        planned_absence: false, // Not available in tutor view, default to false
+        type: staffMember.type || null,
+      }));
+
+      setSessionStaff(transformedStaff as any);
 
       // Initialize form data if empty
-      if (staffAttendance.length === 0 && data) {
-        const initialAttendance = data.map((ss: any) => ({
+      if (staffAttendance.length === 0 && transformedStaff.length > 0) {
+        const initialAttendance = transformedStaff.map((ss: any) => ({
           staffId: ss.staff_id,
-          attended: !ss.planned_absence, // Default to true unless planned absence
+          attended: true, // Default to true (planned_absence not available in tutor view)
           type:
             ss.staff_id === currentStaffId
-              ? ('PRIMARY' as const)
-              : ('ASSISTANT' as const),
+              ? ('MAIN_TUTOR' as const)
+              : (ss.type || ('SECONDARY_TUTOR' as const)),
         }));
         onUpdate(initialAttendance);
       }
@@ -65,7 +92,7 @@ export function Step2StaffAttendance({
     };
 
     fetchSessionStaff();
-  }, [sessionId]);
+  }, [sessionId, currentStaffId, staffAttendance.length, onUpdate]);
 
   const handleAttendanceChange = (staffId: string, attended: boolean) => {
     const updated = staffAttendance.map((sa) =>
@@ -77,22 +104,22 @@ export function Step2StaffAttendance({
       updated.push({
         staffId,
         attended,
-        type: staffId === currentStaffId ? 'PRIMARY' : 'ASSISTANT',
+        type: staffId === currentStaffId ? 'MAIN_TUTOR' : 'SECONDARY_TUTOR',
       });
     }
 
     onUpdate(updated);
   };
 
-  const handleTypeChange = (staffId: string, type: 'PRIMARY' | 'ASSISTANT' | 'TRIAL') => {
-    // Only one PRIMARY allowed
+  const handleTypeChange = (staffId: string, type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR') => {
+    // Only one MAIN_TUTOR allowed
     const updated = staffAttendance.map((sa) => {
       if (sa.staffId === staffId) {
         return { ...sa, type };
       }
-      // If setting this to PRIMARY, change other PRIMARY to ASSISTANT
-      if (type === 'PRIMARY' && sa.type === 'PRIMARY') {
-        return { ...sa, type: 'ASSISTANT' as const };
+      // If setting this to MAIN_TUTOR, change other MAIN_TUTOR to SECONDARY_TUTOR
+      if (type === 'MAIN_TUTOR' && sa.type === 'MAIN_TUTOR') {
+        return { ...sa, type: 'SECONDARY_TUTOR' as const };
       }
       return sa;
     });
@@ -119,14 +146,14 @@ export function Step2StaffAttendance({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select which staff members attended this session. Only one PRIMARY tutor is allowed.
+        Select which staff members attended this session. Only one Main Tutor is allowed.
       </p>
       <div className="space-y-3">
         {sessionStaff.map((ss: any) => {
           const staff = ss.staff;
           const attendance = getStaffAttendance(ss.staff_id);
           const isAttended = attendance?.attended ?? !ss.planned_absence;
-          const type = attendance?.type ?? (ss.staff_id === currentStaffId ? 'PRIMARY' : 'ASSISTANT');
+          const type = attendance?.type ?? (ss.staff_id === currentStaffId ? 'MAIN_TUTOR' : (ss.type || 'SECONDARY_TUTOR'));
 
           return (
             <div
@@ -149,19 +176,19 @@ export function Step2StaffAttendance({
               {isAttended && (
                 <Select
                   value={type}
-                  onValueChange={(value) =>
-                    handleTypeChange(ss.staff_id, value as 'PRIMARY' | 'ASSISTANT' | 'TRIAL')
-                  }
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PRIMARY">Primary</SelectItem>
-                    <SelectItem value="ASSISTANT">Assistant</SelectItem>
-                    <SelectItem value="TRIAL">Trial</SelectItem>
-                  </SelectContent>
-                </Select>
+                    onValueChange={(value) =>
+                      handleTypeChange(ss.staff_id, value as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR')
+                    }
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MAIN_TUTOR">Main Tutor</SelectItem>
+                      <SelectItem value="SECONDARY_TUTOR">Secondary Tutor</SelectItem>
+                      <SelectItem value="TRIAL_TUTOR">Trial Tutor</SelectItem>
+                    </SelectContent>
+                  </Select>
               )}
             </div>
           );

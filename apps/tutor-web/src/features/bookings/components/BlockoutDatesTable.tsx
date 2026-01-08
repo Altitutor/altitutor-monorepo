@@ -26,49 +26,189 @@ interface BlockoutDatesTableProps {
   onUpdate: () => void;
 }
 
+const ADELAIDE_TIMEZONE = 'Australia/Adelaide';
+
+/**
+ * Convert a date string (YYYY-MM-DD) to midnight Adelaide time in UTC ISO string
+ * Properly handles DST using Intl API
+ */
+function dateToAdelaideMidnightUTC(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  
+  const adelaideFormatter = new Intl.DateTimeFormat('en', {
+    timeZone: ADELAIDE_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  
+  // Search for UTC time that gives us midnight in Adelaide
+  // Try UTC times from 13 hours before to 11 hours after midnight UTC
+  // (Adelaide is typically UTC+9:30 to UTC+10:30)
+  // Handle day wraparound properly
+  for (let hourOffset = -13; hourOffset <= 11; hourOffset++) {
+    let testYear = year;
+    let testMonth = month;
+    let testDay = day;
+    let testHour = hourOffset;
+    
+    // Handle negative hours (previous day)
+    if (testHour < 0) {
+      testHour += 24;
+      testDay -= 1;
+      if (testDay < 1) {
+        testMonth -= 1;
+        if (testMonth < 1) {
+          testMonth = 12;
+          testYear -= 1;
+        }
+        // Get days in previous month (simplified - assumes 31 days max)
+        testDay = 31;
+      }
+    }
+    
+    const testUtc = new Date(Date.UTC(testYear, testMonth - 1, testDay, testHour, 0, 0, 0));
+    const testAdelaide = adelaideFormatter.formatToParts(testUtc);
+    const testAdelaideHour = parseInt(testAdelaide.find(p => p.type === 'hour')?.value || '0', 10);
+    const testAdelaideMinute = parseInt(testAdelaide.find(p => p.type === 'minute')?.value || '0', 10);
+    const testAdelaideDay = parseInt(testAdelaide.find(p => p.type === 'day')?.value || '0', 10);
+    const testAdelaideMonth = parseInt(testAdelaide.find(p => p.type === 'month')?.value || '0', 10);
+    const testAdelaideYear = parseInt(testAdelaide.find(p => p.type === 'year')?.value || '0', 10);
+    
+    if (
+      testAdelaideHour === 0 &&
+      testAdelaideMinute === 0 &&
+      testAdelaideDay === day &&
+      testAdelaideMonth === month &&
+      testAdelaideYear === year
+    ) {
+      return testUtc.toISOString();
+    }
+  }
+  
+  // Fallback: approximate (shouldn't happen)
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).toISOString();
+}
+
+/**
+ * Convert a date string (YYYY-MM-DD) to end of day (23:59:59.999) Adelaide time in UTC ISO string
+ */
+function dateToAdelaideEndOfDayUTC(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  
+  const adelaideFormatter = new Intl.DateTimeFormat('en', {
+    timeZone: ADELAIDE_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  
+  // Search for UTC time that gives us 23:59:59 in Adelaide
+  for (let hourOffset = -13; hourOffset <= 11; hourOffset++) {
+    let testYear = year;
+    let testMonth = month;
+    let testDay = day;
+    let testHour = hourOffset;
+    
+    // Handle negative hours (previous day)
+    if (testHour < 0) {
+      testHour += 24;
+      testDay -= 1;
+      if (testDay < 1) {
+        testMonth -= 1;
+        if (testMonth < 1) {
+          testMonth = 12;
+          testYear -= 1;
+        }
+        testDay = 31; // Simplified
+      }
+    }
+    
+    const testUtc = new Date(Date.UTC(testYear, testMonth - 1, testDay, testHour, 59, 59, 999));
+    const testAdelaide = adelaideFormatter.formatToParts(testUtc);
+    const testAdelaideHour = parseInt(testAdelaide.find(p => p.type === 'hour')?.value || '0', 10);
+    const testAdelaideMinute = parseInt(testAdelaide.find(p => p.type === 'minute')?.value || '0', 10);
+    const testAdelaideSecond = parseInt(testAdelaide.find(p => p.type === 'second')?.value || '0', 10);
+    const testAdelaideDay = parseInt(testAdelaide.find(p => p.type === 'day')?.value || '0', 10);
+    const testAdelaideMonth = parseInt(testAdelaide.find(p => p.type === 'month')?.value || '0', 10);
+    const testAdelaideYear = parseInt(testAdelaide.find(p => p.type === 'year')?.value || '0', 10);
+    
+    if (
+      testAdelaideHour === 23 &&
+      testAdelaideMinute === 59 &&
+      testAdelaideSecond === 59 &&
+      testAdelaideDay === day &&
+      testAdelaideMonth === month &&
+      testAdelaideYear === year
+    ) {
+      return testUtc.toISOString();
+    }
+  }
+  
+  // Fallback: approximate
+  return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999)).toISOString();
+}
+
+/**
+ * Convert UTC ISO string to Adelaide date string (YYYY-MM-DD)
+ */
+function utcToAdelaideDate(utcString: string): string {
+  const date = new Date(utcString);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ADELAIDE_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}
+
 export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTableProps) {
   const [editingBlockout, setEditingBlockout] = useState<BlockoutRow | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
-  // Form state
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState<string>('09:00');
-  const [endTime, setEndTime] = useState<string>('17:00');
+  // Form state - using date ranges instead of date + times
+  const [startDate, setStartDate] = useState<string>(() => {
+    const today = new Date();
+    return utcToAdelaideDate(today.toISOString());
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const today = new Date();
+    return utcToAdelaideDate(today.toISOString());
+  });
   const [reason, setReason] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleEdit = (blockout: BlockoutRow) => {
     setEditingBlockout(blockout);
-    const startDate = new Date(blockout.start_at);
-    const endDate = new Date(blockout.end_at);
-    setDate(startDate.toISOString().split('T')[0]);
-    setStartTime(startDate.toTimeString().slice(0, 5));
-    setEndTime(endDate.toTimeString().slice(0, 5));
+    // Convert UTC timestamps to Adelaide date strings
+    setStartDate(utcToAdelaideDate(blockout.start_at));
+    setEndDate(utcToAdelaideDate(blockout.end_at));
     setReason(blockout.reason || '');
-  };
-
-  const buildDateTime = (dateStr: string, timeStr: string): string => {
-    // Combine date and time, interpret as Adelaide local time, convert to UTC
-    // Format: "2024-01-15T09:00:00"
-    const isoString = `${dateStr}T${timeStr}:00`;
-    
-    // Create date assuming Adelaide timezone (UTC+10:30 standard, UTC+9:30 DST)
-    // Use fixed offset for now - TODO: Use proper timezone library (date-fns-tz) for DST handling
-    const adelaideOffsetMinutes = 10 * 60 + 30; // 10 hours 30 minutes
-    const localDate = new Date(isoString);
-    const utcDate = new Date(localDate.getTime() - (adelaideOffsetMinutes * 60 * 1000));
-    
-    return utcDate.toISOString();
   };
 
   const handleSave = async () => {
     if (!editingBlockout) return;
+    
+    if (endDate < startDate) {
+      alert('End date must be on or after start date');
+      return;
+    }
+    
     setSaving(true);
     try {
       const updates: UpdateBlockoutInput = {
-        start_at: buildDateTime(date, startTime),
-        end_at: buildDateTime(date, endTime),
+        start_at: dateToAdelaideMidnightUTC(startDate),
+        end_at: dateToAdelaideEndOfDayUTC(endDate),
         reason: reason || undefined,
       };
       await blockoutsApi.updateBlockout(editingBlockout.id, updates);
@@ -83,11 +223,16 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
   };
 
   const handleAdd = async () => {
+    if (endDate < startDate) {
+      alert('End date must be on or after start date');
+      return;
+    }
+    
     setSaving(true);
     try {
       const input: CreateBlockoutInput = {
-        start_at: buildDateTime(date, startTime),
-        end_at: buildDateTime(date, endTime),
+        start_at: dateToAdelaideMidnightUTC(startDate),
+        end_at: dateToAdelaideEndOfDayUTC(endDate),
         reason: reason || undefined,
       };
       await blockoutsApi.createBlockout(input);
@@ -115,24 +260,41 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
   };
 
   const resetForm = () => {
-    setDate(new Date().toISOString().split('T')[0]);
-    setStartTime('09:00');
-    setEndTime('17:00');
+    const today = new Date();
+    const todayStr = utcToAdelaideDate(today.toISOString());
+    setStartDate(todayStr);
+    setEndDate(todayStr);
     setReason('');
   };
 
-  // Format datetime for display (convert UTC to Adelaide)
-  const formatDateTime = (utcString: string): string => {
-    const date = new Date(utcString);
-    // Convert UTC to Adelaide timezone for display
-    return date.toLocaleString('en-AU', {
-      timeZone: 'Australia/Adelaide',
+  // Format date range for display (convert UTC to Adelaide, show dates only)
+  const formatDateRange = (startUtc: string, endUtc: string): string => {
+    const startDate = new Date(startUtc);
+    const endDate = new Date(endUtc);
+    
+    const startFormatted = startDate.toLocaleDateString('en-AU', {
+      timeZone: ADELAIDE_TIMEZONE,
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
+    
+    const endFormatted = endDate.toLocaleDateString('en-AU', {
+      timeZone: ADELAIDE_TIMEZONE,
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    
+    // Check if it's a single day
+    const startDateOnly = startDate.toLocaleDateString('en-CA', { timeZone: ADELAIDE_TIMEZONE });
+    const endDateOnly = endDate.toLocaleDateString('en-CA', { timeZone: ADELAIDE_TIMEZONE });
+    
+    if (startDateOnly === endDateOnly) {
+      return startFormatted;
+    }
+    
+    return `${startFormatted} - ${endFormatted}`;
   };
 
   return (
@@ -149,8 +311,7 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Start</TableHead>
-              <TableHead>End</TableHead>
+              <TableHead>Date Range</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -158,15 +319,14 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
           <TableBody>
             {blockouts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
                   No blockouts found
                 </TableCell>
               </TableRow>
             ) : (
               blockouts.map((blockout) => (
                 <TableRow key={blockout.id}>
-                  <TableCell>{formatDateTime(blockout.start_at)}</TableCell>
-                  <TableCell>{formatDateTime(blockout.end_at)}</TableCell>
+                  <TableCell>{formatDateRange(blockout.start_at, blockout.end_at)}</TableCell>
                   <TableCell>{blockout.reason || '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -200,38 +360,29 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
           <DialogHeader>
             <DialogTitle>Edit Blockout</DialogTitle>
             <DialogDescription>
-              Update your blockout date and time
+              Update your blockout date range
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-date">Date</Label>
-              <Input
-                id="edit-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-start-time">Start Time</Label>
+                <Label htmlFor="edit-start-date">Start Date</Label>
                 <Input
-                  id="edit-start-time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  id="edit-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-end-time">End Time</Label>
+                <Label htmlFor="edit-end-date">End Date</Label>
                 <Input
-                  id="edit-end-time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  id="edit-end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate}
                 />
               </div>
             </div>
@@ -263,38 +414,29 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
           <DialogHeader>
             <DialogTitle>Add Blockout</DialogTitle>
             <DialogDescription>
-              Create a new blockout date when you are unavailable
+              Create a new blockout date range when you are unavailable
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="add-date">Date</Label>
-              <Input
-                id="add-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="add-start-time">Start Time</Label>
+                <Label htmlFor="add-start-date">Start Date</Label>
                 <Input
-                  id="add-start-time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  id="add-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="add-end-time">End Time</Label>
+                <Label htmlFor="add-end-date">End Date</Label>
                 <Input
-                  id="add-end-time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  id="add-end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate}
                 />
               </div>
             </div>

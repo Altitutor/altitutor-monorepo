@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
-import { Check } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../../types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { topicsApi } from '@/features/topics/api/topics';
+import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import { format } from 'date-fns';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -27,6 +27,8 @@ export function Step9Confirmation({
   const [studentsMap, setStudentsMap] = useState<Map<string, Tables<'students'>>>(new Map());
   const [staffMap, setStaffMap] = useState<Map<string, Tables<'staff'>>>(new Map());
   const [topicsMap, setTopicsMap] = useState<Map<string, Tables<'topics'>>>(new Map());
+  const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
+  const [topicFilesMap, setTopicFilesMap] = useState<Map<string, Tables<'topics_files'>>>(new Map());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -94,13 +96,27 @@ export function Step9Confirmation({
       // Get topics from vtutor_topics view
       const topicIds = (formData.topics || []).map((t) => t.topicId);
       if (topicIds.length > 0) {
-        const { data: topics } = await supabase
-          .from('vtutor_topics')
+        const topics = await topicsApi.getAllTopics();
+        const validTopics = topics.filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null && t.index != null);
+        setTopicsMap(new Map(validTopics.filter((t) => topicIds.includes(t.id)).map((t) => [t.id, t])));
+        
+        // Get all topics for the session's subject to derive codes
+        if (sessionDetail?.subject_id) {
+          const subjectTopics = await topicsApi.getTopicsBySubject(sessionDetail.subject_id);
+          setAllTopics(subjectTopics.filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null && t.index != null));
+        }
+      }
+
+      // Get topic files from vtutor_topics_files view
+      const topicFileIds = (formData.topicFiles || []).map((tf) => tf.topicsFilesId);
+      if (topicFileIds.length > 0) {
+        const { data: files } = await supabase
+          .from('vtutor_topics_files')
           .select('*')
-          .in('id', topicIds);
-        setTopicsMap(new Map((topics || [])
-          .filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null)
-          .map((t) => [t.id, t])));
+          .in('id', topicFileIds);
+        setTopicFilesMap(new Map((files || [])
+          .filter((f): f is Tables<'topics_files'> => f.id != null)
+          .map((f) => [f.id, f])));
       }
     };
 
@@ -114,10 +130,7 @@ export function Step9Confirmation({
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 mb-4">
-          <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
-        </div>
+      <div>
         <h3 className="text-xl font-semibold">Review and Submit</h3>
         <p className="text-sm text-muted-foreground mt-2">
           Please review the details below before submitting your log.
@@ -158,8 +171,8 @@ export function Step9Confirmation({
             const staff = staffMap.get(sa.staffId);
             return (
               <div key={sa.staffId} className="flex items-center gap-2 text-sm">
-                <Badge variant={sa.type === 'PRIMARY' ? 'default' : 'outline'}>
-                  {sa.type}
+                <Badge variant={sa.type === 'MAIN_TUTOR' ? 'default' : 'outline'}>
+                  {sa.type === 'MAIN_TUTOR' ? 'Main Tutor' : sa.type === 'SECONDARY_TUTOR' ? 'Secondary Tutor' : 'Trial Tutor'}
                 </Badge>
                 <span>
                   {staff?.first_name} {staff?.last_name}
@@ -190,58 +203,110 @@ export function Step9Confirmation({
       <Separator />
 
       {/* Topics */}
+      <Separator />
       <div>
         <div className="font-medium mb-2">Topics Covered ({formData.topics?.length || 0})</div>
-        <div className="space-y-2">
-          {(formData.topics || []).map((topic) => {
-            const topicData = topicsMap.get(topic.topicId);
-            const studentCount = topic.studentIds?.length || 0;
-            return (
-              <div key={topic.topicId} className="text-sm">
-                <span className="font-medium">{topicData?.name}</span>
-                <span className="text-muted-foreground ml-2">({studentCount} students)</span>
-              </div>
-            );
-          })}
-        </div>
+        {(formData.topics || []).length > 0 ? (
+          <div className="space-y-3">
+            {(formData.topics || []).map((topic) => {
+              const topicData = topicsMap.get(topic.topicId);
+              const topicCode = topicData ? deriveTopicCode(topicData, allTopics) : '';
+              const studentIds = topic.studentIds || [];
+              return (
+                <div key={topic.topicId} className="space-y-2">
+                  <div className="text-sm">
+                    <span className="font-mono text-muted-foreground">{topicCode}</span>
+                    <span className="font-medium ml-2">{topicData?.name}</span>
+                  </div>
+                  {studentIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {studentIds.map((studentId) => {
+                        const student = studentsMap.get(studentId);
+                        if (!student) return null;
+                        return (
+                          <Badge key={studentId} variant="secondary" className="text-xs">
+                            {student.first_name} {student.last_name}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">No topics selected</div>
+        )}
       </div>
 
       {/* Files */}
-      {(formData.topicFiles?.length || 0) > 0 && (
-        <>
-          <Separator />
-          <div>
-            <div className="font-medium mb-2">Files Used ({formData.topicFiles?.length || 0})</div>
-            <div className="text-sm text-muted-foreground">
-              {formData.topicFiles?.length || 0} file(s) selected
-            </div>
+      <Separator />
+      <div>
+        <div className="font-medium mb-2">Files Used ({formData.topicFiles?.length || 0})</div>
+        {(formData.topicFiles || []).length > 0 ? (
+          <div className="space-y-3">
+            {(formData.topics || []).map((topic) => {
+              const topicData = topicsMap.get(topic.topicId);
+              const files = (formData.topicFiles || []).filter((tf) => tf.topicId === topic.topicId);
+              if (files.length === 0) return null;
+              
+              const topicCode = topicData ? deriveTopicCode(topicData, allTopics) : '';
+              
+              return (
+                <div key={topic.topicId} className="space-y-2">
+                  <div className="text-sm font-medium">{topicData?.name}</div>
+                  <div className="space-y-2 pl-4">
+                    {files.map((file) => {
+                      const fileData = topicFilesMap.get(file.topicsFilesId);
+                      if (!fileData) return null;
+                      const fileCode = deriveTopicFileCode(fileData, topicCode, fileData.type);
+                      const studentIds = file.studentIds || [];
+                      
+                      return (
+                        <div key={file.topicsFilesId} className="space-y-1">
+                          <div className="text-sm font-mono text-muted-foreground">{fileCode}</div>
+                          {studentIds.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {studentIds.map((studentId) => {
+                                const student = studentsMap.get(studentId);
+                                if (!student) return null;
+                                return (
+                                  <Badge key={studentId} variant="secondary" className="text-xs">
+                                    {student.first_name} {student.last_name}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </>
-      )}
+        ) : (
+          <div className="text-sm text-muted-foreground">No files selected</div>
+        )}
+      </div>
 
       {/* Notes */}
-      {(formData.notes?.length || 0) > 0 && (
-        <>
-          <Separator />
-          <div>
-            <div className="font-medium mb-2">Notes ({formData.notes?.length || 0})</div>
-            <div className="space-y-2">
-              {(formData.notes || []).map((note, index) => (
-                <div key={index} className="text-sm p-2 bg-muted/30 rounded">
-                  {note}
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
       <Separator />
-
-      <div className="text-center pt-4">
-        <Button onClick={onSubmit} disabled={isSubmitting} size="lg">
-          {isSubmitting ? 'Submitting...' : 'Submit Log'}
-        </Button>
+      <div>
+        <div className="font-medium mb-2">Notes</div>
+        {(formData.notes?.length || 0) > 0 ? (
+          <div className="space-y-2">
+            {(formData.notes || []).map((note, index) => (
+              <div key={index} className="text-sm p-2 bg-muted/30 rounded whitespace-pre-wrap">
+                {note}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">No notes added</div>
+        )}
       </div>
     </div>
   );

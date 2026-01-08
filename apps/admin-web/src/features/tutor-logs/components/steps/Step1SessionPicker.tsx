@@ -106,10 +106,7 @@ export function Step1SessionPicker({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Select a session to log. Only past or current sessions are shown.
-      </p>
-      <div className="grid gap-3 max-h-[500px] overflow-y-auto">
+      <div className="grid gap-3">
         {sessions.map((session) => {
           const isSelected = session.id === selectedSessionId;
           const classData = classesById[session.class_id];

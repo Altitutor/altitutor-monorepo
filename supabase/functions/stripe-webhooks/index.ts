@@ -215,6 +215,101 @@ Deno.serve(async (req: Request) => {
         return json({ received: true });
       }
 
+      case 'customer.updated': {
+        const customer = event.data.object as any;
+        const customerId = customer.id;
+        const defaultPmId = customer.invoice_settings?.default_payment_method as string | undefined;
+        
+        if (!defaultPmId) {
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('stripe_event_id', event.id);
+          return json({ received: true });
+        }
+        
+        // Find student by stripe_customer_id
+        const { data: billing } = await supabase
+          .from('students_billing')
+          .select('student_id')
+          .eq('stripe_customer_id', customerId)
+          .maybeSingle();
+        
+        if (!billing?.student_id) {
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('stripe_event_id', event.id);
+          return json({ received: true });
+        }
+        
+        try {
+          // Unset all defaults for this student
+          await supabase
+            .from('student_payment_methods')
+            .update({ is_default: false })
+            .eq('student_id', billing.student_id);
+          
+          // Set the Stripe default as default in DB
+          const { error: updateError } = await supabase
+            .from('student_payment_methods')
+            .update({ is_default: true })
+            .eq('student_id', billing.student_id)
+            .eq('stripe_payment_method_id', defaultPmId);
+          
+          if (updateError) {
+            console.error('[webhook] Failed to sync default payment method:', updateError);
+          }
+        } catch (e: any) {
+          console.error('[webhook] customer.updated handler error:', e?.message || e);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'payment_method.updated': {
+        const pm = event.data.object as any;
+        const paymentMethodId = pm.id as string;
+        
+        if (!paymentMethodId || pm.type !== 'card' || !pm.card) {
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('stripe_event_id', event.id);
+          return json({ received: true });
+        }
+        
+        try {
+          const card = pm.card || {};
+          const { error: updateErr } = await supabase
+            .from('student_payment_methods')
+            .update({
+              card_brand: card.brand || null,
+              card_last4: card.last4 || null,
+              card_exp_month: card.exp_month || null,
+              card_exp_year: card.exp_year || null,
+              card_country: card.country || null,
+            })
+            .eq('stripe_payment_method_id', paymentMethodId);
+          
+          if (updateErr) {
+            console.error('[webhook] Failed to update payment method:', updateErr);
+          }
+        } catch (e: any) {
+          console.error('[webhook] payment_method.updated handler error:', e?.message || e);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
       case 'invoice.created': {
         // Log invoice creation (optional, for tracking)
         const invoice = event.data.object as any;

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tutorLogsApi } from '../api/tutor-logs';
 import type { TutorLogFormData } from '../types';
+import { sessionsKeys } from '../../sessions/hooks/useSessionsQuery';
 
 // Query Keys
 export const tutorLogsKeys = {
@@ -40,16 +41,11 @@ export function useTutorLog(id: string) {
 
 /**
  * Check if a session has been logged
- * Note: This would need to query vtutor_tutor_log by session_id
- * For now, returns null - would need API support
  */
 export function useTutorLogForSession(sessionId: string) {
   return useQuery({
     queryKey: tutorLogsKeys.forSession(sessionId),
-    queryFn: () => {
-      // TODO: Implement getTutorLogForSession in API if needed
-      return Promise.resolve(null);
-    },
+    queryFn: () => tutorLogsApi.getTutorLogForSession(sessionId),
     enabled: !!sessionId,
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
@@ -58,16 +54,11 @@ export function useTutorLogForSession(sessionId: string) {
 
 /**
  * Get unlogged sessions for a staff member
- * Note: This would need to query sessions and check for logs
- * For now, returns empty array - would need API support
  */
 export function useUnloggedSessions(staffId: string) {
   return useQuery({
     queryKey: tutorLogsKeys.unlogged(staffId),
-    queryFn: () => {
-      // TODO: Implement getUnloggedSessions in API if needed
-      return Promise.resolve([]);
-    },
+    queryFn: () => tutorLogsApi.getUnloggedSessions(staffId),
     enabled: !!staffId,
     staleTime: 0, // Always refetch to ensure we have the latest data
     gcTime: 1000 * 60 * 5, // 5 minutes
@@ -76,37 +67,31 @@ export function useUnloggedSessions(staffId: string) {
 
 /**
  * Create a tutor log
- * Note: Tutors create logs via API route POST /api/tutor-logs
  */
 export function useCreateTutorLog() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ data }: { data: TutorLogFormData }) => {
-      const response = await fetch('/api/tutor-logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create tutor log');
-      }
-      return await response.json();
-    },
-    onSuccess: (newLog: any) => {
+    mutationFn: ({ data }: { data: TutorLogFormData }) =>
+      tutorLogsApi.createTutorLog(data),
+    onSuccess: (result, variables) => {
       // Invalidate all tutor logs queries
       queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
       
       // Invalidate sessions queries since they show log status
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      
+      // Invalidate unlogged sessions query
+      if (variables.data.sessionId) {
+        queryClient.invalidateQueries({ queryKey: tutorLogsKeys.forSession(variables.data.sessionId) });
+      }
       
       // Set the new log in cache if we have an ID
-      if (newLog?.id) {
-        queryClient.setQueryData(tutorLogsKeys.detail(newLog.id), newLog);
+      if (result?.tutorLogId) {
+        queryClient.invalidateQueries({ queryKey: tutorLogsKeys.detail(result.tutorLogId) });
       }
-      if (newLog?.session_id) {
-        queryClient.setQueryData(tutorLogsKeys.forSession(newLog.session_id), newLog);
+      if (variables.data.sessionId) {
+        queryClient.invalidateQueries({ queryKey: tutorLogsKeys.forSession(variables.data.sessionId) });
       }
     },
   });

@@ -28,25 +28,39 @@ export function ChatWindow({ descriptor }: Props) {
     updateWindowTitleRef.current = updateWindowTitle;
   });
 
-  // Fetch conversation to get contact details
-  const { data: conversation } = useQuery({
-    queryKey: ['conversation-header', descriptor.conversationId],
+  // Get contactId from conversationId
+  const { data: contactId } = useQuery({
+    queryKey: ['contact-from-conversation', descriptor.conversationId],
     queryFn: async () => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       const { data, error } = await supabase
         .from('conversations')
+        .select('contact_id')
+        .eq('id', descriptor.conversationId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.contact_id || null;
+    },
+    enabled: !!descriptor.conversationId,
+  });
+
+  // Fetch contact details
+  const { data: contact } = useQuery({
+    queryKey: ['contact-header', contactId],
+    queryFn: async () => {
+      if (!contactId) return null;
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const { data, error } = await supabase
+        .from('contacts')
         .select(`
           id,
-          contacts (
-            id,
-            phone_e164,
-            contact_type,
-            students (id, first_name, last_name),
-            parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-            staff (id, first_name, last_name)
-          )
+          phone_e164,
+          contact_type,
+          students (id, first_name, last_name),
+          parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
+          staff (id, first_name, last_name)
         `)
-        .eq('id', descriptor.conversationId)
+        .eq('id', contactId)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -55,13 +69,13 @@ export function ChatWindow({ descriptor }: Props) {
 
   // Update the window title when we have the contact name
   useEffect(() => {
-    if (conversation) {
-      const contactName = formatContactName(conversation);
+    if (contact) {
+      const contactName = formatContactName({ contacts: contact });
       updateWindowTitleRef.current(descriptor.conversationId, contactName);
     }
-  }, [conversation, descriptor.conversationId]);
+  }, [contact, descriptor.conversationId]);
 
-  const displayTitle = conversation ? formatContactName(conversation) : (descriptor.title || 'Loading...');
+  const displayTitle = contact ? formatContactName({ contacts: contact }) : (descriptor.title || 'Loading...');
 
   return (
     <div 
@@ -105,10 +119,10 @@ export function ChatWindow({ descriptor }: Props) {
           </button>
         </div>
       </div>
-      {!descriptor.minimized && (
+      {!descriptor.minimized && contactId && (
         <div className="flex flex-col h-[380px] max-h-[calc(100vh-8rem)]">
-          <MessageThread conversationId={descriptor.conversationId} />
-          <Composer conversationId={descriptor.conversationId} />
+          <MessageThread contactId={contactId} />
+          <Composer contactId={contactId} />
         </div>
       )}
     </div>

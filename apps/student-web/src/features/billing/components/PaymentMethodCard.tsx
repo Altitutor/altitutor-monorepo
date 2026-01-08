@@ -28,29 +28,15 @@ export function PaymentMethodCard() {
   // Handle payment_methods - should already be transformed to array by API layer
   const paymentMethods = billing?.payment_methods ?? [];
   
-  // Debug logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[PaymentMethodCard] Billing data:', billing);
-    console.log('[PaymentMethodCard] Payment methods:', paymentMethods);
-  }
-  
   const hasPaymentMethods = paymentMethods.length > 0;
 
   return (
     <div className="space-y-4">
       {hasPaymentMethods ? (
-        <>
-          <PaymentMethodsList paymentMethods={paymentMethods} />
-          <Button 
-            onClick={() => setIsModalOpen(true)} 
-            variant="outline" 
-            className="w-full"
-            disabled={!studentId}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Another Payment Method
-          </Button>
-        </>
+        <PaymentMethodsList 
+          paymentMethods={paymentMethods} 
+          onAddPaymentMethod={studentId ? () => setIsModalOpen(true) : undefined}
+        />
       ) : (
         <div className="text-center py-8 space-y-4">
           <div className="flex justify-center">

@@ -43,8 +43,8 @@ BEGIN
       -- ========================
       INSERT INTO public.tutor_logs_staff_attendance (id, tutor_log_id, staff_id, attended, type)
       VALUES
-        (gen_random_uuid(), tutor_log1_id, '00000000-0000-0000-0000-000000000010', true, 'PRIMARY'),
-        (gen_random_uuid(), tutor_log2_id, '00000000-0000-0000-0000-000000000011', true, 'PRIMARY')
+        (gen_random_uuid(), tutor_log1_id, '00000000-0000-0000-0000-000000000010', true, 'MAIN_TUTOR'),
+        (gen_random_uuid(), tutor_log2_id, '00000000-0000-0000-0000-000000000011', true, 'MAIN_TUTOR')
       ON CONFLICT DO NOTHING;
 
       -- ========================

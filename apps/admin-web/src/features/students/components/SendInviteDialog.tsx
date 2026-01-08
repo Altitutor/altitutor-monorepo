@@ -12,6 +12,9 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { invitesApi } from '@/features/auth/api/invites';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
 
 interface SendInviteDialogProps {
@@ -38,7 +41,33 @@ export function SendInviteDialog({
   const hasEmail = !!student.email;
   const hasPhone = !!student.phone;
 
+  // Fetch existing token when dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchExistingToken = async () => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data } = await supabase
+        .from('students')
+        .select('invite_token')
+        .eq('id', student.id)
+        .single();
+
+      if (data?.invite_token) {
+        setToken(data.invite_token);
+        const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
+        const url = `${baseUrl}/invite/${data.invite_token}`;
+        setInviteUrl(url);
+      }
+    };
+
+    fetchExistingToken();
+  }, [isOpen, student.id]);
+
   const handleGenerateToken = useCallback(async () => {
+    // Skip if we already have a token
+    if (token) return;
+
     try {
       setIsGenerating(true);
       const result = await invitesApi.generateInviteToken({
@@ -61,9 +90,9 @@ export function SendInviteDialog({
     } finally {
       setIsGenerating(false);
     }
-  }, [student.id, toast]);
+  }, [student.id, token, toast]);
 
-  // Generate token when modal opens (or reuse existing one)
+  // Generate token when modal opens ONLY if no existing token
   useEffect(() => {
     if (isOpen && !token) {
       handleGenerateToken();

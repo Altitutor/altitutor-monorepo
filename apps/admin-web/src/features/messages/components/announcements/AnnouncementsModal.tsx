@@ -140,15 +140,20 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>{getStepTitle()}</DialogTitle>
         </DialogHeader>
         
-        {step !== 'success' && renderStepIndicator()}
+        {step !== 'success' && (
+          <div className="flex-shrink-0">
+            {renderStepIndicator()}
+          </div>
+        )}
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-[400px]">
-          {step === 'select' && (
+        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+          <div className="h-full overflow-y-auto">
+            {step === 'select' && (
             <StudentSelector
               selectedStudents={selectedStudents}
               onStudentsChange={setSelectedStudents}
@@ -225,6 +230,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {step !== 'success' && (

@@ -13,11 +13,13 @@ import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
+import { useSessionDurationMinutes } from '@/features/bookings/hooks/useBookingSettings';
 
 export default function BookTrialPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { data: durationMinutes = 60 } = useSessionDurationMinutes('TRIAL_SESSION');
   
   // Initialize state from query params
   const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
@@ -175,7 +177,7 @@ export default function BookTrialPage() {
         <div className="space-y-4">
           <TimeSlotPicker
             sessionType="TRIAL_SESSION"
-            durationMinutes={60}
+            durationMinutes={durationMinutes}
             onSlotSelect={handleSlotSelect}
             selectedSlot={selectedSlot}
             allowAnonymous={true}
@@ -281,7 +283,7 @@ export default function BookTrialPage() {
                   
                   <div className="text-sm font-medium text-muted-foreground">Duration:</div>
                   <div className="text-sm">
-                    {Math.round((new Date(selectedSlot.endAt).getTime() - new Date(selectedSlot.startAt).getTime()) / (1000 * 60))} minutes
+                    {durationMinutes} minutes
                   </div>
                 </div>
               </div>

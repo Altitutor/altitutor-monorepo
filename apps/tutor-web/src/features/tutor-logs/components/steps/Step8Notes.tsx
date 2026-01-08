@@ -1,11 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Textarea } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { X, Plus } from 'lucide-react';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Step8NotesProps = {
   notes: string[];
@@ -13,70 +9,40 @@ type Step8NotesProps = {
 };
 
 export function Step8Notes({ notes, onUpdate }: Step8NotesProps) {
-  const [currentNote, setCurrentNote] = useState('');
+  // Get the first note if it exists, otherwise empty string
+  const [noteText, setNoteText] = useState(notes[0] || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleAddNote = () => {
-    if (currentNote.trim()) {
-      onUpdate([...notes, currentNote.trim()]);
-      setCurrentNote('');
+  // Update local state when notes prop changes (e.g., when navigating back)
+  useEffect(() => {
+    setNoteText(notes[0] || '');
+  }, [notes]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  };
+  }, [noteText]);
 
-  const handleRemoveNote = (index: number) => {
-    onUpdate(notes.filter((_, i) => i !== index));
-  };
-
-  // Auto-add current note when moving to next step (handled in parent)
-  const handleAutoAdd = () => {
-    if (currentNote.trim() && !notes.includes(currentNote.trim())) {
-      onUpdate([...notes, currentNote.trim()]);
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNoteText(value);
+    // Update formData immediately - preserve multi-line formatting, convert to array (single element or empty)
+    onUpdate(value.trim() ? [value] : []);
   };
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Add any notes about this session (optional). Notes will be automatically added when you press Next.
-      </p>
-
-      <div className="space-y-3">
-        <Textarea
-          placeholder="Type your note here..."
-          value={currentNote}
-          onChange={(e) => setCurrentNote(e.target.value)}
-          rows={4}
-          className="resize-none"
-        />
-        <Button
-          variant="outline"
-          onClick={handleAddNote}
-          disabled={!currentNote.trim()}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Note
-        </Button>
-      </div>
-
-      {notes.length > 0 && (
-        <div className="space-y-2">
-          <div className="font-medium">Added Notes</div>
-          {notes.map((note, index) => (
-            <div
-              key={index}
-              className="flex items-start gap-2 p-3 border rounded-md bg-muted/30"
-            >
-              <div className="flex-1 text-sm whitespace-pre-wrap">{note}</div>
-              <button
-                type="button"
-                onClick={() => handleRemoveNote(index)}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <h3 className="text-lg font-semibold">Session Notes</h3>
+      <Textarea
+        ref={textareaRef}
+        value={noteText}
+        onChange={handleChange}
+        placeholder="Add session notes..."
+        className="min-h-[120px] resize-none text-sm"
+      />
     </div>
   );
 }

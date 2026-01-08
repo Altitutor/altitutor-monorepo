@@ -20,7 +20,6 @@ import { ScrollArea } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
-  CalendarIcon,
   Check,
   X,
   Filter
@@ -34,7 +33,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
 
 type SessionsTableProps = {
@@ -68,9 +67,10 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
-  type SortField = 'start_at' | 'type';
-  const [sortField, setSortField] = useState<SortField>('start_at');
-  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
+  const [sortField, setSortField] = useState<'start_at'>('start_at');
+  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('asc');
+  const [showLogged, setShowLogged] = useState(true);
+  const [showUnlogged, setShowUnlogged] = useState(true);
   
   // Session types
   const SESSION_TYPES = ['CLASS', 'DRAFTING', 'EXAM_COURSE', 'SUBSIDY_INTERVIEW', 'TRIAL_SESSION', 'STAFF_INTERVIEW', 'TRIAL_SHIFT'] as const;
@@ -211,7 +211,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     staffId,
     classId,
     types: typeFilters.length > 0 ? typeFilters : undefined,
-    orderBy: sortField === 'start_at' ? 'start_at' : 'type',
+    orderBy: 'start_at',
     ascending: sortDirection === 'asc',
   });
   
@@ -273,8 +273,20 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
       });
     }
     
+    // Filter by tutor log status
+    if (!showLogged || !showUnlogged) {
+      result = result.filter(session => {
+        const hasTutorLog = !!tutorLogs[session.id];
+        if (hasTutorLog) {
+          return showLogged;
+        } else {
+          return showUnlogged;
+        }
+      });
+    }
+    
     return result;
-  }, [allSessions, studentFilters, initialStudentFilters, hideStudentFilter, data?.sessionStudents]);
+  }, [allSessions, studentFilters, initialStudentFilters, hideStudentFilter, data?.sessionStudents, showLogged, showUnlogged, tutorLogs]);
 
   // Paginated sessions
   const paginatedSessions = useMemo(() => {
@@ -291,15 +303,10 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [studentFilters, initialStudentFilters, typeFilters, debouncedSearchTerm, rangeStart, rangeEnd]);
+  }, [studentFilters, initialStudentFilters, typeFilters, debouncedSearchTerm, rangeStart, rangeEnd, showLogged, showUnlogged]);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
+  const handleSort = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
   
   const getSessionTypeBadgeColor = (type: string) => {
@@ -348,9 +355,29 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   // (removed duplicate helper definitions)
 
   const getTimeRange = (session: Tables<'sessions'>) => {
-    const s = session.start_at ? new Date(session.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    const e = session.end_at ? new Date(session.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    return s && e ? `${s}–${e}` : s || e || '-';
+    const formatTime = (date: Date) => {
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const period = hours >= 12 ? 'pm' : 'am';
+      const displayHours = hours % 12 || 12;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      return `${displayHours}:${displayMinutes}${period}`;
+    };
+    
+    if (!session.start_at || !session.end_at) {
+      if (session.start_at) {
+        return formatTime(new Date(session.start_at));
+      }
+      if (session.end_at) {
+        return formatTime(new Date(session.end_at));
+      }
+      return '-';
+    }
+    
+    const startDate = new Date(session.start_at);
+    const endDate = new Date(session.end_at);
+    
+    return `${formatTime(startDate)} - ${formatTime(endDate)}`;
   };
   
   const handleSessionClick = (id: string) => {
@@ -523,6 +550,38 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               </Popover>
               )}
 
+              {/* Tutor Log Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant={!showLogged || !showUnlogged ? "secondary" : "outline"} 
+                    size="sm"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Tutor Log
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56" align="end">
+                  <div className="space-y-2">
+                    <div className="font-medium text-sm mb-2">Tutor Log</div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={showLogged}
+                        onCheckedChange={(checked) => setShowLogged(checked === true)}
+                      />
+                      <span className="text-sm">Tutor log</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={showUnlogged}
+                        onCheckedChange={(checked) => setShowUnlogged(checked === true)}
+                      />
+                      <span className="text-sm">Unlogged</span>
+                    </label>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
             {/* Date Range Filter */}
             {onFromChange && onToChange && (
               <DateRangePicker
@@ -540,20 +599,13 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('start_at')}>
+              <TableHead className="cursor-pointer" onClick={handleSort}>
                 Date
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'start_at' ? "opacity-100" : "opacity-40"
-                )} />
+                <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-100" />
               </TableHead>
               <TableHead>Time</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('type')}>
+              <TableHead>
                 Type
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'type' ? "opacity-100" : "opacity-40"
-                )} />
               </TableHead>
               {!classId && (
                 <TableHead>Class</TableHead>
@@ -581,7 +633,6 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                       <span>{session.start_at ? formatDate(session.start_at) : '-'}</span>
                       {session.status === 'INACTIVE' && (
                         <Badge variant="secondary" className="text-xs">

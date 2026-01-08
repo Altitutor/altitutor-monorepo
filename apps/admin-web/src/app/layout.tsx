@@ -8,12 +8,20 @@ import { AuthProvider } from '@/features/auth/providers'
 import { Navbar } from '@/shared/components'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
+import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Altitutor Admin',
   description: 'Administrative dashboard for Altitutor staff',
+  icons: {
+    icon: [
+      { url: '/images/logo-icon-light.svg', media: '(prefers-color-scheme: light)' },
+      { url: '/images/logo-icon-dark.svg', media: '(prefers-color-scheme: dark)' },
+    ],
+    apple: '/images/logo-icon-light.svg',
+  },
 }
 
 export default function RootLayout({
@@ -33,14 +41,16 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                <MobileMenuProvider>
-                  <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
-                    <Navbar />
-                    <main className="flex-1 pt-[var(--navbar-height)]">
-                      {children}
-                    </main>
-                  </div>
-                </MobileMenuProvider>
+                <ToastProviderWrapper>
+                  <MobileMenuProvider>
+                    <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                      <Navbar />
+                      <main className="flex-1 pt-[var(--navbar-height)]">
+                        {children}
+                      </main>
+                    </div>
+                  </MobileMenuProvider>
+                </ToastProviderWrapper>
               </ThemeProvider>
             </AuthGuard>
           </AuthProvider>

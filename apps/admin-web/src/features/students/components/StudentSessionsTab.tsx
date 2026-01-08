@@ -30,7 +30,7 @@ import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 import { cn, formatSessionType } from '@/shared/utils';
 import { CalendarIcon, Check, X, ArrowUpDown } from 'lucide-react';
 import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
-import { DateRangePicker } from '@/shared/components/DateRangePicker';
+import { DateRangePicker } from '@altitutor/ui';
 
 interface StudentSessionsTabProps {
   student: Tables<'students'>;
@@ -53,9 +53,10 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  // Filter state - default: start date today, end date unset
-  const [dateRangeStart, setDateRangeStart] = useState<string>(getTodayLocalDate());
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>('');
+  // Filter state - default: both dates today
+  const today = getTodayLocalDate();
+  const [dateRangeStart, setDateRangeStart] = useState<string>(today);
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(today);
   const [selectedClassId, setSelectedClassId] = useState<string>('ALL');
 
   // Sort state
@@ -247,12 +248,10 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
               <div>
                 <label className="block text-sm mb-1">Start Date</label>
                 <DateRangePicker
-                  from=""
-                  to=""
+                  from={today}
+                  to={today}
                   onFromChange={() => {}}
                   onToChange={() => {}}
-                  fromPlaceholder="Start date"
-                  toPlaceholder="End date"
                 />
               </div>
               <div>
@@ -312,8 +311,6 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
               to={dateRangeEnd}
               onFromChange={setDateRangeStart}
               onToChange={setDateRangeEnd}
-              fromPlaceholder="Start date"
-              toPlaceholder="End date"
             />
           </div>
           <div>

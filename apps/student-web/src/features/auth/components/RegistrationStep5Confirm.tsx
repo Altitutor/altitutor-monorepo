@@ -34,6 +34,7 @@ type RegistrationFormValues = {
   };
   password: string;
   confirmPassword: string;
+  paymentMethodVerified: boolean;
 };
 
 interface RegistrationStep5ConfirmProps {

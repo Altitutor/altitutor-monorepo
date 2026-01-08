@@ -66,7 +66,7 @@ export function useSendMessage() {
       const { data: created, error: insertErr } = await supabase
         .from('messages')
         .insert({
-          conversation_id: conversationId as string,
+          conversation_id: conversationId,
           direction: 'OUTBOUND',
           body: args.body,
           status: 'QUEUED',
