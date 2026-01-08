@@ -5,7 +5,7 @@ import { Button } from '@altitutor/ui';
 import { ChevronRight, ChevronDown, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useTopicFilesByTopic } from '../hooks';
-import { deriveTopicFileCode, buildTopicTree, type TopicTree } from '../utils/codes';
+import { buildTopicTree, type TopicTree } from '../utils/codes';
 import { FileCard } from './FileCard';
 
 export interface TopicsHierarchyProps {
@@ -114,7 +114,7 @@ export function TopicNode({
           {topicFiles.length > 0 && (
             <div className="space-y-2 mb-2">
               {topicFiles.map((tf: any) => {
-                const fileCode = deriveTopicFileCode(tf, topic.code, tf.type);
+                const fileCode = tf.code || '';
                 // Get the full topic record to access subject_id
                 const fullTopic = allTopics.find(t => t.id === topic.id);
                 return (

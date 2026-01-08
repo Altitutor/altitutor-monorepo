@@ -13,7 +13,6 @@ import { format } from 'date-fns';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import { FileCard } from '@/features/topics/components/FileCard';
 import { TopicCard } from '../TopicCard';
 import type { Database } from '@altitutor/shared';
@@ -283,7 +282,7 @@ export function Step9Confirmation({
               {(formData.topics || []).map((topic) => {
                 const topicData = topicsMap.get(topic.topicId);
                 if (!topicData) return null;
-                const topicCode = deriveTopicCode(topicData, allTopics);
+                const topicCode = topicData.code || '';
                 const students = topic.studentIds || [];
                 const parentTopic = topicData.parent_id ? allTopics.find((t) => t.id === topicData.parent_id) : undefined;
                 const subject = topicData.subject_id ? subjectsMap.get(topicData.subject_id) : undefined;
@@ -292,7 +291,6 @@ export function Step9Confirmation({
                   <div key={topic.topicId} className="border rounded-lg p-4 space-y-3">
                     <TopicCard
                       topic={topicData}
-                      allTopics={allTopics}
                       subject={subject}
                       parentTopic={parentTopic}
                     />
@@ -340,7 +338,7 @@ export function Step9Confirmation({
               {(formData.topics || []).map((topic) => {
                 const topicData = topicsMap.get(topic.topicId);
                 if (!topicData) return null;
-                const topicCode = deriveTopicCode(topicData, allTopics);
+                const topicCode = topicData.code || '';
                 const files = (formData.topicFiles || []).filter((tf) => tf.topicId === topic.topicId);
                 
                 if (files.length === 0) return null;
@@ -354,7 +352,7 @@ export function Step9Confirmation({
                       {files.map((file) => {
                         const fileData = topicFilesMap.get(file.topicsFilesId);
                         if (!fileData) return null;
-                        const fileCode = deriveTopicFileCode(fileData, topicCode, fileData.type);
+                        const fileCode = fileData.code || '';
                         
                         return fileData.file?.filename ? (
                           <FileCard

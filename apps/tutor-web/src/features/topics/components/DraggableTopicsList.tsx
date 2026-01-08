@@ -21,11 +21,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@altitutor/ui';
 import { GripVertical } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { deriveTopicCode } from '../utils/codes';
 
 export interface DraggableTopicsListProps {
   topics: Tables<'topics'>[];
-  allTopics: Tables<'topics'>[]; // Needed for code derivation
   onReorder: (updates: Array<{ id: string; index: number }>) => void;
 }
 
@@ -74,7 +72,6 @@ function SortableItem({ topic, code }: SortableItemProps) {
 
 export function DraggableTopicsList({
   topics,
-  allTopics,
   onReorder,
 }: DraggableTopicsListProps) {
   const [items, setItems] = useState(topics);
@@ -110,10 +107,10 @@ export function DraggableTopicsList({
     }
   };
 
-  // Derive codes for topics
+  // Use stored codes from topics
   const topicsWithCodes = items.map((topic) => ({
     topic,
-    code: deriveTopicCode(topic, allTopics),
+    code: topic.code || '',
   }));
 
   if (items.length === 0) {

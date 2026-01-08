@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -104,8 +103,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
               <div className="font-medium mb-3">{topicData?.name}</div>
               <div className="space-y-2">
                 {files.map((file) => {
-                  const topicCode = topicData ? deriveTopicCode(topicData, topicsData) : '';
-                  const fileCode = deriveTopicFileCode(file, topicCode, file.type);
+                  const fileCode = file.code || '';
 
                   return (
                     <div key={file.id} className="flex items-center gap-2 py-1">

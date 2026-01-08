@@ -10,7 +10,6 @@ import type { Tables } from '@altitutor/shared';
 import { topicsApi } from '@/features/topics/api/topics';
 import { sessionsApi } from '@/features/sessions/api/sessions';
 import { subjectsApi } from '@/features/subjects/api/subjects';
-import { deriveTopicCode } from '@/features/topics/utils/codes';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
 
@@ -240,7 +239,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
                 
                 const searchLower = searchTerm.toLowerCase();
                 const topicName = topic.name.toLowerCase();
-                const topicCode = deriveTopicCode(topic, allTopics).toLowerCase();
+                const topicCode = (topic.code || '').toLowerCase();
                 const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
                 const subjectName = subject ? formatSubjectShortName(subject).toLowerCase() : '';
                 
@@ -252,7 +251,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
               })
               .map((topic) => {
                 const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
-                const topicCode = deriveTopicCode(topic, allTopics);
+                const topicCode = topic.code || '';
                 const { style, textColorClass } = getSubjectColorStyle(subject);
                 const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
                 

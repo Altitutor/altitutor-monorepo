@@ -56,7 +56,7 @@ import { FileCard } from './FileCard';
 import { AddTopicModal } from './AddTopicModal';
 import { AddResourceFileModal } from './AddResourceFileModal';
 import { EditTopicFileModal } from './EditTopicFileModal';
-import { deriveTopicFileCode, deriveTopicCode, buildTopicTree } from '../utils/codes';
+import { buildTopicTree } from '../utils/codes';
 import { Plus } from 'lucide-react';
 
 const formSchema = z.object({
@@ -391,8 +391,7 @@ export function ViewTopicModal({
                     ) : (
                       <div className="space-y-2">
                         {topicFiles.map((topicFile) => {
-                          const topicCode = topic ? deriveTopicCode(topic, allTopics) : '';
-                          const code = deriveTopicFileCode(topicFile, topicCode, topicFile.type);
+                          const code = topicFile.code || '';
                           
                           return (
                             <FileCard

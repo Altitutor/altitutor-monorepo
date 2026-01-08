@@ -17,6 +17,7 @@ const RESOURCE_TYPE_CODES: Record<Enums<'resource_type'>, string> = {
 };
 
 /**
+ * @deprecated Use topic.code instead - codes are now stored in the database
  * Recursively derives the topic code by traversing up the parent hierarchy
  * E.g., "5.2.3" for a topic with index 3, whose parent has index 2, whose parent has index 5
  * 
@@ -28,6 +29,11 @@ export function deriveTopicCode(
   topic: Tables<'topics'>,
   allTopics: Tables<'topics'>[]
 ): string {
+  // Use stored code if available, otherwise fallback to calculation
+  if (topic.code) {
+    return topic.code;
+  }
+  
   const codes: number[] = [];
   let currentTopic: Tables<'topics'> | undefined = topic;
   
@@ -47,6 +53,7 @@ export function deriveTopicCode(
 }
 
 /**
+ * @deprecated Use topicFile.code instead - codes are now stored in the database
  * Derives the topic file code
  * Format: "{topic_code}{type_code}.{topic_files_index}"
  * E.g., "5.2.3PQ.1" for the first practice question in topic "5.2.3"
@@ -62,6 +69,11 @@ export function deriveTopicFileCode(
   topicCode: string,
   type: Enums<'resource_type'>
 ): string {
+  // Use stored code if available, otherwise fallback to calculation
+  if (topicFile.code) {
+    return topicFile.code;
+  }
+  
   const typeCode = RESOURCE_TYPE_CODES[type];
   let code = `${topicCode}${typeCode}.${topicFile.index}`;
   
@@ -151,7 +163,7 @@ export function buildTopicTree(
     .sort((a, b) => a.index - b.index)
     .map(topic => ({
       ...topic,
-      code: deriveTopicCode(topic, topics),
+      code: topic.code || deriveTopicCode(topic, topics), // Use stored code, fallback to calculation
       children: buildTopicTree(topics, topic.id),
     }));
   

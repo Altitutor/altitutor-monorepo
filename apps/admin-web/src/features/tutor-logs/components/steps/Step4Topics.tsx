@@ -8,7 +8,6 @@ import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
 import { TopicCard } from '../TopicCard';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { deriveTopicCode } from '@/features/topics/utils/codes';
 import { cn } from '@/shared/utils/index';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -212,7 +211,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
   const filteredSubjectTopics = subjectTopics.filter((topic) => {
     if (!searchFilter) return true;
     const searchLower = searchFilter.toLowerCase();
-    const topicCode = deriveTopicCode(topic, subjectTopics);
+    const topicCode = topic.code || '';
     return (
       topic.name.toLowerCase().includes(searchLower) ||
       topicCode.toLowerCase().includes(searchLower)
@@ -306,7 +305,6 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
                 <TopicCard
                   key={topicId}
                   topic={topic}
-                  allTopics={allTopics}
                   subject={subject}
                   parentTopic={parentTopic}
                 />

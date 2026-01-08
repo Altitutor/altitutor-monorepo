@@ -11,7 +11,6 @@ import { sessionsApi } from '@/features/sessions/api';
 import { subjectsApi } from '@/features/subjects/api';
 import { topicsApi } from '@/features/topics/api';
 import { formatClassShortName, formatSubjectShortName } from '@/shared/utils';
-import { deriveTopicCode } from '@/features/topics/utils/codes';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 
 // Map of path segments to display labels
@@ -250,7 +249,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           try {
             const topic = await topicsApi.getTopic(id);
             if (topic) {
-              const code = deriveTopicCode(topic, allTopics);
+              const code = topic.code || '';
               results[id] = `${code} ${topic.name}`;
             }
           } catch {

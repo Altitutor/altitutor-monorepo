@@ -7,7 +7,6 @@ import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../../types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { topicsApi } from '@/features/topics/api/topics';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import { format } from 'date-fns';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -210,7 +209,7 @@ export function Step9Confirmation({
           <div className="space-y-3">
             {(formData.topics || []).map((topic) => {
               const topicData = topicsMap.get(topic.topicId);
-              const topicCode = topicData ? deriveTopicCode(topicData, allTopics) : '';
+              const topicCode = topicData?.code || '';
               const studentIds = topic.studentIds || [];
               return (
                 <div key={topic.topicId} className="space-y-2">
@@ -251,7 +250,7 @@ export function Step9Confirmation({
               const files = (formData.topicFiles || []).filter((tf) => tf.topicId === topic.topicId);
               if (files.length === 0) return null;
               
-              const topicCode = topicData ? deriveTopicCode(topicData, allTopics) : '';
+              const topicCode = topicData?.code || '';
               
               return (
                 <div key={topic.topicId} className="space-y-2">
@@ -260,7 +259,7 @@ export function Step9Confirmation({
                     {files.map((file) => {
                       const fileData = topicFilesMap.get(file.topicsFilesId);
                       if (!fileData) return null;
-                      const fileCode = deriveTopicFileCode(fileData, topicCode, fileData.type);
+                      const fileCode = fileData.code || '';
                       const studentIds = file.studentIds || [];
                       
                       return (

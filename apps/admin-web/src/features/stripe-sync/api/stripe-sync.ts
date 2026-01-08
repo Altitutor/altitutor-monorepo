@@ -156,5 +156,27 @@ export const stripeSyncApi = {
       throw new Error(error.error || 'Failed to unlink student');
     }
   },
+
+  /**
+   * Sync student data from DB to Stripe (name, email, default payment method)
+   */
+  syncToStripe: async (studentId: string): Promise<{
+    success: boolean;
+    updates: string[];
+    message: string;
+  }> => {
+    const response = await fetch('/api/stripe/sync-to-stripe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to sync to Stripe');
+    }
+
+    return response.json();
+  },
 };
 
