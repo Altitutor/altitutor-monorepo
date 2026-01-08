@@ -10,17 +10,46 @@
 --   - Preserves all existing functionality for backward compatibility
 
 -- ========================
--- DROP OLD FUNCTION SIGNATURES
+-- DROP OLD FUNCTION SIGNATURES AND COMMENTS
 -- ========================
 
+-- Drop comments on old function signatures first (to avoid ambiguity when adding new comments)
+DO $$
+BEGIN
+  -- Drop comment on old get_available_slots signature if it exists
+  BEGIN
+    COMMENT ON FUNCTION public.get_available_slots(DATE, DATE, public.session_type, UUID, INTEGER) IS NULL;
+  EXCEPTION WHEN OTHERS THEN
+    -- Function or comment doesn't exist, ignore
+    NULL;
+  END;
+  
+  -- Drop comment on old create_booking_session signature if it exists
+  BEGIN
+    COMMENT ON FUNCTION public.create_booking_session(public.session_type, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID) IS NULL;
+  EXCEPTION WHEN OTHERS THEN
+    -- Function or comment doesn't exist, ignore
+    NULL;
+  END;
+  
+  -- Drop comment on old reschedule_drafting_session signature if it exists
+  BEGIN
+    COMMENT ON FUNCTION public.reschedule_drafting_session(UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID) IS NULL;
+  EXCEPTION WHEN OTHERS THEN
+    -- Function or comment doesn't exist, ignore
+    NULL;
+  END;
+END $$;
+
 -- Drop old get_available_slots signature (5 parameters) - new one with DEFAULT handles old calls
-DROP FUNCTION IF EXISTS public.get_available_slots(DATE, DATE, public.session_type, UUID, INTEGER);
+-- Use CASCADE to handle any dependencies (like views or other functions that might reference it)
+DROP FUNCTION IF EXISTS public.get_available_slots(DATE, DATE, public.session_type, UUID, INTEGER) CASCADE;
 
 -- Drop old create_booking_session signature (8 parameters) - new one with DEFAULT handles old calls
-DROP FUNCTION IF EXISTS public.create_booking_session(public.session_type, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID);
+DROP FUNCTION IF EXISTS public.create_booking_session(public.session_type, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID) CASCADE;
 
 -- Drop old reschedule_drafting_session signature (8 parameters) - new one with DEFAULT handles old calls
-DROP FUNCTION IF EXISTS public.reschedule_drafting_session(UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID);
+DROP FUNCTION IF EXISTS public.reschedule_drafting_session(UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID) CASCADE;
 
 -- ========================
 -- UPDATE GET_AVAILABLE_SLOTS
@@ -245,7 +274,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_available_slots(DATE, DATE, public.session_type, UUID, INTEGER, BOOLEAN) IS 'Calculate available booking slots based on opening hours, staff availability, blockouts, existing sessions, and reservations. Slots are generated at intervals matching the session duration. Filters out past dates and enforces minimum advance booking days requirement for students. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL).';
+COMMENT ON FUNCTION public.get_available_slots(p_start_date date, p_end_date date, p_session_type public.session_type, p_subject_id uuid, p_duration_minutes integer, p_bypass_date_restrictions boolean) IS 'Calculate available booking slots based on opening hours, staff availability, blockouts, existing sessions, and reservations. Slots are generated at intervals matching the session duration. Filters out past dates and enforces minimum advance booking days requirement for students. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL).';
 
 -- ========================
 -- UPDATE CREATE_BOOKING_SESSION
@@ -439,7 +468,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.create_booking_session(public.session_type, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID, BOOLEAN) IS 'Create a booking session with automatic staff assignment and student/staff linking. Validates student status: DISCONTINUED cannot book, TRIAL can only book TRIAL_SESSION. Uses p_staff_id when provided (highest priority), otherwise uses reservation staff_id, otherwise auto-assigns. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
+COMMENT ON FUNCTION public.create_booking_session(p_session_type public.session_type, p_student_id uuid, p_start_at timestamptz, p_end_at timestamptz, p_subject_id uuid, p_staff_id uuid, p_reservation_id uuid, p_created_by uuid, p_bypass_date_restrictions boolean) IS 'Create a booking session with automatic staff assignment and student/staff linking. Validates student status: DISCONTINUED cannot book, TRIAL can only book TRIAL_SESSION. Uses p_staff_id when provided (highest priority), otherwise uses reservation staff_id, otherwise auto-assigns. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
 
 -- ========================
 -- UPDATE RESCHEDULE_DRAFTING_SESSION
@@ -684,7 +713,7 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION public.reschedule_drafting_session(UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID, BOOLEAN) IS 'Reschedule a drafting session by creating a new drafting session and marking the original session as an absence atomically. Validates student status: DISCONTINUED and TRIAL students cannot reschedule drafting sessions. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
+COMMENT ON FUNCTION public.reschedule_drafting_session(p_original_session_id uuid, p_student_id uuid, p_start_at timestamptz, p_end_at timestamptz, p_subject_id uuid, p_staff_id uuid, p_reservation_id uuid, p_created_by uuid, p_bypass_date_restrictions boolean) IS 'Reschedule a drafting session by creating a new drafting session and marking the original session as an absence atomically. Validates student status: DISCONTINUED and TRIAL students cannot reschedule drafting sessions. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
 
 -- ========================
 -- UPDATE CREATE_ADMIN_TRIAL_BOOKING

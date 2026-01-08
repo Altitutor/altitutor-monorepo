@@ -88,11 +88,13 @@ export async function POST(request: NextRequest) {
       : 0;
     const index = maxIndex + 1;
     
+    // code is set by database trigger, so we provide empty string (will be overwritten)
     const topicsFileData: TablesInsert<'topics_files'> = {
       topic_id: body.topic_id,
       type: body.type,
       index,
       file_id: body.file_id,
+      code: '', // Will be set by trigger
       is_solutions: body.is_solutions || false,
       is_solutions_of_id: body.is_solutions_of_id || null,
       created_by: tutorId,

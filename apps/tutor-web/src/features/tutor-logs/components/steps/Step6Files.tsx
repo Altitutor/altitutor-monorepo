@@ -57,10 +57,26 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
           .eq('topic_id', topicId)
           .order('type')
           .order('index');
-        // Filter out files with null IDs (shouldn't happen, but type safety)
-        filesMap[topicId] = (data || []).filter((f): f is Tables<'topics_files'> => 
-          f.id !== null && f.file_id !== null && f.topic_id !== null && f.index !== null
-        );
+        // Filter and map to topics_files type (view includes extra file fields)
+        filesMap[topicId] = (data || []).filter(f => 
+          f.id !== null && 
+          f.file_id !== null && 
+          f.topic_id !== null && 
+          f.index !== null &&
+          f.code !== null
+        ).map(f => ({
+          id: f.id!,
+          topic_id: f.topic_id!,
+          type: f.type,
+          index: f.index!,
+          code: f.code!,
+          file_id: f.file_id!,
+          is_solutions: f.is_solutions,
+          is_solutions_of_id: f.is_solutions_of_id,
+          created_at: f.created_at,
+          updated_at: f.updated_at,
+          created_by: f.created_by,
+        })) as Tables<'topics_files'>[];
       }
       setFilesData(filesMap);
       setIsLoading(false);

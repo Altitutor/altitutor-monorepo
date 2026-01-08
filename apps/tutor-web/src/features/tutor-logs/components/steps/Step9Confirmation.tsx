@@ -113,9 +113,22 @@ export function Step9Confirmation({
           .from('vtutor_topics_files')
           .select('*')
           .in('id', topicFileIds);
+        // Filter and map to topics_files type (view includes extra file fields)
         setTopicFilesMap(new Map((files || [])
-          .filter((f): f is Tables<'topics_files'> => f.id != null)
-          .map((f) => [f.id, f])));
+          .filter(f => f.id != null && f.code != null)
+          .map((f) => [f.id!, {
+            id: f.id!,
+            topic_id: f.topic_id!,
+            type: f.type,
+            index: f.index!,
+            code: f.code!,
+            file_id: f.file_id!,
+            is_solutions: f.is_solutions,
+            is_solutions_of_id: f.is_solutions_of_id,
+            created_at: f.created_at,
+            updated_at: f.updated_at,
+            created_by: f.created_by,
+          } as Tables<'topics_files'>])));
       }
     };
 

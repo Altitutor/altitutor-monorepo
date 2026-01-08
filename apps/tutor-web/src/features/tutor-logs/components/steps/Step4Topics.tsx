@@ -12,6 +12,7 @@ import { sessionsApi } from '@/features/sessions/api/sessions';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
+import { deriveTopicCode } from '@/features/topics/utils/codes';
 
 type TopicItem = {
   topicId: string;
