@@ -19,14 +19,25 @@ import {
   SelectValue,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@altitutor/ui';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { 
   useTopicsBySubject, 
   useUpdateTopicFile, 
   useTopicFileById,
-  useAvailableSolutionLinks 
+  useAvailableSolutionLinks,
+  useDeleteTopicFile,
 } from '../hooks';
 import { deriveTopicCode } from '../utils/codes';
 import { useToast } from '@altitutor/ui';
@@ -49,6 +60,7 @@ export interface EditTopicFileModalProps {
   topicFileId: string;
   currentTopicId: string;
   currentSubjectId: string;
+  onDeleted?: () => void;
 }
 
 export function EditTopicFileModal({
@@ -57,6 +69,7 @@ export function EditTopicFileModal({
   topicFileId,
   currentTopicId,
   currentSubjectId,
+  onDeleted,
 }: EditTopicFileModalProps) {
   const [selectedTopicId, setSelectedTopicId] = useState<string>(currentTopicId);
   const [selectedType, setSelectedType] = useState<Enums<'resource_type'> | null>(null);
@@ -64,6 +77,7 @@ export function EditTopicFileModal({
   const [selectedSolutionLinkId, setSelectedSolutionLinkId] = useState<string | null>(null);
   const [topicSearchQuery, setTopicSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { toast } = useToast();
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
@@ -74,6 +88,7 @@ export function EditTopicFileModal({
     selectedType
   );
   const updateTopicFile = useUpdateTopicFile();
+  const deleteTopicFile = useDeleteTopicFile();
 
   // Get current subject
   const currentSubject = subjects.find((s) => s.id === currentSubjectId);
@@ -155,6 +170,20 @@ export function EditTopicFileModal({
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteTopicFile.mutateAsync(topicFileId);
+      setShowDeleteDialog(false);
+      onClose();
+      if (onDeleted) {
+        onDeleted();
+      }
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      // Error toast is handled by the mutation
     }
   };
 
@@ -286,19 +315,55 @@ export function EditTopicFileModal({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
+        <DialogFooter className="flex justify-between">
           <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !selectedTopicId || !selectedType || (isSolutions && !selectedSolutionLinkId)}
+            variant="destructive"
+            onClick={() => setShowDeleteDialog(true)}
+            disabled={isSubmitting || deleteTopicFile.isPending}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Save Changes
+            {deleteTopicFile.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Delete
           </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={isSubmitting || deleteTopicFile.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !selectedTopicId || !selectedType || (isSolutions && !selectedSolutionLinkId) || deleteTopicFile.isPending}
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save Changes
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the file record, topic file link, and the file from storage.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteTopicFile.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteTopicFile.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTopicFile.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

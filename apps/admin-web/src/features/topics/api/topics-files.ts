@@ -1,6 +1,7 @@
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getNextTopicFileIndex } from '../utils/codes';
+import { deleteFile as deleteStorageFile } from '@/shared/lib/supabase/storage';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -214,17 +215,65 @@ export const topicsFilesApi = {
   },
   
   /**
-   * Delete a topic file
+   * Delete a topic file (and associated file record and storage file)
    */
   deleteTopicFile: async (id: string): Promise<void> => {
-    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    // First, get the topic file with file details
+    const { data: topicFile, error: fetchError } = await supabase
+      .from('topics_files')
+      .select(`
+        *,
+        file:files(*)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (fetchError) {
+      console.error('Failed to fetch topic file:', fetchError);
+      throw fetchError;
+    }
+    
+    if (!topicFile) {
+      throw new Error('Topic file not found');
+    }
+    
+    const file = (topicFile as any).file as Tables<'files'> | null;
+    
+    // Delete the topics_files record
+    const { error: deleteTopicFileError } = await supabase
       .from('topics_files')
       .delete()
       .eq('id', id);
     
-    if (error) {
-      console.error('Failed to delete topic file:', error);
-      throw error;
+    if (deleteTopicFileError) {
+      console.error('Failed to delete topic file:', deleteTopicFileError);
+      throw deleteTopicFileError;
+    }
+    
+    // Delete the file record from database
+    if (file?.id) {
+      const { error: deleteFileError } = await supabase
+        .from('files')
+        .delete()
+        .eq('id', file.id);
+      
+      if (deleteFileError) {
+        console.error('Failed to delete file record:', deleteFileError);
+        // Continue even if file record deletion fails - storage deletion is more critical
+      }
+    }
+    
+    // Delete the file from storage
+    if (file?.storage_path) {
+      try {
+        await deleteStorageFile(file.storage_path);
+      } catch (storageError) {
+        console.error('Failed to delete file from storage:', storageError);
+        // Don't throw - database records are already deleted
+        // Storage cleanup can be done manually if needed
+      }
     }
   },
   

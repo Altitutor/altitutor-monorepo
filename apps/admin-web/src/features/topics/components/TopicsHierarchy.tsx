@@ -17,6 +17,7 @@ export interface TopicsHierarchyProps {
   onAddTopicClick?: (parentId?: string) => void;
   onAddResourceClick?: (topicId: string) => void;
   onEditFileClick?: (topicFileId: string, topicId: string, subjectId: string) => void;
+  onDeleteFileClick?: (topicFileId: string) => void;
   allTopics: Tables<'topics'>[];  // All topics for the subject
 }
 
@@ -30,6 +31,7 @@ export interface TopicNodeProps {
   onAddTopicClick?: (parentId?: string) => void;
   onAddResourceClick?: (topicId: string) => void;
   onEditFileClick?: (topicFileId: string, topicId: string, subjectId: string) => void;
+  onDeleteFileClick?: (topicFileId: string) => void;
   searchQuery?: string;
 }
 
@@ -43,6 +45,7 @@ export function TopicNode({
   onAddTopicClick,
   onAddResourceClick,
   onEditFileClick,
+  onDeleteFileClick,
   searchQuery,
 }: TopicNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -133,6 +136,7 @@ export function TopicNode({
                         ? (topicFileId) => onEditFileClick(topicFileId, topic.id, fullTopic.subject_id)
                         : undefined
                     }
+                    onDelete={onDeleteFileClick}
                   />
                 );
               })}
@@ -165,6 +169,7 @@ export function TopicNode({
               onAddTopicClick={onAddTopicClick}
               onAddResourceClick={onAddResourceClick}
               onEditFileClick={onEditFileClick}
+              onDeleteFileClick={onDeleteFileClick}
               searchQuery={searchQuery}
             />
           ))}
@@ -196,6 +201,7 @@ export function TopicsHierarchy({
   onAddTopicClick,
   onAddResourceClick,
   onEditFileClick,
+  onDeleteFileClick,
   allTopics,
 }: TopicsHierarchyProps) {
   if (!subjectId) {
@@ -240,6 +246,7 @@ export function TopicsHierarchy({
           onAddTopicClick={onAddTopicClick}
           onAddResourceClick={onAddResourceClick}
           onEditFileClick={onEditFileClick}
+          onDeleteFileClick={onDeleteFileClick}
           searchQuery={searchQuery}
         />
       ))}
