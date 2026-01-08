@@ -84,7 +84,7 @@ export function Navbar() {
                 style={{ width: "auto" }}
               />
               <span 
-                className="text-brand-lightBlue font-normal leading-none"
+                className="text-brand-lightBlue font-normal leading-none whitespace-nowrap"
                 style={{ 
                   fontFamily: 'Calibri, "Segoe UI", system-ui, -apple-system, sans-serif',
                   fontSize: '26px',
