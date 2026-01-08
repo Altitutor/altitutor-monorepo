@@ -676,62 +676,102 @@ Deno.serve(async (req: Request) => {
             // Finalize invoice (sends email)
             const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
 
-            // Store in database - wrap in try/catch for rollback
+            // Check if DB record already exists (idempotency/race condition protection)
+            const { data: existingInvoice } = await supabase
+              .from('invoices')
+              .select('id, status')
+              .eq('stripe_invoice_id', finalizedInvoice.id)
+              .maybeSingle();
+
             let dbInvoice: any = null;
-            try {
-              const { data: insertedInvoice, error: dbErr } = await supabase
-                .from('invoices')
-                .insert({
-                  student_id: studentId,
-                  stripe_invoice_id: finalizedInvoice.id,
-                  stripe_invoice_number: finalizedInvoice.number,
-                  invoice_date: invoiceDate,
-                  amount_due_cents: finalizedInvoice.amount_due,
-                  amount_paid_cents: finalizedInvoice.amount_paid || 0,
-                  currency: finalizedInvoice.currency,
-                  status: finalizedInvoice.status,
-                  collection_method: finalizedInvoice.collection_method,
-                  auto_advance: finalizedInvoice.auto_advance,
-                  hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
-                  invoice_pdf: finalizedInvoice.invoice_pdf,
-                  finalized_at: finalizedInvoice.status_transitions?.finalized_at 
-                    ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000).toISOString()
-                    : null,
-                })
-                .select('id')
-                .single();
 
-              if (dbErr) throw dbErr;
-              dbInvoice = insertedInvoice;
-
-              // Store invoice items
-              const itemInserts = stripeInvoiceItems.map((item) => ({
-                invoice_id: dbInvoice.id,
-                sessions_students_id: item.sessions_students_id,
-                stripe_invoice_item_id: item.stripe_invoice_item_id,
-                amount_cents: item.amount_cents,
-                description: item.description,
-                is_subsidy: item.is_subsidy,
-                session_id: item.session_id,
-                student_id: item.student_id,
-              }));
-
-              const { error: itemsErr } = await supabase
-                .from('invoice_items')
-                .insert(itemInserts);
-
-              if (itemsErr) throw itemsErr;
-
-              invoicesCreated.push(dbInvoice.id);
-            } catch (dbErr: any) {
-              // Rollback: void the Stripe invoice if DB insert failed
-              console.error(`[runner] Database insert failed for student ${studentId}, voiding Stripe invoice:`, dbErr?.message || dbErr);
+            if (existingInvoice) {
+              // Already exists - skip creation
+              dbInvoice = existingInvoice;
+              invoicesCreated.push(existingInvoice.id);
+            } else {
+              // Store in database - wrap in try/catch for rollback
               try {
-                await stripe.invoices.voidInvoice(finalizedInvoice.id);
-              } catch (voidErr) {
-                console.error(`[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`, voidErr);
+                const { data: insertedInvoice, error: dbErr } = await supabase
+                  .from('invoices')
+                  .insert({
+                    student_id: studentId,
+                    stripe_invoice_id: finalizedInvoice.id,
+                    stripe_invoice_number: finalizedInvoice.number,
+                    invoice_date: invoiceDate,
+                    amount_due_cents: finalizedInvoice.amount_due,
+                    amount_paid_cents: finalizedInvoice.amount_paid || 0,
+                    currency: finalizedInvoice.currency,
+                    status: finalizedInvoice.status,
+                    collection_method: finalizedInvoice.collection_method,
+                    auto_advance: finalizedInvoice.auto_advance,
+                    hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
+                    invoice_pdf: finalizedInvoice.invoice_pdf,
+                    finalized_at: finalizedInvoice.status_transitions?.finalized_at 
+                      ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000).toISOString()
+                      : null,
+                  })
+                  .select('id')
+                  .single();
+
+                let isNewInvoice = false;
+                if (dbErr) {
+                  // Check for duplicate key error (race condition)
+                  if (dbErr.code === '23505') {
+                    // Another process created it, fetch and continue
+                    const { data: raceInvoice } = await supabase
+                      .from('invoices')
+                      .select('id, status')
+                      .eq('stripe_invoice_id', finalizedInvoice.id)
+                      .single();
+                    if (raceInvoice) {
+                      dbInvoice = raceInvoice;
+                      invoicesCreated.push(raceInvoice.id);
+                      // Skip item insert - other process already did it
+                    } else {
+                      throw dbErr;
+                    }
+                  } else {
+                    throw dbErr;
+                  }
+                } else {
+                  dbInvoice = insertedInvoice;
+                  isNewInvoice = true;
+                }
+
+                // Store invoice items (only if we just created the invoice)
+                if (isNewInvoice) {
+                  const itemInserts = stripeInvoiceItems.map((item) => ({
+                    invoice_id: dbInvoice.id,
+                    sessions_students_id: item.sessions_students_id,
+                    stripe_invoice_item_id: item.stripe_invoice_item_id,
+                    amount_cents: item.amount_cents,
+                    description: item.description,
+                    is_subsidy: item.is_subsidy,
+                    session_id: item.session_id,
+                    student_id: item.student_id,
+                  }));
+
+                  const { error: itemsErr } = await supabase
+                    .from('invoice_items')
+                    .insert(itemInserts);
+
+                  if (itemsErr) throw itemsErr;
+                }
+
+                if (dbInvoice && !existingInvoice) {
+                  invoicesCreated.push(dbInvoice.id);
+                }
+              } catch (dbErr: any) {
+                // Rollback: void the Stripe invoice if DB insert failed
+                console.error(`[runner] Database insert failed for student ${studentId}, voiding Stripe invoice:`, dbErr?.message || dbErr);
+                try {
+                  await stripe.invoices.voidInvoice(finalizedInvoice.id);
+                } catch (voidErr) {
+                  console.error(`[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`, voidErr);
+                }
+                throw dbErr;
               }
-              throw dbErr;
             }
           } catch (e: any) {
             console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
@@ -816,80 +856,152 @@ Deno.serve(async (req: Request) => {
 
           // Finalize invoice (triggers automatic charge)
           const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
-          
-          // Pay invoice immediately (Stripe may delay automatic payment by up to 1 hour)
-          // This ensures immediate payment for invoices with charge_automatically
+
+          // Check if DB record already exists (idempotency/race condition protection)
+          const { data: existingInvoice } = await supabase
+            .from('invoices')
+            .select('id, status')
+            .eq('stripe_invoice_id', finalizedInvoice.id)
+            .maybeSingle();
+
+          let dbInvoice: any = null;
+
+          if (existingInvoice) {
+            // Already exists - update status if needed, then proceed to payment
+            // This handles retries and race conditions
+            dbInvoice = existingInvoice;
+            
+            // If invoice is already paid (via webhook), skip payment
+            if (existingInvoice.status === 'paid') {
+              invoicesCreated.push(existingInvoice.id);
+              continue;
+            }
+          } else {
+            // Store in database FIRST (before payment)
+            try {
+              const { data: insertedInvoice, error: dbErr } = await supabase
+                .from('invoices')
+                .insert({
+                  student_id: studentId,
+                  stripe_invoice_id: finalizedInvoice.id,
+                  stripe_invoice_number: finalizedInvoice.number,
+                  invoice_date: invoiceDate,
+                  amount_due_cents: finalizedInvoice.amount_due,
+                  amount_paid_cents: finalizedInvoice.amount_paid || 0,
+                  currency: finalizedInvoice.currency,
+                  status: finalizedInvoice.status, // Will be 'open' before payment
+                  collection_method: finalizedInvoice.collection_method,
+                  auto_advance: finalizedInvoice.auto_advance,
+                  hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
+                  invoice_pdf: finalizedInvoice.invoice_pdf,
+                  finalized_at: finalizedInvoice.status_transitions?.finalized_at 
+                    ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000).toISOString()
+                    : null,
+                })
+                .select('id')
+                .single();
+
+              if (dbErr) {
+                // Check for duplicate key error (race condition)
+                if (dbErr.code === '23505') {
+                  // Another process created it, fetch and continue
+                  const { data: raceInvoice } = await supabase
+                    .from('invoices')
+                    .select('id, status')
+                    .eq('stripe_invoice_id', finalizedInvoice.id)
+                    .single();
+                  if (raceInvoice) {
+                    dbInvoice = raceInvoice;
+                    // If already paid, skip payment
+                    if (raceInvoice.status === 'paid') {
+                      invoicesCreated.push(raceInvoice.id);
+                      continue;
+                    }
+                    // Invoice exists but not paid - skip item insert (already done by other process)
+                    // Continue to payment attempt
+                  } else {
+                    throw dbErr;
+                  }
+                } else {
+                  throw dbErr;
+                }
+              } else {
+                dbInvoice = insertedInvoice;
+
+                // Store invoice items (only if we just created the invoice)
+                const itemInserts = stripeInvoiceItems.map((item) => ({
+                  invoice_id: dbInvoice.id,
+                  sessions_students_id: item.sessions_students_id,
+                  stripe_invoice_item_id: item.stripe_invoice_item_id,
+                  amount_cents: item.amount_cents,
+                  description: item.description,
+                  is_subsidy: item.is_subsidy,
+                  session_id: item.session_id,
+                  student_id: item.student_id,
+                }));
+
+                const { error: itemsErr } = await supabase
+                  .from('invoice_items')
+                  .insert(itemInserts);
+
+                if (itemsErr) throw itemsErr;
+              }
+            } catch (dbErr: any) {
+              // DB insert failed - try to void invoice (easier since not paid yet)
+              console.error(`[runner] Database insert failed for student ${studentId}, voiding Stripe invoice:`, dbErr?.message || dbErr);
+              try {
+                await stripe.invoices.voidInvoice(finalizedInvoice.id);
+              } catch (voidErr) {
+                console.error(`[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`, voidErr);
+                errors.push(`Student ${studentId}: Database insert failed and invoice void failed. Manual reconciliation required.`);
+              }
+              throw dbErr;
+            }
+          }
+
+          // NOW attempt payment (after DB insert succeeds)
           let paidInvoice = finalizedInvoice;
           if (finalizedInvoice.status === 'open' && finalizedInvoice.collection_method === 'charge_automatically') {
             try {
               paidInvoice = await stripe.invoices.pay(finalizedInvoice.id);
+              
+              // Update DB record with payment status
+              await supabase
+                .from('invoices')
+                .update({
+                  status: paidInvoice.status,
+                  amount_paid_cents: paidInvoice.amount_paid || 0,
+                  amount_due_cents: paidInvoice.amount_due,
+                  paid_at: paidInvoice.status === 'paid' 
+                    ? new Date(paidInvoice.status_transitions?.paid_at * 1000).toISOString()
+                    : null,
+                })
+                .eq('id', dbInvoice.id);
+              
+              invoicesCreated.push(dbInvoice.id);
             } catch (payErr: any) {
-              // If payment fails (e.g., card declined), log but don't fail the invoice creation
-              // The invoice will remain open and Stripe will retry according to retry settings
-              console.warn(`[runner] Failed to immediately pay invoice ${finalizedInvoice.id} for student ${studentId}:`, payErr?.message || payErr);
-              // Continue with finalizedInvoice (status will be 'open' until payment succeeds)
+              // Payment failed but DB record exists - log for reconciliation
+              console.warn(`[runner] Failed to pay invoice ${finalizedInvoice.id} for student ${studentId}:`, payErr?.message || payErr);
+              
+              // Update DB with error status (invoice remains 'open')
+              await supabase
+                .from('invoices')
+                .update({
+                  status: 'open',
+                  metadata: {
+                    payment_error: payErr?.message || 'Payment failed',
+                    payment_attempted_at: new Date().toISOString(),
+                  },
+                })
+                .eq('id', dbInvoice.id);
+              
+              // Don't throw - invoice created, payment can be retried
+              errors.push(`Student ${studentId}: Invoice created but payment failed. Will retry automatically.`);
+              invoicesCreated.push(dbInvoice.id); // Still count as created
             }
-          }
-
-          // Store in database - wrap in try/catch for rollback
-          let dbInvoice: any = null;
-          try {
-            const { data: insertedInvoice, error: dbErr } = await supabase
-              .from('invoices')
-              .insert({
-                student_id: studentId,
-                stripe_invoice_id: paidInvoice.id,
-                stripe_invoice_number: paidInvoice.number,
-                invoice_date: invoiceDate,
-                amount_due_cents: paidInvoice.amount_due,
-                amount_paid_cents: paidInvoice.amount_paid || 0,
-                currency: paidInvoice.currency,
-                status: paidInvoice.status,
-                collection_method: paidInvoice.collection_method,
-                auto_advance: paidInvoice.auto_advance,
-                hosted_invoice_url: paidInvoice.hosted_invoice_url,
-                invoice_pdf: paidInvoice.invoice_pdf,
-                finalized_at: paidInvoice.status_transitions?.finalized_at 
-                  ? new Date(paidInvoice.status_transitions.finalized_at * 1000).toISOString()
-                  : null,
-              })
-              .select('id')
-              .single();
-
-            if (dbErr) throw dbErr;
-            dbInvoice = insertedInvoice;
-
-            // Store invoice items
-            const itemInserts = stripeInvoiceItems.map((item) => ({
-              invoice_id: dbInvoice.id,
-              sessions_students_id: item.sessions_students_id,
-              stripe_invoice_item_id: item.stripe_invoice_item_id,
-              amount_cents: item.amount_cents,
-              description: item.description,
-              is_subsidy: item.is_subsidy,
-              session_id: item.session_id,
-              student_id: item.student_id,
-            }));
-
-            const { error: itemsErr } = await supabase
-              .from('invoice_items')
-              .insert(itemInserts);
-
-            if (itemsErr) throw itemsErr;
-
+          } else {
+            // For send_invoice or already paid, no payment needed
             invoicesCreated.push(dbInvoice.id);
-          } catch (dbErr: any) {
-            // Rollback: void the Stripe invoice if DB insert failed
-            // Note: If charge already succeeded, we can't void, but we log the error
-            console.error(`[runner] Database insert failed for student ${studentId}, attempting to void Stripe invoice:`, dbErr?.message || dbErr);
-            try {
-              await stripe.invoices.voidInvoice(paidInvoice.id);
-            } catch (voidErr) {
-              console.error(`[runner] Failed to void invoice ${paidInvoice.id} during rollback (charge may have succeeded):`, voidErr);
-              // If void fails, the invoice may have already been paid - this requires manual reconciliation
-              errors.push(`Student ${studentId}: Database insert failed but Stripe invoice may have been charged. Manual reconciliation required.`);
-            }
-            throw dbErr;
           }
         } catch (e: any) {
           console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
