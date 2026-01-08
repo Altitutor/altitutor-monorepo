@@ -233,7 +233,7 @@ export function StripeSyncTable({
             />
           </div>
           
-          <Select value={stripeFilter} onValueChange={(value: 'all' | 'present' | 'absent') => setStripeFilter(value)}>
+          <Select value={stripeFilter || 'all'} onValueChange={(value: 'all' | 'present' | 'absent') => setStripeFilter(value)}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Filter by Stripe customer" />
             </SelectTrigger>
