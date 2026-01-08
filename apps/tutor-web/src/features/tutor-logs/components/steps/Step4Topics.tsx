@@ -12,7 +12,6 @@ import { sessionsApi } from '@/features/sessions/api/sessions';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
-import { deriveTopicCode } from '@/features/topics/utils/codes';
 
 type TopicItem = {
   topicId: string;
@@ -133,7 +132,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
     return childTopics.map((topic) => {
       const hasChildren = subjectTopics.some((t) => t.parent_id === topic.id);
       const isExpanded = expandedTopics.has(topic.id);
-      const code = deriveTopicCode(topic, subjectTopics);
+      const code = topic.code || '';
 
       return (
         <div key={topic.id}>
