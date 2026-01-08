@@ -24,6 +24,7 @@ import { Badge } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { Check, X } from 'lucide-react';
 import { SessionNotes } from './SessionNotes';
+import { SessionFiles } from './SessionFiles';
 import { formatTime } from '@/shared/utils/datetime';
 
 type SessionModalProps = {
@@ -568,6 +569,14 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               )}
 
               <Separator />
+
+              {/* Session Files Section */}
+              {sessionId && (
+                <>
+                  <SessionFiles sessionId={sessionId} />
+                  <Separator />
+                </>
+              )}
 
               {/* Session Notes Section */}
               <SessionNotes

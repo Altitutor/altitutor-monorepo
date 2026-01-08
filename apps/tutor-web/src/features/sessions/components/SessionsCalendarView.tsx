@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Button } from '@altitutor/ui';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessions } from '../hooks/useSessionsQuery';
+import { sessionsApi } from '../api/sessions';
 import { cn } from '@/shared/utils/index';
 import { SessionCard } from './SessionCard';
 
@@ -15,6 +16,29 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const { data: sessions = [] } = useSessions();
+  const [sessionDetailsMap, setSessionDetailsMap] = useState<Record<string, { staff: any[]; students: any[] }>>({});
+
+  // Fetch session details (staff and students) for all sessions
+  useEffect(() => {
+    const fetchSessionDetails = async () => {
+      if (sessions.length === 0) return;
+      
+      const sessionIds = sessions
+        .map((s: any) => s.session_id || s.id)
+        .filter((id): id is string => id != null);
+      
+      if (sessionIds.length === 0) return;
+      
+      try {
+        const detailsMap = await sessionsApi.getSessionsWithDetails(sessionIds);
+        setSessionDetailsMap(detailsMap);
+      } catch (error) {
+        console.error('Failed to fetch session details:', error);
+      }
+    };
+
+    fetchSessionDetails();
+  }, [sessions]);
 
   // Time grid similar to classes timetable
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
@@ -138,6 +162,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             
                             // Use session_id from vtutor_sessions view
                             const sessionId = s.session_id || s.id;
+                            const details = sessionDetailsMap[sessionId] || { staff: [], students: [] };
                             
                             blocks.push(
                               <div
@@ -147,6 +172,8 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                               >
                                 <SessionCard
                                   session={s}
+                                  staff={details.staff}
+                                  students={details.students}
                                   onClick={() => onOpenSession && onOpenSession(sessionId)}
                                   isCalendarView={true}
                                   cardHeight={cardHeight}

@@ -32,16 +32,41 @@ interface TutorSession {
   subject_year_level: number | null;
 }
 
+interface StaffMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role?: string;
+}
+
+interface StudentMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  year_level?: number;
+}
+
 interface SessionCardProps {
   session: TutorSession;
+  staff?: StaffMember[];
+  students?: StudentMember[];
   onClick?: () => void;
   isCalendarView?: boolean;
   cardHeight?: number;
   cardWidth?: number;
 }
 
+// Helper function to get initials from a name
+function getInitials(firstName: string, lastName: string): string {
+  const first = firstName?.[0] || '';
+  const last = lastName?.[0] || '';
+  return `${first}${last}`.toUpperCase();
+}
+
 export function SessionCard({
   session,
+  staff = [],
+  students = [],
   onClick,
   isCalendarView = false,
   cardHeight,
@@ -66,6 +91,7 @@ export function SessionCard({
     }
   }, [showIcon, actualWidth, actualHeight]);
   
+  const showFullNames = actualWidth >= 150 && (staff.length + students.length) <= 5;
   const shouldUseCompact = !iconVisible;
   
   // Build subject display from flattened fields
@@ -177,6 +203,84 @@ export function SessionCard({
               </p>
             </div>
           </div>
+          
+          {/* Staff */}
+          {staff.length > 0 && (
+            <div className={cn('flex items-center gap-2 flex-wrap', shouldUseCompact ? 'mt-1' : 'mt-2')}>
+              <div className="flex flex-wrap gap-1">
+                {staff.map((staffMember) => {
+                  const fullName = `${staffMember.first_name} ${staffMember.last_name}`;
+                  const display = !showFullNames ? getInitials(staffMember.first_name, staffMember.last_name) : fullName;
+                  
+                  const badge = (
+                    <span
+                      key={staffMember.id}
+                      className={cn(
+                        'rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+                        shouldUseCompact 
+                          ? 'text-[10px] px-1 py-0.5' 
+                          : 'text-xs px-2 py-0.5'
+                      )}
+                    >
+                      {display}
+                    </span>
+                  );
+                  
+                  return (
+                    <TooltipProvider key={staffMember.id} delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {badge}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{fullName}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* Students */}
+          {students.length > 0 && (
+            <div className={cn('flex items-center gap-2 flex-wrap', shouldUseCompact ? 'mt-1' : 'mt-2')}>
+              <div className="flex flex-wrap gap-1">
+                {students.map((student) => {
+                  const fullName = `${student.first_name} ${student.last_name}`;
+                  const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
+                  
+                  const badge = (
+                    <span
+                      key={student.id}
+                      className={cn(
+                        'rounded bg-muted text-muted-foreground',
+                        shouldUseCompact 
+                          ? 'text-[10px] px-1 py-0.5' 
+                          : 'text-xs px-2 py-0.5'
+                      )}
+                    >
+                      {display}
+                    </span>
+                  );
+                  
+                  return (
+                    <TooltipProvider key={student.id} delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {badge}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{fullName}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

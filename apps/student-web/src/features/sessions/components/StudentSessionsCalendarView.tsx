@@ -6,11 +6,13 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStudentSessions } from '../hooks/useSessions';
 import { cn } from '@/shared/utils/index';
 import { StudentSessionsCard } from './StudentSessionsCard';
-import { SessionHoverTooltip } from './SessionHoverTooltip';
+import { SessionModal } from './SessionModal';
 import { Button } from "@altitutor/ui";
 
 export function StudentSessionsCalendarView() {
   const [anchor, setAnchor] = useState<Date>(new Date());
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   
@@ -175,20 +177,22 @@ export function StudentSessionsCalendarView() {
                                 className="absolute"
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                               >
-                                <SessionHoverTooltip session={s}>
-                                  <div className="h-full w-full">
-                                    <StudentSessionsCard
-                                      session={s}
-                                      staff={s.staff || []}
-                                      students={s.students || []}
-                                      isCalendarView={true}
-                                      cardHeight={cardHeight}
-                                      cardWidth={cardWidth}
-                                      isExtra={isExtra}
-                                      isNotAttending={isNotAttending}
-                                    />
-                                  </div>
-                                </SessionHoverTooltip>
+                                <div className="h-full w-full">
+                                  <StudentSessionsCard
+                                    session={s}
+                                    staff={s.staff || []}
+                                    students={s.students || []}
+                                    isCalendarView={true}
+                                    cardHeight={cardHeight}
+                                    cardWidth={cardWidth}
+                                    isExtra={isExtra}
+                                    isNotAttending={isNotAttending}
+                                    onClick={() => {
+                                      setSelectedSessionId(s.session_id);
+                                      setIsModalOpen(true);
+                                    }}
+                                  />
+                                </div>
                               </div>
                             );
                           });
@@ -204,6 +208,16 @@ export function StudentSessionsCalendarView() {
           ))}
         </div>
       </div>
+
+      {/* Session Modal */}
+      <SessionModal
+        isOpen={isModalOpen}
+        sessionId={selectedSessionId}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedSessionId(null);
+        }}
+      />
     </div>
   );
 }

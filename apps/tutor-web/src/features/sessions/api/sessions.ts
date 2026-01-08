@@ -65,4 +65,47 @@ export const sessionsApi = {
     if (error && error.code !== 'PGRST116') throw error;
     return data ?? null;
   },
+
+  /**
+   * Get multiple sessions with details (staff and students)
+   * Uses vtutor_session_detail view
+   * Returns a map of session_id -> { staff, students }
+   */
+  getSessionsWithDetails: async (sessionIds: string[]) => {
+    if (sessionIds.length === 0) return {};
+    
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    const { data, error } = await supabase
+      .from('vtutor_session_detail')
+      .select('session_id, staff, students')
+      .in('session_id', sessionIds);
+    
+    if (error) throw error;
+    
+    // Create a map of session_id -> { staff, students }
+    const detailsMap: Record<string, { staff: any[]; students: any[] }> = {};
+    
+    (data || []).forEach((detail: any) => {
+      const staff = Array.isArray(detail.staff) ? detail.staff : [];
+      const students = Array.isArray(detail.students) ? detail.students : [];
+      
+      detailsMap[detail.session_id] = {
+        staff: staff.map((s: any) => ({
+          id: s.id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          role: s.role,
+        })),
+        students: students.map((s: any) => ({
+          id: s.id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          year_level: s.year_level,
+        })),
+      };
+    });
+    
+    return detailsMap;
+  },
 };
