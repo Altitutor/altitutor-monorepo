@@ -141,7 +141,6 @@ export function Step5TopicStudents({
             <div key={topic.topicId} className="border rounded-lg p-4 space-y-3">
               <TopicCard
                 topic={topicData}
-                allTopics={allTopicsData}
                 subject={subject}
                 parentTopic={parentTopic}
               />

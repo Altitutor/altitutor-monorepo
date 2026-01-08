@@ -120,7 +120,7 @@ export function useCreateTopic() {
   const { toast } = useToast();
   
   return useMutation({
-    mutationFn: (data: Omit<TablesInsert<'topics'>, 'index'>) => topicsApi.createTopic(data),
+    mutationFn: (data: Omit<TablesInsert<'topics'>, 'index' | 'code'>) => topicsApi.createTopic(data),
     onSuccess: (data) => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: topicsKeys.all });

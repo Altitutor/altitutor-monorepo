@@ -131,7 +131,7 @@ export const topicsApi = {
   /**
    * Create a new topic
    */
-  createTopic: async (data: Omit<TablesInsert<'topics'>, 'index'>): Promise<Tables<'topics'>> => {
+  createTopic: async (data: Omit<TablesInsert<'topics'>, 'index' | 'code'>): Promise<Tables<'topics'>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
     // Get existing topics to calculate next index
@@ -158,7 +158,7 @@ export const topicsApi = {
       createdBy = staff?.id || null;
     }
     
-    const topicData: TablesInsert<'topics'> = {
+    const topicData: Omit<TablesInsert<'topics'>, 'code'> = {
       ...data,
       index,
       created_by: createdBy,
@@ -166,7 +166,7 @@ export const topicsApi = {
     
     const { data: created, error } = await supabase
       .from('topics')
-      .insert(topicData)
+      .insert(topicData as TablesInsert<'topics'>)
       .select()
       .single();
     

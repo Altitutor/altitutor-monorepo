@@ -314,7 +314,6 @@ export function ViewTopicModal({
                       </p>
                       <DraggableTopicsList
                         topics={childrenTopics}
-                        allTopics={allTopics}
                         onReorder={(updates) => {
                           // Handle reordering - this would call a batch update API
                           setReorderedChildren(updates);
@@ -442,7 +441,6 @@ export function ViewTopicModal({
                         // Edit mode: Show draggable list
                         <DraggableTopicsList
                           topics={childrenTopics}
-                          allTopics={subjectTopics}
                           onReorder={handleTopicReorder}
                         />
                       ) : (

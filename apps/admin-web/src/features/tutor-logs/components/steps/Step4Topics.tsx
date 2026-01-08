@@ -181,7 +181,6 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
             <div className="flex-1">
               <TopicCard
                 topic={topic}
-                allTopics={subjectTopics}
                 subject={subject}
                 parentTopic={parentTopic}
               />
@@ -256,7 +255,6 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
             <div className="flex-1">
               <TopicCard
                 topic={topic}
-                allTopics={subjectTopics}
                 subject={subject}
                 parentTopic={parentTopic}
               />

@@ -318,7 +318,6 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                 </p>
                 <DraggableTopicsList
                   topics={childrenTopics}
-                  allTopics={allTopics}
                   onReorder={handleTopicReorder}
                 />
               </div>
