@@ -26,8 +26,19 @@ export async function GET(request: NextRequest) {
     // Get Stripe secret key
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeSecretKey) {
+      console.error('[stripe/customers] STRIPE_SECRET_KEY is not set');
+      console.error('[stripe/customers] Available env vars:', Object.keys(process.env).filter(k => k.includes('STRIPE')));
       return NextResponse.json(
-        { error: 'Stripe not configured' },
+        { error: 'Stripe not configured: STRIPE_SECRET_KEY environment variable is missing' },
+        { status: 500 }
+      );
+    }
+
+    // Validate Stripe key format
+    if (!stripeSecretKey.startsWith('sk_')) {
+      console.error('[stripe/customers] STRIPE_SECRET_KEY has invalid format (should start with sk_)');
+      return NextResponse.json(
+        { error: 'Stripe not configured: Invalid STRIPE_SECRET_KEY format' },
         { status: 500 }
       );
     }
@@ -113,9 +124,22 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ customers: customersWithPaymentMethods });
   } catch (error: any) {
-    console.error('Error fetching Stripe customers:', error);
+    console.error('[stripe/customers] Error fetching Stripe customers:', error);
+    console.error('[stripe/customers] Error details:', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      statusCode: error.statusCode,
+    });
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch Stripe customers' },
+      { 
+        error: error.message || 'Failed to fetch Stripe customers',
+        details: process.env.NODE_ENV === 'development' ? {
+          type: error.type,
+          code: error.code,
+          statusCode: error.statusCode,
+        } : undefined,
+      },
       { status: 500 }
     );
   }
