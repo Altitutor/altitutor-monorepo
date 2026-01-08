@@ -12,7 +12,7 @@ export const subjectsApi = {
   getAllSubjects: async (): Promise<Tables<'subjects'>[]> => {
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('subjects')
-      .select('id, name, curriculum, year_level, discipline, color, level');
+      .select('id, name, curriculum, year_level, discipline, color, level, short_name, long_name');
     if (error) throw error;
     return (data ?? []) as Tables<'subjects'>[];
   },

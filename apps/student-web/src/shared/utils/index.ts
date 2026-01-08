@@ -39,16 +39,11 @@ export function formatDateTime(date: Date | string): string {
 }
 
 /**
- * Format a subject for consistent display across the application
- * Combines curriculum, year level, name, and level in a standardized format
+ * Get subject long name from database column
+ * Falls back to empty string if not available
  */
 export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
-  return [
-    subject.curriculum || '',
-    subject.year_level ? subject.year_level : '',
-    subject.name || '',
-    subject.level || ''
-  ].filter(Boolean).join(' ').trim();
+  return subject.long_name || '';
 }
 
 /**

@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     // Fetch subjects for this student
     const { data: subjectsData, error: subjectsError } = await supabaseAdmin
       .from('students_subjects')
-      .select('subject_id, subjects(id, name, year_level, curriculum, color)')
+      .select('subject_id, subjects(id, name, year_level, curriculum, color, short_name, long_name)')
       .eq('student_id', student.id);
 
     const subjects = subjectsData
