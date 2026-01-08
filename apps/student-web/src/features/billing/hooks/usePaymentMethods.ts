@@ -79,10 +79,8 @@ export function usePaymentMethods() {
           }
         }
       )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[payment-methods] Real-time subscription error - falling back to polling');
-        }
+      .subscribe(() => {
+        // Real-time subscription error handling - silently fall back to polling
       });
 
     return () => {

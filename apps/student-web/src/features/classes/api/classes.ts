@@ -37,7 +37,6 @@ export const classesApi = {
       throw error;
     }
     
-    console.log('[classesApi.list] Successfully fetched classes:', data?.length || 0);
     return (data || []) as StudentClass[];
   },
   
