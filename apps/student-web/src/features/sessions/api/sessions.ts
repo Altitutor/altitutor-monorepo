@@ -52,4 +52,32 @@ export const sessionsApi = {
       } as StudentSessionWithStaff;
     });
   },
+
+  /**
+   * Get a single session with all details
+   * Uses vstudent_session_detail view which includes students and staff
+   */
+  getSessionWithDetails: async (sessionId: string) => {
+    const supabase = getSupabaseClient();
+    
+    try {
+      const { data, error } = await supabase
+        .from('vstudent_session_detail')
+        .select('*')
+        .eq('session_id', sessionId)
+        .maybeSingle();
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw error;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error getting session with details:', error);
+      throw error;
+    }
+  },
 };

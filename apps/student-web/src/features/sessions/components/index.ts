@@ -1,6 +1,7 @@
 export * from './StudentSessionsCalendarView';
 export * from './StudentSessionsCard';
 export * from './SessionHoverTooltip';
+export * from './SessionModal';
 export * from './LogAbsenceDialog';
 export * from './AbsenceSessionSelector';
 export * from './RescheduleSessionSelector';

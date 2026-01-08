@@ -40,6 +40,7 @@ export interface FileCardProps {
   onDownload?: () => void;
   onEdit?: (topicFileId: string) => void;
   onDelete?: (topicFileId: string) => void;
+  getSignedUrlFn?: (path: string) => Promise<string>;
 }
 
 export function FileCard({
@@ -54,6 +55,7 @@ export function FileCard({
   onDownload,
   onEdit,
   onDelete,
+  getSignedUrlFn,
 }: FileCardProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -100,7 +102,8 @@ export function FileCard({
     try {
       setLoadingPreview(true);
       setIsPreviewOpen(true);
-      const signedUrl = await getSignedUrl(storagePath);
+      const getUrlFn = getSignedUrlFn || getSignedUrl;
+      const signedUrl = await getUrlFn(storagePath);
       setPreviewUrl(signedUrl);
     } catch (error) {
       console.error('Failed to generate signed URL:', error);
@@ -122,7 +125,8 @@ export function FileCard({
 
     try {
       setDownloadingFile(true);
-      const signedUrl = await getSignedUrl(storagePath);
+      const getUrlFn = getSignedUrlFn || getSignedUrl;
+      const signedUrl = await getUrlFn(storagePath);
       const link = document.createElement('a');
       link.href = signedUrl;
       link.download = filename;
