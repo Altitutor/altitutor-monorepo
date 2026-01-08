@@ -47,23 +47,12 @@ export async function POST(
       );
     }
 
-    // Get current student's ID
-    const { data: studentId, error: studentIdError } = await userClient.rpc('current_student_id');
-
-    if (studentIdError || !studentId) {
-      console.error('Error getting student ID:', studentIdError);
-      return NextResponse.json(
-        { error: 'Failed to get student ID' },
-        { status: 500 }
-      );
-    }
-
-    // Verify student is enrolled in this session
+    // Verify student is enrolled in this session (using vstudent_sessions view)
+    // The view already filters by current_student_id(), so we just need to check if the session exists
     const { data: sessionStudent, error: sessionCheckError } = await userClient
-      .from('sessions_students')
-      .select('id')
+      .from('vstudent_sessions')
+      .select('session_student_id')
       .eq('session_id', sessionId)
-      .eq('student_id', studentId)
       .maybeSingle();
 
     if (sessionCheckError) {
