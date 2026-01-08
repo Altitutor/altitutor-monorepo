@@ -25,26 +25,13 @@ export default function StripeSyncPage() {
     staleTime: 30000, // Cache for 30 seconds
   });
 
-  // Fetch Stripe customers - cache for longer since this is expensive
-  const {
-    data: stripeCustomers,
-    isLoading: loadingCustomers,
-    isFetching: fetchingCustomers,
-    refetch: refetchCustomers,
-  } = useQuery({
-    queryKey: ['stripe-sync-customers', refreshKey],
-    queryFn: stripeSyncApi.getStripeCustomers,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
-
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
     refetchStudents();
-    refetchCustomers();
   };
 
-  const isLoading = loadingStudents || loadingCustomers;
-  const isFetching = fetchingStudents || fetchingCustomers;
+  const isLoading = loadingStudents;
+  const isFetching = fetchingStudents;
 
   return (
     <div className="p-6 space-y-6">
@@ -66,7 +53,6 @@ export default function StripeSyncPage() {
 
       <StripeSyncTable
         students={students || []}
-        stripeCustomers={stripeCustomers || []}
         isLoading={isLoading}
         isFetching={isFetching}
         onRefresh={handleRefresh}

@@ -20,17 +20,6 @@ import { StudentStripeSyncModal } from './StudentStripeSyncModal';
 
 interface StripeSyncTableProps {
   students: StudentWithStripe[];
-  stripeCustomers: Array<{
-    id: string;
-    email: string | null;
-    name: string | null;
-    default_payment_method_id?: string | null;
-    payment_methods: Array<{ 
-      id: string; 
-      is_default: boolean;
-      card: { last4: string; brand: string } | null 
-    }>;
-  }>;
   isLoading?: boolean;
   isFetching?: boolean;
   onRefresh: () => void;
@@ -38,7 +27,6 @@ interface StripeSyncTableProps {
 
 export function StripeSyncTable({
   students,
-  stripeCustomers,
   isLoading,
   isFetching,
   onRefresh,
@@ -48,109 +36,9 @@ export function StripeSyncTable({
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Create a map of stripe customer IDs to customer data for quick lookup
-  const stripeCustomerMap = useMemo(() => {
-    const map = new Map<string, typeof stripeCustomers[0]>();
-    stripeCustomers.forEach((customer) => {
-      map.set(customer.id, customer);
-    });
-    return map;
-  }, [stripeCustomers]);
-
-  // Helper function to check if strings match (case-insensitive, trimmed)
-  // Both blank/null counts as a match
-  const stringsMatch = (a: string | null | undefined, b: string | null | undefined): boolean => {
-    const aTrimmed = a?.trim() || '';
-    const bTrimmed = b?.trim() || '';
-    // Both empty counts as match
-    if (!aTrimmed && !bTrimmed) return true;
-    // If one is empty and other isn't, no match
-    if (!aTrimmed || !bTrimmed) return false;
-    return aTrimmed.toLowerCase() === bTrimmed.toLowerCase();
-  };
-
-  // Helper function to check if payment methods match (including default)
-  const paymentMethodsMatch = (
-    dbMethods: Array<{ card_last4: string; is_default: boolean }>,
-    stripeMethods: Array<{ last4: string; is_default: boolean }>
-  ): boolean => {
-    const dbLast4s = dbMethods
-      .map(m => m.card_last4?.trim())
-      .filter((last4): last4 is string => !!last4)
-      .sort();
-    const stripeLast4s = stripeMethods
-      .map(m => m.last4?.trim())
-      .filter((last4): last4 is string => !!last4)
-      .sort();
-    
-    // Both empty counts as match
-    if (dbLast4s.length === 0 && stripeLast4s.length === 0) return true;
-    // Different lengths means no match
-    if (dbLast4s.length !== stripeLast4s.length) return false;
-    // Payment methods must match
-    if (JSON.stringify(dbLast4s) !== JSON.stringify(stripeLast4s)) return false;
-    
-    // Check that default payment methods match
-    const dbDefault = dbMethods.find(m => m.is_default)?.card_last4?.trim();
-    const stripeDefault = stripeMethods.find(m => m.is_default)?.last4?.trim();
-    
-    // Both have no default (or both empty) counts as match
-    if (!dbDefault && !stripeDefault) return true;
-    // One has default and other doesn't - no match
-    if (!dbDefault || !stripeDefault) return false;
-    // Defaults must match
-    return dbDefault === stripeDefault;
-  };
-
-  // Enrich students with Stripe customer data and match indicators
-  const enrichedStudents = useMemo(() => {
-    if (!students || students.length === 0) return [];
-    
-    return students.map((student) => {
-      const stripeCustomer = student.stripe_customer_id
-        ? stripeCustomerMap.get(student.stripe_customer_id)
-        : null;
-
-      // Get Stripe payment methods for this customer
-      const stripePaymentMethods = stripeCustomer?.payment_methods || [];
-
-      // Check matches - only if stripe customer exists
-      const nameMatch = stripeCustomer 
-        ? stringsMatch(student.student_name, stripeCustomer?.name || null)
-        : false;
-      const emailMatch = stripeCustomer
-        ? stringsMatch(student.student_email, stripeCustomer?.email || null)
-        : false;
-      const paymentMethodsMatchResult = stripeCustomer
-        ? paymentMethodsMatch(
-            student.db_payment_methods,
-            stripePaymentMethods.map(pm => ({ 
-              last4: pm.card?.last4 || '', 
-              is_default: pm.is_default || false 
-            }))
-          )
-        : false;
-
-      return {
-        ...student,
-        stripe_customer_name: stripeCustomer?.name ?? null,
-        stripe_customer_email: stripeCustomer?.email ?? null,
-        stripe_payment_methods: stripePaymentMethods.map((pm) => ({
-          last4: pm.card?.last4 || 'N/A',
-          is_default: pm.is_default || false,
-        })),
-        matches: {
-          name: nameMatch,
-          email: emailMatch,
-          paymentMethods: paymentMethodsMatchResult,
-        },
-      };
-    });
-  }, [students, stripeCustomerMap]);
-
   // Filter students
   const filteredStudents = useMemo(() => {
-    let filtered = enrichedStudents;
+    let filtered = students || [];
 
     // Apply search filter
     if (searchTerm) {
@@ -158,9 +46,7 @@ export function StripeSyncTable({
       filtered = filtered.filter(
         (student) =>
           student.student_name.toLowerCase().includes(searchLower) ||
-          student.student_email?.toLowerCase().includes(searchLower) ||
-          student.stripe_customer_email?.toLowerCase().includes(searchLower) ||
-          student.stripe_customer_name?.toLowerCase().includes(searchLower)
+          student.student_email?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -172,7 +58,7 @@ export function StripeSyncTable({
     }
 
     return filtered;
-  }, [enrichedStudents, searchTerm, stripeFilter]);
+  }, [students, searchTerm, stripeFilter]);
 
   const handleRowClick = (studentId: string) => {
     setSelectedStudentId(studentId);
@@ -209,7 +95,7 @@ export function StripeSyncTable({
           </Select>
         </div>
         
-        <SkeletonTable rows={8} columns={7} />
+        <SkeletonTable rows={8} columns={4} />
         
         <div className="text-sm text-muted-foreground">
           Loading students...
@@ -254,15 +140,12 @@ export function StripeSyncTable({
                 <TableHead>Student Email</TableHead>
                 <TableHead>DB Payment Methods</TableHead>
                 <TableHead>Stripe Customer ID</TableHead>
-                <TableHead>Stripe Name</TableHead>
-                <TableHead>Stripe Email</TableHead>
-                <TableHead>Stripe Payment Methods</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     No students found
                   </TableCell>
                 </TableRow>
@@ -273,13 +156,13 @@ export function StripeSyncTable({
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleRowClick(student.student_id)}
                   >
-                    <TableCell className={`font-medium ${student.matches?.name ? 'bg-green-50 dark:bg-green-950/20' : student.stripe_customer_id && !student.matches?.name ? 'bg-red-50 dark:bg-red-950/20' : ''}`}>
+                    <TableCell className="font-medium">
                       {student.student_name}
                     </TableCell>
-                    <TableCell className={student.matches?.email ? 'bg-green-50 dark:bg-green-950/20' : student.stripe_customer_id && !student.matches?.email ? 'bg-red-50 dark:bg-red-950/20' : ''}>
+                    <TableCell>
                       {student.student_email ?? '-'}
                     </TableCell>
-                    <TableCell className={student.stripe_customer_id ? (student.matches?.paymentMethods ? 'bg-green-50 dark:bg-green-950/20' : !student.matches?.paymentMethods ? 'bg-red-50 dark:bg-red-950/20' : '') : undefined}>
+                    <TableCell>
                       {student.db_payment_methods.length === 0 ? (
                         <span className="text-muted-foreground text-sm">None</span>
                       ) : (
@@ -304,28 +187,6 @@ export function StripeSyncTable({
                         <Badge variant="secondary">Not linked</Badge>
                       )}
                     </TableCell>
-                    <TableCell className={student.matches?.name ? 'bg-green-50 dark:bg-green-950/20' : student.stripe_customer_id && !student.matches?.name ? 'bg-red-50 dark:bg-red-950/20' : ''}>
-                      {(student.stripe_customer_name ?? '-') as string}
-                    </TableCell>
-                    <TableCell className={student.matches?.email ? 'bg-green-50 dark:bg-green-950/20' : student.stripe_customer_id && !student.matches?.email ? 'bg-red-50 dark:bg-red-950/20' : ''}>
-                      {(student.stripe_customer_email ?? '-') as string}
-                    </TableCell>
-                    <TableCell className={student.stripe_customer_id ? (student.matches?.paymentMethods ? 'bg-green-50 dark:bg-green-950/20' : !student.matches?.paymentMethods ? 'bg-red-50 dark:bg-red-950/20' : '') : ''}>
-                      {student.stripe_payment_methods.length === 0 ? (
-                        <span className="text-muted-foreground text-sm">None</span>
-                      ) : (
-                        <div className="space-y-1">
-                          {student.stripe_payment_methods.map((pm, idx) => (
-                            <div key={idx} className="text-sm">
-                              •••• {pm.last4}
-                              {pm.is_default && (
-                                <Badge variant="default" className="ml-2 text-xs">Default</Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -339,25 +200,6 @@ export function StripeSyncTable({
           isOpen={isModalOpen}
           onClose={(shouldRefresh) => handleCloseModal(shouldRefresh)}
           studentId={selectedStudentId}
-          stripeCustomers={stripeCustomers.map(c => ({
-            id: c.id,
-            email: c.email,
-            name: c.name,
-            created: Date.now() / 1000, // Use current timestamp as fallback
-            metadata: {},
-            payment_methods: c.payment_methods.map(pm => ({
-              id: pm.id,
-              type: 'card',
-              is_default: pm.is_default,
-              card: pm.card ? {
-                brand: pm.card.brand,
-                last4: pm.card.last4,
-                exp_month: 1,
-                exp_year: new Date().getFullYear() + 5,
-                country: null,
-              } : null,
-            })),
-          }))}
           allStudents={students.map(s => ({
             student_id: s.student_id,
             student_name: s.student_name,

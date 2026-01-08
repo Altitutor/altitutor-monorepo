@@ -23,7 +23,6 @@ interface StudentStripeSyncModalProps {
   isOpen: boolean;
   onClose: (shouldRefresh?: boolean) => void;
   studentId: string;
-  stripeCustomers: StripeCustomer[];
   allStudents?: Array<{
     student_id: string;
     student_name: string;
@@ -35,7 +34,6 @@ export function StudentStripeSyncModal({
   isOpen,
   onClose,
   studentId,
-  stripeCustomers,
   allStudents = [],
 }: StudentStripeSyncModalProps) {
   const [student, setStudent] = useState<{
@@ -44,16 +42,32 @@ export function StudentStripeSyncModal({
     email: string | null;
   } | null>(null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(null);
+  const [linkedCustomer, setLinkedCustomer] = useState<StripeCustomer | null>(null);
+  const [exactMatches, setExactMatches] = useState<StripeCustomer[]>([]);
+  const [searchResults, setSearchResults] = useState<StripeCustomer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState(false);
+  const [isLoadingLinked, setIsLoadingLinked] = useState(false);
+  const [isLoadingExactMatches, setIsLoadingExactMatches] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
 
-  // Load student data
+  // Load student data and fetch linked customer + exact matches
   useEffect(() => {
-    if (!isOpen || !studentId) return;
+    if (!isOpen || !studentId) {
+      // Reset state when modal closes
+      setStudent(null);
+      setLinkedCustomerId(null);
+      setLinkedCustomer(null);
+      setExactMatches([]);
+      setSearchResults([]);
+      setSearchTerm('');
+      return;
+    }
 
-    const loadStudent = async () => {
+    const loadData = async () => {
+      // Load student data
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       const { data, error } = await supabase
         .from('students')
@@ -74,18 +88,77 @@ export function StudentStripeSyncModal({
         ? data.students_billing[0]
         : data.students_billing;
 
-      setStudent({
+      const studentData = {
         id: data.id,
         name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'Unknown',
         email: data.email,
-      });
-      setLinkedCustomerId(billing?.stripe_customer_id || null);
+      };
+
+      setStudent(studentData);
+      const customerId = billing?.stripe_customer_id || null;
+      setLinkedCustomerId(customerId);
+
+      // Fetch linked customer if exists
+      if (customerId) {
+        setIsLoadingLinked(true);
+        try {
+          const customer = await stripeSyncApi.getStripeCustomer(customerId);
+          setLinkedCustomer(customer);
+        } catch (error: any) {
+          console.error('Error fetching linked customer:', error);
+          toast({
+            title: 'Warning',
+            description: 'Failed to load linked Stripe customer',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsLoadingLinked(false);
+        }
+      }
+
+      // Search for exact matches by email and name
+      setIsLoadingExactMatches(true);
+      const matches: StripeCustomer[] = [];
+
+      try {
+        // Search by email if student has email
+        if (studentData.email) {
+          const emailResults = await stripeSyncApi.searchStripeCustomers(studentData.email);
+          // Filter for exact email matches
+          const exactEmailMatches = emailResults.filter(
+            (c) => c.email?.toLowerCase().trim() === studentData.email?.toLowerCase().trim()
+          );
+          matches.push(...exactEmailMatches);
+        }
+
+        // Search by name if student has name
+        if (studentData.name && studentData.name !== 'Unknown') {
+          const nameResults = await stripeSyncApi.searchStripeCustomers(studentData.name);
+          // Filter for exact name matches (case-insensitive)
+          const exactNameMatches = nameResults.filter(
+            (c) => c.name?.toLowerCase().trim() === studentData.name?.toLowerCase().trim()
+          );
+          // Avoid duplicates
+          exactNameMatches.forEach((match) => {
+            if (!matches.find((m) => m.id === match.id)) {
+              matches.push(match);
+            }
+          });
+        }
+      } catch (error: any) {
+        console.error('Error searching for exact matches:', error);
+        // Don't show error toast for search failures, just log
+      } finally {
+        setIsLoadingExactMatches(false);
+      }
+
+      setExactMatches(matches);
     };
 
-    loadStudent();
+    loadData();
   }, [isOpen, studentId, toast]);
 
-  // Helper functions for matching (same as table)
+  // Helper functions for matching
   const stringsMatch = (a: string | null | undefined, b: string | null | undefined): boolean => {
     const aTrimmed = a?.trim() || '';
     const bTrimmed = b?.trim() || '';
@@ -93,22 +166,6 @@ export function StudentStripeSyncModal({
     if (!aTrimmed || !bTrimmed) return false;
     return aTrimmed.toLowerCase() === bTrimmed.toLowerCase();
   };
-
-  // Check if customer matches student name or email (for highlighting in right column)
-  const customerMatches = useMemo(() => {
-    if (!student) return new Map<string, { nameMatch: boolean; emailMatch: boolean }>();
-    
-    const matches = new Map<string, { nameMatch: boolean; emailMatch: boolean }>();
-    
-    stripeCustomers.forEach((customer) => {
-      const nameMatch = stringsMatch(student.name, customer.name || null);
-      const emailMatch = stringsMatch(student.email, customer.email || null);
-      
-      matches.set(customer.id, { nameMatch, emailMatch });
-    });
-    
-    return matches;
-  }, [student, stripeCustomers]);
 
   // Create a map of stripe_customer_id -> student name for checking if customer is linked to another student
   const customerToStudentMap = useMemo(() => {
@@ -121,25 +178,40 @@ export function StudentStripeSyncModal({
     return map;
   }, [allStudents, studentId]);
 
-  // Filter and sort Stripe customers by search term and match status
-  const filteredCustomers = useMemo(() => {
-    if (!stripeCustomers || stripeCustomers.length === 0) return [];
+  // Combine exact matches and search results, removing duplicates
+  const allCustomers = useMemo(() => {
+    const combined = [...exactMatches, ...searchResults];
+    const unique = new Map<string, StripeCustomer>();
+    combined.forEach((customer) => {
+      if (!unique.has(customer.id)) {
+        unique.set(customer.id, customer);
+      }
+    });
+    return Array.from(unique.values());
+  }, [exactMatches, searchResults]);
+
+  // Check if customer matches student name or email (for highlighting)
+  const customerMatches = useMemo(() => {
+    if (!student) return new Map<string, { nameMatch: boolean; emailMatch: boolean }>();
     
-    let filtered = stripeCustomers;
+    const matches = new Map<string, { nameMatch: boolean; emailMatch: boolean }>();
+    
+    allCustomers.forEach((customer) => {
+      const nameMatch = stringsMatch(student.name, customer.name || null);
+      const emailMatch = stringsMatch(student.email, customer.email || null);
+      
+      matches.set(customer.id, { nameMatch, emailMatch });
+    });
+    
+    return matches;
+  }, [student, allCustomers]);
 
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (customer) =>
-          customer.name?.toLowerCase().includes(searchLower) ||
-          customer.email?.toLowerCase().includes(searchLower) ||
-          customer.id.toLowerCase().includes(searchLower)
-      );
-    }
-
+  // Filter and sort customers by match status
+  const filteredCustomers = useMemo(() => {
+    if (allCustomers.length === 0) return [];
+    
     // Sort: matched customers first, then by name
-    return filtered.sort((a, b) => {
+    return allCustomers.sort((a, b) => {
       const aMatches = customerMatches.get(a.id);
       const bMatches = customerMatches.get(b.id);
       const aHasMatch = aMatches?.nameMatch || aMatches?.emailMatch;
@@ -154,13 +226,7 @@ export function StudentStripeSyncModal({
       const bName = b.name || '';
       return aName.localeCompare(bName);
     });
-  }, [stripeCustomers, searchTerm, customerMatches]);
-
-  // Get linked customer data
-  const linkedCustomer = useMemo(() => {
-    if (!linkedCustomerId) return null;
-    return stripeCustomers.find((c) => c.id === linkedCustomerId) || null;
-  }, [linkedCustomerId, stripeCustomers]);
+  }, [allCustomers, customerMatches]);
 
   // Get payment methods for linked customer
   const [dbPaymentMethods, setDbPaymentMethods] = useState<Array<{
@@ -243,6 +309,28 @@ export function StudentStripeSyncModal({
     };
   }, [linkedCustomer, student, dbPaymentMethods]);
 
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results = await stripeSyncApi.searchStripeCustomers(searchTerm.trim());
+      setSearchResults(results);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to search Stripe customers',
+        variant: 'destructive',
+      });
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleSync = async (customerId: string) => {
     if (!studentId) return;
 
@@ -275,6 +363,13 @@ export function StudentStripeSyncModal({
       }
 
       setLinkedCustomerId(customerId);
+      // Reload linked customer
+      try {
+        const customer = await stripeSyncApi.getStripeCustomer(customerId);
+        setLinkedCustomer(customer);
+      } catch (error) {
+        console.error('Error reloading linked customer:', error);
+      }
       onClose(true);
     } catch (error: any) {
       toast({
@@ -300,6 +395,7 @@ export function StudentStripeSyncModal({
         description: 'Stripe customer unlinked successfully',
       });
       setLinkedCustomerId(null);
+      setLinkedCustomer(null);
       setDbPaymentMethods([]);
       onClose(true);
     } catch (error: any) {
@@ -337,7 +433,11 @@ export function StudentStripeSyncModal({
         <div className="flex-1 overflow-hidden min-h-0 flex">
           {/* Left Column - Comparison Table */}
           <div className="w-1/2 border-r p-6 overflow-y-auto">
-            {linkedCustomer ? (
+            {isLoadingLinked ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : linkedCustomer ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">Comparison</h3>
@@ -449,28 +549,69 @@ export function StudentStripeSyncModal({
             )}
           </div>
 
-          {/* Right Column - Other Stripe Customers */}
+          {/* Right Column - Stripe Customers */}
           <div className="w-1/2 p-6 overflow-y-auto flex flex-col">
             <div className="space-y-4 flex-1 min-h-0 flex flex-col">
-              <div className="flex items-center justify-between flex-shrink-0">
-                <h3 className="font-semibold">
+              <div className="flex-shrink-0">
+                <h3 className="font-semibold mb-4">
                   {linkedCustomer ? 'Other Stripe Customers' : 'Stripe Customers'}
                 </h3>
-                <div className="relative flex-1 max-w-sm ml-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name, email, or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
+                
+                {/* Search bar and button on new line */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, email, or ID..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSearch();
+                        }
+                      }}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleSearch}
+                    disabled={isSearching}
+                    variant="default"
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="mr-2 h-4 w-4" />
+                        Search
+                      </>
+                    )}
+                  </Button>
                 </div>
+
+                {/* Show loading state for exact matches */}
+                {isLoadingExactMatches && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Finding exact matches...</span>
+                  </div>
+                )}
+
+                {/* Show exact matches info */}
+                {!isLoadingExactMatches && exactMatches.length > 0 && (
+                  <div className="text-sm text-muted-foreground py-2">
+                    Found {exactMatches.length} exact match(es) by email or name
+                  </div>
+                )}
               </div>
 
               <div className="border rounded-lg flex-1 overflow-y-auto min-h-0">
                 {filteredCustomers.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
-                    No customers found
+                    {searchTerm ? 'No customers found. Try searching.' : 'No customers found. Use search to find customers.'}
                   </div>
                 ) : (
                   <div className="divide-y">
@@ -576,4 +717,3 @@ export function StudentStripeSyncModal({
     </Dialog>
   );
 }
-
