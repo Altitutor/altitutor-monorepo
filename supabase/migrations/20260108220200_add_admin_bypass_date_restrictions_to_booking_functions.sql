@@ -232,7 +232,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_available_slots IS 'Calculate available booking slots based on opening hours, staff availability, blockouts, existing sessions, and reservations. Slots are generated at intervals matching the session duration. Filters out past dates and enforces minimum advance booking days requirement for students. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL).';
+COMMENT ON FUNCTION public.get_available_slots(DATE, DATE, public.session_type, UUID, INTEGER, BOOLEAN) IS 'Calculate available booking slots based on opening hours, staff availability, blockouts, existing sessions, and reservations. Slots are generated at intervals matching the session duration. Filters out past dates and enforces minimum advance booking days requirement for students. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL).';
 
 -- ========================
 -- UPDATE CREATE_BOOKING_SESSION
@@ -426,7 +426,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.create_booking_session IS 'Create a booking session with automatic staff assignment and student/staff linking. Validates student status: DISCONTINUED cannot book, TRIAL can only book TRIAL_SESSION. Uses p_staff_id when provided (highest priority), otherwise uses reservation staff_id, otherwise auto-assigns. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
+COMMENT ON FUNCTION public.create_booking_session(public.session_type, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID, BOOLEAN) IS 'Create a booking session with automatic staff assignment and student/staff linking. Validates student status: DISCONTINUED cannot book, TRIAL can only book TRIAL_SESSION. Uses p_staff_id when provided (highest priority), otherwise uses reservation staff_id, otherwise auto-assigns. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
 
 -- ========================
 -- UPDATE RESCHEDULE_DRAFTING_SESSION
@@ -671,7 +671,7 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION public.reschedule_drafting_session IS 'Reschedule a drafting session by creating a new drafting session and marking the original session as an absence atomically. Validates student status: DISCONTINUED and TRIAL students cannot reschedule drafting sessions. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
+COMMENT ON FUNCTION public.reschedule_drafting_session(UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID, BOOLEAN) IS 'Reschedule a drafting session by creating a new drafting session and marking the original session as an absence atomically. Validates student status: DISCONTINUED and TRIAL students cannot reschedule drafting sessions. Admins can bypass date restrictions via p_bypass_date_restrictions parameter (auto-detected if NULL). Fixed to use Adelaide timezone for date conversion.';
 
 -- ========================
 -- UPDATE CREATE_ADMIN_TRIAL_BOOKING
@@ -901,5 +901,5 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.create_admin_trial_booking IS 'Create an admin trial session booking atomically. Creates student, parent (if provided), assigns subjects, and creates session. Always bypasses date restrictions for admin bookings and supports manual staff assignment. Fixed to use Adelaide timezone for date conversion.';
+COMMENT ON FUNCTION public.create_admin_trial_booking(TEXT, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT, INTEGER, UUID[], BOOLEAN, TEXT, TEXT, TEXT, TEXT, UUID) IS 'Create an admin trial session booking atomically. Creates student, parent (if provided), assigns subjects, and creates session. Always bypasses date restrictions for admin bookings and supports manual staff assignment. Fixed to use Adelaide timezone for date conversion.';
 
