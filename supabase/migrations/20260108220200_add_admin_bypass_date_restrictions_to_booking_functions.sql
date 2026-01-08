@@ -10,6 +10,19 @@
 --   - Preserves all existing functionality for backward compatibility
 
 -- ========================
+-- DROP OLD FUNCTION SIGNATURES
+-- ========================
+
+-- Drop old get_available_slots signature (5 parameters) - new one with DEFAULT handles old calls
+DROP FUNCTION IF EXISTS public.get_available_slots(DATE, DATE, public.session_type, UUID, INTEGER);
+
+-- Drop old create_booking_session signature (8 parameters) - new one with DEFAULT handles old calls
+DROP FUNCTION IF EXISTS public.create_booking_session(public.session_type, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID);
+
+-- Drop old reschedule_drafting_session signature (8 parameters) - new one with DEFAULT handles old calls
+DROP FUNCTION IF EXISTS public.reschedule_drafting_session(UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID, UUID, UUID, UUID);
+
+-- ========================
 -- UPDATE GET_AVAILABLE_SLOTS
 -- ========================
 
