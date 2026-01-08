@@ -29,8 +29,6 @@ export interface StudentWithStripe {
   student_name: string;
   student_email: string | null;
   stripe_customer_id: string | null;
-  stripe_customer_name: string | null;
-  stripe_customer_email: string | null;
   db_payment_methods: Array<{
     id: string;
     stripe_payment_method_id: string;
@@ -38,21 +36,30 @@ export interface StudentWithStripe {
     card_brand: string;
     is_default: boolean;
   }>;
-  stripe_payment_methods: Array<{
-    last4: string;
-    is_default: boolean;
-  }>;
 }
 
 export const stripeSyncApi = {
   /**
-   * Fetch all Stripe customers with their payment methods
+   * Fetch a single Stripe customer by ID with their payment methods
    */
-  getStripeCustomers: async (): Promise<StripeCustomer[]> => {
-    const response = await fetch('/api/stripe/customers');
+  getStripeCustomer: async (customerId: string): Promise<StripeCustomer> => {
+    const response = await fetch(`/api/stripe/customers/${customerId}`);
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch Stripe customers');
+      throw new Error(error.error || 'Failed to fetch Stripe customer');
+    }
+    const data = await response.json();
+    return data.customer;
+  },
+
+  /**
+   * Search Stripe customers by email, name, or customer ID
+   */
+  searchStripeCustomers: async (query: string): Promise<StripeCustomer[]> => {
+    const response = await fetch(`/api/stripe/customers/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to search Stripe customers');
     }
     const data = await response.json();
     return data.customers;
@@ -101,8 +108,6 @@ export const stripeSyncApi = {
         student_name: `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown',
         student_email: student.email,
         stripe_customer_id: billing?.stripe_customer_id || null,
-        stripe_customer_name: null, // Will be populated from Stripe API
-        stripe_customer_email: null, // Will be populated from Stripe API
         db_payment_methods: paymentMethods.map((pm: any) => ({
           id: pm.id,
           stripe_payment_method_id: pm.stripe_payment_method_id,
@@ -110,7 +115,6 @@ export const stripeSyncApi = {
           card_brand: pm.card_brand,
           is_default: pm.is_default,
         })),
-        stripe_payment_methods: [], // Will be populated from Stripe API
       };
     });
   },
