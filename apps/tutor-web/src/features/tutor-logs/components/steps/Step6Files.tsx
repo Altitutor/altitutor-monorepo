@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -58,10 +57,26 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
           .eq('topic_id', topicId)
           .order('type')
           .order('index');
-        // Filter out files with null IDs (shouldn't happen, but type safety)
-        filesMap[topicId] = (data || []).filter((f): f is Tables<'topics_files'> => 
-          f.id !== null && f.file_id !== null && f.topic_id !== null && f.index !== null
-        );
+        // Filter and map to topics_files type (view includes extra file fields)
+        filesMap[topicId] = (data || []).filter(f => 
+          f.id !== null && 
+          f.file_id !== null && 
+          f.topic_id !== null && 
+          f.index !== null &&
+          f.code !== null
+        ).map(f => ({
+          id: f.id!,
+          topic_id: f.topic_id!,
+          type: f.type,
+          index: f.index!,
+          code: f.code!,
+          file_id: f.file_id!,
+          is_solutions: f.is_solutions,
+          is_solutions_of_id: f.is_solutions_of_id,
+          created_at: f.created_at,
+          updated_at: f.updated_at,
+          created_by: f.created_by,
+        })) as Tables<'topics_files'>[];
       }
       setFilesData(filesMap);
       setIsLoading(false);
@@ -104,8 +119,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
               <div className="font-medium mb-3">{topicData?.name}</div>
               <div className="space-y-2">
                 {files.map((file) => {
-                  const topicCode = topicData ? deriveTopicCode(topicData, topicsData) : '';
-                  const fileCode = deriveTopicFileCode(file, topicCode, file.type);
+                  const fileCode = file.code || '';
 
                   return (
                     <div key={file.id} className="flex items-center gap-2 py-1">

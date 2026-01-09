@@ -124,11 +124,13 @@ export async function POST(request: NextRequest) {
       : 0;
     const index = maxIndex + 1;
     
+    // code is set by database trigger, so we provide empty string (will be overwritten)
     const topicData: TablesInsert<'topics'> = {
       name: body.name,
       subject_id: body.subject_id,
       parent_id: parentId,
       index,
+      code: '', // Will be set by trigger
       created_by: tutorId,
     };
     

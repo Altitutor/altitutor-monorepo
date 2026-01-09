@@ -80,7 +80,7 @@ export function useCreateTopicFile() {
   const { toast } = useToast();
   
   return useMutation({
-    mutationFn: (data: Omit<TablesInsert<'topics_files'>, 'index'>) =>
+    mutationFn: (data: Omit<TablesInsert<'topics_files'>, 'index' | 'code'>) =>
       topicsFilesApi.createTopicFile(data),
     onSuccess: (data) => {
       // Invalidate relevant queries

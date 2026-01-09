@@ -2,7 +2,6 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import { Badge } from '@altitutor/ui';
-import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
 
 type RegistrationFormValues = {
   student: {

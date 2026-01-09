@@ -43,48 +43,25 @@ export function formatDateTime(date: Date | string): string {
  * Format a subject for consistent display across the application
  * Combines curriculum, year level, name, and level in a standardized format
  */
+/**
+ * Get subject long name from database column
+ * Falls back to empty string if not available
+ */
 export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
-  return [
-    subject.curriculum || '',
-    subject.year_level ? subject.year_level : '',
-    subject.name || '',
-    subject.level || ''
-  ].filter(Boolean).join(' ').trim();
+  return subject.long_name || '';
 }
 
 /**
- * Format a subject short name for compact display
- * Format: {curriculum} {year_level}{nickname} {level} (no space between year_level and nickname)
- * Where nickname is the first 4 letters of the subject name, capitalized
- * Example: "SACE 12MATH Standard" for "SACE 12 Mathematics Standard"
+ * Get subject short name from database column
+ * Falls back to empty string if not available
  */
 export function formatSubjectShortName(subject: Tables<'subjects'>): string {
-  const parts: string[] = [];
-  
-  // Add curriculum
-  if (subject.curriculum) {
-    parts.push(subject.curriculum);
-  }
-  
-  // Add year level and nickname together (no space)
-  const yearLevel = subject.year_level != null ? String(subject.year_level) : '';
-  const nickname = subject.name ? subject.name.substring(0, 4).toUpperCase() : '';
-  
-  if (yearLevel || nickname) {
-    parts.push(`${yearLevel}${nickname}`);
-  }
-  
-  // Add level
-  if (subject.level) {
-    parts.push(subject.level);
-  }
-  
-  return parts.filter(Boolean).join(' ').trim();
+  return subject.short_name || '';
 }
 
 /**
  * Format a class name for consistent display across the application
- * Format: {curriculum} {year_level} {subject_name} {day} {start_time} - {end_time}
+ * Format: {subject_long_name} {day} {start_time} - {end_time}
  * Example: "SACE 12 Mathematics Mon 2:00 PM - 4:00 PM"
  */
 export function formatClassName(
@@ -93,19 +70,9 @@ export function formatClassName(
 ): string {
   const parts: string[] = [];
   
-  // Add curriculum
-  if (subject?.curriculum) {
-    parts.push(subject.curriculum);
-  }
-  
-  // Add year level
-  if (subject?.year_level != null) {
-    parts.push(String(subject.year_level));
-  }
-  
-  // Add subject name
-  if (subject?.name) {
-    parts.push(subject.name);
+  // Add subject long name from database column
+  if (subject?.long_name) {
+    parts.push(subject.long_name);
   }
   
   // Add day name (short)
@@ -124,7 +91,7 @@ export function formatClassName(
 /**
  * Format a class short name for compact display
  * Format: {subject_short_name} {day} {start_time}
- * Example: "SACE 12MATH Mon 2:00 PM"
+ * Example: "12MATH Mon 2:00 PM"
  */
 export function formatClassShortName(
   classData: Tables<'classes'>,
@@ -132,9 +99,9 @@ export function formatClassShortName(
 ): string {
   const parts: string[] = [];
   
-  // Add subject short name
-  if (subject) {
-    parts.push(formatSubjectShortName(subject));
+  // Add subject short name from database column
+  if (subject?.short_name) {
+    parts.push(subject.short_name);
   }
   
   // Add day name (short)

@@ -2,18 +2,16 @@
 
 import { Badge } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { deriveTopicCode } from '@/features/topics/utils/codes';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 
 interface TopicCardProps {
   topic: Tables<'topics'>;
-  allTopics: Tables<'topics'>[];
   subject?: Tables<'subjects'>;
   parentTopic?: Tables<'topics'>;
 }
 
-export function TopicCard({ topic, allTopics, subject, parentTopic }: TopicCardProps) {
-  const topicCode = deriveTopicCode(topic, allTopics);
+export function TopicCard({ topic, subject, parentTopic }: TopicCardProps) {
+  const topicCode = topic.code || '';
   const { style, textColorClass } = subject ? getSubjectColorStyle(subject) : { style: {}, textColorClass: '' };
   const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
 

@@ -12,7 +12,7 @@ import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
-import { Loader2, Search, CreditCard, X, Check } from 'lucide-react';
+import { Loader2, Search, CreditCard, X, Check, RefreshCw } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
@@ -48,6 +48,7 @@ export function StudentStripeSyncModal({
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState(false);
+  const [isSyncingToStripe, setIsSyncingToStripe] = useState(false);
   const [isLoadingLinked, setIsLoadingLinked] = useState(false);
   const [isLoadingExactMatches, setIsLoadingExactMatches] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -160,11 +161,21 @@ export function StudentStripeSyncModal({
 
   // Helper functions for matching
   const stringsMatch = (a: string | null | undefined, b: string | null | undefined): boolean => {
-    const aTrimmed = a?.trim() || '';
-    const bTrimmed = b?.trim() || '';
-    if (!aTrimmed && !bTrimmed) return true;
-    if (!aTrimmed || !bTrimmed) return false;
-    return aTrimmed.toLowerCase() === bTrimmed.toLowerCase();
+    // Normalize strings: trim, collapse multiple spaces, and convert to lowercase
+    const normalize = (str: string | null | undefined): string => {
+      if (!str) return '';
+      return str
+        .trim()
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .toLowerCase();
+    };
+    
+    const aNormalized = normalize(a);
+    const bNormalized = normalize(b);
+    
+    if (!aNormalized && !bNormalized) return true;
+    if (!aNormalized || !bNormalized) return false;
+    return aNormalized === bNormalized;
   };
 
   // Create a map of stripe_customer_id -> student name for checking if customer is linked to another student
@@ -409,6 +420,49 @@ export function StudentStripeSyncModal({
     }
   };
 
+  const handleSyncToStripe = async () => {
+    if (!studentId || !linkedCustomerId) return;
+
+    setIsSyncingToStripe(true);
+    try {
+      const result = await stripeSyncApi.syncToStripe(studentId);
+      
+      toast({
+        title: 'Success',
+        description: result.message || `Synced ${result.updates.join(', ')} to Stripe`,
+      });
+
+      // Reload linked customer to reflect changes
+      try {
+        const customer = await stripeSyncApi.getStripeCustomer(linkedCustomerId);
+        setLinkedCustomer(customer);
+      } catch (error) {
+        console.error('Error reloading linked customer:', error);
+      }
+
+      // Reload payment methods
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data, error } = await supabase
+        .from('student_payment_methods')
+        .select('id, card_last4, is_default')
+        .eq('student_id', studentId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setDbPaymentMethods(data);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to sync to Stripe',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncingToStripe(false);
+    }
+  };
+
   const formatCardDisplay = (pm: StripeCustomer['payment_methods'][0]) => {
     if (!pm.card) return 'Unknown';
     return `${pm.card.brand.toUpperCase()} •••• ${pm.card.last4} (${pm.card.exp_month}/${pm.card.exp_year})`;
@@ -441,24 +495,44 @@ export function StudentStripeSyncModal({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">Comparison</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleUnlink}
-                    disabled={isUnlinking}
-                  >
-                    {isUnlinking ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Unlinking...
-                      </>
-                    ) : (
-                      <>
-                        <X className="mr-2 h-4 w-4" />
-                        Unlink
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleSyncToStripe}
+                      disabled={isSyncingToStripe}
+                    >
+                      {isSyncingToStripe ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Sync
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleUnlink}
+                      disabled={isUnlinking}
+                    >
+                      {isUnlinking ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Unlinking...
+                        </>
+                      ) : (
+                        <>
+                          <X className="mr-2 h-4 w-4" />
+                          Unlink
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="space-y-2 mb-4">

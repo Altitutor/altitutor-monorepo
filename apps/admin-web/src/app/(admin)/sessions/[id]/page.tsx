@@ -11,7 +11,6 @@ import { sessionsApi } from '@/features/sessions/api/sessions';
 import { getSessionTitle, formatSessionDate } from '@/features/sessions/utils/session-helpers';
 import { StudentAvatar } from '@/features/sessions/components/StudentAvatar';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { StudentCard } from '@/shared/components/StudentCard';
@@ -458,7 +457,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
               <div className="space-y-4">
                 {tutorLog.topics.map((topicData: any) => {
                   const topic = allTopics.find(t => t.id === topicData.topic?.id) || topicData.topic;
-                  const topicCode = deriveTopicCode(topic, allTopics);
+                  const topicCode = topic?.code || '';
                   const students = topicData.students || [];
                   const files = topicData.files || [];
                   
@@ -482,7 +481,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
                               const topicFile = fileData.topics_file;
                               if (!topicFile) return null;
                               
-                              const fileCode = deriveTopicFileCode(topicFile, topicCode, topicFile.type);
+                              const fileCode = topicFile.code || '';
                               const fileId = topicFile.file?.id;
                               
                               return (

@@ -12,7 +12,6 @@ import { sessionsApi } from '../api/sessions';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { StudentAvatar } from './StudentAvatar';
 import { AttendanceCell } from './AttendanceCell';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { StudentCard } from '@/shared/components/StudentCard';
@@ -486,7 +485,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       {tutorLog.topics.map((topicData: any) => {
                         // Find the complete topic record from allTopics to ensure we have parent_id and index
                         const topic = allTopics.find(t => t.id === topicData.topic?.id) || topicData.topic;
-                        const topicCode = deriveTopicCode(topic, allTopics);
+                        const topicCode = topic?.code || '';
                         const students = topicData.students || [];
                         const files = topicData.files || [];
                         
@@ -510,7 +509,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                                     const topicFile = fileData.topics_file;
                                     if (!topicFile) return null;
                                     
-                                    const fileCode = deriveTopicFileCode(topicFile, topicCode, topicFile.type);
+                                    const fileCode = topicFile.code || '';
                                     const fileId = topicFile.file?.id;
                                     
                                     return (

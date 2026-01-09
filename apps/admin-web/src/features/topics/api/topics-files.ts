@@ -13,7 +13,7 @@ export const topicsFilesApi = {
   /**
    * Create a topic file link
    */
-  createTopicFile: async (data: Omit<TablesInsert<'topics_files'>, 'index'>): Promise<Tables<'topics_files'>> => {
+  createTopicFile: async (data: Omit<TablesInsert<'topics_files'>, 'index' | 'code'>): Promise<Tables<'topics_files'>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     // Get existing topic files to calculate next index
@@ -41,7 +41,7 @@ export const topicsFilesApi = {
       createdBy = staff?.id || null;
     }
     
-    const topicFileData: TablesInsert<'topics_files'> = {
+    const topicFileData: Omit<TablesInsert<'topics_files'>, 'code'> = {
       ...data,
       index,
       created_by: createdBy,
@@ -49,7 +49,7 @@ export const topicsFilesApi = {
     
     const { data: created, error } = await supabase
       .from('topics_files')
-      .insert(topicFileData)
+      .insert(topicFileData as TablesInsert<'topics_files'>)
       .select()
       .single();
     

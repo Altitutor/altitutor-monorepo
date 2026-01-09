@@ -16,61 +16,8 @@ const RESOURCE_TYPE_CODES: Record<Enums<'resource_type'>, string> = {
   FLASHCARDS: 'F',
 };
 
-/**
- * Recursively derives the topic code by traversing up the parent hierarchy
- * E.g., "5.2.3" for a topic with index 3, whose parent has index 2, whose parent has index 5
- * 
- * @param topic The topic to derive the code for
- * @param allTopics All topics (needed to look up parent topics)
- * @returns The topic code (e.g., "5.2.3")
- */
-export function deriveTopicCode(
-  topic: Tables<'topics'>,
-  allTopics: Tables<'topics'>[]
-): string {
-  const codes: number[] = [];
-  let currentTopic: Tables<'topics'> | undefined = topic;
-  
-  // Traverse up the hierarchy
-  while (currentTopic) {
-    codes.unshift(currentTopic.index); // Add to beginning of array
-    
-    // Find parent if it exists
-    if (currentTopic.parent_id) {
-      currentTopic = allTopics.find(t => t.id === currentTopic!.parent_id);
-    } else {
-      currentTopic = undefined;
-    }
-  }
-  
-  return codes.join('.');
-}
-
-/**
- * Derives the topic file code
- * Format: "{topic_code}{type_code}.{topic_files_index}"
- * E.g., "5.2.3PQ.1" for the first practice question in topic "5.2.3"
- * If is_solutions is true, append "_SOL": "5.2.3PQ.1_SOL"
- * 
- * @param topicFile The topic file to derive the code for
- * @param topicCode The topic code (from deriveTopicCode)
- * @param type The resource type
- * @returns The topic file code (e.g., "5.2.3PQ.1" or "5.2.3PQ.1_SOL")
- */
-export function deriveTopicFileCode(
-  topicFile: Tables<'topics_files'>,
-  topicCode: string,
-  type: Enums<'resource_type'>
-): string {
-  const typeCode = RESOURCE_TYPE_CODES[type];
-  let code = `${topicCode}${typeCode}.${topicFile.index}`;
-  
-  if (topicFile.is_solutions) {
-    code += '_SOL';
-  }
-  
-  return code;
-}
+// Note: deriveTopicCode and deriveTopicFileCode have been removed.
+// Codes are now stored in the database and should be accessed via topic.code and topicFile.code
 
 /**
  * Gets the next available index for a topic given its subject and parent
@@ -151,7 +98,7 @@ export function buildTopicTree(
     .sort((a, b) => a.index - b.index)
     .map(topic => ({
       ...topic,
-      code: deriveTopicCode(topic, topics),
+      code: topic.code, // Use stored code from database
       children: buildTopicTree(topics, topic.id),
     }));
   

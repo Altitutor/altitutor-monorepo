@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -47,13 +46,27 @@ export function Step7FileStudents({
           .from('vtutor_topics_files')
           .select('*')
           .in('id', fileIds);
-        setFilesData((filesRes || []).filter((f): f is Tables<'topics_files'> => 
+        // Filter and map to topics_files type (view includes extra file fields)
+        setFilesData((filesRes || []).filter(f => 
           f.id != null && 
           f.file_id != null && 
           f.topic_id != null && 
           f.index != null &&
+          f.code != null &&
           typeof f.type === 'string'
-        ));
+        ).map(f => ({
+          id: f.id!,
+          topic_id: f.topic_id!,
+          type: f.type,
+          index: f.index!,
+          code: f.code!,
+          file_id: f.file_id!,
+          is_solutions: f.is_solutions,
+          is_solutions_of_id: f.is_solutions_of_id,
+          created_at: f.created_at,
+          updated_at: f.updated_at,
+          created_by: f.created_by,
+        })) as Tables<'topics_files'>[]);
       }
 
       if (topicIds.length > 0) {
@@ -128,8 +141,7 @@ export function Step7FileStudents({
           const topicData = getTopic(file.topicId);
           if (!fileData || !topicData) return null;
 
-          const topicCode = deriveTopicCode(topicData, topicsData);
-          const fileCode = deriveTopicFileCode(fileData, topicCode, fileData.type);
+          const fileCode = fileData?.code || '';
           const availableStudents = getAvailableStudents(file.topicId);
 
           return (

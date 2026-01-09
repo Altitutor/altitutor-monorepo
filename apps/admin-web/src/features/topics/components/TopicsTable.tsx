@@ -39,8 +39,6 @@ import { getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
-import { deriveTopicCode } from '../utils/codes';
-import { deriveTopicFileCode } from '../utils/codes';
 import { getFileTypeLabel } from '../utils/file-type-icons';
 import { FilePreviewModal } from './FilePreviewModal';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
@@ -500,7 +498,7 @@ function TopicRows({
   return (
     <>
       {filteredTopics.map((topic) => {
-        const topicCode = deriveTopicCode(topic, allTopics);
+        const topicCode = topic.code || '';
         const hasChildren = allTopics.some(t => t.parent_id === topic.id);
         const isExpanded = expandedTopics.has(topic.id);
         const subjectColorHex = getSubjectColorHex(topic.subject);
@@ -616,7 +614,7 @@ function TopicRow({
           <TooltipProvider>
             <div className="space-y-1">
               {topicFiles.map((tf) => {
-                const fileCode = deriveTopicFileCode(tf, topicCode, tf.type);
+                const fileCode = tf.code || '';
                 const typeLabel = getFileTypeLabel(tf.type);
                 const filename = tf.file?.filename || 'Unknown file';
                 const storagePath = tf.file?.storage_path || '';

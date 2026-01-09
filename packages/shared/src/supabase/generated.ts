@@ -3196,7 +3196,9 @@ export type Database = {
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
+          long_name: string | null
           name: string
+          short_name: string | null
           updated_at: string | null
           year_level: number | null
         }
@@ -3207,7 +3209,9 @@ export type Database = {
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
+          long_name?: string | null
           name: string
+          short_name?: string | null
           updated_at?: string | null
           year_level?: number | null
         }
@@ -3218,7 +3222,9 @@ export type Database = {
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
+          long_name?: string | null
           name?: string
+          short_name?: string | null
           updated_at?: string | null
           year_level?: number | null
         }
@@ -3226,6 +3232,7 @@ export type Database = {
       }
       topics: {
         Row: {
+          code: string
           created_at: string | null
           created_by: string | null
           id: string
@@ -3236,6 +3243,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          code: string
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -3246,6 +3254,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          code?: string
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -3288,6 +3297,13 @@ export type Database = {
             foreignKeyName: "topics_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
@@ -3316,6 +3332,7 @@ export type Database = {
       }
       topics_files: {
         Row: {
+          code: string
           created_at: string | null
           created_by: string | null
           file_id: string
@@ -3328,6 +3345,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          code: string
           created_at?: string | null
           created_by?: string | null
           file_id: string
@@ -3340,6 +3358,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          code?: string
           created_at?: string | null
           created_by?: string | null
           file_id?: string
@@ -3391,6 +3410,13 @@ export type Database = {
             foreignKeyName: "topics_files_is_solutions_of_id_fkey"
             columns: ["is_solutions_of_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_topics_files"
             referencedColumns: ["id"]
           },
@@ -3399,6 +3425,13 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics"
             referencedColumns: ["id"]
           },
           {
@@ -3723,6 +3756,13 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
@@ -3801,6 +3841,13 @@ export type Database = {
             columns: ["topics_files_id"]
             isOneToOne: false
             referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_topics_files_id_fkey"
+            columns: ["topics_files_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
             referencedColumns: ["id"]
           },
           {
@@ -4876,11 +4923,208 @@ export type Database = {
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string | null
           level: string | null
+          long_name: string | null
           name: string | null
+          short_name: string | null
           updated_at: string | null
           year_level: number | null
         }
         Relationships: []
+      }
+      vstudent_topics: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          index: number | null
+          name: string | null
+          parent_id: string | null
+          subject_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          index?: number | null
+          name?: string | null
+          parent_id?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          index?: number | null
+          name?: string | null
+          parent_id?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "topics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vstudent_topics_files: {
+        Row: {
+          bucket: string | null
+          code: string | null
+          created_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          file_id: string | null
+          file_metadata: Json | null
+          filename: string | null
+          id: string | null
+          index: number | null
+          is_solutions: boolean | null
+          is_solutions_of_id: string | null
+          mimetype: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          storage_provider: string | null
+          topic_id: string | null
+          type: Database["public"]["Enums"]["resource_type"] | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "topics_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vstudent_tutor_log: {
         Row: {
@@ -5601,7 +5845,9 @@ export type Database = {
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string | null
           level: string | null
+          long_name: string | null
           name: string | null
+          short_name: string | null
           updated_at: string | null
           year_level: number | null
         }
@@ -5609,6 +5855,7 @@ export type Database = {
       }
       vtutor_topics: {
         Row: {
+          code: string | null
           created_at: string | null
           created_by: string | null
           id: string | null
@@ -5619,6 +5866,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          code?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string | null
@@ -5629,6 +5877,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          code?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string | null
@@ -5671,6 +5920,13 @@ export type Database = {
             foreignKeyName: "topics_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_topics"
             referencedColumns: ["id"]
           },
@@ -5699,40 +5955,25 @@ export type Database = {
       }
       vtutor_topics_files: {
         Row: {
+          bucket: string | null
+          code: string | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
           file_id: string | null
+          file_metadata: Json | null
+          filename: string | null
           id: string | null
           index: number | null
           is_solutions: boolean | null
           is_solutions_of_id: string | null
+          mimetype: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          storage_provider: string | null
           topic_id: string | null
           type: Database["public"]["Enums"]["resource_type"] | null
           updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          file_id?: string | null
-          id?: string | null
-          index?: number | null
-          is_solutions?: boolean | null
-          is_solutions_of_id?: string | null
-          topic_id?: string | null
-          type?: Database["public"]["Enums"]["resource_type"] | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          file_id?: string | null
-          id?: string | null
-          index?: number | null
-          is_solutions?: boolean | null
-          is_solutions_of_id?: string | null
-          topic_id?: string | null
-          type?: Database["public"]["Enums"]["resource_type"] | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -5774,6 +6015,13 @@ export type Database = {
             foreignKeyName: "topics_files_is_solutions_of_id_fkey"
             columns: ["is_solutions_of_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_is_solutions_of_id_fkey"
+            columns: ["is_solutions_of_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_topics_files"
             referencedColumns: ["id"]
           },
@@ -5782,6 +6030,13 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics"
             referencedColumns: ["id"]
           },
           {
@@ -5922,6 +6177,11 @@ export type Database = {
         }
         Returns: Json
       }
+      calculate_topic_code: { Args: { p_topic_id: string }; Returns: string }
+      calculate_topic_file_code: {
+        Args: { p_topic_file_id: string }
+        Returns: string
+      }
       can_student_access_session_file: {
         Args: { session_id: string }
         Returns: boolean
@@ -5989,6 +6249,7 @@ export type Database = {
       }
       create_booking_session: {
         Args: {
+          p_bypass_date_restrictions?: boolean
           p_created_by?: string
           p_end_at: string
           p_reservation_id?: string
@@ -6133,6 +6394,7 @@ export type Database = {
       }
       get_available_slots: {
         Args: {
+          p_bypass_date_restrictions?: boolean
           p_duration_minutes?: number
           p_end_date: string
           p_session_type: Database["public"]["Enums"]["session_type"]
@@ -6160,7 +6422,9 @@ export type Database = {
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
+          long_name: string | null
           name: string
+          short_name: string | null
           updated_at: string | null
           year_level: number | null
         }[]
@@ -6180,7 +6444,9 @@ export type Database = {
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
+          long_name: string | null
           name: string
+          short_name: string | null
           updated_at: string | null
           year_level: number | null
         }[]
@@ -6227,8 +6493,21 @@ export type Database = {
         Returns: number
       }
       re_enroll_student: { Args: { p_student_id: string }; Returns: Json }
+      recalculate_topic_code_and_descendants: {
+        Args: { p_topic_id: string }
+        Returns: undefined
+      }
+      recalculate_topic_file_codes_for_topic: {
+        Args: { p_topic_id: string }
+        Returns: undefined
+      }
+      recalculate_topic_file_codes_for_topic_and_descendants: {
+        Args: { p_topic_id: string }
+        Returns: undefined
+      }
       reschedule_drafting_session: {
         Args: {
+          p_bypass_date_restrictions?: boolean
           p_created_by?: string
           p_end_at: string
           p_original_session_id: string
@@ -6385,6 +6664,24 @@ export type Database = {
       student_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
+      }
+      validate_all_topic_codes: {
+        Args: never
+        Returns: {
+          calculated_code: string
+          is_valid: boolean
+          stored_code: string
+          topic_id: string
+        }[]
+      }
+      validate_all_topic_file_codes: {
+        Args: never
+        Returns: {
+          calculated_code: string
+          is_valid: boolean
+          stored_code: string
+          topic_file_id: string
+        }[]
       }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
       verify_email: { Args: { user_email: string }; Returns: undefined }

@@ -16,7 +16,6 @@ import { useSessionNotes } from '../hooks/useSessionNotes';
 import { SessionNotes } from './SessionNotes';
 import { LogSessionModal } from '@/features/tutor-logs/components/LogSessionModal';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import { StudentAvatar } from './StudentAvatar';
 
 type SessionModalProps = {
@@ -370,7 +369,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     // Find the complete topic record from allTopics
                     const topic = allTopics.find(t => t.id === topicData.topic_id);
                     const topicName = topicData.topic_name || topic?.name || 'Unknown Topic';
-                    const topicCode = topic ? deriveTopicCode(topic, allTopics) : '';
+                    const topicCode = topic?.code || '';
                     
                     // Get files for this topic from tutorLog.files
                     const topicFiles = (tutorLog.files || []).filter((f: any) => f.topic_id === topicData.topic_id);
@@ -391,18 +390,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                             <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
                             <div className="space-y-1">
                               {topicFiles.map((fileData: any) => {
-                                const fileCode = topicCode 
-                                  ? deriveTopicFileCode(
-                                      {
-                                        id: fileData.topics_files_id,
-                                        index: 1, // We don't have index in view, use placeholder
-                                        type: fileData.type,
-                                        is_solutions: fileData.is_solutions,
-                                      } as any,
-                                      topicCode,
-                                      fileData.type
-                                    )
-                                  : fileData.filename;
+                                const fileCode = fileData.code || fileData.filename || '';
                                 
                                 return (
                                   <div

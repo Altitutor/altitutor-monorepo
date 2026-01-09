@@ -280,7 +280,6 @@ export function EditSubjectModal({
                 </div>
                 <DraggableTopicsList
                   topics={rootTopics}
-                  allTopics={allTopics}
                   onReorder={handleTopicsReorder}
                 />
               </div>

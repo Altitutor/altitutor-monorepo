@@ -5,7 +5,6 @@ import { Checkbox } from '@altitutor/ui';
 import { FileCard } from '@/features/topics/components/FileCard';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { deriveTopicCode, deriveTopicFileCode } from '@/features/topics/utils/codes';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -104,7 +103,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
 
           if (files.length === 0) return null;
 
-          const topicCode = topicData ? deriveTopicCode(topicData, topicsData) : '';
+          const topicCode = topicData?.code || '';
 
           return (
             <div key={topic.topicId} className="space-y-3">
@@ -113,7 +112,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
               </div>
               <div className="space-y-2">
                 {files.map((file) => {
-                  const fileCode = deriveTopicFileCode(file, topicCode, file.type);
+                  const fileCode = file.code || '';
 
                   return (
                     <div key={file.id} className="flex items-center gap-3">

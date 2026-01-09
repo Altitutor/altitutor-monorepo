@@ -39,7 +39,6 @@ import {
   useAvailableSolutionLinks,
   useDeleteTopicFile,
 } from '../hooks';
-import { deriveTopicCode } from '../utils/codes';
 import { useToast } from '@altitutor/ui';
 import type { Enums } from '@altitutor/shared';
 
@@ -99,7 +98,7 @@ export function EditTopicFileModal({
 
     const query = topicSearchQuery.toLowerCase();
     return topics.filter((topic) => {
-      const topicCode = deriveTopicCode(topic, topics);
+      const topicCode = topic.code || '';
       return (
         topic.name.toLowerCase().includes(query) ||
         topicCode.toLowerCase().includes(query)
@@ -237,7 +236,7 @@ export function EditTopicFileModal({
                   </div>
                 ) : (
                   filteredTopics.map((topic) => {
-                    const topicCode = deriveTopicCode(topic, topics);
+                    const topicCode = topic.code || '';
                     return (
                       <SelectItem key={topic.id} value={topic.id}>
                         {topicCode} - {topic.name}
