@@ -186,3 +186,4 @@ export function DetailsTab({ profile }: DetailsTabProps) {
 
 
 
+
