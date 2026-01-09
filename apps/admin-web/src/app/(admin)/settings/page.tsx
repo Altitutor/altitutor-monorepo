@@ -9,12 +9,12 @@ export default function SettingsPage() {
     {
       title: 'Scheduling',
       items: [
-        {
-          title: 'Class Planner',
-          description: 'Create and manage class plans',
-          href: '/settings/class-planner',
-          icon: LayoutGrid,
-        },
+        // {
+        //   title: 'Class Planner',
+        //   description: 'Create and manage class plans',
+        //   href: '/settings/class-planner',
+        //   icon: LayoutGrid,
+        // },
         {
           title: 'Opening Hours',
           description: 'Manage business opening hours by day of the week',
