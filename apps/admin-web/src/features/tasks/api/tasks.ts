@@ -1,7 +1,7 @@
 import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { TaskFilters, TaskWithAssignee } from '../types';
+import type { TaskFilters, TaskWithAssignee, TaskInsert, TaskUpdate } from '../types';
 
 /**
  * Tasks API client for working with task data

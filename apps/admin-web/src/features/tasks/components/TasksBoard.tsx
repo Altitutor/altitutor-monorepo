@@ -19,7 +19,7 @@ import {
 import { TaskCard } from './TaskCard';
 import { useTasks } from '../api/queries';
 import { useUpdateTask } from '../api/mutations';
-import type { TaskStatus, TaskWithAssignee } from '../types';
+import type { TaskStatus, TaskPriority, TaskWithAssignee } from '../types';
 import { cn } from '@/shared/utils/index';
 import { Skeleton } from '@altitutor/ui';
 
@@ -86,7 +86,7 @@ function Column({ status, label, tasks, onTaskClick }: ColumnProps) {
 export function TasksBoard({ filters }: TasksBoardProps) {
   const { data: tasks = [], isLoading } = useTasks({
     assignedTo: filters?.assignedTo,
-    priority: filters?.priority,
+    priority: filters?.priority as TaskPriority | undefined,
     search: filters?.search,
   });
   const updateTask = useUpdateTask();

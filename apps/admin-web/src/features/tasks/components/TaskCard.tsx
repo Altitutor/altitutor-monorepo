@@ -3,7 +3,7 @@
 import { Badge } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
-import type { TaskWithAssignee } from '../types';
+import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
 import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials } from '../utils/taskUtils';
 import { Calendar, GripVertical } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -75,14 +75,14 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       {/* Badges row */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* Status */}
-        <Badge className={cn('text-xs', getStatusColor(task.status))}>
-          {getStatusLabel(task.status)}
+        <Badge className={cn('text-xs', getStatusColor(task.status as TaskStatus))}>
+          {getStatusLabel(task.status as TaskStatus)}
         </Badge>
 
         {/* Priority */}
         {task.priority !== 0 && (
-          <Badge className={cn('text-xs', getPriorityColor(task.priority))}>
-            {getPriorityLabel(task.priority)}
+          <Badge className={cn('text-xs', getPriorityColor((task.priority ?? 0) as TaskPriority))}>
+            {getPriorityLabel((task.priority ?? 0) as TaskPriority)}
           </Badge>
         )}
 
