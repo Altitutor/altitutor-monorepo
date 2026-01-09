@@ -135,49 +135,41 @@ ALTER TABLE public.automation_actions ENABLE ROW LEVEL SECURITY;
 -- CREATE RLS POLICIES
 -- ========================
 
--- Notifications: ADMINSTAFF can view all, staff can view their own
+-- Notifications: ADMINSTAFF only
+-- Note: Wrapped in SELECT for performance (see: 20251114000003_fix_rls_performance_cache_adminstaff_check.sql)
 DROP POLICY IF EXISTS "ADMINSTAFF full access to notifications" ON public.notifications;
 CREATE POLICY "ADMINSTAFF full access to notifications" ON public.notifications
   FOR ALL TO authenticated
   USING ((SELECT public.is_adminstaff_active()))
   WITH CHECK ((SELECT public.is_adminstaff_active()));
 
-DROP POLICY IF EXISTS "Staff can view own notifications" ON public.notifications;
-CREATE POLICY "Staff can view own notifications" ON public.notifications
-  FOR SELECT TO authenticated
-  USING (
-    staff_id IN (
-      SELECT id FROM public.staff WHERE user_id = (SELECT auth.uid())
-    )
-  );
-
-DROP POLICY IF EXISTS "Staff can update own notifications" ON public.notifications;
-CREATE POLICY "Staff can update own notifications" ON public.notifications
-  FOR UPDATE TO authenticated
-  USING (
-    staff_id IN (
-      SELECT id FROM public.staff WHERE user_id = (SELECT auth.uid())
-    )
-  )
-  WITH CHECK (
-    staff_id IN (
-      SELECT id FROM public.staff WHERE user_id = (SELECT auth.uid())
-    )
-  );
+-- TUTOR: No access
+-- STUDENT: No access
+-- (No policies needed - default deny)
 
 -- Automation Rules: ADMINSTAFF only
+-- Note: Wrapped in SELECT for performance (see: 20251114000003_fix_rls_performance_cache_adminstaff_check.sql)
 DROP POLICY IF EXISTS "ADMINSTAFF full access to automation_rules" ON public.automation_rules;
 CREATE POLICY "ADMINSTAFF full access to automation_rules" ON public.automation_rules
   FOR ALL TO authenticated
   USING ((SELECT public.is_adminstaff_active()))
   WITH CHECK ((SELECT public.is_adminstaff_active()));
 
--- Automation Actions: ADMINSTAFF only (via rule access)
+-- TUTOR: No access
+-- STUDENT: No access
+-- (No policies needed - default deny)
+
+-- Automation Actions: ADMINSTAFF only
+-- Note: Wrapped in SELECT for performance (see: 20251114000003_fix_rls_performance_cache_adminstaff_check.sql)
 DROP POLICY IF EXISTS "ADMINSTAFF full access to automation_actions" ON public.automation_actions;
 CREATE POLICY "ADMINSTAFF full access to automation_actions" ON public.automation_actions
   FOR ALL TO authenticated
   USING ((SELECT public.is_adminstaff_active()))
   WITH CHECK ((SELECT public.is_adminstaff_active()));
+
+-- TUTOR: No access
+-- STUDENT: No access
+-- (No policies needed - default deny)
 
 -- ========================
 -- CREATE updated_at TRIGGER FOR automation_rules
