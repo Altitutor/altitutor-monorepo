@@ -1,94 +1,19 @@
-// Types will be properly generated after migrations are applied
-// For now, using manual type definitions
-export interface AutomationRule {
-  id: string;
-  name: string;
-  description: string | null;
-  entity_type: string;
-  event_types: string[];
-  conditions: any | null;
-  enabled: boolean;
-  priority: number;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 
-export interface AutomationRuleInsert {
-  name: string;
-  description?: string | null;
-  entity_type: string;
-  event_types: string[];
-  conditions?: any | null;
-  enabled?: boolean;
-  priority?: number;
-  created_by?: string | null;
-}
+export type AutomationRule = Tables<'automation_rules'>;
+export type AutomationRuleInsert = TablesInsert<'automation_rules'>;
+export type AutomationRuleUpdate = TablesUpdate<'automation_rules'>;
 
-export interface AutomationRuleUpdate {
-  name?: string;
-  description?: string | null;
-  entity_type?: string;
-  event_types?: string[];
-  conditions?: any | null;
-  enabled?: boolean;
-  priority?: number;
-}
+export type AutomationAction = Tables<'automation_actions'>;
+export type AutomationActionInsert = TablesInsert<'automation_actions'>;
+export type AutomationActionUpdate = TablesUpdate<'automation_actions'>;
 
-export interface AutomationAction {
-  id: string;
-  rule_id: string;
-  action_type: 'SEND_MESSAGE' | 'CREATE_TASK' | 'CREATE_NOTIFICATION';
-  action_config: any;
-  order_index: number;
-  created_at: string;
-}
+export type Notification = Tables<'notifications'>;
+export type NotificationInsert = TablesInsert<'notifications'>;
+export type NotificationUpdate = TablesUpdate<'notifications'>;
 
-export interface AutomationActionInsert {
-  rule_id: string;
-  action_type: 'SEND_MESSAGE' | 'CREATE_TASK' | 'CREATE_NOTIFICATION';
-  action_config: any;
-  order_index?: number;
-}
-
-export interface AutomationActionUpdate {
-  rule_id?: string;
-  action_type?: 'SEND_MESSAGE' | 'CREATE_TASK' | 'CREATE_NOTIFICATION';
-  action_config?: any;
-  order_index?: number;
-}
-
-export interface Notification {
-  id: string;
-  staff_id: string;
-  activity_event_id: string | null;
-  notification_type: string;
-  title: string;
-  body: string | null;
-  read_at: string | null;
-  action_url: string | null;
-  created_at: string;
-}
-
-export interface NotificationInsert {
-  staff_id: string;
-  activity_event_id?: string | null;
-  notification_type: string;
-  title: string;
-  body?: string | null;
-  read_at?: string | null;
-  action_url?: string | null;
-}
-
-export interface NotificationUpdate {
-  staff_id?: string;
-  activity_event_id?: string | null;
-  notification_type?: string;
-  title?: string;
-  body?: string | null;
-  read_at?: string | null;
-  action_url?: string | null;
-}
+// Re-export TablesUpdate for convenience
+export type { TablesUpdate };
 
 export type AutomationRuleWithActions = AutomationRule & {
   actions: AutomationAction[];

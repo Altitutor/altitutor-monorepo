@@ -11,7 +11,7 @@ export const automationApi = {
    * Get all automation rules with their actions
    */
   listRules: async (): Promise<AutomationRuleWithActions[]> => {
-    const supabase = getSupabaseClient() as any;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { data, error } = await supabase
       .from('automation_rules')
@@ -23,14 +23,14 @@ export const automationApi = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return (data ?? []) as AutomationRuleWithActions[];
+    return (data ?? []) as unknown as AutomationRuleWithActions[];
   },
 
   /**
    * Get a single automation rule with its actions
    */
   getRule: async (ruleId: string): Promise<AutomationRuleWithActions | null> => {
-    const supabase = getSupabaseClient() as any;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { data, error } = await supabase
       .from('automation_rules')
@@ -42,14 +42,14 @@ export const automationApi = {
       .single();
 
     if (error) throw error;
-    return data as AutomationRuleWithActions | null;
+    return data as unknown as AutomationRuleWithActions | null;
   },
 
   /**
    * Create a new automation rule
    */
-  createRule: async (rule: AutomationRuleInsert): Promise<any> => {
-    const supabase = getSupabaseClient() as any;
+  createRule: async (rule: AutomationRuleInsert): Promise<Tables<'automation_rules'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { data, error } = await supabase
       .from('automation_rules')
@@ -58,14 +58,14 @@ export const automationApi = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Tables<'automation_rules'>;
   },
 
   /**
    * Update an automation rule
    */
-  updateRule: async (ruleId: string, updates: AutomationRuleUpdate): Promise<any> => {
-    const supabase = getSupabaseClient() as any;
+  updateRule: async (ruleId: string, updates: AutomationRuleUpdate): Promise<Tables<'automation_rules'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { data, error } = await supabase
       .from('automation_rules')
@@ -75,14 +75,14 @@ export const automationApi = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Tables<'automation_rules'>;
   },
 
   /**
    * Delete an automation rule (cascades to actions)
    */
   deleteRule: async (ruleId: string): Promise<void> => {
-    const supabase = getSupabaseClient() as any;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { error } = await supabase
       .from('automation_rules')
@@ -95,8 +95,8 @@ export const automationApi = {
   /**
    * Create an automation action
    */
-  createAction: async (action: AutomationActionInsert): Promise<any> => {
-    const supabase = getSupabaseClient() as any;
+  createAction: async (action: AutomationActionInsert): Promise<Tables<'automation_actions'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { data, error } = await supabase
       .from('automation_actions')
@@ -105,14 +105,14 @@ export const automationApi = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Tables<'automation_actions'>;
   },
 
   /**
    * Update an automation action
    */
-  updateAction: async (actionId: string, updates: any): Promise<any> => {
-    const supabase = getSupabaseClient() as any;
+  updateAction: async (actionId: string, updates: TablesUpdate<'automation_actions'>): Promise<Tables<'automation_actions'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { data, error } = await supabase
       .from('automation_actions')
@@ -122,14 +122,14 @@ export const automationApi = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Tables<'automation_actions'>;
   },
 
   /**
    * Delete an automation action
    */
   deleteAction: async (actionId: string): Promise<void> => {
-    const supabase = getSupabaseClient() as any;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { error } = await supabase
       .from('automation_actions')
@@ -142,8 +142,8 @@ export const automationApi = {
   /**
    * Get notifications for a staff member
    */
-  getNotifications: async (staffId: string, unreadOnly = false): Promise<any[]> => {
-    const supabase = getSupabaseClient() as any;
+  getNotifications: async (staffId: string, unreadOnly = false): Promise<Tables<'notifications'>[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     let query = supabase
       .from('notifications')
@@ -157,14 +157,14 @@ export const automationApi = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []);
+    return (data ?? []) as Tables<'notifications'>[];
   },
 
   /**
    * Mark notification as read
    */
-  markNotificationRead: async (notificationId: string): Promise<any> => {
-    const supabase = getSupabaseClient() as any;
+  markNotificationRead: async (notificationId: string): Promise<Tables<'notifications'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { data, error } = await supabase
       .from('notifications')
@@ -174,14 +174,14 @@ export const automationApi = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Tables<'notifications'>;
   },
 
   /**
    * Mark all notifications as read for a staff member
    */
   markAllNotificationsRead: async (staffId: string): Promise<void> => {
-    const supabase = getSupabaseClient() as any;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     const { error } = await supabase
       .from('notifications')

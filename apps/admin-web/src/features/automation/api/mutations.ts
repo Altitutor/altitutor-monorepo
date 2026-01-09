@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { automationApi } from './automation';
 import { automationKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
-import type { AutomationRuleInsert, AutomationRuleUpdate, AutomationActionInsert } from '../types';
+import type { AutomationRuleInsert, AutomationRuleUpdate, AutomationActionInsert, TablesUpdate } from '../types';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 /**
@@ -130,7 +130,7 @@ export function useUpdateAutomationAction() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: any }) =>
+    mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'automation_actions'> }) =>
       automationApi.updateAction(id, updates),
     onSuccess: (updatedAction) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.rule(updatedAction.rule_id) });
@@ -160,7 +160,7 @@ export function useDeleteAutomationAction() {
   return useMutation({
     mutationFn: async ({ actionId, ruleId }: { actionId: string; ruleId: string }) =>
       automationApi.deleteAction(actionId),
-    onSuccess: (_, { ruleId }) => {
+    onSuccess: (_data, { ruleId }) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.rule(ruleId) });
       queryClient.invalidateQueries({ queryKey: automationKeys.rules() });
       toast({
@@ -183,7 +183,6 @@ export function useDeleteAutomationAction() {
  */
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ notificationId, staffId }: { notificationId: string; staffId: string }) =>
@@ -205,7 +204,7 @@ export function useMarkAllNotificationsRead() {
   return useMutation({
     mutationFn: async (staffId: string) =>
       automationApi.markAllNotificationsRead(staffId),
-    onSuccess: (_, staffId) => {
+    onSuccess: (_data, staffId) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.staffNotifications(staffId) });
       queryClient.invalidateQueries({ queryKey: automationKeys.notifications() });
       toast({

@@ -107,7 +107,7 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
                 <TableCell>{rule.priority}</TableCell>
                 <TableCell>
                   <Switch
-                    checked={rule.enabled}
+                    checked={rule.enabled ?? false}
                     onCheckedChange={() => handleToggleEnabled(rule)}
                     disabled={updateRule.isPending}
                   />
