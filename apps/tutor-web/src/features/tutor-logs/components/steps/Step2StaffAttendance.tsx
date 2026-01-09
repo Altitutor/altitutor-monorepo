@@ -112,17 +112,9 @@ export function Step2StaffAttendance({
   };
 
   const handleTypeChange = (staffId: string, type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR') => {
-    // Only one MAIN_TUTOR allowed
-    const updated = staffAttendance.map((sa) => {
-      if (sa.staffId === staffId) {
-        return { ...sa, type };
-      }
-      // If setting this to MAIN_TUTOR, change other MAIN_TUTOR to SECONDARY_TUTOR
-      if (type === 'MAIN_TUTOR' && sa.type === 'MAIN_TUTOR') {
-        return { ...sa, type: 'SECONDARY_TUTOR' as const };
-      }
-      return sa;
-    });
+    const updated = staffAttendance.map((sa) =>
+      sa.staffId === staffId ? { ...sa, type } : sa
+    );
 
     onUpdate(updated);
   };
@@ -146,7 +138,7 @@ export function Step2StaffAttendance({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select which staff members attended this session. Only one Main Tutor is allowed.
+        Select which staff members attended this session.
       </p>
       <div className="space-y-3">
         {sessionStaff.map((ss: any) => {
