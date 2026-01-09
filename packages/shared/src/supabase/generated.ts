@@ -6700,6 +6700,10 @@ export type Database = {
           start_at: string
         }[]
       }
+      get_excluded_fields_for_table: {
+        Args: { table_name: string }
+        Returns: string[]
+      }
       get_service_role_key: { Args: never; Returns: string }
       get_session_id_from_storage_path: {
         Args: { file_path: string }
