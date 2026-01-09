@@ -19,8 +19,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-import { Loader2, Upload, X } from 'lucide-react';
+import { Loader2, Upload, X, GripVertical } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverEvent,
+  useDroppable,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useTopicsBySubject, useCreateTopicFile, useAvailableSolutionLinks, useUploadFile } from '../hooks';
 import { formatSubjectDisplay } from '@/shared/utils';

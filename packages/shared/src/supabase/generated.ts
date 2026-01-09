@@ -211,6 +211,105 @@ export type Database = {
           },
         ]
       }
+      automation_actions: {
+        Row: {
+          action_config: Json
+          action_type: string
+          created_at: string | null
+          id: string
+          order_index: number | null
+          rule_id: string
+        }
+        Insert: {
+          action_config: Json
+          action_type: string
+          created_at?: string | null
+          id?: string
+          order_index?: number | null
+          rule_id: string
+        }
+        Update: {
+          action_config?: Json
+          action_type?: string
+          created_at?: string | null
+          id?: string
+          order_index?: number | null
+          rule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_actions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_rules: {
+        Row: {
+          conditions: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          enabled: boolean | null
+          entity_type: string
+          event_types: string[]
+          id: string
+          name: string
+          priority: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean | null
+          entity_type: string
+          event_types: string[]
+          id?: string
+          name: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean | null
+          entity_type?: string
+          event_types?: string[]
+          id?: string
+          name?: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "automation_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_pricing: {
         Row: {
           billing_type: Database["public"]["Enums"]["billing_type"]
@@ -1772,6 +1871,7 @@ export type Database = {
           is_active: boolean | null
           name: string
           updated_at: string | null
+          variables: Json | null
         }
         Insert: {
           content: string
@@ -1781,6 +1881,7 @@ export type Database = {
           is_active?: boolean | null
           name: string
           updated_at?: string | null
+          variables?: Json | null
         }
         Update: {
           content?: string
@@ -1790,6 +1891,7 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           updated_at?: string | null
+          variables?: Json | null
         }
         Relationships: [
           {
@@ -1959,6 +2061,71 @@ export type Database = {
           {
             foreignKeyName: "notes_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          activity_event_id: string | null
+          body: string | null
+          created_at: string | null
+          id: string
+          notification_type: string
+          read_at: string | null
+          staff_id: string
+          title: string
+        }
+        Insert: {
+          action_url?: string | null
+          activity_event_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          notification_type: string
+          read_at?: string | null
+          staff_id: string
+          title: string
+        }
+        Update: {
+          action_url?: string | null
+          activity_event_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          notification_type?: string
+          read_at?: string | null
+          staff_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_activity_event_id_fkey"
+            columns: ["activity_event_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_availability_summary"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "notifications_staff_id_fkey"
+            columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -3514,6 +3681,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_source_activity_id_fkey"
+            columns: ["source_activity_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_source_rule_id_fkey"
+            columns: ["source_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
             referencedColumns: ["id"]
           },
         ]

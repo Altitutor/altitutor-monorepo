@@ -132,7 +132,7 @@ ALTER TABLE public.automation_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.automation_actions ENABLE ROW LEVEL SECURITY;
 
 -- ========================
--- CREATE RLS POLICIES
+-- CREATE RLS POLICIESgit add 
 -- ========================
 
 -- Notifications: ADMINSTAFF only
