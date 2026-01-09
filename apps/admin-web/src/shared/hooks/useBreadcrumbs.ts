@@ -16,6 +16,7 @@ import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
   dashboard: 'Dashboard',
+  tasks: 'Tasks',
   students: 'Students',
   staff: 'Staff',
   classes: 'Classes',
