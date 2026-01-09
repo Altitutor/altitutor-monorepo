@@ -79,6 +79,16 @@ export interface RelatedEntity {
 }
 
 /**
+ * Information about a single field change in an UPDATE event
+ */
+export interface ChangedField {
+  fieldName: string;
+  fieldLabel: string;
+  oldValue?: string;
+  newValue?: string;
+}
+
+/**
  * Performed by information
  */
 export interface PerformedBy {
@@ -107,6 +117,27 @@ export interface ActivityEventDisplay {
     task?: RelatedEntity;
   };
   metadata?: Record<string, unknown>;
+  // Grouping metadata
+  groupedCount?: number; // Number of activities grouped together (if > 1, this is a grouped activity)
+  groupedEntityIds?: string[]; // IDs of entities involved in the group (e.g., session IDs)
+  isGrouped?: boolean; // Whether this event is a grouped combination of multiple similar events
+  originalEvents?: ActivityEventDisplay[]; // Original events that were grouped/coalesced (for expansion)
+  // Coalescing metadata (for combining related events into logical actions)
+  isCoalesced?: boolean; // Whether this event is a coalesced combination of multiple events
+  coalescedPatternName?: string; // Name of the pattern used to coalesce (e.g., 'reschedule')
+  // For UPDATE events: array of all changed fields
+  changedFields?: ChangedField[];
+  // For UPDATE events: the field that was changed (kept for backward compatibility with grouping)
+  changedFieldName?: string;
+  // For UPDATE events: the human-readable field label (kept for backward compatibility)
+  changedFieldLabel?: string;
+  // For UPDATE events: the old and new values (kept for backward compatibility)
+  oldValue?: string;
+  newValue?: string;
+  // The entity ID from the original event (useful for grouping)
+  entityId?: string;
+  // For note CREATED events: the full note content (for preserving line breaks)
+  noteContent?: string;
 }
 
 /**
@@ -136,7 +167,11 @@ export interface ActivityEventsResponse {
     sessions?: Record<string, Tables<'sessions'>>;
     parents?: Record<string, Tables<'parents'>>;
     tasks?: Record<string, Tables<'tasks'>>;
+    subjects?: Record<string, Tables<'subjects'>>;
+    notes?: Record<string, Tables<'notes'>>;
   };
+  // Mapping of students_subjects entity_id to subject_id for CREATED events
+  studentsSubjectsToSubjectId?: Record<string, string>;
   total: number;
 }
 

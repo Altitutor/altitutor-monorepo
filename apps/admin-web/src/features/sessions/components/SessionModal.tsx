@@ -20,7 +20,6 @@ import { formatSubjectDisplay } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { Check } from 'lucide-react';
-import { SessionNotes } from './SessionNotes';
 import { SessionFiles } from './SessionFiles';
 import { formatTime } from '@/shared/utils/datetime';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
@@ -163,7 +162,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     );
   }
 
-  const { session, sessionsStudents, sessionsStaff, tutorLog, notes } = data;
+  const { session, sessionsStudents, sessionsStaff, tutorLog } = data;
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
   // Use session's subject if available, otherwise fall back to class's subject
@@ -676,25 +675,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               {sessionId && (
                 <>
                   <SessionFiles sessionId={sessionId} />
-                  <Separator />
                 </>
               )}
-
-              {/* Session Notes Section */}
-              <SessionNotes
-                sessionId={sessionId!}
-                notes={(notes as any) || []}
-                onNoteAdded={() => {
-                  // Refetch session data to get updated notes
-                  if (sessionId) {
-                    sessionsApi.getSessionWithTutorLog(sessionId).then((result) => {
-                      setData(result);
-                    }).catch((error) => {
-                      console.error('Failed to refresh session:', error);
-                    });
-                  }
-                }}
-              />
                   </div>
                 </div>
               </TabsContent>

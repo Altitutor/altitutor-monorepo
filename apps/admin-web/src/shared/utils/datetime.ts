@@ -98,3 +98,37 @@ export function dateStringToUtcEnd(dateString: string): string {
   const localDate = new Date(`${dateString}T23:59:59.999`);
   return localDate.toISOString();
 }
+
+/**
+ * Format timestamp for activity feeds in human-readable format
+ * Example: "2:34pm Fri 9 Jan 2026"
+ */
+export function formatActivityTimestamp(dateString: string | Date): string {
+  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  
+  if (isNaN(date.getTime())) return '';
+  
+  // Format time: "2:34pm" (12-hour format, lowercase pm/am, no leading zero for hour)
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  const hour12 = hours % 12 || 12;
+  const paddedMinutes = minutes.toString().padStart(2, '0');
+  const timeStr = `${hour12}:${paddedMinutes}${ampm}`;
+  
+  // Format day of week: "Fri"
+  const dayShortNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayOfWeek = dayShortNames[date.getDay()] || '';
+  
+  // Format day: "9" (no leading zero)
+  const day = date.getDate();
+  
+  // Format month: "Jan"
+  const monthShortNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = monthShortNames[date.getMonth()] || '';
+  
+  // Format year: "2026"
+  const year = date.getFullYear();
+  
+  return `${timeStr} ${dayOfWeek} ${day} ${month} ${year}`;
+}

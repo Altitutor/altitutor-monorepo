@@ -53,10 +53,10 @@ export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
 
 /**
  * Get subject short name from database column
- * Falls back to empty string if not available
+ * Falls back to long_name, then name, then empty string if not available
  */
 export function formatSubjectShortName(subject: Tables<'subjects'>): string {
-  return subject.short_name || '';
+  return subject.short_name || subject.long_name || subject.name || '';
 }
 
 /**

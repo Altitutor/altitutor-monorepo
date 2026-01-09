@@ -19,6 +19,7 @@ import { ClassInfoTab, ClassInfoFormData } from '@/features/classes/components/m
 import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/ClassStudentsTab';
 import { ClassStaffTab } from '@/features/classes/components/modal/tabs/ClassStaffTab';
 import { ClassSessionsTab } from '@/features/classes/components/modal/tabs/ClassSessionsTab';
+import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
 
 export default function ClassDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -204,6 +205,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
           <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
           <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
           <TabsTrigger value="sessions" className="flex-1">Sessions</TabsTrigger>
+          <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-6">
@@ -271,6 +273,10 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
               classStaff={classStaff}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-6">
+          <ClassActivityTab classId={id} isOpen={true} />
         </TabsContent>
       </Tabs>
     </div>

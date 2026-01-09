@@ -45,16 +45,19 @@ export function useCreateNote() {
         queryKey: notesKeys.forTarget(variables.targetType, variables.targetId) 
       });
       // Also invalidate related queries based on target type
-      if (variables.targetType === 'students') {
+      // Handle both singular and plural forms for backward compatibility
+      if (variables.targetType === 'student' || variables.targetType === 'students') {
         queryClient.invalidateQueries({ queryKey: ['students'] });
-      } else if (variables.targetType === 'classes') {
+      } else if (variables.targetType === 'class' || variables.targetType === 'classes') {
         queryClient.invalidateQueries({ queryKey: ['classes'] });
       } else if (variables.targetType === 'staff') {
         queryClient.invalidateQueries({ queryKey: ['staff'] });
-      } else if (variables.targetType === 'sessions') {
+      } else if (variables.targetType === 'session' || variables.targetType === 'sessions') {
         queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      } else if (variables.targetType === 'tasks') {
+      } else if (variables.targetType === 'task' || variables.targetType === 'tasks') {
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      } else if (variables.targetType === 'parent' || variables.targetType === 'parents') {
+        queryClient.invalidateQueries({ queryKey: ['parents'] });
       }
     },
   });

@@ -40,7 +40,10 @@ export const activityApi = {
       query = query.eq('student_id', studentId);
     }
     if (staffId) {
-      query = query.eq('staff_id', staffId);
+      // For staff activity, show both:
+      // 1. Actions performed BY the staff (performed_by)
+      // 2. Actions performed ON the staff (staff_id)
+      query = query.or(`staff_id.eq.${staffId},performed_by.eq.${staffId}`);
     }
     if (classId) {
       query = query.eq('class_id', classId);
@@ -66,6 +69,9 @@ export const activityApi = {
     const sessionIds = new Set<string>();
     const parentIds = new Set<string>();
     const taskIds = new Set<string>();
+    const subjectIds = new Set<string>();
+    const noteIds = new Set<string>();
+    const studentsSubjectsIds = new Set<string>();
 
     events?.forEach((event) => {
       if (event.performed_by) staffIds.add(event.performed_by);
@@ -75,10 +81,35 @@ export const activityApi = {
       if (event.session_id) sessionIds.add(event.session_id);
       if (event.parent_id) parentIds.add(event.parent_id);
       if (event.task_id) taskIds.add(event.task_id);
+      
+      // For notes CREATED events, fetch the note content
+      if (event.entity_type === 'notes' && event.event_type === 'CREATED') {
+        noteIds.add(event.entity_id);
+      }
+      
+      // For students_subjects CREATED events, we need to fetch the subject_id
+      if (event.entity_type === 'students_subjects' && event.event_type === 'CREATED') {
+        studentsSubjectsIds.add(event.entity_id);
+      }
     });
 
+    // Fetch students_subjects records to get subject_ids for CREATED events
+    let studentsSubjectsData: { data: Array<{ id: string; subject_id: string }> | null; error: any } = { data: [], error: null };
+    if (studentsSubjectsIds.size > 0) {
+      const { data, error } = await supabase
+        .from('students_subjects')
+        .select('id, subject_id')
+        .in('id', Array.from(studentsSubjectsIds));
+      studentsSubjectsData = { data, error };
+      if (data) {
+        data.forEach((row) => {
+          if (row.subject_id) subjectIds.add(row.subject_id);
+        });
+      }
+    }
+
     // Fetch related entities in parallel
-    const [staffData, studentsData, classesData, sessionsData, parentsData, tasksData] = await Promise.all([
+    const [staffData, studentsData, classesData, sessionsData, parentsData, tasksData, subjectsData, notesData] = await Promise.all([
       staffIds.size > 0
         ? supabase
             .from('staff')
@@ -100,7 +131,7 @@ export const activityApi = {
       sessionIds.size > 0
         ? supabase
             .from('sessions')
-            .select('id, start_at, type')
+            .select('id, start_at, type, class_id, subject_id')
             .in('id', Array.from(sessionIds))
         : Promise.resolve({ data: [], error: null }),
       parentIds.size > 0
@@ -115,6 +146,18 @@ export const activityApi = {
             .select('id, title, status')
             .in('id', Array.from(taskIds))
         : Promise.resolve({ data: [], error: null }),
+      subjectIds.size > 0
+        ? supabase
+            .from('subjects')
+            .select('id, name, short_name, long_name')
+            .in('id', Array.from(subjectIds))
+        : Promise.resolve({ data: [], error: null }),
+      noteIds.size > 0
+        ? supabase
+            .from('notes')
+            .select('id, note')
+            .in('id', Array.from(noteIds))
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     // Build related entities maps
@@ -125,6 +168,8 @@ export const activityApi = {
       sessions: {},
       parents: {},
       tasks: {},
+      subjects: {},
+      notes: {},
     };
 
     if (!staffData.error && staffData.data && Array.isArray(staffData.data)) {
@@ -141,11 +186,42 @@ export const activityApi = {
 
     classesData.data?.forEach((class_) => {
       relatedEntities.classes![class_.id] = class_ as any;
+      // Collect subject IDs from classes
+      if ((class_ as any).subject_id) {
+        subjectIds.add((class_ as any).subject_id);
+      }
     });
 
+    // Collect class IDs and subject IDs from sessions
+    const sessionClassIds = new Set<string>();
     sessionsData.data?.forEach((session) => {
       relatedEntities.sessions![session.id] = session as any;
+      // Collect subject IDs directly from sessions
+      if ((session as any).subject_id) {
+        subjectIds.add((session as any).subject_id);
+      }
+      // Collect class IDs from sessions (for other purposes, but we don't need them for subject lookup anymore)
+      if ((session as any).class_id) {
+        sessionClassIds.add((session as any).class_id);
+      }
     });
+
+    // Fetch classes from sessions if they weren't already fetched
+    const missingClassIds = Array.from(sessionClassIds).filter(id => !relatedEntities.classes?.[id]);
+    if (missingClassIds.length > 0) {
+      const { data: additionalClassesData } = await supabase
+        .from('classes')
+        .select('id, level, subject_id')
+        .in('id', missingClassIds);
+      
+      additionalClassesData?.forEach((class_) => {
+        relatedEntities.classes![class_.id] = class_ as any;
+        // Collect subject IDs from additional classes
+        if ((class_ as any).subject_id) {
+          subjectIds.add((class_ as any).subject_id);
+        }
+      });
+    }
 
     parentsData.data?.forEach((parent) => {
       relatedEntities.parents![parent.id] = parent as any;
@@ -155,9 +231,41 @@ export const activityApi = {
       relatedEntities.tasks![task.id] = task as any;
     });
 
+    subjectsData.data?.forEach((subject) => {
+      relatedEntities.subjects![subject.id] = subject as any;
+    });
+
+    // Fetch additional subjects if we discovered new subject IDs from classes
+    const missingSubjectIds = Array.from(subjectIds).filter(id => !relatedEntities.subjects?.[id]);
+    if (missingSubjectIds.length > 0) {
+      const { data: additionalSubjectsData } = await supabase
+        .from('subjects')
+        .select('id, name, short_name, long_name')
+        .in('id', missingSubjectIds);
+      
+      additionalSubjectsData?.forEach((subject) => {
+        relatedEntities.subjects![subject.id] = subject as any;
+      });
+    }
+
+    notesData.data?.forEach((note) => {
+      relatedEntities.notes![note.id] = note as any;
+    });
+
+    // Create mapping of students_subjects entity_id to subject_id
+    const studentsSubjectsToSubjectId: Record<string, string> = {};
+    if (studentsSubjectsData.data) {
+      studentsSubjectsData.data.forEach((row) => {
+        if (row.subject_id) {
+          studentsSubjectsToSubjectId[row.id] = row.subject_id;
+        }
+      });
+    }
+
     return {
       events: events || [],
       relatedEntities,
+      studentsSubjectsToSubjectId,
       total: count || 0,
     };
   },

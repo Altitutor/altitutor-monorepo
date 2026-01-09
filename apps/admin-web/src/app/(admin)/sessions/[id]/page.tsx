@@ -19,8 +19,9 @@ import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
-import { SessionNotes } from '@/features/sessions/components/SessionNotes';
 import { Check, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
 
 export default function SessionDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -32,6 +33,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
   const openWindow = useChatStore(s => s.openWindow);
 
   useEffect(() => {
@@ -138,7 +140,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
     );
   }
 
-  const { session, sessionsStudents, sessionsStaff, tutorLog, notes } = data;
+  const { session, sessionsStudents, sessionsStaff, tutorLog } = data;
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
   // Use session's subject if available, otherwise fall back to class's subject
@@ -262,7 +264,14 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      <div className="space-y-6">
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="w-full">
+          <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+          <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details" className="space-y-6">
         {/* Session Information */}
         <div>
           <h3 className="text-lg font-semibold mb-4">Session Information</h3>
@@ -539,23 +548,12 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           </div>
         )}
 
-        <Separator />
+        </TabsContent>
 
-        {/* Session Notes Section */}
-        <SessionNotes
-          sessionId={id}
-          notes={(notes as any) || []}
-          onNoteAdded={() => {
-            if (id) {
-              sessionsApi.getSessionWithTutorLog(id).then((result) => {
-                setData(result);
-              }).catch((error) => {
-                console.error('Failed to refresh session:', error);
-              });
-            }
-          }}
-        />
-      </div>
+        <TabsContent value="activity" className="space-y-6">
+          <SessionActivityTab sessionId={id} isOpen={true} />
+        </TabsContent>
+      </Tabs>
 
       {/* Student Modal */}
       {selectedStudentId && (

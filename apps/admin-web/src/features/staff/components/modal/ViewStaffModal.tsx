@@ -20,8 +20,6 @@ import { getExistingConversationForRelated } from '@/features/messages/api/queri
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
-import { Notes } from '@/shared/components/Notes';
-import { useNotes } from '@/shared/hooks/useNotes';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
 
 interface ViewStaffModalProps {
@@ -45,7 +43,6 @@ export function ViewStaffModal({
   // React Query hooks - fetch data only when modal is open and staffId exists
   const { data: staffData, isLoading } = useStaffDetails(staffId || '', isOpen && !!staffId);
   const { data: allSubjects = [] } = useSubjects();
-  const { data: notes = [] } = useNotes('staff', staffId || '', isOpen && !!staffId);
   
   // Extract data from hook
   const staffMember = staffData?.staff || null;
@@ -329,13 +326,12 @@ export function ViewStaffModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-7">
+                  <TabsList className="grid w-full grid-cols-6">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="students">Students</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
-                    <TabsTrigger value="notes">Notes</TabsTrigger>
                     <TabsTrigger value="activity">Activity</TabsTrigger>
                   </TabsList>
                 </div>
@@ -409,16 +405,11 @@ export function ViewStaffModal({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="notes" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
                   <div className="p-6">
-                    <Notes
-                      targetType="staff"
-                      targetId={staffId || ''}
-                      notes={notes}
-                      onNoteAdded={() => {
-                        queryClient.invalidateQueries({ queryKey: ['notes', 'staff', staffId] });
-                      }}
-                    />
+                    {staffId && (
+                      <StaffActivityTab staffId={staffId} isOpen={isOpen} />
+                    )}
                   </div>
                 </TabsContent>
               </div>
