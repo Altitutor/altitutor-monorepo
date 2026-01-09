@@ -193,7 +193,9 @@ BEGIN
     v_task_id := NEW.id;
     v_staff_id := NEW.assigned_to;
   ELSE
-    v_task_id := OLD.id;
+    -- For DELETE, store the task_id in entity_id but set FK to NULL to avoid constraint violation
+    -- The entity_id will preserve the deleted task's ID for reference
+    v_task_id := NULL; -- Set to NULL to avoid FK constraint violation
     v_staff_id := OLD.assigned_to;
   END IF;
   
@@ -207,12 +209,12 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'tasks'),
+    jsonb_build_object('operation', TG_OP, 'table', 'tasks', 'deleted_task_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     v_student_id, v_staff_id, v_class_id, v_session_id, v_task_id,
     v_performed_by, NOW()
   );
@@ -236,14 +238,15 @@ BEGIN
   IF TG_OP != 'DELETE' THEN
     v_class_id := NEW.id;
     IF TG_OP = 'UPDATE' THEN
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       INTO v_changed_fields
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val;
     END IF;
   ELSE
-    v_class_id := OLD.id;
+    -- For DELETE, set FK to NULL to avoid constraint violation
+    v_class_id := NULL;
   END IF;
   
   -- Skip if no changes in UPDATE
@@ -256,10 +259,10 @@ BEGIN
     student_id, staff_id, class_id, session_id, task_id,
     performed_by, performed_at
   ) VALUES (
-    'classes', v_class_id,
+    'classes', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     v_changed_fields,
-    jsonb_build_object('operation', TG_OP, 'table', 'classes'),
+    jsonb_build_object('operation', TG_OP, 'table', 'classes', 'deleted_class_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     NULL, NULL, v_class_id, NULL, NULL,
     v_performed_by, NOW()
   );
@@ -297,7 +300,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -340,7 +343,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -370,8 +373,10 @@ BEGIN
     v_session_id := NEW.id;
     v_class_id := NEW.class_id;
   ELSE
-    v_session_id := OLD.id;
-    v_class_id := OLD.class_id;
+    -- For DELETE, set FKs to NULL to avoid constraint violations
+    -- Store deleted IDs in metadata instead
+    v_session_id := NULL;
+    v_class_id := OLD.class_id; -- class_id can stay since classes aren't being deleted
   END IF;
   
   INSERT INTO public.activity_events (
@@ -379,15 +384,15 @@ BEGIN
     student_id, staff_id, class_id, session_id, task_id,
     performed_by, performed_at
   ) VALUES (
-    'sessions', v_session_id,
+    'sessions', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'sessions'),
+    jsonb_build_object('operation', TG_OP, 'table', 'sessions', 'deleted_session_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     NULL, NULL, v_class_id, v_session_id, NULL,
     v_performed_by, NOW()
   );
@@ -428,7 +433,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -474,7 +479,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -517,7 +522,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -545,7 +550,8 @@ BEGIN
   IF TG_OP != 'DELETE' THEN
     v_student_id := NEW.id;
   ELSE
-    v_student_id := OLD.id;
+    -- For DELETE, set FK to NULL to avoid constraint violation
+    v_student_id := NULL;
   END IF;
   
   INSERT INTO public.activity_events (
@@ -553,15 +559,15 @@ BEGIN
     student_id, staff_id, class_id, session_id, task_id,
     performed_by, performed_at
   ) VALUES (
-    'students', v_student_id,
+    'students', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'students'),
+    jsonb_build_object('operation', TG_OP, 'table', 'students', 'deleted_student_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     v_student_id, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
@@ -584,7 +590,8 @@ BEGIN
   IF TG_OP != 'DELETE' THEN
     v_staff_id := NEW.id;
   ELSE
-    v_staff_id := OLD.id;
+    -- For DELETE, set FK to NULL to avoid constraint violation
+    v_staff_id := NULL;
   END IF;
   
   INSERT INTO public.activity_events (
@@ -592,15 +599,15 @@ BEGIN
     student_id, staff_id, class_id, session_id, task_id,
     performed_by, performed_at
   ) VALUES (
-    'staff', v_staff_id,
+    'staff', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'staff'),
+    jsonb_build_object('operation', TG_OP, 'table', 'staff', 'deleted_staff_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     NULL, v_staff_id, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
@@ -628,7 +635,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -668,7 +675,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -701,7 +708,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -734,7 +741,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -774,7 +781,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -815,7 +822,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -860,7 +867,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -900,7 +907,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -940,7 +947,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -983,7 +990,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -1029,7 +1036,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -1075,7 +1082,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -1118,7 +1125,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -1161,7 +1168,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -1213,7 +1220,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
@@ -1265,7 +1272,7 @@ BEGIN
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(key, jsonb_build_object('old', old_val, 'new', new_val))
+      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
       FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
