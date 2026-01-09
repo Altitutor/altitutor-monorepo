@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { TaskCard } from './TaskCard';
-import { TaskDetailModal } from './TaskDetailModal';
+import { EditTaskDialog } from './EditTaskDialog';
 import { useTasks } from '../api/queries';
 import { useUpdateTask } from '../api/mutations';
 import type { TaskStatus, TaskPriority, TaskWithAssignee } from '../types';
@@ -32,7 +32,6 @@ interface TasksBoardProps {
     search?: string;
   };
   onCreateTask?: (status: TaskStatus) => void;
-  onTaskClick?: (task: TaskWithAssignee) => void;
 }
 
 const STATUS_COLUMNS: { status: TaskStatus; label: string }[] = [
@@ -103,7 +102,7 @@ function Column({ status, label, tasks, onTaskClick, onCreateTask }: ColumnProps
   );
 }
 
-export function TasksBoard({ filters, onCreateTask, onTaskClick }: TasksBoardProps) {
+export function TasksBoard({ filters, onCreateTask }: TasksBoardProps) {
   const { data: tasks = [], isLoading } = useTasks({
     assignedTo: filters?.assignedTo,
     priority: filters?.priority as TaskPriority | undefined,
@@ -112,7 +111,7 @@ export function TasksBoard({ filters, onCreateTask, onTaskClick }: TasksBoardPro
   const updateTask = useUpdateTask();
   const [activeTask, setActiveTask] = useState<TaskWithAssignee | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -155,7 +154,21 @@ export function TasksBoard({ filters, onCreateTask, onTaskClick }: TasksBoardPro
     if (!over) return;
 
     const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
+    
+    // Determine the target status
+    // If over.id is a valid status, use it directly (dropped on column)
+    // Otherwise, it's a task ID (dropped on a task card), so find that task's status
+    const validStatuses = STATUS_COLUMNS.map((col) => col.status);
+    let newStatus: TaskStatus;
+    
+    if (validStatuses.includes(over.id as TaskStatus)) {
+      newStatus = over.id as TaskStatus;
+    } else {
+      // over.id is a task ID, find that task's status
+      const targetTask = tasks.find((t) => t.id === over.id);
+      if (!targetTask) return;
+      newStatus = targetTask.status as TaskStatus;
+    }
 
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === newStatus) return;
@@ -200,8 +213,7 @@ export function TasksBoard({ filters, onCreateTask, onTaskClick }: TasksBoardPro
               tasks={tasksByStatus[column.status]}
               onTaskClick={(task) => {
                 setSelectedTaskId(task.id);
-                setIsDetailModalOpen(true);
-                onTaskClick?.(task);
+                setIsEditDialogOpen(true);
               }}
               onCreateTask={onCreateTask}
             />
@@ -216,12 +228,12 @@ export function TasksBoard({ filters, onCreateTask, onTaskClick }: TasksBoardPro
         </DragOverlay>
       </DndContext>
 
-      {/* Task detail modal */}
+      {/* Edit task dialog */}
       {selectedTaskId && (
-        <TaskDetailModal
-          isOpen={isDetailModalOpen}
+        <EditTaskDialog
+          isOpen={isEditDialogOpen}
           onClose={() => {
-            setIsDetailModalOpen(false);
+            setIsEditDialogOpen(false);
             setSelectedTaskId(null);
           }}
           taskId={selectedTaskId}

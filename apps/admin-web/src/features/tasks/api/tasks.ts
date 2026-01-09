@@ -32,14 +32,26 @@ export const tasksApi = {
       query = query.in('status', status);
     }
 
-    // Assigned to filter
+    // Assigned to filter (support both single and array)
     if (assignedTo) {
-      query = query.eq('assigned_to', assignedTo);
+      if (Array.isArray(assignedTo)) {
+        if (assignedTo.length > 0) {
+          query = query.in('assigned_to', assignedTo);
+        }
+      } else {
+        query = query.eq('assigned_to', assignedTo);
+      }
     }
 
-    // Priority filter
+    // Priority filter (support both single and array)
     if (priority !== undefined) {
-      query = query.eq('priority', priority);
+      if (Array.isArray(priority)) {
+        if (priority.length > 0) {
+          query = query.in('priority', priority);
+        }
+      } else {
+        query = query.eq('priority', priority);
+      }
     }
 
     // Search filter (title and description)

@@ -4,11 +4,9 @@ import { Suspense, useState } from 'react';
 import { TasksBoard } from '@/features/tasks/components/TasksBoard';
 import { TasksTable } from '@/features/tasks/components/TasksTable';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
-import { TaskDetailModal } from '@/features/tasks/components/TaskDetailModal';
 import { Button, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import type { TaskWithAssignee } from '@/features/tasks/types';
 
 export default function TasksPage() {
   const search = useSearchParams();
@@ -16,18 +14,11 @@ export default function TasksPage() {
   const viewParam = search.get('view') || 'kanban';
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | undefined>(undefined);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const setView = (v: 'kanban' | 'table') => {
     const params = new URLSearchParams(search.toString());
     params.set('view', v);
     router.push(`/tasks?${params.toString()}`);
-  };
-
-  const handleTaskClick = (task: TaskWithAssignee) => {
-    setSelectedTaskId(task.id);
-    setIsDetailModalOpen(true);
   };
 
   const handleTaskUpdated = () => {
@@ -60,10 +51,9 @@ export default function TasksPage() {
               setDefaultStatus(status);
               setIsCreateModalOpen(true);
             }}
-            onTaskClick={handleTaskClick}
           />
         ) : (
-          <TasksTable onTaskClick={handleTaskClick} />
+          <TasksTable />
         )}
       </Suspense>
 
@@ -77,19 +67,6 @@ export default function TasksPage() {
         onTaskCreated={handleTaskUpdated}
         defaultStatus={defaultStatus}
       />
-
-      {/* Task Detail Modal */}
-      {selectedTaskId && (
-        <TaskDetailModal
-          isOpen={isDetailModalOpen}
-          onClose={() => {
-            setIsDetailModalOpen(false);
-            setSelectedTaskId(null);
-          }}
-          taskId={selectedTaskId}
-          onTaskUpdated={handleTaskUpdated}
-        />
-      )}
     </div>
   );
 }

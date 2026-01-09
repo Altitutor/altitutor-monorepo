@@ -17,6 +17,7 @@ import { studentsApi } from '../api/students';
 import { useStudents } from '../hooks/useStudentsQuery';
 import { StudentSearchPopover } from './StudentSearchPopover';
 import { useQueryClient } from '@tanstack/react-query';
+import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
 
 interface ViewParentModalProps {
   isOpen: boolean;
@@ -252,9 +253,10 @@ export function ViewParentModal({
                   </SheetDescription>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
                   </TabsList>
                 </div>
               </div>
@@ -297,6 +299,14 @@ export function ViewParentModal({
                       relatedId={parentId || undefined}
                       relatedType="parent"
                     />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    {parentId && (
+                      <ParentActivityTab parentId={parentId} isOpen={isOpen} />
+                    )}
                   </div>
                 </TabsContent>
               </div>

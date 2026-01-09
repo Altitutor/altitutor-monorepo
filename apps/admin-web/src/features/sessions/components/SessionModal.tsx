@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
 import { format } from 'date-fns';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, MoreVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -14,17 +14,31 @@ import { StudentAvatar } from './StudentAvatar';
 import { AttendanceCell } from './AttendanceCell';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { StudentCard } from '@/shared/components/StudentCard';
-import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { SessionNotes } from './SessionNotes';
 import { SessionFiles } from './SessionFiles';
 import { formatTime } from '@/shared/utils/datetime';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@altitutor/ui';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@altitutor/ui';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -41,6 +55,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
   const openWindow = useChatStore(s => s.openWindow);
 
   useEffect(() => {
@@ -263,33 +278,46 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-          <div className="flex-1 overflow-y-auto p-6">
-            <SheetHeader className="mb-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <SheetTitle>Session Details</SheetTitle>
-                  <SheetDescription className="text-lg font-medium">
-                    {sessionTitle}
-                  </SheetDescription>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+            {/* Sticky Header */}
+            <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+              <SheetHeader className="px-6 pt-6 pb-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <SheetTitle>Session Details</SheetTitle>
+                    <SheetDescription className="text-lg font-medium">
+                      {sessionTitle}
+                    </SheetDescription>
+                  </div>
+                  {sessionId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        router.push(`/sessions/${sessionId}`);
+                        onClose();
+                      }}
+                      className="shrink-0"
+                      title="Open in new page"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                {sessionId && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      router.push(`/sessions/${sessionId}`);
-                      onClose();
-                    }}
-                    className="shrink-0"
-                    title="Open in new page"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                )}
+              </SheetHeader>
+              <div className="px-6 pb-4">
+                <TabsList className="w-full">
+                  <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+                  <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
+                </TabsList>
               </div>
-            </SheetHeader>
-            
-            <div className="space-y-6">
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 min-h-0 relative">
+              <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <div className="p-6">
+                  <div className="space-y-6">
               {/* Session Information */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Session Information</h3>
@@ -338,79 +366,118 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
               {/* Students Section */}
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-                  {studentsData.length > 0 && (
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs text-muted-foreground">Planned</span>
-                      <span className="text-xs text-muted-foreground">Actual</span>
-                      <span className="text-xs text-muted-foreground">Invoice</span>
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-lg font-semibold mb-4">Students ({studentsData.length})</h3>
                 {studentsData.length === 0 ? (
                   <div className="text-center py-4 text-sm text-muted-foreground">
                     No students planned
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {studentsData.map((data: any) => (
-                      <div key={data.student.id} className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <StudentCard
-                            student={data.student}
-                            onClick={() => {
-                              setSelectedStudentId(data.student.id);
-                              setIsStudentModalOpen(true);
-                            }}
-                            onMessage={() => handleMessageStudent(data.student.id)}
-                            showSubjects={false}
-                            showActions={true}
-                          />
-                        </div>
-                        <div className="flex items-center gap-4 flex-shrink-0">
-                          <AttendanceCell
-                            status={data.plannedStatus}
-                            linkTo={
-                              data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
-                                ? {
-                                    type: 'session',
-                                    id: data.rescheduledSessionId,
-                                    onClick: () => handleOpenSession(data.rescheduledSessionId),
-                                  }
-                                : undefined
-                            }
-                            linkText={data.rescheduledDate}
-                          />
-                          <AttendanceCell status={data.actualStatus} />
-                          <div className="w-16 flex justify-center">
-                            {(() => {
-                              const status = data.invoice_status;
-                              if (!status) return <span className="text-xs text-muted-foreground">-</span>;
-                              
-                              let label = '';
-                              let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-                              
-                              if (status === 'draft' || status === 'open') {
-                                label = 'Sent';
-                                variant = 'secondary';
-                              } else if (status === 'paid') {
-                                label = 'Paid';
-                                variant = 'default';
-                              } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-                                label = 'Failed';
-                                variant = 'destructive';
-                              } else {
-                                label = status;
-                                variant = 'outline';
-                              }
-                              
-                              return <Badge variant={variant} className="text-xs">{label}</Badge>;
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Student</TableHead>
+                          <TableHead>Planned Attendance</TableHead>
+                          <TableHead>Actual Attendance</TableHead>
+                          <TableHead>Invoice</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {studentsData.map((data: any) => (
+                          <TableRow key={data.student.id}>
+                            <TableCell>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedStudentId(data.student.id);
+                                  setIsStudentModalOpen(true);
+                                }}
+                                className="text-left hover:underline font-medium"
+                              >
+                                {data.student.first_name} {data.student.last_name}
+                              </button>
+                            </TableCell>
+                            <TableCell>
+                              <AttendanceCell
+                                status={data.plannedStatus}
+                                linkTo={
+                                  data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
+                                    ? {
+                                        type: 'session',
+                                        id: data.rescheduledSessionId,
+                                        onClick: () => handleOpenSession(data.rescheduledSessionId),
+                                      }
+                                    : undefined
+                                }
+                                linkText={data.rescheduledDate}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <AttendanceCell status={data.actualStatus} />
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const status = data.invoice_status;
+                                if (!status) return <span className="text-xs text-muted-foreground">-</span>;
+                                
+                                let label = '';
+                                let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
+                                
+                                if (status === 'draft' || status === 'open') {
+                                  label = 'Sent';
+                                  variant = 'secondary';
+                                } else if (status === 'paid') {
+                                  label = 'Paid';
+                                  variant = 'default';
+                                } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
+                                  label = 'Failed';
+                                  variant = 'destructive';
+                                } else {
+                                  label = status;
+                                  variant = 'outline';
+                                }
+                                
+                                return <Badge variant={variant} className="text-xs">{label}</Badge>;
+                              })()}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedStudentId(data.student.id);
+                                      setIsStudentModalOpen(true);
+                                    }}
+                                  >
+                                    View Student
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMessageStudent(data.student.id);
+                                    }}
+                                  >
+                                    Message
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </div>
@@ -419,58 +486,94 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
               {/* Staff Section */}
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Staff ({staffData.length})</h3>
-                  {staffData.length > 0 && (
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs text-muted-foreground">Planned</span>
-                      <span className="text-xs text-muted-foreground">Actual</span>
-                      <span className="text-xs text-muted-foreground">Tutor Log</span>
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-lg font-semibold mb-4">Staff ({staffData.length})</h3>
                 {staffData.length === 0 ? (
                   <div className="text-center py-4 text-sm text-muted-foreground">
                     No staff planned
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {staffData.map((data: any) => (
-                      <div key={data.staff.id} className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <StaffCard
-                            staff={data.staff}
-                            onClick={() => handleOpenStaff(data.staff.id)}
-                            onMessage={() => handleMessageStaff(data.staff.id)}
-                            showSubjects={false}
-                            showActions={true}
-                          />
-                        </div>
-                        <div className="flex items-center gap-4 flex-shrink-0">
-                          <AttendanceCell
-                            status={data.plannedStatus}
-                            linkTo={
-                              data.plannedStatus === 'swapped' && data.swappedStaffId
-                                ? {
-                                    type: 'staff',
-                                    id: data.swappedStaffId,
-                                    onClick: () => handleOpenStaff(data.swappedStaffId),
-                                  }
-                                : undefined
-                            }
-                            linkText={data.swappedStaffName}
-                          />
-                          <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
-                          <div className="w-16 flex justify-center">
-                            {data.submittedTutorLog ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <X className="h-4 w-4 text-red-600" />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Staff</TableHead>
+                          <TableHead>Planned Attendance</TableHead>
+                          <TableHead>Actual Attendance</TableHead>
+                          <TableHead>Tutor Log</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {staffData.map((data: any) => (
+                          <TableRow key={data.staff.id}>
+                            <TableCell>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenStaff(data.staff.id)}
+                                className="text-left hover:underline font-medium"
+                              >
+                                {data.staff.first_name} {data.staff.last_name}
+                              </button>
+                            </TableCell>
+                            <TableCell>
+                              <AttendanceCell
+                                status={data.plannedStatus}
+                                linkTo={
+                                  data.plannedStatus === 'swapped' && data.swappedStaffId
+                                    ? {
+                                        type: 'staff',
+                                        id: data.swappedStaffId,
+                                        onClick: () => handleOpenStaff(data.swappedStaffId),
+                                      }
+                                    : undefined
+                                }
+                                linkText={data.swappedStaffName}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
+                            </TableCell>
+                            <TableCell>
+                              {data.submittedTutorLog && (
+                                <Check className="h-4 w-4 text-green-600" />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenStaff(data.staff.id);
+                                    }}
+                                  >
+                                    View Staff
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMessageStaff(data.staff.id);
+                                    }}
+                                  >
+                                    Message
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </div>
@@ -592,8 +695,19 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                   }
                 }}
               />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <div className="p-6">
+                  {sessionId && (
+                    <SessionActivityTab sessionId={sessionId} isOpen={isOpen} />
+                  )}
+                </div>
+              </TabsContent>
             </div>
-          </div>
+          </Tabs>
         </SheetContent>
       </Sheet>
       

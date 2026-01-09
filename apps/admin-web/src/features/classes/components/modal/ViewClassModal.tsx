@@ -21,6 +21,7 @@ import { ClassStaffTab } from './tabs/ClassStaffTab';
 import { ClassSessionsTab } from './tabs/ClassSessionsTab';
 import { Notes } from '@/shared/components/Notes';
 import { useNotes } from '@/shared/hooks/useNotes';
+import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -239,6 +240,7 @@ export function ViewClassModal({
                 <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
                 <TabsTrigger value="sessions" className="flex-1">Sessions</TabsTrigger>
                 <TabsTrigger value="notes" className="flex-1">Notes</TabsTrigger>
+                <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
               </TabsList>
             </div>
           </div>
@@ -310,6 +312,14 @@ export function ViewClassModal({
                     queryClient.invalidateQueries({ queryKey: ['notes', 'classes', classId] });
                   }}
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+              <div className="p-6">
+                {classId && (
+                  <ClassActivityTab classId={classId} isOpen={isOpen} />
+                )}
               </div>
             </TabsContent>
           </div>

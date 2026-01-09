@@ -53,6 +53,8 @@ export function useCreateNote() {
         queryClient.invalidateQueries({ queryKey: ['staff'] });
       } else if (variables.targetType === 'sessions') {
         queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      } else if (variables.targetType === 'tasks') {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
       }
     },
   });

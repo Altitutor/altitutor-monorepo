@@ -29,6 +29,7 @@ import { Notes } from '@/shared/components/Notes';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { Separator } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
+import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -382,13 +383,14 @@ export function ViewStudentModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="billing">Billing</TabsTrigger>
                     <TabsTrigger value="notes">Notes</TabsTrigger>
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
                   </TabsList>
                 </div>
               </div>
@@ -482,6 +484,14 @@ export function ViewStudentModal({
                         queryClient.invalidateQueries({ queryKey: ['notes', 'students', studentId] });
                       }}
                     />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    {studentId && (
+                      <StudentActivityTab studentId={studentId} isOpen={isOpen} />
+                    )}
                   </div>
                 </TabsContent>
               </div>

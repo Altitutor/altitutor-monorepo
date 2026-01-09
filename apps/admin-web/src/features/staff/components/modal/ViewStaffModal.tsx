@@ -22,6 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
 import { Notes } from '@/shared/components/Notes';
 import { useNotes } from '@/shared/hooks/useNotes';
+import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -328,13 +329,14 @@ export function ViewStaffModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="students">Students</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="notes">Notes</TabsTrigger>
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
                   </TabsList>
                 </div>
               </div>
