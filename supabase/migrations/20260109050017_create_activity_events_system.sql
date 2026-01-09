@@ -1,6 +1,8 @@
 -- Migration: Create Activity Events System
--- Description: Create centralized activity_events table with triggers on 26 core entity tables
+-- Description: Create centralized activity_events table with triggers on 23 core entity tables
 --              to capture all changes for activity feeds, audit trails, and automation triggers
+--              Excludes automatically managed fields (created_at, updated_at, created_by) and
+--              external system sync fields (Stripe, Twilio) to reduce noise and storage
 -- Author: AI Assistant
 -- Date: 2026-01-09
 -- Related Issue: ALTI-124
@@ -48,6 +50,24 @@ CREATE INDEX IF NOT EXISTS idx_activity_performed_by ON public.activity_events(p
 CREATE INDEX IF NOT EXISTS idx_activity_event_type ON public.activity_events(event_type);
 
 -- ========================
+-- CREATE HELPER FUNCTION FOR EXCLUDED FIELDS
+-- ========================
+
+-- Function to get list of excluded fields for a table
+CREATE OR REPLACE FUNCTION public.get_excluded_fields_for_table(table_name TEXT)
+RETURNS TEXT[] AS $$
+BEGIN
+  RETURN CASE table_name
+    WHEN 'invoices' THEN ARRAY['created_at', 'updated_at', 'created_by', 'stripe_invoice_id', 'stripe_invoice_number', 'stripe_charge_id', 'stripe_payment_intent_id', 'receipt_url', 'hosted_invoice_url', 'invoice_pdf', 'dispute_id', 'dispute_status', 'dispute_reason', 'dispute_amount_cents', 'dispute_currency', 'dispute_created_at', 'dispute_updated_at', 'dispute_resolved_at', 'finalized_at', 'paid_at']
+    WHEN 'invoice_items' THEN ARRAY['created_at', 'stripe_invoice_item_id']
+    WHEN 'credit_notes' THEN ARRAY['created_at', 'updated_at', 'stripe_credit_note_id']
+    WHEN 'tasks' THEN ARRAY['created_at', 'updated_at', 'created_by', 'source_rule_id', 'source_activity_id']
+    ELSE ARRAY['created_at', 'updated_at', 'created_by'] -- Default: exclude only universal timestamps
+  END;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ========================
 -- CREATE GENERIC TRIGGER FUNCTION
 -- ========================
 
@@ -72,6 +92,8 @@ DECLARE
   v_new_row JSONB;
   v_field_name TEXT;
   v_field_changes JSONB := '{}'::JSONB;
+  v_excluded_fields TEXT[];
+  v_field_excluded BOOLEAN;
 BEGIN
   -- Get entity type from table name (remove 'public.' prefix if present)
   v_entity_type := TG_TABLE_NAME;
@@ -87,16 +109,25 @@ BEGIN
     v_old_row := to_jsonb(OLD);
     v_new_row := to_jsonb(NEW);
     
-    -- Build changed_fields JSONB for UPDATE events
+    -- Get excluded fields for this table
+    v_excluded_fields := public.get_excluded_fields_for_table(TG_TABLE_NAME);
+    
+    -- Build changed_fields JSONB for UPDATE events, excluding specified fields
     FOR v_field_name IN SELECT jsonb_object_keys(v_new_row) LOOP
-      IF v_old_row->>v_field_name IS DISTINCT FROM v_new_row->>v_field_name THEN
-        v_field_changes := v_field_changes || jsonb_build_object(
-          v_field_name,
-          jsonb_build_object(
-            'old', v_old_row->v_field_name,
-            'new', v_new_row->v_field_name
-          )
-        );
+      -- Check if field is excluded
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      
+      -- Skip excluded fields
+      IF NOT v_field_excluded THEN
+        IF v_old_row->>v_field_name IS DISTINCT FROM v_new_row->>v_field_name THEN
+          v_field_changes := v_field_changes || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', v_old_row->v_field_name,
+              'new', v_new_row->v_field_name
+            )
+          );
+        END IF;
       END IF;
     END LOOP;
     
@@ -189,6 +220,10 @@ DECLARE
   v_session_id UUID := NULL;
   v_task_id UUID := NULL;
   v_performed_by UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tasks');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
@@ -202,6 +237,29 @@ BEGIN
     v_staff_id := OLD.assigned_to;
   END IF;
   
+  -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type,
     changed_fields, metadata,
@@ -211,12 +269,7 @@ BEGIN
     'tasks',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tasks', 'deleted_task_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     v_student_id, v_staff_id, v_class_id, v_session_id, v_task_id, NULL,
     v_performed_by, NOW()
@@ -235,17 +288,29 @@ DECLARE
   v_class_id UUID;
   v_performed_by UUID;
   v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('classes');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
   IF TG_OP != 'DELETE' THEN
     v_class_id := NEW.id;
     IF TG_OP = 'UPDATE' THEN
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      INTO v_changed_fields
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val;
+      FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+        v_field_excluded := v_field_name = ANY(v_excluded_fields);
+        IF NOT v_field_excluded THEN
+          IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+            v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+              v_field_name,
+              jsonb_build_object(
+                'old', to_jsonb(OLD)->v_field_name,
+                'new', to_jsonb(NEW)->v_field_name
+              )
+            );
+          END IF;
+        END IF;
+      END LOOP;
     END IF;
   ELSE
     -- For DELETE, set FK to NULL to avoid constraint violation
@@ -283,6 +348,10 @@ DECLARE
   v_class_id UUID;
   v_staff_id UUID;
   v_performed_by UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('classes_staff');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
@@ -294,6 +363,29 @@ BEGIN
     v_staff_id := OLD.staff_id;
   END IF;
   
+  -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
@@ -302,12 +394,7 @@ BEGIN
     'classes_staff',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'classes_staff'),
     NULL, v_staff_id, v_class_id, NULL, NULL, NULL,
     v_performed_by, NOW()
@@ -326,6 +413,10 @@ DECLARE
   v_class_id UUID;
   v_student_id UUID;
   v_performed_by UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('classes_students');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
@@ -337,6 +428,29 @@ BEGIN
     v_student_id := OLD.student_id;
   END IF;
   
+  -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
@@ -345,12 +459,7 @@ BEGIN
     'classes_students',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'classes_students'),
     v_student_id, NULL, v_class_id, NULL, NULL, NULL,
     v_performed_by, NOW()
@@ -368,6 +477,10 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_class_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('sessions');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -382,19 +495,37 @@ BEGIN
     v_class_id := OLD.class_id; -- class_id can stay since classes aren't being deleted
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'sessions', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions', 'deleted_session_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     NULL, NULL, v_class_id, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -412,6 +543,10 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('sessions_students');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -424,7 +559,30 @@ BEGIN
     v_student_id := OLD.student_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -432,12 +590,7 @@ BEGIN
     'sessions_students',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions_students'),
     v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -455,6 +608,10 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_staff_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('sessions_staff');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -467,7 +624,30 @@ BEGIN
     v_staff_id := OLD.staff_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -475,12 +655,7 @@ BEGIN
     'sessions_staff',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions_staff'),
     NULL, v_staff_id, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -497,6 +672,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('sessions_files');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -507,7 +686,30 @@ BEGIN
     v_session_id := OLD.session_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -515,12 +717,7 @@ BEGIN
     'sessions_files',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions_files'),
     NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -537,6 +734,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_student_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('students');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -548,19 +749,37 @@ BEGIN
     v_student_id := NULL;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'students', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'students', 'deleted_student_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
@@ -577,6 +796,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_staff_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('staff');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -588,19 +811,37 @@ BEGIN
     v_staff_id := NULL;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'staff', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'staff', 'deleted_staff_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     NULL, v_staff_id, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
@@ -617,6 +858,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_parent_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('parents');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -628,7 +873,30 @@ BEGIN
     v_parent_id := NULL;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -636,12 +904,7 @@ BEGIN
     'parents',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'parents', 'deleted_parent_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     NULL, NULL, NULL, NULL, NULL, v_parent_id,
     v_performed_by, NOW()
@@ -659,6 +922,10 @@ AS $$
 DECLARE
   v_student_id UUID;
   v_parent_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('parents_students');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -671,7 +938,30 @@ BEGIN
     v_parent_id := OLD.parent_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -679,12 +969,7 @@ BEGIN
     'parents_students',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'parents_students'),
     v_student_id, NULL, NULL, NULL, NULL, v_parent_id,
     v_performed_by, NOW()
@@ -694,92 +979,6 @@ BEGIN
 END;
 $$;
 
--- Helper function for messages table
-CREATE OR REPLACE FUNCTION public.extract_activity_fks_messages()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  v_student_id UUID := NULL;
-  v_staff_id UUID := NULL;
-  v_parent_id UUID := NULL;
-  v_performed_by UUID;
-  v_conversation_id UUID;
-  v_contact_id UUID;
-BEGIN
-  SELECT public.current_staff_id() INTO v_performed_by;
-  
-  -- Extract conversation_id
-  IF TG_OP != 'DELETE' THEN
-    v_conversation_id := NEW.conversation_id;
-  ELSE
-    v_conversation_id := OLD.conversation_id;
-  END IF;
-  
-  -- Get contact_id from conversation
-  SELECT contact_id INTO v_contact_id FROM public.conversations WHERE id = v_conversation_id;
-  
-  -- Extract student_id, parent_id, or staff_id from contact
-  IF v_contact_id IS NOT NULL THEN
-    SELECT student_id, parent_id, staff_id INTO v_student_id, v_parent_id, v_staff_id
-    FROM public.contacts WHERE id = v_contact_id;
-  END IF;
-  
-  INSERT INTO public.activity_events (
-    entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id, parent_id,
-    performed_by, performed_at
-  ) VALUES (
-    'messages',
-    COALESCE(NEW.id, OLD.id),
-    CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'messages', 'conversation_id', v_conversation_id, 'contact_id', v_contact_id),
-    v_student_id, v_staff_id, NULL, NULL, NULL, v_parent_id,
-    v_performed_by, NOW()
-  );
-  
-  IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
-END;
-$$;
-
--- Helper function for conversation_reads table
-CREATE OR REPLACE FUNCTION public.extract_activity_fks_conversation_reads()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  v_performed_by UUID;
-BEGIN
-  SELECT public.current_staff_id() INTO v_performed_by;
-  
-  INSERT INTO public.activity_events (
-    entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id, parent_id,
-    performed_by, performed_at
-  ) VALUES (
-    'conversation_reads',
-    COALESCE(NEW.id, OLD.id),
-    CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'conversation_reads'),
-    NULL, NULL, NULL, NULL, NULL, NULL,
-    v_performed_by, NOW()
-  );
-  
-  IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
-END;
-$$;
 
 -- Helper function for invoices table
 CREATE OR REPLACE FUNCTION public.extract_activity_fks_invoices()
@@ -789,6 +988,10 @@ AS $$
 DECLARE
   v_student_id UUID;
   v_performed_by UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('invoices');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
@@ -796,6 +999,29 @@ BEGIN
     v_student_id := NEW.student_id;
   ELSE
     v_student_id := OLD.student_id;
+  END IF;
+  
+  -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
   END IF;
   
   INSERT INTO public.activity_events (
@@ -806,12 +1032,7 @@ BEGIN
     'invoices',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'invoices'),
     v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
@@ -830,6 +1051,10 @@ DECLARE
   v_student_id UUID;
   v_session_id UUID;
   v_performed_by UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('invoice_items');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
@@ -843,6 +1068,29 @@ BEGIN
     v_session_id := NULL;
   END IF;
   
+  -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
@@ -851,12 +1099,7 @@ BEGIN
     'invoice_items',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'invoice_items', 'deleted_invoice_item_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
     v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -879,6 +1122,10 @@ DECLARE
   v_parent_id UUID := NULL;
   v_target_type TEXT;
   v_target_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('notes');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -918,12 +1165,7 @@ BEGIN
     'notes',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'notes', 'target_type', v_target_type, 'target_id', v_target_id),
     v_student_id, v_staff_id, v_class_id, v_session_id, NULL, v_parent_id,
     v_performed_by, NOW()
@@ -940,6 +1182,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_student_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('student_subsidies');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -950,7 +1196,30 @@ BEGIN
     v_student_id := OLD.student_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -958,12 +1227,7 @@ BEGIN
     'student_subsidies',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'student_subsidies'),
     v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
@@ -980,6 +1244,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_student_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('students_subjects');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -990,7 +1258,30 @@ BEGIN
     v_student_id := OLD.student_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -998,12 +1289,7 @@ BEGIN
     'students_subjects',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'students_subjects'),
     v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
@@ -1020,6 +1306,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tutor_logs');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1030,7 +1320,30 @@ BEGIN
     v_session_id := OLD.session_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -1038,12 +1351,7 @@ BEGIN
     'tutor_logs',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs'),
     NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -1061,6 +1369,10 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_staff_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tutor_logs_staff_attendance');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1079,7 +1391,30 @@ BEGIN
     FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -1087,12 +1422,7 @@ BEGIN
     'tutor_logs_staff_attendance',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_staff_attendance'),
     NULL, v_staff_id, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -1110,6 +1440,10 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tutor_logs_student_attendance');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1122,7 +1456,30 @@ BEGIN
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -1130,12 +1487,7 @@ BEGIN
     'tutor_logs_student_attendance',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_student_attendance'),
     v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -1152,6 +1504,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tutor_logs_topics');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1162,7 +1518,30 @@ BEGIN
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -1170,12 +1549,7 @@ BEGIN
     'tutor_logs_topics',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics'),
     NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -1192,6 +1566,10 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tutor_logs_topics_files');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1202,7 +1580,30 @@ BEGIN
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -1210,12 +1611,7 @@ BEGIN
     'tutor_logs_topics_files',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics_files'),
     NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -1233,6 +1629,10 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tutor_logs_topics_files_students');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1251,7 +1651,30 @@ BEGIN
     WHERE tltf.id = OLD.tutor_logs_topics_files_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -1259,12 +1682,7 @@ BEGIN
     'tutor_logs_topics_files_students',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics_files_students'),
     v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -1282,6 +1700,10 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
+  v_changed_fields JSONB := NULL;
+  v_excluded_fields TEXT[] := public.get_excluded_fields_for_table('tutor_logs_topics_students');
+  v_field_name TEXT;
+  v_field_excluded BOOLEAN;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1300,7 +1722,30 @@ BEGIN
     WHERE tlt.id = OLD.tutor_logs_topics_id;
   END IF;
   
-  INSERT INTO public.activity_events (
+    -- Build changed_fields for UPDATE, excluding specified fields
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_field_name IN SELECT jsonb_object_keys(to_jsonb(NEW)) LOOP
+      v_field_excluded := v_field_name = ANY(v_excluded_fields);
+      IF NOT v_field_excluded THEN
+        IF (to_jsonb(OLD)->>v_field_name) IS DISTINCT FROM (to_jsonb(NEW)->>v_field_name) THEN
+          v_changed_fields := COALESCE(v_changed_fields, '{}'::JSONB) || jsonb_build_object(
+            v_field_name,
+            jsonb_build_object(
+              'old', to_jsonb(OLD)->v_field_name,
+              'new', to_jsonb(NEW)->v_field_name
+            )
+          );
+        END IF;
+      END IF;
+    END LOOP;
+    
+    -- Skip if no changes
+    IF v_changed_fields IS NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
+INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
     student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
@@ -1308,12 +1753,7 @@ BEGIN
     'tutor_logs_topics_students',
     COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
-    CASE WHEN TG_OP = 'UPDATE' THEN (
-      SELECT jsonb_object_agg(old_rec.key, jsonb_build_object('old', old_val, 'new', new_val))
-      FROM jsonb_each(to_jsonb(OLD)) old_rec(key, old_val)
-      JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
-      WHERE old_val IS DISTINCT FROM new_val
-    ) ELSE NULL END,
+    v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics_students'),
     v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
@@ -1399,17 +1839,6 @@ CREATE TRIGGER trigger_activity_events_parents_students
 AFTER INSERT OR UPDATE OR DELETE ON public.parents_students
 FOR EACH ROW EXECUTE FUNCTION public.extract_activity_fks_parents_students();
 
--- Messages table
-DROP TRIGGER IF EXISTS trigger_activity_events_messages ON public.messages;
-CREATE TRIGGER trigger_activity_events_messages
-AFTER INSERT OR UPDATE OR DELETE ON public.messages
-FOR EACH ROW EXECUTE FUNCTION public.extract_activity_fks_messages();
-
--- Conversation_reads table
-DROP TRIGGER IF EXISTS trigger_activity_events_conversation_reads ON public.conversation_reads;
-CREATE TRIGGER trigger_activity_events_conversation_reads
-AFTER INSERT OR UPDATE OR DELETE ON public.conversation_reads
-FOR EACH ROW EXECUTE FUNCTION public.extract_activity_fks_conversation_reads();
 
 -- Invoices table
 DROP TRIGGER IF EXISTS trigger_activity_events_invoices ON public.invoices;
