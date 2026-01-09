@@ -17,11 +17,13 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { TaskCard } from './TaskCard';
+import { TaskDetailModal } from './TaskDetailModal';
 import { useTasks } from '../api/queries';
 import { useUpdateTask } from '../api/mutations';
 import type { TaskStatus, TaskPriority, TaskWithAssignee } from '../types';
 import { cn } from '@/shared/utils/index';
-import { Skeleton } from '@altitutor/ui';
+import { Skeleton, Button } from '@altitutor/ui';
+import { Plus } from 'lucide-react';
 
 interface TasksBoardProps {
   filters?: {
@@ -29,6 +31,8 @@ interface TasksBoardProps {
     priority?: number;
     search?: string;
   };
+  onCreateTask?: (status: TaskStatus) => void;
+  onTaskClick?: (task: TaskWithAssignee) => void;
 }
 
 const STATUS_COLUMNS: { status: TaskStatus; label: string }[] = [
@@ -44,9 +48,10 @@ interface ColumnProps {
   label: string;
   tasks: TaskWithAssignee[];
   onTaskClick: (task: TaskWithAssignee) => void;
+  onCreateTask?: (status: TaskStatus) => void;
 }
 
-function Column({ status, label, tasks, onTaskClick }: ColumnProps) {
+function Column({ status, label, tasks, onTaskClick, onCreateTask }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   });
@@ -63,9 +68,24 @@ function Column({ status, label, tasks, onTaskClick }: ColumnProps) {
     >
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-sm">{label}</h3>
-        <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
-          {tasks.length}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
+            {tasks.length}
+          </span>
+          {onCreateTask && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateTask(status);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div className="flex flex-col gap-2 min-h-[100px]">
@@ -83,7 +103,7 @@ function Column({ status, label, tasks, onTaskClick }: ColumnProps) {
   );
 }
 
-export function TasksBoard({ filters }: TasksBoardProps) {
+export function TasksBoard({ filters, onCreateTask, onTaskClick }: TasksBoardProps) {
   const { data: tasks = [], isLoading } = useTasks({
     assignedTo: filters?.assignedTo,
     priority: filters?.priority as TaskPriority | undefined,
@@ -91,7 +111,8 @@ export function TasksBoard({ filters }: TasksBoardProps) {
   });
   const updateTask = useUpdateTask();
   const [activeTask, setActiveTask] = useState<TaskWithAssignee | null>(null);
-  const [selectedTask, setSelectedTask] = useState<TaskWithAssignee | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -177,7 +198,12 @@ export function TasksBoard({ filters }: TasksBoardProps) {
               status={column.status}
               label={column.label}
               tasks={tasksByStatus[column.status]}
-              onTaskClick={setSelectedTask}
+              onTaskClick={(task) => {
+                setSelectedTaskId(task.id);
+                setIsDetailModalOpen(true);
+                onTaskClick?.(task);
+              }}
+              onCreateTask={onCreateTask}
             />
           ))}
         </div>
@@ -190,28 +216,16 @@ export function TasksBoard({ filters }: TasksBoardProps) {
         </DragOverlay>
       </DndContext>
 
-      {/* Task detail modal would go here - we'll create it later */}
-      {selectedTask && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
-          onClick={() => setSelectedTask(null)}
-        >
-          <div
-            className="bg-background rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-bold mb-4">{selectedTask.title}</h2>
-            {selectedTask.description && (
-              <p className="text-muted-foreground mb-4">{selectedTask.description}</p>
-            )}
-            <button
-              onClick={() => setSelectedTask(null)}
-              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+      {/* Task detail modal */}
+      {selectedTaskId && (
+        <TaskDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setSelectedTaskId(null);
+          }}
+          taskId={selectedTaskId}
+        />
       )}
     </>
   );

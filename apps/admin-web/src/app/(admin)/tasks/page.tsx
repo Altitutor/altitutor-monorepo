@@ -15,6 +15,7 @@ export default function TasksPage() {
   const router = useRouter();
   const viewParam = search.get('view') || 'kanban';
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [defaultStatus, setDefaultStatus] = useState<'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | undefined>(undefined);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
@@ -53,7 +54,14 @@ export default function TasksPage() {
 
       <Suspense>
         {viewParam === 'kanban' ? (
-          <TasksBoard />
+          <TasksBoard
+            onCreateTask={(status) => {
+              // Set default status and open create modal
+              setDefaultStatus(status);
+              setIsCreateModalOpen(true);
+            }}
+            onTaskClick={handleTaskClick}
+          />
         ) : (
           <TasksTable onTaskClick={handleTaskClick} />
         )}
@@ -62,8 +70,12 @@ export default function TasksPage() {
       {/* Create Task Modal */}
       <CreateTaskDialog
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setDefaultStatus(undefined);
+        }}
         onTaskCreated={handleTaskUpdated}
+        defaultStatus={defaultStatus}
       />
 
       {/* Task Detail Modal */}

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -24,8 +25,13 @@ import {
 import { Input } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { ScrollArea } from '@altitutor/ui';
+import { Loader2, Check } from 'lucide-react';
 import { useCreateTask } from '../api/mutations';
-import { useStaff } from '@/features/staff/hooks/useStaffQuery';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Tables, Database } from '@altitutor/shared';
 import type { TaskStatus, TaskPriority } from '../types';
 
 const formSchema = z.object({
@@ -44,24 +50,132 @@ interface CreateTaskDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onTaskCreated?: () => void;
+  defaultStatus?: TaskStatus;
 }
 
-export function CreateTaskDialog({ isOpen, onClose, onTaskCreated }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ isOpen, onClose, onTaskCreated, defaultStatus }: CreateTaskDialogProps) {
   const createTask = useCreateTask();
-  const { data: staff = [] } = useStaff();
+  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
+  const [isAssigneePopoverOpen, setIsAssigneePopoverOpen] = useState(false);
+  const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
+
+  // Search staff - default to ADMINSTAFF, then all when typing
+  const { data: adminStaff = [] } = useQuery({
+    queryKey: ['staff', 'admin', 'tasks'],
+    queryFn: async () => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_staff_admin', {
+        p_search: undefined,
+        p_statuses: ['ACTIVE'],
+        p_include_relationships: false,
+        p_limit: 100,
+        p_offset: 0,
+        p_order_by: 'last_name',
+        p_ascending: true,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return [];
+
+      const rpcData = rpcResult as { staff: unknown[]; total: number };
+      return (rpcData.staff || []).filter((s: any) => s.role === 'ADMINSTAFF').map((s: any) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        role: s.role,
+        status: s.status,
+        email: s.email,
+        phone_number: s.phone_number,
+        created_at: s.created_at || null,
+        updated_at: s.updated_at || null,
+      })) as Tables<'staff'>[];
+    },
+    enabled: isOpen && assigneeSearchQuery.trim().length === 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Search all staff when typing
+  const { data: allStaffResults, isLoading: isSearchingStaff } = useQuery({
+    queryKey: ['staff', 'search', 'tasks', assigneeSearchQuery.trim()],
+    queryFn: async () => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const trimmed = assigneeSearchQuery.trim();
+      
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_staff_admin', {
+        p_search: trimmed.length > 0 ? trimmed : undefined,
+        p_statuses: ['ACTIVE'],
+        p_include_relationships: false,
+        p_limit: 100,
+        p_offset: 0,
+        p_order_by: 'last_name',
+        p_ascending: true,
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcResult) return [];
+
+      const rpcData = rpcResult as { staff: unknown[]; total: number };
+      return (rpcData.staff || []).map((s: any) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        role: s.role,
+        status: s.status,
+        email: s.email,
+        phone_number: s.phone_number,
+        created_at: s.created_at || null,
+        updated_at: s.updated_at || null,
+      })) as Tables<'staff'>[];
+    },
+    enabled: isOpen && assigneeSearchQuery.trim().length > 0,
+    staleTime: 1000 * 30,
+  });
+
+  const staffList = useMemo(() => {
+    if (assigneeSearchQuery.trim().length > 0) {
+      return allStaffResults || [];
+    }
+    return adminStaff;
+  }, [adminStaff, allStaffResults, assigneeSearchQuery]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: '',
       description: '',
-      status: 'backlog' as const,
+      status: defaultStatus || 'backlog',
       priority: 0,
       assignedTo: null,
       estimate: null,
       dueDate: null,
     },
   });
+
+  // Reset form when modal opens/closes or defaultStatus changes
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        title: '',
+        description: '',
+        status: defaultStatus || 'backlog',
+        priority: 0,
+        assignedTo: null,
+        estimate: null,
+        dueDate: null,
+      });
+      setSelectedAssignee(null);
+      setAssigneeSearchQuery('');
+    }
+  }, [isOpen, defaultStatus, form]);
+
+  // Sync selectedAssignee with form field
+  useEffect(() => {
+    if (selectedAssignee) {
+      form.setValue('assignedTo', selectedAssignee.id);
+    } else {
+      form.setValue('assignedTo', null);
+    }
+  }, [selectedAssignee, form]);
 
   const onSubmit = async (data: FormData): Promise<void> => {
     try {
@@ -186,24 +300,98 @@ export function CreateTaskDialog({ isOpen, onClose, onTaskCreated }: CreateTaskD
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Assignee</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
-                      value={field.value || 'none'}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Unassigned" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Unassigned</SelectItem>
-                        {staff.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.first_name} {s.last_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={isAssigneePopoverOpen} onOpenChange={setIsAssigneePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setIsAssigneePopoverOpen(true);
+                            }}
+                          >
+                            {selectedAssignee
+                              ? `${selectedAssignee.first_name} ${selectedAssignee.last_name}`
+                              : 'Unassigned'}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0 w-[400px]" align="start">
+                        <div className="p-3">
+                          <Input
+                            placeholder="Search staff..."
+                            value={assigneeSearchQuery}
+                            onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                            className="mb-3"
+                          />
+                          <ScrollArea className="h-[300px]">
+                            <div className="space-y-1 pr-4">
+                              <Button
+                                variant="ghost"
+                                className="w-full justify-start h-auto p-3"
+                                onClick={() => {
+                                  setSelectedAssignee(null);
+                                  setIsAssigneePopoverOpen(false);
+                                }}
+                              >
+                                <div className="flex items-center gap-2 w-full">
+                                  {!selectedAssignee && <Check className="h-4 w-4" />}
+                                  <span className={!selectedAssignee ? 'font-medium' : ''}>
+                                    Unassigned
+                                  </span>
+                                </div>
+                              </Button>
+                              {isSearchingStaff ? (
+                                <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Searching...
+                                </div>
+                              ) : staffList.length === 0 ? (
+                                <div className="p-3 text-center text-sm text-muted-foreground">
+                                  {assigneeSearchQuery
+                                    ? 'No staff match your search'
+                                    : 'No staff found'}
+                                </div>
+                              ) : (
+                                staffList.map((staff) => (
+                                  <Button
+                                    key={staff.id}
+                                    variant="ghost"
+                                    className="w-full justify-start h-auto p-3"
+                                    onClick={() => {
+                                      setSelectedAssignee(staff);
+                                      setIsAssigneePopoverOpen(false);
+                                      setAssigneeSearchQuery('');
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2 w-full">
+                                      {selectedAssignee?.id === staff.id && (
+                                        <Check className="h-4 w-4" />
+                                      )}
+                                      <div className="flex flex-col items-start flex-1">
+                                        <div
+                                          className={
+                                            selectedAssignee?.id === staff.id ? 'font-medium' : ''
+                                          }
+                                        >
+                                          {staff.first_name} {staff.last_name}
+                                        </div>
+                                        {staff.role && (
+                                          <div className="text-xs text-muted-foreground">
+                                            {staff.role}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </Button>
+                                ))
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}

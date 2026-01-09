@@ -307,7 +307,7 @@ export function TasksTable({ filters, onTaskClick }: TasksTableProps) {
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(task.created_at).toLocaleDateString()}
+                    {new Date(task.created_at as string).toLocaleDateString()}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>

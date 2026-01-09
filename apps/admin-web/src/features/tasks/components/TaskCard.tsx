@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import { cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
 import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials } from '../utils/taskUtils';
-import { Calendar, GripVertical } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -47,21 +47,15 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       onClick={onClick}
       className={cn(
-        'bg-card border rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow',
-        'space-y-2 relative',
+        'bg-card border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow',
+        'space-y-2',
         isDragging && 'opacity-50'
       )}
     >
-      {/* Drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute top-2 right-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-      >
-        <GripVertical className="h-4 w-4" />
-      </div>
       {/* Title */}
       <div className="font-medium text-sm">{task.title}</div>
 
