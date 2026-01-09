@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.activity_events (
   class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
   session_id UUID REFERENCES public.sessions(id) ON DELETE SET NULL,
   task_id UUID REFERENCES public.tasks(id) ON DELETE SET NULL,
+  parent_id UUID REFERENCES public.parents(id) ON DELETE SET NULL,
   
   -- Audit fields
   performed_by UUID REFERENCES public.staff(id) ON DELETE SET NULL, -- Who did it (from auth context)
@@ -42,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_staff ON public.activity_events(staff_id
 CREATE INDEX IF NOT EXISTS idx_activity_class ON public.activity_events(class_id) WHERE class_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_session ON public.activity_events(session_id) WHERE session_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_task ON public.activity_events(task_id) WHERE task_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_activity_parent ON public.activity_events(parent_id) WHERE parent_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_performed_by ON public.activity_events(performed_by) WHERE performed_by IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_event_type ON public.activity_events(event_type);
 
@@ -142,6 +144,7 @@ BEGIN
     class_id,
     session_id,
     task_id,
+    parent_id,
     performed_by,
     performed_at
   ) VALUES (
@@ -202,7 +205,7 @@ BEGIN
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type,
     changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tasks',
@@ -215,7 +218,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tasks', 'deleted_task_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
-    v_student_id, v_staff_id, v_class_id, v_session_id, v_task_id,
+    v_student_id, v_staff_id, v_class_id, v_session_id, v_task_id, NULL,
     v_performed_by, NOW()
   );
   
@@ -256,14 +259,14 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'classes', COALESCE(NEW.id, OLD.id),
     CASE WHEN TG_OP = 'INSERT' THEN 'CREATED' WHEN TG_OP = 'UPDATE' THEN 'UPDATED' ELSE 'DELETED' END,
     v_changed_fields,
     jsonb_build_object('operation', TG_OP, 'table', 'classes', 'deleted_class_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
-    NULL, NULL, v_class_id, NULL, NULL,
+    NULL, NULL, v_class_id, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -293,7 +296,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'classes_staff',
@@ -306,7 +309,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'classes_staff'),
-    NULL, v_staff_id, v_class_id, NULL, NULL,
+    NULL, v_staff_id, v_class_id, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -336,7 +339,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'classes_students',
@@ -349,7 +352,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'classes_students'),
-    v_student_id, NULL, v_class_id, NULL, NULL,
+    v_student_id, NULL, v_class_id, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -381,7 +384,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'sessions', COALESCE(NEW.id, OLD.id),
@@ -393,7 +396,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions', 'deleted_session_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
-    NULL, NULL, v_class_id, v_session_id, NULL,
+    NULL, NULL, v_class_id, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -409,7 +412,6 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -417,16 +419,14 @@ BEGIN
   IF TG_OP != 'DELETE' THEN
     v_session_id := NEW.session_id;
     v_student_id := NEW.student_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = NEW.session_id;
   ELSE
     v_session_id := OLD.session_id;
     v_student_id := OLD.student_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = OLD.session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'sessions_students',
@@ -439,7 +439,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions_students'),
-    v_student_id, NULL, v_class_id, v_session_id, NULL,
+    v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -455,7 +455,6 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_staff_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -463,16 +462,14 @@ BEGIN
   IF TG_OP != 'DELETE' THEN
     v_session_id := NEW.session_id;
     v_staff_id := NEW.staff_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = NEW.session_id;
   ELSE
     v_session_id := OLD.session_id;
     v_staff_id := OLD.staff_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = OLD.session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'sessions_staff',
@@ -485,7 +482,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions_staff'),
-    NULL, v_staff_id, v_class_id, v_session_id, NULL,
+    NULL, v_staff_id, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -500,22 +497,19 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
   IF TG_OP != 'DELETE' THEN
     v_session_id := NEW.session_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = NEW.session_id;
   ELSE
     v_session_id := OLD.session_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = OLD.session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'sessions_files',
@@ -528,7 +522,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'sessions_files'),
-    NULL, NULL, v_class_id, v_session_id, NULL,
+    NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -556,7 +550,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'students', COALESCE(NEW.id, OLD.id),
@@ -568,7 +562,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'students', 'deleted_student_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
-    v_student_id, NULL, NULL, NULL, NULL,
+    v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -596,7 +590,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'staff', COALESCE(NEW.id, OLD.id),
@@ -608,7 +602,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'staff', 'deleted_staff_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
-    NULL, v_staff_id, NULL, NULL, NULL,
+    NULL, v_staff_id, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -622,13 +616,21 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 DECLARE
+  v_parent_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
+  IF TG_OP != 'DELETE' THEN
+    v_parent_id := NEW.id;
+  ELSE
+    -- For DELETE, set FK to NULL to avoid constraint violation
+    v_parent_id := NULL;
+  END IF;
+  
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'parents',
@@ -640,8 +642,8 @@ BEGIN
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'parents'),
-    NULL, NULL, NULL, NULL, NULL,
+    jsonb_build_object('operation', TG_OP, 'table', 'parents', 'deleted_parent_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
+    NULL, NULL, NULL, NULL, NULL, v_parent_id,
     v_performed_by, NOW()
   );
   
@@ -656,19 +658,22 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_student_id UUID;
+  v_parent_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
   IF TG_OP != 'DELETE' THEN
     v_student_id := NEW.student_id;
+    v_parent_id := NEW.parent_id;
   ELSE
     v_student_id := OLD.student_id;
+    v_parent_id := OLD.parent_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'parents_students',
@@ -681,7 +686,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'parents_students'),
-    v_student_id, NULL, NULL, NULL, NULL,
+    v_student_id, NULL, NULL, NULL, NULL, v_parent_id,
     v_performed_by, NOW()
   );
   
@@ -695,13 +700,34 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 DECLARE
+  v_student_id UUID := NULL;
+  v_staff_id UUID := NULL;
+  v_parent_id UUID := NULL;
   v_performed_by UUID;
+  v_conversation_id UUID;
+  v_contact_id UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
+  -- Extract conversation_id
+  IF TG_OP != 'DELETE' THEN
+    v_conversation_id := NEW.conversation_id;
+  ELSE
+    v_conversation_id := OLD.conversation_id;
+  END IF;
+  
+  -- Get contact_id from conversation
+  SELECT contact_id INTO v_contact_id FROM public.conversations WHERE id = v_conversation_id;
+  
+  -- Extract student_id, parent_id, or staff_id from contact
+  IF v_contact_id IS NOT NULL THEN
+    SELECT student_id, parent_id, staff_id INTO v_student_id, v_parent_id, v_staff_id
+    FROM public.contacts WHERE id = v_contact_id;
+  END IF;
+  
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'messages',
@@ -713,8 +739,8 @@ BEGIN
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'messages'),
-    NULL, NULL, NULL, NULL, NULL,
+    jsonb_build_object('operation', TG_OP, 'table', 'messages', 'conversation_id', v_conversation_id, 'contact_id', v_contact_id),
+    v_student_id, v_staff_id, NULL, NULL, NULL, v_parent_id,
     v_performed_by, NOW()
   );
   
@@ -734,7 +760,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'conversation_reads',
@@ -747,7 +773,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'conversation_reads'),
-    NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -774,7 +800,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'invoices',
@@ -787,7 +813,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'invoices'),
-    v_student_id, NULL, NULL, NULL, NULL,
+    v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -802,20 +828,24 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_student_id UUID;
+  v_session_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
-  -- Get student_id from invoice
   IF TG_OP != 'DELETE' THEN
-    SELECT student_id INTO v_student_id FROM public.invoices WHERE id = NEW.invoice_id;
+    -- Extract direct FKs from invoice_items
+    v_student_id := NEW.student_id;
+    v_session_id := NEW.session_id;
   ELSE
-    SELECT student_id INTO v_student_id FROM public.invoices WHERE id = OLD.invoice_id;
+    -- For DELETE, set FKs to NULL to avoid constraint violations
+    v_student_id := NULL;
+    v_session_id := NULL;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'invoice_items',
@@ -827,8 +857,8 @@ BEGIN
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'invoice_items'),
-    v_student_id, NULL, NULL, NULL, NULL,
+    jsonb_build_object('operation', TG_OP, 'table', 'invoice_items', 'deleted_invoice_item_id', CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NULL END),
+    v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -843,24 +873,46 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_student_id UUID := NULL;
+  v_staff_id UUID := NULL;
+  v_class_id UUID := NULL;
+  v_session_id UUID := NULL;
+  v_parent_id UUID := NULL;
+  v_target_type TEXT;
+  v_target_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
-  -- Extract student_id if target_type is 'student'
+  -- Extract target_type and target_id
   IF TG_OP != 'DELETE' THEN
-    IF NEW.target_type = 'student' THEN
-      v_student_id := NEW.target_id;
-    END IF;
+    v_target_type := NEW.target_type;
+    v_target_id := NEW.target_id;
   ELSE
-    IF OLD.target_type = 'student' THEN
-      v_student_id := OLD.target_id;
-    END IF;
+    v_target_type := OLD.target_type;
+    v_target_id := OLD.target_id;
   END IF;
+  
+  -- Extract appropriate FK based on target_type
+  CASE v_target_type
+    WHEN 'student' THEN
+      v_student_id := v_target_id;
+    WHEN 'staff' THEN
+      v_staff_id := v_target_id;
+    WHEN 'parent' THEN
+      v_parent_id := v_target_id;
+    WHEN 'class' THEN
+      v_class_id := v_target_id;
+    WHEN 'session' THEN
+      v_session_id := v_target_id;
+    -- Add more cases as needed for other target types
+    ELSE
+      -- Unknown target_type, leave all FKs as NULL
+      NULL;
+  END CASE;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'notes',
@@ -872,8 +924,8 @@ BEGIN
       JOIN jsonb_each(to_jsonb(NEW)) new_rec(key, new_val) ON old_rec.key = new_rec.key
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
-    jsonb_build_object('operation', TG_OP, 'table', 'notes', 'target_type', COALESCE(NEW.target_type, OLD.target_type)),
-    v_student_id, NULL, NULL, NULL, NULL,
+    jsonb_build_object('operation', TG_OP, 'table', 'notes', 'target_type', v_target_type, 'target_id', v_target_id),
+    v_student_id, v_staff_id, v_class_id, v_session_id, NULL, v_parent_id,
     v_performed_by, NOW()
   );
   
@@ -900,7 +952,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'student_subsidies',
@@ -913,7 +965,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'student_subsidies'),
-    v_student_id, NULL, NULL, NULL, NULL,
+    v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -940,7 +992,7 @@ BEGIN
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'students_subjects',
@@ -953,7 +1005,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'students_subjects'),
-    v_student_id, NULL, NULL, NULL, NULL,
+    v_student_id, NULL, NULL, NULL, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -968,22 +1020,19 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
   IF TG_OP != 'DELETE' THEN
     v_session_id := NEW.session_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = NEW.session_id;
   ELSE
     v_session_id := OLD.session_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = OLD.session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tutor_logs',
@@ -996,7 +1045,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs'),
-    NULL, NULL, v_class_id, v_session_id, NULL,
+    NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -1012,24 +1061,27 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_staff_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
   IF TG_OP != 'DELETE' THEN
-    SELECT tl.session_id, tl.created_by INTO v_session_id, v_staff_id
+    -- Extract direct FK: staff_id from tutor_logs_staff_attendance table
+    v_staff_id := NEW.staff_id;
+    -- Extract indirect FK: session_id via tutor_logs
+    SELECT tl.session_id INTO v_session_id
     FROM public.tutor_logs tl WHERE tl.id = NEW.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   ELSE
-    SELECT tl.session_id, tl.created_by INTO v_session_id, v_staff_id
+    -- Extract direct FK: staff_id from tutor_logs_staff_attendance table
+    v_staff_id := OLD.staff_id;
+    -- Extract indirect FK: session_id via tutor_logs
+    SELECT tl.session_id INTO v_session_id
     FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tutor_logs_staff_attendance',
@@ -1042,7 +1094,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_staff_attendance'),
-    NULL, v_staff_id, v_class_id, v_session_id, NULL,
+    NULL, v_staff_id, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -1058,7 +1110,6 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1066,16 +1117,14 @@ BEGIN
   IF TG_OP != 'DELETE' THEN
     v_student_id := NEW.student_id;
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = NEW.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   ELSE
     v_student_id := OLD.student_id;
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tutor_logs_student_attendance',
@@ -1088,7 +1137,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_student_attendance'),
-    v_student_id, NULL, v_class_id, v_session_id, NULL,
+    v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -1103,22 +1152,19 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
   IF TG_OP != 'DELETE' THEN
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = NEW.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   ELSE
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tutor_logs_topics',
@@ -1131,7 +1177,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics'),
-    NULL, NULL, v_class_id, v_session_id, NULL,
+    NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -1146,22 +1192,19 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_session_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
   
   IF TG_OP != 'DELETE' THEN
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = NEW.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   ELSE
     SELECT tl.session_id INTO v_session_id FROM public.tutor_logs tl WHERE tl.id = OLD.tutor_log_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tutor_logs_topics_files',
@@ -1174,7 +1217,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics_files'),
-    NULL, NULL, v_class_id, v_session_id, NULL,
+    NULL, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -1190,7 +1233,6 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1201,19 +1243,17 @@ BEGIN
     FROM public.tutor_logs_topics_files tltf
     JOIN public.tutor_logs tl ON tl.id = tltf.tutor_log_id
     WHERE tltf.id = NEW.tutor_logs_topics_files_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   ELSE
     v_student_id := OLD.student_id;
     SELECT tl.session_id INTO v_session_id
     FROM public.tutor_logs_topics_files tltf
     JOIN public.tutor_logs tl ON tl.id = tltf.tutor_log_id
     WHERE tltf.id = OLD.tutor_logs_topics_files_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tutor_logs_topics_files_students',
@@ -1226,7 +1266,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics_files_students'),
-    v_student_id, NULL, v_class_id, v_session_id, NULL,
+    v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -1242,7 +1282,6 @@ AS $$
 DECLARE
   v_session_id UUID;
   v_student_id UUID;
-  v_class_id UUID;
   v_performed_by UUID;
 BEGIN
   SELECT public.current_staff_id() INTO v_performed_by;
@@ -1253,19 +1292,17 @@ BEGIN
     FROM public.tutor_logs_topics tlt
     JOIN public.tutor_logs tl ON tl.id = tlt.tutor_log_id
     WHERE tlt.id = NEW.tutor_logs_topics_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   ELSE
     v_student_id := OLD.student_id;
     SELECT tl.session_id INTO v_session_id
     FROM public.tutor_logs_topics tlt
     JOIN public.tutor_logs tl ON tl.id = tlt.tutor_log_id
     WHERE tlt.id = OLD.tutor_logs_topics_id;
-    SELECT class_id INTO v_class_id FROM public.sessions WHERE id = v_session_id;
   END IF;
   
   INSERT INTO public.activity_events (
     entity_type, entity_id, event_type, changed_fields, metadata,
-    student_id, staff_id, class_id, session_id, task_id,
+    student_id, staff_id, class_id, session_id, task_id, parent_id,
     performed_by, performed_at
   ) VALUES (
     'tutor_logs_topics_students',
@@ -1278,7 +1315,7 @@ BEGIN
       WHERE old_val IS DISTINCT FROM new_val
     ) ELSE NULL END,
     jsonb_build_object('operation', TG_OP, 'table', 'tutor_logs_topics_students'),
-    v_student_id, NULL, v_class_id, v_session_id, NULL,
+    v_student_id, NULL, NULL, v_session_id, NULL, NULL,
     v_performed_by, NOW()
   );
   
@@ -1464,13 +1501,7 @@ CREATE POLICY "ADMINSTAFF full access to activity_events" ON public.activity_eve
   USING ((SELECT public.is_adminstaff_active()))
   WITH CHECK ((SELECT public.is_adminstaff_active()));
 
--- TUTOR: Read-only access (for future tutor activity views)
-DROP POLICY IF EXISTS "TUTOR read access to activity_events" ON public.activity_events;
-CREATE POLICY "TUTOR read access to activity_events" ON public.activity_events
-  FOR SELECT TO authenticated
-  USING ((SELECT public.is_tutor()));
-
--- STUDENT: No access (handled via views if needed later)
+-- TUTOR and STUDENT: No direct access (will be handled via views later)
 -- (No policies needed - default deny)
 
 -- ========================
