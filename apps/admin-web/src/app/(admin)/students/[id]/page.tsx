@@ -24,6 +24,7 @@ import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/stude
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { ParentSearchPopover } from '@/features/students/components/ParentSearchPopover';
+import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -326,12 +327,13 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="classes">Classes</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-6">
@@ -420,6 +422,10 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
         <TabsContent value="billing" className="space-y-6">
           <StudentBillingTab student={student} />
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-6">
+          <StudentActivityTab studentId={id} isOpen={true} />
         </TabsContent>
       </Tabs>
 

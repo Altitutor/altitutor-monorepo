@@ -25,10 +25,9 @@ import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/stude
 import { ViewParentModal } from './ViewParentModal';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { ParentSearchPopover } from './ParentSearchPopover';
-import { Notes } from '@/shared/components/Notes';
-import { useNotes } from '@/shared/hooks/useNotes';
 import { Separator } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
+import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -51,7 +50,6 @@ export function ViewStudentModal({
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
   const { data: allSubjects = [] } = useSubjects();
   const updateStudentMutation = useUpdateStudent();
-  const { data: notes = [] } = useNotes('students', studentId || '', isOpen && !!studentId);
   
   // Extract data from studentDetails
   const student = studentDetails?.student || null;
@@ -388,7 +386,7 @@ export function ViewStudentModal({
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="billing">Billing</TabsTrigger>
-                    <TabsTrigger value="notes">Notes</TabsTrigger>
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
                   </TabsList>
                 </div>
               </div>
@@ -472,16 +470,11 @@ export function ViewStudentModal({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="notes" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
                   <div className="p-6">
-                    <Notes
-                      targetType="students"
-                      targetId={studentId || ''}
-                      notes={notes}
-                      onNoteAdded={() => {
-                        queryClient.invalidateQueries({ queryKey: ['notes', 'students', studentId] });
-                      }}
-                    />
+                    {studentId && (
+                      <StudentActivityTab studentId={studentId} isOpen={isOpen} />
+                    )}
                   </div>
                 </TabsContent>
               </div>

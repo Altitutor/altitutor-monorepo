@@ -167,8 +167,8 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
           <AnimatedHamburgerIcon isOpen={!collapsed} />
         </Button>
         {!collapsed && (
-          <div className="flex items-center">
-            <h2 className="text-lg font-semibold">Tutor Portal</h2>
+          <div className="flex items-center overflow-hidden min-w-0 transition-opacity duration-300">
+            <h2 className="text-lg font-semibold whitespace-nowrap">Tutor Portal</h2>
           </div>
         )}
       </div>
@@ -185,7 +185,9 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
                     collapsed && "text-center px-0"
                   )}
                 >
-                  {!collapsed && item.title}
+                  {!collapsed && (
+                    <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
+                  )}
                   {collapsed && <div className="h-px bg-border" />}
                 </div>
               );
@@ -205,7 +207,9 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
                 )}
               >
                 <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
-                {!collapsed && <span>{item.title}</span>}
+                {!collapsed && (
+                  <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
+                )}
               </Link>
             );
           })}

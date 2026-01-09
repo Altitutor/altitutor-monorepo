@@ -18,6 +18,7 @@ import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSe
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
+import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
 
 export default function StaffDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -258,12 +259,13 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="classes">Classes</TabsTrigger>
           <TabsTrigger value="students">Students</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-6">
@@ -346,6 +348,10 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
               relatedType="staff"
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-6">
+          <StaffActivityTab staffId={id} isOpen={true} />
         </TabsContent>
       </Tabs>
 
