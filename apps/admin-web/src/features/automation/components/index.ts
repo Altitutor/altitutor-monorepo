@@ -1,0 +1,2 @@
+export { AutomationRulesList } from './AutomationRulesList';
+
