@@ -12,6 +12,7 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
@@ -57,14 +58,9 @@ export function SendStudentInviteDialog({
       // If there's an existing token, use it instead of generating a new one
       if (!studentError && studentData?.invite_token) {
         setToken(studentData.invite_token);
-        const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
-        if (linkType === 'invite') {
-          const url = `${baseUrl}/invite/${studentData.invite_token}`;
-          setInviteUrl(url);
-        } else {
-          const url = `${baseUrl}/register/${studentData.invite_token}`;
-          setInviteUrl(url);
-        }
+        const path = linkType === 'invite' ? 'invite' : 'register';
+        const url = getInviteUrlForStudent(studentData.invite_token, path);
+        setInviteUrl(url);
       }
       
       // Fetch parents
@@ -108,8 +104,7 @@ export function SendStudentInviteDialog({
         setToken(result.token);
         
         // Build the invite URL for student-web
-        const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
-        const url = `${baseUrl}/invite/${result.token}`;
+        const url = getInviteUrlForStudent(result.token, 'invite');
         setInviteUrl(url);
       } else {
         // Use registration API
@@ -128,8 +123,7 @@ export function SendStudentInviteDialog({
         setToken(result.token);
         
         // Build the registration URL for student-web
-        const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
-        const url = `${baseUrl}/register/${result.token}`;
+        const url = getInviteUrlForStudent(result.token, 'register');
         setInviteUrl(url);
       }
     } catch (error) {
