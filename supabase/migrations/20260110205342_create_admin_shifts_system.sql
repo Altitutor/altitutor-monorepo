@@ -60,9 +60,7 @@ CREATE TABLE IF NOT EXISTS public.admin_shifts_staff (
   unassigned_at TIMESTAMPTZ, -- NULL = currently assigned
   created_by UUID REFERENCES public.staff(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT admin_shifts_staff_unique_active UNIQUE(admin_shift_id, staff_id) 
-    WHERE unassigned_at IS NULL
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Indexes for common access patterns
@@ -70,6 +68,11 @@ CREATE INDEX IF NOT EXISTS idx_admin_shifts_staff_admin_shift_id ON public.admin
 CREATE INDEX IF NOT EXISTS idx_admin_shifts_staff_staff_id ON public.admin_shifts_staff(staff_id);
 CREATE INDEX IF NOT EXISTS idx_admin_shifts_staff_assigned_at ON public.admin_shifts_staff(admin_shift_id, assigned_at);
 CREATE INDEX IF NOT EXISTS idx_admin_shifts_staff_active ON public.admin_shifts_staff(admin_shift_id) WHERE unassigned_at IS NULL;
+
+-- Partial unique index to prevent duplicate active assignments
+CREATE UNIQUE INDEX IF NOT EXISTS uq_admin_shifts_staff_unique_active 
+  ON public.admin_shifts_staff(admin_shift_id, staff_id) 
+  WHERE unassigned_at IS NULL;
 
 -- Enable RLS
 ALTER TABLE public.admin_shifts_staff ENABLE ROW LEVEL SECURITY;
@@ -119,13 +122,14 @@ ALTER TABLE public.sessions
   );
 
 -- Add constraint: admin_shift_id only valid if type = ADMIN_SHIFT
+-- Note: Using text comparison to avoid unsafe enum value usage in same transaction
 ALTER TABLE public.sessions
   DROP CONSTRAINT IF EXISTS sessions_admin_shift_type_check;
 ALTER TABLE public.sessions
   ADD CONSTRAINT sessions_admin_shift_type_check
   CHECK (
     (admin_shift_id IS NULL) OR
-    (type = 'ADMIN_SHIFT' AND admin_shift_id IS NOT NULL)
+    (type::text = 'ADMIN_SHIFT' AND admin_shift_id IS NOT NULL)
   );
 
 -- Index for admin_shift_id lookups

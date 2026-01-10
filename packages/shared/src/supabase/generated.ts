@@ -197,6 +197,129 @@ export type Database = {
           },
         ]
       }
+      admin_shifts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          session_end_date: string | null
+          session_start_date: string | null
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          day_of_week: number
+          end_time: string
+          id?: string
+          session_end_date?: string | null
+          session_start_date?: string | null
+          start_time: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          session_end_date?: string | null
+          session_start_date?: string | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_shifts_staff: {
+        Row: {
+          admin_shift_id: string
+          assigned_at: string
+          created_at: string
+          created_by: string | null
+          id: string
+          staff_id: string
+          unassigned_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_shift_id: string
+          assigned_at?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          staff_id: string
+          unassigned_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_shift_id?: string
+          assigned_at?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          staff_id?: string
+          unassigned_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_shifts_staff_admin_shift_id_fkey"
+            columns: ["admin_shift_id"]
+            isOneToOne: false
+            referencedRelation: "admin_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_staff_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_staff_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shifts_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_actions: {
         Row: {
           action_config: Json
@@ -2135,6 +2258,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          admin_shift_id: string | null
           billing_type: Database["public"]["Enums"]["billing_type"] | null
           class_id: string | null
           created_at: string | null
@@ -2147,6 +2271,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          admin_shift_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"] | null
           class_id?: string | null
           created_at?: string | null
@@ -2159,6 +2284,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          admin_shift_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"] | null
           class_id?: string | null
           created_at?: string | null
@@ -2171,6 +2297,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sessions_admin_shift_id_fkey"
+            columns: ["admin_shift_id"]
+            isOneToOne: false
+            referencedRelation: "admin_shifts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
@@ -6482,6 +6615,15 @@ export type Database = {
         Args: { first_name: string; last_name: string }
         Returns: string
       }
+      precreate_admin_shift_sessions: {
+        Args: {
+          end_date: string
+          p_admin_shift_id?: string
+          p_created_by?: string
+          start_date: string
+        }
+        Returns: number
+      }
       precreate_sessions: {
         Args: {
           end_date: string
@@ -6700,6 +6842,7 @@ export type Database = {
         | "SUBSIDY_INTERVIEW"
         | "TRIAL_SESSION"
         | "STAFF_INTERVIEW"
+        | "ADMIN_SHIFT"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
       subject_discipline:
         | "MATHEMATICS"
@@ -6855,6 +6998,7 @@ export const Constants = {
         "SUBSIDY_INTERVIEW",
         "TRIAL_SESSION",
         "STAFF_INTERVIEW",
+        "ADMIN_SHIFT",
       ],
       subject_curriculum: ["SACE", "IB", "PRESACE", "PRIMARY", "MEDICINE"],
       subject_discipline: [
