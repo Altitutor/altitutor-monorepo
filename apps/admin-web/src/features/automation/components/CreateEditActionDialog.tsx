@@ -27,6 +27,7 @@ import { Textarea } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useCreateAutomationAction, useUpdateAutomationAction } from '../api/mutations';
+import { useAvailableSenders, type Sender } from '@/features/messages/api/queries';
 import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType } from '../types';
 
@@ -88,6 +89,7 @@ export function CreateEditActionDialog({
   const isEditing = !!action;
   const createMutation = useCreateAutomationAction();
   const updateMutation = useUpdateAutomationAction();
+  const { data: availableSenders, isLoading: isLoadingSenders } = useAvailableSenders();
 
   const form = useForm({
     resolver: zodResolver(actionFormSchema),
@@ -119,8 +121,9 @@ export function CreateEditActionDialog({
         action_type: action.action_type as ActionType,
         order_index: action.order_index || 0,
         template_id: config.template_id,
-        target_contact_id: config.target_contact_id,
-        selected_sender_id: config.selected_sender_id,
+        target_contact_id: config.target_contact_id || config.contact_id,
+        // Handle both old field name (selected_sender_id) and new field name (owned_number_id) for backward compatibility
+        selected_sender_id: config.owned_number_id || config.selected_sender_id,
         title_template: config.title_template,
         description_template: config.description_template,
         assigned_to: config.assigned_to,
@@ -149,8 +152,9 @@ export function CreateEditActionDialog({
       if (data.action_type === 'SEND_MESSAGE') {
         actionConfig = {
           template_id: data.template_id,
-          selected_sender_id: data.selected_sender_id,
-          target_contact_id: data.target_contact_id,
+          owned_number_id: data.selected_sender_id,
+          // Only include contact_id if a value is provided (for dynamic behavior, leave it undefined)
+          ...(data.target_contact_id && data.target_contact_id.trim() ? { contact_id: data.target_contact_id } : {}),
         };
       } else if (data.action_type === 'CREATE_TASK') {
         actionConfig = {
@@ -439,20 +443,47 @@ export function CreateEditActionDialog({
                 <FormField
                   control={form.control}
                   name="selected_sender_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sender *</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Owned number ID"
-                          {...field}
-                          value={field.value || ''}
-                        />
-                      </FormControl>
-                      <FormDescription>ID of the owned number to send from</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const getSenderDisplayName = (sender: Sender | undefined): string => {
+                      if (!sender) return 'Select sender';
+                      if (sender.sender_type === 'ALPHANUMERIC') {
+                        return sender.alphanumeric_sender_id || sender.label || 'Unknown';
+                      }
+                      return sender.label || sender.phone_e164 || 'Unknown';
+                    };
+
+                    return (
+                      <FormItem>
+                        <FormLabel>Sender *</FormLabel>
+                        {isLoadingSenders ? (
+                          <FormControl>
+                            <Input placeholder="Loading senders..." disabled />
+                          </FormControl>
+                        ) : (
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a sender" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {availableSenders?.map((sender) => (
+                                <SelectItem key={sender.id} value={sender.id}>
+                                  {getSenderDisplayName(sender)}
+                                  {sender.is_default && ' (Default)'}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <FormDescription>Select the owned number to send messages from</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
@@ -460,14 +491,17 @@ export function CreateEditActionDialog({
                   name="target_contact_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Target Contact ID</FormLabel>
+                      <FormLabel>Target Contact ID (Optional)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Contact ID (optional)"
+                          placeholder="Leave empty to use student from activity event"
                           {...field}
                           value={field.value || ''}
                         />
                       </FormControl>
+                      <FormDescription>
+                        If left empty, the message will be sent to the student associated with the activity event (e.g., when student status changes from trial to active, it will message that student). Only specify a contact ID if you want to send to a specific contact regardless of the trigger.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

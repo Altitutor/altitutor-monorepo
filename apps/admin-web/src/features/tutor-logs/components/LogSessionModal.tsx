@@ -29,14 +29,19 @@ type LogSessionModalProps = {
   onClose: () => void;
   currentStaffId: string;
   adminMode?: boolean;
+  initialSessionId?: string;
+  initialStaffId?: string;
 };
 
 type SubmissionState = 'idle' | 'submitting' | 'success' | 'error';
 
-export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = false }: LogSessionModalProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [selectedStaffId, setSelectedStaffId] = useState<string>(currentStaffId);
-  const [formData, setFormData] = useState<Partial<TutorLogFormData>>({});
+export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = false, initialSessionId, initialStaffId }: LogSessionModalProps) {
+  // Calculate initial step: if both initialSessionId and initialStaffId are provided in admin mode, start at step 2
+  const initialStep = adminMode && initialSessionId && initialStaffId ? 2 : 0;
+  
+  const [currentStep, setCurrentStep] = useState(initialStep);
+  const [selectedStaffId, setSelectedStaffId] = useState<string>(initialStaffId || currentStaffId);
+  const [formData, setFormData] = useState<Partial<TutorLogFormData>>(initialSessionId ? { sessionId: initialSessionId } : {});
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
@@ -58,16 +63,32 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     fetchStaff();
   }, [selectedStaffId]);
 
+  // Initialize form data when modal opens with initial values
+  useEffect(() => {
+    if (isOpen) {
+      // Set initial values
+      if (initialSessionId) {
+        setFormData((prev) => ({ ...prev, sessionId: initialSessionId }));
+      }
+      if (initialStaffId) {
+        setSelectedStaffId(initialStaffId);
+      }
+      // Set the step based on what's pre-selected
+      const targetStep = adminMode && initialSessionId && initialStaffId ? 2 : 0;
+      setCurrentStep(targetStep);
+    }
+  }, [isOpen, initialSessionId, initialStaffId, adminMode]);
+
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setCurrentStep(0);
-      setSelectedStaffId(currentStaffId);
-      setFormData({});
+      setSelectedStaffId(initialStaffId || currentStaffId);
+      setFormData(initialSessionId ? { sessionId: initialSessionId } : {});
       setSubmissionState('idle');
       setSubmissionError(null);
     }
-  }, [isOpen, currentStaffId]);
+  }, [isOpen, currentStaffId, initialSessionId, initialStaffId]);
 
   const actualTotalSteps = adminMode ? 10 : 9;
 

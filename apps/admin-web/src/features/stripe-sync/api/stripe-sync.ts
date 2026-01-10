@@ -66,7 +66,7 @@ export const stripeSyncApi = {
   },
 
   /**
-   * Fetch all students with their Stripe billing info
+   * Fetch all ACTIVE students with their Stripe billing info
    */
   getStudentsWithStripe: async (): Promise<StudentWithStripe[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -89,6 +89,7 @@ export const stripeSyncApi = {
           is_default
         )
       `)
+      .eq('status', 'ACTIVE')
       .order('first_name')
       .order('last_name');
 
