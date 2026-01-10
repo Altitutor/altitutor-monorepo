@@ -6943,6 +6943,22 @@ export type Database = {
       is_adminstaff_active: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
+      log_activity_event: {
+        Args: {
+          p_changed_fields?: Json
+          p_class_id?: string
+          p_entity_id: string
+          p_entity_type: string
+          p_event_type: string
+          p_metadata?: Json
+          p_parent_id?: string
+          p_session_id?: string
+          p_staff_id?: string
+          p_student_id?: string
+          p_task_id?: string
+        }
+        Returns: string
+      }
       log_staff_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
