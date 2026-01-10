@@ -12,6 +12,7 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -66,8 +67,7 @@ export function SendRegistrationInviteDialog({
       // If there's an existing token, use it instead of generating a new one
       if (studentData.invite_token) {
         setToken(studentData.invite_token);
-        const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
-        const url = `${baseUrl}/register/${studentData.invite_token}`;
+        const url = getInviteUrlForStudent(studentData.invite_token, 'register');
         setInviteUrl(url);
       }
 
@@ -109,8 +109,7 @@ export function SendRegistrationInviteDialog({
       setToken(result.token);
       
       // Build the registration URL for student-web
-      const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
-      const url = `${baseUrl}/register/${result.token}`;
+      const url = getInviteUrlForStudent(result.token, 'register');
       setInviteUrl(url);
     } catch (error) {
       console.error('Failed to generate token:', error);

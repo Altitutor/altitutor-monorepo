@@ -612,6 +612,7 @@ export const sessionsApi = {
       // Attach rescheduled session data, invoice status, and is_extra flag to sessions_students
       const enrichedSessionsStudentsData = (sessionsStudentsData || []).map((ss: any) => ({
         ...ss,
+        sessions_students_id: ss.id, // Map id to sessions_students_id for UI consistency
         rescheduled_session: ss.rescheduled_sessions_students_id
           ? rescheduledSessionsMap[ss.rescheduled_sessions_students_id]
           : null,

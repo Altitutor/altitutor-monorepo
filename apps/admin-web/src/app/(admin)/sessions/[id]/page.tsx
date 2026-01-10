@@ -163,9 +163,11 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   }
 
   // Process students
+  // Build set of student IDs that are in sessions_students (planned students)
+  // Include all planned students regardless of is_extra status
   const plannedStudentIds = new Set(
     sessionsStudents
-      .filter((ss: any) => ss.student_id && !ss.is_extra)
+      .filter((ss: any) => ss.student_id && (ss.sessions_students_id !== null && ss.sessions_students_id !== undefined))
       .map((ss: any) => ss.student_id)
   );
   
