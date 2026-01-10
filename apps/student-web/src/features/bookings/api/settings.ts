@@ -51,7 +51,7 @@ export const bookingSettingsApi = {
       // Return default if parsing fails
       switch (sessionType) {
         case 'DRAFTING':
-          return 60;
+          return 90;
         case 'TRIAL_SESSION':
           return 45;
         case 'SUBSIDY_INTERVIEW':

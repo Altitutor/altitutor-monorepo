@@ -23,8 +23,6 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils';
-import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
-
 export interface BookDraftingSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,10 +42,14 @@ export function BookDraftingSessionModal({
   const { data: subjects, isLoading: subjectsLoading } = useStudentSubjects();
   const { data: reservations } = useMyReservations();
   const createBooking = useCreateBooking();
-  const { data: durationMinutes = 60 } = useSessionDurationMinutes('DRAFTING', { enabled: isOpen });
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds: string[] } | null>(null);
+  
+  // Calculate duration from selected slot, default to 60 if no slot selected
+  const durationMinutes = selectedSlot
+    ? Math.round((new Date(selectedSlot.endAt).getTime() - new Date(selectedSlot.startAt).getTime()) / (1000 * 60))
+    : 60;
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -453,7 +455,7 @@ export function BookDraftingSessionModal({
                 <TimeSlotPicker
                   sessionType="DRAFTING"
                   subjectId={selectedSubjectId}
-                  durationMinutes={durationMinutes}
+                  durationMinutes={60}
                   onSlotSelect={(startAt, endAt, availableStaffIds) => {
                     handleSlotSelect(startAt, endAt, availableStaffIds);
                     setTimeError(false);
