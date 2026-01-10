@@ -14,23 +14,36 @@ export const tutorLogsApi = {
    */
   createTutorLog: async (data: TutorLogFormData, createdBy: string): Promise<Tables<'tutor_logs'>> => {
     try {
+      const payload = {
+        data,
+        createdBy,
+      };
+      
+      console.log('📤 [Tutor Log Client] Sending request:', JSON.stringify(payload, null, 2));
+      console.log('🔍 [Tutor Log Client] createdBy details:', {
+        value: createdBy,
+        type: typeof createdBy,
+        isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdBy),
+      });
+      
       const response = await fetch('/api/tutor-logs/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          data,
-          createdBy,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('📥 [Tutor Log Client] Response status:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ [Tutor Log Client] Error response:', JSON.stringify(errorData, null, 2));
         throw new Error(errorData.error || 'Failed to create tutor log');
       }
 
       const result = await response.json();
+      console.log('✅ [Tutor Log Client] Success response:', JSON.stringify(result, null, 2));
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to create tutor log');

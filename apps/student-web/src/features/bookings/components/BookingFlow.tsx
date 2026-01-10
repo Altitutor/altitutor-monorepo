@@ -83,8 +83,8 @@ export function BookingFlow({
         ))}
       </div>
 
-      {/* Pills for date/time and duration - Show only in details step (step 1) */}
-      {selectedSlot && currentStep === 1 && (
+      {/* Pills for date/time and duration - Show only in details step (step 2) */}
+      {selectedSlot && currentStep === 2 && (
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="text-sm py-1.5 px-3">
             {new Date(selectedSlot.startAt).toLocaleDateString('en-AU', {
@@ -110,7 +110,7 @@ export function BookingFlow({
       )}
 
       {/* Current Step Content */}
-      {currentStep === 0 || currentStep === 1 || currentStep === 2 ? (
+      {currentStep === 0 || currentStep === 1 || currentStep === 2 || currentStep === 3 ? (
         // No card wrapper for mobile-friendly steps
         <div className="space-y-6">
           {currentStepData.component}

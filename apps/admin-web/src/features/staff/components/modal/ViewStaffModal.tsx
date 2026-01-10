@@ -13,7 +13,6 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { ClassesTab } from './tabs/ClassesTab';
-import { StudentsTab } from './tabs/StudentsTab';
 import { StaffSessionsTab } from './tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { getExistingConversationForRelated } from '@/features/messages/api/queries';
@@ -326,10 +325,9 @@ export function ViewStaffModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
-                    <TabsTrigger value="students">Students</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="activity">Activity</TabsTrigger>
@@ -372,15 +370,6 @@ export function ViewStaffModal({
                     <ClassesTab
                       staff={staffMember}
                       onStaffUpdated={onStaffUpdated}
-                    />
-                  </div>
-                </TabsContent>
-                    
-                <TabsContent value="students" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
-                  <div className="h-full p-6">
-                    <StudentsTab
-                      staffId={staffId || ''}
-                      isOpen={isOpen}
                     />
                   </div>
                 </TabsContent>

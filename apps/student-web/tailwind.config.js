@@ -71,6 +71,10 @@ module.exports = {
             dark: "#4B5563",
           },
         },
+        landing: {
+          "dark-grey": "hsl(var(--landing-dark-grey))",
+          "light-grey": "hsl(var(--landing-light-grey))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

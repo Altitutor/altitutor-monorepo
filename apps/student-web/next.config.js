@@ -5,6 +5,15 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+        pathname: '/vi/**',
+      },
+    ],
+  },
   webpack: (config, { isServer }) => {
     // Replace @supabase/realtime-js with a stub module ONLY for server-side builds
     // The realtime package uses Node.js APIs (process.versions) that aren't available in Edge Runtime

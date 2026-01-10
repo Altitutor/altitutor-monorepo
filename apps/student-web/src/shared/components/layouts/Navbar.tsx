@@ -6,7 +6,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, LayoutDashboard } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
@@ -28,21 +28,6 @@ export function Navbar() {
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   const { data: profile } = useProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  // Check if current route is a public route (routes that don't have the student sidebar)
-  const isPublicRoute = 
-    pathname === '/' ||
-    pathname.startsWith('/login') || 
-    pathname.startsWith('/forgot-password') || 
-    pathname.startsWith('/reset-password') || 
-    pathname.startsWith('/invite/') || 
-    pathname.startsWith('/register/') ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/booking/trial-session') ||
-    pathname.startsWith('/booking-success');
-
-  // Show dashboard button if user is logged in and on a public route
-  const showDashboardButton = user && isPublicRoute;
 
   const handleLogout = async () => {
     try {
@@ -94,23 +79,31 @@ export function Navbar() {
           {/* Desktop Logo - hidden on mobile */}
           <div className="hidden md:flex items-center">
             <div className="h-12 flex items-center">
-              <Image 
-                src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
-                alt="Altitutor Student" 
-                width={160} 
-                height={36}
-                priority
-                className="object-contain"
-              />
+              {!user ? (
+                <Link href="/" className="cursor-pointer">
+                  <Image 
+                    src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
+                    alt="Altitutor Student" 
+                    width={160} 
+                    height={36}
+                    priority
+                    className="object-contain"
+                  />
+                </Link>
+              ) : (
+                <Image 
+                  src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
+                  alt="Altitutor Student" 
+                  width={160} 
+                  height={36}
+                  priority
+                  className="object-contain"
+                />
+              )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {showDashboardButton && (
-            <Button variant="outline" asChild>
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-          )}
           <ThemeToggle />
           {user ? (
             <DropdownMenu>
@@ -123,6 +116,12 @@ export function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard" className="flex items-center cursor-pointer">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/my-profile" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
@@ -137,9 +136,14 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button variant="outline" asChild>
-              <Link href="/login">Login</Link>
-            </Button>
+            <>
+              <Button variant="outline" asChild>
+                <Link href="/login">Login</Link>
+              </Button>
+              <Button variant="default" asChild>
+                <Link href="/booking/trial-session">Book now</Link>
+              </Button>
+            </>
           )}
         </div>
       </div>

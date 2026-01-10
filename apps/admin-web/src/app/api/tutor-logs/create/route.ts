@@ -6,7 +6,16 @@ import type { TutorLogFormData } from '@/features/tutor-logs/types';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log('📥 [Tutor Log API] Received request body:', JSON.stringify(body, null, 2));
     const { data, createdBy } = body as { data: TutorLogFormData; createdBy: string };
+    
+    console.log('📋 [Tutor Log API] Parsed values:', {
+      createdBy,
+      createdByType: typeof createdBy,
+      sessionId: data?.sessionId,
+      hasStaffAttendance: !!data?.staffAttendance?.length,
+      hasStudentAttendance: !!data?.studentAttendance?.length,
+    });
 
     // Validate required fields
     if (!data || !data.sessionId) {
@@ -84,8 +93,41 @@ export async function POST(request: Request) {
       p_notes: notes.length > 0 ? notes : [],
     };
 
+    console.log('🚀 [Tutor Log API] Calling RPC with params:', JSON.stringify(rpcParams, null, 2));
+    console.log('🔍 [Tutor Log API] p_created_by details:', {
+      value: rpcParams.p_created_by,
+      type: typeof rpcParams.p_created_by,
+      isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rpcParams.p_created_by),
+    });
+
+    // Check staff status before calling RPC (for debugging)
+    const { data: staffCheck, error: staffCheckError } = await supabase
+      .from('staff')
+      .select('id, first_name, last_name, status, role, user_id')
+      .eq('id', rpcParams.p_created_by)
+      .single();
+    
+    console.log('👤 [Tutor Log API] Staff record check:', {
+      found: !!staffCheck,
+      staff: staffCheck ? {
+        id: staffCheck.id,
+        name: `${staffCheck.first_name} ${staffCheck.last_name}`,
+        status: staffCheck.status,
+        role: staffCheck.role,
+        hasUserId: !!staffCheck.user_id,
+      } : null,
+      error: staffCheckError ? JSON.stringify(staffCheckError, null, 2) : null,
+    });
+
     // Call the RPC function
     const { data: result, error } = await supabase.rpc('create_tutor_log' as any, rpcParams);
+    
+    console.log('📤 [Tutor Log API] RPC Response:', {
+      hasResult: !!result,
+      result: JSON.stringify(result, null, 2),
+      hasError: !!error,
+      error: error ? JSON.stringify(error, null, 2) : null,
+    });
 
     if (error) {
       console.error('Error calling create_tutor_log RPC:', error);

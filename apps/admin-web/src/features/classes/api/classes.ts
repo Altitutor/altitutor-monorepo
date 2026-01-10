@@ -574,9 +574,10 @@ export const classesApi = {
   getClassStaff: async (classId: string): Promise<Tables<'staff'>[]> => {
     try {
       // Get all class assignments for this class (where unassigned_at IS NULL)
+      // Specify the foreign key relationship explicitly to avoid ambiguity
       const { data: assignments, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('classes_staff')
-        .select('staff:staff(*), class_id')
+        .select('staff:staff!classes_staff_staff_id_fkey(*), class_id')
         .eq('class_id', classId)
         .is('unassigned_at', null);
       if (error) throw error;

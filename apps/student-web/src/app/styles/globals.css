@@ -33,6 +33,10 @@
     --ring: 212 86% 14%;
 
     --radius: 0.5rem;
+
+    /* Landing page theme colors */
+    --landing-dark-grey: 220 13% 18%;
+    --landing-light-grey: 220 14% 96%;
   }
 
   .dark {
@@ -63,6 +67,10 @@
     --border: 0 0% 18%;
     --input: 0 0% 18%;
     --ring: 198 29% 67%;
+
+    /* Landing page theme colors */
+    --landing-dark-grey: 220 13% 18%;
+    --landing-light-grey: 220 14% 96%;
   }
 }
 
@@ -70,7 +78,17 @@
   * {
     @apply border-border;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Scroll snap alignment */
+  .snap-y {
+    scroll-snap-type: y mandatory;
+  }
+  .snap-start {
+    scroll-snap-align: start;
   }
 } 

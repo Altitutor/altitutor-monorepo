@@ -24,6 +24,9 @@ import { SessionFiles } from './SessionFiles';
 import { formatTime } from '@/shared/utils/datetime';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { classesApi } from '@/features/classes/api/classes';
 import {
   Table,
   TableBody,
@@ -55,7 +58,10 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [firstClassStaffId, setFirstClassStaffId] = useState<string | null>(null);
   const openWindow = useChatStore(s => s.openWindow);
+  const { data: currentStaff } = useCurrentStaff();
 
   useEffect(() => {
     const load = async () => {
@@ -78,6 +84,18 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           
           setAllTopics(topicsData || []);
         }
+
+        // If session is a CLASS type and has a class_id, get the first staff member from the class
+        if (result.session?.type === 'CLASS' && result.session?.class_id) {
+          try {
+            const classStaff = await classesApi.getClassStaff(result.session.class_id);
+            if (classStaff && classStaff.length > 0) {
+              setFirstClassStaffId(classStaff[0].id);
+            }
+          } catch (error) {
+            console.error('Failed to get class staff:', error);
+          }
+        }
       } catch (error) {
         console.error('Failed to load session:', error);
       } finally {
@@ -92,6 +110,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       const timer = setTimeout(() => {
         setData(null);
         setAllTopics([]);
+        setFirstClassStaffId(null);
       }, 300); // Match Sheet animation duration
       return () => clearTimeout(timer);
     }
@@ -167,6 +186,16 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const hasTutorLog = !!tutorLog;
   // Use session's subject if available, otherwise fall back to class's subject
   const subject = (session as any).subject || session.class?.subject;
+  
+  // Get first staff member from class for logging (use sessionsStaff if available, otherwise use firstClassStaffId)
+  const getFirstStaffForLogging = () => {
+    // If session has staff assigned, use the first one
+    if (sessionsStaff && sessionsStaff.length > 0 && sessionsStaff[0].staff_id) {
+      return sessionsStaff[0].staff_id;
+    }
+    // Otherwise use the first class staff member (if fetched)
+    return firstClassStaffId || undefined;
+  };
 
   // Build student attendance map from tutor log
   const actualStudentAttendance: Record<string, { attended: boolean }> = {};
@@ -664,15 +693,26 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
               {/* No Tutor Log Message */}
               {!hasTutorLog && (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  This session has not been logged yet.
+                <div className="text-center py-4 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    This session has not been logged yet.
+                  </p>
+                  {sessionId && currentStaff && (
+                    <Button
+                      onClick={() => {
+                        setIsLogSessionModalOpen(true);
+                      }}
+                    >
+                      Log Session
+                    </Button>
+                  )}
                 </div>
               )}
 
               <Separator />
 
-              {/* Session Files Section */}
-              {sessionId && (
+              {/* Session Files Section - Only show for meetings, not classes */}
+              {sessionId && session.type !== 'CLASS' && (
                 <>
                   <SessionFiles sessionId={sessionId} />
                 </>
@@ -720,6 +760,29 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           onStaffUpdated={() => {
             // Optionally refresh session data
           }}
+        />
+      )}
+
+      {/* Log Session Modal */}
+      {currentStaff && (
+        <LogSessionModal
+          isOpen={isLogSessionModalOpen}
+          onClose={async () => {
+            setIsLogSessionModalOpen(false);
+            // Refresh session data after logging
+            if (sessionId && isOpen) {
+              try {
+                const result = await sessionsApi.getSessionWithTutorLog(sessionId);
+                setData(result);
+              } catch (error) {
+                console.error('Failed to refresh session data:', error);
+              }
+            }
+          }}
+          currentStaffId={currentStaff.id}
+          adminMode={true}
+          initialSessionId={sessionId || undefined}
+          initialStaffId={getFirstStaffForLogging()}
         />
       )}
 
