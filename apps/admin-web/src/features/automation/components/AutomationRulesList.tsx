@@ -15,6 +15,7 @@ import { Switch } from '@altitutor/ui';
 import { Plus, Edit, Trash2, MoreVertical } from 'lucide-react';
 import { useAutomationRules } from '../api/queries';
 import { useUpdateAutomationRule, useDeleteAutomationRule } from '../api/mutations';
+import { useToast } from '@altitutor/ui';
 import type { AutomationRuleWithActions } from '../types';
 import {
   DropdownMenu,
@@ -32,6 +33,7 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
   const { data: rules, isLoading } = useAutomationRules();
   const updateRule = useUpdateAutomationRule();
   const deleteRule = useDeleteAutomationRule();
+  const { toast } = useToast();
 
   const handleToggleEnabled = (rule: AutomationRuleWithActions) => {
     updateRule.mutate({
@@ -41,7 +43,7 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
   };
 
   const handleDelete = (rule: AutomationRuleWithActions) => {
-    if (confirm(`Are you sure you want to delete the rule "${rule.name}"?`)) {
+    if (confirm(`Are you sure you want to delete the rule "${rule.name}"? This will also delete all associated actions.`)) {
       deleteRule.mutate(rule.id);
     }
   };
@@ -102,7 +104,9 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">{rule.actions?.length || 0} action(s)</Badge>
+                  <Badge variant="outline">
+                    {((rule as AutomationRuleWithActions).actions || []).length} action(s)
+                  </Badge>
                 </TableCell>
                 <TableCell>{rule.priority}</TableCell>
                 <TableCell>

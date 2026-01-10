@@ -56,3 +56,6 @@ altitutor-admin-obsidian-vault/
 # Turbo
 .turbo/
 **/.turbo/
+
+# Reference code
+ref/

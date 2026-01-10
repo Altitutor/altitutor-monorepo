@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 // Whitelist of fields that admin staff are allowed to update
 const ALLOWED_UPDATE_FIELDS = [
   'phone_number',

@@ -86,16 +86,31 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
   const handleSubmit = async () => {
     if (!formData.sessionId) return;
 
+    const submitPayload = {
+      data: formData as TutorLogFormData,
+      createdBy: selectedStaffId,
+    };
+    
+    console.log('🎯 [LogSessionModal] Submit clicked with payload:', JSON.stringify(submitPayload, null, 2));
+    console.log('🔍 [LogSessionModal] selectedStaffId details:', {
+      value: selectedStaffId,
+      type: typeof selectedStaffId,
+      isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedStaffId || ''),
+      selectedStaff: selectedStaff ? {
+        id: selectedStaff.id,
+        name: `${selectedStaff.first_name} ${selectedStaff.last_name}`,
+        status: selectedStaff.status,
+        role: selectedStaff.role,
+      } : null,
+    });
+
     setSubmissionState('submitting');
     setSubmissionError(null);
     try {
-      await createMutation.mutateAsync({
-        data: formData as TutorLogFormData,
-        createdBy: selectedStaffId,
-      });
+      await createMutation.mutateAsync(submitPayload);
       setSubmissionState('success');
     } catch (error) {
-      console.error('Failed to create tutor log:', error);
+      console.error('❌ [LogSessionModal] Failed to create tutor log:', error);
       setSubmissionState('error');
       setSubmissionError(error instanceof Error ? error.message : 'Failed to submit log. Please try again.');
     }
