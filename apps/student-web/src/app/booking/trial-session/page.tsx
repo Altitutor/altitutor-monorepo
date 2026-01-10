@@ -14,6 +14,7 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { useSessionDurationMinutes } from '@/features/bookings/hooks/useBookingSettings';
+import { VENUE_ADDRESS } from '@/shared/constants';
 
 export default function BookTrialPage() {
   const router = useRouter();
@@ -74,7 +75,7 @@ export default function BookTrialPage() {
 
   const handleContactSubmit = (data: TrialContactFormValues) => {
     setContactData(data);
-    setCurrentStep(2); // Move to confirmation (step 0 = time, step 1 = contact, step 2 = confirm)
+    setCurrentStep(3); // Move to confirmation (step 0 = instructions, step 1 = time, step 2 = contact, step 3 = confirm)
   };
 
   const handleConfirmBooking = async () => {
@@ -169,7 +170,39 @@ export default function BookTrialPage() {
     }
   };
 
+  // Format address to match user's style (comma instead of slash, remove ", Australia")
+  const formattedAddress = VENUE_ADDRESS.replace(' / ', ', ').replace(', Australia', '');
+
   const steps = [
+    {
+      id: 'instructions',
+      title: 'Instructions',
+      component: (
+        <div className="space-y-6">
+          <div className="prose prose-sm max-w-none">
+            <p className="text-base text-foreground mb-6">
+              All new students get a completely free trial one-on-one session with one of our tutors. Use the form below to book your session.
+            </p>
+            
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">How it works</h2>
+              <ol className="list-decimal list-inside space-y-2 text-foreground">
+                <li>You book a trial session at your desired time using the form on this page.</li>
+                <li>You will receive an email with confirmation of your booking time</li>
+                <li>You come to your trial session at the allocated time at our office ({formattedAddress})</li>
+              </ol>
+            </div>
+
+            <div className="space-y-4 mt-6">
+              <h2 className="text-lg font-semibold text-foreground">What to bring</h2>
+              <p className="text-foreground">
+                Please bring your school curriculum and any current schoolwork you are working on. All other materials will be provided.
+              </p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
     {
       id: 'time',
       title: 'Select Time',
@@ -305,6 +338,9 @@ export default function BookTrialPage() {
 
   const handleNext = () => {
     if (currentStep === 0) {
+      // From instructions to time selection
+      setCurrentStep(1);
+    } else if (currentStep === 1) {
       // From time selection to contact form
       if (!selectedSlot) {
         toast({
@@ -314,8 +350,8 @@ export default function BookTrialPage() {
         });
         return;
       }
-      setCurrentStep(1);
-    } else if (currentStep === 1) {
+      setCurrentStep(2);
+    } else if (currentStep === 2) {
       // From contact form to confirmation
       // Trigger form submission programmatically - this will show field-level errors
       if (contactFormRef) {
@@ -402,9 +438,9 @@ export default function BookTrialPage() {
         onStepChange={handleStepChange}
         onNext={handleNext}
         onBack={handleBack}
-        onConfirm={currentStep === 2 ? handleConfirmBooking : undefined}
+        onConfirm={currentStep === 3 ? handleConfirmBooking : undefined}
         isSubmitting={isSubmitting}
-        canProceed={currentStep === 0 ? !!selectedSlot : true}
+        canProceed={currentStep === 1 ? !!selectedSlot : true}
         selectedSlot={selectedSlot}
       />
     </div>
