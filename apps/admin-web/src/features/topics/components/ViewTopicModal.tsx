@@ -110,6 +110,7 @@ export function ViewTopicModal({
   const { data: topicFiles = [], refetch: refetchTopicFiles } = useTopicFilesByTopic(topicId);
   const queryClient = useQueryClient();
   
+  const { toast } = useToast();
   const updateTopicMutation = useUpdateTopic();
   const deleteTopicMutation = useDeleteTopic();
   const updateTopicIndices = useUpdateTopicIndices();
@@ -163,6 +164,8 @@ export function ViewTopicModal({
   const onSubmit = async (values: FormData) => {
     if (!topicId) return;
     
+    const changes: string[] = [];
+    
     try {
       const topicData: TablesUpdate<'topics'> = {
         name: values.name,
@@ -170,12 +173,36 @@ export function ViewTopicModal({
         parent_id: values.parent_id === 'none' ? null : values.parent_id || null,
       };
 
-      await updateTopicMutation.mutateAsync({ id: topicId, data: topicData });
+      // Check if topic data changed
+      const topicChanged = topic &&
+        (topic.name !== values.name ||
+        topic.subject_id !== values.subject_id ||
+        (topic.parent_id || null) !== (values.parent_id === 'none' ? null : values.parent_id));
+      
+      // Helper to call mutation without showing toast
+      const mutateSilently = <T,>(mutation: any, variables: T): Promise<any> => {
+        return new Promise((resolve, reject) => {
+          mutation.mutate(variables, {
+            onSuccess: (data: any) => {
+              resolve(data);
+            },
+            onError: (error: any) => {
+              reject(error);
+            },
+          });
+        });
+      };
+
+      if (topicChanged) {
+        await mutateSilently(updateTopicMutation, { id: topicId, data: topicData });
+        changes.push('Topic details');
+      }
       
       // Update children indices if they were reordered
       if (reorderedChildren.length > 0) {
-        await updateTopicIndices.mutateAsync(reorderedChildren);
+        await mutateSilently(updateTopicIndices, reorderedChildren);
         setReorderedChildren([]);
+        changes.push('Topic order');
       }
       
       // IMPORTANT: Update solutions first (unlink/convert), then link, then update indices
@@ -184,7 +211,7 @@ export function ViewTopicModal({
       // Unlink solutions and convert to regular files if needed (do this first)
       if (solutionUnlinks.length > 0) {
         for (const solutionFileId of solutionUnlinks) {
-          await updateTopicFile.mutateAsync({
+          await mutateSilently(updateTopicFile, {
             id: solutionFileId,
             data: { 
               is_solutions_of_id: null,
@@ -193,6 +220,7 @@ export function ViewTopicModal({
           });
         }
         setSolutionUnlinks([]);
+        changes.push('Solution links');
       }
       
       // Link solutions (after unlinking, so we know the final state)
@@ -200,7 +228,7 @@ export function ViewTopicModal({
         for (const link of solutionLinks) {
           // Find the target file to get its type
           const targetFile = topicFiles.find(f => f.id === link.targetFileId);
-          await updateTopicFile.mutateAsync({
+          await mutateSilently(updateTopicFile, {
             id: link.solutionFileId,
             data: { 
               is_solutions_of_id: link.targetFileId,
@@ -210,6 +238,9 @@ export function ViewTopicModal({
           });
         }
         setSolutionLinks([]);
+        if (!changes.includes('Solution links')) {
+          changes.push('Solution links');
+        }
       }
       
       // Update file types and indices if they were reordered (do this last, after all type changes)
@@ -226,7 +257,7 @@ export function ViewTopicModal({
         
         // Update types for files that changed, including their solutions
         for (const fileUpdate of typeChanges) {
-          await updateTopicFile.mutateAsync({
+          await mutateSilently(updateTopicFile, {
             id: fileUpdate.id,
             data: { type: fileUpdate.type },
           });
@@ -236,30 +267,43 @@ export function ViewTopicModal({
             f => f.is_solutions && f.is_solutions_of_id === fileUpdate.id
           );
           for (const solution of linkedSolutions) {
-            await updateTopicFile.mutateAsync({
+            await mutateSilently(updateTopicFile, {
               id: solution.id,
               data: { type: fileUpdate.type },
             });
           }
         }
+        changes.push('File types');
       }
       
       // Then update indices (batch_update will ensure sequential order)
       if (reorderedFiles.length > 0) {
         // Pass explicit indices directly - batch_update will ensure sequential order
-        await updateTopicFileIndices.mutateAsync(
-          reorderedFiles.map(f => ({ id: f.id, index: f.index }))
-        );
+        await mutateSilently(updateTopicFileIndices, reorderedFiles.map(f => ({ id: f.id, index: f.index })));
         setReorderedFiles([]);
+        changes.push('File order');
       }
       
       setIsEditing(false);
+      
+      // Show single grouped toast notification
+      if (changes.length > 0) {
+        toast({
+          title: 'Success',
+          description: `Updated: ${changes.join(', ')}`,
+        });
+      }
       
       if (onTopicUpdated) {
         onTopicUpdated();
       }
     } catch (error) {
       console.error('Failed to update topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update topic',
+        variant: 'destructive',
+      });
     }
   };
 

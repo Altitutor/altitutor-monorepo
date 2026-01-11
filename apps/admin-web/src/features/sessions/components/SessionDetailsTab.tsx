@@ -3,7 +3,6 @@
 import { Badge, Separator, Button } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { MoreVertical, Check } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { formatSessionDate } from '../utils/session-helpers';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
@@ -55,6 +54,7 @@ type SessionDetailsTabProps = {
   onOpenSession: (sessionId: string) => void;
   onOpenStudent: (studentId: string) => void;
   onOpenStaff: (staffId: string) => void;
+  onOpenClass: (classId: string) => void;
   onMessageStudent: (studentId: string) => void;
   onMessageStaff: (staffId: string) => void;
   onOpenTopic: (topicId: string) => void;
@@ -77,6 +77,7 @@ export function SessionDetailsTab({
   onOpenSession,
   onOpenStudent,
   onOpenStaff,
+  onOpenClass,
   onMessageStudent,
   onMessageStaff,
   onOpenTopic,
@@ -86,7 +87,6 @@ export function SessionDetailsTab({
   onSendBookingConfirmation,
   onLogSession,
 }: SessionDetailsTabProps) {
-  const router = useRouter();
   const hasTutorLog = !!tutorLog;
   const subject = (session as any).subject || session.class?.subject;
   const classData = session.class;
@@ -141,8 +141,8 @@ export function SessionDetailsTab({
             {classData && classId ? (
               <button
                 type="button"
-                onClick={() => router.push(`/classes/${classId}`)}
-                className="text-left hover:underline font-medium text-accent-foreground"
+                onClick={() => onOpenClass(classId)}
+                className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
               >
                 {formatClassName(classData, subject)}
               </button>

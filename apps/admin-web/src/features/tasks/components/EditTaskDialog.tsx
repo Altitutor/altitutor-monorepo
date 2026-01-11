@@ -200,6 +200,14 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
       // Reset search query when modal opens
       setAssigneeSearchQuery('');
       setIsAssigneePopoverOpen(false);
+      
+      // Focus title field when modal opens
+      // Use setTimeout to ensure dialog animation completes first
+      setTimeout(() => {
+        if (titleRef.current) {
+          titleRef.current.focus();
+        }
+      }, 100);
     }
   }, [task, form, isOpen, staffList]);
 

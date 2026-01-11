@@ -41,7 +41,10 @@ export function Toaster({ toasts, onDismiss }: ToasterProps) {
               <ToastDescription>{toast.description}</ToastDescription>
             )}
           </div>
-          <ToastClose onClick={() => onDismiss(toast.id)} />
+          <ToastClose onClick={(e) => {
+            e.stopPropagation();
+            onDismiss(toast.id);
+          }} />
         </Toast>
       ))}
     </div>

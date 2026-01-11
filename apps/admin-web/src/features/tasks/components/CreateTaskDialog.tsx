@@ -183,6 +183,14 @@ export function CreateTaskDialog({ isOpen, onClose, onTaskCreated, defaultStatus
       if (descriptionRef.current) {
         descriptionRef.current.textContent = '';
       }
+      
+      // Focus title field when modal opens
+      // Use setTimeout to ensure dialog animation completes first
+      setTimeout(() => {
+        if (titleRef.current) {
+          titleRef.current.focus();
+        }
+      }, 100);
     }
   }, [isOpen, defaultStatus, form]);
 

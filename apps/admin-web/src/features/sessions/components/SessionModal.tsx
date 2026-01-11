@@ -11,6 +11,7 @@ import { sessionsApi } from '../api/sessions';
 import { getSessionTitle } from '../utils/session-helpers';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
+import { ViewClassModal } from '@/features/classes';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { SessionFiles } from './SessionFiles';
@@ -38,6 +39,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [firstClassStaffId, setFirstClassStaffId] = useState<string | null>(null);
@@ -114,6 +117,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const handleOpenStaff = (id: string) => {
     setSelectedStaffId(id);
     setIsStaffModalOpen(true);
+  };
+
+  const handleOpenClass = (id: string) => {
+    setSelectedClassId(id);
+    setIsClassModalOpen(true);
   };
 
   const handleOpenTopic = (id: string) => {
@@ -354,6 +362,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       setIsStudentModalOpen(true);
                     }}
                     onOpenStaff={handleOpenStaff}
+                    onOpenClass={handleOpenClass}
                     onMessageStudent={handleMessageStudent}
                     onMessageStaff={handleMessageStaff}
                     onOpenTopic={handleOpenTopic}
@@ -419,6 +428,21 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           }}
           staffId={selectedStaffId}
           onStaffUpdated={() => {
+            // Optionally refresh session data
+          }}
+        />
+      )}
+
+      {/* Class Modal */}
+      {selectedClassId && (
+        <ViewClassModal
+          isOpen={isClassModalOpen}
+          onClose={() => {
+            setIsClassModalOpen(false);
+            setSelectedClassId(null);
+          }}
+          classId={selectedClassId}
+          onClassUpdated={() => {
             // Optionally refresh session data
           }}
         />
