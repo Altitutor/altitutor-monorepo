@@ -84,6 +84,10 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
     window.dispatchEvent(new CustomEvent('open-file-preview', { detail: { id: fileId } }));
   };
 
+  const handleOpenClass = (classId: string) => {
+    router.push(`/classes/${classId}`);
+  };
+
   const handleMessageStudent = async (studentId: string) => {
     try {
       const conversationId = await ensureConversationForRelated(studentId, 'student');
@@ -289,6 +293,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
               setIsStudentModalOpen(true);
             }}
             onOpenStaff={handleOpenStaff}
+            onOpenClass={handleOpenClass}
             onMessageStudent={handleMessageStudent}
             onMessageStaff={handleMessageStaff}
             onOpenTopic={handleOpenTopic}

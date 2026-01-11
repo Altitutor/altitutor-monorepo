@@ -5,8 +5,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
 // Shared helpers
-import { grossUp, formatSessionDate, getClassLongName, calculateAdelaideDateRange } from './shared/utils.ts';
-import { calculateSessionPrice } from './shared/pricing.ts';
+import { calculateAdelaideDateRange } from './shared/utils.ts';
 import {
   loadBillingSettings,
   loadBillingPricing,
@@ -18,19 +17,7 @@ import {
   loadClasses,
   getInvoicedSessionsStudentsIds,
 } from './shared/data-loading.ts';
-import {
-  createStripeInvoiceItems,
-  rollbackStripeInvoiceItems,
-  createSendInvoiceInvoice,
-  createChargeAutomaticallyInvoice,
-  payInvoice,
-  voidInvoice,
-  createStripeCustomer,
-  saveInvoiceToDatabase,
-  saveInvoiceItemsToDatabase,
-  updateInvoicePaymentStatus,
-  updateInvoicePaymentError,
-} from './shared/invoice-creation.ts';
+import { processStudentInvoicing } from './shared/student-processing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -279,420 +266,35 @@ Deno.serve(async (req: Request) => {
 
     // Process each student
     for (const [studentId, studentSessions] of Object.entries(sessionsByStudent)) {
-      try {
-        // Check for existing invoice for this student and date
-        // If invoice exists, we'll add items to it (if not finalized) or skip if finalized
-        const { data: existingInvoice } = await supabase
-          .from('invoices')
-          .select('id, stripe_invoice_id, status')
-          .eq('student_id', studentId)
-          .eq('invoice_date', invoiceDate)
-          .maybeSingle();
+      const result = await processStudentInvoicing({
+        supabase,
+        stripe,
+        studentId,
+        studentSessions,
+        invoiceDate,
+        targetDate,
+        feePercentDom,
+        feePercentIntl,
+        feeFixedCents,
+        domesticCountry,
+        pricingByBillingType,
+        overridesBySubjectAndBilling,
+        pricingOverrides,
+        subsidies,
+        classById,
+        subjectById,
+        billingByStudent,
+        parentEmailByStudent,
+        studentEmailById,
+        isStripeTestKey,
+        isStripeLiveKey,
+      });
 
-        // If invoice exists and is finalized/paid, skip (items already added or invoice closed)
-        if (existingInvoice && (existingInvoice.status === 'paid' || existingInvoice.status === 'void')) {
-          console.log(
-            `[runner] Invoice already exists and is ${existingInvoice.status} for student ${studentId} on ${invoiceDate}, skipping`
-          );
-          continue;
-        }
-
-        let billing = billingByStudent[studentId];
-        const defaultPM = billing?.payment_methods?.[0];
-
-        // Calculate pricing for each session and build invoice items
-        const invoiceItems: any[] = [];
-        let totalNetCents = 0; // Track total net amount (before fees)
-        let invoiceCurrency: string | null = null; // Track currency for validation
-
-        for (const item of studentSessions) {
-          const { session, subject, sessions_students_id, student_id } = item;
-
-          // Calculate price from hourly rate and duration
-          const priceResult = calculateSessionPrice(
-            session,
-            student_id,
-            targetDate,
-            pricingByBillingType,
-            overridesBySubjectAndBilling,
-            pricingOverrides,
-            subsidies
-          );
-          const netCents = priceResult.amount_cents;
-          const sessionCurrency = priceResult.currency;
-
-          // Validate currency consistency
-          if (invoiceCurrency === null) {
-            invoiceCurrency = sessionCurrency;
-          } else if (invoiceCurrency !== sessionCurrency) {
-            errors.push(
-              `Student ${studentId}: Mixed currencies detected (${invoiceCurrency} vs ${sessionCurrency}). All sessions must use the same currency.`
-            );
-            continue;
-          }
-
-          // Skip zero-amount sessions
-          if (netCents <= 0) continue;
-
-          // Add session charge
-          const classLongName = getClassLongName(session, classById, subjectById);
-          const sessionDate = formatSessionDate(session.start_at);
-          invoiceItems.push({
-            sessions_students_id,
-            session_id: session.id,
-            student_id,
-            amount_cents: netCents,
-            description: `${classLongName} - ${sessionDate}`,
-            is_subsidy: false,
-            currency: sessionCurrency,
-          });
-
-          totalNetCents += netCents;
-        }
-
-        // Calculate total fees as a separate line item
-        if (totalNetCents > 0 && invoiceCurrency) {
-          // If no payment method, assume Australian card (domestic fees)
-          const isIntl = defaultPM
-            ? defaultPM.card_country && defaultPM.card_country.toUpperCase() !== domesticCountry
-            : false; // Assume domestic (Australian) card when no payment method
-          const feePercent = isIntl ? feePercentIntl : feePercentDom;
-
-          // Calculate gross amount with fees
-          const grossCents = grossUp(
-            totalNetCents,
-            !!isIntl,
-            feePercentDom,
-            feePercentIntl,
-            feeFixedCents
-          );
-          const totalFeesCents = grossCents - totalNetCents;
-
-          // Add fees as a separate line item
-          if (totalFeesCents > 0 && invoiceItems.length > 0) {
-            const firstSessionItem = invoiceItems.find((item: any) => item.sessions_students_id);
-            if (firstSessionItem) {
-              invoiceItems.push({
-                sessions_students_id: firstSessionItem.sessions_students_id,
-                session_id: firstSessionItem.session_id,
-                student_id: studentId,
-                amount_cents: totalFeesCents,
-                description: `Payment processing fee (${(feePercent * 100).toFixed(2)}%${feeFixedCents > 0 ? ` + $${(feeFixedCents / 100).toFixed(2)}` : ''})`,
-                is_subsidy: false,
-                is_fee: true,
-                currency: invoiceCurrency,
-              });
-            }
-          }
-        }
-
-        // Skip if no items to invoice
-        if (invoiceItems.length === 0) {
-          console.log(`[runner] No invoice items for student ${studentId} on ${invoiceDate}, skipping`);
-          continue;
-        }
-
-        // Validate currency consistency
-        if (!invoiceCurrency) {
-          errors.push(`Student ${studentId}: No currency determined for invoice items`);
-          continue;
-        }
-
-        // Ensure all items have the same currency
-        const mismatchedCurrency = invoiceItems.find((item: any) => item.currency !== invoiceCurrency);
-        if (mismatchedCurrency) {
-          errors.push(
-            `Student ${studentId}: Currency mismatch detected. Expected ${invoiceCurrency}, found ${mismatchedCurrency.currency}`
-          );
-          continue;
-        }
-
-        // Handle missing billing account - auto-create if missing
-        if (!billing?.stripe_customer_id) {
-          try {
-            const studentEmail = studentEmailById[studentId] || parentEmailByStudent[studentId];
-            const { data: studentData } = await supabase
-              .from('students')
-              .select('first_name, last_name, email')
-              .eq('id', studentId)
-              .single();
-
-            // Create Stripe customer
-            const stripeCustomer = await createStripeCustomer(
-              stripe,
-              studentId,
-              studentEmail || studentData?.email || undefined,
-              studentData
-                ? `${studentData.first_name} ${studentData.last_name}`.trim()
-                : undefined
-            );
-
-            // Create or update billing account in database
-            const { data: billingData, error: billingErr } = await supabase
-              .from('students_billing')
-              .upsert(
-                {
-                  student_id: studentId,
-                  stripe_customer_id: stripeCustomer.id,
-                },
-                {
-                  onConflict: 'student_id',
-                }
-              )
-              .select('student_id, stripe_customer_id')
-              .single();
-
-            if (billingErr) throw billingErr;
-
-            // Update billing map
-            billingByStudent[studentId] = {
-              student_id: studentId,
-              stripe_customer_id: stripeCustomer.id,
-              payment_methods: [],
-            };
-            billing = billingByStudent[studentId];
-
-            console.log(
-              `[runner] Auto-created billing account for student ${studentId} with Stripe customer ${stripeCustomer.id}`
-            );
-          } catch (createErr: any) {
-            console.error(
-              `[runner] Failed to auto-create billing account for student ${studentId}:`,
-              createErr?.message || createErr
-            );
-            errors.push(
-              `Student ${studentId}: Failed to create billing account - ${createErr?.message || 'Unknown error'}`
-            );
-            continue;
-          }
-        }
-
-        const timestamp = Date.now();
-
-        // Handle invoice creation based on payment method availability
-        if (!defaultPM?.stripe_payment_method_id) {
-          // Create invoice with send_invoice collection method (no auto-charge)
-          try {
-            // Create invoice items in Stripe
-            let stripeInvoiceItems: any[] = [];
-            let createdStripeItemIds: string[] = [];
-
-            try {
-              const result = await createStripeInvoiceItems(
-                stripe,
-                billing.stripe_customer_id!,
-                invoiceItems,
-                invoiceCurrency,
-                studentId,
-                invoiceDate,
-                timestamp
-              );
-              stripeInvoiceItems = result.stripeInvoiceItems;
-              createdStripeItemIds = result.createdStripeItemIds;
-            } catch (itemErr: any) {
-              // Rollback: delete created invoice items if any failed
-              console.error(
-                `[runner] Failed to create invoice items for student ${studentId}, rolling back:`,
-                itemErr?.message || itemErr
-              );
-              if (createdStripeItemIds.length > 0) {
-                await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
-              }
-              throw itemErr;
-            }
-
-            // Create invoice with send_invoice collection method
-            const finalizedInvoice = await createSendInvoiceInvoice(
-              stripe,
-              billing.stripe_customer_id!,
-              invoiceDate,
-              studentId,
-              isStripeTestKey,
-              isStripeLiveKey,
-              timestamp
-            );
-
-            // Save invoice to database
-            let dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
-
-            if (!dbInvoice) {
-              // Failed to save - void invoice
-              console.error(
-                `[runner] Failed to save invoice for student ${studentId}, voiding Stripe invoice`
-              );
-              try {
-                await voidInvoice(stripe, finalizedInvoice.id);
-              } catch (voidErr) {
-                console.error(
-                  `[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`,
-                  voidErr
-                );
-              }
-              throw new Error('Failed to save invoice to database');
-            }
-
-            // Check if invoice was just created (not existing)
-            const { data: checkInvoice } = await supabase
-              .from('invoices')
-              .select('id')
-              .eq('stripe_invoice_id', finalizedInvoice.id)
-              .maybeSingle();
-
-            // Store invoice items (only if we just created the invoice)
-            if (checkInvoice && checkInvoice.id === dbInvoice.id) {
-              // Double-check: verify items don't already exist
-              const { data: existingItems } = await supabase
-                .from('invoice_items')
-                .select('id')
-                .eq('invoice_id', dbInvoice.id)
-                .limit(1);
-
-              if (!existingItems || existingItems.length === 0) {
-                await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
-              }
-            }
-
-            invoicesCreated.push(dbInvoice.id);
-          } catch (e: any) {
-            console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
-            errors.push(`Student ${studentId}: ${e?.message || 'Invoice creation failed'}`);
-          }
-        } else {
-          // Create invoice with automatic collection
-          try {
-            // Create invoice items in Stripe
-            let stripeInvoiceItems: any[] = [];
-            let createdStripeItemIds: string[] = [];
-
-            try {
-              const result = await createStripeInvoiceItems(
-                stripe,
-                billing.stripe_customer_id!,
-                invoiceItems,
-                invoiceCurrency,
-                studentId,
-                invoiceDate,
-                timestamp
-              );
-              stripeInvoiceItems = result.stripeInvoiceItems;
-              createdStripeItemIds = result.createdStripeItemIds;
-            } catch (itemErr: any) {
-              // Rollback: delete created invoice items if any failed
-              console.error(
-                `[runner] Failed to create invoice items for student ${studentId}, rolling back:`,
-                itemErr?.message || itemErr
-              );
-              if (createdStripeItemIds.length > 0) {
-                await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
-              }
-              throw itemErr;
-            }
-
-            // Create invoice with automatic collection
-            const finalizedInvoice = await createChargeAutomaticallyInvoice(
-              stripe,
-              billing.stripe_customer_id!,
-              defaultPM.stripe_payment_method_id,
-              invoiceDate,
-              studentId,
-              isStripeTestKey,
-              isStripeLiveKey,
-              timestamp
-            );
-
-            // Save invoice to database FIRST (before payment)
-            let dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
-
-            if (!dbInvoice) {
-              // Failed to save - void invoice
-              console.error(
-                `[runner] Failed to save invoice for student ${studentId}, voiding Stripe invoice`
-              );
-              try {
-                await voidInvoice(stripe, finalizedInvoice.id);
-              } catch (voidErr) {
-                console.error(
-                  `[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`,
-                  voidErr
-                );
-                errors.push(
-                  `Student ${studentId}: Database insert failed and invoice void failed. Manual reconciliation required.`
-                );
-              }
-              throw new Error('Failed to save invoice to database');
-            }
-
-            // If invoice is already paid (via webhook), skip payment
-            if (dbInvoice.status === 'paid') {
-              invoicesCreated.push(dbInvoice.id);
-              continue;
-            }
-
-            // Check if invoice was just created (not existing)
-            const { data: checkInvoice } = await supabase
-              .from('invoices')
-              .select('id')
-              .eq('stripe_invoice_id', finalizedInvoice.id)
-              .maybeSingle();
-
-            // Store invoice items (only if we just created the invoice)
-            if (checkInvoice && checkInvoice.id === dbInvoice.id) {
-              // Double-check: verify items don't already exist
-              const { data: existingItems } = await supabase
-                .from('invoice_items')
-                .select('id')
-                .eq('invoice_id', dbInvoice.id)
-                .limit(1);
-
-              if (!existingItems || existingItems.length === 0) {
-                await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
-              }
-            }
-
-            // Attempt payment (after DB insert succeeds)
-            if (
-              finalizedInvoice.status === 'open' &&
-              finalizedInvoice.collection_method === 'charge_automatically'
-            ) {
-              try {
-                const paidInvoice = await payInvoice(stripe, finalizedInvoice.id);
-
-                // Update DB record with payment status
-                await updateInvoicePaymentStatus(supabase, dbInvoice.id, paidInvoice);
-
-                invoicesCreated.push(dbInvoice.id);
-              } catch (payErr: any) {
-                // Payment failed but DB record exists - log for reconciliation
-                console.warn(
-                  `[runner] Failed to pay invoice ${finalizedInvoice.id} for student ${studentId}:`,
-                  payErr?.message || payErr
-                );
-
-                // Update DB with error status (invoice remains 'open')
-                await updateInvoicePaymentError(
-                  supabase,
-                  dbInvoice.id,
-                  payErr?.message || 'Payment failed'
-                );
-
-                // Don't throw - invoice created, payment can be retried
-                errors.push(
-                  `Student ${studentId}: Invoice created but payment failed. Will retry automatically.`
-                );
-                invoicesCreated.push(dbInvoice.id); // Still count as created
-              }
-            } else {
-              // For send_invoice or already paid, no payment needed
-              invoicesCreated.push(dbInvoice.id);
-            }
-          } catch (e: any) {
-            console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
-            errors.push(`Student ${studentId}: ${e?.message || 'Invoice creation failed'}`);
-          }
-        }
-      } catch (e: any) {
-        console.error(`[runner] Error processing student ${studentId}:`, e?.message || e);
-        errors.push(`Student ${studentId}: ${e?.message || 'Processing failed'}`);
+      if (result.invoiceId) {
+        invoicesCreated.push(result.invoiceId);
+      }
+      if (result.error) {
+        errors.push(result.error);
       }
     }
 
