@@ -6276,6 +6276,10 @@ export type Database = {
         }
         Returns: string
       }
+      batch_update_topic_file_indices: {
+        Args: { updates: Json }
+        Returns: undefined
+      }
       batch_update_topic_indices: {
         Args: { updates: Json }
         Returns: undefined
@@ -6648,6 +6652,18 @@ export type Database = {
         Args: { p_topic_id: string }
         Returns: undefined
       }
+      recalculate_topic_file_indices_for_siblings: {
+        Args: {
+          p_is_solutions: boolean
+          p_topic_id: string
+          p_type: Database["public"]["Enums"]["resource_type"]
+        }
+        Returns: undefined
+      }
+      recalculate_topic_indices_for_siblings: {
+        Args: { p_parent_id: string; p_subject_id: string }
+        Returns: undefined
+      }
       reschedule_drafting_session: {
         Args: {
           p_bypass_date_restrictions?: boolean
@@ -6703,6 +6719,7 @@ export type Database = {
       }
       search_sessions_admin: {
         Args: {
+          p_admin_shift_id?: string
           p_ascending?: boolean
           p_class_id?: string
           p_include_relationships?: boolean
