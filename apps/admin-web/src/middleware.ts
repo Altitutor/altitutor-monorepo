@@ -26,12 +26,22 @@ export async function middleware(req: NextRequest) {
             request: req,
           });
           cookiesToSet.forEach(({ name, value, options }) => {
-            supabaseResponse.cookies.set(name, value, options);
+            // Remove maxAge/expires to make it a session cookie (expires when browser closes)
+            const sessionOptions = { ...options };
+            delete sessionOptions.maxAge;
+            delete sessionOptions.expires;
+            supabaseResponse.cookies.set(name, value, sessionOptions);
           });
         },
       },
       cookieOptions: {
         name: 'admin-auth',
+        // Don't set maxAge or expires - makes it a session cookie
+        maxAge: undefined,
+        path: '/',
+        sameSite: 'lax' as const,
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
       },
     }
   );

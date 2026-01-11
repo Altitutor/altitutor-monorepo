@@ -35,7 +35,11 @@ export function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
+              // Remove maxAge/expires to make it a session cookie (expires when browser closes)
+              const sessionOptions = { ...options };
+              delete sessionOptions.maxAge;
+              delete sessionOptions.expires;
+              cookieStore.set(name, value, sessionOptions);
             });
           } catch {
             // The `setAll` method was called from a Server Component.
@@ -46,6 +50,12 @@ export function createClient() {
       },
       cookieOptions: {
         name: 'admin-auth',
+        // Don't set maxAge or expires - makes it a session cookie
+        maxAge: undefined,
+        path: '/',
+        sameSite: 'lax' as const,
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
       },
     }
   );
