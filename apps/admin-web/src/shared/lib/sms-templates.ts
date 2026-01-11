@@ -23,3 +23,21 @@ export function getInviteSmsTemplate({
   }
 }
 
+export interface BookingConfirmationSmsTemplateData {
+  firstName: string;
+  bookingUrl: string;
+  sessionDate?: string;
+  sessionTime?: string;
+}
+
+export function getBookingConfirmationSmsTemplate({
+  firstName,
+  bookingUrl,
+  sessionDate,
+  sessionTime,
+}: BookingConfirmationSmsTemplateData): string {
+  if (sessionDate && sessionTime) {
+    return `Hi ${firstName}, view your booking confirmation for ${sessionDate} at ${sessionTime}: ${bookingUrl}`;
+  }
+  return `Hi ${firstName}, view your booking confirmation: ${bookingUrl}`;
+}

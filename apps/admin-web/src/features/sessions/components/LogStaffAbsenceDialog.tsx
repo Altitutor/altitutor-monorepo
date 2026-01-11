@@ -33,9 +33,11 @@ interface LogStaffAbsenceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   staffId: string;
+  initialStaffId?: string | null;
+  initialSessionId?: string | null;
 }
 
-export function LogStaffAbsenceDialog({ isOpen, onClose, staffId }: LogStaffAbsenceDialogProps) {
+export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId, initialSessionId }: LogStaffAbsenceDialogProps) {
   const [step, setStep] = useState<WizardStep>('select-staff');
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
@@ -44,6 +46,7 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId }: LogStaffAbse
     Map<string, ReplacementStaff>
   >(new Map());
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [hasInitialized, setHasInitialized] = useState(false);
   
   // Staff search and pagination - use search_staff_admin RPC
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,11 +100,51 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId }: LogStaffAbse
 
   // Get staff's future sessions (8 weeks ahead by default)
   const { data: futureSessions, isLoading: loadingSessions } = useStaffFutureSessions(
-    selectedStaff?.id || null
+    selectedStaff?.id || initialStaffId || null
   );
 
   // Log absences mutation
   const logStaffAbsencesMutation = useLogStaffAbsences();
+
+  // Initialize with pre-filled values
+  useEffect(() => {
+    if (isOpen && initialStaffId && !selectedStaff && !hasInitialized) {
+      // Fetch the initial staff
+      const fetchInitialStaff = async () => {
+        const supabase = getSupabaseClient() as SupabaseClient<Database>;
+        const { data, error } = await supabase
+          .from('staff')
+          .select('*')
+          .eq('id', initialStaffId)
+          .single();
+        
+        if (!error && data) {
+          setSelectedStaff(data as Tables<'staff'>);
+          // If initialSessionId is also provided, select it
+          if (initialSessionId) {
+            setSelectedSessionIds(new Set([initialSessionId]));
+          }
+          setHasInitialized(true);
+        }
+      };
+      fetchInitialStaff();
+    }
+  }, [isOpen, initialStaffId, initialSessionId, selectedStaff, hasInitialized]);
+
+  // Auto-advance to select-sessions when staff is loaded and we have initial values
+  useEffect(() => {
+    if (isOpen && selectedStaff && initialStaffId && hasInitialized && step === 'select-staff') {
+      setStep('select-sessions');
+    }
+  }, [isOpen, selectedStaff, initialStaffId, hasInitialized, step]);
+
+  // Auto-advance to process-sessions when session is selected and both initial values are provided
+  useEffect(() => {
+    if (isOpen && selectedStaff && initialSessionId && selectedSessionIds.has(initialSessionId) && step === 'select-sessions' && hasInitialized) {
+      // Auto-advance to process step since we have everything pre-filled
+      setStep('process-sessions');
+    }
+  }, [isOpen, selectedStaff, initialSessionId, selectedSessionIds, step, hasInitialized]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -114,6 +157,7 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId }: LogStaffAbse
       setSearchQuery('');
       setPage(0);
       setErrorMessage('');
+      setHasInitialized(false);
     }
   }, [isOpen]);
 

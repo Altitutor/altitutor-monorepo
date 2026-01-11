@@ -48,11 +48,16 @@ import {
   useTopicFilesByTopic,
   useUpdateTopicIndices,
   useDeleteTopicFile,
+  useUpdateTopicFileIndices,
+  useUpdateTopicFile,
 } from '../hooks';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { TopicNode } from './TopicsHierarchy';
 import { DraggableTopicsList } from './DraggableTopicsList';
+import { DraggableFilesList, type TopicFileWithFile } from './DraggableFilesList';
 import { FileCard } from './FileCard';
+import { getFileTypeLabel } from '../utils/file-type-icons';
+import type { Enums } from '@altitutor/shared';
 import { AddTopicModal } from './AddTopicModal';
 import { AddResourceFileModal } from './AddResourceFileModal';
 import { EditTopicFileModal } from './EditTopicFileModal';
@@ -91,6 +96,8 @@ export function ViewTopicModal({
   const [isEditFileModalOpen, setIsEditFileModalOpen] = useState(false);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [reorderedChildren, setReorderedChildren] = useState<Array<{ id: string; index: number }>>([]);
+  const [reorderedFiles, setReorderedFiles] = useState<Array<{ id: string; index: number; type: Enums<'resource_type'> }>>([]);
+  const [solutionLinks, setSolutionLinks] = useState<Array<{ solutionFileId: string; targetFileId: string }>>([]);
   
   const { data: topic, isLoading, error } = useTopicById(topicId);
   const { data: subjects = [] } = useSubjects();
@@ -102,6 +109,8 @@ export function ViewTopicModal({
   const deleteTopicMutation = useDeleteTopic();
   const updateTopicIndices = useUpdateTopicIndices();
   const deleteTopicFileMutation = useDeleteTopicFile();
+  const updateTopicFileIndices = useUpdateTopicFileIndices();
+  const updateTopicFile = useUpdateTopicFile();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -136,6 +145,8 @@ export function ViewTopicModal({
       });
     }
     setReorderedChildren([]);
+    setReorderedFiles([]);
+    setSolutionLinks([]);
     setIsEditing(false);
   };
 
@@ -159,6 +170,46 @@ export function ViewTopicModal({
       if (reorderedChildren.length > 0) {
         await updateTopicIndices.mutateAsync(reorderedChildren);
         setReorderedChildren([]);
+      }
+      
+      // Update file indices if they were reordered
+      if (reorderedFiles.length > 0) {
+        // Group updates by type and recalculate indices per type
+        const updatesByType: Record<Enums<'resource_type'>, Array<{ id: string; index: number }>> = {
+          NOTES: [],
+          PRACTICE_QUESTIONS: [],
+          TEST: [],
+          VIDEO: [],
+          EXAM: [],
+          FLASHCARDS: [],
+          REVISION_SHEET: [],
+          CHEAT_SHEET: [],
+        };
+        
+        reorderedFiles.forEach(update => {
+          updatesByType[update.type].push({ id: update.id, index: update.index });
+        });
+        
+        // Update indices for each type
+        for (const type of Object.keys(updatesByType) as Enums<'resource_type'>[]) {
+          const updates = updatesByType[type];
+          if (updates.length > 0) {
+            await updateTopicFileIndices.mutateAsync(updates);
+          }
+        }
+        
+        setReorderedFiles([]);
+      }
+      
+      // Link solutions
+      if (solutionLinks.length > 0) {
+        for (const link of solutionLinks) {
+          await updateTopicFile.mutateAsync({
+            id: link.solutionFileId,
+            data: { is_solutions_of_id: link.targetFileId },
+          });
+        }
+        setSolutionLinks([]);
       }
       
       setIsEditing(false);
@@ -321,6 +372,30 @@ export function ViewTopicModal({
                       />
                     </div>
                   )}
+
+                  {/* Files Section - Edit Mode */}
+                  {topicFiles.length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-3">Files</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Drag files to reorder within types or change types. Drag solutions to link them to files.
+                      </p>
+                      <DraggableFilesList
+                        files={topicFiles as TopicFileWithFile[]}
+                        onReorder={(updates) => {
+                          setReorderedFiles(updates);
+                        }}
+                        onSolutionLink={(solutionFileId, targetFileId) => {
+                          setSolutionLinks(prev => {
+                            // Remove any existing link for this solution
+                            const filtered = prev.filter(link => link.solutionFileId !== solutionFileId);
+                            // Add new link
+                            return [...filtered, { solutionFileId, targetFileId }];
+                          });
+                        }}
+                      />
+                    </div>
+                  )}
                 </form>
               ) : (
                 // View Mode
@@ -370,7 +445,7 @@ export function ViewTopicModal({
               
               <Separator className="my-4" />
               
-                  {/* Files Section */}
+                  {/* Files Section - View Mode */}
               <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-lg font-semibold">Files</h3>
@@ -388,29 +463,89 @@ export function ViewTopicModal({
                     {topicFiles.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No files attached to this topic</p>
                     ) : (
-                      <div className="space-y-2">
-                        {topicFiles.map((topicFile) => {
-                          const code = topicFile.code || '';
+                      <div className="space-y-6">
+                        {(() => {
+                          // Group files by type
+                          const filesByType: Record<Enums<'resource_type'>, typeof topicFiles> = {
+                            NOTES: [],
+                            PRACTICE_QUESTIONS: [],
+                            TEST: [],
+                            VIDEO: [],
+                            EXAM: [],
+                            FLASHCARDS: [],
+                            REVISION_SHEET: [],
+                            CHEAT_SHEET: [],
+                          };
                           
-                          return (
-                            <FileCard
-                              key={topicFile.id}
-                              fileCode={code}
-                              fileType={topicFile.type}
-                              filename={topicFile.file.filename}
-                              storagePath={topicFile.file.storage_path}
-                              mimeType={topicFile.file.mimetype}
-                              topicFileId={topicFile.id}
-                              onEdit={(id) => {
-                                setEditingFileId(id);
-                                setIsEditFileModalOpen(true);
-                              }}
-                              onDelete={async (id) => {
-                                await deleteTopicFileMutation.mutateAsync(id);
-                              }}
-                            />
-                          );
-                        })}
+                          topicFiles.forEach(file => {
+                            filesByType[file.type].push(file);
+                          });
+                          
+                          // Sort each group by index
+                          Object.keys(filesByType).forEach(type => {
+                            filesByType[type as Enums<'resource_type'>].sort((a, b) => a.index - b.index);
+                          });
+                          
+                          return Object.entries(filesByType).map(([type, files]) => {
+                            if (files.length === 0) return null;
+                            
+                            const typeLabel = getFileTypeLabel(type as Enums<'resource_type'>);
+                            const nonSolutionFiles = files.filter(f => !f.is_solutions);
+                            
+                            return (
+                              <div key={type} className="space-y-2">
+                                <h4 className="font-semibold text-sm">{typeLabel}</h4>
+                                <div className="space-y-2">
+                                  {nonSolutionFiles.map((topicFile) => {
+                                    const code = topicFile.code || '';
+                                    const linkedSolution = files.find(f => f.is_solutions && f.is_solutions_of_id === topicFile.id);
+                                    
+                                    return (
+                                      <div key={topicFile.id} className="flex gap-2">
+                                        <div className="flex-1">
+                                          <FileCard
+                                            fileCode={code}
+                                            fileType={topicFile.type}
+                                            filename={topicFile.file.filename}
+                                            storagePath={topicFile.file.storage_path}
+                                            mimeType={topicFile.file.mimetype}
+                                            topicFileId={topicFile.id}
+                                            onEdit={(id) => {
+                                              setEditingFileId(id);
+                                              setIsEditFileModalOpen(true);
+                                            }}
+                                            onDelete={async (id) => {
+                                              await deleteTopicFileMutation.mutateAsync(id);
+                                            }}
+                                          />
+                                        </div>
+                                        {linkedSolution && (
+                                          <div className="flex-1">
+                                            <FileCard
+                                              fileCode={linkedSolution.code || ''}
+                                              fileType={linkedSolution.type}
+                                              filename={linkedSolution.file.filename}
+                                              storagePath={linkedSolution.file.storage_path}
+                                              mimeType={linkedSolution.file.mimetype}
+                                              topicFileId={linkedSolution.id}
+                                              onEdit={(id) => {
+                                                setEditingFileId(id);
+                                                setIsEditFileModalOpen(true);
+                                              }}
+                                              onDelete={async (id) => {
+                                                await deleteTopicFileMutation.mutateAsync(id);
+                                              }}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </div>

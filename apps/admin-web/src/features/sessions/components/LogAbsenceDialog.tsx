@@ -33,9 +33,11 @@ interface LogAbsenceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   staffId: string;
+  initialStudentId?: string | null;
+  initialSessionId?: string | null;
 }
 
-export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogProps) {
+export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, initialSessionId }: LogAbsenceDialogProps) {
   const [step, setStep] = useState<WizardStep>('select-student');
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
@@ -45,6 +47,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
     Map<string, RescheduleSession>
   >(new Map());
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [hasInitialized, setHasInitialized] = useState(false);
   
   // Student search and pagination - use search_students_admin RPC
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,11 +103,51 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
 
   // Get student's future sessions (8 weeks ahead by default)
   const { data: futureSessions, isLoading: loadingSessions } = useStudentFutureSessions(
-    selectedStudent?.id || null
+    selectedStudent?.id || initialStudentId || null
   );
 
   // Log absences mutation
   const logAbsencesMutation = useLogAbsences();
+
+  // Initialize with pre-filled values
+  useEffect(() => {
+    if (isOpen && initialStudentId && !selectedStudent && !hasInitialized) {
+      // Fetch the initial student
+      const fetchInitialStudent = async () => {
+        const supabase = getSupabaseClient() as SupabaseClient<Database>;
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('id', initialStudentId)
+          .single();
+        
+        if (!error && data) {
+          setSelectedStudent(data as Tables<'students'>);
+          // If initialSessionId is also provided, select it
+          if (initialSessionId) {
+            setSelectedSessionIds(new Set([initialSessionId]));
+          }
+          setHasInitialized(true);
+        }
+      };
+      fetchInitialStudent();
+    }
+  }, [isOpen, initialStudentId, initialSessionId, selectedStudent, hasInitialized]);
+
+  // Auto-advance to select-sessions when student is loaded and we have initial values
+  useEffect(() => {
+    if (isOpen && selectedStudent && initialStudentId && hasInitialized && step === 'select-student') {
+      setStep('select-sessions');
+    }
+  }, [isOpen, selectedStudent, initialStudentId, hasInitialized, step]);
+
+  // Auto-advance to process-sessions when session is selected and both initial values are provided
+  useEffect(() => {
+    if (isOpen && selectedStudent && initialSessionId && selectedSessionIds.has(initialSessionId) && step === 'select-sessions' && hasInitialized) {
+      // Auto-advance to process step since we have everything pre-filled
+      setStep('process-sessions');
+    }
+  }, [isOpen, selectedStudent, initialSessionId, selectedSessionIds, step, hasInitialized]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -118,6 +161,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
       setSearchQuery('');
       setPage(0);
       setErrorMessage('');
+      setHasInitialized(false);
     }
   }, [isOpen]);
 

@@ -64,3 +64,15 @@ export function getInviteUrlForStaff(token: string, role: string): string {
   }
 }
 
+/**
+ * Build booking confirmation URL for a session
+ * @param sessionId The session ID
+ * @returns Full booking confirmation URL
+ */
+export function getBookingConfirmationUrl(sessionId: string): string {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const baseUrl = isDevelopment 
+    ? 'http://localhost:3001'
+    : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+  return `${baseUrl}/booking-success?sessionId=${sessionId}`;
+}

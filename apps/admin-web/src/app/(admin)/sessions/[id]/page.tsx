@@ -2,26 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Badge, Separator } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { format } from 'date-fns';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sessionsApi } from '@/features/sessions/api/sessions';
-import { getSessionTitle, formatSessionDate } from '@/features/sessions/utils/session-helpers';
-import { StudentAvatar } from '@/features/sessions/components/StudentAvatar';
-import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
+import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { StudentCard } from '@/shared/components/StudentCard';
-import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
-import { formatTime } from '@/shared/utils/datetime';
-import { Check, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
+import { SessionDetailsTab } from '@/features/sessions/components/SessionDetailsTab';
 
 export default function SessionDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -145,6 +138,9 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   const hasTutorLog = !!tutorLog;
   // Use session's subject if available, otherwise fall back to class's subject
   const subject = (session as any).subject || session.class?.subject;
+  
+  // Check if session is in the past
+  const isSessionInPast = session.start_at ? new Date(session.start_at) < new Date() : false;
 
   // Build student attendance map from tutor log
   const actualStudentAttendance: Record<string, { attended: boolean }> = {};
@@ -208,6 +204,8 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
       rescheduledDate,
       rescheduledSessionId: ss.rescheduled_session?.session?.id,
       invoiceStatus: ss.invoice_status || null,
+      plannedAbsence: ss.planned_absence || false,
+      hasInvoiceItems: !!ss.invoice_status,
     };
   });
 
@@ -243,6 +241,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
       swappedStaffName,
       swappedStaffId,
       submittedTutorLog,
+      plannedAbsence: sf.planned_absence || false,
     };
   });
 
@@ -274,282 +273,26 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         </TabsList>
 
         <TabsContent value="details" className="space-y-6">
-        {/* Session Information */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Session Information</h3>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div className="text-sm font-medium text-muted-foreground">Day:</div>
-            <div className="text-sm">{session.start_at ? formatSessionDate(session.start_at) : '—'}</div>
-            
-            <div className="text-sm font-medium text-muted-foreground">Time:</div>
-            <div className="text-sm">
-              {(() => {
-                if (session.start_at && session.end_at) {
-                  const startDate = new Date(session.start_at);
-                  const endDate = new Date(session.end_at);
-                  const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-                  const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-                  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
-                }
-                if (session.class?.start_time && session.class?.end_time) {
-                  return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
-                }
-                return '—';
-              })()}
-            </div>
-            
-            <div className="text-sm font-medium text-muted-foreground">Subject:</div>
-            <div className="text-sm">
-              {subject ? (() => {
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                return (
-                  <Badge 
-                    className={defaultClass || textColorClass}
-                    style={style.backgroundColor ? style : undefined}
-                  >
-                    {formatSubjectDisplay(subject)}
-                  </Badge>
-                );
-              })() : (
-                '—'
-              )}
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Students Section */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-            {studentsData.length > 0 && (
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-muted-foreground">Planned</span>
-                <span className="text-xs text-muted-foreground">Actual</span>
-                <span className="text-xs text-muted-foreground">Invoice</span>
-              </div>
-            )}
-          </div>
-          {studentsData.length === 0 ? (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              No students planned
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {studentsData.map((data: any) => (
-                <div key={data.student.id} className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <StudentCard
-                      student={data.student}
-                      onClick={() => {
-                        setSelectedStudentId(data.student.id);
-                        setIsStudentModalOpen(true);
-                      }}
-                      onMessage={() => handleMessageStudent(data.student.id)}
-                      showSubjects={false}
-                      showActions={true}
-                    />
-                  </div>
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <AttendanceCell
-                      status={data.plannedStatus}
-                      linkTo={
-                        data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
-                          ? {
-                              type: 'session',
-                              id: data.rescheduledSessionId,
-                              onClick: () => handleOpenSession(data.rescheduledSessionId),
-                            }
-                          : undefined
-                      }
-                      linkText={data.rescheduledDate}
-                    />
-                    <AttendanceCell status={data.actualStatus} />
-                    <div className="w-16 flex justify-center">
-                      {(() => {
-                        const status = data.invoiceStatus;
-                        if (!status) return <span className="text-xs text-muted-foreground">-</span>;
-                        
-                        let label = '';
-                        let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-                        
-                        if (status === 'draft' || status === 'open') {
-                          label = 'Sent';
-                          variant = 'secondary';
-                        } else if (status === 'paid') {
-                          label = 'Paid';
-                          variant = 'default';
-                        } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-                          label = 'Failed';
-                          variant = 'destructive';
-                        } else {
-                          label = status;
-                          variant = 'outline';
-                        }
-                        
-                        return <Badge variant={variant} className="text-xs">{label}</Badge>;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Staff Section */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Staff ({staffData.length})</h3>
-            {staffData.length > 0 && (
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-muted-foreground">Planned</span>
-                <span className="text-xs text-muted-foreground">Actual</span>
-                <span className="text-xs text-muted-foreground">Tutor Log</span>
-              </div>
-            )}
-          </div>
-          {staffData.length === 0 ? (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              No staff planned
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {staffData.map((data: any) => (
-                <div key={data.staff.id} className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <StaffCard
-                      staff={data.staff}
-                      onClick={() => handleOpenStaff(data.staff.id)}
-                      onMessage={() => handleMessageStaff(data.staff.id)}
-                      showSubjects={false}
-                      showActions={true}
-                    />
-                  </div>
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <AttendanceCell
-                      status={data.plannedStatus}
-                      linkTo={
-                        data.plannedStatus === 'swapped' && data.swappedStaffId
-                          ? {
-                              type: 'staff',
-                              id: data.swappedStaffId,
-                              onClick: () => handleOpenStaff(data.swappedStaffId),
-                            }
-                          : undefined
-                      }
-                      linkText={data.swappedStaffName}
-                    />
-                    <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
-                    <div className="w-16 flex justify-center">
-                      {data.submittedTutorLog ? (
-                        <Check className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <X className="h-4 w-4 text-red-600" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Topics Section */}
-        {hasTutorLog && tutorLog.topics && tutorLog.topics.length > 0 && (
-          <>
-            <Separator />
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Topics Covered</h3>
-              <div className="space-y-4">
-                {tutorLog.topics.map((topicData: any) => {
-                  const topic = allTopics.find(t => t.id === topicData.topic?.id) || topicData.topic;
-                  const topicCode = topic?.code || '';
-                  const students = topicData.students || [];
-                  const files = topicData.files || [];
-                  
-                  return (
-                    <div key={topicData.id} className="border rounded-lg p-4 space-y-3">
-                      <div>
-                        <button
-                          type="button"
-                          className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
-                          onClick={() => handleOpenTopic(topic.id)}
-                        >
-                          {topicCode} {topic.name}
-                        </button>
-                      </div>
-                      
-                      {files.length > 0 && (
-                        <div>
-                          <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
-                          <div className="space-y-1">
-                            {files.map((fileData: any) => {
-                              const topicFile = fileData.topics_file;
-                              if (!topicFile) return null;
-                              
-                              const fileCode = topicFile.code || '';
-                              const fileId = topicFile.file?.id;
-                              
-                              return (
-                                <button
-                                  key={fileData.id}
-                                  type="button"
-                                  className="text-accent-foreground hover:text-accent-foreground/80 hover:underline block text-left text-sm"
-                                  onClick={() => fileId && handleOpenFile(fileId)}
-                                  disabled={!fileId}
-                                >
-                                  {fileCode}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {students.length > 0 && (
-                        <div>
-                          <div className="text-xs font-medium text-muted-foreground mb-1">Students:</div>
-                          <div className="flex flex-wrap gap-1">
-                            {students.slice(0, 5).map((student: any) => (
-                              <button
-                                key={student.id}
-                                onClick={() => {
-                                  setSelectedStudentId(student.id);
-                                  setIsStudentModalOpen(true);
-                                }}
-                                className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
-                              >
-                                <StudentAvatar student={student} size="sm" />
-                              </button>
-                            ))}
-                            {students.length > 5 && (
-                              <span className="text-xs text-muted-foreground self-center ml-1">
-                                +{students.length - 5} more
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* No Tutor Log Message */}
-        {!hasTutorLog && (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            This session has not been logged yet.
-          </div>
-        )}
-
+          <SessionDetailsTab
+            session={session}
+            studentsData={studentsData}
+            staffData={staffData}
+            tutorLog={tutorLog}
+            allTopics={allTopics}
+            sessionId={id}
+            isSessionInPast={isSessionInPast}
+            currentStaff={null}
+            onOpenSession={handleOpenSession}
+            onOpenStudent={(studentId) => {
+              setSelectedStudentId(studentId);
+              setIsStudentModalOpen(true);
+            }}
+            onOpenStaff={handleOpenStaff}
+            onMessageStudent={handleMessageStudent}
+            onMessageStaff={handleMessageStaff}
+            onOpenTopic={handleOpenTopic}
+            onOpenFile={handleOpenFile}
+          />
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-6">
