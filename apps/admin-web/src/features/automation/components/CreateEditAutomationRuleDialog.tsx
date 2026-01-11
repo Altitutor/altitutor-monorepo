@@ -29,6 +29,7 @@ import { Badge } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
 import { Switch } from '@altitutor/ui';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
 import { useCreateAutomationRule, useUpdateAutomationRule } from '../api/mutations';
 import { useAutomationRule, useAutomationRules } from '../api/queries';
@@ -36,7 +37,9 @@ import { useMessageTemplates } from '@/features/messages/api/templates';
 import { staffApi } from '@/features/staff/api/staff';
 import type { AutomationRuleWithActions, ActionType, ActivityEntityType, ActivityEventType } from '../types';
 import { AutomationActionsList } from './AutomationActionsList';
+import { AutomationConditionsBuilder } from './AutomationConditionsBuilder';
 import { useQueryClient } from '@tanstack/react-query';
+import type { AutomationCondition } from '../types';
 
 const ruleFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -45,6 +48,7 @@ const ruleFormSchema = z.object({
   event_types: z.array(z.string()).min(1, 'At least one event type is required'),
   enabled: z.boolean(),
   priority: z.number().int().min(0),
+  conditions: z.any().optional().nullable(), // AutomationCondition | null
 });
 
 type RuleFormData = z.infer<typeof ruleFormSchema>;
@@ -87,6 +91,7 @@ export function CreateEditAutomationRuleDialog({
   const { data: templates } = useMessageTemplates();
   const [staffList, setStaffList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
   const [createdRuleId, setCreatedRuleId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('details');
 
   const form = useForm({
     resolver: zodResolver(ruleFormSchema),
@@ -97,6 +102,7 @@ export function CreateEditAutomationRuleDialog({
       event_types: ['CREATED'],
       enabled: true,
       priority: 0,
+      conditions: null as AutomationCondition | null,
     },
   });
 
@@ -125,7 +131,9 @@ export function CreateEditAutomationRuleDialog({
         event_types: existingRule.event_types as ActivityEventType[],
         enabled: existingRule.enabled ?? true,
         priority: existingRule.priority ?? 0,
+        conditions: (existingRule.conditions as AutomationCondition | null) || null,
       });
+      setActiveTab('details');
     } else if (isOpen && !isEditing && !createdRuleId) {
       form.reset({
         name: '',
@@ -134,9 +142,18 @@ export function CreateEditAutomationRuleDialog({
         event_types: ['CREATED'],
         enabled: true,
         priority: 0,
+        conditions: null,
       });
+      setActiveTab('details');
     }
   }, [isOpen, isEditing, existingRule, form, createdRuleId]);
+
+  // Switch to actions tab after creating a rule
+  useEffect(() => {
+    if (createdRuleId && !isEditing) {
+      setActiveTab('actions');
+    }
+  }, [createdRuleId, isEditing]);
 
   const selectedEventTypes = form.watch('event_types');
 
@@ -161,6 +178,7 @@ export function CreateEditAutomationRuleDialog({
             event_types: data.event_types,
             enabled: data.enabled,
             priority: data.priority,
+            conditions: data.conditions || null,
           },
         });
         // Don't close - allow editing actions
@@ -172,6 +190,7 @@ export function CreateEditAutomationRuleDialog({
           event_types: data.event_types,
           enabled: data.enabled,
           priority: data.priority,
+          conditions: data.conditions || null,
         });
         setCreatedRuleId(newRule.id);
         // Refresh rules to get the new rule with actions
@@ -207,169 +226,203 @@ export function CreateEditAutomationRuleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0">
-          <ScrollArea className="h-full">
-            <div className="p-6 space-y-6">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Rule Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Notify on Task Creation" {...field} />
-                        </FormControl>
-                        <FormDescription>A descriptive name for this automation rule</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+            <TabsList className="w-full rounded-none border-b border-t-0 mt-0 h-auto">
+              <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+              <TabsTrigger value="trigger" className="flex-1">Trigger</TabsTrigger>
+              <TabsTrigger value="actions" className="flex-1">Actions</TabsTrigger>
+            </TabsList>
 
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Describe what this rule does..."
-                            {...field}
-                            rows={3}
+            <div className="flex-1 overflow-hidden min-h-0">
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                      {/* Details Tab */}
+                      <TabsContent value="details" className="space-y-6 mt-0">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Rule Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Notify on Task Creation" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe what this rule does..."
+                                  {...field}
+                                  rows={3}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="flex items-start gap-6">
+                          <FormField
+                            control={form.control}
+                            name="priority"
+                            render={({ field }) => (
+                              <FormItem className="flex-1">
+                                <FormLabel>Priority</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                  />
+                                </FormControl>
+                                <FormDescription>Higher priority rules run first</FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="entity_type"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Entity Type</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {ENTITY_TYPES.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>Which entity type to monitor</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          <FormField
+                            control={form.control}
+                            name="enabled"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center justify-between rounded-lg border p-4 flex-1">
+                                <div className="space-y-0.5">
+                                  <FormLabel>Enabled</FormLabel>
+                                  <FormDescription>
+                                    Disable to temporarily stop this rule from running
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </TabsContent>
 
-                    <FormField
-                      control={form.control}
-                      name="priority"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Priority</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={0}
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                      {/* Trigger Tab */}
+                      <TabsContent value="trigger" className="space-y-6 mt-0">
+                        <FormField
+                          control={form.control}
+                          name="entity_type"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Entity Type</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {ENTITY_TYPES.map((type) => (
+                                    <SelectItem key={type.value} value={type.value}>
+                                      {type.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>Which entity type to monitor</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="event_types"
+                          render={() => (
+                            <FormItem>
+                              <FormLabel>Event Types</FormLabel>
+                              <div className="flex flex-wrap gap-2">
+                                {EVENT_TYPES.map((eventType) => (
+                                  <Badge
+                                    key={eventType.value}
+                                    variant={selectedEventTypes.includes(eventType.value) ? 'default' : 'outline'}
+                                    className="cursor-pointer"
+                                    onClick={() => toggleEventType(eventType.value)}
+                                  >
+                                    {eventType.label}
+                                    {selectedEventTypes.includes(eventType.value) && (
+                                      <X className="ml-1 h-3 w-3" />
+                                    )}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <FormDescription>Select which events trigger this rule</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="conditions"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <AutomationConditionsBuilder
+                                  conditions={field.value}
+                                  eventTypes={selectedEventTypes as ActivityEventType[]}
+                                  entityType={form.watch('entity_type')}
+                                  onChange={(condition) => {
+                                    field.onChange(condition);
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </TabsContent>
+
+                      {/* Actions Tab */}
+                      <TabsContent value="actions" className="space-y-6 mt-0">
+                        <div>
+                          <div className="mb-4">
+                            <h3 className="text-lg font-semibold">Actions</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Actions to execute when this rule matches an activity event
+                            </p>
+                          </div>
+
+                          {ruleId && (
+                            <AutomationActionsList
+                              ruleId={ruleId}
+                              templates={templates || []}
+                              staffList={staffList}
                             />
-                          </FormControl>
-                          <FormDescription>Higher priority rules run first</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="event_types"
-                    render={() => (
-                      <FormItem>
-                        <FormLabel>Event Types</FormLabel>
-                        <div className="flex flex-wrap gap-2">
-                          {EVENT_TYPES.map((eventType) => (
-                            <Badge
-                              key={eventType.value}
-                              variant={selectedEventTypes.includes(eventType.value) ? 'default' : 'outline'}
-                              className="cursor-pointer"
-                              onClick={() => toggleEventType(eventType.value)}
-                            >
-                              {eventType.label}
-                              {selectedEventTypes.includes(eventType.value) && (
-                                <X className="ml-1 h-3 w-3" />
-                              )}
-                            </Badge>
-                          ))}
+                          )}
+                          {!ruleId && (
+                            <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                              <p>Save the rule first to add actions</p>
+                            </div>
+                          )}
                         </div>
-                        <FormDescription>Select which events trigger this rule</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="enabled"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel>Enabled</FormLabel>
-                          <FormDescription>
-                            Disable to temporarily stop this rule from running
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <Separator />
-
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold">Actions</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Actions to execute when this rule matches an activity event
-                        </p>
-                      </div>
-                    </div>
-
-                    {ruleId && (
-                      <AutomationActionsList
-                        ruleId={ruleId}
-                        templates={templates || []}
-                        staffList={staffList}
-                      />
-                    )}
-                    {!ruleId && (
-                      <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                        <p>Save the rule first to add actions</p>
-                      </div>
-                    )}
-                  </div>
-                </form>
-              </Form>
+                      </TabsContent>
+                    </form>
+                  </Form>
+                </div>
+              </ScrollArea>
             </div>
-          </ScrollArea>
+          </Tabs>
         </div>
 
         <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">

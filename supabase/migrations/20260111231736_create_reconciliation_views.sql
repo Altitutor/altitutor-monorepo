@@ -19,11 +19,11 @@ SELECT
   ss.session_id,
   ss.planned_absence,
   s.start_at AS session_start_at,
+  s.end_at AS session_end_at,
   s.type AS session_type,
+  s.billing_type,
   s.subject_id,
   sub.name AS subject_name,
-  sub.session_fee_cents AS expected_amount_cents,
-  sub.currency,
   -- Student details
   st.first_name AS student_first_name,
   st.last_name AS student_last_name,
@@ -39,11 +39,11 @@ LEFT JOIN public.students st ON st.id = ss.student_id
 WHERE 
   ss.planned_absence = false
   AND s.start_at < NOW()  -- Only past sessions
+  AND s.billing_type IS NOT NULL  -- Only billable sessions
   AND NOT EXISTS (
     SELECT 1 FROM public.invoice_items ii 
     WHERE ii.sessions_students_id = ss.id
-  )
-  AND (sub.session_fee_cents > 0 OR sub.session_fee_cents IS NULL);
+  );
 
 GRANT SELECT ON public.vadmin_reconciliation_uninvoiced_sessions TO authenticated;
 
@@ -114,7 +114,7 @@ SELECT
       'curriculum', sub.curriculum,
       'year_level', sub.year_level
     ))
-    FROM public.student_subjects ss
+    FROM public.students_subjects ss
     JOIN public.subjects sub ON sub.id = ss.subject_id
     WHERE ss.student_id = st.id
   ) AS subjects,
@@ -132,8 +132,8 @@ FROM public.students st
 WHERE 
   st.status IN ('CURRENT', 'TRIAL')
   AND EXISTS (
-    -- Has subjects via student_subjects
-    SELECT 1 FROM public.student_subjects ss 
+    -- Has subjects via students_subjects
+    SELECT 1 FROM public.students_subjects ss 
     WHERE ss.student_id = st.id
   )
   AND NOT EXISTS (
@@ -269,7 +269,18 @@ SELECT
   conv.last_message_at,
   conv.assigned_staff_id,
   -- Contact details
-  c.display_name AS contact_name,
+  COALESCE(
+    CASE 
+      WHEN c.contact_type = 'STUDENT' THEN 
+        (SELECT CONCAT(st.first_name, ' ', st.last_name) FROM public.students st WHERE st.id = c.student_id)
+      WHEN c.contact_type = 'PARENT' THEN 
+        (SELECT CONCAT(p.first_name, ' ', p.last_name) FROM public.parents p WHERE p.id = c.parent_id)
+      WHEN c.contact_type = 'STAFF' THEN 
+        (SELECT CONCAT(s.first_name, ' ', s.last_name) FROM public.staff s WHERE s.id = c.staff_id)
+      ELSE NULL
+    END,
+    c.phone_e164
+  ) AS contact_name,
   c.phone_e164 AS contact_phone,
   c.contact_type,
   c.student_id,

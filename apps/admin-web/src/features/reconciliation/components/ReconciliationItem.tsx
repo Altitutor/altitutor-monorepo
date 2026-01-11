@@ -40,12 +40,8 @@ export function ReconciliationItem({ type, item }: ReconciliationItemProps) {
               </div>
               <div className="text-sm text-muted-foreground">
                 {session.subject_name} • {format(new Date(session.session_start_at), 'MMM d, yyyy')}
+                {session.billing_type && ` • ${session.billing_type}`}
               </div>
-              {session.expected_amount_cents && (
-                <div className="text-sm text-muted-foreground mt-1">
-                  Expected: ${(session.expected_amount_cents / 100).toFixed(2)} {session.currency}
-                </div>
-              )}
             </div>
             <ReconciliationActions
               type={type}

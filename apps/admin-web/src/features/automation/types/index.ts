@@ -25,12 +25,18 @@ export type ConditionOperator =
   | 'contains' 
   | 'not_contains' 
   | 'greater_than' 
-  | 'less_than';
+  | 'less_than'
+  | 'field_changed'      // Field was changed (any change)
+  | 'changed_from'       // Field changed from specific value
+  | 'changed_to'         // Field changed to specific value
+  | 'changed_from_to';   // Field changed from X to Y
 
 export interface AutomationCondition {
   field: string;
   operator: ConditionOperator;
-  value: string | number | boolean;
+  value?: string | number | boolean;  // For: equals, not_equals, contains, not_contains, greater_than, less_than, changed_from, changed_to
+  old_value?: string | number | boolean;  // For: changed_from_to
+  new_value?: string | number | boolean;  // For: changed_from_to
 }
 
 export type ActionType = 'SEND_MESSAGE' | 'CREATE_TASK' | 'CREATE_NOTIFICATION';

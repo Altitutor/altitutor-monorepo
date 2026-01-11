@@ -5,7 +5,7 @@ import { Button } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
-import { ensureConversationForRelated } from '@/features/messages/api/conversations';
+import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { FileText, User, Calendar, MessageCircle, CreditCard, Users } from 'lucide-react';
 import type {
   UninvoicedSession,

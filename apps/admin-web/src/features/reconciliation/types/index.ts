@@ -9,11 +9,11 @@ export interface UninvoicedSession {
   session_id: string;
   planned_absence: boolean;
   session_start_at: string;
+  session_end_at: string | null;
   session_type: string;
+  billing_type: string | null;
   subject_id: string | null;
   subject_name: string | null;
-  expected_amount_cents: number | null;
-  currency: string | null;
   student_first_name: string | null;
   student_last_name: string | null;
   student_email: string | null;
