@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TopicsHierarchy, AddTopicModal, AddResourceFileModal, ViewTopicModal } from '@/features/topics';
-import { useTopics } from '@/features/topics/hooks';
+import { TopicsHierarchy, AddTopicModal, AddResourceFileModal, ViewTopicModal, DraggableTopicsList } from '@/features/topics';
+import { useTopics, useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
 import {
   Sheet,
   SheetContent,
@@ -30,6 +30,7 @@ import {
   FormMessage,
 } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 import {
   Select,
   SelectContent,
@@ -73,6 +74,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [reorderedTopics, setReorderedTopics] = useState<Array<{ id: string; index: number }>>([]);
   const { toast } = useToast();
   const router = useRouter();
   
@@ -85,6 +87,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
   
   const { data: allTopics = [], refetch: refetchTopics } = useTopics();
+  const { data: rootTopics = [] } = useRootTopics(subjectId);
+  const updateIndicesMutation = useUpdateTopicIndices();
   
   const formSchema = z.object({
     name: z.string().min(1, "Subject name is required"),
@@ -167,6 +171,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         color: subject.color || null,
       });
     }
+    setReorderedTopics([]);
     setIsEditing(false);
   };
 
@@ -185,6 +190,12 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       };
       
       const updated = await subjectsApi.updateSubject(subject.id, updatedData);
+      
+      // Update topic indices if they were reordered
+      if (reorderedTopics.length > 0) {
+        await updateIndicesMutation.mutateAsync(reorderedTopics);
+        setReorderedTopics([]);
+      }
       
       setSubject(updated);
       setIsEditing(false);
@@ -467,6 +478,26 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                       </FormItem>
                     )}
                   />
+
+                  <Separator className="my-6" />
+
+                  {/* Root Topics Reordering */}
+                  {rootTopics.length > 0 && (
+                    <div className="space-y-3">
+                      <div>
+                        <Label>Root Topics</Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Drag to reorder
+                        </p>
+                      </div>
+                      <DraggableTopicsList
+                        topics={rootTopics}
+                        onReorder={(updates) => {
+                          setReorderedTopics(updates);
+                        }}
+                      />
+                    </div>
+                  )}
 
                   <Separator className="my-6" />
 
