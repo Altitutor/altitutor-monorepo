@@ -104,6 +104,11 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // Extract subject_ids from body (array of UUIDs or empty array)
+    const subjectIds: string[] | null = body.subject_ids && Array.isArray(body.subject_ids) && body.subject_ids.length > 0
+      ? body.subject_ids
+      : null;
+    
     // Call database function (parameters must be in order: required first, then optional)
     const { data, error } = await supabase.rpc('create_public_trial_booking' as any, {
       p_student_first_name: body.student_first_name,
@@ -114,6 +119,7 @@ export async function POST(request: NextRequest) {
       p_start_at: body.start_at,
       p_end_at: body.end_at,
       p_year_level: yearLevel,
+      p_subject_ids: subjectIds,
       p_parent_first_name: body.skip_parent_details ? null : (body.parent_first_name || null),
       p_parent_last_name: body.skip_parent_details ? null : (body.parent_last_name || null),
       p_parent_email: body.skip_parent_details ? null : (body.parent_email || null),
