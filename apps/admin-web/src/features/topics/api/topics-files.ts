@@ -27,16 +27,15 @@ export const topicsFilesApi = {
       createdBy = staff?.id || null;
     }
     
-    // Index will be auto-calculated by database trigger if NULL
-    const topicFileData: Omit<TablesInsert<'topics_files'>, 'code'> = {
+    // Index will be auto-calculated by database trigger
+    const topicFileData: Omit<TablesInsert<'topics_files'>, 'code' | 'index'> = {
       ...data,
-      index: null, // Database trigger will calculate
       created_by: createdBy,
     };
     
     const { data: created, error } = await supabase
       .from('topics_files')
-      .insert(topicFileData as TablesInsert<'topics_files'>)
+      .insert(topicFileData as any) // index is calculated by database trigger
       .select()
       .single();
     

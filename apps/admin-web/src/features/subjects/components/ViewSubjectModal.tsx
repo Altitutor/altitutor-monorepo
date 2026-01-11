@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Loader2,
   Pencil,
+  Plus,
   Trash2
 } from 'lucide-react';
 import { subjectsApi } from '../api';
@@ -87,7 +88,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
   
   const { data: allTopics = [], refetch: refetchTopics } = useTopics();
-  const { data: rootTopics = [] } = useRootTopics(subjectId);
+  const { data: rootTopics = [], refetch: refetchRootTopics } = useRootTopics(subjectId);
   const updateIndicesMutation = useUpdateTopicIndices();
   
   const formSchema = z.object({
@@ -481,82 +482,36 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
 
                   <Separator className="my-6" />
 
-                  {/* Root Topics Reordering */}
-                  {rootTopics.length > 0 && (
-                    <div className="space-y-3">
+                  {/* Root Topics Section - Always show in edit mode */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
                       <div>
                         <Label>Root Topics</Label>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Drag to reorder
+                          {rootTopics.length > 0 ? 'Drag to reorder' : 'No topics yet'}
                         </p>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          setIsAddTopicModalOpen(true);
+                          setAddTopicParentId(undefined);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add topic
+                      </Button>
+                    </div>
+                    {rootTopics.length > 0 && (
                       <DraggableTopicsList
                         topics={rootTopics}
                         onReorder={(updates) => {
                           setReorderedTopics(updates);
                         }}
                       />
-                    </div>
-                  )}
-
-                  <Separator className="my-6" />
-
-                  <div className="pt-4">
-                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-                      setIsDeleteDialogOpen(open);
-                      if (!open) {
-                        setDeleteConfirmText('');
-                      }
-                    }}>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" type="button" className="flex items-center w-full">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Subject
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the subject
-                            "{subject.name}" and all associated data from the database.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <div className="py-4">
-                          <FormItem>
-                            <FormLabel>
-                              Type <strong>{subject.name}</strong> to confirm deletion
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="text"
-                                placeholder={subject.name}
-                                value={deleteConfirmText}
-                                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                                className="mt-2"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        </div>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={handleDeleteSubject}
-                            disabled={isDeleting || deleteConfirmText !== subject.name}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isDeleting ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Deleting...
-                              </>
-                            ) : (
-                              'Delete'
-                            )}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    )}
                   </div>
                 </form>
               </Form>
@@ -631,30 +586,92 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
           {/* Action buttons at the bottom - sticky footer */}
         {!loading && subject && (
           <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-            <div className="flex w-full justify-end">
+            <div className="flex w-full justify-between">
               {isEditing ? (
-                <div className="flex space-x-2">
-                  <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                    Cancel
-                  </Button>
+                <>
+                  <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+                    setIsDeleteDialogOpen(open);
+                    if (!open) {
+                      setDeleteConfirmText('');
+                    }
+                  }}>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="destructive" 
+                        type="button"
+                        disabled={loading}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the subject
+                          "{subject.name}" and all associated data from the database.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="py-4">
+                        <div className="space-y-2">
+                          <Label>
+                            Type <strong>{subject.name}</strong> to confirm deletion
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder={subject.name}
+                            value={deleteConfirmText}
+                            onChange={(e) => setDeleteConfirmText(e.target.value)}
+                            className="mt-2"
+                          />
+                        </div>
+                      </div>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={handleDeleteSubject}
+                          disabled={isDeleting || deleteConfirmText !== subject.name}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            'Delete'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  
+                  <div className="flex space-x-2">
+                    <Button variant="outline" type="button" onClick={handleCancelEdit}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="button"
+                      disabled={loading}
+                      onClick={form.handleSubmit(onSubmit)}
+                    >
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex w-full justify-end">
                   <Button 
-                    type="button"
-                    disabled={loading}
-                    onClick={form.handleSubmit(onSubmit)}
+                    variant="outline" 
+                    className="flex items-center" 
+                    onClick={handleEditClick}
                   >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
                   </Button>
                 </div>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  className="flex items-center" 
-                  onClick={handleEditClick}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
               )}
             </div>
           </SheetFooter>
@@ -668,10 +685,14 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       onClose={() => {
         setIsAddTopicModalOpen(false);
         refetchTopics();
+        refetchRootTopics();
       }}
       preselectedSubjectId={subjectId || undefined}
       preselectedParentId={addTopicParentId}
-      onTopicAdded={() => refetchTopics()}
+      onTopicAdded={() => {
+        refetchTopics();
+        refetchRootTopics();
+      }}
     />
     
     <AddResourceFileModal

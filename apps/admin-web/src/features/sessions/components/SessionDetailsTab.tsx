@@ -3,10 +3,11 @@
 import { Badge, Separator, Button } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { MoreVertical, Check } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { formatSessionDate } from '../utils/session-helpers';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle, formatClassName } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import {
   Table,
@@ -85,8 +86,11 @@ export function SessionDetailsTab({
   onSendBookingConfirmation,
   onLogSession,
 }: SessionDetailsTabProps) {
+  const router = useRouter();
   const hasTutorLog = !!tutorLog;
   const subject = (session as any).subject || session.class?.subject;
+  const classData = session.class;
+  const classId = session.class_id;
 
   return (
     <div className="space-y-6">
@@ -128,6 +132,21 @@ export function SessionDetailsTab({
                 </Badge>
               );
             })() : (
+              '—'
+            )}
+          </div>
+          
+          <div className="text-sm font-medium text-muted-foreground">Class:</div>
+          <div className="text-sm">
+            {classData && classId ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/classes/${classId}`)}
+                className="text-left hover:underline font-medium text-accent-foreground"
+              >
+                {formatClassName(classData, subject)}
+              </button>
+            ) : (
               '—'
             )}
           </div>
