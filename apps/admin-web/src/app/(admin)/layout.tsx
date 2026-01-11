@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
@@ -41,9 +41,18 @@ const navItems: NavItem[] = [
     icon: Home,
   },
   {
+    type: 'heading',
+    title: 'OPERATIONS',
+  },
+  {
     title: 'Tasks',
     href: '/tasks',
     icon: CheckSquare,
+  },
+  {
+    title: 'Reconciliation',
+    href: '/reconciliation',
+    icon: AlertTriangle,
   },
   {
     type: 'heading',
