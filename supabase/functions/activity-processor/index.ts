@@ -55,13 +55,43 @@ function evaluateConditions(conditions: any, activityEvent: any, entityData: any
 }
 
 // Replace template variables with actual values
+// Supports: {first_name}, {last_name}, {classes}, {sender_name}
+// Variables are case-insensitive
 function replaceTemplateVariables(template: string, variables: Record<string, any>): string {
   let result = template;
   for (const [key, value] of Object.entries(variables)) {
-    const placeholder = `{{${key}}}`;
-    result = result.replace(new RegExp(placeholder, 'g'), String(value || ''));
+    // Use single braces {variable} format (case-insensitive)
+    const placeholder = new RegExp(`\\{${key}\\}`, 'gi');
+    result = result.replace(placeholder, String(value || ''));
   }
   return result;
+}
+
+// Format class name for display
+function formatClassName(classData: any, subject: any): string {
+  const parts: string[] = [];
+  
+  if (subject?.long_name) {
+    parts.push(subject.long_name);
+  }
+  
+  if (classData.day_of_week != null) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    parts.push(days[classData.day_of_week] || '');
+  }
+  
+  if (classData.start_time && classData.end_time) {
+    const formatTime = (time: string) => {
+      const [hours, minutes] = time.split(':');
+      const hour = parseInt(hours, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${minutes} ${ampm}`;
+    };
+    parts.push(`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`);
+  }
+  
+  return parts.join(' ');
 }
 
 Deno.serve(async (req: Request) => {
@@ -204,10 +234,83 @@ Deno.serve(async (req: Request) => {
                   throw new Error(`Template not found: ${config.template_id}`);
                 }
 
+                // Extract variables from activity event and entity data
+                const variables: Record<string, any> = {};
+                
+                // Determine student_id (from config, activity event, or contact)
+                let studentId: string | null = config.student_id || activityEvent.student_id || null;
+                
+                // If we have a contact_id but no student_id, try to get it from contact
+                if (!studentId && config.contact_id) {
+                  const { data: contact } = await supabase
+                    .from('contacts')
+                    .select('student_id')
+                    .eq('id', config.contact_id)
+                    .maybeSingle();
+                  studentId = contact?.student_id || null;
+                }
+                
+                // Load student data if we have student_id
+                if (studentId) {
+                  const { data: student } = await supabase
+                    .from('students')
+                    .select('first_name, last_name')
+                    .eq('id', studentId)
+                    .maybeSingle();
+                  
+                  if (student) {
+                    variables.first_name = student.first_name || '';
+                    variables.last_name = student.last_name || '';
+                    
+                    // Load and format student classes
+                    const { data: enrollments } = await supabase
+                      .from('classes_students')
+                      .select(`
+                        class:classes(*, subject:subjects(*))
+                      `)
+                      .eq('student_id', studentId)
+                      .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
+                    
+                    if (enrollments && enrollments.length > 0) {
+                      const classesText = enrollments
+                        .map((enrollment: any) => {
+                          const cls = enrollment.class;
+                          const subject = cls?.subject || null;
+                          if (cls) {
+                            return `- ${formatClassName(cls, subject)}`;
+                          }
+                          return null;
+                        })
+                        .filter((text: string | null) => text !== null)
+                        .join('\n');
+                      variables.classes = classesText || 'No classes enrolled';
+                    } else {
+                      variables.classes = 'No classes enrolled';
+                    }
+                  }
+                }
+                
+                // Load sender name from performed_by staff
+                if (activityEvent.performed_by) {
+                  const { data: staff } = await supabase
+                    .from('staff')
+                    .select('first_name, last_name')
+                    .eq('id', activityEvent.performed_by)
+                    .maybeSingle();
+                  
+                  if (staff) {
+                    const senderName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim();
+                    variables.sender_name = senderName || '';
+                  }
+                }
+                
+                // Merge with any provided variables (config.variables takes precedence)
+                const finalVariables = { ...variables, ...(config.variables || {}) };
+
                 // Replace variables
                 const messageBody = replaceTemplateVariables(
                   template.content,
-                  config.variables || {}
+                  finalVariables
                 );
 
                 // Determine contact ID
