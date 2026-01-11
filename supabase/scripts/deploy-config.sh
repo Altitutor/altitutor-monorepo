@@ -44,6 +44,25 @@ fi
 sed -i.bak 's|enabled = false  # Set to true in production|enabled = true|g' "$TEMP_CONFIG"
 echo "✅ Enabled SMTP for production"
 
+# Update site_url for production
+# Default to admin portal as the primary site URL
+PROD_SITE_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.altitutor.com}"
+sed -i.bak "s|site_url = \"http://localhost:3000\"|site_url = \"$PROD_SITE_URL\"|g" "$TEMP_CONFIG"
+echo "✅ Updated site_url to $PROD_SITE_URL"
+
+# Update additional_redirect_urls for production
+# Add all three production portals to allowed redirect URLs
+ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.altitutor.com}"
+STUDENT_URL="${NEXT_PUBLIC_STUDENT_URL:-https://student.altitutor.com}"
+TUTOR_URL="${NEXT_PUBLIC_TUTOR_URL:-https://tutor.altitutor.com}"
+
+# Build the redirect URLs array
+REDIRECT_URLS="[\"$ADMIN_URL/auth/callback\", \"$STUDENT_URL/auth/callback\", \"$TUTOR_URL/auth/callback\", \"$ADMIN_URL/**\", \"$STUDENT_URL/**\", \"$TUTOR_URL/**\"]"
+
+# Replace the empty additional_redirect_urls array
+sed -i.bak "s|additional_redirect_urls = \[\]|additional_redirect_urls = $REDIRECT_URLS|g" "$TEMP_CONFIG"
+echo "✅ Updated additional_redirect_urls with production URLs"
+
 # Copy the processed config to the current directory temporarily
 cp "$TEMP_CONFIG" config.toml
 
