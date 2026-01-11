@@ -198,16 +198,53 @@ export function ViewTopicModal({
       // Link solutions (after unlinking, so we know the final state)
       if (solutionLinks.length > 0) {
         for (const link of solutionLinks) {
+          // Find the target file to get its type
+          const targetFile = topicFiles.find(f => f.id === link.targetFileId);
           await updateTopicFile.mutateAsync({
             id: link.solutionFileId,
-            data: { is_solutions_of_id: link.targetFileId },
+            data: { 
+              is_solutions_of_id: link.targetFileId,
+              // Update solution type to match target file type
+              type: targetFile?.type,
+            },
           });
         }
         setSolutionLinks([]);
       }
       
-      // Update file indices if they were reordered (do this last, after all type changes)
-      // The batch_update function will ensure indices are sequential per type
+      // Update file types and indices if they were reordered (do this last, after all type changes)
+      // First, update types for files that changed type (including their solutions)
+      const typeChanges = reorderedFiles.filter(f => {
+        const originalFile = topicFiles.find(orig => orig.id === f.id);
+        return originalFile && originalFile.type !== f.type;
+      });
+      
+      if (typeChanges.length > 0) {
+        // Refresh files to get latest state (including solution links)
+        await queryClient.invalidateQueries({ queryKey: topicsFilesKeys.byTopic(topicId!) });
+        const refreshedFiles = await topicsFilesApi.getTopicFilesByTopic(topicId!);
+        
+        // Update types for files that changed, including their solutions
+        for (const fileUpdate of typeChanges) {
+          await updateTopicFile.mutateAsync({
+            id: fileUpdate.id,
+            data: { type: fileUpdate.type },
+          });
+          
+          // Also update type for any solution files linked to this file
+          const linkedSolutions = refreshedFiles.filter(
+            f => f.is_solutions && f.is_solutions_of_id === fileUpdate.id
+          );
+          for (const solution of linkedSolutions) {
+            await updateTopicFile.mutateAsync({
+              id: solution.id,
+              data: { type: fileUpdate.type },
+            });
+          }
+        }
+      }
+      
+      // Then update indices (batch_update will ensure sequential order)
       if (reorderedFiles.length > 0) {
         // Pass explicit indices directly - batch_update will ensure sequential order
         await updateTopicFileIndices.mutateAsync(
@@ -677,10 +714,12 @@ export function ViewTopicModal({
                     </div>
                   </>
                 ) : (
-                  <Button variant="outline" onClick={handleEdit} disabled={!topic}>
-                    <PencilIcon className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
+                  <div className="flex w-full justify-end">
+                    <Button variant="outline" onClick={handleEdit} disabled={!topic}>
+                      <PencilIcon className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  </div>
                 )}
               </div>
             </SheetFooter>

@@ -417,6 +417,10 @@ export function DraggableFilesList({
           if (f.id === activeFile.id) {
             return { ...f, type: newType };
           }
+          // If this file has solutions linked to the active file, also update solution type
+          if (f.is_solutions && f.is_solutions_of_id === activeFile.id && newType !== oldType) {
+            return { ...f, type: newType };
+          }
           return f;
         });
         
