@@ -15,6 +15,7 @@ export const activityKeys = {
   session: (sessionId: string) => [...activityKeys.all, 'session', sessionId] as const,
   parent: (parentId: string) => [...activityKeys.all, 'parent', parentId] as const,
   task: (taskId: string) => [...activityKeys.all, 'task', taskId] as const,
+  adminShift: (adminShiftId: string) => [...activityKeys.all, 'adminShift', adminShiftId] as const,
 };
 
 /**
@@ -110,3 +111,15 @@ export function useTaskActivity(taskId: string | null, enabled = true, limit = 5
   });
 }
 
+/**
+ * Get activity events for an admin shift
+ */
+export function useAdminShiftActivity(adminShiftId: string | null, enabled = true, limit = 50) {
+  return useQuery({
+    queryKey: activityKeys.adminShift(adminShiftId || ''),
+    queryFn: () => activityApi.getAdminShiftActivity(adminShiftId!, limit),
+    enabled: enabled && !!adminShiftId,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+}

@@ -311,5 +311,12 @@ export const activityApi = {
   getTaskActivity: async (taskId: string, limit = 50, offset = 0) => {
     return activityApi.getActivityEvents({ entityType: 'tasks', entityId: taskId, limit, offset });
   },
+
+  /**
+   * Get activity events for an admin shift
+   */
+  getAdminShiftActivity: async (adminShiftId: string, limit = 50, offset = 0) => {
+    return activityApi.getActivityEvents({ entityType: 'admin_shifts', entityId: adminShiftId, limit, offset });
+  },
 };
 

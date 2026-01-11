@@ -35,7 +35,9 @@ export type ActivityEntityType =
   | 'tutor_logs_topics'
   | 'tutor_logs_topics_files'
   | 'tutor_logs_topics_files_students'
-  | 'tutor_logs_topics_students';
+  | 'tutor_logs_topics_students'
+  | 'admin_shifts'
+  | 'admin_shifts_staff';
 
 /**
  * Event type

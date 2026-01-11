@@ -525,7 +525,7 @@ export function TutorLogsTable({
             ) : (
               paginatedTutorLogs.map((log) => {
                 const session = sessions[log.session_id];
-                const classDisplay = getClassDisplay(log.class_id);
+                const classDisplay = getClassDisplay(session?.class_id || null);
                 const staffAtt = staffAttendance[log.id] || [];
                 const studentAtt = studentAttendance[log.id] || [];
                 const logTopics = topics[log.id] || [];
@@ -546,24 +546,24 @@ export function TutorLogsTable({
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>{log.session_start_at ? formatDate(log.session_start_at) : '-'}</span>
+                        <span>{session?.start_at ? formatDate(session.start_at) : '-'}</span>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {getTimeRange(log.session_start_at, log.session_end_at)}
+                      {getTimeRange(session?.start_at || '', session?.end_at || '')}
                     </TableCell>
                     <TableCell>
-                      <Badge className={getSessionTypeBadgeColor(log.session_type)}>
-                        {formatSessionType(log.session_type)}
+                      <Badge className={getSessionTypeBadgeColor(session?.type || '')}>
+                        {formatSessionType(session?.type)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {log.class_id && classDisplay ? (
+                      {session?.class_id && classDisplay ? (
                         <Button
                           variant="link"
                           size="sm"
                           className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
-                          onClick={(e) => handleClassClick(log.class_id!, e)}
+                          onClick={(e) => handleClassClick(session.class_id!, e)}
                           title={classDisplay}
                         >
                           {classDisplay}

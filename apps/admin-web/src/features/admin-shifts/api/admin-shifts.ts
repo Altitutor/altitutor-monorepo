@@ -189,6 +189,7 @@ export const adminShiftsApi = {
     adminShift: Tables<'admin_shifts'>;
     staff: Tables<'staff'>[];
     sessions?: Tables<'sessions'>[];
+    staffToAdminShiftStaffId?: Record<string, string>;
   }> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
 
@@ -205,10 +206,10 @@ export const adminShiftsApi = {
 
       const adminShift = shiftData as Tables<'admin_shifts'>;
 
-      // Get staff assignments
+      // Get staff assignments with IDs
       const { data: staffData, error: staffError } = await supabase
         .from('admin_shifts_staff')
-        .select('staff:staff_id(*)')
+        .select('id, staff_id, staff:staff_id(*)')
         .eq('admin_shift_id', id)
         .is('unassigned_at', null);
 
@@ -217,6 +218,14 @@ export const adminShiftsApi = {
       const staff = ((staffData || []) as any[])
         .map((row) => row.staff)
         .filter(Boolean) as Tables<'staff'>[];
+      
+      // Map staff IDs to admin_shifts_staff IDs for removal
+      const staffToAdminShiftStaffId: Record<string, string> = {};
+      (staffData || []).forEach((row: any) => {
+        if (row.staff_id && row.id) {
+          staffToAdminShiftStaffId[row.staff_id] = row.id;
+        }
+      });
 
       // Get sessions (optional, for sessions tab)
       const { data: sessionsData, error: sessionsError } = await supabase
@@ -233,6 +242,7 @@ export const adminShiftsApi = {
         adminShift,
         staff,
         sessions,
+        staffToAdminShiftStaffId,
       };
     } catch (error) {
       console.error('Error getting admin shift by id:', error);

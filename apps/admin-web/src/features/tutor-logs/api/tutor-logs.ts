@@ -286,11 +286,7 @@ export const tutorLogsApi = {
       session_id: string;
       created_by: string;
       created_at: string;
-      session_start_at: string;
-      session_end_at: string;
-      session_type: string;
-      class_id: string | null;
-      subject_id: string | null;
+      updated_at: string | null;
     }>;
     sessions: Record<string, Tables<'sessions'>>;
     sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>;

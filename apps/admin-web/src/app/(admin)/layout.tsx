@@ -70,6 +70,11 @@ const navItems: NavItem[] = [
     icon: Calendar,
   },
   {
+    title: 'Admin Shifts',
+    href: '/admin-shifts',
+    icon: Calendar,
+  },
+  {
     title: 'Sessions',
     href: '/sessions',
     icon: ClipboardList,

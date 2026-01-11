@@ -211,9 +211,11 @@ export function Navbar() {
         </div>
         
         {/* Search - same on desktop and mobile */}
-        <div className="flex-1 flex justify-center min-w-0">
-          <GlobalSearch />
-        </div>
+        {user && (
+          <div className="flex-1 flex justify-center min-w-0">
+            <GlobalSearch />
+          </div>
+        )}
         
         <div className="flex items-center gap-4 flex-shrink-0 justify-end">
           {/* Date Picker - Desktop only */}
