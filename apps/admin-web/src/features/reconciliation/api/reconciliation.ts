@@ -52,7 +52,6 @@ export const reconciliationApi = {
         id,
         student_id,
         invoice_date,
-        due_date,
         status,
         amount_due_cents,
         currency,
@@ -65,23 +64,19 @@ export const reconciliationApi = {
       `)
       .neq('status', 'paid')
       .gt('amount_due_cents', 0)
-      .order('due_date', { ascending: true, nullsFirst: false });
+      .order('invoice_date', { ascending: true });
     
     if (error) throw error;
     
     // Transform the data to match UnpaidInvoice type
     return (data ?? []).map((invoice: any) => {
       const student = invoice.student;
-      const dueDate = invoice.due_date ? new Date(invoice.due_date) : null;
-      const daysOverdue = dueDate && dueDate < new Date()
-        ? Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
-        : null;
       
       return {
         id: invoice.id,
         student_id: invoice.student_id,
         invoice_date: invoice.invoice_date,
-        due_date: invoice.due_date,
+        due_date: null, // invoices table doesn't have due_date column
         status: invoice.status,
         amount_due_cents: invoice.amount_due_cents,
         currency: invoice.currency,
@@ -89,7 +84,7 @@ export const reconciliationApi = {
         student_first_name: student?.first_name || null,
         student_last_name: student?.last_name || null,
         student_email: student?.email || null,
-        days_overdue: daysOverdue,
+        days_overdue: null, // Cannot calculate without due_date
       } as UnpaidInvoice;
     });
   },
