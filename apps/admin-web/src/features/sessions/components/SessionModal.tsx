@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { ExternalLink } from 'lucide-react';
+import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -346,7 +347,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     allTopics={allTopics}
                     sessionId={sessionId}
                     isSessionInPast={isSessionInPast}
-                    currentStaff={currentStaff}
+                    currentStaff={currentStaff || null}
                     onOpenSession={handleOpenSession}
                     onOpenStudent={(studentId) => {
                       setSelectedStudentId(studentId);

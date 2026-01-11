@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@altitutor/ui';
 import { Loader2, ArrowLeft } from 'lucide-react';
+import { format } from 'date-fns';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sessionsApi } from '@/features/sessions/api/sessions';
