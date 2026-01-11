@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@altitutor/ui';
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@altitutor/ui';
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { Loader2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { TimeSlotPicker } from './TimeSlotPicker';
@@ -22,8 +22,10 @@ import { useCreateStudent } from '@/features/students/hooks/useStudentsQuery';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
+
+const ADELAIDE_TIMEZONE = 'Australia/Adelaide';
 import type { UseFormReturn } from 'react-hook-form';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
@@ -60,6 +62,10 @@ export function BookSessionModal({
   
   // Track form validity state for reactive updates
   const [trialFormValid, setTrialFormValid] = useState(false);
+  
+  // Track past date warning dialog state
+  const [showPastDateWarning, setShowPastDateWarning] = useState(false);
+  const [pendingNextStep, setPendingNextStep] = useState(false);
 
   // Search students - filter by status for drafting sessions (only active students)
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
@@ -219,6 +225,60 @@ export function BookSessionModal({
 
   const steps = getSteps();
 
+  /**
+   * Check if a slot is in the past using Adelaide timezone
+   * Compares the Adelaide local time of the slot with the current Adelaide local time
+   */
+  const isSlotInPast = (startAt: string): boolean => {
+    const slotDate = parseISO(startAt);
+    const now = new Date();
+    
+    // Get the time components in Adelaide timezone for both dates
+    const getAdelaideTime = (date: Date) => {
+      const formatter = new Intl.DateTimeFormat('en-AU', {
+        timeZone: ADELAIDE_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      
+      const parts = formatter.formatToParts(date);
+      return {
+        year: parseInt(parts.find(p => p.type === 'year')?.value || '0', 10),
+        month: parseInt(parts.find(p => p.type === 'month')?.value || '0', 10),
+        day: parseInt(parts.find(p => p.type === 'day')?.value || '0', 10),
+        hour: parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10),
+        minute: parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10),
+        second: parseInt(parts.find(p => p.type === 'second')?.value || '0', 10),
+      };
+    };
+    
+    const slotTime = getAdelaideTime(slotDate);
+    const nowTime = getAdelaideTime(now);
+    
+    // Compare year, month, day, hour, minute, second
+    if (slotTime.year !== nowTime.year) {
+      return slotTime.year < nowTime.year;
+    }
+    if (slotTime.month !== nowTime.month) {
+      return slotTime.month < nowTime.month;
+    }
+    if (slotTime.day !== nowTime.day) {
+      return slotTime.day < nowTime.day;
+    }
+    if (slotTime.hour !== nowTime.hour) {
+      return slotTime.hour < nowTime.hour;
+    }
+    if (slotTime.minute !== nowTime.minute) {
+      return slotTime.minute < nowTime.minute;
+    }
+    return slotTime.second < nowTime.second;
+  };
+
   const handleSlotSelect = (startAt: string, endAt: string, availableStaffIds: string[]) => {
     setSelectedSlot({ startAt, endAt, availableStaffIds });
     // Auto-select staff if only one available
@@ -305,6 +365,13 @@ export function BookSessionModal({
       return;
     }
 
+    // Check if moving from 'time' step and slot is in the past
+    if (currentStepId === 'time' && selectedSlot && isSlotInPast(selectedSlot.startAt)) {
+      setShowPastDateWarning(true);
+      setPendingNextStep(true);
+      return;
+    }
+
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -314,6 +381,23 @@ export function BookSessionModal({
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const handlePastDateWarningConfirm = async () => {
+    setShowPastDateWarning(false);
+    if (pendingNextStep && currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+      setPendingNextStep(false);
+    } else {
+      // This was triggered from final confirmation, proceed with booking
+      setPendingNextStep(false);
+      await proceedWithBooking();
+    }
+  };
+
+  const handlePastDateWarningCancel = () => {
+    setShowPastDateWarning(false);
+    setPendingNextStep(false);
   };
 
   const canGoNext = () => {
@@ -347,6 +431,22 @@ export function BookSessionModal({
         description: 'Please select a time slot and staff member',
         variant: 'destructive',
       });
+      return;
+    }
+
+    // Check if slot is in the past and show warning
+    if (isSlotInPast(selectedSlot.startAt)) {
+      setShowPastDateWarning(true);
+      setPendingNextStep(false); // This is final confirmation, not next step
+      return;
+    }
+
+    // Proceed with booking if not in past or after warning confirmation
+    await proceedWithBooking();
+  };
+
+  const proceedWithBooking = async () => {
+    if (!selectedSlot || !selectedStaffId) {
       return;
     }
 
@@ -818,9 +918,18 @@ export function BookSessionModal({
     }
   };
 
+  const formatSlotDateTime = (startAt: string): string => {
+    return new Date(startAt).toLocaleString('en-AU', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+      timeZone: ADELAIDE_TIMEZONE,
+    });
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>Book {getSessionTypeLabel()}</DialogTitle>
           <DialogDescription>
@@ -901,5 +1010,41 @@ export function BookSessionModal({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Past Date Warning Dialog */}
+    <AlertDialog 
+      open={showPastDateWarning} 
+      onOpenChange={(open) => {
+        if (!open) {
+          handlePastDateWarningCancel();
+        }
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Warning: Booking in the Past</AlertDialogTitle>
+          <AlertDialogDescription>
+            You are about to book a session for a time that has already passed in Adelaide time.
+            <br />
+            <br />
+            <strong>Selected time:</strong> {selectedSlot ? formatSlotDateTime(selectedSlot.startAt) : ''}
+            <br />
+            <strong>Current time:</strong> {new Date().toLocaleString('en-AU', {
+              dateStyle: 'long',
+              timeStyle: 'short',
+              timeZone: ADELAIDE_TIMEZONE,
+            })}
+            <br />
+            <br />
+            Are you sure you want to proceed with booking this past session?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handlePastDateWarningCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handlePastDateWarningConfirm}>Proceed Anyway</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
