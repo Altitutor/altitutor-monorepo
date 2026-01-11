@@ -61,16 +61,16 @@ function SortableSolutionItem({ solution }: SortableSolutionItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 p-2 border rounded bg-background cursor-grab active:cursor-grabbing"
+      className="flex items-center gap-2 p-2 border rounded bg-background cursor-grab active:cursor-grabbing min-w-0"
       {...attributes}
       {...listeners}
     >
-      <GripVertical className="h-4 w-4 text-muted-foreground" />
+      <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-mono font-medium">{code}</span>
-          <span className="text-xs text-muted-foreground">(Solutions)</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-mono font-medium truncate">{code}</span>
+          <span className="text-xs text-muted-foreground flex-shrink-0">(Solutions)</span>
         </div>
         <p className="text-xs text-muted-foreground truncate" title={solution.file.filename}>
           {solution.file.filename}
@@ -123,11 +123,11 @@ function SortableFileItem({ file, onSolutionLink, onSolutionUnlink, linkedSoluti
       <div
         ref={setNodeRef}
         style={style}
-        className="flex-1 flex items-center gap-2 p-3 border rounded-lg bg-background"
+        className="w-1/2 flex items-center gap-2 p-3 border rounded-lg bg-background min-w-0"
       >
         <button
           type="button"
-          className="cursor-grab active:cursor-grabbing touch-none"
+          className="cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
           {...attributes}
           {...listeners}
         >
@@ -135,8 +135,8 @@ function SortableFileItem({ file, onSolutionLink, onSolutionUnlink, linkedSoluti
         </button>
         <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-mono font-medium">{code}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-mono font-medium truncate">{code}</span>
           </div>
           <p className="text-xs text-muted-foreground truncate" title={file.file.filename}>
             {file.file.filename}
@@ -147,7 +147,7 @@ function SortableFileItem({ file, onSolutionLink, onSolutionUnlink, linkedSoluti
       {/* Solution Drop Zone - Half Width */}
       <div
         ref={setSolutionDropRef}
-        className={`flex-1 p-2 border-2 border-dashed rounded-lg transition-colors ${
+        className={`w-1/2 p-2 border-2 border-dashed rounded-lg transition-colors min-w-0 ${
           isSolutionDropOver
             ? 'border-primary bg-primary/10'
             : linkedSolution
@@ -212,7 +212,10 @@ function FileTypeSection({ type, files, allFiles, onSolutionLink, onSolutionUnli
       >
         {nonSolutionFiles.length > 0 ? (
           <SortableContext
-            items={nonSolutionFiles.map(f => f.id)}
+            items={[
+              ...nonSolutionFiles.map(f => f.id),
+              ...solutionFiles.filter(s => s.is_solutions_of_id).map(s => s.id),
+            ]}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-2">
@@ -318,22 +321,95 @@ export function DraggableFilesList({
 
     const overData = over.data.current;
     
-    // Handle solution linking
-    if (overData?.type === 'solution-drop') {
-      if (activeFile.is_solutions) {
+    // Handle solution being dragged
+    if (activeFile.is_solutions) {
+      // Solution dropped on another solution drop zone - relink
+      if (overData?.type === 'solution-drop') {
         const targetFileId = overData.targetFileId as string;
+        // If it was previously linked, unlink it first
+        if (activeFile.is_solutions_of_id) {
+          onSolutionUnlink(activeFile.id);
+        }
+        // Link to new target
         onSolutionLink(activeFile.id, targetFileId);
-        // Update local state to reflect the link
+        // Update local state
         setLocalFiles(prev => prev.map(f => 
           f.id === activeFile.id ? { ...f, is_solutions_of_id: targetFileId } : f
         ));
+        return;
       }
+      
+      // Solution dropped on a file type section - unlink and convert to regular file
+      if (overData?.type === 'file-type') {
+        const newType = overData.fileType as Enums<'resource_type'>;
+        const oldType = activeFile.type;
+        
+        // Unlink it (marks it as no longer a solution)
+        onSolutionUnlink(activeFile.id);
+        
+        // Update to be a regular file (not a solution) and change type if needed
+        setLocalFiles(prev => {
+          const updated = prev.map(f => {
+            if (f.id === activeFile.id) {
+              return { 
+                ...f, 
+                type: newType,
+                is_solutions: false,
+                is_solutions_of_id: null,
+              };
+            }
+            return f;
+          });
+          
+          // Recalculate indices for the new type - defer callback to avoid setState during render
+          setTimeout(() => {
+            const allUpdates: Array<{ id: string; index: number; type: Enums<'resource_type'> }> = [];
+            
+            // Update new type files (now includes the converted solution)
+            const newTypeFiles = updated.filter(f => f.type === newType && !f.is_solutions);
+            newTypeFiles.forEach((file, idx) => {
+              allUpdates.push({
+                id: file.id,
+                index: idx + 1,
+                type: newType,
+              });
+            });
+            
+            // If type changed, also update old type files
+            if (newType !== oldType) {
+              const oldTypeFiles = updated.filter(f => f.type === oldType && !f.is_solutions);
+              oldTypeFiles.forEach((file, idx) => {
+                allUpdates.push({
+                  id: file.id,
+                  index: idx + 1,
+                  type: oldType,
+                });
+              });
+            }
+            
+            if (allUpdates.length > 0) {
+              onReorder(allUpdates);
+            }
+          }, 0);
+          
+          return updated;
+        });
+        return;
+      }
+      
+      return; // Solutions can only be dropped on solution drops or type sections
+    }
+
+    // Handle solution linking (non-solution file dropped on solution drop - shouldn't happen, but handle it)
+    if (overData?.type === 'solution-drop') {
+      // This shouldn't happen, but if it does, ignore it
       return;
     }
 
     // Handle file type change or reordering
     if (overData?.type === 'file-type') {
       const newType = overData.fileType as Enums<'resource_type'>;
+      const oldType = activeFile.type;
       
       // If dropped on a type section, add to end of that type
       setLocalFiles(prev => {
@@ -344,29 +420,53 @@ export function DraggableFilesList({
           return f;
         });
         
-        // Recalculate indices for the new type (only non-solution files)
-        const newTypeFiles = updated.filter(f => f.type === newType && !f.is_solutions);
-        const updates: Array<{ id: string; index: number; type: Enums<'resource_type'> }> = [];
+        // Recalculate indices for both old and new types - defer callback to avoid setState during render
+        setTimeout(() => {
+          const allUpdates: Array<{ id: string; index: number; type: Enums<'resource_type'> }> = [];
+          
+          // Update new type files
+          if (newType !== oldType) {
+            const newTypeFiles = updated.filter(f => f.type === newType && !f.is_solutions);
+            newTypeFiles.forEach((file, idx) => {
+              allUpdates.push({
+                id: file.id,
+                index: idx + 1,
+                type: newType,
+              });
+            });
+            
+            // Update old type files (to fill the gap)
+            const oldTypeFiles = updated.filter(f => f.type === oldType && !f.is_solutions);
+            oldTypeFiles.forEach((file, idx) => {
+              allUpdates.push({
+                id: file.id,
+                index: idx + 1,
+                type: oldType,
+              });
+            });
+          } else {
+            // Same type, just reorder
+            const typeFiles = updated.filter(f => f.type === newType && !f.is_solutions);
+            typeFiles.forEach((file, idx) => {
+              allUpdates.push({
+                id: file.id,
+                index: idx + 1,
+                type: newType,
+              });
+            });
+          }
+          
+          if (allUpdates.length > 0) {
+            onReorder(allUpdates);
+          }
+        }, 0);
         
-        newTypeFiles.forEach((file, idx) => {
-          updates.push({
-            id: file.id,
-            index: idx + 1,
-            type: newType,
-          });
-        });
-        
-        if (updates.length > 0) {
-          onReorder(updates);
-        }
         return updated;
       });
       return;
     }
 
     // Handle reordering within same type (only for non-solution files)
-    if (activeFile.is_solutions) return; // Solutions are handled separately
-    
     const overFile = localFiles.find(f => f.id === over.id);
     if (!overFile || activeFile.type !== overFile.type || overFile.is_solutions) return;
 
@@ -380,14 +480,16 @@ export function DraggableFilesList({
     setLocalFiles(prev => {
       const reordered = arrayMove(sameTypeFiles, oldIndex, newIndex);
       
-      // Generate updates with new indices
-      const updates = reordered.map((file, idx) => ({
-        id: file.id,
-        index: idx + 1,
-        type: file.type,
-      }));
-      
-      onReorder(updates);
+      // Generate updates with new indices - defer callback to avoid setState during render
+      setTimeout(() => {
+        const updates = reordered.map((file, idx) => ({
+          id: file.id,
+          index: idx + 1,
+          type: file.type,
+        }));
+        
+        onReorder(updates);
+      }, 0);
       
       // Update local state
       const updated = [...prev];
@@ -426,7 +528,6 @@ export function DraggableFilesList({
       <div className="space-y-6">
         {RESOURCE_TYPES.map((type) => {
           const typeFiles = filesByType[type];
-          if (typeFiles.length === 0) return null;
           
           return (
             <FileTypeSection
@@ -435,6 +536,7 @@ export function DraggableFilesList({
               files={typeFiles}
               allFiles={localFiles}
               onSolutionLink={onSolutionLink}
+              onSolutionUnlink={onSolutionUnlink}
             />
           );
         })}

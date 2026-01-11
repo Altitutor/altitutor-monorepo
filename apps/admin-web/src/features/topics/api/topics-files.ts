@@ -1,6 +1,5 @@
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { getNextTopicFileIndex } from '../utils/codes';
 import { deleteFile as deleteStorageFile } from '@/shared/lib/supabase/storage';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -16,19 +15,6 @@ export const topicsFilesApi = {
   createTopicFile: async (data: Omit<TablesInsert<'topics_files'>, 'index' | 'code'>): Promise<Tables<'topics_files'>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
-    // Get existing topic files to calculate next index
-    const { data: existing } = await supabase
-      .from('topics_files')
-      .select('*')
-      .eq('topic_id', data.topic_id!);
-    
-    const index = getNextTopicFileIndex(
-      data.topic_id!,
-      data.type!,
-      data.is_solutions ?? false,
-      (existing ?? []) as Tables<'topics_files'>[]
-    );
-    
     // Get current user for created_by
     const { data: { user } } = await supabase.auth.getUser();
     let createdBy: string | null = null;
@@ -41,9 +27,10 @@ export const topicsFilesApi = {
       createdBy = staff?.id || null;
     }
     
+    // Index will be auto-calculated by database trigger if NULL
     const topicFileData: Omit<TablesInsert<'topics_files'>, 'code'> = {
       ...data,
-      index,
+      index: null, // Database trigger will calculate
       created_by: createdBy,
     };
     
@@ -177,26 +164,8 @@ export const topicsFilesApi = {
       const newIsSolutions = data.is_solutions !== undefined ? data.is_solutions : currentFile.is_solutions;
       
       // Check if topic, type, or solutions status changed
-      const topicChanged = data.topic_id && data.topic_id !== currentFile.topic_id;
-      const typeChanged = data.type !== undefined && data.type !== currentFile.type;
-      const solutionsChanged = data.is_solutions !== undefined && data.is_solutions !== currentFile.is_solutions;
-      
-      if (topicChanged || typeChanged || solutionsChanged) {
-        // Get the next index for the new combination
-        // Get existing files to calculate the next index
-        const { data: existingFiles } = await supabase
-          .from('topics_files')
-          .select('*')
-          .eq('topic_id', newTopicId);
-        
-        const nextIndex = getNextTopicFileIndex(
-          newTopicId,
-          newType,
-          newIsSolutions,
-          (existingFiles ?? []) as Tables<'topics_files'>[]
-        );
-        data.index = nextIndex;
-      }
+      // Don't set index - database triggers will recalculate siblings automatically
+      // when topic_id, type, or is_solutions changes
     }
     
     const { data: updated, error } = await supabase
@@ -279,25 +248,19 @@ export const topicsFilesApi = {
   
   /**
    * Batch update topic file indices (for reordering)
+   * Uses RPC function to update indices atomically and avoid unique constraint violations
    */
   updateTopicFileIndices: async (updates: Array<{ id: string; index: number }>): Promise<void> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
-    // Update each topic file's index
-    const promises = updates.map(({ id, index }) =>
-      supabase
-        .from('topics_files')
-        .update({ index } as TablesUpdate<'topics_files'>)
-        .eq('id', id)
-    );
+    // Use RPC function to update indices atomically (two-pass approach to avoid conflicts)
+    const { error } = await supabase.rpc('batch_update_topic_file_indices', {
+      updates: updates as any
+    });
     
-    const results = await Promise.all(promises);
-    
-    // Check for errors
-    const errors = results.filter(r => r.error);
-    if (errors.length > 0) {
-      console.error('Failed to update topic file indices:', errors);
-      throw new Error('Failed to update some topic file indices');
+    if (error) {
+      console.error('Failed to update topic file indices:', error);
+      throw error;
     }
   },
   

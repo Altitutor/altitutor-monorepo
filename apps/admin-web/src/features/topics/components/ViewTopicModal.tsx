@@ -51,6 +51,9 @@ import {
   useUpdateTopicFileIndices,
   useUpdateTopicFile,
 } from '../hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { topicsFilesKeys } from '../hooks/useTopicsFilesQuery';
+import { topicsFilesApi } from '../api/topics-files';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { TopicNode } from './TopicsHierarchy';
 import { DraggableTopicsList } from './DraggableTopicsList';
@@ -98,12 +101,14 @@ export function ViewTopicModal({
   const [reorderedChildren, setReorderedChildren] = useState<Array<{ id: string; index: number }>>([]);
   const [reorderedFiles, setReorderedFiles] = useState<Array<{ id: string; index: number; type: Enums<'resource_type'> }>>([]);
   const [solutionLinks, setSolutionLinks] = useState<Array<{ solutionFileId: string; targetFileId: string }>>([]);
+  const [solutionUnlinks, setSolutionUnlinks] = useState<Array<string>>([]);
   
   const { data: topic, isLoading, error } = useTopicById(topicId);
   const { data: subjects = [] } = useSubjects();
   const { data: allTopics = [] } = useTopics();
   const { data: subjectTopics = [] } = useTopicsBySubject(topic?.subject_id || null);
-  const { data: topicFiles = [] } = useTopicFilesByTopic(topicId);
+  const { data: topicFiles = [], refetch: refetchTopicFiles } = useTopicFilesByTopic(topicId);
+  const queryClient = useQueryClient();
   
   const updateTopicMutation = useUpdateTopic();
   const deleteTopicMutation = useDeleteTopic();
@@ -147,6 +152,7 @@ export function ViewTopicModal({
     setReorderedChildren([]);
     setReorderedFiles([]);
     setSolutionLinks([]);
+    setSolutionUnlinks([]);
     setIsEditing(false);
   };
 
@@ -172,36 +178,24 @@ export function ViewTopicModal({
         setReorderedChildren([]);
       }
       
-      // Update file indices if they were reordered
-      if (reorderedFiles.length > 0) {
-        // Group updates by type and recalculate indices per type
-        const updatesByType: Record<Enums<'resource_type'>, Array<{ id: string; index: number }>> = {
-          NOTES: [],
-          PRACTICE_QUESTIONS: [],
-          TEST: [],
-          VIDEO: [],
-          EXAM: [],
-          FLASHCARDS: [],
-          REVISION_SHEET: [],
-          CHEAT_SHEET: [],
-        };
-        
-        reorderedFiles.forEach(update => {
-          updatesByType[update.type].push({ id: update.id, index: update.index });
-        });
-        
-        // Update indices for each type
-        for (const type of Object.keys(updatesByType) as Enums<'resource_type'>[]) {
-          const updates = updatesByType[type];
-          if (updates.length > 0) {
-            await updateTopicFileIndices.mutateAsync(updates);
-          }
+      // IMPORTANT: Update solutions first (unlink/convert), then link, then update indices
+      // This ensures type changes are applied before we recalculate indices
+      
+      // Unlink solutions and convert to regular files if needed (do this first)
+      if (solutionUnlinks.length > 0) {
+        for (const solutionFileId of solutionUnlinks) {
+          await updateTopicFile.mutateAsync({
+            id: solutionFileId,
+            data: { 
+              is_solutions_of_id: null,
+              is_solutions: false,
+            },
+          });
         }
-        
-        setReorderedFiles([]);
+        setSolutionUnlinks([]);
       }
       
-      // Link solutions
+      // Link solutions (after unlinking, so we know the final state)
       if (solutionLinks.length > 0) {
         for (const link of solutionLinks) {
           await updateTopicFile.mutateAsync({
@@ -210,6 +204,16 @@ export function ViewTopicModal({
           });
         }
         setSolutionLinks([]);
+      }
+      
+      // Update file indices if they were reordered (do this last, after all type changes)
+      // The batch_update function will ensure indices are sequential per type
+      if (reorderedFiles.length > 0) {
+        // Pass explicit indices directly - batch_update will ensure sequential order
+        await updateTopicFileIndices.mutateAsync(
+          reorderedFiles.map(f => ({ id: f.id, index: f.index }))
+        );
+        setReorderedFiles([]);
       }
       
       setIsEditing(false);
@@ -374,12 +378,12 @@ export function ViewTopicModal({
                   )}
 
                   {/* Files Section - Edit Mode */}
-                  {topicFiles.length > 0 && (
-                    <div className="mt-6">
-                      <h3 className="text-lg font-semibold mb-3">Files</h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Drag files to reorder within types or change types. Drag solutions to link them to files.
-                      </p>
+                  <div className="mt-6">
+                    <h3 className="text-lg font-semibold mb-3">Files</h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Drag files to reorder within types or change types. Drag solutions to link them to files.
+                    </p>
+                    {topicFiles.length > 0 ? (
                       <DraggableFilesList
                         files={topicFiles as TopicFileWithFile[]}
                         onReorder={(updates) => {
@@ -393,9 +397,24 @@ export function ViewTopicModal({
                             return [...filtered, { solutionFileId, targetFileId }];
                           });
                         }}
+                        onSolutionUnlink={(solutionFileId) => {
+                          setSolutionLinks(prev => {
+                            // Remove link for this solution from links
+                            return prev.filter(link => link.solutionFileId !== solutionFileId);
+                          });
+                          // Track that we need to unlink this solution on save
+                          setSolutionUnlinks(prev => {
+                            if (!prev.includes(solutionFileId)) {
+                              return [...prev, solutionFileId];
+                            }
+                            return prev;
+                          });
+                        }}
                       />
-                    </div>
-                  )}
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No files attached to this topic</p>
+                    )}
+                  </div>
                 </form>
               ) : (
                 // View Mode
@@ -502,7 +521,7 @@ export function ViewTopicModal({
                                     
                                     return (
                                       <div key={topicFile.id} className="flex gap-2">
-                                        <div className="flex-1">
+                                        <div className="w-1/2">
                                           <FileCard
                                             fileCode={code}
                                             fileType={topicFile.type}
@@ -519,8 +538,8 @@ export function ViewTopicModal({
                                             }}
                                           />
                                         </div>
-                                        {linkedSolution && (
-                                          <div className="flex-1">
+                                        <div className="w-1/2">
+                                          {linkedSolution ? (
                                             <FileCard
                                               fileCode={linkedSolution.code || ''}
                                               fileType={linkedSolution.type}
@@ -536,8 +555,12 @@ export function ViewTopicModal({
                                                 await deleteTopicFileMutation.mutateAsync(id);
                                               }}
                                             />
-                                          </div>
-                                        )}
+                                          ) : (
+                                            <div className="h-full border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/20 flex items-center justify-center min-h-[60px]">
+                                              <span className="text-xs text-muted-foreground">No solution</span>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     );
                                   })}

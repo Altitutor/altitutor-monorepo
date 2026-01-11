@@ -1,6 +1,6 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { getNextTopicIndex, buildTopicTree, type TopicTree } from '../utils/codes';
+import { buildTopicTree, type TopicTree } from '../utils/codes';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -134,18 +134,6 @@ export const topicsApi = {
   createTopic: async (data: Omit<TablesInsert<'topics'>, 'index' | 'code'>): Promise<Tables<'topics'>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
-    // Get existing topics to calculate next index
-    const { data: existing } = await supabase
-      .from('topics')
-      .select('*')
-      .eq('subject_id', data.subject_id!);
-    
-    const index = getNextTopicIndex(
-      data.subject_id!,
-      data.parent_id ?? null,
-      (existing ?? []) as Tables<'topics'>[]
-    );
-    
     // Get current user for created_by
     const { data: { user } } = await supabase.auth.getUser();
     let createdBy: string | null = null;
@@ -158,9 +146,10 @@ export const topicsApi = {
       createdBy = staff?.id || null;
     }
     
+    // Index will be auto-calculated by database trigger if NULL
     const topicData: Omit<TablesInsert<'topics'>, 'code'> = {
       ...data,
-      index,
+      index: null, // Database trigger will calculate
       created_by: createdBy,
     };
     
@@ -180,50 +169,18 @@ export const topicsApi = {
   
   /**
    * Update a topic
+   * Note: Index recalculation is handled by database triggers when parent_id changes
    */
   updateTopic: async (id: string, data: TablesUpdate<'topics'>): Promise<Tables<'topics'>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
-    // Check if parent_id is being changed
-    if (data.parent_id !== undefined) {
-      // Get the current topic to check if parent is actually changing
-      const { data: currentTopic, error: fetchError } = await supabase
-        .from('topics')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (fetchError) throw fetchError;
-      
-      // If parent is changing, recalculate the index
-      if (currentTopic && currentTopic.parent_id !== (data.parent_id || null)) {
-        const newParentId = data.parent_id === 'none' ? null : (data.parent_id || null);
-        
-        // Get the next available index for the new parent
-        // Note: .is() is only for null checks, use .eq() for UUID comparison
-        let query = supabase
-          .from('topics')
-          .select('index')
-          .eq('subject_id', currentTopic.subject_id);
-        
-        if (newParentId === null) {
-          query = query.is('parent_id', null);
-        } else {
-          query = query.eq('parent_id', newParentId);
-        }
-        
-        const { data: siblingsData, error: siblingsError } = await query;
-        
-        if (siblingsError) throw siblingsError;
-        
-        const maxIndex = siblingsData && siblingsData.length > 0
-          ? Math.max(...siblingsData.map((t: any) => t.index))
-          : 0;
-        
-        // Set the new index
-        data.index = maxIndex + 1;
-      }
+    // Handle 'none' parent_id value (convert to null)
+    if (data.parent_id === 'none') {
+      data.parent_id = null;
     }
+    
+    // Don't set index - database triggers will recalculate siblings automatically
+    // when parent_id changes
     
     const { data: updated, error } = await supabase
       .from('topics')
