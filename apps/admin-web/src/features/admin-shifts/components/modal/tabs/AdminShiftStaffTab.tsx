@@ -119,9 +119,9 @@ export function AdminShiftStaffTab({
     }
   }, [adminShiftStaffIds, onRemoveStaff, toast]);
 
-  // Filter available staff (not already assigned)
+  // Filter available staff (not already assigned and only ADMINSTAFF role)
   const availableStaff = allStaff.filter(
-    staff => !adminShiftStaff.some(assigned => assigned.id === staff.id)
+    staff => staff.role === 'ADMINSTAFF' && !adminShiftStaff.some(assigned => assigned.id === staff.id)
   );
 
   // Filter staff by search query

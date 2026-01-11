@@ -104,8 +104,9 @@ export function ViewAdminShiftModal({
     
     try {
       await adminShiftsApi.assignStaff(adminShiftData.id, staffId, currentStaff.id);
-      // Invalidate admin shift details and admin shifts list
-      queryClient.invalidateQueries({ queryKey: adminShiftsKeys.detailFull(adminShiftData.id) });
+      // Invalidate and refetch admin shift details immediately
+      await queryClient.invalidateQueries({ queryKey: adminShiftsKeys.detailFull(adminShiftData.id) });
+      await queryClient.refetchQueries({ queryKey: adminShiftsKeys.detailFull(adminShiftData.id) });
       queryClient.invalidateQueries({ queryKey: adminShiftsKeys.minimal() });
       onAdminShiftUpdated();
       toast({
@@ -119,6 +120,7 @@ export function ViewAdminShiftModal({
         description: 'There was an error assigning the staff. Please try again.',
         variant: 'destructive',
       });
+      throw err;
     }
   };
 
@@ -128,8 +130,9 @@ export function ViewAdminShiftModal({
     
     try {
       await adminShiftsApi.unassignStaff(adminShiftStaffId);
-      // Invalidate admin shift details and admin shifts list
-      queryClient.invalidateQueries({ queryKey: adminShiftsKeys.detailFull(adminShiftData.id) });
+      // Invalidate and refetch admin shift details immediately
+      await queryClient.invalidateQueries({ queryKey: adminShiftsKeys.detailFull(adminShiftData.id) });
+      await queryClient.refetchQueries({ queryKey: adminShiftsKeys.detailFull(adminShiftData.id) });
       queryClient.invalidateQueries({ queryKey: adminShiftsKeys.minimal() });
       onAdminShiftUpdated();
       toast({
@@ -143,6 +146,7 @@ export function ViewAdminShiftModal({
         description: 'There was an error removing the staff. Please try again.',
         variant: 'destructive',
       });
+      throw err;
     }
   };
 

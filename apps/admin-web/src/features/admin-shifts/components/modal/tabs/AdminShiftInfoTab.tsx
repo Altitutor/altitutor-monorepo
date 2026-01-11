@@ -310,120 +310,117 @@ export function AdminShiftInfoTab({
       </div>
     </div>
   ) : (
-    <div className="space-y-6">
+    // View mode - format like ClassInfoTab
+    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
       <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Admin Shift Information</h3>
+        <Button variant="outline" size="sm" onClick={onEdit}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <div className="text-sm font-medium">Day:</div>
+        <div>{getDayOfWeek(adminShiftData.day_of_week)}</div>
+        
+        <div className="text-sm font-medium">Time:</div>
         <div>
-          <h3 className="text-lg font-semibold">Admin Shift Information</h3>
+          {formatTime(adminShiftData.start_time)} - {formatTime(adminShiftData.end_time)}
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onEdit}
-            disabled={isLoading}
-          >
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-          {onDelete && (
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        
+        <div className="text-sm font-medium">Status:</div>
+        <div>
+          <Badge className={getStatusBadgeColor(adminShiftData.status)}>
+            {adminShiftData.status}
+          </Badge>
+        </div>
+        
+        <div className="text-sm font-medium">Session Start Date:</div>
+        <div>
+          {adminShiftData.session_start_date 
+            ? format(new Date(adminShiftData.session_start_date), 'MMM d, yyyy')
+            : adminShiftData.created_at 
+              ? format(new Date(adminShiftData.created_at), 'MMM d, yyyy')
+              : 'Not set'}
+        </div>
+        
+        <div className="text-sm font-medium">Session End Date:</div>
+        <div>
+          {adminShiftData.session_end_date 
+            ? format(new Date(adminShiftData.session_end_date), 'MMM d, yyyy')
+            : adminShiftData.created_at
+              ? `Dec 31, ${new Date(adminShiftData.created_at).getFullYear()}`
+              : 'Not set'}
+        </div>
+      </div>
+
+      {onDelete && (
+        <>
+          <Separator className="my-6" />
+          <div className="pt-4">
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+              setIsDeleteDialogOpen(open);
+              if (!open) {
+                setDeleteConfirmText('');
+              }
+            }}>
               <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isLoading || isDeleting}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                <Button variant="destructive" type="button" className="flex items-center w-full">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Admin Shift
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Admin Shift</AlertDialogTitle>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will delete the admin shift and all future sessions. Past sessions will be preserved.
-                    Type <strong>DELETE</strong> to confirm.
+                    This action cannot be undone. This will permanently delete the admin shift
+                    and all associated data from the database.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="py-4">
-                  <Input
-                    placeholder="Type DELETE to confirm"
-                    value={deleteConfirmText}
-                    onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  />
+                  <div className="space-y-2">
+                    <Label>
+                      Type <strong>DELETE</strong> to confirm deletion
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Type DELETE to confirm"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setDeleteConfirmText('')}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
                     onClick={() => {
-                      if (deleteConfirmText === 'DELETE') {
+                      if (onDelete && deleteConfirmText === 'DELETE') {
                         onDelete();
                         setIsDeleteDialogOpen(false);
                         setDeleteConfirmText('');
                       }
                     }}
-                    disabled={deleteConfirmText !== 'DELETE' || isDeleting}
-                    className="bg-red-600 hover:bg-red-700"
+                    disabled={isDeleting || deleteConfirmText !== 'DELETE'}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Delete
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-muted-foreground">Day of Week</Label>
-          <p className="text-sm font-medium">{getDayOfWeek(adminShiftData.day_of_week)}</p>
-        </div>
-        
-        <div>
-          <Label className="text-muted-foreground">Status</Label>
-          <div className="mt-1">
-            <Badge className={getStatusBadgeColor(adminShiftData.status)}>
-              {adminShiftData.status}
-            </Badge>
           </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-muted-foreground">Start Time</Label>
-          <p className="text-sm font-medium">{formatTime(adminShiftData.start_time)}</p>
-        </div>
-        
-        <div>
-          <Label className="text-muted-foreground">End Time</Label>
-          <p className="text-sm font-medium">{formatTime(adminShiftData.end_time)}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-muted-foreground">Session Start Date</Label>
-          <p className="text-sm font-medium">
-            {adminShiftData.session_start_date 
-              ? format(new Date(adminShiftData.session_start_date), 'MMM d, yyyy')
-              : 'Not set (sessions from today)'}
-          </p>
-        </div>
-        
-        <div>
-          <Label className="text-muted-foreground">Session End Date</Label>
-          <p className="text-sm font-medium">
-            {adminShiftData.session_end_date 
-              ? format(new Date(adminShiftData.session_end_date), 'MMM d, yyyy')
-              : 'Not set (sessions until end of year)'}
-          </p>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

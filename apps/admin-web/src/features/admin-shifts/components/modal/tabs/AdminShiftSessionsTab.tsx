@@ -24,41 +24,126 @@ const getTodayLocalDate = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-export function AdminShiftSessionsTab({ adminShiftData, adminShiftStaff }: AdminShiftSessionsTabProps) {
-  // Filter state - default: both dates today, staff unset
+export function AdminShiftSessionsTab({ adminShiftData, adminShiftStaff, adminShiftSessions }: AdminShiftSessionsTabProps) {
+  // Filter state - default: use admin shift's session date range, or today if not set
   const today = getTodayLocalDate();
-  const [dateRangeStart, setDateRangeStart] = useState<string>(today);
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>(today);
+  
+  // Calculate default start date: use session_start_date if set and >= today, otherwise use today
+  const getDefaultStartDate = (): string => {
+    if (adminShiftData.session_start_date) {
+      const startDate = new Date(adminShiftData.session_start_date).toISOString().split('T')[0];
+      return startDate >= today ? startDate : today;
+    }
+    return today;
+  };
+  
+  // Calculate default end date: use session_end_date if set, otherwise use end of year
+  const getDefaultEndDate = (): string => {
+    if (adminShiftData.session_end_date) {
+      return new Date(adminShiftData.session_end_date).toISOString().split('T')[0];
+    }
+    // Default to end of current year
+    const year = new Date().getFullYear();
+    return `${year}-12-31`;
+  };
+  
+  const [dateRangeStart, setDateRangeStart] = useState<string>(getDefaultStartDate());
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(getDefaultEndDate());
   const [selectedStaffId, setSelectedStaffId] = useState<string>('ALL');
 
-  // Prepare filters for API
-  const rangeStart = dateRangeStart || undefined;
-  const rangeEnd = dateRangeEnd || undefined;
+  // Prepare filters for API - handle empty strings as undefined
+  // If both dates are cleared, fetch all sessions
+  const rangeStart = dateRangeStart && dateRangeStart.trim() !== '' ? dateRangeStart : undefined;
+  const rangeEnd = dateRangeEnd && dateRangeEnd.trim() !== '' ? dateRangeEnd : undefined;
   const staffId = selectedStaffId !== 'ALL' ? selectedStaffId : undefined;
 
-  // Fetch sessions filtered by admin_shift_id
-  // Note: Currently filtering client-side until search_sessions_admin RPC supports admin_shift_id
+  // Filter sessions by date range and staff
+  // Use the adminShiftSessions prop as base, then filter client-side
+  const filteredSessions = useMemo(() => {
+    let sessions = adminShiftSessions || [];
+    
+    // Filter by date range if provided
+    if (rangeStart || rangeEnd) {
+      sessions = sessions.filter(session => {
+        if (!session.start_at) return false;
+        const sessionDate = new Date(session.start_at).toISOString().split('T')[0];
+        if (rangeStart && sessionDate < rangeStart) return false;
+        if (rangeEnd && sessionDate > rangeEnd) return false;
+        return true;
+      });
+    }
+    
+    return sessions;
+  }, [adminShiftSessions, rangeStart, rangeEnd]);
+  
+  // Get session IDs for fetching full details
+  const sessionIds = useMemo(() => filteredSessions.map(s => s.id), [filteredSessions]);
+  
+  // Fetch full details for filtered sessions
   const { data: sessionsData, isLoading } = useQuery({
-    queryKey: ['adminShiftSessions', adminShiftData.id, rangeStart, rangeEnd, staffId],
+    queryKey: ['adminShiftSessionsDetails', sessionIds, staffId],
     queryFn: async () => {
+      if (sessionIds.length === 0) {
+        return {
+          sessions: [],
+          sessionStudents: {},
+          sessionStaff: {},
+          tutorLogs: {},
+          classesById: {},
+          subjectsById: {},
+        };
+      }
+      
+      // Get full details for the filtered sessions
       const result = await sessionsApi.getAllSessionsWithDetails({
-        rangeStart,
-        rangeEnd,
-        staffId,
+        rangeStart: undefined, // Don't filter by date - we already filtered
+        rangeEnd: undefined,
+        staffId: staffId || undefined,
         includeInactive: false,
       });
       
-      // Filter to only sessions for this admin shift
-      const filteredSessions = result.sessions.filter(
-        session => session.admin_shift_id === adminShiftData.id
-      );
+      // Filter to only our admin shift sessions
+      const sessionIdSet = new Set(sessionIds);
+      const finalSessions = result.sessions.filter(s => sessionIdSet.has(s.id));
+      
+      // Filter by staff if provided (check sessions_staff table)
+      let staffFilteredSessions = finalSessions;
+      if (staffId) {
+        const sessionsWithStaff = finalSessions.filter(s => {
+          const staff = result.sessionStaff[s.id] || [];
+          return staff.some(st => st.id === staffId);
+        });
+        staffFilteredSessions = sessionsWithStaff;
+      }
+      
+      // Filter related data to only include our sessions
+      const finalSessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = {};
+      const finalSessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>> = {};
+      const finalTutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }> = {};
+      
+      staffFilteredSessions.forEach(session => {
+        const sessionIdStr = String(session.id);
+        if (result.sessionStudents[sessionIdStr]) {
+          finalSessionStudents[sessionIdStr] = result.sessionStudents[sessionIdStr];
+        }
+        if (result.sessionStaff[sessionIdStr]) {
+          finalSessionStaff[sessionIdStr] = result.sessionStaff[sessionIdStr];
+        }
+        if (result.tutorLogs[sessionIdStr]) {
+          finalTutorLogs[sessionIdStr] = result.tutorLogs[sessionIdStr];
+        }
+      });
       
       return {
-        ...result,
-        sessions: filteredSessions,
+        sessions: staffFilteredSessions,
+        sessionStudents: finalSessionStudents,
+        sessionStaff: finalSessionStaff,
+        tutorLogs: finalTutorLogs,
+        classesById: result.classesById,
+        subjectsById: result.subjectsById,
       };
     },
-    enabled: !!adminShiftData.id,
+    enabled: !!adminShiftData.id && sessionIds.length > 0,
     staleTime: 1000 * 60 * 2,
   });
 
@@ -84,12 +169,6 @@ export function AdminShiftSessionsTab({ adminShiftData, adminShiftStaff }: Admin
 
   return (
     <div className="h-full flex flex-col space-y-4">
-      {/* Info Alert */}
-      <Alert>
-        <AlertDescription>
-          Showing sessions for this admin shift. {filteredSessionsCount} session{filteredSessionsCount !== 1 ? 's' : ''} found in the selected date range.
-        </AlertDescription>
-      </Alert>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
