@@ -203,10 +203,22 @@ export function ViewStaffModal({
     }
     
     try {
+      // Determine redirect URL based on staff role
+      let redirectUrl: string;
+      if (staffMember.role === 'TUTOR') {
+        const tutorUrl = process.env.NODE_ENV === 'development'
+          ? 'http://localhost:3002'
+          : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+        redirectUrl = `${tutorUrl}/auth/callback`;
+      } else {
+        // ADMINSTAFF goes to admin portal
+        redirectUrl = `${baseUrl}/auth/callback`;
+      }
+      
       const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.resetPasswordForEmail(
         staffMember.email,
         {
-          redirectTo: `${baseUrl}/auth/callback`,
+          redirectTo: redirectUrl,
         }
       );
       

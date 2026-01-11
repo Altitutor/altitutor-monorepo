@@ -345,14 +345,15 @@ export function InfoPanel({ contactId, conversationId, className = '' }: InfoPan
 
       try {
         setIsLoadingAccountStudent(true);
-        const baseUrl = typeof window !== 'undefined' 
-          ? window.location.origin 
-          : (process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001');
+        // Always use student portal URL for student password resets
+        const studentUrl = process.env.NODE_ENV === 'development'
+          ? 'http://localhost:3001'
+          : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
         
         const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.resetPasswordForEmail(
           student.email,
           {
-            redirectTo: `${baseUrl}/auth/callback`,
+            redirectTo: `${studentUrl}/auth/callback`,
           }
         );
         
