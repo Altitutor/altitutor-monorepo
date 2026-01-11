@@ -14,20 +14,24 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { VENUE_ADDRESS } from '@/shared/constants';
+import { useSessionDurationMinutes } from '@/features/bookings/hooks/useBookingSettings';
 
 export default function BookTrialPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
+  // Get default trial session duration from booking settings
+  const { data: defaultDurationMinutes = 45 } = useSessionDurationMinutes('TRIAL_SESSION');
+  
   // Initialize state from query params
   const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds?: string[] } | null>(null);
   
-  // Calculate duration from selected slot, default to 60 if no slot selected
+  // Calculate duration from selected slot, default to booking settings value if no slot selected
   const durationMinutes = selectedSlot
     ? Math.round((new Date(selectedSlot.endAt).getTime() - new Date(selectedSlot.startAt).getTime()) / (1000 * 60))
-    : 60;
+    : defaultDurationMinutes;
   const [currentStep, setCurrentStep] = useState(() => {
     const stepParam = searchParams.get('step');
     return stepParam ? parseInt(stepParam, 10) : 0;
@@ -213,7 +217,7 @@ export default function BookTrialPage() {
         <div className="space-y-4">
           <TimeSlotPicker
             sessionType="TRIAL_SESSION"
-            durationMinutes={60}
+            durationMinutes={defaultDurationMinutes}
             onSlotSelect={handleSlotSelect}
             selectedSlot={selectedSlot}
             allowAnonymous={true}
