@@ -3,22 +3,38 @@
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSessionType } from '@/shared/utils/index';
 import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
 import { SessionsCard } from './SessionsCard';
-import { Button } from "@altitutor/ui";
+import { Button, Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
 
 type Props = { onOpenSession?: (id: string) => void };
 
 export function SessionsCalendarView({ onOpenSession }: Props) {
   const [anchor, setAnchor] = useState<Date>(new Date());
-  const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
-  const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('week');
+  
+  // Calculate date range based on view mode
+  const rangeStart = useMemo(() => {
+    if (viewMode === 'day') {
+      return anchor;
+    }
+    return startOfWeek(anchor, { weekStartsOn: 1 });
+  }, [anchor, viewMode]);
+  
+  const rangeEnd = useMemo(() => {
+    if (viewMode === 'day') {
+      return anchor;
+    }
+    return endOfWeek(anchor, { weekStartsOn: 1 });
+  }, [anchor, viewMode]);
+  
   const { data } = useSessionsWithDetails({ 
-    rangeStart: format(weekStart, 'yyyy-MM-dd'), 
-    rangeEnd: format(weekEnd, 'yyyy-MM-dd'),
+    rangeStart: format(rangeStart, 'yyyy-MM-dd'), 
+    rangeEnd: format(rangeEnd, 'yyyy-MM-dd'),
     includeInactive: false // Only show active sessions in calendar view
   });
 
@@ -61,7 +77,14 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
     return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
   };
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // Calculate days to display based on view mode
+  const days = useMemo(() => {
+    if (viewMode === 'day') {
+      return [anchor];
+    }
+    const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [anchor, viewMode]);
 
   // Helpers to compute block positions
   const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (9 * 60);
@@ -72,18 +95,46 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const currentMinutesFromStart = minutesFromStart(now);
   const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 75);
 
+  // Calculate navigation step based on view mode
+  const navigationStep = viewMode === 'day' ? 1 : 7;
+  
+  const handlePrevious = () => {
+    setAnchor(addDays(anchor, -navigationStep));
+  };
+  
+  const handleNext = () => {
+    setAnchor(addDays(anchor, navigationStep));
+  };
+  
+  const handleToday = () => {
+    setAnchor(new Date());
+  };
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>Previous</Button>
-        <Button variant="outline" onClick={() => setAnchor(new Date())}>Today</Button>
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>Next</Button>
+      <div className="flex items-center justify-between">
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'day' | 'week')}>
+          <TabsList>
+            <TabsTrigger value="day">1 day</TabsTrigger>
+            <TabsTrigger value="week">1 week</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handlePrevious}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={handleToday}>Today</Button>
+          <Button variant="outline" onClick={handleNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto relative">
         <div
           className="grid gap-0 min-h-full relative bg-background"
-          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))` }}
+          style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(${days.length}, minmax(150px, 1fr))` }}
         >
           {/* Headers */}
           <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">Time</div>
