@@ -7,7 +7,7 @@ import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { Check, Calendar, Phone, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, cn } from '@/shared/utils';
 import { VENUE_ADDRESS, CONTACT_PHONE, CONTACT_EMAIL } from '@/shared/constants';
 import { downloadCalendarEvent } from '@/shared/utils/calendar';
 import type { Tables } from '@altitutor/shared';
@@ -20,6 +20,7 @@ const VenueMap = dynamic(() => import('@/shared/components/VenueMap').then(mod =
 
 interface BookingData {
   session_id: string;
+  session_type?: string;
   start_at: string;
   end_at: string;
   student_first_name: string;
@@ -164,7 +165,9 @@ export default function BookingSuccessPage() {
         </div>
         <h1 className="text-3xl font-bold mb-2">Booking Confirmed!</h1>
         <p className="text-muted-foreground">
-          Your trial session has been successfully booked
+          {bookingData.session_type 
+            ? `Your ${formatSessionType(bookingData.session_type).toLowerCase()} has been successfully booked`
+            : 'Your session has been successfully booked'}
         </p>
       </div>
 
@@ -313,7 +316,11 @@ export default function BookingSuccessPage() {
                               minHeight: '45px',
                             }}
                           >
-                            <div className="text-xs font-semibold mb-1">Trial Session</div>
+                            <div className="text-xs font-semibold mb-1">
+                              {bookingData.session_type 
+                                ? formatSessionType(bookingData.session_type)
+                                : 'Session'}
+                            </div>
                             <div className="text-xs">
                               {format(sessionStart, 'h:mm a')} - {format(sessionEnd, 'h:mm a')}
                             </div>

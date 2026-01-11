@@ -27,6 +27,7 @@ import { SessionActivityTab } from '@/features/activity/components/tabs/SessionA
 import { LogSessionModal } from '@/features/tutor-logs';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { classesApi } from '@/features/classes/api/classes';
+import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import {
   Table,
   TableBody,
@@ -60,6 +61,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [activeTab, setActiveTab] = useState('details');
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [firstClassStaffId, setFirstClassStaffId] = useState<string | null>(null);
+  const [isBookingConfirmationDialogOpen, setIsBookingConfirmationDialogOpen] = useState(false);
+  const [selectedStudentForBookingConfirmation, setSelectedStudentForBookingConfirmation] = useState<string | null>(null);
   const openWindow = useChatStore(s => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
 
@@ -500,6 +503,17 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                                   >
                                     Message
                                   </DropdownMenuItem>
+                                  {sessionId && session.type !== 'CLASS' && (
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedStudentForBookingConfirmation(data.student.id);
+                                        setIsBookingConfirmationDialogOpen(true);
+                                      }}
+                                    >
+                                      Send Booking Confirmation Link
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
@@ -784,6 +798,19 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           adminMode={true}
           initialSessionId={sessionId || undefined}
           initialStaffId={getFirstStaffForLogging()}
+        />
+      )}
+
+      {/* Booking Confirmation Dialog */}
+      {selectedStudentForBookingConfirmation && sessionId && (
+        <SendBookingConfirmationDialog
+          isOpen={isBookingConfirmationDialogOpen}
+          onClose={() => {
+            setIsBookingConfirmationDialogOpen(false);
+            setSelectedStudentForBookingConfirmation(null);
+          }}
+          sessionId={sessionId}
+          studentId={selectedStudentForBookingConfirmation}
         />
       )}
 

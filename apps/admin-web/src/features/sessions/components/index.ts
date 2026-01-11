@@ -5,6 +5,7 @@ export * from './TodaySessionsView';
 export * from './SessionsView';
 export * from './SessionsCard';
 export * from './SessionModal';
+export * from './SendBookingConfirmationDialog';
 export * from './StudentAvatar';
 export * from './AttendanceCell';
 export * from './AbsenceSessionSelector';

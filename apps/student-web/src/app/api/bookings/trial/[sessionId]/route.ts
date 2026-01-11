@@ -39,17 +39,17 @@ export async function GET(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Query session first
+    // Query session first - only allow meeting types (exclude CLASS)
     const { data: sessionData, error: sessionError } = await serviceRoleSupabase
       .from('sessions')
-      .select('id, start_at, end_at, type')
+      .select('id, start_at, end_at, type, subject_id')
       .eq('id', sessionId)
-      .eq('type', 'TRIAL_SESSION')
+      .neq('type', 'CLASS') // Exclude CLASS sessions
       .single();
 
     if (sessionError || !sessionData) {
       return NextResponse.json(
-        { error: 'Session not found' },
+        { error: 'Session not found or is not a meeting type' },
         { status: 404 }
       );
     }
@@ -81,19 +81,38 @@ export async function GET(
       );
     }
 
-    // Get subjects for this student
-    const { data: subjectsData } = await serviceRoleSupabase
-      .from('students_subjects')
-      .select('subject_id, subjects(*)')
-      .eq('student_id', studentData.id);
+    // Get subjects for this session
+    // For DRAFTING sessions, use the session's subject_id
+    // For other meeting types, use student's subjects
+    let subjects: Database['public']['Tables']['subjects']['Row'][] = [];
+    
+    if (sessionData.type === 'DRAFTING' && sessionData.subject_id) {
+      // For DRAFTING sessions, fetch the specific subject
+      const { data: subjectData } = await serviceRoleSupabase
+        .from('subjects')
+        .select('*')
+        .eq('id', sessionData.subject_id)
+        .single();
+      
+      if (subjectData) {
+        subjects = [subjectData];
+      }
+    } else {
+      // For other meeting types, get all subjects for the student
+      const { data: subjectsData } = await serviceRoleSupabase
+        .from('students_subjects')
+        .select('subject_id, subjects(*)')
+        .eq('student_id', studentData.id);
 
-    const subjects = subjectsData
-      ?.map((item) => item.subjects)
-      .filter((s): s is Database['public']['Tables']['subjects']['Row'] => s !== null) || [];
+      subjects = subjectsData
+        ?.map((item) => item.subjects)
+        .filter((s): s is Database['public']['Tables']['subjects']['Row'] => s !== null) || [];
+    }
 
     // Transform to match BookingData interface
     const bookingData = {
       session_id: sessionData.id,
+      session_type: sessionData.type,
       start_at: sessionData.start_at,
       end_at: sessionData.end_at,
       student_first_name: studentData.first_name,
