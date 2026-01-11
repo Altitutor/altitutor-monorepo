@@ -201,6 +201,7 @@ export function SessionHoverTooltip({ session, children }: SessionHoverTooltipPr
       billing_type: null,
       status: 'SCHEDULED',
       subject_id: session.subject_id,
+      admin_shift_id: null,
       created_at: null,
       updated_at: null,
       class: session.class_id ? {

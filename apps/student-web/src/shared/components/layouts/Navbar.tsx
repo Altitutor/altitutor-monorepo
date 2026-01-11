@@ -29,6 +29,11 @@ export function Navbar() {
   const { data: profile } = useProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+  // Hide navbar on booking/trial-session route
+  if (pathname === '/booking/trial-session') {
+    return null;
+  }
+
   const handleLogout = async () => {
     try {
       await signOut();
