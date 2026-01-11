@@ -6387,6 +6387,7 @@ export type Database = {
           p_student_first_name: string
           p_student_last_name: string
           p_student_phone: string
+          p_subject_ids?: string[]
           p_year_level?: number
         }
         Returns: Json
