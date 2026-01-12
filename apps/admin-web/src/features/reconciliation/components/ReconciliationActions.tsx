@@ -23,6 +23,7 @@ interface ReconciliationHandlers {
   onOpenStudent: (studentId: string) => void;
   onLogSession: (sessionId: string, staffId?: string) => void;
   onOpenInvoice: (invoiceId: string) => void;
+  onOpenSession: (sessionId: string) => void;
 }
 
 const ReconciliationHandlersContext = createContext<ReconciliationHandlers | null>(null);
@@ -68,13 +69,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const handleOpenSession = (sessionId: string) => {
-    window.dispatchEvent(
-      new CustomEvent('open-session-modal', {
-        detail: { id: sessionId },
-      })
-    );
-  };
 
   const handleOpenClass = (classId: string) => {
     router.push(`/classes?view=${classId}`);
@@ -163,10 +157,10 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlers.onOpenStudent(session.student_id)}
+            onClick={() => handlers.onOpenSession(session.session_id)}
           >
-            <User className="h-4 w-4 mr-1" />
-            View Student
+            <Calendar className="h-4 w-4 mr-1" />
+            View Session
           </Button>
           <Button
             variant="outline"
@@ -252,7 +246,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleOpenSession(session.session_id)}
+            onClick={() => handlers.onOpenSession(session.session_id)}
           >
             <Calendar className="h-4 w-4 mr-1" />
             View Session

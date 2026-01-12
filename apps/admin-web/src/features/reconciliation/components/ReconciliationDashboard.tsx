@@ -21,6 +21,7 @@ import {
 import { ViewStudentModal } from '@/features/students';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { ViewInvoiceModal } from '@/features/billing';
+import { SessionModal } from '@/features/sessions';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { reconciliationKeys } from '../api/queryKeys';
@@ -38,6 +39,8 @@ export function ReconciliationDashboard() {
   const [logSessionInitialStaffId, setLogSessionInitialStaffId] = useState<string | undefined>();
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
   // Fetch all reconciliation data
   const uninvoicedSessions = useUninvoicedSessions();
@@ -80,6 +83,11 @@ export function ReconciliationDashboard() {
   const handleOpenInvoice = (invoiceId: string) => {
     setSelectedInvoiceId(invoiceId);
     setIsInvoiceModalOpen(true);
+  };
+
+  const handleOpenSession = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setIsSessionModalOpen(true);
   };
 
   const handleCloseLogSessionModal = async () => {
@@ -130,6 +138,7 @@ export function ReconciliationDashboard() {
         onOpenStudent: handleOpenStudent,
         onLogSession: handleLogSession,
         onOpenInvoice: handleOpenInvoice,
+        onOpenSession: handleOpenSession,
       }}
     >
       <div className="p-6 space-y-8">
@@ -226,6 +235,16 @@ export function ReconciliationDashboard() {
           onClose={() => {
             setIsInvoiceModalOpen(false);
             setSelectedInvoiceId(null);
+          }}
+        />
+
+        {/* Session Modal */}
+        <SessionModal
+          isOpen={isSessionModalOpen}
+          sessionId={selectedSessionId}
+          onClose={() => {
+            setIsSessionModalOpen(false);
+            setSelectedSessionId(null);
           }}
         />
       </div>
