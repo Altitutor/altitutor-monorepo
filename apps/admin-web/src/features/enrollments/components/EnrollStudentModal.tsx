@@ -7,6 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { formatSubjectDisplay } from '@/shared/utils';
+import { StudentCard } from '@/shared/components/StudentCard';
 import {
   useEnrollmentFilters,
   useEnrollmentConflicts,
@@ -78,6 +79,32 @@ export function EnrollStudentModal({
       return classes.find(c => c.id === selectedClassId);
     }
   }, [context, classData, classSubject, classStaff, classes, selectedClassId]);
+
+  // Get the subject to display in the student card (only the selected subject)
+  const displaySubject = useMemo(() => {
+    if (context === 'class') {
+      return classSubject ? [classSubject] : [];
+    } else {
+      // For student context, prefer subjectId if provided, otherwise use selectedClass subject
+      if (subjectId && studentSubjects.length > 0) {
+        const subject = studentSubjects.find(s => s.id === subjectId);
+        if (subject) {
+          return [subject];
+        }
+      }
+      // Fall back to selectedClass subject if available
+      return selectedClass?.subject ? [selectedClass.subject] : [];
+    }
+  }, [context, classSubject, selectedClass, subjectId, studentSubjects]);
+
+  // Determine if student card should be shown in header
+  const shouldShowStudentCardInHeader = useMemo(() => {
+    if (context === 'student') {
+      return !!student;
+    } else {
+      return !!selectedStudent;
+    }
+  }, [context, student, selectedStudent]);
 
   // Filters
   const defaultSubjectFilters = useMemo(() => {
@@ -194,10 +221,20 @@ export function EnrollStudentModal({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b space-y-3">
             <DialogTitle>
               {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
             </DialogTitle>
+            {shouldShowStudentCardInHeader && (
+              <div>
+                <StudentCard
+                  student={(context === 'student' ? student : selectedStudent) as Tables<'students'>}
+                  subjects={displaySubject}
+                  showSubjects={true}
+                  showActions={false}
+                />
+              </div>
+            )}
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
@@ -237,9 +274,6 @@ export function EnrollStudentModal({
                 classData={classData}
                 classSubject={classSubject}
                 classStaff={classStaff}
-                selectedStudent={selectedStudent}
-                student={student}
-                studentSubjects={studentSubjects}
                 selectedClass={selectedClass}
               />
             )}
@@ -250,7 +284,7 @@ export function EnrollStudentModal({
                 context={context}
                 selectedStudent={selectedStudent}
                 selectedClass={selectedClass}
-                studentSubjects={studentSubjects}
+                studentSubjects={displaySubject}
                 enrollmentDate={enrollmentDate}
                 conflicts={conflicts}
               />

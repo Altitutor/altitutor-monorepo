@@ -3,10 +3,9 @@
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { StudentCard } from '@/shared/components/StudentCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import type { EnrollmentContext, StudentWithEnrollmentInfo } from '../../types/enrollment';
+import type { EnrollmentContext } from '../../types/enrollment';
 
 interface Step2SelectEnrollmentDateProps {
   context: EnrollmentContext;
@@ -17,11 +16,8 @@ interface Step2SelectEnrollmentDateProps {
   classData?: Tables<'classes'>;
   classSubject?: Tables<'subjects'>;
   classStaff?: Tables<'staff'>[];
-  selectedStudent?: StudentWithEnrollmentInfo | Tables<'students'>;
   
   // Student context props
-  student?: Tables<'students'>;
-  studentSubjects?: Tables<'subjects'>[];
   selectedClass?: ClassWithExpandedSubject;
 }
 
@@ -32,35 +28,10 @@ export function Step2SelectEnrollmentDate({
   classData,
   classSubject,
   classStaff,
-  selectedStudent,
-  student,
-  studentSubjects,
   selectedClass,
 }: Step2SelectEnrollmentDateProps) {
   return (
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
-      {/* Show student card for class context */}
-      {context === 'class' && selectedStudent && (
-        <div className="mb-2">
-          <StudentCard
-            student={selectedStudent as Tables<'students'>}
-            subjects={('subjects' in selectedStudent ? (selectedStudent as any).subjects : []) || []}
-            showSubjects={true}
-          />
-        </div>
-      )}
-      
-      {/* Show student card for student context */}
-      {context === 'student' && student && (
-        <div className="mb-2">
-          <StudentCard
-            student={student}
-            subjects={studentSubjects || []}
-            showSubjects={true}
-          />
-        </div>
-      )}
-      
       {/* Show class card for student context */}
       {context === 'student' && selectedClass && (
         <div className="mb-2">

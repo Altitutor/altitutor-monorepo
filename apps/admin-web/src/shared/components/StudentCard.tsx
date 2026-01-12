@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { Tables } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { formatDate } from '@/shared/utils/datetime';
-import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 
 interface StudentCardProps {
   student: Tables<'students'>;
@@ -140,7 +140,7 @@ export function StudentCard({
                   className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
                   style={style.backgroundColor ? style : undefined}
                 >
-                  {formatSubjectShortName(subject)}
+                  {formatSubjectDisplay(subject)}
                 </Badge>
               );
             })}

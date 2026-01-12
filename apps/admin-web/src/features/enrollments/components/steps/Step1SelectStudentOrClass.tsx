@@ -89,17 +89,6 @@ export function Step1SelectStudentOrClass({
         </div>
       )}
       
-      {/* Show student card at top for student context */}
-      {context === 'student' && student && (
-        <div className="mb-4">
-          <StudentCard
-            student={student}
-            subjects={studentSubjects || []}
-            showSubjects={true}
-          />
-        </div>
-      )}
-      
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
