@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { FileText, User, Calendar, MessageCircle, CreditCard, Users } from 'lucide-react';
+import { reconciliationKeys } from '../api/queryKeys';
+import { useToast } from '@altitutor/ui';
 import type {
   UninvoicedSession,
   OrphanedInvoiceItem,
@@ -35,6 +38,8 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   const openWindow = useChatStore((s) => s.openWindow);
   const { openTutorLogModal } = useQuickActions();
   const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const handleOpenStudent = (studentId: string) => {
     router.push(`/students?view=${studentId}`);
@@ -82,10 +87,43 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     // For now, opening the modal and user can select session
   };
 
-  const handleSendInvoice = () => {
-    // TODO: Implement invoice sending
-    // This will likely open a modal or navigate to invoice creation page
-    console.log('Send invoice - to be implemented');
+  // Mutation for invoicing a single session
+  const invoiceSessionMutation = useMutation({
+    mutationFn: async (sessions_students_id: string) => {
+      const response = await fetch('/api/billing/single', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessions_students_id }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || error.error || 'Failed to invoice session');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate reconciliation queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
+      toast({
+        title: 'Success',
+        description: 'Session invoiced successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to invoice session',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSendInvoice = (sessions_students_id: string) => {
+    invoiceSessionMutation.mutate(sessions_students_id);
   };
 
   const handleContactStudent = async (studentId: string) => {
@@ -117,11 +155,11 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={handleSendInvoice}
-            disabled={isLoading}
+            onClick={() => handleSendInvoice(session.sessions_students_id)}
+            disabled={isLoading || invoiceSessionMutation.isPending}
           >
             <CreditCard className="h-4 w-4 mr-1" />
-            Send Invoice
+            {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Invoice Session'}
           </Button>
         </div>
       );
