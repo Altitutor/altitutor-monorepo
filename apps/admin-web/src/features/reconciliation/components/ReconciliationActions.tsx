@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { FileText, User, Calendar, MessageCircle, CreditCard } from 'lucide-react';
+import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt } from 'lucide-react';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import type {
@@ -22,6 +22,7 @@ import type {
 interface ReconciliationHandlers {
   onOpenStudent: (studentId: string) => void;
   onLogSession: (sessionId: string, staffId?: string) => void;
+  onOpenInvoice: (invoiceId: string) => void;
 }
 
 const ReconciliationHandlersContext = createContext<ReconciliationHandlers | null>(null);
@@ -212,10 +213,10 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlers.onOpenStudent(invoice.student_id)}
+            onClick={() => handlers.onOpenInvoice(invoice.id)}
           >
-            <User className="h-4 w-4 mr-1" />
-            View Student
+            <Receipt className="h-4 w-4 mr-1" />
+            View Invoice
           </Button>
           <Button
             variant="outline"

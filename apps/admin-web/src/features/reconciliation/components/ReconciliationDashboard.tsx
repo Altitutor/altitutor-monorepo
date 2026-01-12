@@ -20,6 +20,7 @@ import {
 } from '../api/queries';
 import { ViewStudentModal } from '@/features/students';
 import { LogSessionModal } from '@/features/tutor-logs';
+import { ViewInvoiceModal } from '@/features/billing';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { reconciliationKeys } from '../api/queryKeys';
@@ -35,6 +36,8 @@ export function ReconciliationDashboard() {
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [logSessionInitialSessionId, setLogSessionInitialSessionId] = useState<string | undefined>();
   const [logSessionInitialStaffId, setLogSessionInitialStaffId] = useState<string | undefined>();
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Fetch all reconciliation data
   const uninvoicedSessions = useUninvoicedSessions();
@@ -72,6 +75,11 @@ export function ReconciliationDashboard() {
     setLogSessionInitialSessionId(sessionId);
     setLogSessionInitialStaffId(staffId);
     setIsLogSessionModalOpen(true);
+  };
+
+  const handleOpenInvoice = (invoiceId: string) => {
+    setSelectedInvoiceId(invoiceId);
+    setIsInvoiceModalOpen(true);
   };
 
   const handleCloseLogSessionModal = async () => {
@@ -121,6 +129,7 @@ export function ReconciliationDashboard() {
       handlers={{
         onOpenStudent: handleOpenStudent,
         onLogSession: handleLogSession,
+        onOpenInvoice: handleOpenInvoice,
       }}
     >
       <div className="p-6 space-y-8">
@@ -209,6 +218,16 @@ export function ReconciliationDashboard() {
             initialStaffId={logSessionInitialStaffId}
           />
         )}
+
+        {/* Invoice Modal */}
+        <ViewInvoiceModal
+          isOpen={isInvoiceModalOpen}
+          invoiceId={selectedInvoiceId}
+          onClose={() => {
+            setIsInvoiceModalOpen(false);
+            setSelectedInvoiceId(null);
+          }}
+        />
       </div>
     </ReconciliationHandlersProvider>
   );
