@@ -323,6 +323,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     if (adminMode && currentStep === 0) {
       return (
         <Step0StaffSelector
+          title={getStepTitle()}
           selectedStaffId={selectedStaffId || undefined}
           onSelectStaff={(staffId) => {
             setSelectedStaffId(staffId);
@@ -337,6 +338,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 0:
         return (
           <Step1SessionPicker
+            title={getStepTitle()}
             staffId={selectedStaffId}
             selectedSessionId={formData.sessionId}
             onSelectSession={(sessionId) => updateFormData({ sessionId })}
@@ -345,6 +347,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 1:
         return (
           <Step2StaffAttendance
+            title={getStepTitle()}
             sessionId={formData.sessionId!}
             currentStaffId={selectedStaffId}
             staffAttendance={formData.staffAttendance || []}
@@ -365,6 +368,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 2:
         return (
           <Step3StudentAttendance
+            title={getStepTitle()}
             sessionId={formData.sessionId!}
             studentAttendance={formData.studentAttendance || []}
             onUpdate={(studentAttendance) => updateFormData({ studentAttendance })}
@@ -373,6 +377,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 3:
         return (
           <Step4Topics
+            title={getStepTitle()}
             sessionId={formData.sessionId!}
             topics={formData.topics || []}
             onUpdate={(topics) => updateFormData({ topics })}
@@ -381,6 +386,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 4:
         return (
           <Step5TopicStudents
+            title={getStepTitle()}
             topics={formData.topics || []}
             attendedStudentIds={(formData.studentAttendance || [])
               .filter((sa) => sa.attended)
@@ -391,6 +397,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 5:
         return (
           <Step6Files
+            title={getStepTitle()}
             topics={formData.topics || []}
             topicFiles={formData.topicFiles || []}
             onUpdate={(topicFiles) => updateFormData({ topicFiles })}
@@ -399,6 +406,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 6:
         return (
           <Step7FileStudents
+            title={getStepTitle()}
             topics={formData.topics || []}
             topicFiles={formData.topicFiles || []}
             onUpdate={(topicFiles) => updateFormData({ topicFiles })}
@@ -407,6 +415,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 7:
         return (
           <Step8Notes
+            title={getStepTitle()}
             notes={formData.notes || []}
             onUpdate={(notes) => updateFormData({ notes })}
           />
@@ -414,6 +423,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 8:
         return (
           <Step9Confirmation
+            title={getStepTitle()}
             formData={formData}
           />
         );
@@ -456,7 +466,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <DialogTitle>{getStepTitle() || 'Tutor Log'}</DialogTitle>
+              <DialogTitle>Log Session</DialogTitle>
               <DialogDescription className="sr-only">
                 Tutor log form step {currentStep + 1} of {actualTotalSteps}
               </DialogDescription>

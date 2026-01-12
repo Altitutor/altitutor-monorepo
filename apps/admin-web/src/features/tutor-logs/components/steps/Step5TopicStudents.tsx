@@ -15,12 +15,14 @@ type TopicItem = {
 };
 
 type Step5TopicStudentsProps = {
+  title?: string;
   topics: TopicItem[];
   attendedStudentIds: string[];
   onUpdate: (topics: TopicItem[]) => void;
 };
 
 export function Step5TopicStudents({
+  title,
   topics,
   attendedStudentIds,
   onUpdate,
@@ -126,6 +128,7 @@ export function Step5TopicStudents({
 
   return (
     <div className="space-y-4">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
         Assign students to topics. By default, all attending students are assigned to all topics.
       </p>

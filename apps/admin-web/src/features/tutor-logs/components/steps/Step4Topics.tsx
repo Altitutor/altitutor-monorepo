@@ -18,12 +18,13 @@ type TopicItem = {
 };
 
 type Step4TopicsProps = {
+  title?: string;
   sessionId: string;
   topics: TopicItem[];
   onUpdate: (topics: TopicItem[]) => void;
 };
 
-export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
+export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsProps) {
   const [subjectTopics, setSubjectTopics] = useState<Tables<'topics'>[]>([]);
   const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
@@ -268,6 +269,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
 
   return (
     <div className="space-y-4">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
         Select topics covered in this session. Selecting a parent automatically selects all children.
       </p>

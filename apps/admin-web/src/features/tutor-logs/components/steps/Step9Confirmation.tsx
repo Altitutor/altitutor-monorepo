@@ -19,10 +19,12 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Step9ConfirmationProps = {
+  title?: string;
   formData: Partial<TutorLogFormData>;
 };
 
 export function Step9Confirmation({
+  title,
   formData,
 }: Step9ConfirmationProps) {
   const [session, setSession] = useState<any>(null);
@@ -174,6 +176,7 @@ export function Step9Confirmation({
 
   return (
     <div className="space-y-6">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       {/* Session Information */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Session Information</h3>

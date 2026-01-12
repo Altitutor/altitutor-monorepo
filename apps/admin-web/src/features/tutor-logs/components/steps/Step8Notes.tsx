@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { Textarea } from '@altitutor/ui';
 
 type Step8NotesProps = {
+  title?: string;
   notes: string[];
   onUpdate: (notes: string[]) => void;
 };
 
-export function Step8Notes({ notes, onUpdate }: Step8NotesProps) {
+export function Step8Notes({ title, notes, onUpdate }: Step8NotesProps) {
   // Get the first note if it exists, otherwise empty string
   const [noteText, setNoteText] = useState(notes[0] || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -35,7 +36,7 @@ export function Step8Notes({ notes, onUpdate }: Step8NotesProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Session Notes</h3>
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <Textarea
         ref={textareaRef}
         value={noteText}

@@ -18,12 +18,14 @@ type StudentAttendanceItem = {
 };
 
 type Step3StudentAttendanceProps = {
+  title?: string;
   sessionId: string;
   studentAttendance: StudentAttendanceItem[];
   onUpdate: (studentAttendance: StudentAttendanceItem[]) => void;
 };
 
 export function Step3StudentAttendance({
+  title,
   sessionId,
   studentAttendance,
   onUpdate,
@@ -139,6 +141,7 @@ export function Step3StudentAttendance({
 
   return (
     <div className="space-y-4">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
         Select which students attended this session. You can also add additional students.
       </p>

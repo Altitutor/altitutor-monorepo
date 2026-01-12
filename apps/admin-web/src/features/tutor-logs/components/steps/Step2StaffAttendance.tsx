@@ -20,6 +20,7 @@ type StaffAttendanceItem = {
 };
 
 type Step2StaffAttendanceProps = {
+  title?: string;
   sessionId: string;
   currentStaffId: string;
   staffAttendance: StaffAttendanceItem[];
@@ -28,6 +29,7 @@ type Step2StaffAttendanceProps = {
 };
 
 export function Step2StaffAttendance({
+  title,
   sessionId,
   currentStaffId,
   staffAttendance,
@@ -161,6 +163,7 @@ export function Step2StaffAttendance({
 
   return (
     <div className="space-y-4">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
         Select which staff members attended this session.
       </p>

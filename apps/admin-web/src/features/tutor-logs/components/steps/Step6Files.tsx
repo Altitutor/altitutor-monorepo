@@ -20,6 +20,7 @@ type TopicFileItem = {
 };
 
 type Step6FilesProps = {
+  title?: string;
   topics: TopicItem[];
   topicFiles: TopicFileItem[];
   onUpdate: (topicFiles: TopicFileItem[]) => void;
@@ -29,7 +30,7 @@ type TopicFileWithFile = Tables<'topics_files'> & {
   file: Tables<'files'>;
 };
 
-export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
+export function Step6Files({ title, topics, topicFiles, onUpdate }: Step6FilesProps) {
   const [filesData, setFilesData] = useState<
     Record<string, Array<TopicFileWithFile>>
   >({});
@@ -92,6 +93,7 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
 
   return (
     <div className="space-y-4">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
         Select which files were used in this session. You can proceed without selecting any files.
       </p>

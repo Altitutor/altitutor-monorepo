@@ -9,11 +9,13 @@ import { StaffCard } from '@/shared/components/StaffCard';
 import type { Tables } from '@altitutor/shared';
 
 type Step0StaffSelectorProps = {
+  title?: string;
   selectedStaffId?: string;
   onSelectStaff: (staffId: string) => void;
 };
 
 export function Step0StaffSelector({
+  title,
   selectedStaffId,
   onSelectStaff,
 }: Step0StaffSelectorProps) {
@@ -71,6 +73,7 @@ export function Step0StaffSelector({
 
   return (
     <div className="space-y-4">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
         Select which staff member you're logging this session for.
       </p>

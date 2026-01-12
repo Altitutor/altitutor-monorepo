@@ -21,6 +21,7 @@ type TopicFileItem = {
 };
 
 type Step7FileStudentsProps = {
+  title?: string;
   topics: TopicItem[];
   topicFiles: TopicFileItem[];
   onUpdate: (topicFiles: TopicFileItem[]) => void;
@@ -31,6 +32,7 @@ type TopicFileWithFile = Tables<'topics_files'> & {
 };
 
 export function Step7FileStudents({
+  title,
   topics,
   topicFiles,
   onUpdate,
@@ -135,6 +137,7 @@ export function Step7FileStudents({
 
   return (
     <div className="space-y-4">
+      {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
         Assign students to files. By default, if a student studied a topic, they are assigned to that topic's files. You can proceed without assigning students.
       </p>
