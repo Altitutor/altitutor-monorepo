@@ -124,6 +124,66 @@ export async function ensureContactForParent(parentId: string): Promise<string |
 }
 
 /**
+ * Ensure contact exists for a staff member (create if missing)
+ * Returns contact ID or null if staff has no phone
+ */
+export async function ensureContactForStaff(staffId: string): Promise<string | null> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  
+  // Check if contact already exists
+  const { data: existingContact } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('staff_id', staffId)
+    .maybeSingle();
+  
+  if (existingContact?.id) {
+    return existingContact.id;
+  }
+  
+  // Get staff phone
+  const { data: staff, error: staffError } = await supabase
+    .from('staff')
+    .select('phone_number')
+    .eq('id', staffId)
+    .single();
+  
+  if (staffError || !staff?.phone_number) {
+    return null; // No phone number available
+  }
+  
+  // Create contact
+  const contactData: TablesInsert<'contacts'> = {
+    contact_type: 'STAFF',
+    staff_id: staffId,
+    phone_e164: staff.phone_number,
+    is_opted_out: false,
+  };
+  
+  const { data: newContact, error: createError } = await supabase
+    .from('contacts')
+    .insert(contactData)
+    .select('id')
+    .single();
+  
+  if (createError) {
+    // Check if it was a duplicate key error (race condition)
+    if (createError.code === '23505') {
+      const { data: retryContact } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('staff_id', staffId)
+        .maybeSingle();
+      return retryContact?.id || null;
+    }
+    console.error('Error creating contact for staff:', createError);
+    return null;
+  }
+  
+  return newContact.id;
+}
+
+/**
  * Batch create/ensure contacts and conversations for students and parents
  * Returns mapping of student/parent IDs to conversation IDs, plus lists of missing phones
  */

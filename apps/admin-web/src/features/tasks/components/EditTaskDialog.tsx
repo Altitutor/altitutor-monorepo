@@ -185,18 +185,6 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
         descriptionRef.current.textContent = task.description || '';
       }
       
-      // Set selected assignee if task has one
-      if (task.assigned_to && task.assignee) {
-        const foundStaff = staffList.find((s) => s.id === task.assignee!.id);
-        if (foundStaff) {
-          setSelectedAssignee(foundStaff);
-        } else {
-          setSelectedAssignee(null);
-        }
-      } else {
-        setSelectedAssignee(null);
-      }
-      
       // Reset search query when modal opens
       setAssigneeSearchQuery('');
       setIsAssigneePopoverOpen(false);
@@ -209,39 +197,56 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
         }
       }, 100);
     }
-  }, [task, form, isOpen, staffList]);
+  }, [task?.id, isOpen, form]);
 
-  // Sync contentEditable with form
+  // Sync contentEditable with form - use form.getValues to avoid watching
   useEffect(() => {
-    if (titleRef.current && task && titleRef.current.textContent !== form.watch('title')) {
-      titleRef.current.textContent = form.watch('title') || '';
+    if (titleRef.current && task) {
+      const currentTitle = form.getValues('title');
+      if (titleRef.current.textContent !== currentTitle) {
+        titleRef.current.textContent = currentTitle || '';
+      }
     }
-  }, [form.watch('title'), task]);
+  }, [task?.id, form]);
 
   useEffect(() => {
-    if (descriptionRef.current && task && descriptionRef.current.textContent !== form.watch('description')) {
-      descriptionRef.current.textContent = form.watch('description') || '';
+    if (descriptionRef.current && task) {
+      const currentDescription = form.getValues('description');
+      if (descriptionRef.current.textContent !== currentDescription) {
+        descriptionRef.current.textContent = currentDescription || '';
+      }
     }
-  }, [form.watch('description'), task]);
+  }, [task?.id, form]);
 
   // Sync selectedAssignee with form field
   useEffect(() => {
-    if (selectedAssignee) {
-      form.setValue('assignedTo', selectedAssignee.id);
-    } else {
-      form.setValue('assignedTo', null);
+    const currentAssignedTo = form.getValues('assignedTo');
+    if (selectedAssignee && currentAssignedTo !== selectedAssignee.id) {
+      form.setValue('assignedTo', selectedAssignee.id, { shouldDirty: false });
+    } else if (!selectedAssignee && currentAssignedTo !== null) {
+      form.setValue('assignedTo', null, { shouldDirty: false });
     }
-  }, [selectedAssignee, form]);
+  }, [selectedAssignee?.id, form]);
 
   // Update selectedAssignee when staffList loads and we have a task assignee
+  // Only run when task or staffList changes, not when selectedAssignee changes
   useEffect(() => {
-    if (task?.assigned_to && task.assignee && staffList.length > 0 && !selectedAssignee) {
+    if (!task || !isOpen) return;
+    
+    if (task.assigned_to && task.assignee) {
       const foundStaff = staffList.find((s) => s.id === task.assignee!.id);
       if (foundStaff) {
-        setSelectedAssignee(foundStaff);
+        // Use functional update to avoid stale closure issues
+        setSelectedAssignee((prev) => {
+          if (prev?.id === foundStaff.id) return prev;
+          return foundStaff;
+        });
       }
+    } else {
+      // Task has no assignee, clear selection
+      setSelectedAssignee(null);
     }
-  }, [task, staffList, selectedAssignee]);
+  }, [task?.id, task?.assigned_to, task?.assignee?.id, staffList, isOpen]);
 
   const onSubmit = async (data: FormData) => {
     if (!taskId) return;
@@ -283,6 +288,9 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
           <div className="p-4">Loading...</div>
         </DialogContent>
       </Dialog>
@@ -293,6 +301,9 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
           <div className="p-4">Task not found</div>
         </DialogContent>
       </Dialog>

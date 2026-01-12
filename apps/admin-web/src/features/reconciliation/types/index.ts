@@ -28,7 +28,6 @@ export interface StudentWithoutClasses {
   student_id: string;
   first_name: string;
   last_name: string;
-  student_status: string;
   subject_id: string;
   subject_name: string;
   subject_curriculum: string | null;

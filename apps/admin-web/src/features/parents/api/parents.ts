@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const parentsApi = {
   /**
    * Paginated, server-filtered parents list
+   * Uses RPC function search_parents_admin for efficient server-side search
    */
   list: async (params: {
     search?: string;
@@ -25,47 +26,53 @@ export const parentsApi = {
       ascending = true,
     } = params || {};
 
-    let query = supabase
-      .from('parents')
-      .select(
-        `
-          *,
-          parents_students (
-            students (*)
-          )
-        `,
-        { count: 'exact' }
-      );
-
-    // Search across common fields
     const trimmed = search.trim();
-    if (trimmed.length > 0) {
-      const q = `%${trimmed}%`;
-      query = query.or(
-        `first_name.ilike.${q},last_name.ilike.${q},email.ilike.${q},phone.ilike.${q}`
-      );
-    }
+    
+    // Use RPC function for search
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_parents_admin', {
+      p_search: trimmed.length > 0 ? trimmed : undefined,
+      p_include_relationships: true,
+      p_limit: limit,
+      p_offset: offset,
+      p_order_by: orderBy as string,
+      p_ascending: ascending,
+    });
 
-    // Sorting
-    query = query.order(orderBy as string, { ascending });
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { parents: [], total: 0 };
 
-    // Pagination
-    const from = offset;
-    const to = Math.max(offset + limit - 1, offset);
-    query = query.range(from, to);
-
-    const { data, count, error } = await query;
-    if (error) throw error;
-
-    // Transform the data to flatten students array
-    const parents = (data ?? []).map((parent: any) => ({
-      ...parent,
-      students: (parent.parents_students || []).map((ps: any) => ps.students).filter(Boolean),
-    }));
+    const rpcData = rpcResult as { parents: any[]; total: number };
+    
+    // Transform RPC response to match expected format
+    const parents = (rpcData.parents || []).map((p: any) => ({
+      id: p.id,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      email: p.email || null,
+      phone: p.phone || null,
+      user_id: null, // Not returned by RPC
+      invite_token: null, // Not returned by RPC
+      created_by: null, // Not returned by RPC
+      created_at: p.created_at || null,
+      updated_at: p.updated_at || null,
+      students: (p.students || []).map((s: any) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status,
+        curriculum: s.curriculum || null,
+        year_level: s.year_level || null,
+        school: s.school || null,
+        email: null, // Not returned by RPC
+        phone: null, // Not returned by RPC
+        created_at: null, // Not returned by RPC
+        updated_at: null, // Not returned by RPC
+      })),
+    })) as Array<Tables<'parents'> & { students?: Tables<'students'>[] }>;
 
     return {
-      parents: parents as Array<Tables<'parents'> & { students?: Tables<'students'>[] }>,
-      total: count ?? 0,
+      parents,
+      total: rpcData.total || 0,
     };
   },
 

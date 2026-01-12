@@ -7529,6 +7529,17 @@ export type Database = {
         }
         Returns: Json
       }
+      search_parents_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_include_relationships?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
       search_sessions_admin: {
         Args: {
           p_admin_shift_id?: string

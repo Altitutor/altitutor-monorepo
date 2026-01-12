@@ -16,6 +16,8 @@ import {
   AssignStaffStep3Summary,
 } from './steps';
 import type { AssignStaffModalProps, AssignStaffContext } from '../types/enrollment';
+import { ClassCard } from '@/shared/components/ClassCard';
+import { StaffCard } from '@/shared/components/StaffCard';
 
 export function AssignStaffModal({
   isOpen,
@@ -187,13 +189,66 @@ export function AssignStaffModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>Assign Staff</DialogTitle>
-          <DialogDescription>
-            {context === 'staff' 
-              ? 'Select classes to assign to this staff member'
-              : 'Select staff members to assign to this class'}
-          </DialogDescription>
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b space-y-3">
+          <div className="flex-1">
+            <DialogTitle>Assign Staff</DialogTitle>
+            {(context === 'class' && classData && classSubject) || 
+             (context === 'staff' && staff) || 
+             selectedClasses.length > 0 || 
+             selectedStaff.length > 0 ? (
+              <div className="mt-3 flex items-center gap-3 flex-wrap">
+                {/* Show class card for class context */}
+                {context === 'class' && classData && classSubject && (
+                  <div className="flex-shrink-0">
+                    <ClassCard
+                      class={classData}
+                      subject={classSubject}
+                      staff={classStaff || []}
+                      students={[]}
+                      compact={true}
+                    />
+                  </div>
+                )}
+                
+                {/* Show staff card for staff context */}
+                {context === 'staff' && staff && (
+                  <div className="flex-shrink-0">
+                    <StaffCard
+                      staff={staff}
+                      subjects={staffSubjects || []}
+                      showSubjects={true}
+                      showActions={false}
+                    />
+                  </div>
+                )}
+                
+                {/* Show selected staff cards for class context */}
+                {context === 'class' && selectedStaff.map(s => (
+                  <div key={s.id} className="flex-shrink-0">
+                    <StaffCard
+                      staff={s}
+                      subjects={[]}
+                      showSubjects={false}
+                      showActions={false}
+                    />
+                  </div>
+                ))}
+                
+                {/* Show selected class cards for staff context */}
+                {context === 'staff' && selectedClasses.map(c => (
+                  <div key={c.id} className="flex-shrink-0">
+                    <ClassCard
+                      class={c}
+                      subject={c.subject}
+                      staff={c.staff || []}
+                      students={c.students || []}
+                      compact={true}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden min-h-0 px-6 py-4 flex flex-col">

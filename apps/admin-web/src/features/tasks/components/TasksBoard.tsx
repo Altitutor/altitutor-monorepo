@@ -237,6 +237,9 @@ export function TasksBoard({ filters, onCreateTask }: TasksBoardProps) {
             setSelectedTaskId(null);
           }}
           taskId={selectedTaskId}
+          onTaskUpdated={() => {
+            // Task was updated, dialog will handle closing
+          }}
         />
       )}
     </>

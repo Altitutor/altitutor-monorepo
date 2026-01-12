@@ -375,7 +375,7 @@ export function StudentsWithoutClassesTable({
       title="Students Without Classes"
       items={items}
       isLoading={isLoading}
-      columns={['Student', 'Status', 'Subject']}
+      columns={['Student', 'Subject']}
       renderRow={(item, index) => {
         const subject = subjectMap.get(item.subject_id) || {
           id: item.subject_id,
@@ -390,11 +390,6 @@ export function StudentsWithoutClassesTable({
           <TableRow key={`${item.student_id}-${item.subject_id}`}>
             <TableCell className="font-medium">
               {item.first_name} {item.last_name}
-            </TableCell>
-            <TableCell>
-              <Badge variant={item.student_status === 'ACTIVE' ? 'default' : 'secondary'}>
-                {item.student_status}
-              </Badge>
             </TableCell>
             <TableCell>
               <Badge
