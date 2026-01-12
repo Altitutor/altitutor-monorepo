@@ -54,6 +54,11 @@ export function Navbar() {
   const { data: staffRecord } = useCurrentStaff();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   
+  // Hide navbar entirely when logged out
+  if (!user) {
+    return null;
+  }
+  
   // Initialize date from URL if on sessions page, otherwise use today
   const getInitialDate = (): string => {
     if (pathname === '/sessions') {
@@ -183,17 +188,15 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
       <div className="container mx-auto px-4 h-full flex items-center gap-4">
         {/* Mobile Hamburger Menu Button */}
-        {user && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleMobileMenu}
-            className="md:hidden flex-shrink-0"
-            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-          >
-            <AnimatedHamburgerIcon isOpen={isMobileMenuOpen} />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleMobileMenu}
+          className="md:hidden flex-shrink-0"
+          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+        >
+          <AnimatedHamburgerIcon isOpen={isMobileMenuOpen} />
+        </Button>
         
         {/* Desktop Logo - hidden on mobile */}
         <div className="hidden md:flex items-center gap-3 min-w-[220px]">
@@ -211,42 +214,38 @@ export function Navbar() {
         </div>
         
         {/* Search - same on desktop and mobile */}
-        {user && (
-          <div className="flex-1 flex justify-center min-w-0">
-            <GlobalSearch />
-          </div>
-        )}
+        <div className="flex-1 flex justify-center min-w-0">
+          <GlobalSearch />
+        </div>
         
         <div className="flex items-center gap-4 flex-shrink-0 justify-end">
           {/* Date Picker - Desktop only */}
-          {user && (
-            <div className="hidden md:flex items-center gap-2">
-              <div className="relative">
-                <input
-                  ref={dateInputRefDesktop}
-                  type="date"
-                  value={selectedDate}
-                  onChange={handleDateChange}
-                  className="sr-only"
-                  aria-label="Select date"
-                  id="date-picker-desktop"
-                />
-                <Button
-                  variant="outline"
-                  className="h-9 px-3 text-sm font-normal cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDateButtonClickDesktop();
-                  }}
-                  type="button"
-                  data-date-picker-button
-                >
-                  {formatDateDisplay(selectedDate)}
-                </Button>
-              </div>
+          <div className="hidden md:flex items-center gap-2">
+            <div className="relative">
+              <input
+                ref={dateInputRefDesktop}
+                type="date"
+                value={selectedDate}
+                onChange={handleDateChange}
+                className="sr-only"
+                aria-label="Select date"
+                id="date-picker-desktop"
+              />
+              <Button
+                variant="outline"
+                className="h-9 px-3 text-sm font-normal cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDateButtonClickDesktop();
+                }}
+                type="button"
+                data-date-picker-button
+              >
+                {formatDateDisplay(selectedDate)}
+              </Button>
             </div>
-          )}
+          </div>
           
           {/* Theme Toggle - Desktop only */}
           <div className="hidden md:block">
@@ -254,35 +253,29 @@ export function Navbar() {
           </div>
           
           {/* Profile Menu */}
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 border-0">
-                  <div className="h-8 w-8 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-sm">
-                    {getInitials()}
-                  </div>
-                  <span className="hidden sm:inline">{getFullName()}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link href="/my-account" className="flex items-center cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    My Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button variant="outline" asChild>
-              <Link href="/login">Login</Link>
-            </Button>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2 border-0">
+                <div className="h-8 w-8 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-sm">
+                  {getInitials()}
+                </div>
+                <span className="hidden sm:inline">{getFullName()}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/my-account" className="flex items-center cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  My Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <LogoutConfirmationModal
