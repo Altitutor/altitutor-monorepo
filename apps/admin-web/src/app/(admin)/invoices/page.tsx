@@ -438,8 +438,6 @@ export default function InvoicesPage() {
           />
       </div>
 
-      {/* <TestBillingRunner /> */}
-
       <div className="rounded-md border">
         <Table>
           <TableHeader>

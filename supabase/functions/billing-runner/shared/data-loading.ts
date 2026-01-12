@@ -111,24 +111,41 @@ export async function loadBillingInfo(supabase: any): Promise<
     }>;
   }>
 > {
+  // Query students_billing and student_payment_methods separately, then combine
   const { data: billingRows, error: billErr } = await supabase
-    .from('vadmin_billing_with_payment_methods')
-    .select('student_id, stripe_customer_id, stripe_payment_method_id, card_country');
+    .from('students_billing')
+    .select('student_id, stripe_customer_id');
   if (billErr) throw billErr;
 
+  const { data: paymentMethods, error: pmErr } = await supabase
+    .from('student_payment_methods')
+    .select('student_id, stripe_payment_method_id, card_country')
+    .eq('is_default', true);
+  if (pmErr) throw pmErr;
+
+  // Create a map of payment methods by student_id
+  const paymentMethodsByStudent: Record<string, Array<{
+    stripe_payment_method_id: string;
+    card_country: string | null;
+  }>> = {};
+  
+  for (const pm of paymentMethods || []) {
+    if (!paymentMethodsByStudent[pm.student_id]) {
+      paymentMethodsByStudent[pm.student_id] = [];
+    }
+    paymentMethodsByStudent[pm.student_id].push({
+      stripe_payment_method_id: pm.stripe_payment_method_id,
+      card_country: pm.card_country,
+    });
+  }
+
+  // Combine billing info with payment methods
   const billingByStudent: Record<string, any> = {};
   for (const b of billingRows || []) {
     billingByStudent[b.student_id] = {
       student_id: b.student_id,
       stripe_customer_id: b.stripe_customer_id,
-      payment_methods: b.stripe_payment_method_id
-        ? [
-            {
-              stripe_payment_method_id: b.stripe_payment_method_id,
-              card_country: b.card_country,
-            },
-          ]
-        : [],
+      payment_methods: paymentMethodsByStudent[b.student_id] || [],
     };
   }
 

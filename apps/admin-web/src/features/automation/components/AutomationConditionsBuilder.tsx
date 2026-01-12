@@ -16,7 +16,6 @@ import {
 import { Input } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { X, Plus } from 'lucide-react';
 import type { AutomationCondition, ConditionOperator, ActivityEventType } from '../types';
@@ -48,6 +47,7 @@ interface AutomationConditionsBuilderProps {
   eventTypes: ActivityEventType[];
   entityType: string;
   onChange: (condition: AutomationCondition | null) => void;
+  inline?: boolean; // If true, render inline instead of as a card
 }
 
 // Standard operators (work for CREATED and current state)
@@ -73,6 +73,7 @@ export function AutomationConditionsBuilder({
   eventTypes,
   entityType,
   onChange,
+  inline = false,
 }: AutomationConditionsBuilderProps) {
   const hasUpdatedEvent = eventTypes.includes('UPDATED');
   const hasCreatedEvent = eventTypes.includes('CREATED');
@@ -148,168 +149,153 @@ export function AutomationConditionsBuilder({
   // Common field names by entity type (can be expanded)
   const getFieldSuggestions = (): string[] => {
     const commonFields: Record<string, string[]> = {
-      tasks: ['status', 'priority', 'assigned_to', 'title', 'description'],
-      students: ['status', 'year_level', 'curriculum', 'first_name', 'last_name'],
-      classes: ['status', 'day_of_week', 'start_time', 'end_time', 'subject_id'],
+      tasks: ['status', 'priority', 'assigned_to', 'title', 'description', 'due_date', 'estimate', 'created_by'],
+      students: ['status', 'year_level', 'curriculum', 'first_name', 'last_name', 'email', 'phone_number', 'parent_name', 'parent_email'],
+      classes: ['status', 'day_of_week', 'start_time', 'end_time', 'subject_id', 'max_capacity'],
       sessions: ['status', 'start_at', 'end_at', 'class_id'],
-      invoices: ['status', 'due_date', 'total_amount'],
+      staff: ['role', 'status', 'first_name', 'last_name', 'email', 'phone_number'],
+      parents: ['first_name', 'last_name', 'email', 'phone_number'],
+      invoices: ['status', 'invoice_date', 'amount_due_cents', 'amount_paid_cents', 'currency', 'collection_method'],
+      invoice_items: ['description', 'quantity', 'unit_amount_cents', 'total_amount_cents'],
+      notes: ['note_type', 'content', 'target_type'],
+      tutor_logs: ['session_id', 'status', 'started_at', 'ended_at'],
     };
     return commonFields[entityType] || [];
   };
 
   const fieldSuggestions = getFieldSuggestions();
 
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Conditions</CardTitle>
-            <CardDescription>
-              {hasUpdatedEvent && hasCreatedEvent
-                ? 'Set conditions based on field values or field changes'
-                : hasUpdatedEvent
-                ? 'Set conditions based on field changes (only works for UPDATED events)'
-                : 'Set conditions based on current field values'}
-            </CardDescription>
-          </div>
-          {conditions && (
-            <Button variant="ghost" size="sm" onClick={handleClear}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {!conditions ? (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="field"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Field Name</FormLabel>
-                    <FormControl>
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="e.g., status, priority, assigned_to"
-                          {...field}
-                          list={`field-suggestions-${entityType}`}
-                        />
-                        {fieldSuggestions.length > 0 && (
-                          <datalist id={`field-suggestions-${entityType}`}>
-                            {fieldSuggestions.map((suggestion) => (
-                              <option key={suggestion} value={suggestion} />
-                            ))}
-                          </datalist>
-                        )}
-                      </div>
-                    </FormControl>
-                    <FormDescription>Name of the field to check</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="operator"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Operator</FormLabel>
+  // Inline mode - render inline with sentence builder
+  if (inline) {
+    if (!conditions) {
+      return (
+        <Form {...form}>
+          <div className="contents">
+            <span>with</span>
+            <FormField
+              control={form.control}
+              name="field"
+              render={({ field }) => (
+                <FormItem className="w-[140px] [&>div]:w-full">
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        className="h-9 pr-8"
+                        placeholder="Field name"
+                        {...field}
+                        list={`field-suggestions-inline-${entityType}`}
+                      />
+                      {fieldSuggestions.length > 0 && (
+                        <datalist id={`field-suggestions-inline-${entityType}`}>
+                          {fieldSuggestions.map((suggestion) => (
+                            <option key={suggestion} value={suggestion} />
+                          ))}
+                        </datalist>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="operator"
+              render={({ field }) => (
+                <FormItem className="w-[140px] [&>div]:w-full">
+                  <FormControl>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Operator" />
+                      </SelectTrigger>
                       <SelectContent>
                         {availableOperators.map((op) => (
                           <SelectItem key={op.value} value={op.value}>
-                            <div>
-                              <div className="font-medium">{op.label}</div>
-                              <div className="text-xs text-muted-foreground">{op.description}</div>
-                            </div>
+                            {op.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      {isFieldChangeOperator && !hasUpdatedEvent
-                        ? '⚠️ Field change operators only work with UPDATED events'
-                        : 'How to evaluate the field'}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {selectedOperator === 'changed_from_to' ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="old_value"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Old Value</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Previous value"
-                            {...field}
-                            value={field.value?.toString() || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              // Try to parse as number, otherwise keep as string
-                              const numVal = Number(val);
-                              field.onChange(isNaN(numVal) ? val : numVal);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="new_value"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>New Value</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="New value"
-                            {...field}
-                            value={field.value?.toString() || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const numVal = Number(val);
-                              field.onChange(isNaN(numVal) ? val : numVal);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              ) : selectedOperator !== 'field_changed' ? (
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {selectedOperator === 'changed_from_to' ? (
+              <>
+                <span>from</span>
                 <FormField
                   control={form.control}
-                  name="value"
+                  name="old_value"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {selectedOperator === 'changed_from' ? 'Old Value' : selectedOperator === 'changed_to' ? 'New Value' : 'Value'}
-                      </FormLabel>
+                    <FormItem className="w-[120px] [&>div]:w-full">
                       <FormControl>
                         <Input
-                          placeholder="Enter value"
+                          className="h-9"
+                          placeholder="Value"
                           {...field}
                           value={field.value?.toString() || ''}
                           onChange={(e) => {
                             const val = e.target.value;
-                            // Try to parse as number or boolean, otherwise keep as string
+                            const numVal = Number(val);
+                            field.onChange(isNaN(numVal) ? val : numVal);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <span>to</span>
+                <FormField
+                  control={form.control}
+                  name="new_value"
+                  render={({ field }) => (
+                    <FormItem className="w-[120px] [&>div]:w-full">
+                      <FormControl>
+                        <Input
+                          className="h-9"
+                          placeholder="Value"
+                          {...field}
+                          value={field.value?.toString() || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const numVal = Number(val);
+                            field.onChange(isNaN(numVal) ? val : numVal);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9"
+                  onClick={form.handleSubmit(handleSave)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </>
+            ) : selectedOperator !== 'field_changed' ? (
+              <>
+                {(selectedOperator === 'changed_from' || selectedOperator === 'changed_to') && (
+                  <span>{selectedOperator === 'changed_from' ? 'from' : 'to'}</span>
+                )}
+                <FormField
+                  control={form.control}
+                  name="value"
+                  render={({ field }) => (
+                    <FormItem className="w-[120px] [&>div]:w-full">
+                      <FormControl>
+                        <Input
+                          className="h-9"
+                          placeholder="Value"
+                          {...field}
+                          value={field.value?.toString() || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
                             if (val === 'true') {
                               field.onChange(true);
                             } else if (val === 'false') {
@@ -325,44 +311,215 @@ export function AutomationConditionsBuilder({
                     </FormItem>
                   )}
                 />
-              ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9"
+                  onClick={form.handleSubmit(handleSave)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9"
+                onClick={form.handleSubmit(handleSave)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </Form>
+      );
+    }
+    // Show existing condition inline
+    return null; // This will be handled by parent component
+  }
 
-              <Button type="button" size="sm" onClick={form.handleSubmit(handleSave)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Condition
-              </Button>
-            </form>
-          </Form>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-              <div className="flex-1">
-                <div className="font-medium">{conditions.field}</div>
-                <div className="text-sm text-muted-foreground">
-                  {conditions.operator === 'changed_from_to' ? (
-                    <>
-                      Changed from <Badge variant="outline">{String(conditions.old_value)}</Badge> to{' '}
-                      <Badge variant="outline">{String(conditions.new_value)}</Badge>
-                    </>
-                  ) : conditions.operator === 'field_changed' ? (
-                    'Field was changed'
-                  ) : (
-                    <>
-                      {conditions.operator} <Badge variant="outline">{String(conditions.value)}</Badge>
-                    </>
+  // Card mode - original implementation
+  return (
+    <div className="space-y-2">
+      {!conditions ? (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="field"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Field Name</FormLabel>
+                  <FormControl>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="e.g., status, priority, assigned_to"
+                        {...field}
+                        list={`field-suggestions-${entityType}`}
+                      />
+                      {fieldSuggestions.length > 0 && (
+                        <datalist id={`field-suggestions-${entityType}`}>
+                          {fieldSuggestions.map((suggestion) => (
+                            <option key={suggestion} value={suggestion} />
+                          ))}
+                        </datalist>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormDescription>Name of the field to check</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="operator"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Operator</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableOperators.map((op) => (
+                        <SelectItem key={op.value} value={op.value}>
+                          <div>
+                            <div className="font-medium">{op.label}</div>
+                            <div className="text-xs text-muted-foreground">{op.description}</div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {isFieldChangeOperator && !hasUpdatedEvent
+                      ? '⚠️ Field change operators only work with UPDATED events'
+                      : 'How to evaluate the field'}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {selectedOperator === 'changed_from_to' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="old_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Old Value</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Previous value"
+                          {...field}
+                          value={field.value?.toString() || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const numVal = Number(val);
+                            field.onChange(isNaN(numVal) ? val : numVal);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
+                />
+                <FormField
+                  control={form.control}
+                  name="new_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>New Value</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="New value"
+                          {...field}
+                          value={field.value?.toString() || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const numVal = Number(val);
+                            field.onChange(isNaN(numVal) ? val : numVal);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-              <Button variant="ghost" size="sm" onClick={handleClear}>
-                <X className="h-4 w-4" />
-              </Button>
+            ) : selectedOperator !== 'field_changed' ? (
+              <FormField
+                control={form.control}
+                name="value"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {selectedOperator === 'changed_from' ? 'Old Value' : selectedOperator === 'changed_to' ? 'New Value' : 'Value'}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter value"
+                        {...field}
+                        value={field.value?.toString() || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'true') {
+                            field.onChange(true);
+                          } else if (val === 'false') {
+                            field.onChange(false);
+                          } else {
+                            const numVal = Number(val);
+                            field.onChange(isNaN(numVal) ? val : numVal);
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : null}
+
+            <Button type="button" size="sm" onClick={form.handleSubmit(handleSave)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Condition
+            </Button>
+          </form>
+        </Form>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+            <div className="flex-1">
+              <div className="font-medium">{conditions.field}</div>
+              <div className="text-sm text-muted-foreground">
+                {conditions.operator === 'changed_from_to' ? (
+                  <>
+                    Changed from <Badge variant="outline">{String(conditions.old_value)}</Badge> to{' '}
+                    <Badge variant="outline">{String(conditions.new_value)}</Badge>
+                  </>
+                ) : conditions.operator === 'field_changed' ? (
+                  'Field was changed'
+                ) : (
+                  <>
+                    {conditions.operator} <Badge variant="outline">{String(conditions.value)}</Badge>
+                  </>
+                )}
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={handleClear} className="w-full">
-              Edit Condition
+            <Button variant="ghost" size="sm" onClick={handleClear}>
+              <X className="h-4 w-4" />
             </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <Button variant="outline" size="sm" onClick={handleClear} className="w-full">
+            Edit Condition
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -14,6 +14,9 @@ import { Badge } from '@altitutor/ui';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ReconciliationActions } from './ReconciliationActions';
+import { useSubjects } from '@/features/subjects';
+import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
+import type { Tables } from '@altitutor/shared';
 import type {
   UninvoicedSession,
   OrphanedInvoiceItem,
@@ -39,10 +42,6 @@ export function ReconciliationTable<T>({
   columns,
 }: ReconciliationTableProps<T>) {
   const [isExpanded, setIsExpanded] = useState(true);
-
-  if (items.length === 0 && !isLoading) {
-    return null;
-  }
 
   return (
     <div className="space-y-4">
@@ -108,27 +107,51 @@ export function UninvoicedSessionsTable({
   items: UninvoicedSession[];
   isLoading?: boolean;
 }) {
+  const { data: subjects = [] } = useSubjects();
+  const subjectMap = useMemo(() => {
+    const map = new Map<string, Tables<'subjects'>>();
+    subjects.forEach(s => map.set(s.id, s));
+    return map;
+  }, [subjects]);
+
   return (
     <ReconciliationTable
       title="Uninvoiced Sessions"
       items={items}
       isLoading={isLoading}
-      columns={['Student', 'Subject', 'Session Date', 'Type']}
-      renderRow={(item, index) => (
-        <TableRow key={item.sessions_students_id}>
-          <TableCell className="font-medium">
-            {item.student_first_name} {item.student_last_name}
-          </TableCell>
-          <TableCell>{item.subject_name || '—'}</TableCell>
-          <TableCell>
-            {format(new Date(item.session_start_at), 'MMM d, yyyy')}
-          </TableCell>
-          <TableCell>{item.billing_type || item.session_type}</TableCell>
-          <TableCell>
-            <ReconciliationActions type="uninvoiced_sessions" item={item} />
-          </TableCell>
-        </TableRow>
-      )}
+      columns={['Date', 'Student', 'Subject', 'Type']}
+      renderRow={(item, index) => {
+        const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
+        const { style, textColorClass } = getSubjectColorStyle(subject);
+        const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+
+        return (
+          <TableRow key={item.sessions_students_id}>
+            <TableCell>
+              {format(new Date(item.session_start_at), 'MMM d, yyyy')}
+            </TableCell>
+            <TableCell className="font-medium">
+              {item.student_first_name} {item.student_last_name}
+            </TableCell>
+            <TableCell>
+              {subject ? (
+                <Badge
+                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                  style={style.backgroundColor ? style : undefined}
+                >
+                  {formatSubjectDisplay(subject)}
+                </Badge>
+              ) : (
+                item.subject_name || '—'
+              )}
+            </TableCell>
+            <TableCell>{item.billing_type || item.session_type}</TableCell>
+            <TableCell>
+              <ReconciliationActions type="uninvoiced_sessions" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
     />
   );
 }
@@ -140,25 +163,59 @@ export function OrphanedInvoiceItemsTable({
   items: OrphanedInvoiceItem[];
   isLoading?: boolean;
 }) {
+  const { data: subjects = [] } = useSubjects();
+  const subjectMap = useMemo(() => {
+    const map = new Map<string, Tables<'subjects'>>();
+    subjects.forEach(s => map.set(s.id, s));
+    return map;
+  }, [subjects]);
+
   return (
     <ReconciliationTable
       title="Orphaned Invoice Items"
       items={items}
       isLoading={isLoading}
-      columns={['Description', 'Student', 'Subject', 'Amount']}
-      renderRow={(item, index) => (
-        <TableRow key={item.invoice_item_id}>
-          <TableCell className="font-medium">{item.description}</TableCell>
-          <TableCell>
-            {item.student_first_name} {item.student_last_name}
-          </TableCell>
-          <TableCell>{item.subject_name || '—'}</TableCell>
-          <TableCell>${(item.amount_cents / 100).toFixed(2)}</TableCell>
-          <TableCell>
-            <ReconciliationActions type="orphaned_invoice_items" item={item} />
-          </TableCell>
-        </TableRow>
-      )}
+      columns={['Date', 'Description', 'Student', 'Subject', 'Amount']}
+      renderRow={(item, index) => {
+        const subject = item.session_id ? null : null; // Orphaned items don't have subject_id in type
+        // Try to find subject by name as fallback
+        const subjectByName = item.subject_name 
+          ? subjects.find(s => formatSubjectDisplay(s) === item.subject_name)
+          : null;
+        const finalSubject = subject || subjectByName;
+        const { style, textColorClass } = getSubjectColorStyle(finalSubject);
+        const defaultClass = !finalSubject?.color ? 'bg-gray-100 text-gray-800' : '';
+
+        return (
+          <TableRow key={item.invoice_item_id}>
+            <TableCell>
+              {item.session_start_at 
+                ? format(new Date(item.session_start_at), 'MMM d, yyyy')
+                : format(new Date(item.created_at), 'MMM d, yyyy')}
+            </TableCell>
+            <TableCell className="font-medium">{item.description}</TableCell>
+            <TableCell>
+              {item.student_first_name} {item.student_last_name}
+            </TableCell>
+            <TableCell>
+              {finalSubject ? (
+                <Badge
+                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                  style={style.backgroundColor ? style : undefined}
+                >
+                  {formatSubjectDisplay(finalSubject)}
+                </Badge>
+              ) : (
+                item.subject_name || '—'
+              )}
+            </TableCell>
+            <TableCell>${(item.amount_cents / 100).toFixed(2)}</TableCell>
+            <TableCell>
+              <ReconciliationActions type="orphaned_invoice_items" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
     />
   );
 }
@@ -175,17 +232,14 @@ export function UnpaidInvoicesTable({
       title="Unpaid Invoices"
       items={items}
       isLoading={isLoading}
-      columns={['Invoice', 'Student', 'Date', 'Amount Due', 'Status']}
+      columns={['Date', 'Student', 'Amount Due', 'Status']}
       renderRow={(item, index) => (
         <TableRow key={item.id}>
-          <TableCell className="font-medium">
-            #{item.id.slice(0, 8)}
-          </TableCell>
-          <TableCell>
-            {item.student_first_name} {item.student_last_name}
-          </TableCell>
           <TableCell>
             {format(new Date(item.invoice_date), 'MMM d, yyyy')}
+          </TableCell>
+          <TableCell className="font-medium">
+            {item.student_first_name} {item.student_last_name}
           </TableCell>
           <TableCell>
             ${(item.amount_due_cents / 100).toFixed(2)} {item.currency}
@@ -211,31 +265,52 @@ export function UnloggedSessionsTable({
   items: UnloggedSession[];
   isLoading?: boolean;
 }) {
+  const { data: subjects = [] } = useSubjects();
+  const subjectMap = useMemo(() => {
+    const map = new Map<string, Tables<'subjects'>>();
+    subjects.forEach(s => map.set(s.id, s));
+    return map;
+  }, [subjects]);
+
   return (
     <ReconciliationTable
       title="Unlogged Sessions"
       items={items}
       isLoading={isLoading}
-      columns={['Subject', 'Date', 'Tutors', 'Students']}
-      renderRow={(item, index) => (
-        <TableRow key={item.session_id}>
-          <TableCell className="font-medium">
-            {item.subject_name || '—'}
-          </TableCell>
-          <TableCell>
-            {format(new Date(item.start_at), 'MMM d, yyyy')}
-          </TableCell>
-          <TableCell>
-            {item.assigned_tutors && item.assigned_tutors.length > 0
-              ? item.assigned_tutors.map((t) => `${t.first_name} ${t.last_name}`).join(', ')
-              : '—'}
-          </TableCell>
-          <TableCell>{item.student_count}</TableCell>
-          <TableCell>
-            <ReconciliationActions type="unlogged_sessions" item={item} />
-          </TableCell>
-        </TableRow>
-      )}
+      columns={['Date', 'Subject', 'Tutors']}
+      renderRow={(item, index) => {
+        const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
+        const { style, textColorClass } = getSubjectColorStyle(subject);
+        const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+
+        return (
+          <TableRow key={item.session_id}>
+            <TableCell>
+              {format(new Date(item.start_at), 'MMM d, yyyy')}
+            </TableCell>
+            <TableCell>
+              {subject ? (
+                <Badge
+                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                  style={style.backgroundColor ? style : undefined}
+                >
+                  {formatSubjectDisplay(subject)}
+                </Badge>
+              ) : (
+                item.subject_name || '—'
+              )}
+            </TableCell>
+            <TableCell>
+              {item.assigned_tutors && item.assigned_tutors.length > 0
+                ? item.assigned_tutors.map((t) => `${t.first_name} ${t.last_name}`).join(', ')
+                : '—'}
+            </TableCell>
+            <TableCell>
+              <ReconciliationActions type="unlogged_sessions" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
     />
   );
 }
@@ -248,28 +323,52 @@ export function UnassignedClassesTable({
   isLoading?: boolean;
 }) {
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const { data: subjects = [] } = useSubjects();
+  const subjectMap = useMemo(() => {
+    const map = new Map<string, Tables<'subjects'>>();
+    subjects.forEach(s => map.set(s.id, s));
+    return map;
+  }, [subjects]);
 
   return (
     <ReconciliationTable
       title="Unassigned Classes"
       items={items}
       isLoading={isLoading}
-      columns={['Subject', 'Day', 'Time', 'Students']}
-      renderRow={(item, index) => (
-        <TableRow key={item.class_id}>
-          <TableCell className="font-medium">
-            {item.subject_name || '—'}
-          </TableCell>
-          <TableCell>{dayNames[item.day_of_week]}</TableCell>
-          <TableCell>
-            {item.start_time} - {item.end_time}
-          </TableCell>
-          <TableCell>{item.student_count}</TableCell>
-          <TableCell>
-            <ReconciliationActions type="unassigned_classes" item={item} />
-          </TableCell>
-        </TableRow>
-      )}
+      columns={['Date', 'Subject', 'Day', 'Time', 'Students']}
+      renderRow={(item, index) => {
+        const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
+        const { style, textColorClass } = getSubjectColorStyle(subject);
+        const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+
+        return (
+          <TableRow key={item.class_id}>
+            <TableCell>
+              {format(new Date(item.created_at), 'MMM d, yyyy')}
+            </TableCell>
+            <TableCell>
+              {subject ? (
+                <Badge
+                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                  style={style.backgroundColor ? style : undefined}
+                >
+                  {formatSubjectDisplay(subject)}
+                </Badge>
+              ) : (
+                item.subject_name || '—'
+              )}
+            </TableCell>
+            <TableCell>{dayNames[item.day_of_week]}</TableCell>
+            <TableCell>
+              {item.start_time} - {item.end_time}
+            </TableCell>
+            <TableCell>{item.student_count}</TableCell>
+            <TableCell>
+              <ReconciliationActions type="unassigned_classes" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
     />
   );
 }
@@ -286,7 +385,7 @@ export function UnreadMessagesTable({
       title="Unread Messages"
       items={items}
       isLoading={isLoading}
-      columns={['Contact', 'Preview', 'Unread', 'Last Message']}
+      columns={['Last Message', 'Contact', 'Preview', 'Unread']}
       renderRow={(item, index) => {
         const hoursAgo = item.hours_since_last_message
           ? Math.floor(item.hours_since_last_message)
@@ -294,6 +393,9 @@ export function UnreadMessagesTable({
 
         return (
           <TableRow key={item.conversation_id}>
+            <TableCell>
+              {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
+            </TableCell>
             <TableCell className="font-medium">
               {item.contact_name || item.contact_phone}
             </TableCell>
@@ -302,9 +404,6 @@ export function UnreadMessagesTable({
             </TableCell>
             <TableCell>
               <Badge variant="destructive">{item.unread_count}</Badge>
-            </TableCell>
-            <TableCell>
-              {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
             </TableCell>
             <TableCell>
               <ReconciliationActions type="unread_messages" item={item} />

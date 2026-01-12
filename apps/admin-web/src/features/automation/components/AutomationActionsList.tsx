@@ -68,6 +68,7 @@ export function AutomationActionsList({
           <h4 className="font-medium">Actions ({actions.length})</h4>
         </div>
         <Button
+          type="button"
           size="sm"
           onClick={() => setIsCreateDialogOpen(true)}
           disabled={!ruleId}
@@ -81,6 +82,7 @@ export function AutomationActionsList({
         <div className="text-center py-8 text-muted-foreground border rounded-lg">
           <p>No actions configured yet</p>
           <Button
+            type="button"
             variant="outline"
             size="sm"
             className="mt-4"
@@ -114,6 +116,7 @@ export function AutomationActionsList({
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
+                        type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => setEditingAction(action)}
@@ -121,6 +124,7 @@ export function AutomationActionsList({
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(action.id)}

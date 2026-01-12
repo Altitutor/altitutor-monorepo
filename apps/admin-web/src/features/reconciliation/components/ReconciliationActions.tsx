@@ -2,7 +2,6 @@
 
 import { useState, createContext, useContext } from 'react';
 import { Button } from '@altitutor/ui';
-import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
@@ -24,6 +23,8 @@ interface ReconciliationHandlers {
   onLogSession: (sessionId: string, staffId?: string) => void;
   onOpenInvoice: (invoiceId: string) => void;
   onOpenSession: (sessionId: string) => void;
+  onOpenClass: (classId: string) => void;
+  onAssignStaff: (classId: string) => void;
 }
 
 const ReconciliationHandlersContext = createContext<ReconciliationHandlers | null>(null);
@@ -62,17 +63,11 @@ interface ReconciliationActionsProps {
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
-  const router = useRouter();
   const openWindow = useChatStore((s) => s.openWindow);
   const handlers = useReconciliationHandlers();
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
-
-  const handleOpenClass = (classId: string) => {
-    router.push(`/classes?view=${classId}`);
-  };
 
   const handleOpenConversation = async (conversationId: string) => {
     try {
@@ -145,10 +140,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     console.log('Resend invoice - to be implemented');
   };
 
-  const handleAssignStaff = (classId: string) => {
-    router.push(`/classes?view=${classId}&tab=staff`);
-  };
-
   switch (type) {
     case 'uninvoiced_sessions': {
       const session = item as UninvoicedSession;
@@ -163,7 +154,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             View Session
           </Button>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => handleSendInvoice(session.sessions_students_id)}
             disabled={isLoading || invoiceSessionMutation.isPending}
@@ -188,7 +179,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             View Student
           </Button>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => handleSendInvoice(invoiceItem.sessions_students_id)}
             disabled={isLoading || invoiceSessionMutation.isPending}
@@ -213,7 +204,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             View Invoice
           </Button>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => handleContactStudent(invoice.student_id)}
             disabled={isLoading}
@@ -222,7 +213,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             Contact
           </Button>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={handleResendInvoice}
             disabled={isLoading}
@@ -252,7 +243,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             View Session
           </Button>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => handlers.onLogSession(session.session_id, firstStaffId)}
             disabled={isLoading}
@@ -271,15 +262,15 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleOpenClass(classItem.class_id)}
+            onClick={() => handlers.onOpenClass(classItem.class_id)}
           >
             <Calendar className="h-4 w-4 mr-1" />
             View Class
           </Button>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
-            onClick={() => handleAssignStaff(classItem.class_id)}
+            onClick={() => handlers.onAssignStaff(classItem.class_id)}
           >
             <User className="h-4 w-4 mr-1" />
             Assign Staff

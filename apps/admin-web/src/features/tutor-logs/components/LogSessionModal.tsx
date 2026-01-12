@@ -8,6 +8,7 @@ import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
 import { StaffCard } from '@/shared/components/StaffCard';
+import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -45,6 +46,11 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
+  const [selectedSession, setSelectedSession] = useState<Tables<'sessions'> | null>(null);
+  const [sessionClassData, setSessionClassData] = useState<Tables<'classes'> | null>(null);
+  const [sessionSubject, setSessionSubject] = useState<Tables<'subjects'> | null>(null);
+  const [sessionStaff, setSessionStaff] = useState<Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>>([]);
+  const [sessionStudents, setSessionStudents] = useState<Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>>([]);
 
   const createMutation = useCreateTutorLog();
 
@@ -62,6 +68,99 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     };
     fetchStaff();
   }, [selectedStaffId]);
+
+  // Fetch selected session data
+  useEffect(() => {
+    const fetchSession = async () => {
+      if (!formData.sessionId) {
+        setSelectedSession(null);
+        setSessionClassData(null);
+        setSessionSubject(null);
+        setSessionStaff([]);
+        setSessionStudents([]);
+        return;
+      }
+
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      
+      try {
+        // Get session with class and subject
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('sessions')
+          .select(`
+            *,
+            class:classes(
+              *,
+              subject:subjects(*)
+            )
+          `)
+          .eq('id', formData.sessionId)
+          .single();
+
+        if (sessionError) {
+          if (sessionError.code === 'PGRST116') {
+            setSelectedSession(null);
+            setSessionClassData(null);
+            setSessionSubject(null);
+            return;
+          }
+          throw sessionError;
+        }
+
+        const session = sessionData as any;
+        setSelectedSession(session as Tables<'sessions'>);
+        setSessionClassData(session.class || null);
+        setSessionSubject(session.class?.subject || null);
+
+        // Get session staff
+        const { data: staffData, error: staffError } = await supabase
+          .from('sessions_staff')
+          .select(`
+            planned_absence,
+            staff:staff!sessions_staff_staff_id_fkey(*)
+          `)
+          .eq('session_id', formData.sessionId);
+
+        if (!staffError && staffData) {
+          const staff = staffData.map((row: any) => ({
+            ...row.staff,
+            planned_absence: row.planned_absence,
+          }));
+          setSessionStaff(staff);
+        }
+
+        // Get session students
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('sessions_students')
+          .select(`
+            id,
+            planned_absence,
+            is_extra,
+            student:students(*)
+          `)
+          .eq('session_id', formData.sessionId);
+
+        if (!studentsError && studentsData) {
+          const students = studentsData.map((row: any) => ({
+            ...row.student,
+            planned_absence: row.planned_absence,
+            is_extra: row.is_extra,
+            sessions_students_id: row.id,
+          }));
+          setSessionStudents(students);
+        }
+      } catch (error) {
+        console.error('Error fetching session data:', error);
+        setSelectedSession(null);
+        setSessionClassData(null);
+        setSessionSubject(null);
+        setSessionStaff([]);
+        setSessionStudents([]);
+      }
+    };
+
+    fetchSession();
+  }, [formData.sessionId]);
 
   // Initialize form data when modal opens with initial values
   useEffect(() => {
@@ -87,6 +186,11 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       setFormData(initialSessionId ? { sessionId: initialSessionId } : {});
       setSubmissionState('idle');
       setSubmissionError(null);
+      setSelectedSession(null);
+      setSessionClassData(null);
+      setSessionSubject(null);
+      setSessionStaff([]);
+      setSessionStudents([]);
     }
   }, [isOpen, currentStaffId, initialSessionId, initialStaffId]);
 
@@ -356,13 +460,29 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
               <DialogDescription className="sr-only">
                 Tutor log form step {currentStep + 1} of {actualTotalSteps}
               </DialogDescription>
-              {selectedStaff && (
-                <div className="mt-3">
-                  <StaffCard
-                    staff={selectedStaff}
-                    showSubjects={false}
-                    showActions={false}
-                  />
+              {(selectedStaff || selectedSession) && (
+                <div className="mt-3 flex items-center gap-3 flex-wrap">
+                  {selectedStaff && (
+                    <div className="flex-shrink-0">
+                      <StaffCard
+                        staff={selectedStaff}
+                        showSubjects={false}
+                        showActions={false}
+                      />
+                    </div>
+                  )}
+                  {selectedSession && (
+                    <div className="flex-shrink-0 w-fit max-w-md">
+                      <SessionsCard
+                        session={selectedSession}
+                        classData={sessionClassData || undefined}
+                        subject={sessionSubject || undefined}
+                        staff={sessionStaff}
+                        students={sessionStudents}
+                        compact={true}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

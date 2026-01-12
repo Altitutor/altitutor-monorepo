@@ -22,10 +22,14 @@ import { ViewStudentModal } from '@/features/students';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { ViewInvoiceModal } from '@/features/billing';
 import { SessionModal } from '@/features/sessions';
+import { ViewClassModal } from '@/features/classes';
+import { AssignStaffModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { reconciliationKeys } from '../api/queryKeys';
 import { ReconciliationHandlersProvider } from './ReconciliationActions';
+import { useClassDetails } from '@/features/classes/hooks/useClassesQuery';
+import { classesApi } from '@/features/classes/api';
 
 export function ReconciliationDashboard() {
   const queryClient = useQueryClient();
@@ -41,6 +45,10 @@ export function ReconciliationDashboard() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
+  const [assignStaffClassId, setAssignStaffClassId] = useState<string | null>(null);
 
   // Fetch all reconciliation data
   const uninvoicedSessions = useUninvoicedSessions();
@@ -88,6 +96,16 @@ export function ReconciliationDashboard() {
   const handleOpenSession = (sessionId: string) => {
     setSelectedSessionId(sessionId);
     setIsSessionModalOpen(true);
+  };
+
+  const handleOpenClass = (classId: string) => {
+    setSelectedClassId(classId);
+    setIsClassModalOpen(true);
+  };
+
+  const handleAssignStaff = (classId: string) => {
+    setAssignStaffClassId(classId);
+    setIsAssignStaffModalOpen(true);
   };
 
   const handleCloseLogSessionModal = async () => {
@@ -139,6 +157,8 @@ export function ReconciliationDashboard() {
         onLogSession: handleLogSession,
         onOpenInvoice: handleOpenInvoice,
         onOpenSession: handleOpenSession,
+        onOpenClass: handleOpenClass,
+        onAssignStaff: handleAssignStaff,
       }}
     >
       <div className="p-6 space-y-8">
@@ -150,49 +170,43 @@ export function ReconciliationDashboard() {
         </div>
 
         {/* Financial Reconciliation */}
-        {(financialItems.length > 0 || isLoading) && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Financial</h2>
-            <UninvoicedSessionsTable
-              items={uninvoicedSessions.data ?? []}
-              isLoading={uninvoicedSessions.isLoading}
-            />
-            <OrphanedInvoiceItemsTable
-              items={orphanedInvoiceItems.data ?? []}
-              isLoading={orphanedInvoiceItems.isLoading}
-            />
-            <UnpaidInvoicesTable
-              items={unpaidInvoices.data ?? []}
-              isLoading={unpaidInvoices.isLoading}
-            />
-          </div>
-        )}
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold">Financial</h2>
+          <UninvoicedSessionsTable
+            items={uninvoicedSessions.data ?? []}
+            isLoading={uninvoicedSessions.isLoading}
+          />
+          <OrphanedInvoiceItemsTable
+            items={orphanedInvoiceItems.data ?? []}
+            isLoading={orphanedInvoiceItems.isLoading}
+          />
+          <UnpaidInvoicesTable
+            items={unpaidInvoices.data ?? []}
+            isLoading={unpaidInvoices.isLoading}
+          />
+        </div>
 
         {/* Scheduling Reconciliation */}
-        {(schedulingItems.length > 0 || isLoading) && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Scheduling</h2>
-            <UnloggedSessionsTable
-              items={unloggedSessions.data ?? []}
-              isLoading={unloggedSessions.isLoading}
-            />
-            <UnassignedClassesTable
-              items={unassignedClasses.data ?? []}
-              isLoading={unassignedClasses.isLoading}
-            />
-          </div>
-        )}
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold">Scheduling</h2>
+          <UnloggedSessionsTable
+            items={unloggedSessions.data ?? []}
+            isLoading={unloggedSessions.isLoading}
+          />
+          <UnassignedClassesTable
+            items={unassignedClasses.data ?? []}
+            isLoading={unassignedClasses.isLoading}
+          />
+        </div>
 
         {/* Communication Reconciliation */}
-        {(communicationItems.length > 0 || isLoading) && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Communication</h2>
-            <UnreadMessagesTable
-              items={unreadMessages.data ?? []}
-              isLoading={unreadMessages.isLoading}
-            />
-          </div>
-        )}
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold">Communication</h2>
+          <UnreadMessagesTable
+            items={unreadMessages.data ?? []}
+            isLoading={unreadMessages.isLoading}
+          />
+        </div>
 
         {/* Empty state */}
         {!isLoading && financialItems.length === 0 && schedulingItems.length === 0 && communicationItems.length === 0 && (
@@ -247,7 +261,82 @@ export function ReconciliationDashboard() {
             setSelectedSessionId(null);
           }}
         />
+
+        {/* Class Modal */}
+        <ViewClassModal
+          isOpen={isClassModalOpen}
+          classId={selectedClassId}
+          onClose={() => {
+            setIsClassModalOpen(false);
+            setSelectedClassId(null);
+          }}
+          onClassUpdated={() => {
+            // Refresh reconciliation data
+            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+          }}
+        />
+
+        {/* Assign Staff Modal */}
+        {currentStaff && assignStaffClassId && (
+          <AssignStaffModalWrapper
+            isOpen={isAssignStaffModalOpen}
+            classId={assignStaffClassId}
+            currentStaffId={currentStaff.id}
+            onClose={() => {
+              setIsAssignStaffModalOpen(false);
+              setAssignStaffClassId(null);
+            }}
+            onAssign={async (params) => {
+              await classesApi.assignStaff(params.classId, params.staffId, params.currentStaffId);
+              queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            }}
+          />
+        )}
       </div>
     </ReconciliationHandlersProvider>
+  );
+}
+
+// Wrapper component to handle class data fetching for AssignStaffModal
+function AssignStaffModalWrapper({
+  isOpen,
+  classId,
+  currentStaffId,
+  onClose,
+  onAssign,
+}: {
+  isOpen: boolean;
+  classId: string;
+  currentStaffId: string;
+  onClose: () => void;
+  onAssign: (params: {
+    staffId: string;
+    classId: string;
+    assignedAt: Date;
+    currentStaffId: string;
+  }) => Promise<void>;
+}) {
+  const { data: classDetails, isLoading } = useClassDetails(classId, isOpen && !!classId);
+  const classData = classDetails?.class || null;
+  const classSubject = classDetails?.subject || null;
+  const classStaff = classDetails?.staff || [];
+
+  // Don't render modal until data is loaded
+  if (!isOpen || isLoading || !classData || !classSubject) {
+    return null;
+  }
+
+  return (
+    <AssignStaffModal
+      isOpen={isOpen}
+      onClose={onClose}
+      context="class"
+      classData={classData}
+      classSubject={classSubject}
+      classStaff={classStaff}
+      assignedStaffIds={classStaff.map(s => s.id)}
+      onAssign={onAssign}
+      currentStaffId={currentStaffId}
+    />
   );
 }

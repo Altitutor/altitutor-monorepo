@@ -241,7 +241,15 @@ export function CreateEditAutomationRuleDialog({
               <ScrollArea className="h-full">
                 <div className="p-6">
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (activeTab !== 'actions') {
+                          form.handleSubmit(onSubmit)(e);
+                        }
+                      }} 
+                      className="space-y-6"
+                    >
                       {/* Details Tab */}
                       <TabsContent value="details" className="space-y-6 mt-0">
                         <FormField
@@ -385,53 +393,90 @@ export function CreateEditAutomationRuleDialog({
                               )}
                             />
 
-                            {selectedEventTypes[0] === 'UPDATED' && (
-                              <>
-                                <span>with</span>
-                                <FormField
-                                  control={form.control}
-                                  name="conditions"
-                                  render={({ field }) => (
-                                    <FormItem className="flex-1 min-w-[400px]">
-                                      <FormControl>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          {field.value ? (
-                                            <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                                              <span className="text-sm font-medium">{field.value.field}</span>
-                                              <Badge variant="outline" className="text-xs">
-                                                {field.value.operator === 'field_changed' ? 'changed' :
-                                                 field.value.operator === 'changed_from' ? `from ${field.value.value}` :
-                                                 field.value.operator === 'changed_to' ? `to ${field.value.value}` :
-                                                 field.value.operator === 'changed_from_to' ? `${field.value.old_value} → ${field.value.new_value}` :
-                                                 `${field.value.operator} ${field.value.value}`}
-                                              </Badge>
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 p-0"
-                                                onClick={() => field.onChange(null)}
-                                              >
-                                                <X className="h-3 w-3" />
-                                              </Button>
-                                            </div>
-                                          ) : (
-                                            <AutomationConditionsBuilder
-                                              conditions={field.value}
-                                              eventTypes={selectedEventTypes as ActivityEventType[]}
-                                              entityType={form.watch('entity_type')}
-                                              onChange={(condition) => {
-                                                field.onChange(condition);
-                                              }}
-                                            />
-                                          )}
-                                        </div>
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </>
+                            {(selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED') && (
+                              <FormField
+                                control={form.control}
+                                name="conditions"
+                                render={({ field }) => (
+                                  <FormItem className="contents">
+                                    <FormControl>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        {field.value ? (
+                                          <>
+                                            <span>with</span>
+                                            <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm font-medium">
+                                              {field.value.field}
+                                            </span>
+                                            {field.value.operator === 'field_changed' ? (
+                                              <span className="text-sm">changed</span>
+                                            ) : field.value.operator === 'changed_from' ? (
+                                              <>
+                                                <span className="text-sm">changed from</span>
+                                                <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
+                                                  {String(field.value.value)}
+                                                </span>
+                                              </>
+                                            ) : field.value.operator === 'changed_to' ? (
+                                              <>
+                                                <span className="text-sm">changed to</span>
+                                                <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
+                                                  {String(field.value.value)}
+                                                </span>
+                                              </>
+                                            ) : field.value.operator === 'changed_from_to' ? (
+                                              <>
+                                                <span className="text-sm">changed from</span>
+                                                <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
+                                                  {String(field.value.old_value)}
+                                                </span>
+                                                <span className="text-sm">to</span>
+                                                <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
+                                                  {String(field.value.new_value)}
+                                                </span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <span className="text-sm">
+                                                  {field.value.operator === 'equals' ? 'equals' :
+                                                   field.value.operator === 'not_equals' ? 'not equals' :
+                                                   field.value.operator === 'contains' ? 'contains' :
+                                                   field.value.operator === 'not_contains' ? 'not contains' :
+                                                   field.value.operator === 'greater_than' ? 'greater than' :
+                                                   field.value.operator === 'less_than' ? 'less than' :
+                                                   field.value.operator}
+                                                </span>
+                                                <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
+                                                  {String(field.value.value)}
+                                                </span>
+                                              </>
+                                            )}
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={() => field.onChange(null)}
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </>
+                                        ) : (
+                                          <AutomationConditionsBuilder
+                                            conditions={field.value}
+                                            eventTypes={selectedEventTypes as ActivityEventType[]}
+                                            entityType={form.watch('entity_type')}
+                                            onChange={(condition) => {
+                                              field.onChange(condition);
+                                            }}
+                                            inline={true}
+                                          />
+                                        )}
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
                             )}
                           </div>
                         </div>
@@ -463,9 +508,9 @@ export function CreateEditAutomationRuleDialog({
           
           <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
             <Button variant="outline" onClick={handleClose} disabled={isLoading}>
-              {ruleId ? 'Close' : 'Cancel'}
+              {ruleId && activeTab === 'actions' ? 'Close' : 'Cancel'}
             </Button>
-            {!ruleId && (
+            {activeTab !== 'actions' && (
               <Button onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEditing ? 'Update Rule' : 'Create Rule'}

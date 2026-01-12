@@ -203,8 +203,14 @@ export function CreateEditActionDialog({
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Action' : 'Create Action'}</DialogTitle>
