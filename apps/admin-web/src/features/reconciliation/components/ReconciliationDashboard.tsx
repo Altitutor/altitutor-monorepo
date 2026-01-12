@@ -4,32 +4,39 @@ import { useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import {
   UninvoicedSessionsTable,
-  OrphanedInvoiceItemsTable,
   UnpaidInvoicesTable,
   UnloggedSessionsTable,
   UnassignedClassesTable,
   UnreadMessagesTable,
+  StudentsWithoutClassesTable,
 } from './ReconciliationTable';
 import {
   useUninvoicedSessions,
-  useOrphanedInvoiceItems,
   useUnpaidInvoices,
   useUnloggedSessions,
   useUnassignedClasses,
   useUnreadMessages,
+  useStudentsWithoutClasses,
 } from '../api/queries';
 import { ViewStudentModal } from '@/features/students';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { ViewInvoiceModal } from '@/features/billing';
 import { SessionModal } from '@/features/sessions';
 import { ViewClassModal } from '@/features/classes';
-import { AssignStaffModal } from '@/features/enrollments';
+import { AssignStaffModal, EnrollStudentModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { reconciliationKeys } from '../api/queryKeys';
 import { ReconciliationHandlersProvider } from './ReconciliationActions';
 import { useClassDetails } from '@/features/classes/hooks/useClassesQuery';
 import { classesApi } from '@/features/classes/api';
+import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
+import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ClassWithExpandedSubject } from '@altitutor/shared';
+import { useCallback } from 'react';
 
 export function ReconciliationDashboard() {
   const queryClient = useQueryClient();
@@ -49,32 +56,35 @@ export function ReconciliationDashboard() {
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
   const [assignStaffClassId, setAssignStaffClassId] = useState<string | null>(null);
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [enrollModalStudentId, setEnrollModalStudentId] = useState<string | null>(null);
+  const [enrollModalSubjectId, setEnrollModalSubjectId] = useState<string | null>(null);
 
   // Fetch all reconciliation data
   const uninvoicedSessions = useUninvoicedSessions();
-  const orphanedInvoiceItems = useOrphanedInvoiceItems();
   const unpaidInvoices = useUnpaidInvoices();
   const unloggedSessions = useUnloggedSessions();
   const unassignedClasses = useUnassignedClasses();
   const unreadMessages = useUnreadMessages();
+  const studentsWithoutClasses = useStudentsWithoutClasses();
 
   // Check if any query is loading
   const isLoading =
     uninvoicedSessions.isLoading ||
-    orphanedInvoiceItems.isLoading ||
     unpaidInvoices.isLoading ||
     unloggedSessions.isLoading ||
     unassignedClasses.isLoading ||
-    unreadMessages.isLoading;
+    unreadMessages.isLoading ||
+    studentsWithoutClasses.isLoading;
 
   // Check if any query has error
   const hasError =
     uninvoicedSessions.isError ||
-    orphanedInvoiceItems.isError ||
     unpaidInvoices.isError ||
     unloggedSessions.isError ||
     unassignedClasses.isError ||
-    unreadMessages.isError;
+    unreadMessages.isError ||
+    studentsWithoutClasses.isError;
 
   // Handlers for opening modals
   const handleOpenStudent = (studentId: string) => {
@@ -106,6 +116,12 @@ export function ReconciliationDashboard() {
   const handleAssignStaff = (classId: string) => {
     setAssignStaffClassId(classId);
     setIsAssignStaffModalOpen(true);
+  };
+
+  const handleAddClass = (studentId: string, subjectId: string) => {
+    setEnrollModalStudentId(studentId);
+    setEnrollModalSubjectId(subjectId);
+    setIsEnrollModalOpen(true);
   };
 
   const handleCloseLogSessionModal = async () => {
@@ -141,12 +157,12 @@ export function ReconciliationDashboard() {
 
   const financialItems = [
     ...(uninvoicedSessions.data ?? []),
-    ...(orphanedInvoiceItems.data ?? []),
     ...(unpaidInvoices.data ?? []),
   ];
   const schedulingItems = [
     ...(unloggedSessions.data ?? []),
     ...(unassignedClasses.data ?? []),
+    ...(studentsWithoutClasses.data ?? []),
   ];
   const communicationItems = unreadMessages.data ?? [];
 
@@ -159,6 +175,7 @@ export function ReconciliationDashboard() {
         onOpenSession: handleOpenSession,
         onOpenClass: handleOpenClass,
         onAssignStaff: handleAssignStaff,
+        onAddClass: handleAddClass,
       }}
     >
       <div className="p-6 space-y-8">
@@ -176,10 +193,6 @@ export function ReconciliationDashboard() {
             items={uninvoicedSessions.data ?? []}
             isLoading={uninvoicedSessions.isLoading}
           />
-          <OrphanedInvoiceItemsTable
-            items={orphanedInvoiceItems.data ?? []}
-            isLoading={orphanedInvoiceItems.isLoading}
-          />
           <UnpaidInvoicesTable
             items={unpaidInvoices.data ?? []}
             isLoading={unpaidInvoices.isLoading}
@@ -196,6 +209,10 @@ export function ReconciliationDashboard() {
           <UnassignedClassesTable
             items={unassignedClasses.data ?? []}
             isLoading={unassignedClasses.isLoading}
+          />
+          <StudentsWithoutClassesTable
+            items={studentsWithoutClasses.data ?? []}
+            isLoading={studentsWithoutClasses.isLoading}
           />
         </div>
 
@@ -292,6 +309,25 @@ export function ReconciliationDashboard() {
             }}
           />
         )}
+
+        {/* Enroll Student Modal */}
+        {currentStaff && enrollModalStudentId && (
+          <EnrollStudentModalWrapper
+            isOpen={isEnrollModalOpen}
+            studentId={enrollModalStudentId}
+            subjectId={enrollModalSubjectId}
+            currentStaffId={currentStaff.id}
+            onClose={() => {
+              setIsEnrollModalOpen(false);
+              setEnrollModalStudentId(null);
+              setEnrollModalSubjectId(null);
+            }}
+            onEnroll={async (params) => {
+              await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
+              queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            }}
+          />
+        )}
       </div>
     </ReconciliationHandlersProvider>
   );
@@ -336,6 +372,160 @@ function AssignStaffModalWrapper({
       classStaff={classStaff}
       assignedStaffIds={classStaff.map(s => s.id)}
       onAssign={onAssign}
+      currentStaffId={currentStaffId}
+    />
+  );
+}
+
+// Wrapper component to handle student data fetching for EnrollStudentModal
+function EnrollStudentModalWrapper({
+  isOpen,
+  studentId,
+  subjectId,
+  currentStaffId,
+  onClose,
+  onEnroll,
+}: {
+  isOpen: boolean;
+  studentId: string;
+  subjectId: string | null;
+  currentStaffId: string;
+  onClose: () => void;
+  onEnroll: (params: {
+    studentId: string;
+    classId: string;
+    enrolledAt: Date;
+    staffId: string;
+  }) => Promise<void>;
+}) {
+  const { data: studentWithSubjects, isLoading: isLoadingStudent } = useStudentWithSubjects(studentId);
+  const { data: studentClasses = [] } = useStudentClasses(studentId);
+  
+  const student = studentWithSubjects?.student || null;
+  const studentSubjects = studentWithSubjects?.subjects || [];
+  const enrolledClassIds = studentClasses.map(c => c.class.id);
+
+  // Fetch classes for the subject
+  const fetchClassesForSubject = useCallback(async (subjId: string): Promise<ClassWithExpandedSubject[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
+      p_search: undefined,
+      p_statuses: ['ACTIVE'],
+      p_subject_ids: [subjId],
+      p_include_relationships: true,
+      p_limit: 10000,
+      p_offset: 0,
+      p_order_by: 'day_of_week',
+      p_ascending: true,
+    });
+    
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return [];
+    
+    interface RPCClass {
+      id: string;
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+      status: string;
+      room: string | null;
+      subject_id: string | null;
+      level: string | null;
+    }
+    
+    interface RPCSubject {
+      id: string;
+      name: string;
+      curriculum: string | null;
+      year_level: number | null;
+    }
+    
+    interface RPCStaff {
+      id: string;
+      first_name: string;
+      last_name: string;
+      role: string;
+      status: string;
+    }
+    
+    interface RPCStudent {
+      id: string;
+      first_name: string;
+      last_name: string;
+      status: string;
+    }
+    
+    const rpcData = rpcResult as unknown as { 
+      classes: RPCClass[]; 
+      classSubjects: Record<string, RPCSubject>; 
+      classStudents: Record<string, RPCStudent[]>; 
+      classStaff: Record<string, RPCStaff[]>; 
+      total: number 
+    };
+    
+    const rpcClasses = rpcData.classes || [];
+    
+    // Transform RPC response to match ClassWithExpandedSubject format
+    return rpcClasses.map(c => ({
+      id: c.id,
+      day_of_week: c.day_of_week,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      status: c.status as 'ACTIVE' | 'INACTIVE',
+      room: c.room,
+      level: c.level,
+      subject_id: c.subject_id,
+      created_at: null,
+      updated_at: null,
+      created_by: null,
+      session_start_date: null,
+      session_end_date: null,
+      subject: rpcData.classSubjects?.[c.id] as ClassWithExpandedSubject['subject'] | undefined,
+      staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        role: s.role as 'ADMINSTAFF' | 'TUTOR',
+        status: s.status as 'ACTIVE' | 'INACTIVE',
+        email: null,
+        phone_number: null,
+        created_at: null,
+        updated_at: null,
+      })),
+      students: (rpcData.classStudents?.[c.id] || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status as 'ACTIVE' | 'CURRENT' | 'TRIAL' | 'INACTIVE',
+        curriculum: null,
+        year_level: null,
+        school: null,
+        email: null,
+        phone: null,
+        phone_number: null,
+        created_at: null,
+        updated_at: null,
+      }))
+    })) as unknown as ClassWithExpandedSubject[];
+  }, []);
+
+  // Don't render modal until data is loaded
+  if (!isOpen || isLoadingStudent || !student) {
+    return null;
+  }
+
+  return (
+    <EnrollStudentModal
+      isOpen={isOpen}
+      onClose={onClose}
+      context="student"
+      student={student}
+      studentSubjects={studentSubjects}
+      enrolledClassIds={enrolledClassIds}
+      onFetchClasses={subjectId ? () => fetchClassesForSubject(subjectId) : undefined}
+      subjectId={subjectId || undefined}
+      onEnroll={onEnroll}
       currentStaffId={currentStaffId}
     />
   );

@@ -5,16 +5,16 @@ import { Button } from '@altitutor/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt } from 'lucide-react';
+import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus } from 'lucide-react';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import type {
   UninvoicedSession,
-  OrphanedInvoiceItem,
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
   UnreadMessage,
+  StudentWithoutClasses,
   ReconciliationItemType,
 } from '../types';
 
@@ -25,6 +25,7 @@ interface ReconciliationHandlers {
   onOpenSession: (sessionId: string) => void;
   onOpenClass: (classId: string) => void;
   onAssignStaff: (classId: string) => void;
+  onAddClass: (studentId: string, subjectId: string) => void;
 }
 
 const ReconciliationHandlersContext = createContext<ReconciliationHandlers | null>(null);
@@ -55,11 +56,11 @@ interface ReconciliationActionsProps {
   type: ReconciliationItemType;
   item:
     | UninvoicedSession
-    | OrphanedInvoiceItem
     | UnpaidInvoice
     | UnloggedSession
     | UnassignedClass
-    | UnreadMessage;
+    | UnreadMessage
+    | StudentWithoutClasses;
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
@@ -112,7 +113,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     onSuccess: () => {
       // Invalidate reconciliation queries to refresh the list
       queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
-      queryClient.invalidateQueries({ queryKey: reconciliationKeys.orphanedInvoiceItems() });
       toast({
         title: 'Success',
         description: 'Session invoiced successfully',
@@ -161,31 +161,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <CreditCard className="h-4 w-4 mr-1" />
             {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Invoice Session'}
-          </Button>
-        </div>
-      );
-    }
-
-    case 'orphaned_invoice_items': {
-      const invoiceItem = item as OrphanedInvoiceItem;
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlers.onOpenStudent(invoiceItem.student_id)}
-          >
-            <User className="h-4 w-4 mr-1" />
-            View Student
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => handleSendInvoice(invoiceItem.sessions_students_id)}
-            disabled={isLoading || invoiceSessionMutation.isPending}
-          >
-            <CreditCard className="h-4 w-4 mr-1" />
-            {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Create Invoice'}
           </Button>
         </div>
       );
@@ -291,6 +266,30 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <MessageCircle className="h-4 w-4 mr-1" />
             Open Message
+          </Button>
+        </div>
+      );
+    }
+
+    case 'students_without_classes': {
+      const student = item as StudentWithoutClasses;
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlers.onOpenStudent(student.student_id)}
+          >
+            <User className="h-4 w-4 mr-1" />
+            View Student
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handlers.onAddClass(student.student_id, student.subject_id)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Class
           </Button>
         </div>
       );

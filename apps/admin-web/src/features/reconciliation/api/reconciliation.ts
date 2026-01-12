@@ -3,11 +3,11 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type {
   UninvoicedSession,
-  OrphanedInvoiceItem,
   UnloggedSession,
   UnassignedClass,
   UnreadMessage,
   UnpaidInvoice,
+  StudentWithoutClasses,
 } from '../types';
 
 /**
@@ -25,19 +25,6 @@ export const reconciliationApi = {
       .order('session_start_at', { ascending: false });
     if (error) throw error;
     return (data ?? []) as UninvoicedSession[];
-  },
-
-  /**
-   * Get orphaned invoice items
-   */
-  getOrphanedInvoiceItems: async (): Promise<OrphanedInvoiceItem[]> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
-      .from('vadmin_reconciliation_orphaned_invoice_items')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as OrphanedInvoiceItem[];
   },
 
   /**
@@ -126,5 +113,19 @@ export const reconciliationApi = {
       .order('last_message_at', { ascending: false });
     if (error) throw error;
     return (data ?? []) as UnreadMessage[];
+  },
+
+  /**
+   * Get students without classes
+   */
+  getStudentsWithoutClasses: async (): Promise<StudentWithoutClasses[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await (supabase as any)
+      .from('vadmin_reconciliation_students_without_classes')
+      .select('*')
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as StudentWithoutClasses[];
   },
 };

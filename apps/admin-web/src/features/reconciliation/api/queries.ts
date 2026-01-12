@@ -15,18 +15,6 @@ export function useUninvoicedSessions() {
 }
 
 /**
- * Get orphaned invoice items
- */
-export function useOrphanedInvoiceItems() {
-  return useQuery({
-    queryKey: reconciliationKeys.orphanedInvoiceItems(),
-    queryFn: () => reconciliationApi.getOrphanedInvoiceItems(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
  * Get unpaid invoices
  */
 export function useUnpaidInvoices() {
@@ -71,5 +59,17 @@ export function useUnreadMessages() {
     queryFn: () => reconciliationApi.getUnreadMessages(),
     staleTime: 1000 * 60 * 1, // 1 minute (messages change frequently)
     gcTime: 1000 * 60 * 3, // 3 minutes
+  });
+}
+
+/**
+ * Get students without classes
+ */
+export function useStudentsWithoutClasses() {
+  return useQuery({
+    queryKey: reconciliationKeys.studentsWithoutClasses(),
+    queryFn: () => reconciliationApi.getStudentsWithoutClasses(),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
   });
 }

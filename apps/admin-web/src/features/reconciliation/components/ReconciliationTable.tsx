@@ -19,11 +19,11 @@ import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 import type {
   UninvoicedSession,
-  OrphanedInvoiceItem,
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
   UnreadMessage,
+  StudentWithoutClasses,
 } from '../types';
 
 interface ReconciliationTableProps<T> {
@@ -60,7 +60,12 @@ export function ReconciliationTable<T>({
             )}
           </Button>
           <h3 className="text-lg font-semibold">{title}</h3>
-          <Badge variant="destructive">{items.length}</Badge>
+          <Badge 
+            variant={items.length === 0 ? "secondary" : "destructive"}
+            className={items.length === 0 ? "bg-accent text-accent-foreground" : undefined}
+          >
+            {items.length}
+          </Badge>
         </div>
       </div>
 
@@ -148,70 +153,6 @@ export function UninvoicedSessionsTable({
             <TableCell>{item.billing_type || item.session_type}</TableCell>
             <TableCell>
               <ReconciliationActions type="uninvoiced_sessions" item={item} />
-            </TableCell>
-          </TableRow>
-        );
-      }}
-    />
-  );
-}
-
-export function OrphanedInvoiceItemsTable({
-  items,
-  isLoading,
-}: {
-  items: OrphanedInvoiceItem[];
-  isLoading?: boolean;
-}) {
-  const { data: subjects = [] } = useSubjects();
-  const subjectMap = useMemo(() => {
-    const map = new Map<string, Tables<'subjects'>>();
-    subjects.forEach(s => map.set(s.id, s));
-    return map;
-  }, [subjects]);
-
-  return (
-    <ReconciliationTable
-      title="Orphaned Invoice Items"
-      items={items}
-      isLoading={isLoading}
-      columns={['Date', 'Description', 'Student', 'Subject', 'Amount']}
-      renderRow={(item, index) => {
-        const subject = item.session_id ? null : null; // Orphaned items don't have subject_id in type
-        // Try to find subject by name as fallback
-        const subjectByName = item.subject_name 
-          ? subjects.find(s => formatSubjectDisplay(s) === item.subject_name)
-          : null;
-        const finalSubject = subject || subjectByName;
-        const { style, textColorClass } = getSubjectColorStyle(finalSubject);
-        const defaultClass = !finalSubject?.color ? 'bg-gray-100 text-gray-800' : '';
-
-        return (
-          <TableRow key={item.invoice_item_id}>
-            <TableCell>
-              {item.session_start_at 
-                ? format(new Date(item.session_start_at), 'MMM d, yyyy')
-                : format(new Date(item.created_at), 'MMM d, yyyy')}
-            </TableCell>
-            <TableCell className="font-medium">{item.description}</TableCell>
-            <TableCell>
-              {item.student_first_name} {item.student_last_name}
-            </TableCell>
-            <TableCell>
-              {finalSubject ? (
-                <Badge
-                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
-                  style={style.backgroundColor ? style : undefined}
-                >
-                  {formatSubjectDisplay(finalSubject)}
-                </Badge>
-              ) : (
-                item.subject_name || '—'
-              )}
-            </TableCell>
-            <TableCell>${(item.amount_cents / 100).toFixed(2)}</TableCell>
-            <TableCell>
-              <ReconciliationActions type="orphaned_invoice_items" item={item} />
             </TableCell>
           </TableRow>
         );
@@ -332,7 +273,7 @@ export function UnassignedClassesTable({
 
   return (
     <ReconciliationTable
-      title="Unassigned Classes"
+      title="Classes without staff"
       items={items}
       isLoading={isLoading}
       columns={['Date', 'Subject', 'Day', 'Time', 'Students']}
@@ -407,6 +348,64 @@ export function UnreadMessagesTable({
             </TableCell>
             <TableCell>
               <ReconciliationActions type="unread_messages" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
+    />
+  );
+}
+
+export function StudentsWithoutClassesTable({
+  items,
+  isLoading,
+}: {
+  items: StudentWithoutClasses[];
+  isLoading?: boolean;
+}) {
+  const { data: subjects = [] } = useSubjects();
+  const subjectMap = useMemo(() => {
+    const map = new Map<string, Tables<'subjects'>>();
+    subjects.forEach(s => map.set(s.id, s));
+    return map;
+  }, [subjects]);
+
+  return (
+    <ReconciliationTable
+      title="Students Without Classes"
+      items={items}
+      isLoading={isLoading}
+      columns={['Student', 'Status', 'Subject']}
+      renderRow={(item, index) => {
+        const subject = subjectMap.get(item.subject_id) || {
+          id: item.subject_id,
+          name: item.subject_name,
+          curriculum: item.subject_curriculum,
+          year_level: item.subject_year_level,
+        } as Tables<'subjects'>;
+        const { style, textColorClass } = getSubjectColorStyle(subject);
+        const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+        
+        return (
+          <TableRow key={`${item.student_id}-${item.subject_id}`}>
+            <TableCell className="font-medium">
+              {item.first_name} {item.last_name}
+            </TableCell>
+            <TableCell>
+              <Badge variant={item.student_status === 'ACTIVE' ? 'default' : 'secondary'}>
+                {item.student_status}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Badge
+                className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                style={style.backgroundColor ? style : undefined}
+              >
+                {formatSubjectDisplay(subject)}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <ReconciliationActions type="students_without_classes" item={item} />
             </TableCell>
           </TableRow>
         );

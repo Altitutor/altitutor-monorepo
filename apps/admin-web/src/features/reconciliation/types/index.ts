@@ -22,41 +22,17 @@ export interface UninvoicedSession {
   updated_at: string;
 }
 
-// Orphaned Invoice Items
-export interface OrphanedInvoiceItem {
-  invoice_item_id: string;
-  invoice_id: string | null;
-  sessions_students_id: string;
-  student_id: string;
-  session_id: string;
-  amount_cents: number;
-  description: string;
-  is_subsidy: boolean;
-  created_at: string;
-  session_start_at: string | null;
-  session_type: string | null;
-  subject_name: string | null;
-  student_first_name: string | null;
-  student_last_name: string | null;
-  student_email: string | null;
-  student_phone: string | null;
-}
 
-// Students Without Classes
+// Students Without Classes (one row per student-subject combination)
 export interface StudentWithoutClasses {
   student_id: string;
   first_name: string;
   last_name: string;
-  email: string | null;
-  phone: string | null;
   student_status: string;
-  subjects: Array<{
-    id: string;
-    name: string;
-    curriculum: string | null;
-    year_level: number | null;
-  }> | null;
-  has_active_enrollments: boolean;
+  subject_id: string;
+  subject_name: string;
+  subject_curriculum: string | null;
+  subject_year_level: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,7 +61,7 @@ export interface UnloggedSession {
   updated_at: string;
 }
 
-// Unassigned Classes
+// Classes without staff
 export interface UnassignedClass {
   class_id: string;
   subject_id: string | null;
@@ -146,28 +122,28 @@ export type ReconciliationCategory = 'financial' | 'scheduling' | 'communication
 
 export type ReconciliationItemType =
   | 'uninvoiced_sessions'
-  | 'orphaned_invoice_items'
   | 'unpaid_invoices'
   | 'unlogged_sessions'
   | 'unassigned_classes'
-  | 'unread_messages';
+  | 'unread_messages'
+  | 'students_without_classes';
 
 export interface ReconciliationCategoryData {
   category: ReconciliationCategory;
   items: {
     uninvoiced_sessions?: UninvoicedSession[];
-    orphaned_invoice_items?: OrphanedInvoiceItem[];
     unpaid_invoices?: UnpaidInvoice[];
     unlogged_sessions?: UnloggedSession[];
     unassigned_classes?: UnassignedClass[];
     unread_messages?: UnreadMessage[];
+    students_without_classes?: StudentWithoutClasses[];
   };
   counts: {
     uninvoiced_sessions: number;
-    orphaned_invoice_items: number;
     unpaid_invoices: number;
     unlogged_sessions: number;
     unassigned_classes: number;
     unread_messages: number;
+    students_without_classes: number;
   };
 }
