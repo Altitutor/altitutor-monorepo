@@ -10,6 +10,23 @@ export async function middleware(req: NextRequest) {
     request: req,
   });
 
+  // For API routes, we just refresh the token but don't redirect
+  // The API route itself will handle auth checks
+  if (pathname.startsWith('/api')) {
+    return supabaseResponse;
+  }
+
+  // Public paths that don't require authentication checks.
+  // IMPORTANT: avoid calling supabase.auth.getUser() on public paths (e.g. /login) because
+  // background/prefetch requests that arrive without cookies can cause Supabase to "clear"
+  // cookies (Set-Cookie with empty chunks), breaking the real authenticated navigation.
+  const isPublicPath =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/invite') ||
+    pathname.startsWith('/auth');
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,18 +43,14 @@ export async function middleware(req: NextRequest) {
             request: req,
           });
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Remove maxAge/expires to make it a session cookie (expires when browser closes)
-            const sessionOptions = { ...options };
-            delete sessionOptions.maxAge;
-            delete sessionOptions.expires;
-            supabaseResponse.cookies.set(name, value, sessionOptions);
+            // IMPORTANT: do not strip maxAge/expires.
+            // Supabase uses these to correctly rotate/clear chunked auth cookies.
+            supabaseResponse.cookies.set(name, value, options);
           });
         },
       },
       cookieOptions: {
         name: 'admin-auth',
-        // Don't set maxAge or expires - makes it a session cookie
-        maxAge: undefined,
         path: '/',
         sameSite: 'lax' as const,
         secure: process.env.NODE_ENV === 'production',
@@ -46,16 +59,7 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // IMPORTANT: Use getUser() to validate and refresh auth token
-  // This validates the token with Supabase Auth server (secure)
-  // getSession() reads from cookies without validation (insecure)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // For API routes, we just refresh the token but don't redirect
-  // The API route itself will handle auth checks
-  if (pathname.startsWith('/api')) {
+  if (isPublicPath) {
     return supabaseResponse;
   }
 
@@ -64,7 +68,15 @@ export async function middleware(req: NextRequest) {
     ? 'https://tutor.altitutor.com'
     : 'http://localhost:3002';
 
-  const isProtected = !pathname.startsWith('/login') && !pathname.startsWith('/forgot-password') && !pathname.startsWith('/reset-password') && !pathname.startsWith('/invite') && !pathname.startsWith('/auth') && pathname !== '/';
+  // IMPORTANT: Use getUser() to validate and refresh auth token
+  // This validates the token with Supabase Auth server (secure)
+  // getSession() reads from cookies without validation (insecure)
+  const {
+    data: { user },
+    error: getUserError,
+  } = await supabase.auth.getUser();
+
+  const isProtected = pathname !== '/';
   if (!user && isProtected) {
     const redirectResponse = NextResponse.redirect(new URL('/login', origin));
     // Copy cookies from supabaseResponse to redirectResponse

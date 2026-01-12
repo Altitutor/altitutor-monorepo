@@ -21,11 +21,9 @@ export async function GET(request: NextRequest) {
           setAll(cookiesToSet) {
             try {
               cookiesToSet.forEach(({ name, value, options }) => {
-                // Remove maxAge/expires to make it a session cookie (expires when browser closes)
-                const sessionOptions = { ...options };
-                delete sessionOptions.maxAge;
-                delete sessionOptions.expires;
-                cookieStore.set(name, value, sessionOptions)
+                // IMPORTANT: do not strip maxAge/expires.
+                // Supabase uses these to correctly rotate/clear chunked auth cookies.
+                cookieStore.set(name, value, options)
               })
             } catch {
               // Called from Server Component
@@ -34,8 +32,6 @@ export async function GET(request: NextRequest) {
         },
         cookieOptions: {
           name: 'admin-auth',
-          // Don't set maxAge or expires - makes it a session cookie
-          maxAge: undefined,
           path: '/',
           sameSite: 'lax' as const,
           secure: process.env.NODE_ENV === 'production',
