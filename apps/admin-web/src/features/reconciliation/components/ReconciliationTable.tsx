@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { ReconciliationActions } from './ReconciliationActions';
 import { useSubjects } from '@/features/subjects';
 import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
+import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import type {
   UninvoicedSession,
@@ -112,23 +113,37 @@ export function UninvoicedSessionsTable({
   items: UninvoicedSession[];
   isLoading?: boolean;
 }) {
-  const { data: subjects = [] } = useSubjects();
-  const subjectMap = useMemo(() => {
-    const map = new Map<string, Tables<'subjects'>>();
-    subjects.forEach(s => map.set(s.id, s));
-    return map;
-  }, [subjects]);
-
   return (
     <ReconciliationTable
       title="Uninvoiced Sessions"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Subject', 'Type']}
+      columns={['Date', 'Student', 'Session', 'Planned Attendance', 'Actual Attendance']}
       renderRow={(item, index) => {
-        const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
-        const { style, textColorClass } = getSubjectColorStyle(subject);
-        const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+        // Calculate planned attendance status
+        let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
+        
+        if (item.planned_absence) {
+          if (item.is_rescheduled) {
+            plannedStatus = 'rescheduled';
+          } else if (item.is_credited) {
+            plannedStatus = 'credited';
+          } else {
+            plannedStatus = 'absent';
+          }
+        } else if (item.is_extra) {
+          plannedStatus = 'attending-extra';
+        }
+        
+        // Calculate actual attendance status
+        let actualStatus: 'attended' | 'did-not-attend' | 'not-logged' = 'not-logged';
+        if (item.has_tutor_log) {
+          if (item.actual_attended === true) {
+            actualStatus = 'attended';
+          } else if (item.actual_attended === false) {
+            actualStatus = 'did-not-attend';
+          }
+        }
 
         return (
           <TableRow key={item.sessions_students_id}>
@@ -139,18 +154,14 @@ export function UninvoicedSessionsTable({
               {item.student_first_name} {item.student_last_name}
             </TableCell>
             <TableCell>
-              {subject ? (
-                <Badge
-                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
-                  style={style.backgroundColor ? style : undefined}
-                >
-                  {formatSubjectDisplay(subject)}
-                </Badge>
-              ) : (
-                item.subject_name || '—'
-              )}
+              {item.session_name || '—'}
             </TableCell>
-            <TableCell>{item.billing_type || item.session_type}</TableCell>
+            <TableCell>
+              <AttendanceCell status={plannedStatus} />
+            </TableCell>
+            <TableCell>
+              <AttendanceCell status={actualStatus} />
+            </TableCell>
             <TableCell>
               <ReconciliationActions type="uninvoiced_sessions" item={item} />
             </TableCell>
