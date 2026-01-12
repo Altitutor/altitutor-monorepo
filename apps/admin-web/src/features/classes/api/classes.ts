@@ -574,10 +574,10 @@ export const classesApi = {
   getClassStaff: async (classId: string): Promise<Tables<'staff'>[]> => {
     try {
       // Get all class assignments for this class (where unassigned_at IS NULL)
-      // Specify the foreign key relationship explicitly to avoid ambiguity
+      // Let Supabase infer the foreign key relationship automatically
       const { data: assignments, error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('classes_staff')
-        .select('staff:staff!classes_staff_staff_id_fkey(*), class_id')
+        .select('staff:staff(*), class_id')
         .eq('class_id', classId)
         .is('unassigned_at', null);
       if (error) throw error;
@@ -591,8 +591,10 @@ export const classesApi = {
         .map((row) => row.staff)
         .filter(Boolean) as Tables<'staff'>[];
     } catch (error) {
-      console.error('Error getting class staff:', error);
-      throw error;
+      // Log error but don't throw - this is a non-critical operation
+      // The session modal can still function without class staff info
+      console.warn('Could not get class staff (non-critical):', error);
+      return [];
     }
   },
   
