@@ -4638,11 +4638,17 @@ export type Database = {
       }
       vadmin_reconciliation_uninvoiced_sessions: {
         Row: {
+          actual_attended: boolean | null
           billing_type: Database["public"]["Enums"]["billing_type"] | null
           created_at: string | null
+          has_tutor_log: boolean | null
+          is_credited: boolean | null
+          is_extra: boolean | null
+          is_rescheduled: boolean | null
           planned_absence: boolean | null
           session_end_at: string | null
           session_id: string | null
+          session_name: string | null
           session_start_at: string | null
           session_type: Database["public"]["Enums"]["session_type"] | null
           sessions_students_id: string | null
@@ -4652,6 +4658,7 @@ export type Database = {
           student_last_name: string | null
           student_phone: string | null
           subject_id: string | null
+          subject_long_name: string | null
           subject_name: string | null
           updated_at: string | null
         }
