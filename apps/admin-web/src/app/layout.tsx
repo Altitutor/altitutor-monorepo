@@ -5,10 +5,11 @@ import { ThemeProvider } from '@/shared/components'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
 // Legacy DbProvider removed under migration
 import { AuthProvider } from '@/features/auth/providers'
-import { Navbar } from '@/shared/components'
+import { ConditionalNavbar } from '@/shared/components/layouts/ConditionalNavbar'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
+import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -44,10 +45,10 @@ export default function RootLayout({
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
                     <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
-                      <Navbar />
-                      <main className="flex-1 pt-[var(--navbar-height)]">
+                      <ConditionalNavbar />
+                      <MainContentWrapper>
                         {children}
-                      </main>
+                      </MainContentWrapper>
                     </div>
                   </MobileMenuProvider>
                 </ToastProviderWrapper>

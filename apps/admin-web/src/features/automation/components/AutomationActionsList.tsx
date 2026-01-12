@@ -66,9 +66,6 @@ export function AutomationActionsList({
       <div className="flex items-center justify-between">
         <div>
           <h4 className="font-medium">Actions ({actions.length})</h4>
-          <p className="text-sm text-muted-foreground">
-            Actions are executed in order when the rule matches
-          </p>
         </div>
         <Button
           size="sm"

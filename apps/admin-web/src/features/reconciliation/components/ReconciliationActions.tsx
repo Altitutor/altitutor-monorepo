@@ -1,25 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, createContext, useContext } from 'react';
 import { Button } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useChatStore } from '@/features/messages/state/chatStore';
-import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { FileText, User, Calendar, MessageCircle, CreditCard, Users } from 'lucide-react';
+import { FileText, User, Calendar, MessageCircle, CreditCard } from 'lucide-react';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import type {
   UninvoicedSession,
   OrphanedInvoiceItem,
   UnpaidInvoice,
-  StudentWithoutClasses,
   UnloggedSession,
   UnassignedClass,
   UnreadMessage,
   ReconciliationItemType,
 } from '../types';
+
+interface ReconciliationHandlers {
+  onOpenStudent: (studentId: string) => void;
+  onLogSession: (sessionId: string, staffId?: string) => void;
+}
+
+const ReconciliationHandlersContext = createContext<ReconciliationHandlers | null>(null);
+
+export function ReconciliationHandlersProvider({
+  children,
+  handlers,
+}: {
+  children: React.ReactNode;
+  handlers: ReconciliationHandlers;
+}) {
+  return (
+    <ReconciliationHandlersContext.Provider value={handlers}>
+      {children}
+    </ReconciliationHandlersContext.Provider>
+  );
+}
+
+function useReconciliationHandlers() {
+  const context = useContext(ReconciliationHandlersContext);
+  if (!context) {
+    throw new Error('useReconciliationHandlers must be used within ReconciliationHandlersProvider');
+  }
+  return context;
+}
 
 interface ReconciliationActionsProps {
   type: ReconciliationItemType;
@@ -27,7 +54,6 @@ interface ReconciliationActionsProps {
     | UninvoicedSession
     | OrphanedInvoiceItem
     | UnpaidInvoice
-    | StudentWithoutClasses
     | UnloggedSession
     | UnassignedClass
     | UnreadMessage;
@@ -36,14 +62,10 @@ interface ReconciliationActionsProps {
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
   const router = useRouter();
   const openWindow = useChatStore((s) => s.openWindow);
-  const { openTutorLogModal } = useQuickActions();
+  const handlers = useReconciliationHandlers();
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
-  const handleOpenStudent = (studentId: string) => {
-    router.push(`/students?view=${studentId}`);
-  };
 
   const handleOpenSession = (sessionId: string) => {
     window.dispatchEvent(
@@ -79,14 +101,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     }
   };
 
-  const handleLogSession = (sessionId: string) => {
-    // Open tutor log modal with session pre-selected
-    // This will need to be implemented based on how LogSessionModal works
-    openTutorLogModal();
-    // Note: We may need to pass sessionId to the modal context
-    // For now, opening the modal and user can select session
-  };
-
   // Mutation for invoicing a single session
   const invoiceSessionMutation = useMutation({
     mutationFn: async (sessions_students_id: string) => {
@@ -108,6 +122,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     onSuccess: () => {
       // Invalidate reconciliation queries to refresh the list
       queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.orphanedInvoiceItems() });
       toast({
         title: 'Success',
         description: 'Session invoiced successfully',
@@ -147,7 +162,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleOpenStudent(session.student_id)}
+            onClick={() => handlers.onOpenStudent(session.student_id)}
           >
             <User className="h-4 w-4 mr-1" />
             View Student
@@ -172,7 +187,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleOpenStudent(invoiceItem.student_id)}
+            onClick={() => handlers.onOpenStudent(invoiceItem.student_id)}
           >
             <User className="h-4 w-4 mr-1" />
             View Student
@@ -180,11 +195,11 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={handleSendInvoice}
-            disabled={isLoading}
+            onClick={() => handleSendInvoice(invoiceItem.sessions_students_id)}
+            disabled={isLoading || invoiceSessionMutation.isPending}
           >
             <CreditCard className="h-4 w-4 mr-1" />
-            Create Invoice
+            {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Create Invoice'}
           </Button>
         </div>
       );
@@ -197,7 +212,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleOpenStudent(invoice.student_id)}
+            onClick={() => handlers.onOpenStudent(invoice.student_id)}
           >
             <User className="h-4 w-4 mr-1" />
             View Student
@@ -224,32 +239,13 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       );
     }
 
-    case 'students_without_classes': {
-      const student = item as StudentWithoutClasses;
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenStudent(student.student_id)}
-          >
-            <User className="h-4 w-4 mr-1" />
-            View Student
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(`/classes?addStudent=${student.student_id}`)}
-          >
-            <Users className="h-4 w-4 mr-1" />
-            Add to Class
-          </Button>
-        </div>
-      );
-    }
-
     case 'unlogged_sessions': {
       const session = item as UnloggedSession;
+      // Get first tutor ID for logging
+      const firstStaffId = session.assigned_tutors && session.assigned_tutors.length > 0
+        ? session.assigned_tutors[0].id
+        : undefined;
+      
       return (
         <div className="flex gap-2">
           <Button
@@ -263,7 +259,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleLogSession(session.session_id)}
+            onClick={() => handlers.onLogSession(session.session_id, firstStaffId)}
             disabled={isLoading}
           >
             <FileText className="h-4 w-4 mr-1" />
@@ -290,7 +286,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             size="sm"
             onClick={() => handleAssignStaff(classItem.class_id)}
           >
-            <Users className="h-4 w-4 mr-1" />
+            <User className="h-4 w-4 mr-1" />
             Assign Staff
           </Button>
         </div>

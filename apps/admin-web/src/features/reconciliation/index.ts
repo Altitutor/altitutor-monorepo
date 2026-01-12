@@ -1,7 +1,6 @@
 export { ReconciliationDashboard } from './components/ReconciliationDashboard';
-export { ReconciliationCategory } from './components/ReconciliationCategory';
-export { ReconciliationItem } from './components/ReconciliationItem';
-export { ReconciliationActions } from './components/ReconciliationActions';
+export { ReconciliationTable } from './components/ReconciliationTable';
+export { ReconciliationActions, ReconciliationHandlersProvider } from './components/ReconciliationActions';
 export * from './types';
 export * from './api/queries';
 export * from './api/reconciliation';

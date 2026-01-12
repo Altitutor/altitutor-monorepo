@@ -4,7 +4,6 @@ import type { Database } from '@altitutor/shared';
 import type {
   UninvoicedSession,
   OrphanedInvoiceItem,
-  StudentWithoutClasses,
   UnloggedSession,
   UnassignedClass,
   UnreadMessage,
@@ -87,19 +86,6 @@ export const reconciliationApi = {
         days_overdue: null, // Cannot calculate without due_date
       } as UnpaidInvoice;
     });
-  },
-
-  /**
-   * Get students without classes
-   */
-  getStudentsWithoutClasses: async (): Promise<StudentWithoutClasses[]> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
-      .from('vadmin_reconciliation_students_without_classes')
-      .select('*')
-      .order('last_name', { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as StudentWithoutClasses[];
   },
 
   /**

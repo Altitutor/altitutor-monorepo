@@ -148,7 +148,6 @@ export type ReconciliationItemType =
   | 'uninvoiced_sessions'
   | 'orphaned_invoice_items'
   | 'unpaid_invoices'
-  | 'students_without_classes'
   | 'unlogged_sessions'
   | 'unassigned_classes'
   | 'unread_messages';
@@ -159,7 +158,6 @@ export interface ReconciliationCategoryData {
     uninvoiced_sessions?: UninvoicedSession[];
     orphaned_invoice_items?: OrphanedInvoiceItem[];
     unpaid_invoices?: UnpaidInvoice[];
-    students_without_classes?: StudentWithoutClasses[];
     unlogged_sessions?: UnloggedSession[];
     unassigned_classes?: UnassignedClass[];
     unread_messages?: UnreadMessage[];
@@ -168,7 +166,6 @@ export interface ReconciliationCategoryData {
     uninvoiced_sessions: number;
     orphaned_invoice_items: number;
     unpaid_invoices: number;
-    students_without_classes: number;
     unlogged_sessions: number;
     unassigned_classes: number;
     unread_messages: number;

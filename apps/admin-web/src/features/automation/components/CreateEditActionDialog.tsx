@@ -193,9 +193,11 @@ export function CreateEditActionDialog({
           order_index: data.order_index,
         });
       }
+      // Close on success (if we reach here, no error was thrown)
       onClose();
     } catch (error) {
       // Error handling is done in mutations
+      // Don't close dialog on error
     }
   };
 

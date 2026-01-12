@@ -39,18 +39,6 @@ export function useUnpaidInvoices() {
 }
 
 /**
- * Get students without classes
- */
-export function useStudentsWithoutClasses() {
-  return useQuery({
-    queryKey: reconciliationKeys.studentsWithoutClasses(),
-    queryFn: () => reconciliationApi.getStudentsWithoutClasses(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
  * Get unlogged sessions
  */
 export function useUnloggedSessions() {

@@ -1,25 +1,45 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@altitutor/ui';
+import { useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { ReconciliationCategory } from './ReconciliationCategory';
+import {
+  UninvoicedSessionsTable,
+  OrphanedInvoiceItemsTable,
+  UnpaidInvoicesTable,
+  UnloggedSessionsTable,
+  UnassignedClassesTable,
+  UnreadMessagesTable,
+} from './ReconciliationTable';
 import {
   useUninvoicedSessions,
   useOrphanedInvoiceItems,
   useUnpaidInvoices,
-  useStudentsWithoutClasses,
   useUnloggedSessions,
   useUnassignedClasses,
   useUnreadMessages,
 } from '../api/queries';
-import type { ReconciliationCategoryData } from '../types';
+import { ViewStudentModal } from '@/features/students';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useQueryClient } from '@tanstack/react-query';
+import { reconciliationKeys } from '../api/queryKeys';
+import { ReconciliationHandlersProvider } from './ReconciliationActions';
 
 export function ReconciliationDashboard() {
+  const queryClient = useQueryClient();
+  const { data: currentStaff } = useCurrentStaff();
+  
+  // Modal states
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [logSessionInitialSessionId, setLogSessionInitialSessionId] = useState<string | undefined>();
+  const [logSessionInitialStaffId, setLogSessionInitialStaffId] = useState<string | undefined>();
+
   // Fetch all reconciliation data
   const uninvoicedSessions = useUninvoicedSessions();
   const orphanedInvoiceItems = useOrphanedInvoiceItems();
   const unpaidInvoices = useUnpaidInvoices();
-  const studentsWithoutClasses = useStudentsWithoutClasses();
   const unloggedSessions = useUnloggedSessions();
   const unassignedClasses = useUnassignedClasses();
   const unreadMessages = useUnreadMessages();
@@ -29,7 +49,6 @@ export function ReconciliationDashboard() {
     uninvoicedSessions.isLoading ||
     orphanedInvoiceItems.isLoading ||
     unpaidInvoices.isLoading ||
-    studentsWithoutClasses.isLoading ||
     unloggedSessions.isLoading ||
     unassignedClasses.isLoading ||
     unreadMessages.isLoading;
@@ -39,76 +58,29 @@ export function ReconciliationDashboard() {
     uninvoicedSessions.isError ||
     orphanedInvoiceItems.isError ||
     unpaidInvoices.isError ||
-    studentsWithoutClasses.isError ||
     unloggedSessions.isError ||
     unassignedClasses.isError ||
     unreadMessages.isError;
 
-  // Calculate counts
-  const financialData: ReconciliationCategoryData = {
-    category: 'financial',
-    items: {
-      uninvoiced_sessions: uninvoicedSessions.data ?? [],
-      orphaned_invoice_items: orphanedInvoiceItems.data ?? [],
-      unpaid_invoices: unpaidInvoices.data ?? [],
-    },
-    counts: {
-      uninvoiced_sessions: uninvoicedSessions.data?.length ?? 0,
-      orphaned_invoice_items: orphanedInvoiceItems.data?.length ?? 0,
-      unpaid_invoices: unpaidInvoices.data?.length ?? 0,
-      students_without_classes: 0,
-      unlogged_sessions: 0,
-      unassigned_classes: 0,
-      unread_messages: 0,
-    },
+  // Handlers for opening modals
+  const handleOpenStudent = (studentId: string) => {
+    setSelectedStudentId(studentId);
+    setIsStudentModalOpen(true);
   };
 
-  const schedulingData: ReconciliationCategoryData = {
-    category: 'scheduling',
-    items: {
-      students_without_classes: studentsWithoutClasses.data ?? [],
-      unlogged_sessions: unloggedSessions.data ?? [],
-      unassigned_classes: unassignedClasses.data ?? [],
-    },
-    counts: {
-      uninvoiced_sessions: 0,
-      orphaned_invoice_items: 0,
-      unpaid_invoices: 0,
-      students_without_classes: studentsWithoutClasses.data?.length ?? 0,
-      unlogged_sessions: unloggedSessions.data?.length ?? 0,
-      unassigned_classes: unassignedClasses.data?.length ?? 0,
-      unread_messages: 0,
-    },
+  const handleLogSession = (sessionId: string, staffId?: string) => {
+    setLogSessionInitialSessionId(sessionId);
+    setLogSessionInitialStaffId(staffId);
+    setIsLogSessionModalOpen(true);
   };
 
-  const communicationData: ReconciliationCategoryData = {
-    category: 'communication',
-    items: {
-      unread_messages: unreadMessages.data ?? [],
-    },
-    counts: {
-      uninvoiced_sessions: 0,
-      orphaned_invoice_items: 0,
-      unpaid_invoices: 0,
-      students_without_classes: 0,
-      unlogged_sessions: 0,
-      unassigned_classes: 0,
-      unread_messages: unreadMessages.data?.length ?? 0,
-    },
+  const handleCloseLogSessionModal = async () => {
+    setIsLogSessionModalOpen(false);
+    setLogSessionInitialSessionId(undefined);
+    setLogSessionInitialStaffId(undefined);
+    // Refresh unlogged sessions after logging
+    queryClient.invalidateQueries({ queryKey: reconciliationKeys.unloggedSessions() });
   };
-
-  // Calculate total counts per category
-  const financialTotal =
-    financialData.counts.uninvoiced_sessions +
-    financialData.counts.orphaned_invoice_items +
-    financialData.counts.unpaid_invoices;
-
-  const schedulingTotal =
-    schedulingData.counts.students_without_classes +
-    schedulingData.counts.unlogged_sessions +
-    schedulingData.counts.unassigned_classes;
-
-  const communicationTotal = communicationData.counts.unread_messages;
 
   if (isLoading) {
     return (
@@ -123,47 +95,121 @@ export function ReconciliationDashboard() {
   if (hasError) {
     return (
       <div className="p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <p>Error loading reconciliation data. Please try again.</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-md border border-destructive bg-destructive/10 p-4">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <p>Error loading reconciliation data. Please try again.</p>
+          </div>
+        </div>
       </div>
     );
   }
 
+  const financialItems = [
+    ...(uninvoicedSessions.data ?? []),
+    ...(orphanedInvoiceItems.data ?? []),
+    ...(unpaidInvoices.data ?? []),
+  ];
+  const schedulingItems = [
+    ...(unloggedSessions.data ?? []),
+    ...(unassignedClasses.data ?? []),
+  ];
+  const communicationItems = unreadMessages.data ?? [];
+
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Identify and resolve data inconsistencies across scheduling, communication, and financial domains
-        </p>
+    <ReconciliationHandlersProvider
+      handlers={{
+        onOpenStudent: handleOpenStudent,
+        onLogSession: handleLogSession,
+      }}
+    >
+      <div className="p-6 space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Identify and resolve data inconsistencies across scheduling, communication, and financial domains
+          </p>
+        </div>
+
+        {/* Financial Reconciliation */}
+        {(financialItems.length > 0 || isLoading) && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Financial</h2>
+            <UninvoicedSessionsTable
+              items={uninvoicedSessions.data ?? []}
+              isLoading={uninvoicedSessions.isLoading}
+            />
+            <OrphanedInvoiceItemsTable
+              items={orphanedInvoiceItems.data ?? []}
+              isLoading={orphanedInvoiceItems.isLoading}
+            />
+            <UnpaidInvoicesTable
+              items={unpaidInvoices.data ?? []}
+              isLoading={unpaidInvoices.isLoading}
+            />
+          </div>
+        )}
+
+        {/* Scheduling Reconciliation */}
+        {(schedulingItems.length > 0 || isLoading) && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Scheduling</h2>
+            <UnloggedSessionsTable
+              items={unloggedSessions.data ?? []}
+              isLoading={unloggedSessions.isLoading}
+            />
+            <UnassignedClassesTable
+              items={unassignedClasses.data ?? []}
+              isLoading={unassignedClasses.isLoading}
+            />
+          </div>
+        )}
+
+        {/* Communication Reconciliation */}
+        {(communicationItems.length > 0 || isLoading) && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Communication</h2>
+            <UnreadMessagesTable
+              items={unreadMessages.data ?? []}
+              isLoading={unreadMessages.isLoading}
+            />
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && financialItems.length === 0 && schedulingItems.length === 0 && communicationItems.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg">No reconciliation items found</p>
+            <p className="text-sm mt-2">All data is consistent!</p>
+          </div>
+        )}
+
+        {/* Student Modal */}
+        <ViewStudentModal
+          isOpen={isStudentModalOpen}
+          onClose={() => {
+            setIsStudentModalOpen(false);
+            setSelectedStudentId(null);
+          }}
+          studentId={selectedStudentId}
+          onStudentUpdated={() => {
+            // Refresh reconciliation data
+            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+          }}
+        />
+
+        {/* Log Session Modal */}
+        {currentStaff && (
+          <LogSessionModal
+            isOpen={isLogSessionModalOpen}
+            onClose={handleCloseLogSessionModal}
+            currentStaffId={currentStaff.id}
+            adminMode={true}
+            initialSessionId={logSessionInitialSessionId}
+            initialStaffId={logSessionInitialStaffId}
+          />
+        )}
       </div>
-
-      {/* Financial Reconciliation */}
-      <ReconciliationCategory
-        title="Financial"
-        totalCount={financialTotal}
-        data={financialData}
-      />
-
-      {/* Scheduling Reconciliation */}
-      <ReconciliationCategory
-        title="Scheduling"
-        totalCount={schedulingTotal}
-        data={schedulingData}
-      />
-
-      {/* Communication Reconciliation */}
-      <ReconciliationCategory
-        title="Communication"
-        totalCount={communicationTotal}
-        data={communicationData}
-      />
-    </div>
+    </ReconciliationHandlersProvider>
   );
 }
