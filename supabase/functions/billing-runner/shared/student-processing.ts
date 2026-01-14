@@ -78,23 +78,10 @@ export async function processStudentInvoicing(
   } = deps;
 
   try {
-    // Check for existing invoice for this student and date
-    // If invoice exists, we'll add items to it (if not finalized) or skip if finalized
-    const { data: existingInvoice } = await supabase
-      .from('invoices')
-      .select('id, stripe_invoice_id, status')
-      .eq('student_id', studentId)
-      .eq('invoice_date', invoiceDate)
-      .maybeSingle();
-
-    // If invoice exists and is finalized/paid, skip (items already added or invoice closed)
-    if (existingInvoice && (existingInvoice.status === 'paid' || existingInvoice.status === 'void')) {
-      console.log(
-        `[runner] Invoice already exists and is ${existingInvoice.status} for student ${studentId} on ${invoiceDate}, skipping`
-      );
-      return { invoiceId: null, error: null };
-    }
-
+    // Note: We always create a new invoice for billing-single (manual reconciliation)
+    // This ensures each session gets its own invoice, even if other sessions for the
+    // same student/date were already invoiced. The billing-single function already
+    // checks that the specific session isn't already invoiced before calling this.
     let billing = billingByStudent[studentId];
     const defaultPM = billing?.payment_methods?.[0];
 

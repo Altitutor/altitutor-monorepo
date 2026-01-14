@@ -241,38 +241,38 @@ Deno.serve(async (req: Request) => {
     // Load subsidies
     const subsidies = await loadSubsidies(supabase);
 
-    // Group uninvoiced sessions by student_id
-    const sessionsByStudent: Record<string, any[]> = {};
-    for (const row of uninvoicedSsRows) {
-      const session = uninvoicedSessions.find((s: any) => s.id === row.session_id);
-      if (!session) continue;
-      const subject = subjectById[session.subject_id];
-      if (!subject) continue;
-
-      if (!sessionsByStudent[row.student_id]) {
-        sessionsByStudent[row.student_id] = [];
-      }
-      sessionsByStudent[row.student_id].push({
-        sessions_students_id: row.id,
-        session_id: row.session_id,
-        student_id: row.student_id,
-        session,
-        subject,
-      });
-    }
-
     const invoicesCreated: string[] = [];
     const errors: string[] = [];
 
-    // Process each student
-    for (const [studentId, studentSessions] of Object.entries(sessionsByStudent)) {
+    // Process each session individually (same as billing-single)
+    for (const row of uninvoicedSsRows) {
+      const session = uninvoicedSessions.find((s: any) => s.id === row.session_id);
+      if (!session) continue;
+
+      const subject = session.subject_id ? subjectById[session.subject_id] : null;
+      if (!subject) continue;
+
+      // Use the session's actual date for invoiceDate and targetDate
+      const sessionDate = new Date(session.start_at);
+      const sessionInvoiceDate = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      // Prepare session data in the format expected by processStudentInvoicing
+      const studentSessions = [
+        {
+          session,
+          subject,
+          sessions_students_id: row.id,
+          student_id: row.student_id,
+        },
+      ];
+
       const result = await processStudentInvoicing({
         supabase,
         stripe,
-        studentId,
+        studentId: row.student_id,
         studentSessions,
-        invoiceDate,
-        targetDate,
+        invoiceDate: sessionInvoiceDate,
+        targetDate: sessionDate,
         feePercentDom,
         feePercentIntl,
         feeFixedCents,

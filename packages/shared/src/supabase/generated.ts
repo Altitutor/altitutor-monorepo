@@ -3137,6 +3137,39 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_notepad: {
+        Row: {
+          content: string | null
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_notepad_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_notepad_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_subjects: {
         Row: {
           created_at: string | null
