@@ -177,18 +177,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // *** EDGE CASE: Check for planned absence ***
-    if (sessionStudent.planned_absence) {
-      return json(
-        {
-          error: 'Planned absence cannot be invoiced',
-          sessions_students_id,
-          message: 'This session is marked as a planned absence and cannot be invoiced.',
-        },
-        400
-      );
-    }
-
     const session = sessionStudent.session;
     if (!session) {
       return json(
@@ -199,6 +187,51 @@ Deno.serve(async (req: Request) => {
         },
         404
       );
+    }
+
+    // *** EDGE CASE: Check for planned absence ***
+    // Allow invoicing if planned_absence = true BUT tutor log shows they actually attended
+    if (sessionStudent.planned_absence) {
+      // First, check if there's a tutor log for this session
+      const { data: tutorLog, error: tlError } = await supabase
+        .from('tutor_logs')
+        .select('id')
+        .eq('session_id', session.id)
+        .maybeSingle();
+
+      if (tlError || !tutorLog) {
+        return json(
+          {
+            error: 'Planned absence cannot be invoiced',
+            sessions_students_id,
+            message:
+              'This session is marked as a planned absence. To invoice it, a tutor log must exist showing the student actually attended.',
+          },
+          400
+        );
+      }
+
+      // Check if the tutor log shows the student actually attended
+      const { data: tutorLogAttendance, error: tlaError } = await supabase
+        .from('tutor_logs_student_attendance')
+        .select('attended')
+        .eq('tutor_log_id', tutorLog.id)
+        .eq('student_id', sessionStudent.student_id)
+        .eq('attended', true)
+        .maybeSingle();
+
+      // If no tutor log showing attendance, reject planned absence
+      if (tlaError || !tutorLogAttendance) {
+        return json(
+          {
+            error: 'Planned absence cannot be invoiced',
+            sessions_students_id,
+            message:
+              'This session is marked as a planned absence. To invoice it, a tutor log must exist showing the student actually attended.',
+          },
+          400
+        );
+      }
     }
 
     // *** EDGE CASE: Check if session is billable ***
