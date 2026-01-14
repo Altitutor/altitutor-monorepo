@@ -216,6 +216,10 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
+                            // Check if session has any students attending (planned attendance)
+                            const hasAttendingStudents = sessionStudents.length > 0 && 
+                              sessionStudents.some((student) => !student.planned_absence);
+                            
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);
                             // Estimate width: assume column is ~150-200px wide, calculate from percentage
@@ -225,7 +229,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             blocks.push(
                               <div
                                 key={s.id}
-                                className="absolute"
+                                className={cn("absolute", !hasAttendingStudents && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >

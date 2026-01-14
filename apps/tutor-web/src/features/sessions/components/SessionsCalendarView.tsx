@@ -164,10 +164,14 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             const sessionId = s.session_id || s.id;
                             const details = sessionDetailsMap[sessionId] || { staff: [], students: [] };
                             
+                            // Check if session has any students attending (planned attendance)
+                            // Note: tutor-web views don't include planned_absence, so we check if students array is empty
+                            const hasAttendingStudents = (details.students || []).length > 0;
+                            
                             blocks.push(
                               <div
                                 key={sessionId}
-                                className="absolute"
+                                className={cn("absolute", !hasAttendingStudents && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                               >
                                 <SessionCard

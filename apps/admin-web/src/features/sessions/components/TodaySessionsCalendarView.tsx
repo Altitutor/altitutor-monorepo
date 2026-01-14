@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import { format, differenceInMinutes, isSameDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
-import { getSubjectColorHex, getSubjectColorStyle, formatSessionType } from '@/shared/utils';
+import { getSubjectColorHex, getSubjectColorStyle, formatSessionType, cn } from '@/shared/utils';
 import { SessionsCard } from './SessionsCard';
 
 type Props = { onOpenSession?: (id: string) => void };
@@ -188,6 +188,10 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
                         const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                         const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                         
+                        // Check if session has any students attending (planned attendance)
+                        const hasAttendingStudents = sessionStudents.length > 0 && 
+                          sessionStudents.some((student) => !student.planned_absence);
+                        
                         // Calculate actual pixel dimensions for smart sizing
                         const cardHeight = Math.max(height, 45);
                         // Estimate width: for today view, column is wider, estimate ~400-600px
@@ -197,7 +201,7 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
                         blocks.push(
                           <div
                             key={s.id}
-                            className="absolute"
+                            className={cn("absolute", !hasAttendingStudents && "opacity-50")}
                             style={{
                               top: `${top}px`,
                               height: `${cardHeight}px`,
