@@ -15,6 +15,7 @@ import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { BookSessionModal } from '@/features/bookings/components';
+import { NotepadButton, NotepadPanel } from '@/features/notepad';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb } from '@/shared/components';
@@ -364,6 +365,9 @@ function AdminLayoutContent({
             </div>
           )}
           {children}
+          {/* Floating notepad */}
+          <NotepadButton />
+          <NotepadPanel />
           {/* Floating quick actions menu */}
           <QuickActionsMenu />
           {/* Floating chat dock (admin-only) */}
