@@ -124,7 +124,7 @@ Deno.serve(async (req: Request) => {
 
             switch (action.action_type) {
               case 'SEND_MESSAGE':
-                await executeSendMessage(supabase, action, activityEvent, rule);
+                await executeSendMessage(supabase, action, activityEvent, rule, entityData);
                 break;
 
               case 'CREATE_TASK':
@@ -132,7 +132,7 @@ Deno.serve(async (req: Request) => {
                 break;
 
               case 'CREATE_NOTIFICATION':
-                await executeCreateNotification(supabase, action, activityEvent, rule);
+                await executeCreateNotification(supabase, action, activityEvent, rule, entityData);
                 break;
 
               default:

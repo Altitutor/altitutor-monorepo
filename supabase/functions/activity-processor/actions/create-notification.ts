@@ -2,13 +2,14 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveNotificationRecipients } from '../recipients.ts';
-import { replaceTemplateVariables } from '../utils.ts';
+import { replaceTemplateVariables, extractTemplateVariables } from '../utils.ts';
 
 export async function executeCreateNotification(
   supabase: SupabaseClient<any>,
   action: any,
   activityEvent: any,
-  rule: any
+  rule: any,
+  entityData?: any
 ): Promise<void> {
   const config = action.action_config as {
     notification_type: string;
@@ -25,10 +26,16 @@ export async function executeCreateNotification(
     variables?: Record<string, any>;
   };
 
+  // Extract variables from activity event and entity data
+  const variables = await extractTemplateVariables(supabase, activityEvent, entityData);
+  
+  // Merge with any provided variables (config.variables takes precedence)
+  const finalVariables = { ...variables, ...(config.variables || {}) };
+  
   // Replace variables
-  const title = replaceTemplateVariables(config.title, config.variables || {});
+  const title = replaceTemplateVariables(config.title, finalVariables);
   const body = config.body
-    ? replaceTemplateVariables(config.body, config.variables || {})
+    ? replaceTemplateVariables(config.body, finalVariables)
     : null;
 
   // Determine recipients

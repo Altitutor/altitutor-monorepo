@@ -140,6 +140,50 @@ export function replaceTemplateVariables(template: string, variables: Record<str
   return result;
 }
 
+// Format time string (HH:MM:SS or HH:MM) to 12-hour format
+export function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':');
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+}
+
+// Format day of week (0-6) to short name
+export function formatDayOfWeek(dayOfWeek: number | null | undefined): string {
+  if (dayOfWeek == null) return '';
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return days[dayOfWeek] || '';
+}
+
+// Format timestamp to date string
+export function formatDate(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  } catch {
+    return '';
+  }
+}
+
+// Format timestamp to time string
+export function formatDateTime(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  } catch {
+    return '';
+  }
+}
+
 // Format class name for display
 export function formatClassName(classData: any, subject: any): string {
   const parts: string[] = [];
@@ -149,20 +193,201 @@ export function formatClassName(classData: any, subject: any): string {
   }
   
   if (classData.day_of_week != null) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    parts.push(days[classData.day_of_week] || '');
+    parts.push(formatDayOfWeek(classData.day_of_week));
   }
   
   if (classData.start_time && classData.end_time) {
-    const formatTime = (time: string) => {
-      const [hours, minutes] = time.split(':');
-      const hour = parseInt(hours, 10);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour % 12 || 12;
-      return `${displayHour}:${minutes} ${ampm}`;
-    };
     parts.push(`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`);
   }
   
   return parts.join(' ');
+}
+
+// Extract template variables from activity event and related entities
+export async function extractTemplateVariables(
+  supabase: any,
+  activityEvent: any,
+  entityData: any
+): Promise<Record<string, any>> {
+  const variables: Record<string, any> = {};
+  
+  // Load sender name from performed_by staff
+  if (activityEvent.performed_by) {
+    const { data: staff } = await supabase
+      .from('staff')
+      .select('first_name, last_name')
+      .eq('id', activityEvent.performed_by)
+      .maybeSingle();
+    
+    if (staff) {
+      const senderName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim();
+      variables.sender_name = senderName || '';
+    }
+  }
+  
+  // Load class data if class_id is available
+  if (activityEvent.class_id) {
+    // First get the class
+    const { data: classData } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('id', activityEvent.class_id)
+      .maybeSingle();
+    
+    if (classData && classData.subject_id) {
+      // Then get the subject
+      const { data: subjectData } = await supabase
+        .from('subjects')
+        .select('*')
+        .eq('id', classData.subject_id)
+        .maybeSingle();
+      
+      // Class fields
+      variables['class.subject.long_name'] = subjectData?.long_name || '';
+      variables['class.day_of_week'] = formatDayOfWeek(classData.day_of_week);
+      variables['class.start_time'] = classData.start_time ? formatTime(classData.start_time) : '';
+      variables['class.end_time'] = classData.end_time ? formatTime(classData.end_time) : '';
+      variables['class.room'] = classData.room || '';
+      variables['class.level'] = classData.level || '';
+      
+      // Also support without "class." prefix for backward compatibility
+      variables['classes.subject.long_name'] = subjectData?.long_name || '';
+      variables['classes.day_of_week'] = formatDayOfWeek(classData.day_of_week);
+      variables['classes.start_time'] = classData.start_time ? formatTime(classData.start_time) : '';
+      variables['classes.end_time'] = classData.end_time ? formatTime(classData.end_time) : '';
+      variables['classes.room'] = classData.room || '';
+      variables['classes.level'] = classData.level || '';
+    }
+  }
+  
+  // Load session data if session_id is available
+  if (activityEvent.session_id) {
+    // First get the session
+    const { data: sessionData } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('id', activityEvent.session_id)
+      .maybeSingle();
+    
+    if (sessionData) {
+      // Session fields
+      variables['session.type'] = sessionData.type || '';
+      variables['session.start_at'] = sessionData.start_at ? formatDateTime(sessionData.start_at) : '';
+      variables['session.end_at'] = sessionData.end_at ? formatDateTime(sessionData.end_at) : '';
+      
+      // Also support without "session." prefix for backward compatibility
+      variables['sessions.type'] = sessionData.type || '';
+      variables['sessions.start_at'] = sessionData.start_at ? formatDateTime(sessionData.start_at) : '';
+      variables['sessions.end_at'] = sessionData.end_at ? formatDateTime(sessionData.end_at) : '';
+      
+      // Get subject from class if class_id is available
+      if (sessionData.class_id) {
+        const { data: classData } = await supabase
+          .from('classes')
+          .select('subject_id')
+          .eq('id', sessionData.class_id)
+          .maybeSingle();
+        
+        if (classData && classData.subject_id) {
+          const { data: subjectData } = await supabase
+            .from('subjects')
+            .select('long_name')
+            .eq('id', classData.subject_id)
+            .maybeSingle();
+          
+          if (subjectData) {
+            variables['session.subject.long_name'] = subjectData.long_name || '';
+            variables['sessions.subject.long_name'] = subjectData.long_name || '';
+          }
+        }
+      }
+    }
+  }
+  
+  // Extract changed fields (for UPDATE events)
+  if (activityEvent.event_type === 'UPDATED' && activityEvent.changed_fields) {
+    const changedFields = activityEvent.changed_fields;
+    const fieldNames = Object.keys(changedFields);
+    
+    if (fieldNames.length > 0) {
+      // First changed field (most common use case)
+      const firstFieldName = fieldNames[0];
+      const firstFieldChange = changedFields[firstFieldName];
+      
+      variables['changed_field'] = firstFieldName;
+      variables['changed_field_name'] = firstFieldName;
+      variables['old_value'] = firstFieldChange?.old != null ? String(firstFieldChange.old) : '';
+      variables['new_value'] = firstFieldChange?.new != null ? String(firstFieldChange.new) : '';
+      
+      // Also add variables for each changed field
+      for (const fieldName of fieldNames) {
+        const fieldChange = changedFields[fieldName];
+        const safeFieldName = fieldName.replace(/[^a-zA-Z0-9_]/g, '_'); // Sanitize for variable name
+        
+        variables[`changed_field.${safeFieldName}.name`] = fieldName;
+        variables[`changed_field.${safeFieldName}.old_value`] = fieldChange?.old != null ? String(fieldChange.old) : '';
+        variables[`changed_field.${safeFieldName}.new_value`] = fieldChange?.new != null ? String(fieldChange.new) : '';
+      }
+    }
+  }
+  
+  // Extract entity data fields (if entityData is provided)
+  if (entityData) {
+    // Add common entity fields
+    variables['entity_type'] = activityEvent.entity_type || '';
+    variables['entity_id'] = activityEvent.entity_id || '';
+    
+    // Add specific fields based on entity type
+    // For classes
+    if (activityEvent.entity_type === 'classes' && entityData) {
+      variables['entity.day_of_week'] = formatDayOfWeek(entityData.day_of_week);
+      variables['entity.start_time'] = entityData.start_time ? formatTime(entityData.start_time) : '';
+      variables['entity.end_time'] = entityData.end_time ? formatTime(entityData.end_time) : '';
+      variables['entity.room'] = entityData.room || '';
+      variables['entity.level'] = entityData.level || '';
+      
+      // Load subject if subject_id is available
+      if (entityData.subject_id) {
+        const { data: subjectData } = await supabase
+          .from('subjects')
+          .select('long_name')
+          .eq('id', entityData.subject_id)
+          .maybeSingle();
+        
+        if (subjectData) {
+          variables['entity.subject.long_name'] = subjectData.long_name || '';
+        }
+      }
+    }
+    
+    // For sessions
+    if (activityEvent.entity_type === 'sessions' && entityData) {
+      variables['entity.type'] = entityData.type || '';
+      variables['entity.start_at'] = entityData.start_at ? formatDateTime(entityData.start_at) : '';
+      variables['entity.end_at'] = entityData.end_at ? formatDateTime(entityData.end_at) : '';
+      
+      // Load subject from class if class_id is available
+      if (entityData.class_id) {
+        const { data: classData } = await supabase
+          .from('classes')
+          .select('subject_id')
+          .eq('id', entityData.class_id)
+          .maybeSingle();
+        
+        if (classData && classData.subject_id) {
+          const { data: subjectData } = await supabase
+            .from('subjects')
+            .select('long_name')
+            .eq('id', classData.subject_id)
+            .maybeSingle();
+          
+          if (subjectData) {
+            variables['entity.subject.long_name'] = subjectData.long_name || '';
+          }
+        }
+      }
+    }
+  }
+  
+  return variables;
 }

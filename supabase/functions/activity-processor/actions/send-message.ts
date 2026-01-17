@@ -2,13 +2,14 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMessageRecipients } from '../recipients.ts';
-import { replaceTemplateVariables } from '../utils.ts';
+import { replaceTemplateVariables, extractTemplateVariables } from '../utils.ts';
 
 export async function executeSendMessage(
   supabase: SupabaseClient<any>,
   action: any,
   activityEvent: any,
-  rule: any
+  rule: any,
+  entityData?: any
 ): Promise<void> {
   const config = action.action_config as {
     template_id: string;
@@ -126,22 +127,7 @@ export async function executeSendMessage(
     .maybeSingle();
 
   // Extract variables from activity event and entity data
-  // For bulk messages, we'll use generic variables (can be enhanced per-contact later)
-  const variables: Record<string, any> = {};
-  
-  // Load sender name from performed_by staff
-  if (activityEvent.performed_by) {
-    const { data: staff } = await supabase
-      .from('staff')
-      .select('first_name, last_name')
-      .eq('id', activityEvent.performed_by)
-      .maybeSingle();
-    
-    if (staff) {
-      const senderName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim();
-      variables.sender_name = senderName || '';
-    }
-  }
+  const variables = await extractTemplateVariables(supabase, activityEvent, entityData);
   
   // Merge with any provided variables (config.variables takes precedence)
   const finalVariables = { ...variables, ...(config.variables || {}) };
