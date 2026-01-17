@@ -137,6 +137,9 @@ export function replaceTemplateVariables(template: string, variables: Record<str
     const placeholder = new RegExp(`\\{${key}\\}`, 'gi');
     result = result.replace(placeholder, String(value || ''));
   }
+  // Convert literal \n sequences to actual newlines
+  // This handles templates stored with escaped newlines in the database
+  result = result.replace(/\\n/g, '\n');
   return result;
 }
 
