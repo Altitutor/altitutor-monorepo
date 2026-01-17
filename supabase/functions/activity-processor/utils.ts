@@ -221,8 +221,13 @@ export async function extractTemplateVariables(
     
     if (staff) {
       const senderName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim();
-      variables.sender_name = senderName || '';
+      variables.sender_name = senderName || 'System';
+    } else {
+      variables.sender_name = 'System';
     }
+  } else {
+    // If no performed_by, default to "System"
+    variables.sender_name = 'System';
   }
   
   // Load class data if class_id is available
