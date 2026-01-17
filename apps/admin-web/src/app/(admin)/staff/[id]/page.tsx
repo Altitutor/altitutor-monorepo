@@ -38,6 +38,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const [activeTab, setActiveTab] = useState('details');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingStaffUpdate, setLoadingStaffUpdate] = useState(false);
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
@@ -188,6 +189,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     }
 
     try {
+      setLoadingPasswordReset(true);
       setHasPasswordResetLinkSent(true);
       toast({
         title: "Success",
@@ -200,6 +202,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         description: "Failed to send password reset link. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoadingPasswordReset(false);
     }
   };
 
@@ -288,7 +292,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
                 onSelectSubject={(subject) => handleAssignSubject(subject.id)}
               />
             }
-            isLoadingAccount={isLoading}
+            isLoadingAccount={loadingPasswordReset}
             hasPasswordResetLinkSent={hasPasswordResetLinkSent}
             onPasswordResetRequest={handlePasswordResetRequest}
           />

@@ -55,6 +55,7 @@ export function ViewStaffModal({
   const [baseUrl, setBaseUrl] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingStaffUpdate, setLoadingStaffUpdate] = useState(false);
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   
   // Subject modal state
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -81,6 +82,7 @@ export function ViewStaffModal({
       setSubjectsToAdd([]);
       setSubjectsToRemove([]);
       setLoadingStaffUpdate(false);
+      setLoadingPasswordReset(false);
     }
   }, [isOpen]);
       
@@ -203,6 +205,7 @@ export function ViewStaffModal({
     }
     
     try {
+      setLoadingPasswordReset(true);
       // Determine redirect URL based on staff role
       let redirectUrl: string;
       if (staffMember.role === 'TUTOR') {
@@ -236,6 +239,8 @@ export function ViewStaffModal({
         description: 'There was an error resetting the password. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setLoadingPasswordReset(false);
     }
   };
 
@@ -370,7 +375,7 @@ export function ViewStaffModal({
                           onSelectSubject={(subject) => handleAssignSubject(subject.id)}
                         />
                       }
-                      isLoadingAccount={isLoading}
+                      isLoadingAccount={loadingPasswordReset}
                       hasPasswordResetLinkSent={hasPasswordResetLinkSent}
                       onPasswordResetRequest={handlePasswordResetRequest}
                     />
