@@ -4040,6 +4040,7 @@ export type Database = {
           created_by: string
           id: string
           session_id: string
+          session_type: Database["public"]["Enums"]["session_type"]
           updated_at: string
         }
         Insert: {
@@ -4047,6 +4048,7 @@ export type Database = {
           created_by: string
           id?: string
           session_id: string
+          session_type: Database["public"]["Enums"]["session_type"]
           updated_at?: string
         }
         Update: {
@@ -4054,6 +4056,7 @@ export type Database = {
           created_by?: string
           id?: string
           session_id?: string
+          session_type?: Database["public"]["Enums"]["session_type"]
           updated_at?: string
         }
         Relationships: [
