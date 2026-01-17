@@ -1,13 +1,14 @@
 // @ts-nocheck
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { replaceTemplateVariables } from '../utils.ts';
+import { replaceTemplateVariables, extractTemplateVariables } from '../utils.ts';
 
 export async function executeCreateTask(
   supabase: SupabaseClient<any>,
   action: any,
   activityEvent: any,
-  rule: any
+  rule: any,
+  entityData?: any
 ): Promise<void> {
   const config = action.action_config as {
     title_template: string;
@@ -19,13 +20,19 @@ export async function executeCreateTask(
     variables?: Record<string, any>;
   };
 
+  // Extract variables from activity event and entity data
+  const variables = await extractTemplateVariables(supabase, activityEvent, entityData);
+  
+  // Merge with any provided variables (config.variables takes precedence)
+  const finalVariables = { ...variables, ...(config.variables || {}) };
+
   // Replace variables in templates
   const title = replaceTemplateVariables(
     config.title_template,
-    config.variables || {}
+    finalVariables
   );
   const description = config.description_template
-    ? replaceTemplateVariables(config.description_template, config.variables || {})
+    ? replaceTemplateVariables(config.description_template, finalVariables)
     : null;
 
   // Calculate due date if offset provided

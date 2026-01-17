@@ -128,7 +128,7 @@ Deno.serve(async (req: Request) => {
                 break;
 
               case 'CREATE_TASK':
-                await executeCreateTask(supabase, action, activityEvent, rule);
+                await executeCreateTask(supabase, action, activityEvent, rule, entityData);
                 break;
 
               case 'CREATE_NOTIFICATION':
