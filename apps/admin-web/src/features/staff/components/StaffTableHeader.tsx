@@ -49,6 +49,7 @@ export const StaffTableHeader = memo(function StaffTableHeader({
       <TableRow>
         {sortableFields.map(({ key, label }) => renderSortableHeader(key, label))}
         <TableHead>Classes</TableHead>
+        <TableHead></TableHead>
       </TableRow>
     </TableHeader>
   );

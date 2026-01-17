@@ -430,14 +430,9 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             isDeleting={loadingDelete}
             studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
             loadingSubjects={false}
-            onRemoveSubject={handleRemoveSubject}
+            onRemoveSubject={undefined}
             onViewSubject={handleViewSubject}
-            addSubjectButton={
-              <SubjectSearchPopover
-                selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                onSelectSubject={handleAssignSubject}
-              />
-            }
+            addSubjectButton={undefined}
             parents={isEditingDetails ? tempStudentParents : parents}
             onViewParent={(parentId) => {
               setSelectedParentId(parentId);

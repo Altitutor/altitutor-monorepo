@@ -27,6 +27,7 @@ import { ViewClassModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { ViewStudentModal } from '@/features/students';
 import { formatTime } from '@/shared/utils/datetime';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface ClassesTableProps {
@@ -374,12 +375,13 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                 </TableHead>
                 <TableHead>Students</TableHead>
                 <TableHead>Staff</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {classes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">
+                  <TableCell colSpan={7} className="text-center h-24">
                     {isLoading ? (
                       "Loading classes..."
                     ) : searchTerm || dayFilter.length > 0 ? (
@@ -460,13 +462,21 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                           )}
                         </div>
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <ActionsMenu
+                          type="class"
+                          onOpenInPage={() => {
+                            router.push(`/classes/${cls.id}`);
+                          }}
+                        />
+                      </TableCell>
                     </TableRow>
                   );
                 })
               )}
             </TableBody>
           </Table>
-      </div>
+        </div>
       
       <TablePagination
         page={page}

@@ -35,9 +35,10 @@ interface LogStaffAbsenceDialogProps {
   staffId: string;
   initialStaffId?: string | null;
   initialSessionId?: string | null;
+  allowPastSessions?: boolean;
 }
 
-export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId, initialSessionId }: LogStaffAbsenceDialogProps) {
+export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId, initialSessionId, allowPastSessions = false }: LogStaffAbsenceDialogProps) {
   const [step, setStep] = useState<WizardStep>('select-staff');
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
@@ -98,9 +99,12 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
     setPage(0);
   }, [searchQuery]);
 
-  // Get staff's future sessions (8 weeks ahead by default)
+  // Get staff's sessions (8 weeks ahead by default, optionally include past sessions)
   const { data: futureSessions, isLoading: loadingSessions } = useStaffFutureSessions(
-    selectedStaff?.id || initialStaffId || null
+    selectedStaff?.id || initialStaffId || null,
+    8,
+    allowPastSessions,
+    4 // weeks back when allowing past sessions
   );
 
   // Log absences mutation

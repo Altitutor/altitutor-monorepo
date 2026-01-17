@@ -55,7 +55,11 @@ interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
   type: 'adminShift';
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps;
+interface ParentActionsMenuProps extends BaseActionsMenuProps {
+  type: 'parent';
+}
+
+type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps;
 
 export function ActionsMenu(props: ActionsMenuProps) {
   if (props.type === 'student') {
@@ -203,7 +207,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     );
   }
 
-  if (props.type === 'class' || props.type === 'adminShift') {
+  if (props.type === 'class' || props.type === 'adminShift' || props.type === 'parent') {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

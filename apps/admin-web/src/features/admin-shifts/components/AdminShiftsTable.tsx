@@ -25,6 +25,7 @@ import { AddAdminShiftModal } from './AddAdminShiftModal';
 import { ViewAdminShiftModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 
 interface AdminShiftsTableProps {
   addModalState?: [boolean, Dispatch<SetStateAction<boolean>>];
@@ -317,12 +318,13 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                 <TableHead>Time</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Staff</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {adminShifts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24">
+                  <TableCell colSpan={5} className="text-center h-24">
                     {isLoading ? (
                       "Loading admin shifts..."
                     ) : searchTerm || dayFilter.length > 0 ? (
@@ -369,13 +371,21 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                           )}
                         </div>
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <ActionsMenu
+                          type="adminShift"
+                          onOpenInPage={() => {
+                            router.push(`/admin-shifts/${shift.id}`);
+                          }}
+                        />
+                      </TableCell>
                     </TableRow>
                   );
                 })
               )}
             </TableBody>
           </Table>
-      </div>
+        </div>
       
       <TablePagination
         page={page}

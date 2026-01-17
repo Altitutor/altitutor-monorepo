@@ -59,14 +59,22 @@ export const staffAbsencesApi = {
    * because we need the sessionsStaffId from sessions_staff table for absence logging.
    * The RPC returns sessions but doesn't provide the sessions_staff.id we need.
    */
-  getStaffFutureSessions: async (staffId: string, weeksAhead: number = 8): Promise<StaffSession[]> => {
+  getStaffFutureSessions: async (
+    staffId: string, 
+    weeksAhead: number = 8,
+    allowPastSessions: boolean = false,
+    weeksBack: number = 4
+  ): Promise<StaffSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const now = new Date();
     const maxDate = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
+    const minDate = allowPastSessions 
+      ? new Date(now.getTime() - weeksBack * 7 * 24 * 60 * 60 * 1000)
+      : now;
 
     try {
-      // Get sessions_staff records for this staff with session details
-      const { data, error } = await supabase
+      // Build query
+      let query = supabase
         .from('sessions_staff')
         .select(`
           id,
@@ -81,8 +89,17 @@ export const staffAbsencesApi = {
           )
         `)
         .eq('staff_id', staffId)
-        .eq('planned_absence', false)
-        .gte('session.start_at', now.toISOString());
+        .eq('planned_absence', false);
+
+      // Only filter by start_at if we're not allowing past sessions
+      if (!allowPastSessions) {
+        query = query.gte('session.start_at', now.toISOString());
+      } else {
+        // When allowing past sessions, set a minimum date to avoid loading too many old sessions
+        query = query.gte('session.start_at', minDate.toISOString());
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -101,7 +118,7 @@ export const staffAbsencesApi = {
         .filter((session) => {
           // Filter by date range on the client side
           const sessionDate = new Date(session.start_at || 0);
-          return sessionDate <= maxDate;
+          return sessionDate >= minDate && sessionDate <= maxDate;
         })
         .sort((a, b) => {
           // Sort by start_at ascending

@@ -28,12 +28,13 @@ export const bookingsApi = {
       throw new Error('Failed to get student ID');
     }
 
-    // If original_session_id is provided, use reschedule RPC (for drafting sessions)
-    if (input.original_session_id && input.session_type === 'DRAFTING') {
-      // Type cast needed until database types are regenerated with the new RPC function
-      const { data, error } = await supabase.rpc('reschedule_drafting_session' as any, {
+    // If original_session_id is provided, use reschedule RPC
+    if (input.original_session_id) {
+      // Use the generic reschedule_session function for all session types
+      const { data, error } = await supabase.rpc('reschedule_session', {
         p_original_session_id: input.original_session_id,
         p_student_id: studentId,
+        p_session_type: input.session_type,
         p_start_at: input.start_at,
         p_end_at: input.end_at,
         p_subject_id: input.subject_id || undefined,
