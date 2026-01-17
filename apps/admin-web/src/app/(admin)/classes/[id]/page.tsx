@@ -7,6 +7,7 @@ import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { classesApi } from "@/features/classes/api";
 import { useClassDetails, classesKeys, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
@@ -196,6 +197,12 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
             {formatClassName(classData, subject)}
           </p>
         </div>
+        <ActionsMenu
+          type="class"
+          onOpenInPage={() => {
+            router.push(`/classes/${id}`);
+          }}
+        />
       </div>
 
       {/* Tabs */}

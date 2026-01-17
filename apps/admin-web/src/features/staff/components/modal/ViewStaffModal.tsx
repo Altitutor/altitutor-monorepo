@@ -3,10 +3,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from '@altitutor/ui';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { staffApi } from "../../api";
-import { useStaffDetails } from '../../hooks/useStaffQuery';
+import { useStaffDetails, useCurrentStaff } from '../../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
@@ -20,6 +21,19 @@ import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/comp
 import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
+import { LogStaffAbsenceDialog } from '@/features/sessions/components/LogStaffAbsenceDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { SendInviteDialog } from './SendInviteDialog';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -38,6 +52,7 @@ export function ViewStaffModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { data: currentStaff } = useCurrentStaff();
   
   // React Query hooks - fetch data only when modal is open and staffId exists
   const { data: staffData, isLoading } = useStaffDetails(staffId || '', isOpen && !!staffId);
@@ -56,10 +71,15 @@ export function ViewStaffModal({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingStaffUpdate, setLoadingStaffUpdate] = useState(false);
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   
   // Subject modal state
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+
+  // Absence and delete modals
+  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   
   // Temporary subjects state for editing (not saved until form submit)
@@ -166,6 +186,30 @@ export function ViewStaffModal({
     }
   };
 
+  // Handle password reset/invite request
+  const handlePasswordResetOrRegistration = () => {
+    if (!staffMember) return;
+    
+    if (!staffMember.user_id) {
+      // No account -> Send Invite
+      setInviteDialogOpen(true);
+    } else {
+      // Has account -> Password Reset
+      handlePasswordResetRequest();
+    }
+  };
+
+  // Get password reset label
+  const getPasswordResetLabel = () => {
+    if (!staffMember) return 'Send password reset';
+    
+    if (!staffMember.user_id) {
+      return 'Send invite';
+    } else {
+      return 'Send password reset';
+    }
+  };
+
   // Delete staff handler
   const handleDelete = async () => {
     if (!staffMember) return;
@@ -173,6 +217,7 @@ export function ViewStaffModal({
     try {
       setIsDeleting(true);
       await staffApi.deleteStaff(staffMember.id);
+      setIsDeleteDialogOpen(false);
       
       toast({
         title: 'Staff deleted',
@@ -299,7 +344,7 @@ export function ViewStaffModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100vh] flex flex-col p-0">
+        <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100vh] flex flex-col p-0">
           {!staffMember ? (
             <div className="flex justify-center items-center h-full p-6">
               <div className="text-muted-foreground">
@@ -317,27 +362,44 @@ export function ViewStaffModal({
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <SheetTitle>
-                        {isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
-                      </SheetTitle>
-                      <SheetDescription className="text-lg font-medium">
-                        {staffMember.first_name} {staffMember.last_name}
-                      </SheetDescription>
+                    <div className="flex items-center gap-3 flex-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={onClose}
+                        className="shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <div className="flex-1">
+                        <SheetTitle>
+                          {isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
+                        </SheetTitle>
+                        <SheetDescription className="text-lg font-medium">
+                          {staffMember.first_name} {staffMember.last_name}
+                        </SheetDescription>
+                      </div>
                     </div>
                     {staffId && (
-                      <UIButton
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
+                      <ActionsMenu
+                        type="staff"
+                        onOpenInPage={() => {
                           router.push(`/staff/${staffId}`);
                           onClose();
                         }}
-                        className="shrink-0"
-                        title="Open in new page"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </UIButton>
+                        onEditDetails={() => {
+                          setActiveTab('details');
+                          handleStartEdit();
+                        }}
+                        onPasswordResetOrRegistration={handlePasswordResetOrRegistration}
+                        passwordResetLabel={getPasswordResetLabel()}
+                        onLogAbsence={() => {
+                          setIsLogAbsenceDialogOpen(true);
+                        }}
+                        onDelete={() => {
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      />
                     )}
                   </div>
                 </SheetHeader>
@@ -363,7 +425,7 @@ export function ViewStaffModal({
                       onEdit={handleStartEdit}
                       onCancelEdit={handleCancelEdit}
                       onSubmit={handleStaffUpdate}
-                      onDelete={isEditing ? handleDelete : undefined}
+                      onDelete={undefined}
                       isDeleting={isDeleting}
                       staffSubjects={isEditing ? tempStaffSubjects : staffSubjects}
                       loadingSubjects={isLoading}
@@ -470,6 +532,58 @@ export function ViewStaffModal({
             }
           }}
         />
+      )}
+
+      {/* Log Staff Absence Dialog */}
+      {currentStaff && staffId && (
+        <LogStaffAbsenceDialog
+          isOpen={isLogAbsenceDialogOpen}
+          onClose={() => setIsLogAbsenceDialogOpen(false)}
+          staffId={currentStaff.id}
+          initialStaffId={staffId}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Send Invite Dialog */}
+      {staffMember && (
+        <SendInviteDialog
+          isOpen={inviteDialogOpen}
+          onClose={() => setInviteDialogOpen(false)}
+          staffMember={staffMember}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {staffMember && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the staff member
+                "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </>
   );

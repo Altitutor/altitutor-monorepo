@@ -7,6 +7,21 @@ import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { studentsApi } from '@/features/students/api';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogAbsenceDialog } from '@/features/sessions/components/LogAbsenceDialog';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { SendStudentInviteDialog } from '@/features/students/components/SendStudentInviteDialog';
 import { useStudentDetails, useUpdateStudent, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
@@ -31,6 +46,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: currentStaff } = useCurrentStaff();
   
   // Use React Query hooks for data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(id, !!id);
@@ -56,6 +72,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
   // Password reset state
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   
   // Parent modal state
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
@@ -65,6 +83,11 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   // Subject modal state
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+
+  // Absence and booking modals
+  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Temporary subjects state for editing (not saved until form submit)
   const [tempStudentSubjects, setTempStudentSubjects] = useState<Tables<'subjects'>[]>([]);
@@ -167,6 +190,43 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     }
   };
 
+  // Handle password reset/registration request
+  const handlePasswordResetOrRegistration = () => {
+    if (!student) return;
+    
+    const isRegistered = student.status === 'ACTIVE';
+    const hasAccount = !!student.user_id;
+    
+    if (isRegistered && !hasAccount) {
+      // Case 1: Registered but no account -> Send Invite
+      setInviteDialogType('invite');
+      setInviteDialogOpen(true);
+    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+      // Case 2 & 3: Has account but not registered OR no account and not registered -> Send Registration Link
+      setInviteDialogType('registration');
+      setInviteDialogOpen(true);
+    } else {
+      // Case 4: Registered AND has account -> Password Reset
+      handlePasswordResetRequest();
+    }
+  };
+
+  // Get password reset label
+  const getPasswordResetLabel = () => {
+    if (!student) return 'Send password reset';
+    
+    const isRegistered = student.status === 'ACTIVE';
+    const hasAccount = !!student.user_id;
+    
+    if (isRegistered && !hasAccount) {
+      return 'Send invite';
+    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+      return 'Send registration link';
+    } else {
+      return 'Send password reset';
+    }
+  };
+
   // Handle password reset request
   const handlePasswordResetRequest = async () => {
     if (!student || !student.email) {
@@ -253,6 +313,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     try {
       setLoadingDelete(true);
       await studentsApi.deleteStudent(student.id);
+      setIsDeleteDialogOpen(false);
       router.push('/students');
       
       toast({
@@ -323,6 +384,27 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             {student.first_name} {student.last_name}
           </p>
         </div>
+        <ActionsMenu
+          type="student"
+          onOpenInPage={() => {
+            router.push(`/students/${id}`);
+          }}
+          onEditDetails={() => {
+            setActiveTab('details');
+            handleStartEditDetails();
+          }}
+          onPasswordResetOrRegistration={handlePasswordResetOrRegistration}
+          passwordResetLabel={getPasswordResetLabel()}
+          onLogAbsence={() => {
+            setIsLogAbsenceDialogOpen(true);
+          }}
+          onBookDraftingSession={() => {
+            setIsBookDraftingSessionModalOpen(true);
+          }}
+          onDelete={() => {
+            setIsDeleteDialogOpen(true);
+          }}
+        />
       </div>
 
       {/* Tabs */}
@@ -344,7 +426,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             onEdit={handleStartEditDetails}
             onCancelEdit={handleCancelEditDetails}
             onSubmit={handleDetailsSubmit}
-            onDelete={isEditingDetails ? handleDeleteStudent : undefined}
+                      onDelete={undefined}
             isDeleting={loadingDelete}
             studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
             loadingSubjects={false}
@@ -453,6 +535,71 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           subjectId={selectedSubjectId}
           onSubjectUpdated={handleStudentUpdated}
         />
+      )}
+
+      {/* Log Absence Dialog */}
+      {currentStaff && (
+        <LogAbsenceDialog
+          isOpen={isLogAbsenceDialogOpen}
+          onClose={() => setIsLogAbsenceDialogOpen(false)}
+          staffId={currentStaff.id}
+          initialStudentId={id}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Book Drafting Session Modal */}
+      <BookSessionModal
+        isOpen={isBookDraftingSessionModalOpen}
+        onClose={() => setIsBookDraftingSessionModalOpen(false)}
+        sessionType="DRAFTING"
+        initialStudentId={id}
+        onBookingCreated={() => {
+          setIsBookDraftingSessionModalOpen(false);
+          handleStudentUpdated();
+        }}
+      />
+
+      {/* Send Invite Dialog */}
+      {student && (
+        <SendStudentInviteDialog
+          isOpen={inviteDialogOpen}
+          onClose={() => setInviteDialogOpen(false)}
+          student={student}
+          linkType={inviteDialogType}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {student && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the student
+                "{student.first_name} {student.last_name}" and all associated data from the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteStudent}
+                disabled={loadingDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {loadingDelete ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

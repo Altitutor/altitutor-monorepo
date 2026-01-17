@@ -36,6 +36,9 @@ export interface BookSessionModalProps {
   onClose: () => void;
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
   onBookingCreated?: (sessionId: string) => void;
+  initialStudentId?: string;
+  originalSessionId?: string | null; // Optional: if provided, this is a reschedule operation
+  originalSubjectId?: string | null; // Optional: subject ID from the original session (for reschedule)
 }
 
 export function BookSessionModal({
@@ -43,6 +46,9 @@ export function BookSessionModal({
   onClose,
   sessionType,
   onBookingCreated,
+  initialStudentId,
+  originalSessionId = null,
+  originalSubjectId = null,
 }: BookSessionModalProps) {
   const { toast } = useToast();
   const createBooking = useCreateBooking();
@@ -67,6 +73,17 @@ export function BookSessionModal({
   const [showPastDateWarning, setShowPastDateWarning] = useState(false);
   const [pendingNextStep, setPendingNextStep] = useState(false);
 
+  // Initialize with initialStudentId if provided
+  useEffect(() => {
+    if (isOpen && initialStudentId && !selectedStudentId) {
+      setSelectedStudentId(initialStudentId);
+      // For DRAFTING sessions, advance to step 1 (time slot selection) since student is pre-selected
+      if (sessionType === 'DRAFTING') {
+        setCurrentStep(1);
+      }
+    }
+  }, [isOpen, initialStudentId, sessionType, selectedStudentId]);
+
   // Search students - filter by status for drafting sessions (only active students)
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
     queryKey: ['students', 'search', studentSearch, sessionType],
@@ -85,6 +102,21 @@ export function BookSessionModal({
     queryFn: () => subjectsApi.getAllSubjects(),
     enabled: isOpen,
   });
+
+  // Auto-select subject from original session when rescheduling
+  useEffect(() => {
+    if (isOpen && originalSubjectId && subjects && sessionType === 'DRAFTING' && !selectedSubjectId) {
+      // Verify the subject exists in available subjects
+      const subjectExists = subjects.some(s => s.id === originalSubjectId);
+      if (subjectExists) {
+        setSelectedSubjectId(originalSubjectId);
+        // Auto-advance to time selection step if subject is pre-selected
+        if (selectedStudentId) {
+          setCurrentStep(1);
+        }
+      }
+    }
+  }, [isOpen, originalSubjectId, subjects, sessionType, selectedSubjectId, selectedStudentId]);
 
   // Get student's subjects if student selected
   const { data: studentSubjects } = useQuery({
@@ -217,7 +249,7 @@ export function BookSessionModal({
     // Step 4: Confirm
     baseSteps.push({
       id: 'confirm',
-      title: 'Confirm Booking',
+      title: originalSessionId ? 'Confirm Reschedule' : 'Confirm Booking',
     });
 
     return baseSteps;
@@ -527,11 +559,12 @@ export function BookSessionModal({
         end_at: selectedSlot.endAt,
         subject_id: selectedSubjectId || undefined,
         staff_id: selectedStaffId,
+        original_session_id: originalSessionId || undefined,
       });
 
       toast({
-        title: 'Booking Created',
-        description: `${sessionType === 'DRAFTING' ? 'Drafting' : sessionType === 'TRIAL_SESSION' ? 'Trial' : 'Subsidy Interview'} session has been booked successfully`,
+        title: originalSessionId ? 'Session Rescheduled' : 'Booking Created',
+        description: `${originalSessionId ? 'Session has been rescheduled' : `${sessionType === 'DRAFTING' ? 'Drafting' : sessionType === 'TRIAL_SESSION' ? 'Trial' : 'Subsidy Interview'} session has been booked successfully`}`,
       });
 
       onBookingCreated?.(sessionId);
@@ -931,7 +964,7 @@ export function BookSessionModal({
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>Book {getSessionTypeLabel()}</DialogTitle>
+          <DialogTitle>{originalSessionId ? `Reschedule ${getSessionTypeLabel()}` : `Book ${getSessionTypeLabel()}`}</DialogTitle>
           <DialogDescription>
             Create a new {getSessionTypeLabel().toLowerCase()} booking
           </DialogDescription>

@@ -16,7 +16,7 @@ import { useAutomationRule } from '../api/queries';
 import { useDeleteAutomationAction } from '../api/mutations';
 import { CreateEditActionDialog } from './CreateEditActionDialog';
 import type { Tables } from '@altitutor/shared';
-import type { AutomationAction } from '../types';
+import type { AutomationAction, ActivityEntityType } from '../types';
 
 interface AutomationActionsListProps {
   ruleId: string;
@@ -144,6 +144,7 @@ export function AutomationActionsList({
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         ruleId={ruleId}
+        entityType={rule?.entity_type as ActivityEntityType | undefined}
         templates={templates}
         staffList={staffList}
       />
@@ -153,6 +154,7 @@ export function AutomationActionsList({
           isOpen={!!editingAction}
           onClose={() => setEditingAction(null)}
           ruleId={ruleId}
+          entityType={rule?.entity_type as ActivityEntityType | undefined}
           action={editingAction}
           templates={templates}
           staffList={staffList}
