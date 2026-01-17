@@ -2162,7 +2162,8 @@ export type Database = {
           id: string
           notification_type: string
           read_at: string | null
-          staff_id: string
+          staff_id: string | null
+          student_id: string | null
           title: string
         }
         Insert: {
@@ -2173,7 +2174,8 @@ export type Database = {
           id?: string
           notification_type: string
           read_at?: string | null
-          staff_id: string
+          staff_id?: string | null
+          student_id?: string | null
           title: string
         }
         Update: {
@@ -2184,7 +2186,8 @@ export type Database = {
           id?: string
           notification_type?: string
           read_at?: string | null
-          staff_id?: string
+          staff_id?: string | null
+          student_id?: string | null
           title?: string
         }
         Relationships: [
@@ -2207,6 +2210,34 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_classes"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
             referencedColumns: ["id"]
           },
         ]
@@ -5453,6 +5484,78 @@ export type Database = {
           },
         ]
       }
+      vstudent_notifications: {
+        Row: {
+          action_url: string | null
+          activity_event_id: string | null
+          body: string | null
+          created_at: string | null
+          id: string | null
+          notification_type: string | null
+          read_at: string | null
+          student_id: string | null
+          title: string | null
+        }
+        Insert: {
+          action_url?: string | null
+          activity_event_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string | null
+          notification_type?: string | null
+          read_at?: string | null
+          student_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          action_url?: string | null
+          activity_event_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string | null
+          notification_type?: string | null
+          read_at?: string | null
+          student_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_activity_event_id_fkey"
+            columns: ["activity_event_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_classes"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vstudent_profile: {
         Row: {
           availability_friday: boolean | null
@@ -6309,6 +6412,64 @@ export type Database = {
           {
             foreignKeyName: "notes_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtutor_notifications: {
+        Row: {
+          action_url: string | null
+          activity_event_id: string | null
+          body: string | null
+          created_at: string | null
+          id: string | null
+          notification_type: string | null
+          read_at: string | null
+          staff_id: string | null
+          title: string | null
+        }
+        Insert: {
+          action_url?: string | null
+          activity_event_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string | null
+          notification_type?: string | null
+          read_at?: string | null
+          staff_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          action_url?: string | null
+          activity_event_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string | null
+          notification_type?: string | null
+          read_at?: string | null
+          staff_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_activity_event_id_fkey"
+            columns: ["activity_event_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_staff_id_fkey"
+            columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
