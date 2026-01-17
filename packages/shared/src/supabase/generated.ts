@@ -7695,6 +7695,21 @@ export type Database = {
         }
         Returns: string
       }
+      reschedule_session: {
+        Args: {
+          p_bypass_date_restrictions?: boolean
+          p_created_by?: string
+          p_end_at: string
+          p_original_session_id: string
+          p_reservation_id?: string
+          p_session_type: Database["public"]["Enums"]["session_type"]
+          p_staff_id?: string
+          p_start_at: string
+          p_student_id: string
+          p_subject_id?: string
+        }
+        Returns: string
+      }
       search_all_admin: {
         Args: {
           p_limit?: number
