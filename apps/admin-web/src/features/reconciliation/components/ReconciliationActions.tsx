@@ -5,7 +5,8 @@ import { Button } from '@altitutor/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus } from 'lucide-react';
+import { useDeleteMessage } from '@/features/messages/api/mutations';
+import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus, Trash2 } from 'lucide-react';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import type {
@@ -73,6 +74,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const deleteMessageMutation = useDeleteMessage();
 
   const handleOpenConversation = async (conversationId: string) => {
     try {
@@ -276,6 +278,27 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
 
     case 'failed_delivery_messages': {
       const message = item as FailedDeliveryMessage;
+      
+      const handleDeleteMessage = async () => {
+        if (!confirm('Are you sure you want to delete this failed message? This action cannot be undone.')) {
+          return;
+        }
+        
+        try {
+          await deleteMessageMutation.mutateAsync(message.message_id);
+          toast({
+            title: 'Success',
+            description: 'Message deleted successfully',
+          });
+        } catch (error: any) {
+          toast({
+            title: 'Error',
+            description: error.message || 'Failed to delete message',
+            variant: 'destructive',
+          });
+        }
+      };
+      
       return (
         <div className="flex gap-2">
           <Button
@@ -286,6 +309,15 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <MessageCircle className="h-4 w-4 mr-1" />
             Open Conversation
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteMessage}
+            disabled={isLoading || deleteMessageMutation.isPending}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            {deleteMessageMutation.isPending ? 'Deleting...' : 'Delete'}
           </Button>
         </div>
       );
