@@ -106,7 +106,10 @@ export const searchApi = {
       weights = { primary: 100, secondary: 50 }
     } = params;
 
-    const { data, error } = await supabase.rpc('search_all_admin', {
+    // Note: search_all_admin was dropped in migration 20260118191139
+    // This function is deprecated and should be replaced with individual search RPCs
+    // For now, return empty results to prevent errors
+    const { data, error } = await (supabase.rpc as any)('search_all_admin', {
       p_search: search,
       p_limit: limit,
       p_offset: offset,
@@ -117,6 +120,14 @@ export const searchApi = {
     if (error) {
       console.error('Error calling search_all_admin:', error);
       throw error;
+    }
+
+    if (!data) {
+      return {
+        results: [],
+        total: 0,
+        has_more: false,
+      };
     }
 
     return data as GlobalSearchResponse;

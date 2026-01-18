@@ -347,10 +347,10 @@ export const topicsFilesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     const { data, error } = await supabase.rpc('search_files_admin', {
-      p_search: params.search?.trim() || null,
-      p_subject_ids: params.subjectIds && params.subjectIds.length > 0 ? params.subjectIds : null,
-      p_topic_ids: params.topicIds && params.topicIds.length > 0 ? params.topicIds : null,
-      p_file_types: params.fileTypes && params.fileTypes.length > 0 ? params.fileTypes : null,
+      p_search: params.search?.trim() || undefined,
+      p_subject_ids: params.subjectIds && params.subjectIds.length > 0 ? params.subjectIds : undefined,
+      p_topic_ids: params.topicIds && params.topicIds.length > 0 ? params.topicIds : undefined,
+      p_file_types: params.fileTypes && params.fileTypes.length > 0 ? params.fileTypes : undefined,
       p_limit: params.limit ?? 20,
       p_offset: params.offset ?? 0,
     });

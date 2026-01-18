@@ -215,19 +215,6 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       data: formData as TutorLogFormData,
       createdBy: selectedStaffId,
     };
-    
-    console.log('🎯 [LogSessionModal] Submit clicked with payload:', JSON.stringify(submitPayload, null, 2));
-    console.log('🔍 [LogSessionModal] selectedStaffId details:', {
-      value: selectedStaffId,
-      type: typeof selectedStaffId,
-      isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedStaffId || ''),
-      selectedStaff: selectedStaff ? {
-        id: selectedStaff.id,
-        name: `${selectedStaff.first_name} ${selectedStaff.last_name}`,
-        status: selectedStaff.status,
-        role: selectedStaff.role,
-      } : null,
-    });
 
     setSubmissionState('submitting');
     setSubmissionError(null);

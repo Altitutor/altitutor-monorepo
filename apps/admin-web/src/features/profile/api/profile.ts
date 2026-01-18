@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database, Tables } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 
 type StaffRow = Tables<'staff'>;
 

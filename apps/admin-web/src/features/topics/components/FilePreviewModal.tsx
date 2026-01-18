@@ -103,11 +103,10 @@ export function FilePreviewModal({
             }
           } catch (error) {
             // Topic file not found, that's okay
-            console.log('No topic file found for file:', fileId);
           }
         }
       } catch (error) {
-        console.error('Error loading file:', error);
+        // Error loading file
       } finally {
         setIsLoading(false);
       }
