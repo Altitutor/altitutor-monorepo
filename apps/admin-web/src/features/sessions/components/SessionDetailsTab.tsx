@@ -268,7 +268,7 @@ export function SessionDetailsTab({
                               Send Booking Confirmation Link
                             </DropdownMenuItem>
                           )}
-                          {!data.plannedAbsence && !isSessionInPast && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent && (
+                          {!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent && (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -374,7 +374,7 @@ export function SessionDetailsTab({
                           >
                             Message
                           </DropdownMenuItem>
-                          {!data.plannedAbsence && !isSessionInPast && sessionId && onLogAbsenceStaff && (
+                          {!data.plannedAbsence && sessionId && onLogAbsenceStaff && (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -479,17 +479,10 @@ export function SessionDetailsTab({
 
       {/* No Tutor Log Message */}
       {!hasTutorLog && (
-        <div className="text-center py-4 space-y-3">
+        <div className="text-center py-4">
           <p className="text-sm text-muted-foreground">
             This session has not been logged yet.
           </p>
-          {sessionId && currentStaff && onLogSession && (
-            <Button
-              onClick={onLogSession}
-            >
-              Log Session
-            </Button>
-          )}
         </div>
       )}
     </div>

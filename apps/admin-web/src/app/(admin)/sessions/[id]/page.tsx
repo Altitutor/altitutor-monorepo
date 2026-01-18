@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@altitutor/ui';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sessionsApi } from '@/features/sessions/api/sessions';
@@ -16,6 +19,7 @@ import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
 import { SessionDetailsTab } from '@/features/sessions/components/SessionDetailsTab';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 
 export default function SessionDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -28,7 +32,11 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedStudentForReschedule, setSelectedStudentForReschedule] = useState<string | null>(null);
   const openWindow = useChatStore(s => s.openWindow);
+  const { data: currentStaff } = useCurrentStaff();
 
   useEffect(() => {
     const load = async () => {
@@ -141,11 +149,31 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   const { session, sessionsStudents, sessionsStaff, tutorLog } = data;
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
+  
+  // Get first staff member from class for logging
+  const getFirstStaffForLogging = () => {
+    if (sessionsStaff && sessionsStaff.length > 0 && sessionsStaff[0].staff_id) {
+      return sessionsStaff[0].staff_id;
+    }
+    return undefined;
+  };
   // Use session's subject if available, otherwise fall back to class's subject
   const subject = (session as any).subject || session.class?.subject;
   
   // Check if session is in the past
   const isSessionInPast = session.start_at ? new Date(session.start_at) < new Date() : false;
+  
+  // Check if rescheduling is possible (only for DRAFTING, TRIAL_SESSION, SUBSIDY_INTERVIEW)
+  const canReschedule = session.type && ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type);
+  
+  // Get the first student ID for rescheduling (if multiple students, use the first one)
+  const getFirstStudentIdForReschedule = () => {
+    if (sessionsStudents && sessionsStudents.length > 0) {
+      const firstStudent = sessionsStudents.find((ss: any) => ss.student_id && !ss.planned_absence);
+      return firstStudent?.student_id || null;
+    }
+    return null;
+  };
 
   // Build student attendance map from tutor log
   const actualStudentAttendance: Record<string, { attended: boolean }> = {};
@@ -268,6 +296,24 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
             {sessionTitle}
           </p>
         </div>
+        <ActionsMenu
+          type="session"
+          onOpenInPage={() => {
+            router.push(`/sessions/${id}`);
+          }}
+          onLogSession={() => {
+            setIsLogSessionModalOpen(true);
+          }}
+          hasTutorLog={hasTutorLog}
+          onReschedule={() => {
+            const studentId = getFirstStudentIdForReschedule();
+            if (studentId) {
+              setSelectedStudentForReschedule(studentId);
+              setIsRescheduleModalOpen(true);
+            }
+          }}
+          canReschedule={canReschedule}
+        />
       </div>
 
       {/* Tabs */}
@@ -329,6 +375,58 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           }}
           staffId={selectedStaffId}
           onStaffUpdated={() => {}}
+        />
+      )}
+
+      {/* Log Session Modal */}
+      {currentStaff && (
+        <LogSessionModal
+          isOpen={isLogSessionModalOpen}
+          onClose={async () => {
+            setIsLogSessionModalOpen(false);
+            // Refresh session data after logging
+            if (id) {
+              try {
+                const result = await sessionsApi.getSessionWithTutorLog(id);
+                setData(result);
+              } catch (error) {
+                console.error('Failed to refresh session data:', error);
+              }
+            }
+          }}
+          currentStaffId={currentStaff.id}
+          adminMode={true}
+          initialSessionId={id}
+          initialStaffId={getFirstStaffForLogging()}
+        />
+      )}
+
+      {/* Reschedule Session Modal */}
+      {selectedStudentForReschedule && canReschedule && (
+        <BookSessionModal
+          isOpen={isRescheduleModalOpen}
+          onClose={async () => {
+            setIsRescheduleModalOpen(false);
+            setSelectedStudentForReschedule(null);
+            // Refresh session data after rescheduling
+            if (id) {
+              try {
+                const result = await sessionsApi.getSessionWithTutorLog(id);
+                setData(result);
+              } catch (error) {
+                console.error('Failed to refresh session data:', error);
+              }
+            }
+          }}
+          sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
+          initialStudentId={selectedStudentForReschedule}
+          originalSessionId={id}
+          originalSubjectId={subject?.id || null}
+          onBookingCreated={(newSessionId) => {
+            // Optionally navigate to the new session or show success message
+            setIsRescheduleModalOpen(false);
+            setSelectedStudentForReschedule(null);
+          }}
         />
       )}
     </div>

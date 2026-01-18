@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Separator, Badge, Button } from '@altitutor/ui';
-import { ExternalLink, Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { billingApi, type InvoiceRow, type InvoiceItemRow } from '../api/billing';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { cn } from '@/shared/utils';
 
 type ViewInvoiceModalProps = {
@@ -136,29 +137,40 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <SheetTitle>Invoice Details</SheetTitle>
-                  <SheetDescription className="text-lg font-medium">
-                    Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
-                  </SheetDescription>
+                <div className="flex items-center gap-3 flex-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={onClose}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1">
+                    <SheetTitle>Invoice Details</SheetTitle>
+                    <SheetDescription className="text-lg font-medium">
+                      Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                    </SheetDescription>
+                  </div>
                 </div>
                 {invoiceId && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
+                  <ActionsMenu
+                    type="invoice"
+                    onOpenInPage={() => {
                       router.push(`/invoices/${invoiceId}`);
                       onClose();
                     }}
-                    className="shrink-0"
-                    title="Open in new page"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                    onViewOnStripe={invoice.hosted_invoice_url ? () => {
+                      window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+                    } : undefined}
+                    onDownloadPdf={invoice.invoice_pdf ? () => {
+                      window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
+                    } : undefined}
+                  />
                 )}
               </div>
             </SheetHeader>
@@ -262,30 +274,6 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                 )}
               </div>
 
-              <Separator />
-
-              {/* Actions */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Actions</h3>
-                <div className="flex gap-2">
-                  {invoice.hosted_invoice_url && (
-                    <Button variant="outline" asChild>
-                      <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        View on Stripe
-                      </a>
-                    </Button>
-                  )}
-                  {invoice.invoice_pdf && (
-                    <Button variant="outline" asChild>
-                      <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download PDF
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </SheetContent>

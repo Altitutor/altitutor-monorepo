@@ -10,6 +10,7 @@ export interface CreateBookingInput {
   subject_id?: string;
   staff_id?: string; // Optional: override auto-assignment
   reservation_id?: string; // Optional: convert reservation to session
+  original_session_id?: string; // Optional: if provided, marks old session as absence (reschedule)
 }
 
 export const bookingsApi = {
@@ -22,6 +23,26 @@ export const bookingsApi = {
       throw new Error('User not authenticated');
     }
 
+    // If original_session_id is provided, use reschedule RPC
+    if (input.original_session_id) {
+      const { data, error } = await supabase.rpc('reschedule_session', {
+        p_original_session_id: input.original_session_id,
+        p_student_id: input.student_id,
+        p_session_type: input.session_type,
+        p_start_at: input.start_at,
+        p_end_at: input.end_at,
+        p_subject_id: input.subject_id || undefined,
+        p_staff_id: input.staff_id || undefined,
+        p_reservation_id: input.reservation_id || undefined,
+        p_created_by: user.id,
+      });
+      
+      if (error) throw error;
+      if (!data) throw new Error('Failed to reschedule session: no session ID returned');
+      return data as string; // Returns new session_id
+    }
+
+    // Otherwise, use regular booking RPC
     const { data, error } = await supabase.rpc('create_booking_session', {
       p_session_type: input.session_type,
       p_student_id: input.student_id,

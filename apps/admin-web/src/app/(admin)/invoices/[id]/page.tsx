@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Separator, Badge } from '@altitutor/ui';
-import { ExternalLink, Download, Loader2, ArrowLeft } from 'lucide-react';
+import { Download, Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { billingApi, type InvoiceRow, type InvoiceItemRow } from '@/features/billing/api/billing';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
@@ -139,6 +140,18 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
             Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
           </p>
         </div>
+        <ActionsMenu
+          type="invoice"
+          onOpenInPage={() => {
+            router.push(`/invoices/${id}`);
+          }}
+          onViewOnStripe={invoice.hosted_invoice_url ? () => {
+            window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+          } : undefined}
+          onDownloadPdf={invoice.invoice_pdf ? () => {
+            window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
+          } : undefined}
+        />
       </div>
 
       <div className="space-y-6">
@@ -244,25 +257,6 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
 
         {/* Actions */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">Actions</h3>
-          <div className="flex gap-2">
-            {invoice.hosted_invoice_url && (
-              <Button variant="outline" asChild>
-                <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View on Stripe
-                </a>
-              </Button>
-            )}
-            {invoice.invoice_pdf && (
-              <Button variant="outline" asChild>
-                <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </a>
-              </Button>
-            )}
-          </div>
         </div>
       </div>
 

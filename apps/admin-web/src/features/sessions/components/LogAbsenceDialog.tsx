@@ -35,9 +35,10 @@ interface LogAbsenceDialogProps {
   staffId: string;
   initialStudentId?: string | null;
   initialSessionId?: string | null;
+  allowPastSessions?: boolean;
 }
 
-export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, initialSessionId }: LogAbsenceDialogProps) {
+export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, initialSessionId, allowPastSessions = false }: LogAbsenceDialogProps) {
   const [step, setStep] = useState<WizardStep>('select-student');
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
@@ -101,9 +102,12 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     setPage(0);
   }, [searchQuery]);
 
-  // Get student's future sessions (8 weeks ahead by default)
+  // Get student's sessions (8 weeks ahead by default, optionally include past sessions)
   const { data: futureSessions, isLoading: loadingSessions } = useStudentFutureSessions(
-    selectedStudent?.id || initialStudentId || null
+    selectedStudent?.id || initialStudentId || null,
+    8,
+    allowPastSessions,
+    4 // weeks back when allowing past sessions
   );
 
   // Log absences mutation

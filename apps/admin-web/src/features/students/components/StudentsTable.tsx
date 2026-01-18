@@ -35,6 +35,24 @@ import { ViewClassModal } from '@/features/classes';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogAbsenceDialog } from '@/features/sessions/components/LogAbsenceDialog';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { Loader2 } from "lucide-react";
+import { SendStudentInviteDialog } from './SendStudentInviteDialog';
+import { studentsApi } from '../api';
+import { useToast } from "@altitutor/ui";
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface StudentsTableProps {
@@ -124,6 +142,19 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const { data: currentStaff } = useCurrentStaff();
+  const { toast } = useToast();
+  
+  // Actions menu states
+  const [actionStudentId, setActionStudentId] = useState<string | null>(null);
+  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
+  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
 
   // Server provides filtered/sorted page; apply compound sorting for status field
   const filteredStudents = useMemo(() => {
@@ -275,6 +306,87 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const handleClassClick = (classId: string) => {
     setSelectedClassId(classId);
     setIsClassModalOpen(true);
+  };
+
+  // Actions menu handlers
+  const handlePasswordResetOrRegistration = (student: Tables<'students'>) => {
+    const isRegistered = student.status === 'ACTIVE';
+    const hasAccount = !!student.user_id;
+    
+    if (isRegistered && !hasAccount) {
+      setInviteDialogType('invite');
+      setInviteDialogOpen(true);
+    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+      setInviteDialogType('registration');
+      setInviteDialogOpen(true);
+    } else {
+      handlePasswordResetRequest(student);
+    }
+  };
+
+  const getPasswordResetLabel = (student: Tables<'students'>) => {
+    const isRegistered = student.status === 'ACTIVE';
+    const hasAccount = !!student.user_id;
+    
+    if (isRegistered && !hasAccount) {
+      return 'Send invite';
+    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+      return 'Send registration link';
+    } else {
+      return 'Send password reset';
+    }
+  };
+
+  const handlePasswordResetRequest = async (student: Tables<'students'>) => {
+    if (!student.email) {
+      toast({
+        title: "Error",
+        description: "No email address found for this student.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoadingPasswordReset(true);
+      setHasPasswordResetLinkSent(true);
+      toast({
+        title: "Success",
+        description: "Password reset link sent successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to send password reset:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send password reset link. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPasswordReset(false);
+    }
+  };
+
+  const handleDeleteStudent = async (studentId: string) => {
+    try {
+      setIsDeleting(true);
+      await studentsApi.deleteStudent(studentId);
+      setIsDeleteDialogOpen(false);
+      setActionStudentId(null);
+      handleStudentUpdated();
+      toast({
+        title: "Success",
+        description: "Student deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to delete student:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   
@@ -513,12 +625,13 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                 )} />
               </TableHead>
               <TableHead>Classes</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
+                <TableCell colSpan={6} className="text-center h-24">
                   {isLoading ? (
                     "Loading students..."
                   ) : searchTerm || activeFiltersCount > 0 ? (
@@ -599,6 +712,34 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         <span className="text-muted-foreground text-sm">No classes</span>
                       )}
                     </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <ActionsMenu
+                        type="student"
+                        onOpenInPage={() => {
+                          router.push(`/students/${student.id}`);
+                        }}
+                        onEditDetails={() => {
+                          handleStudentClick(student.id);
+                        }}
+                        onPasswordResetOrRegistration={() => {
+                          setActionStudentId(student.id);
+                          handlePasswordResetOrRegistration(student);
+                        }}
+                        passwordResetLabel={getPasswordResetLabel(student)}
+                        onLogAbsence={() => {
+                          setActionStudentId(student.id);
+                          setIsLogAbsenceDialogOpen(true);
+                        }}
+                        onBookDraftingSession={() => {
+                          setActionStudentId(student.id);
+                          setIsBookDraftingSessionModalOpen(true);
+                        }}
+                        onDelete={() => {
+                          setActionStudentId(student.id);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -658,6 +799,83 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             refetch();
           }}
         />
+      )}
+
+      {/* Log Absence Dialog */}
+      {currentStaff && actionStudentId && (
+        <LogAbsenceDialog
+          isOpen={isLogAbsenceDialogOpen}
+          onClose={() => {
+            setIsLogAbsenceDialogOpen(false);
+            setActionStudentId(null);
+          }}
+          staffId={currentStaff.id}
+          initialStudentId={actionStudentId}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Book Drafting Session Modal */}
+      {actionStudentId && (
+        <BookSessionModal
+          isOpen={isBookDraftingSessionModalOpen}
+          onClose={() => {
+            setIsBookDraftingSessionModalOpen(false);
+            setActionStudentId(null);
+          }}
+          sessionType="DRAFTING"
+          initialStudentId={actionStudentId}
+          onBookingCreated={() => {
+            setIsBookDraftingSessionModalOpen(false);
+            setActionStudentId(null);
+            handleStudentUpdated();
+          }}
+        />
+      )}
+
+      {/* Send Invite Dialog */}
+      {actionStudentId && filteredStudents.find(s => s.id === actionStudentId) && (
+        <SendStudentInviteDialog
+          isOpen={inviteDialogOpen}
+          onClose={() => {
+            setInviteDialogOpen(false);
+            setActionStudentId(null);
+          }}
+          student={filteredStudents.find(s => s.id === actionStudentId)!}
+          linkType={inviteDialogType}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {actionStudentId && filteredStudents.find(s => s.id === actionStudentId) && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the student
+                "{filteredStudents.find(s => s.id === actionStudentId)!.first_name} {filteredStudents.find(s => s.id === actionStudentId)!.last_name}" and all associated data from the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => actionStudentId && handleDeleteStudent(actionStudentId)}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

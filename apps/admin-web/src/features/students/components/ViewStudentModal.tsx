@@ -5,13 +5,28 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { studentsApi } from '../api';
 import { useStudentDetails, useUpdateStudent, studentsKeys } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
+import { LogAbsenceDialog } from '@/features/sessions/components/LogAbsenceDialog';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { SendStudentInviteDialog } from './SendStudentInviteDialog';
 import { 
   DetailsTab,
   ClassesTab,
@@ -45,6 +60,7 @@ export function ViewStudentModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { data: currentStaff } = useCurrentStaff();
   
   // Use React Query hooks for data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
@@ -73,6 +89,8 @@ export function ViewStudentModal({
 
   // Password reset state
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   
   // Parent modal state
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
@@ -82,6 +100,11 @@ export function ViewStudentModal({
   // Subject modal state
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+
+  // Absence and booking modals
+  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Temporary subjects state for editing (not saved until form submit)
   const [tempStudentSubjects, setTempStudentSubjects] = useState<Tables<'subjects'>[]>([]);
@@ -199,6 +222,43 @@ export function ViewStudentModal({
     }
   };
 
+  // Handle password reset/registration request
+  const handlePasswordResetOrRegistration = () => {
+    if (!student) return;
+    
+    const isRegistered = student.status === 'ACTIVE';
+    const hasAccount = !!student.user_id;
+    
+    if (isRegistered && !hasAccount) {
+      // Case 1: Registered but no account -> Send Invite
+      setInviteDialogType('invite');
+      setInviteDialogOpen(true);
+    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+      // Case 2 & 3: Has account but not registered OR no account and not registered -> Send Registration Link
+      setInviteDialogType('registration');
+      setInviteDialogOpen(true);
+    } else {
+      // Case 4: Registered AND has account -> Password Reset
+      handlePasswordResetRequest();
+    }
+  };
+
+  // Get password reset label
+  const getPasswordResetLabel = () => {
+    if (!student) return 'Send password reset';
+    
+    const isRegistered = student.status === 'ACTIVE';
+    const hasAccount = !!student.user_id;
+    
+    if (isRegistered && !hasAccount) {
+      return 'Send invite';
+    } else if ((hasAccount && !isRegistered) || (!hasAccount && !isRegistered)) {
+      return 'Send registration link';
+    } else {
+      return 'Send password reset';
+    }
+  };
+
   // Handle password reset request
   const handlePasswordResetRequest = async () => {
     if (!student || !student.email) {
@@ -305,6 +365,7 @@ export function ViewStudentModal({
     try {
       setLoadingDelete(true);
       await studentsApi.deleteStudent(student.id);
+      setIsDeleteDialogOpen(false);
       onClose();
       onStudentUpdated();
       
@@ -331,7 +392,7 @@ export function ViewStudentModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100vh] flex flex-col p-0">
+        <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100vh] flex flex-col p-0">
           {!student ? (
             <div className="flex justify-center items-center h-full p-6">
               <div className="text-muted-foreground">
@@ -344,38 +405,60 @@ export function ViewStudentModal({
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <SheetTitle>
-                        {isEditingDetails ? 'Edit Student' : 'Student Details'}
-                      </SheetTitle>
-                      <SheetDescription className="text-lg font-medium flex items-center gap-2">
-                        {student.first_name} {student.last_name}
-                        <Badge 
-                          variant={
-                            student.status === 'ACTIVE' ? 'success' :
-                            student.status === 'TRIAL' ? 'secondary' :
-                            student.status === 'DISCONTINUED' ? 'destructive' :
-                            'outline'
-                          }
-                          className="text-xs"
-                        >
-                          {student.status}
-                        </Badge>
-                      </SheetDescription>
+                    <div className="flex items-center gap-3 flex-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={onClose}
+                        className="shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <div className="flex-1">
+                        <SheetTitle>
+                          {isEditingDetails ? 'Edit Student' : 'Student Details'}
+                        </SheetTitle>
+                        <SheetDescription className="text-lg font-medium">
+                          <div className="flex items-center gap-2">
+                            {student.first_name} {student.last_name}
+                            <Badge 
+                              variant={
+                                student.status === 'ACTIVE' ? 'success' :
+                                student.status === 'TRIAL' ? 'secondary' :
+                                student.status === 'DISCONTINUED' ? 'destructive' :
+                                'outline'
+                              }
+                              className="text-xs"
+                            >
+                              {student.status}
+                            </Badge>
+                          </div>
+                        </SheetDescription>
+                      </div>
                     </div>
                     {studentId && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
+                      <ActionsMenu
+                        type="student"
+                        onOpenInPage={() => {
                           router.push(`/students/${studentId}`);
                           onClose();
                         }}
-                        className="shrink-0"
-                        title="Open in new page"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                        onEditDetails={() => {
+                          setActiveTab('details');
+                          handleStartEditDetails();
+                        }}
+                        onPasswordResetOrRegistration={handlePasswordResetOrRegistration}
+                        passwordResetLabel={getPasswordResetLabel()}
+                        onLogAbsence={() => {
+                          setIsLogAbsenceDialogOpen(true);
+                        }}
+                        onBookDraftingSession={() => {
+                          setIsBookDraftingSessionModalOpen(true);
+                        }}
+                        onDelete={() => {
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      />
                     )}
                   </div>
                 </SheetHeader>
@@ -402,18 +485,13 @@ export function ViewStudentModal({
                       onEdit={handleStartEditDetails}
                       onCancelEdit={handleCancelEditDetails}
                       onSubmit={handleDetailsSubmit}
-                      onDelete={isEditingDetails ? handleDeleteStudent : undefined}
+                      onDelete={undefined}
                       isDeleting={loadingDelete}
                       studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
                       loadingSubjects={false}
-                      onRemoveSubject={handleRemoveSubject}
+                      onRemoveSubject={undefined}
                       onViewSubject={handleViewSubject}
-                      addSubjectButton={
-                        <SubjectSearchPopover
-                          selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                          onSelectSubject={handleAssignSubject}
-                        />
-                      }
+                      addSubjectButton={undefined}
                       parents={isEditingDetails ? tempStudentParents : parents}
                       onViewParent={(parentId) => {
                         setSelectedParentId(parentId);
@@ -533,6 +611,73 @@ export function ViewStudentModal({
           subjectId={selectedSubjectId}
           onSubjectUpdated={onStudentUpdated}
         />
+      )}
+
+      {/* Log Absence Dialog */}
+      {currentStaff && studentId && (
+        <LogAbsenceDialog
+          isOpen={isLogAbsenceDialogOpen}
+          onClose={() => setIsLogAbsenceDialogOpen(false)}
+          staffId={currentStaff.id}
+          initialStudentId={studentId}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Book Drafting Session Modal */}
+      {studentId && (
+        <BookSessionModal
+          isOpen={isBookDraftingSessionModalOpen}
+          onClose={() => setIsBookDraftingSessionModalOpen(false)}
+          sessionType="DRAFTING"
+          initialStudentId={studentId}
+          onBookingCreated={() => {
+            setIsBookDraftingSessionModalOpen(false);
+            onStudentUpdated();
+          }}
+        />
+      )}
+
+      {/* Send Invite Dialog */}
+      {student && (
+        <SendStudentInviteDialog
+          isOpen={inviteDialogOpen}
+          onClose={() => setInviteDialogOpen(false)}
+          student={student}
+          linkType={inviteDialogType}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {student && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the student
+                "{student.first_name} {student.last_name}" and all associated data from the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteStudent}
+                disabled={loadingDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {loadingDelete ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
       
     </>

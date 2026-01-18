@@ -4,6 +4,13 @@ import { ImageData } from '../types';
 const BASE_PATH = '/images/landing';
 
 export const images: Record<string, ImageData> = {
+  heroBackground: {
+    src: `${BASE_PATH}/background-alt-scaled.jpg`,
+    alt: 'Hero background',
+    width: 1920,
+    height: 1080,
+    priority: true,
+  },
   heroLogo: {
     src: `${BASE_PATH}/Altitutor-banner_white_v2-copy-1024x139.png`,
     alt: 'Altitutor Logo',

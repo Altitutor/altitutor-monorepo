@@ -41,13 +41,33 @@ export interface AutomationCondition {
 
 export type ActionType = 'SEND_MESSAGE' | 'CREATE_TASK' | 'CREATE_NOTIFICATION';
 
+// Recipient type definitions for bulk operations
+export type NotificationRecipientType = 
+  | 'single' 
+  | 'class_students' 
+  | 'class_staff' 
+  | 'class_all' 
+  | 'session_students' 
+  | 'session_staff' 
+  | 'session_all';
+
+export type MessageRecipientType = 
+  | 'single'
+  | 'class_students' 
+  | 'class_students_and_parents' 
+  | 'session_students' 
+  | 'session_students_and_parents';
+
 export interface SendMessageActionConfig {
   template_id: string;
   variables?: Record<string, any>;
-  contact_id?: string;
+  contact_id?: string;  // For single recipient (backward compat)
   student_id?: string;
   parent_id?: string;
   owned_number_id?: string;
+  recipients?: {
+    type: MessageRecipientType;
+  };
 }
 
 export interface CreateTaskActionConfig {
@@ -65,7 +85,11 @@ export interface CreateNotificationActionConfig {
   title: string;
   body?: string;
   action_url?: string;
-  staff_id?: string;
+  staff_id?: string;  // For single recipient (backward compat)
+  student_id?: string;  // For single recipient
+  recipients?: {
+    type: NotificationRecipientType;
+  };
   variables?: Record<string, any>;
 }
 

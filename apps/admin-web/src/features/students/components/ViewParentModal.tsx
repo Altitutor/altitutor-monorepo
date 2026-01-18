@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Button } from "@altitutor/ui";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -18,6 +17,8 @@ import { useStudents } from '../hooks/useStudentsQuery';
 import { StudentSearchPopover } from './StudentSearchPopover';
 import { useQueryClient } from '@tanstack/react-query';
 import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useRouter } from 'next/navigation';
 
 interface ViewParentModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export function ViewParentModal({
   parentId,
   onParentUpdated,
 }: ViewParentModalProps) {
+  const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [parent, setParent] = useState<Tables<'parents'> | null>(null);
@@ -219,7 +221,7 @@ export function ViewParentModal({
   if (!parent && loadingParent) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full md:w-[600px] lg:w-[800px] md:max-w-none">
+        <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none">
           <div className="flex justify-center items-center h-32">
             Loading...
           </div>
@@ -233,7 +235,7 @@ export function ViewParentModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full flex flex-col p-0">
+        <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full flex flex-col p-0">
           {!parent ? (
             <div className="flex justify-center items-center h-full p-6">
               <div className="text-muted-foreground">
@@ -245,12 +247,35 @@ export function ViewParentModal({
               {/* Sticky Header */}
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
-                  <SheetTitle>
-                    {isEditingDetails ? 'Edit Parent' : 'Parent Details'}
-                  </SheetTitle>
-                  <SheetDescription className="text-lg font-medium">
-                    {parent.first_name} {parent.last_name}
-                  </SheetDescription>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={onClose}
+                        className="shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <div className="flex-1">
+                        <SheetTitle>
+                          {isEditingDetails ? 'Edit Parent' : 'Parent Details'}
+                        </SheetTitle>
+                        <SheetDescription className="text-lg font-medium">
+                          {parent.first_name} {parent.last_name}
+                        </SheetDescription>
+                      </div>
+                    </div>
+                    {parentId && (
+                      <ActionsMenu
+                        type="parent"
+                        onOpenInPage={() => {
+                          router.push(`/parents/${parentId}`);
+                          onClose();
+                        }}
+                      />
+                    )}
+                  </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
                   <TabsList className="grid w-full grid-cols-3">

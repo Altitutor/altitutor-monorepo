@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
-import { ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { X } from 'lucide-react';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sessionsApi } from '../api/sessions';
@@ -23,6 +24,7 @@ import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import { LogAbsenceDialog } from './LogAbsenceDialog';
 import { LogStaffAbsenceDialog } from './LogStaffAbsenceDialog';
 import { SessionDetailsTab } from './SessionDetailsTab';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -50,6 +52,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [selectedStudentForAbsence, setSelectedStudentForAbsence] = useState<string | null>(null);
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
   const [selectedStaffForAbsence, setSelectedStaffForAbsence] = useState<string | null>(null);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedStudentForReschedule, setSelectedStudentForReschedule] = useState<string | null>(null);
   const openWindow = useChatStore(s => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
 
@@ -185,6 +189,18 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   // Check if session is in the past
   const isSessionInPast = session.start_at ? new Date(session.start_at) < new Date() : false;
   
+  // Check if rescheduling is possible (only for DRAFTING, TRIAL_SESSION, SUBSIDY_INTERVIEW)
+  const canReschedule = session.type && ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type);
+  
+  // Get the first student ID for rescheduling (if multiple students, use the first one)
+  const getFirstStudentIdForReschedule = () => {
+    if (sessionsStudents && sessionsStudents.length > 0) {
+      const firstStudent = sessionsStudents.find((ss: any) => ss.student_id && !ss.planned_absence);
+      return firstStudent?.student_id || null;
+    }
+    return null;
+  };
+  
   // Get first staff member from class for logging (use sessionsStaff if available, otherwise use firstClassStaffId)
   const getFirstStaffForLogging = () => {
     // If session has staff assigned, use the first one
@@ -307,31 +323,48 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
             <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
               <SheetHeader className="px-6 pt-6 pb-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <SheetTitle>Session Details</SheetTitle>
-                    <SheetDescription className="text-lg font-medium">
-                      {sessionTitle}
-                    </SheetDescription>
+                  <div className="flex items-center gap-3 flex-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={onClose}
+                      className="shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <div className="flex-1">
+                      <SheetTitle>Session Details</SheetTitle>
+                      <SheetDescription className="text-lg font-medium">
+                        {sessionTitle}
+                      </SheetDescription>
+                    </div>
                   </div>
                   {sessionId && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
+                    <ActionsMenu
+                      type="session"
+                      onOpenInPage={() => {
                         router.push(`/sessions/${sessionId}`);
                         onClose();
                       }}
-                      className="shrink-0"
-                      title="Open in new page"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                      onLogSession={() => {
+                        setIsLogSessionModalOpen(true);
+                      }}
+                      hasTutorLog={hasTutorLog}
+                      onReschedule={() => {
+                        const studentId = getFirstStudentIdForReschedule();
+                        if (studentId) {
+                          setSelectedStudentForReschedule(studentId);
+                          setIsRescheduleModalOpen(true);
+                        }
+                      }}
+                      canReschedule={canReschedule}
+                    />
                   )}
                 </div>
               </SheetHeader>
@@ -378,9 +411,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onSendBookingConfirmation={(studentId) => {
                       setSelectedStudentForBookingConfirmation(studentId);
                       setIsBookingConfirmationDialogOpen(true);
-                    }}
-                    onLogSession={() => {
-                      setIsLogSessionModalOpen(true);
                     }}
                   />
                   <Separator className="my-6" />
@@ -504,6 +534,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           staffId={currentStaff.id}
           initialStudentId={selectedStudentForAbsence}
           initialSessionId={sessionId}
+          allowPastSessions={true}
         />
       )}
 
@@ -527,6 +558,36 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           staffId={currentStaff.id}
           initialStaffId={selectedStaffForAbsence}
           initialSessionId={sessionId}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Reschedule Session Modal */}
+      {selectedStudentForReschedule && sessionId && canReschedule && (
+        <BookSessionModal
+          isOpen={isRescheduleModalOpen}
+          onClose={async () => {
+            setIsRescheduleModalOpen(false);
+            setSelectedStudentForReschedule(null);
+            // Refresh session data after rescheduling
+            if (sessionId && isOpen) {
+              try {
+                const result = await sessionsApi.getSessionWithTutorLog(sessionId);
+                setData(result);
+              } catch (error) {
+                console.error('Failed to refresh session data:', error);
+              }
+            }
+          }}
+          sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
+          initialStudentId={selectedStudentForReschedule}
+          originalSessionId={sessionId}
+          originalSubjectId={subject?.id || null}
+          onBookingCreated={(newSessionId) => {
+            // Optionally navigate to the new session or show success message
+            setIsRescheduleModalOpen(false);
+            setSelectedStudentForReschedule(null);
+          }}
         />
       )}
 

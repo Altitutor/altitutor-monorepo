@@ -1,6 +1,8 @@
 'use client';
 
 import { ReactNode } from 'react';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
@@ -38,6 +40,7 @@ export function BookingFlow({
   canProceed = true,
   selectedSlot,
 }: BookingFlowProps) {
+  const { resolvedTheme } = useTheme();
   const currentStepData = steps[currentStep];
   const isLastStep = currentStep === steps.length - 1;
   const isFirstStep = currentStep === 0;
@@ -51,7 +54,19 @@ export function BookingFlow({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold">{title}</h1>
+          <div className="flex-shrink-0 h-12 flex items-center">
+            <Image 
+              src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
+              alt="Altitutor Student" 
+              width={160} 
+              height={36}
+              priority
+              className="object-contain"
+            />
+          </div>
+        </div>
         {description && <p className="text-muted-foreground mt-2">{description}</p>}
       </div>
 

@@ -356,6 +356,37 @@ export function ClassesTab({
     }
   };
 
+  // Handle removing a subject
+  const handleRemoveSubject = async (subjectId: string) => {
+    // Check if student is enrolled in any classes for this subject
+    const subjectClasses = classesBySubject[subjectId] || [];
+    if (subjectClasses.length > 0) {
+      toast({
+        title: 'Cannot Remove Subject',
+        description: 'Cannot remove subject because the student is enrolled in classes for this subject. Please unenroll from all classes first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await studentsApi.removeSubjectFromStudent(student.id, subjectId);
+      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      onStudentUpdated?.();
+      toast({
+        title: 'Success',
+        description: 'Subject removed successfully.',
+      });
+    } catch (error) {
+      console.error('Failed to remove subject:', error);
+      toast({
+        title: 'Remove failed',
+        description: 'There was an error removing the subject. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Handle discontinue student
   const handleDiscontinue = async () => {
     if (!currentStaff) return;
@@ -514,6 +545,19 @@ export function ClassesTab({
                           style={style.backgroundColor ? style : undefined}
                         >
                           <span>{shortName}</span>
+                          {isEditMode && (
+                            <button
+                              type="button"
+                              className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveSubject(subjectId);
+                              }}
+                              title="Remove subject"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
                         </Badge>
                       </div>
                       

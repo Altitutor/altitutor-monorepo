@@ -7,6 +7,20 @@ import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { staffApi } from '@/features/staff/api';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogStaffAbsenceDialog } from '@/features/sessions/components/LogStaffAbsenceDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { SendInviteDialog } from '@/features/staff/components/modal/SendInviteDialog';
 import { useStaffDetails, staffKeys } from '@/features/staff/hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
@@ -25,6 +39,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: currentStaff } = useCurrentStaff();
   
   const { data: staffData, isLoading } = useStaffDetails(id, !!id);
   const { data: allSubjects = [] } = useSubjects();
@@ -38,9 +53,15 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const [activeTab, setActiveTab] = useState('details');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingStaffUpdate, setLoadingStaffUpdate] = useState(false);
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+
+  // Absence and delete modals
+  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
   const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
@@ -128,12 +149,37 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     }
   };
 
+  // Handle password reset/invite request
+  const handlePasswordResetOrRegistration = () => {
+    if (!staffMember) return;
+    
+    if (!staffMember.user_id) {
+      // No account -> Send Invite
+      setInviteDialogOpen(true);
+    } else {
+      // Has account -> Password Reset
+      handlePasswordResetRequest();
+    }
+  };
+
+  // Get password reset label
+  const getPasswordResetLabel = () => {
+    if (!staffMember) return 'Send password reset';
+    
+    if (!staffMember.user_id) {
+      return 'Send invite';
+    } else {
+      return 'Send password reset';
+    }
+  };
+
   const handleDelete = async () => {
     if (!staffMember) return;
     
     try {
       setIsDeleting(true);
       await staffApi.deleteStaff(staffMember.id);
+      setIsDeleteDialogOpen(false);
       router.push('/staff');
       
       toast({
@@ -188,6 +234,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     }
 
     try {
+      setLoadingPasswordReset(true);
       setHasPasswordResetLinkSent(true);
       toast({
         title: "Success",
@@ -200,6 +247,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         description: "Failed to send password reset link. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoadingPasswordReset(false);
     }
   };
 
@@ -255,6 +304,24 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
             {staffMember.first_name} {staffMember.last_name}
           </p>
         </div>
+        <ActionsMenu
+          type="staff"
+          onOpenInPage={() => {
+            router.push(`/staff/${id}`);
+          }}
+          onEditDetails={() => {
+            setActiveTab('details');
+            handleStartEdit();
+          }}
+          onPasswordResetOrRegistration={handlePasswordResetOrRegistration}
+          passwordResetLabel={getPasswordResetLabel()}
+          onLogAbsence={() => {
+            setIsLogAbsenceDialogOpen(true);
+          }}
+          onDelete={() => {
+            setIsDeleteDialogOpen(true);
+          }}
+        />
       </div>
 
       {/* Tabs */}
@@ -276,7 +343,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
             onEdit={handleStartEdit}
             onCancelEdit={handleCancelEdit}
             onSubmit={handleStaffUpdate}
-            onDelete={isEditing ? handleDelete : undefined}
+            onDelete={undefined}
             isDeleting={isDeleting}
             staffSubjects={isEditing ? tempStaffSubjects : staffSubjects}
             loadingSubjects={isLoading}
@@ -288,7 +355,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
                 onSelectSubject={(subject) => handleAssignSubject(subject.id)}
               />
             }
-            isLoadingAccount={isLoading}
+            isLoadingAccount={loadingPasswordReset}
             hasPasswordResetLinkSent={hasPasswordResetLinkSent}
             onPasswordResetRequest={handlePasswordResetRequest}
           />
@@ -366,6 +433,58 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           subjectId={selectedSubjectId}
           onSubjectUpdated={handleStaffUpdated}
         />
+      )}
+
+      {/* Log Staff Absence Dialog */}
+      {currentStaff && (
+        <LogStaffAbsenceDialog
+          isOpen={isLogAbsenceDialogOpen}
+          onClose={() => setIsLogAbsenceDialogOpen(false)}
+          staffId={currentStaff.id}
+          initialStaffId={id}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Send Invite Dialog */}
+      {staffMember && (
+        <SendInviteDialog
+          isOpen={inviteDialogOpen}
+          onClose={() => setInviteDialogOpen(false)}
+          staffMember={staffMember}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {staffMember && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the staff member
+                "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

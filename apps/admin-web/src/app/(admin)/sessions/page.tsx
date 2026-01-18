@@ -39,7 +39,7 @@ export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
-  const viewParam = search.get('view') || 'table';
+  const viewParam = search.get('view') || 'calendar';
   
   // Initialize date range from URL params or default to today
   const fromParam = search.get('from');

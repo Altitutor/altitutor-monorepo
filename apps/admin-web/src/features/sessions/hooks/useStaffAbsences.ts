@@ -12,12 +12,17 @@ import type {
 /**
  * Hook to get a staff member's future sessions
  */
-export function useStaffFutureSessions(staffId: string | null, weeksAhead: number = 8) {
+export function useStaffFutureSessions(
+  staffId: string | null, 
+  weeksAhead: number = 8,
+  allowPastSessions: boolean = false,
+  weeksBack: number = 4
+) {
   return useQuery<StaffSession[], Error>({
-    queryKey: ['staffFutureSessions', staffId, weeksAhead],
+    queryKey: ['staffFutureSessions', staffId, weeksAhead, allowPastSessions, weeksBack],
     queryFn: () => {
       if (!staffId) throw new Error('Staff ID is required');
-      return staffAbsencesApi.getStaffFutureSessions(staffId, weeksAhead);
+      return staffAbsencesApi.getStaffFutureSessions(staffId, weeksAhead, allowPastSessions, weeksBack);
     },
     enabled: !!staffId,
     staleTime: 1000 * 60 * 5, // 5 minutes

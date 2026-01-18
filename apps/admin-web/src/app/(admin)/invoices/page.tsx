@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, useInvoicesList } from '@/features/billing';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Checkbox, ScrollArea } from '@altitutor/ui';
 import { Filter, X } from 'lucide-react';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { cn } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
@@ -447,24 +448,25 @@ export default function InvoicesPage() {
               <TableHead>Invoice Items</TableHead>
               <TableHead>Amount Due</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
+                <TableCell colSpan={6} className="text-center h-24">
                   Loading invoices...
                 </TableCell>
               </TableRow>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24 text-destructive">
+                <TableCell colSpan={6} className="text-center h-24 text-destructive">
                   Error loading invoices. Please try again.
                 </TableCell>
               </TableRow>
             ) : invoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
+                <TableCell colSpan={6} className="text-center h-24">
                   No invoices found
                 </TableCell>
               </TableRow>
@@ -523,6 +525,20 @@ export default function InvoicesPage() {
                     </TableCell>
                     <TableCell>{`$${((invoice.amount_due_cents || 0)/100).toFixed(2)}`}</TableCell>
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <ActionsMenu
+                        type="invoice"
+                        onOpenInPage={() => {
+                          router.push(`/invoices/${invoice.id}`);
+                        }}
+                        onViewOnStripe={invoice.hosted_invoice_url ? () => {
+                          window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+                        } : undefined}
+                        onDownloadPdf={invoice.invoice_pdf ? () => {
+                          window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
+                        } : undefined}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })

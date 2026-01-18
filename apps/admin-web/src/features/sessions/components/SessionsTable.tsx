@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -35,6 +34,11 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { useRouter } from 'next/navigation';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 
 type SessionsTableProps = {
   studentId?: string;
@@ -57,7 +61,8 @@ type SessionsTableProps = {
 };
 
 export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff, onFromChange, onToChange, onResetDates, hideBilling = false, hideStudentFilter = false, hideTypeFilter = false, hideSearch = false, initialStudentFilters = [] }: SessionsTableProps) {
-  const _router = useRouter();
+  const router = useRouter();
+  const { data: currentStaff } = useCurrentStaff();
   
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -71,6 +76,13 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('asc');
   const [showLogged, setShowLogged] = useState(true);
   const [showUnlogged, setShowUnlogged] = useState(true);
+  
+  // Actions menu state
+  const [actionSessionId, setActionSessionId] = useState<string | null>(null);
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedSessionForReschedule, setSelectedSessionForReschedule] = useState<Tables<'sessions'> | null>(null);
+  const [selectedStudentForReschedule, setSelectedStudentForReschedule] = useState<string | null>(null);
   
   // Session types
   const SESSION_TYPES = ['CLASS', 'DRAFTING', 'EXAM_COURSE', 'SUBSIDY_INTERVIEW', 'TRIAL_SESSION', 'STAFF_INTERVIEW', 'TRIAL_SHIFT'] as const;
@@ -613,12 +625,13 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               <TableHead>Staff</TableHead>
               <TableHead>Students</TableHead>
               <TableHead>Tutor Log</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={(classId ? 6 : 7)} className="text-center h-24">
+                <TableCell colSpan={(classId ? 7 : 8)} className="text-center h-24">
                   {searchTerm || studentFilters.length > 0 || typeFilters.length > 0
                     ? "No sessions match your filters" 
                     : "No sessions found"}
@@ -788,6 +801,54 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                       <span className="text-muted-foreground text-sm">-</span>
                     )}
                   </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {(() => {
+                      // Check if rescheduling is possible (only for DRAFTING, TRIAL_SESSION, SUBSIDY_INTERVIEW)
+                      const canReschedule = session.type && ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type);
+                      
+                      // Get the first student ID for rescheduling (if multiple students, use the first one without planned absence)
+                      const getFirstStudentIdForReschedule = () => {
+                        const studentList: any[] = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
+                        if (studentList.length > 0) {
+                          const firstStudent = studentList.find((ss: any) => ss.student_id && !ss.planned_absence);
+                          return firstStudent?.student_id || null;
+                        }
+                        return null;
+                      };
+                      
+                      // Get subject ID from session's class
+                      const getSubjectId = () => {
+                        if (session.class_id) {
+                          const cls = classesById[session.class_id];
+                          return cls?.subject_id || null;
+                        }
+                        return null;
+                      };
+                      
+                      return (
+                        <ActionsMenu
+                          type="session"
+                          onOpenInPage={() => {
+                            router.push(`/sessions/${session.id}`);
+                          }}
+                          onLogSession={() => {
+                            setActionSessionId(session.id);
+                            setIsLogSessionModalOpen(true);
+                          }}
+                          hasTutorLog={!!tutorLogs[session.id]}
+                          onReschedule={() => {
+                            const studentId = getFirstStudentIdForReschedule();
+                            if (studentId) {
+                              setSelectedStudentForReschedule(studentId);
+                              setSelectedSessionForReschedule(session);
+                              setIsRescheduleModalOpen(true);
+                            }
+                          }}
+                          canReschedule={canReschedule}
+                        />
+                      );
+                    })()}
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -822,6 +883,50 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
           }}
           onClassUpdated={() => {
             // Refresh sessions when class is updated
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Log Session Modal */}
+      {currentStaff && actionSessionId && (
+        <LogSessionModal
+          isOpen={isLogSessionModalOpen}
+          onClose={() => {
+            setIsLogSessionModalOpen(false);
+            setActionSessionId(null);
+            refetch();
+          }}
+          currentStaffId={currentStaff.id}
+          adminMode={true}
+          initialSessionId={actionSessionId}
+        />
+      )}
+
+      {/* Reschedule Session Modal */}
+      {selectedSessionForReschedule && selectedStudentForReschedule && (
+        <BookSessionModal
+          isOpen={isRescheduleModalOpen}
+          onClose={async () => {
+            setIsRescheduleModalOpen(false);
+            setSelectedSessionForReschedule(null);
+            setSelectedStudentForReschedule(null);
+            refetch();
+          }}
+          sessionType={selectedSessionForReschedule.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
+          initialStudentId={selectedStudentForReschedule}
+          originalSessionId={selectedSessionForReschedule.id}
+          originalSubjectId={(() => {
+            if (selectedSessionForReschedule.class_id) {
+              const cls = classesById[selectedSessionForReschedule.class_id];
+              return cls?.subject_id || null;
+            }
+            return null;
+          })()}
+          onBookingCreated={(newSessionId) => {
+            setIsRescheduleModalOpen(false);
+            setSelectedSessionForReschedule(null);
+            setSelectedStudentForReschedule(null);
             refetch();
           }}
         />
