@@ -23,8 +23,10 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnreadMessage,
+  UnrepliedMessage,
+  FailedDeliveryMessage,
   StudentWithoutClasses,
+  StudentWithoutPaymentMethod,
 } from '../types';
 
 interface ReconciliationTableProps<T> {
@@ -330,19 +332,19 @@ export function UnassignedClassesTable({
   );
 }
 
-export function UnreadMessagesTable({
+export function UnrepliedMessagesTable({
   items,
   isLoading,
 }: {
-  items: UnreadMessage[];
+  items: UnrepliedMessage[];
   isLoading?: boolean;
 }) {
   return (
     <ReconciliationTable
-      title="Unread Messages"
+      title="Unreplied Messages"
       items={items}
       isLoading={isLoading}
-      columns={['Last Message', 'Contact', 'Preview', 'Unread']}
+      columns={['Last Message', 'Contact', 'Preview']}
       renderRow={(item, index) => {
         const hoursAgo = item.hours_since_last_message
           ? Math.floor(item.hours_since_last_message)
@@ -360,14 +362,86 @@ export function UnreadMessagesTable({
               {item.last_message_preview || '—'}
             </TableCell>
             <TableCell>
-              <Badge variant="destructive">{item.unread_count}</Badge>
-            </TableCell>
-            <TableCell>
-              <ReconciliationActions type="unread_messages" item={item} />
+              <ReconciliationActions type="unreplied_messages" item={item} />
             </TableCell>
           </TableRow>
         );
       }}
+    />
+  );
+}
+
+export function FailedDeliveryMessagesTable({
+  items,
+  isLoading,
+}: {
+  items: FailedDeliveryMessage[];
+  isLoading?: boolean;
+}) {
+  return (
+    <ReconciliationTable
+      title="Messages which failed delivery"
+      items={items}
+      isLoading={isLoading}
+      columns={['Failed At', 'Contact', 'Status', 'Error']}
+      renderRow={(item, index) => {
+        const hoursAgo = item.hours_since_failure
+          ? Math.floor(item.hours_since_failure)
+          : null;
+
+        return (
+          <TableRow key={item.message_id}>
+            <TableCell>
+              {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
+            </TableCell>
+            <TableCell className="font-medium">
+              {item.contact_name || item.contact_phone}
+            </TableCell>
+            <TableCell>
+              <Badge variant="destructive">{item.status}</Badge>
+            </TableCell>
+            <TableCell className="max-w-md truncate">
+              {item.error_message || item.error_code || '—'}
+            </TableCell>
+            <TableCell>
+              <ReconciliationActions type="failed_delivery_messages" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
+    />
+  );
+}
+
+export function StudentsWithoutPaymentMethodTable({
+  items,
+  isLoading,
+}: {
+  items: StudentWithoutPaymentMethod[];
+  isLoading?: boolean;
+}) {
+  return (
+    <ReconciliationTable
+      title="Students with no payment method"
+      items={items}
+      isLoading={isLoading}
+      columns={['Student', 'Email', 'Status']}
+      renderRow={(item, index) => (
+        <TableRow key={item.student_id}>
+          <TableCell className="font-medium">
+            {item.first_name} {item.last_name}
+          </TableCell>
+          <TableCell>
+            {item.email || '—'}
+          </TableCell>
+          <TableCell>
+            <Badge variant="secondary">{item.student_status}</Badge>
+          </TableCell>
+          <TableCell>
+            <ReconciliationActions type="students_without_payment_method" item={item} />
+          </TableCell>
+        </TableRow>
+      )}
     />
   );
 }

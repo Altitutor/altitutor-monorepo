@@ -83,8 +83,8 @@ export interface UnassignedClass {
   updated_at: string;
 }
 
-// Unread Messages
-export interface UnreadMessage {
+// Unreplied Messages
+export interface UnrepliedMessage {
   conversation_id: string;
   contact_id: string;
   conversation_status: string;
@@ -101,8 +101,48 @@ export interface UnreadMessage {
   last_message_direction: string | null;
   last_message_preview: string | null;
   last_message_created_at: string | null;
-  unread_count: number;
   hours_since_last_message: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Failed Delivery Messages
+export interface FailedDeliveryMessage {
+  message_id: string;
+  conversation_id: string;
+  direction: string;
+  body: string;
+  status: string;
+  status_updated_at: string | null;
+  error_code: number | null;
+  error_message: string | null;
+  message_sid: string | null;
+  from_number_e164: string | null;
+  to_number_e164: string;
+  created_at: string;
+  updated_at: string | null;
+  conversation_status: string;
+  assigned_staff_id: string | null;
+  conversation_last_message_at: string | null;
+  contact_name: string | null;
+  contact_phone: string;
+  contact_type: string;
+  student_id: string | null;
+  parent_id: string | null;
+  staff_id: string | null;
+  hours_since_failure: number | null;
+}
+
+// Students Without Payment Method
+export interface StudentWithoutPaymentMethod {
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  student_status: string;
+  stripe_customer_id: string | null;
+  billing_created_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -131,8 +171,10 @@ export type ReconciliationItemType =
   | 'unpaid_invoices'
   | 'unlogged_sessions'
   | 'unassigned_classes'
-  | 'unread_messages'
-  | 'students_without_classes';
+  | 'unreplied_messages'
+  | 'failed_delivery_messages'
+  | 'students_without_classes'
+  | 'students_without_payment_method';
 
 export interface ReconciliationCategoryData {
   category: ReconciliationCategory;
@@ -141,15 +183,19 @@ export interface ReconciliationCategoryData {
     unpaid_invoices?: UnpaidInvoice[];
     unlogged_sessions?: UnloggedSession[];
     unassigned_classes?: UnassignedClass[];
-    unread_messages?: UnreadMessage[];
+    unreplied_messages?: UnrepliedMessage[];
+    failed_delivery_messages?: FailedDeliveryMessage[];
     students_without_classes?: StudentWithoutClasses[];
+    students_without_payment_method?: StudentWithoutPaymentMethod[];
   };
   counts: {
     uninvoiced_sessions: number;
     unpaid_invoices: number;
     unlogged_sessions: number;
     unassigned_classes: number;
-    unread_messages: number;
+    unreplied_messages: number;
+    failed_delivery_messages: number;
     students_without_classes: number;
+    students_without_payment_method: number;
   };
 }

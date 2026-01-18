@@ -13,8 +13,10 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnreadMessage,
+  UnrepliedMessage,
+  FailedDeliveryMessage,
   StudentWithoutClasses,
+  StudentWithoutPaymentMethod,
   ReconciliationItemType,
 } from '../types';
 
@@ -59,8 +61,10 @@ interface ReconciliationActionsProps {
     | UnpaidInvoice
     | UnloggedSession
     | UnassignedClass
-    | UnreadMessage
-    | StudentWithoutClasses;
+    | UnrepliedMessage
+    | FailedDeliveryMessage
+    | StudentWithoutClasses
+    | StudentWithoutPaymentMethod;
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
@@ -254,8 +258,8 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       );
     }
 
-    case 'unread_messages': {
-      const message = item as UnreadMessage;
+    case 'unreplied_messages': {
+      const message = item as UnrepliedMessage;
       return (
         <div className="flex gap-2">
           <Button
@@ -266,6 +270,39 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <MessageCircle className="h-4 w-4 mr-1" />
             Open Message
+          </Button>
+        </div>
+      );
+    }
+
+    case 'failed_delivery_messages': {
+      const message = item as FailedDeliveryMessage;
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleOpenConversation(message.conversation_id)}
+            disabled={isLoading}
+          >
+            <MessageCircle className="h-4 w-4 mr-1" />
+            Open Conversation
+          </Button>
+        </div>
+      );
+    }
+
+    case 'students_without_payment_method': {
+      const student = item as StudentWithoutPaymentMethod;
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlers.onOpenStudent(student.student_id)}
+          >
+            <User className="h-4 w-4 mr-1" />
+            View Student
           </Button>
         </div>
       );

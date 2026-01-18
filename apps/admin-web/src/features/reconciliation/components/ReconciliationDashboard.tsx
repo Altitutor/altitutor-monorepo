@@ -7,16 +7,20 @@ import {
   UnpaidInvoicesTable,
   UnloggedSessionsTable,
   UnassignedClassesTable,
-  UnreadMessagesTable,
+  UnrepliedMessagesTable,
+  FailedDeliveryMessagesTable,
   StudentsWithoutClassesTable,
+  StudentsWithoutPaymentMethodTable,
 } from './ReconciliationTable';
 import {
   useUninvoicedSessions,
   useUnpaidInvoices,
   useUnloggedSessions,
   useUnassignedClasses,
-  useUnreadMessages,
+  useUnrepliedMessages,
+  useFailedDeliveryMessages,
   useStudentsWithoutClasses,
+  useStudentsWithoutPaymentMethod,
 } from '../api/queries';
 import { ViewStudentModal } from '@/features/students';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -65,8 +69,10 @@ export function ReconciliationDashboard() {
   const unpaidInvoices = useUnpaidInvoices();
   const unloggedSessions = useUnloggedSessions();
   const unassignedClasses = useUnassignedClasses();
-  const unreadMessages = useUnreadMessages();
+  const unrepliedMessages = useUnrepliedMessages();
+  const failedDeliveryMessages = useFailedDeliveryMessages();
   const studentsWithoutClasses = useStudentsWithoutClasses();
+  const studentsWithoutPaymentMethod = useStudentsWithoutPaymentMethod();
 
   // Check if any query is loading
   const isLoading =
@@ -74,8 +80,10 @@ export function ReconciliationDashboard() {
     unpaidInvoices.isLoading ||
     unloggedSessions.isLoading ||
     unassignedClasses.isLoading ||
-    unreadMessages.isLoading ||
-    studentsWithoutClasses.isLoading;
+    unrepliedMessages.isLoading ||
+    failedDeliveryMessages.isLoading ||
+    studentsWithoutClasses.isLoading ||
+    studentsWithoutPaymentMethod.isLoading;
 
   // Check if any query has error
   const hasError =
@@ -83,8 +91,10 @@ export function ReconciliationDashboard() {
     unpaidInvoices.isError ||
     unloggedSessions.isError ||
     unassignedClasses.isError ||
-    unreadMessages.isError ||
-    studentsWithoutClasses.isError;
+    unrepliedMessages.isError ||
+    failedDeliveryMessages.isError ||
+    studentsWithoutClasses.isError ||
+    studentsWithoutPaymentMethod.isError;
 
   // Handlers for opening modals
   const handleOpenStudent = (studentId: string) => {
@@ -158,13 +168,17 @@ export function ReconciliationDashboard() {
   const financialItems = [
     ...(uninvoicedSessions.data ?? []),
     ...(unpaidInvoices.data ?? []),
+    ...(studentsWithoutPaymentMethod.data ?? []),
   ];
   const schedulingItems = [
     ...(unloggedSessions.data ?? []),
     ...(unassignedClasses.data ?? []),
     ...(studentsWithoutClasses.data ?? []),
   ];
-  const communicationItems = unreadMessages.data ?? [];
+  const communicationItems = [
+    ...(unrepliedMessages.data ?? []),
+    ...(failedDeliveryMessages.data ?? []),
+  ];
 
   return (
     <ReconciliationHandlersProvider
@@ -197,6 +211,10 @@ export function ReconciliationDashboard() {
             items={unpaidInvoices.data ?? []}
             isLoading={unpaidInvoices.isLoading}
           />
+          <StudentsWithoutPaymentMethodTable
+            items={studentsWithoutPaymentMethod.data ?? []}
+            isLoading={studentsWithoutPaymentMethod.isLoading}
+          />
         </div>
 
         {/* Scheduling Reconciliation */}
@@ -219,9 +237,13 @@ export function ReconciliationDashboard() {
         {/* Communication Reconciliation */}
         <div className="space-y-6">
           <h2 className="text-xl font-semibold">Communication</h2>
-          <UnreadMessagesTable
-            items={unreadMessages.data ?? []}
-            isLoading={unreadMessages.isLoading}
+          <UnrepliedMessagesTable
+            items={unrepliedMessages.data ?? []}
+            isLoading={unrepliedMessages.isLoading}
+          />
+          <FailedDeliveryMessagesTable
+            items={failedDeliveryMessages.data ?? []}
+            isLoading={failedDeliveryMessages.isLoading}
           />
         </div>
 
