@@ -48,6 +48,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   'class': 'classes',
   'subject': 'subjects',
   'topic': 'topics',
+  'file': 'files',
 };
 
 // Nav items matching layout.tsx - pages will be automatically searchable
@@ -74,11 +75,7 @@ export type CommandPaletteItem =
   | { type: 'page'; id: string; title: string; href: string; icon: LucideIcon }
   | { type: 'entity'; result: CommandPaletteEntityResult };
 
-interface CommandPaletteProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onEntitySelected?: (type: string, id: string) => void;
-}
+export type FilterType = 'command' | 'page' | 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'topic' | 'file';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -92,6 +89,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const resultsRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedFilter, setSelectedFilter] = useState<FilterType | null>(null);
 
 
   // Get command actions (may be null if QuickActionsProvider not available)
@@ -186,12 +184,33 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     return items;
   }, [filteredCommands, filteredPages, entityResults]);
 
+  // Filter items by selected filter type
+  const filteredItems: CommandPaletteItem[] = useMemo(() => {
+    // If no filter selected, show all items
+    if (selectedFilter === null) {
+      return allItems;
+    }
+
+    return allItems.filter((item) => {
+      if (item.type === 'command') {
+        return selectedFilter === 'command';
+      }
+      if (item.type === 'page') {
+        return selectedFilter === 'page';
+      }
+      if (item.type === 'entity') {
+        return selectedFilter === item.result.type;
+      }
+      return false;
+    });
+  }, [allItems, selectedFilter]);
+
   // Reset selected index when items change
   useEffect(() => {
-    if (allItems.length > 0) {
+    if (filteredItems.length > 0) {
       setSelectedIndex(0);
     }
-  }, [allItems.length]);
+  }, [filteredItems.length]);
 
   // Focus input when opened
   useEffect(() => {
@@ -199,6 +218,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
       inputRef.current.focus();
       setSearchQuery('');
       setSelectedIndex(0);
+      setSelectedFilter(null);
     }
   }, [isOpen]);
 
@@ -212,25 +232,25 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
       if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev < allItems.length - 1 ? prev + 1 : 0));
+        setSelectedIndex((prev) => (prev < filteredItems.length - 1 ? prev + 1 : 0));
         return;
       }
 
       if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : allItems.length - 1));
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : filteredItems.length - 1));
         return;
       }
 
       if (e.key === 'Enter') {
         e.preventDefault();
-        const selectedItem = allItems[selectedIndex];
+        const selectedItem = filteredItems[selectedIndex];
         if (selectedItem) {
           handleSelectItem(selectedItem);
         }
       }
     },
-    [allItems, selectedIndex, onClose]
+    [filteredItems, selectedIndex, onClose]
   );
 
   const handleSelectItem = useCallback(
@@ -373,6 +393,13 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
       } else if (result.type === 'topic') {
         title = result.data.name || '';
         subtitle = result.data.subject?.long_name || result.data.subject?.short_name || result.data.subject?.name || null;
+      } else if (result.type === 'file') {
+        const fileData = result.data;
+        const subjectShortName = fileData.subject.short_name || '';
+        const fileCode = fileData.code ? ` ${fileData.code}` : '';
+        const topicName = fileData.topic.name || '';
+        title = `${subjectShortName}${fileCode} ${topicName}`.trim();
+        subtitle = fileData.file.filename;
       }
 
       return (
@@ -407,19 +434,19 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const groupedItems = useMemo(() => {
     const groups: { label: string; items: CommandPaletteItem[] }[] = [];
     
-    const commandItems = allItems.filter((i) => i.type === 'command');
+    const commandItems = filteredItems.filter((i) => i.type === 'command');
     if (commandItems.length > 0) {
       groups.push({ label: 'Commands', items: commandItems });
     }
     
-    const pageItems = allItems.filter((i) => i.type === 'page');
+    const pageItems = filteredItems.filter((i) => i.type === 'page');
     if (pageItems.length > 0) {
       groups.push({ label: 'Pages', items: pageItems });
     }
     
     // Group entities by type
     const entityGroups: Record<string, CommandPaletteItem[]> = {};
-    allItems
+    filteredItems
       .filter((i) => i.type === 'entity')
       .forEach((item) => {
         if (item.type === 'entity') {
@@ -438,24 +465,51 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     });
     
     return groups;
-  }, [allItems]);
+  }, [filteredItems]);
+
+  // Toggle filter (single select - clicking same filter deselects it)
+  const toggleFilter = useCallback((filterType: FilterType) => {
+    setSelectedFilter((prev) => {
+      // If clicking the same filter, deselect it
+      if (prev === filterType) {
+        return null;
+      }
+      // Otherwise, select the new filter
+      return filterType;
+    });
+  }, []);
+
+  // Define available filters
+  const availableFilters: Array<{ type: FilterType; label: string }> = useMemo(() => {
+    return [
+      { type: 'command', label: 'Commands' },
+      { type: 'page', label: 'Pages' },
+      { type: 'student', label: 'Students' },
+      { type: 'staff', label: 'Staff' },
+      { type: 'parent', label: 'Parents' },
+      { type: 'class', label: 'Classes' },
+      { type: 'subject', label: 'Subjects' },
+      { type: 'topic', label: 'Topics' },
+      { type: 'file', label: 'Files' },
+    ];
+  }, []);
 
   if (!isOpen) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-[101] flex items-start justify-center pt-[20vh] px-4 pointer-events-none">
+      <div className="fixed inset-0 z-[101] flex items-center justify-center px-4 py-4 pointer-events-none">
         <div 
-          className="w-full max-w-2xl bg-popover border rounded-lg shadow-xl pointer-events-auto"
+          className="w-full max-w-4xl bg-popover border rounded-lg shadow-xl pointer-events-auto flex flex-col h-[calc(100vh-2rem)] max-h-[800px]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Search input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b">
+          <div className="flex items-center gap-3 px-4 py-3 border-b flex-shrink-0">
             <Search className="h-5 w-5 text-muted-foreground" />
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Search commands, pages, students, staff, parents, classes, subjects, topics..."
+              placeholder="Search commands, pages, students, staff, parents, classes, subjects, topics, files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -464,12 +518,34 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             {isSearching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           </div>
 
+          {/* Filter buttons */}
+          <div className="px-4 py-2 border-b flex flex-wrap gap-2 flex-shrink-0">
+            {availableFilters.map((filter) => {
+              const isSelected = selectedFilter === filter.type;
+              return (
+                <Button
+                  key={filter.type}
+                  variant={isSelected ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFilter(filter.type);
+                  }}
+                  className="h-7 text-xs"
+                >
+                  {filter.label}
+                </Button>
+              );
+            })}
+          </div>
+
           {/* Results */}
           <div
             ref={resultsRef}
-            className="max-h-[60vh] overflow-y-auto overscroll-contain"
+            className="overflow-y-auto overscroll-contain flex-1 min-h-0"
           >
-            {allItems.length === 0 && !isSearching && (
+            {filteredItems.length === 0 && !isSearching && (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 {searchQuery.trim().length < 2 && searchQuery.trim().length > 0
                   ? 'Type at least 2 characters to search entities'
@@ -484,7 +560,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
                 </div>
                 <div className="space-y-0">
                   {group.items.map((item, index) => {
-                    const globalIndex = allItems.indexOf(item);
+                    const globalIndex = filteredItems.indexOf(item);
                     return renderItem(item, globalIndex);
                   })}
                 </div>
@@ -493,7 +569,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
           </div>
 
           {/* Footer hint */}
-          <div className="px-4 py-2 border-t text-xs text-muted-foreground flex items-center justify-between">
+          <div className="px-4 py-2 border-t text-xs text-muted-foreground flex items-center justify-between flex-shrink-0">
             <span>Navigate with ↑↓ or Tab, select with Enter</span>
             <span>Press Esc to close</span>
           </div>
