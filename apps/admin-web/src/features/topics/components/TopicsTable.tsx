@@ -31,7 +31,6 @@ import {
   ChevronDown,
   Filter,
   X,
-  Download,
   Loader2,
 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
@@ -41,7 +40,6 @@ import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
 import { getFileTypeLabel } from '../utils/file-type-icons';
 import { FilePreviewModal } from './FilePreviewModal';
-import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 
 interface TopicsTableProps {
@@ -244,14 +242,6 @@ export function TopicsTable({
     setIsFileModalOpen(true);
   };
 
-  const handleFileDownload = async (storagePath: string, filename: string) => {
-    try {
-      const signedUrl = await getSignedUrl(storagePath);
-      window.open(signedUrl, '_blank');
-    } catch (error) {
-      console.error('Failed to download file:', error);
-    }
-  };
 
   // Count active filters
   const activeFiltersCount = subjectFilters.length;
@@ -414,7 +404,6 @@ export function TopicsTable({
                 expandedTopics={expandedTopics}
                 onToggleExpansion={toggleTopicExpansion}
                 onFileClick={handleFileClick}
-                onFileDownload={handleFileDownload}
                 onViewTopic={onViewTopic}
                 level={0}
               />
@@ -465,7 +454,6 @@ interface TopicRowsProps {
   expandedTopics: Set<string>;
   onToggleExpansion: (topicId: string) => void;
   onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
-  onFileDownload: (storagePath: string, filename: string) => void;
   onViewTopic?: (topicId: string) => void;
   level: number;
   parentId?: string | null;
@@ -477,7 +465,6 @@ function TopicRows({
   expandedTopics,
   onToggleExpansion,
   onFileClick,
-  onFileDownload,
   onViewTopic,
   level,
   parentId = null,
@@ -522,7 +509,6 @@ function TopicRows({
             expandedTopics={expandedTopics}
             onToggleExpansion={onToggleExpansion}
             onFileClick={onFileClick}
-            onFileDownload={onFileDownload}
             onViewTopic={onViewTopic}
           />
         );
@@ -542,7 +528,6 @@ interface TopicRowProps {
   expandedTopics: Set<string>;
   onToggleExpansion: (topicId: string) => void;
   onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
-  onFileDownload: (storagePath: string, filename: string) => void;
   onViewTopic?: (topicId: string) => void;
 }
 
@@ -557,7 +542,6 @@ function TopicRow({
   expandedTopics,
   onToggleExpansion,
   onFileClick,
-  onFileDownload,
   onViewTopic,
 }: TopicRowProps) {
   const { data: topicFiles = [] } = useTopicFilesByTopic(topic.id);
@@ -645,19 +629,6 @@ function TopicRow({
                         <p>{filename}</p>
                       </TooltipContent>
                     </Tooltip>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (storagePath) {
-                          onFileDownload(storagePath, filename);
-                        }
-                      }}
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
                   </div>
                 );
               })}
@@ -675,7 +646,6 @@ function TopicRow({
           expandedTopics={expandedTopics}
           onToggleExpansion={onToggleExpansion}
           onFileClick={onFileClick}
-          onFileDownload={onFileDownload}
           onViewTopic={onViewTopic}
           level={level + 1}
           parentId={topic.id}
