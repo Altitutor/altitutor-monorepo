@@ -15,7 +15,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ReconciliationActions } from './ReconciliationActions';
 import { useSubjects } from '@/features/subjects';
-import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, cn } from '@/shared/utils';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import type {
@@ -224,6 +224,27 @@ export function UnloggedSessionsTable({
     return map;
   }, [subjects]);
 
+  const getSessionTypeBadgeColor = (type: string) => {
+    switch (type) {
+      case 'CLASS':
+        return 'bg-blue-100 text-blue-800';
+      case 'DRAFTING':
+        return 'bg-purple-100 text-purple-800';
+      case 'SUBSIDY_INTERVIEW':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'TRIAL_SESSION':
+        return 'bg-green-100 text-green-800';
+      case 'TRIAL_SHIFT':
+        return 'bg-orange-100 text-orange-800';
+      case 'EXAM_COURSE':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'STAFF_INTERVIEW':
+        return 'bg-pink-100 text-pink-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <ReconciliationTable
       title="Unlogged Sessions"
@@ -241,16 +262,21 @@ export function UnloggedSessionsTable({
               {format(new Date(item.start_at), 'MMM d, yyyy')}
             </TableCell>
             <TableCell>
-              {subject ? (
-                <Badge
-                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
-                  style={style.backgroundColor ? style : undefined}
-                >
-                  {formatSubjectDisplay(subject)}
+              <div className="flex items-center gap-2 flex-wrap">
+                {subject ? (
+                  <Badge
+                    className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                    style={style.backgroundColor ? style : undefined}
+                  >
+                    {formatSubjectDisplay(subject)}
+                  </Badge>
+                ) : (
+                  <span>{item.subject_name || '—'}</span>
+                )}
+                <Badge className={getSessionTypeBadgeColor(item.session_type)}>
+                  {formatSessionType(item.session_type)}
                 </Badge>
-              ) : (
-                item.subject_name || '—'
-              )}
+              </div>
             </TableCell>
             <TableCell>
               {item.assigned_tutors && item.assigned_tutors.length > 0
@@ -287,7 +313,7 @@ export function UnassignedClassesTable({
       title="Classes without staff"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Subject', 'Day', 'Time', 'Students']}
+      columns={['Subject', 'Day', 'Time', 'Students']}
       renderRow={(item, index) => {
         const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
         const { style, textColorClass } = getSubjectColorStyle(subject);
@@ -295,9 +321,6 @@ export function UnassignedClassesTable({
 
         return (
           <TableRow key={item.class_id}>
-            <TableCell>
-              {format(new Date(item.created_at), 'MMM d, yyyy')}
-            </TableCell>
             <TableCell>
               {subject ? (
                 <Badge
