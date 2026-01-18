@@ -145,8 +145,11 @@ export function UninvoicedSessionsTable({
           }
         }
 
+        // Use a combination of fields to ensure unique keys, even if sessions_students_id has duplicates
+        const uniqueKey = `${item.sessions_students_id}-${item.session_id}-${index}`;
+        
         return (
-          <TableRow key={item.sessions_students_id}>
+          <TableRow key={uniqueKey}>
             <TableCell>
               {format(new Date(item.session_start_at), 'MMM d, yyyy')}
             </TableCell>
