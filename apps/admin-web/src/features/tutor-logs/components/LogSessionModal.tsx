@@ -442,7 +442,10 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
       case 1:
         return (formData.staffAttendance || []).length > 0;
       case 2:
-        return (formData.studentAttendance || []).length > 0;
+        // Allow proceeding if there are students OR if session type is ADMIN_SHIFT
+        const hasStudents = (formData.studentAttendance || []).length > 0;
+        const isAdminShift = selectedSession?.type === 'ADMIN_SHIFT';
+        return hasStudents || isAdminShift;
       case 3:
         return true; // Allow proceeding with no topics selected
       case 4:
