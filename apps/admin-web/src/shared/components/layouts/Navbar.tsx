@@ -116,7 +116,7 @@ export function Navbar() {
           </div>
         )}
         
-        <div className="flex items-center gap-4 flex-shrink-0 justify-end">
+        <div className="flex items-center gap-2 flex-shrink-0 justify-end">
           {/* Search Button */}
           {user && (
             <Button
@@ -132,16 +132,18 @@ export function Navbar() {
           )}
           
           {/* Theme Toggle - Desktop only */}
-          <div className="hidden md:block">
-            <ThemeToggle />
-          </div>
+          {user && (
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
+          )}
           
           {/* Profile Menu */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 border-0">
-                  <div className="h-8 w-8 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-sm">
+                <Button variant="outline" className="flex items-center gap-2 h-9">
+                  <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
                   <span className="hidden sm:inline">{getFullName()}</span>
