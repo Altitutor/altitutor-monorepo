@@ -101,7 +101,7 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
     staleTime: 30000,
   });
 
-  // Classes search
+  // Classes search - exclude student/staff search for command palette (only search by subject, day, time combination)
   const classesQuery = useQuery({
     queryKey: ['command-palette-classes', trimmedSearch],
     queryFn: async () => {
@@ -109,6 +109,8 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
         search: trimmedSearch,
         limit: entityTypes.classes.limit,
         offset: 0,
+        excludeStudentSearch: true,
+        excludeStaffSearch: true,
       });
       return result.classes.slice(0, entityTypes.classes.limit).map((cls) => ({
         type: 'class' as const,

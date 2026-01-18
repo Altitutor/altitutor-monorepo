@@ -407,6 +407,8 @@ export const classPlansApi = {
         p_search: undefined,
         p_statuses: ['ACTIVE'],
         p_include_relationships: true,
+        p_exclude_student_search: false,
+        p_exclude_staff_search: false,
         p_limit: 10000,
         p_offset: 0,
         p_order_by: 'day_of_week',

@@ -42,6 +42,8 @@ export const classesApi = {
     offset?: number;
     orderBy?: keyof Tables<'classes'>;
     ascending?: boolean;
+    excludeStudentSearch?: boolean;
+    excludeStaffSearch?: boolean;
   }): Promise<{
     classes: MinimalClass[];
     total: number;
@@ -55,6 +57,8 @@ export const classesApi = {
       offset = 0,
       orderBy = 'day_of_week',
       ascending = true,
+      excludeStudentSearch = false,
+      excludeStaffSearch = false,
     } = params || {};
 
     const trimmed = search.trim();
@@ -71,6 +75,8 @@ export const classesApi = {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: ['ACTIVE'],
       p_include_relationships: true,
+      p_exclude_student_search: excludeStudentSearch,
+      p_exclude_staff_search: excludeStaffSearch,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy as string,
@@ -139,6 +145,8 @@ export const classesApi = {
         p_search: undefined,
         p_statuses: undefined, // Get all statuses
         p_include_relationships: true,
+        p_exclude_student_search: false,
+        p_exclude_staff_search: false,
         p_limit: 10000, // High limit to get all classes
         p_offset: 0,
         p_order_by: 'day_of_week',
