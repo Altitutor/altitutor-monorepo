@@ -7718,6 +7718,8 @@ export type Database = {
       search_classes_admin: {
         Args: {
           p_ascending?: boolean
+          p_exclude_staff_search?: boolean
+          p_exclude_student_search?: boolean
           p_include_relationships?: boolean
           p_limit?: number
           p_offset?: number
