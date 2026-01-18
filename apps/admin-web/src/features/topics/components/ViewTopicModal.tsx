@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-import { PencilIcon, TrashIcon, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { PencilIcon, TrashIcon, Loader2, AlertTriangle, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -66,6 +66,7 @@ import { AddResourceFileModal } from './AddResourceFileModal';
 import { EditTopicFileModal } from './EditTopicFileModal';
 import { buildTopicTree } from '../utils/codes';
 import { Plus } from 'lucide-react';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -337,32 +338,37 @@ export function ViewTopicModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <SheetTitle className="text-xl">
-                  {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
-                </SheetTitle>
-                {!isLoading && topic && (
-                  <SheetDescription className="text-lg font-medium">
-                    {topic.name}
-                  </SheetDescription>
-                )}
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <SheetTitle className="text-xl">
+                    {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
+                  </SheetTitle>
+                  {!isLoading && topic && (
+                    <SheetDescription className="text-lg font-medium">
+                      {topic.code ? `${topic.code} - ` : ''}{topic.name}
+                    </SheetDescription>
+                  )}
+                </div>
               </div>
               {topicId && topic && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
+                <ActionsMenu
+                  type="topic"
+                  onOpenInPage={() => {
                     router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
                     onClose();
                   }}
-                  className="shrink-0"
-                  title="Open in new page"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
+                />
               )}
             </div>
           </SheetHeader>
@@ -539,8 +545,11 @@ export function ViewTopicModal({
                         </button>
                       ) : (
                         'None (root topic)'
-                    )}
-                  </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-sm font-medium">Topic Code:</div>
+                    <div>{topic.code || 'N/A'}</div>
                 </div>
               
               <Separator className="my-4" />
@@ -610,6 +619,8 @@ export function ViewTopicModal({
                                             storagePath={topicFile.file.storage_path}
                                             mimeType={topicFile.file.mimetype}
                                             topicFileId={topicFile.id}
+                                            fileId={topicFile.file.id}
+                                            topicName={topic.name}
                                             onEdit={(id) => {
                                               setEditingFileId(id);
                                               setIsEditFileModalOpen(true);
@@ -628,6 +639,8 @@ export function ViewTopicModal({
                                               storagePath={linkedSolution.file.storage_path}
                                               mimeType={linkedSolution.file.mimetype}
                                               topicFileId={linkedSolution.id}
+                                              fileId={linkedSolution.file.id}
+                                              topicName={topic.name}
                                               onEdit={(id) => {
                                                 setEditingFileId(id);
                                                 setIsEditFileModalOpen(true);

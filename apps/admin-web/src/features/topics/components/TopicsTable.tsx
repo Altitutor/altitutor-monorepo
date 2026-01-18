@@ -236,8 +236,11 @@ export function TopicsTable({
     });
   };
 
-  const handleFileClick = (fileId: string) => {
+  const [selectedTopicInfo, setSelectedTopicInfo] = useState<{ topicName: string; fileCode: string } | null>(null);
+
+  const handleFileClick = (fileId: string, topicName?: string, fileCode?: string) => {
     setSelectedFileId(fileId);
+    setSelectedTopicInfo(topicName && fileCode ? { topicName, fileCode } : null);
     setIsFileModalOpen(true);
   };
 
@@ -444,9 +447,12 @@ export function TopicsTable({
       <FilePreviewModal
         isOpen={isFileModalOpen}
         fileId={selectedFileId}
+        topicName={selectedTopicInfo?.topicName}
+        fileCode={selectedTopicInfo?.fileCode}
         onClose={() => {
           setIsFileModalOpen(false);
           setSelectedFileId(null);
+          setSelectedTopicInfo(null);
         }}
       />
     </div>
@@ -458,7 +464,7 @@ interface TopicRowsProps {
   topics: TopicWithSubject[];
   expandedTopics: Set<string>;
   onToggleExpansion: (topicId: string) => void;
-  onFileClick: (fileId: string) => void;
+  onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
   onFileDownload: (storagePath: string, filename: string) => void;
   onViewTopic?: (topicId: string) => void;
   level: number;
@@ -535,7 +541,7 @@ interface TopicRowProps {
   allTopics: TopicWithSubject[];
   expandedTopics: Set<string>;
   onToggleExpansion: (topicId: string) => void;
-  onFileClick: (fileId: string) => void;
+  onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
   onFileDownload: (storagePath: string, filename: string) => void;
   onViewTopic?: (topicId: string) => void;
 }
@@ -628,7 +634,7 @@ function TopicRow({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={() => fileId && onFileClick(fileId)}
+                          onClick={() => fileId && onFileClick(fileId, topic.name, fileCode)}
                           className="flex-1 text-left min-w-0 truncate text-sm"
                         >
                           <span className="font-mono">{fileCode}</span>{' '}
