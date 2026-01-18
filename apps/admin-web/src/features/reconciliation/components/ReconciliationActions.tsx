@@ -141,7 +141,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
 
   const handleResendInvoice = () => {
     // TODO: Implement invoice resending
-    console.log('Resend invoice - to be implemented');
   };
 
   switch (type) {
