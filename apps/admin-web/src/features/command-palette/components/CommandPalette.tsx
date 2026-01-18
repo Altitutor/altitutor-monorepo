@@ -140,25 +140,54 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     enabled: isOpen,
   });
 
-  // Filter commands and pages by search query
+  // Filter and sort commands by search query (sort by match quality for section prioritization)
   const filteredCommands = useMemo(() => {
     if (!searchQuery.trim()) return commandsWithActions;
     const query = searchQuery.toLowerCase();
-    return commandsWithActions.filter((cmd) => {
+    const filtered = commandsWithActions.filter((cmd) => {
       const titleMatch = cmd.title.toLowerCase().includes(query);
       const descMatch = cmd.description?.toLowerCase().includes(query);
       const keywordMatch = cmd.keywords?.some((k) => k.toLowerCase().includes(query));
       return titleMatch || descMatch || keywordMatch;
     });
+    
+    // Sort by match quality so first item has highest score (for section prioritization)
+    return filtered.sort((a, b) => {
+      const aTitle = a.title.toLowerCase();
+      const bTitle = b.title.toLowerCase();
+      const queryLower = query.toLowerCase();
+      
+      // Exact match > starts with > contains
+      if (aTitle === queryLower && bTitle !== queryLower) return -1;
+      if (bTitle === queryLower && aTitle !== queryLower) return 1;
+      if (aTitle.startsWith(queryLower) && !bTitle.startsWith(queryLower)) return -1;
+      if (bTitle.startsWith(queryLower) && !aTitle.startsWith(queryLower)) return 1;
+      return 0;
+    });
   }, [searchQuery, commandsWithActions]);
 
+  // Filter and sort pages by search query (sort by match quality for section prioritization)
   const filteredPages = useMemo(() => {
     if (!searchQuery.trim()) return allPages;
     const query = searchQuery.toLowerCase();
-    return allPages.filter((page) => {
+    const filtered = allPages.filter((page) => {
       const titleMatch = page.title.toLowerCase().includes(query);
       const keywordMatch = page.keywords?.some((k) => k.toLowerCase().includes(query));
       return titleMatch || keywordMatch;
+    });
+    
+    // Sort by match quality so first item has highest score (for section prioritization)
+    return filtered.sort((a, b) => {
+      const aTitle = a.title.toLowerCase();
+      const bTitle = b.title.toLowerCase();
+      const queryLower = query.toLowerCase();
+      
+      // Exact match > starts with > contains
+      if (aTitle === queryLower && bTitle !== queryLower) return -1;
+      if (bTitle === queryLower && aTitle !== queryLower) return 1;
+      if (aTitle.startsWith(queryLower) && !bTitle.startsWith(queryLower)) return -1;
+      if (bTitle.startsWith(queryLower) && !aTitle.startsWith(queryLower)) return 1;
+      return 0;
     });
   }, [searchQuery, allPages]);
 
@@ -430,18 +459,106 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     [selectedIndex, searchQuery, handleSelectItem, highlightText]
   );
 
-  // Group items by type for display
+  // Calculate match quality score for an item (used to prioritize sections)
+  const calculateMatchScore = useCallback((item: CommandPaletteItem, query: string): number => {
+    if (!query.trim()) return 0;
+    
+    const queryLower = query.toLowerCase().trim();
+    
+    if (item.type === 'command') {
+      const titleMatch = item.title.toLowerCase();
+      if (titleMatch === queryLower) return 1000;
+      if (titleMatch.startsWith(queryLower)) return 900;
+      if (titleMatch.includes(queryLower)) return 800;
+      return 0;
+    }
+    
+    if (item.type === 'page') {
+      const titleMatch = item.title.toLowerCase();
+      if (titleMatch === queryLower) return 1000;
+      if (titleMatch.startsWith(queryLower)) return 900;
+      if (titleMatch.includes(queryLower)) return 800;
+      return 0;
+    }
+    
+    if (item.type === 'entity') {
+      const { result } = item;
+      let title = '';
+      let subtitle: string | null = null;
+      
+      if (result.type === 'student') {
+        const studentData = result.data as Tables<'students'>;
+        title = [studentData.first_name, studentData.last_name].filter(Boolean).join(' ').trim();
+        if (!title) title = `Student ${studentData.id.slice(0, 8)}`;
+        subtitle = studentData.school || null;
+      } else if (result.type === 'staff') {
+        title = [result.data.first_name, result.data.last_name].filter(Boolean).join(' ').trim();
+        subtitle = result.data.role || null;
+      } else if (result.type === 'parent') {
+        title = [result.data.first_name, result.data.last_name].filter(Boolean).join(' ').trim();
+        subtitle = result.data.email || result.data.phone || null;
+      } else if (result.type === 'class') {
+        const classData = result.data;
+        const subject = classData.subject;
+        title = formatClassShortName(classData as any, subject);
+        subtitle = formatClassName(classData as any, subject);
+      } else if (result.type === 'subject') {
+        title = result.data.long_name || result.data.short_name || result.data.name || '';
+        subtitle = result.data.curriculum || null;
+      } else if (result.type === 'topic') {
+        title = result.data.name || '';
+        subtitle = result.data.subject?.long_name || result.data.subject?.short_name || result.data.subject?.name || null;
+      } else if (result.type === 'file') {
+        const fileData = result.data;
+        const subjectShortName = fileData.subject.short_name || '';
+        const fileCode = fileData.code ? ` ${fileData.code}` : '';
+        const topicName = fileData.topic.name || '';
+        title = `${subjectShortName}${fileCode} ${topicName}`.trim();
+        subtitle = fileData.file.filename;
+      }
+      
+      const titleLower = title.toLowerCase();
+      const subtitleLower = subtitle?.toLowerCase() || '';
+      const combinedLower = `${titleLower} ${subtitleLower}`.trim();
+      
+      // Exact match in title (highest priority)
+      if (titleLower === queryLower) return 1000;
+      // Starts with query in title
+      if (titleLower.startsWith(queryLower)) return 900;
+      // Contains query in title
+      if (titleLower.includes(queryLower)) return 800;
+      // Exact match in combined (title + subtitle)
+      if (combinedLower === queryLower) return 700;
+      // Starts with query in combined
+      if (combinedLower.startsWith(queryLower)) return 600;
+      // Contains query in combined
+      if (combinedLower.includes(queryLower)) return 500;
+      // Contains query in subtitle only
+      if (subtitleLower.includes(queryLower)) return 300;
+      
+      return 0;
+    }
+    
+    return 0;
+  }, []);
+
+  // Group items by type for display, sorted by highest match score
+  // Optimization: Only calculate score for first item in each section since results are already sorted by relevance
   const groupedItems = useMemo(() => {
-    const groups: { label: string; items: CommandPaletteItem[] }[] = [];
+    const groups: Array<{ label: string; items: CommandPaletteItem[]; maxScore: number }> = [];
     
     const commandItems = filteredItems.filter((i) => i.type === 'command');
     if (commandItems.length > 0) {
-      groups.push({ label: 'Commands', items: commandItems });
+      // Commands are already sorted, so first item has highest match
+      const maxScore = commandItems.length > 0 ? calculateMatchScore(commandItems[0], searchQuery) : 0;
+      groups.push({ label: 'Commands', items: commandItems, maxScore });
     }
     
     const pageItems = filteredItems.filter((i) => i.type === 'page');
     if (pageItems.length > 0) {
-      groups.push({ label: 'Pages', items: pageItems });
+      // Pages are already sorted, so first item has highest match
+      const maxScore = pageItems.length > 0 ? calculateMatchScore(pageItems[0], searchQuery) : 0;
+      groups.push({ label: 'Pages', items: pageItems, maxScore });
     }
     
     // Group entities by type
@@ -460,12 +577,20 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
       const configKey = ENTITY_TYPE_MAPPING[type] || type;
       const config = entityTypes[configKey];
       if (config) {
-        groups.push({ label: config.label, items });
+        // Calculate score for first item only - results are already sorted by relevance from database
+        const maxScore = items.length > 0 ? calculateMatchScore(items[0], searchQuery) : 0;
+        groups.push({ label: config.label, items, maxScore });
       }
     });
     
-    return groups;
-  }, [filteredItems]);
+    // Sort groups by maxScore (highest first), then by label for consistency
+    return groups.sort((a, b) => {
+      if (b.maxScore !== a.maxScore) {
+        return b.maxScore - a.maxScore;
+      }
+      return a.label.localeCompare(b.label);
+    });
+  }, [filteredItems, searchQuery, calculateMatchScore]);
 
   // Toggle filter (single select - clicking same filter deselects it)
   const toggleFilter = useCallback((filterType: FilterType) => {
@@ -559,7 +684,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
                   {group.label}
                 </div>
                 <div className="space-y-0">
-                  {group.items.map((item, index) => {
+                  {group.items.map((item) => {
                     const globalIndex = filteredItems.indexOf(item);
                     return renderItem(item, globalIndex);
                   })}
