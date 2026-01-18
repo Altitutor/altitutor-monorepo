@@ -227,6 +227,33 @@ export function formatSessionType(type: string | null | undefined): string {
   return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
+/**
+ * Get badge color classes for a session type
+ * Returns Tailwind CSS classes for consistent badge styling
+ */
+export function getSessionTypeBadgeColor(type: string | null | undefined): string {
+  if (!type) return 'bg-gray-100 text-gray-800';
+  
+  switch (type) {
+    case 'CLASS':
+      return 'bg-blue-100 text-blue-800';
+    case 'DRAFTING':
+      return 'bg-purple-100 text-purple-800';
+    case 'SUBSIDY_INTERVIEW':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'TRIAL_SESSION':
+      return 'bg-green-100 text-green-800';
+    case 'TRIAL_SHIFT':
+      return 'bg-orange-100 text-orange-800';
+    case 'EXAM_COURSE':
+      return 'bg-indigo-100 text-indigo-800';
+    case 'STAFF_INTERVIEW':
+      return 'bg-pink-100 text-pink-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
 // Re-export enum color utilities from shared UI package
 export * from '@altitutor/ui';
 export * from './subject-icons';

@@ -15,7 +15,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ReconciliationActions } from './ReconciliationActions';
 import { useSubjects } from '@/features/subjects';
-import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, cn } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor, cn } from '@/shared/utils';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import type {
@@ -223,27 +223,6 @@ export function UnloggedSessionsTable({
     subjects.forEach(s => map.set(s.id, s));
     return map;
   }, [subjects]);
-
-  const getSessionTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'CLASS':
-        return 'bg-blue-100 text-blue-800';
-      case 'DRAFTING':
-        return 'bg-purple-100 text-purple-800';
-      case 'SUBSIDY_INTERVIEW':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'TRIAL_SESSION':
-        return 'bg-green-100 text-green-800';
-      case 'TRIAL_SHIFT':
-        return 'bg-orange-100 text-orange-800';
-      case 'EXAM_COURSE':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'STAFF_INTERVIEW':
-        return 'bg-pink-100 text-pink-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   return (
     <ReconciliationTable
