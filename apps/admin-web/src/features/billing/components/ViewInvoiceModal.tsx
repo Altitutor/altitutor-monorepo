@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Separator, Badge, Button } from '@altitutor/ui';
-import { Download, Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { billingApi, type InvoiceRow, type InvoiceItemRow } from '../api/billing';

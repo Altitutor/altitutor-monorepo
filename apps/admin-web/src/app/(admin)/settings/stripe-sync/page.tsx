@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@altitutor/ui';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { StripeSyncTable } from '@/features/stripe-sync/components/StripeSyncTable';
 import { stripeSyncApi } from '@/features/stripe-sync/api/stripe-sync';
-import { Loader2 } from 'lucide-react';
 
 export default function StripeSyncPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = useState(0);
+  const initialStudentId = searchParams.get('studentId');
 
   // Fetch students with Stripe info
   const {
@@ -57,6 +58,7 @@ export default function StripeSyncPage() {
         isLoading={isLoading}
         isFetching={isFetching}
         onRefresh={handleRefresh}
+        initialStudentId={initialStudentId}
       />
     </div>
   );

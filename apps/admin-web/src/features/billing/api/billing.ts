@@ -135,7 +135,7 @@ export const billingApi = {
   },
 
   // Backward compatibility - returns invoices instead of payment attempts
-  async getPaymentAttemptsByStudent(studentId: string): Promise<any[]> {
+  async getPaymentAttemptsByStudent(studentId: string): Promise<InvoiceRow[]> {
     return this.getInvoicesByStudent(studentId);
   },
 

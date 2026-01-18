@@ -18,7 +18,7 @@ import { useApplyClassPlan } from '../hooks/useClassPlansQuery';
 import { useClassPlan } from '../hooks/useClassPlansQuery';
 import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
-import { format, endOfYear } from 'date-fns';
+import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 
 interface ApplyPlanDialogProps {
@@ -43,9 +43,8 @@ export function ApplyPlanDialog({
   const { data: plan } = useClassPlan(planId);
   const applyMutation = useApplyClassPlan();
   
-  // Default to today, end of year
+  // Default to today
   const today = new Date();
-  const yearEnd = endOfYear(new Date(planYear, 0));
   
   const [sessionStartDate, setSessionStartDate] = useState<Date>(today);
 

@@ -9,7 +9,7 @@ import { Loader2, Search, Filter, X } from 'lucide-react';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { cn, formatClassName } from '@/shared/utils';
+import { formatClassName } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { AssignStaffContext, StaffConflictInfo, ClassConflictInfo, StaffUnavailabilityInfo } from '../../types/enrollment';
 

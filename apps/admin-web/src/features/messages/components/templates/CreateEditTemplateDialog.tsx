@@ -27,6 +27,7 @@ import { getStudentClasses } from '../../api/bulk';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
+import { getErrorMessage } from '@/shared/utils';
 
 interface CreateEditTemplateDialogProps {
   isOpen: boolean;
@@ -190,11 +191,12 @@ export function CreateEditTemplateDialog({
       
       onSuccess?.();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       console.error('Error saving template:', error);
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to save template. Please try again.',
+        description: errorMessage || 'Failed to save template. Please try again.',
         variant: 'destructive',
       });
     }

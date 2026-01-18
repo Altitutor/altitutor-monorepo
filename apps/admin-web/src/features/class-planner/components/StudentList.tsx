@@ -3,13 +3,11 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
 import { Card } from '@altitutor/ui';
 import { Search } from 'lucide-react';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { studentsApi } from '@/features/students/api/students';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 import { useClassPlan } from '../hooks/useClassPlansQuery';
@@ -183,7 +181,7 @@ export function StudentList({ planId, onSubjectFilterChange, onDragStart, onDrag
               All
             </button>
             {subjects.map((subject) => {
-              const { style, textColorClass } = getSubjectColorStyle(subject);
+              const { style } = getSubjectColorStyle(subject);
               return (
                 <button
                   key={subject.id}

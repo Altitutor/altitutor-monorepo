@@ -23,7 +23,6 @@ import {
 } from "@altitutor/ui";
 import { SendStudentInviteDialog } from '@/features/students/components/SendStudentInviteDialog';
 import { useStudentDetails, useUpdateStudent, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
-import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables } from '@altitutor/shared';
 import { 
@@ -33,7 +32,7 @@ import {
 } from '@/features/students/components/tabs';
 import { StudentSessionsTab } from '@/features/students/components/StudentSessionsTab';
 import { StudentBillingTab } from '@/features/students/components/StudentBillingTab';
-import { ViewSubjectModal, SubjectSearchPopover } from '@/features/subjects/components';
+import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
@@ -258,26 +257,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     }
   };
 
-  // Handle subject assignment
-  const handleAssignSubject = (subject: Tables<'subjects'>) => {
-    if (!subject) return;
-    setTempStudentSubjects(prev => [...prev, subject]);
-    if (subjectsToRemove.includes(subject.id)) {
-      setSubjectsToRemove(prev => prev.filter(id => id !== subject.id));
-    } else {
-      setSubjectsToAdd(prev => [...prev, subject.id]);
-    }
-  };
-
-  // Handle subject removal
-  const handleRemoveSubject = (subjectId: string) => {
-    setTempStudentSubjects(prev => prev.filter(s => s.id !== subjectId));
-    if (subjectsToAdd.includes(subjectId)) {
-      setSubjectsToAdd(prev => prev.filter(id => id !== subjectId));
-    } else {
-      setSubjectsToRemove(prev => [...prev, subjectId]);
-    }
-  };
   
   // Handle parent assignment
   const handleAssignParent = (parent: Tables<'parents'>) => {

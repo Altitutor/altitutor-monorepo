@@ -422,7 +422,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           initialStudentId={selectedStudentForReschedule}
           originalSessionId={id}
           originalSubjectId={subject?.id || null}
-          onBookingCreated={(newSessionId) => {
+          onBookingCreated={(_newSessionId) => {
             // Optionally navigate to the new session or show success message
             setIsRescheduleModalOpen(false);
             setSelectedStudentForReschedule(null);

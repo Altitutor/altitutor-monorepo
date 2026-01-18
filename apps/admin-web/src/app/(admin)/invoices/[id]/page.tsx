@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Separator, Badge } from '@altitutor/ui';
-import { Download, Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { billingApi, type InvoiceRow, type InvoiceItemRow } from '@/features/billing/api/billing';

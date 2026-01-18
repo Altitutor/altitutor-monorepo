@@ -7,6 +7,7 @@ import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStri
 import { Loader2, CreditCard } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { paymentMethodsApi } from '../api/payment-methods';
+import { getErrorMessage } from '@/shared/utils';
 
 // Use pre-loaded Stripe instance
 let stripePromise: Promise<any> | null = null;
@@ -30,7 +31,7 @@ function PaymentForm({
   onSuccess, 
   onCancel, 
   clientSecret, 
-  studentId 
+  studentId: _studentId 
 }: { 
   onSuccess: () => void; 
   onCancel: () => void;
@@ -202,10 +203,11 @@ export function AddPaymentMethodModal({
           setClientSecret(data.client_secret);
           setIsLoading(false);
         })
-        .catch((error: any) => {
+        .catch((error: unknown) => {
+          const errorMessage = getErrorMessage(error);
           toast({
             title: 'Error',
-            description: error.message || 'Failed to initialize payment method setup',
+            description: errorMessage || 'Failed to initialize payment method setup',
             variant: 'destructive',
           });
           setIsLoading(false);

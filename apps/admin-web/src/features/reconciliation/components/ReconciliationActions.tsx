@@ -3,10 +3,12 @@
 import { useState, createContext, useContext } from 'react';
 import { Button } from '@altitutor/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { useDeleteMessage } from '@/features/messages/api/mutations';
 import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '@/shared/utils';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import type {
@@ -69,6 +71,7 @@ interface ReconciliationActionsProps {
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
+  const router = useRouter();
   const openWindow = useChatStore((s) => s.openWindow);
   const handlers = useReconciliationHandlers();
   const [isLoading, setIsLoading] = useState(false);
@@ -290,10 +293,11 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             title: 'Success',
             description: 'Message deleted successfully',
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = getErrorMessage(error);
           toast({
             title: 'Error',
-            description: error.message || 'Failed to delete message',
+            description: errorMessage || 'Failed to delete message',
             variant: 'destructive',
           });
         }
@@ -325,6 +329,10 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
 
     case 'students_without_payment_method': {
       const student = item as StudentWithoutPaymentMethod;
+      const handleOpenStripeSync = () => {
+        router.push(`/settings/stripe-sync?studentId=${student.student_id}`);
+      };
+      
       return (
         <div className="flex gap-2">
           <Button
@@ -334,6 +342,14 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <User className="h-4 w-4 mr-1" />
             View Student
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleOpenStripeSync}
+          >
+            <CreditCard className="h-4 w-4 mr-1" />
+            Stripe Sync
           </Button>
         </div>
       );

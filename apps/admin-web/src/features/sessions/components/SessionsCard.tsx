@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
-import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle, getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
+import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name

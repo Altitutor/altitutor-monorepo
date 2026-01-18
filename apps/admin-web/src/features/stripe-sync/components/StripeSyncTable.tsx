@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -23,6 +23,7 @@ interface StripeSyncTableProps {
   isLoading?: boolean;
   isFetching?: boolean;
   onRefresh: () => void;
+  initialStudentId?: string | null;
 }
 
 export function StripeSyncTable({
@@ -30,11 +31,24 @@ export function StripeSyncTable({
   isLoading,
   isFetching,
   onRefresh,
+  initialStudentId,
 }: StripeSyncTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [stripeFilter, setStripeFilter] = useState<'all' | 'present' | 'absent'>('all');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Open modal for initial student ID if provided
+  useEffect(() => {
+    if (initialStudentId && !isLoading && students.length > 0) {
+      // Check if student exists in the list
+      const studentExists = students.some(s => s.student_id === initialStudentId);
+      if (studentExists) {
+        setSelectedStudentId(initialStudentId);
+        setIsModalOpen(true);
+      }
+    }
+  }, [initialStudentId, isLoading, students]);
 
   // Filter students
   const filteredStudents = useMemo(() => {

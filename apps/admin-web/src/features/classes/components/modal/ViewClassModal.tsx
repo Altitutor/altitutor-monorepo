@@ -13,7 +13,6 @@ import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useUpdateClass } from '../../hooks/useClassesQuery';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { formatClassName } from '@/shared/utils';
 import type { TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
@@ -48,14 +47,11 @@ export function ViewClassModal({
   const subject = classDetails?.subject || null;
   const classStudents = classDetails?.students || [];
   const classStaff = classDetails?.staff || [];
-  const _upcomingSessions = classDetails?.upcomingSessions || [];
-  
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [isDeleting, setIsDeleting] = useState(false);
   
   const { toast } = useToast();
-  const { data: _currentStaff } = useCurrentStaff();
   const queryClient = useQueryClient();
   const deleteClassMutation = useDeleteClass();
 

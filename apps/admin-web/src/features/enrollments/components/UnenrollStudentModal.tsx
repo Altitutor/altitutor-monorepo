@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useUnenrollFlow } from '../hooks';

@@ -23,6 +23,7 @@ import { updateSubsidy, type UpdateSubsidyInput, type StudentSubsidyRow } from '
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import type { Tables } from '@altitutor/shared';
+import { getErrorMessage } from '@/shared/utils';
 
 interface EditSubsidyModalProps {
   isOpen: boolean;
@@ -120,10 +121,11 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
         description: 'Subsidy updated successfully',
       });
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update subsidy',
+        description: errorMessage || 'Failed to update subsidy',
         variant: 'destructive',
       });
     } finally {

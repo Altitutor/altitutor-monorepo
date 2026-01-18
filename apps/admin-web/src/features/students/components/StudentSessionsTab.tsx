@@ -11,7 +11,6 @@ import {
   TableRow,
   Badge,
   Button,
-  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -26,8 +25,7 @@ import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQue
 import { useStudentClasses } from '../hooks/useStudentClasses';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { ViewClassModal } from '@/features/classes';
-import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
-import { cn, formatSessionType } from '@/shared/utils';
+import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
 import { CalendarIcon, Check, X, ArrowUpDown } from 'lucide-react';
 import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
 import { DateRangePicker } from '@altitutor/ui';
@@ -94,11 +92,19 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
   });
 
   // Extract data from response
-  const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
-  const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
-  const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
-  const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = (data as any)?.sessionStudents || {};
-  const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>> = (data as any)?.sessionStaff || {};
+  type SessionData = {
+    sessions?: Tables<'sessions'>[];
+    classesById?: Record<string, Tables<'classes'>>;
+    subjectsById?: Record<string, Tables<'subjects'>>;
+    sessionStudents?: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>>;
+    sessionStaff?: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>>;
+  };
+  const sessionData = (data as unknown as SessionData) || {};
+  const allSessions: Tables<'sessions'>[] = (sessionData.sessions as Tables<'sessions'>[]) || [];
+  const classesById: Record<string, Tables<'classes'>> = sessionData.classesById || {};
+  const subjectsById: Record<string, Tables<'subjects'>> = sessionData.subjectsById || {};
+  const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = sessionData.sessionStudents || {};
+  const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>> = sessionData.sessionStaff || {};
 
   // Client-side pagination
   const totalSessions = allSessions.length;
@@ -115,8 +121,8 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
 
   // Helper functions
   const getClassShortDisplay = useCallback((session: Tables<'sessions'>) => {
-    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
-    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
+    const cls = session.class_id ? classesById[session.class_id] : undefined;
+    const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
     const parts: string[] = [];
     if (subj?.curriculum) parts.push(String(subj.curriculum));
     const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
@@ -126,8 +132,8 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
   }, [classesById, subjectsById]);
 
   const getClassDisplay = useCallback((session: Tables<'sessions'>) => {
-    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
-    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
+    const cls = session.class_id ? classesById[session.class_id] : undefined;
+    const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
     const parts: string[] = [];
     if (subj?.curriculum) parts.push(String(subj.curriculum));
     if (subj?.year_level != null) parts.push(String(subj.year_level));
@@ -140,27 +146,6 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
     const s = session.start_at ? new Date(session.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const e = session.end_at ? new Date(session.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     return s && e ? `${s}–${e}` : s || e || '-';
-  }, []);
-
-  const getSessionTypeBadgeColor = useCallback((type: string) => {
-    switch (type) {
-      case 'CLASS':
-        return 'bg-blue-100 text-blue-800';
-      case 'DRAFTING':
-        return 'bg-purple-100 text-purple-800';
-      case 'SUBSIDY_INTERVIEW':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'TRIAL_SESSION':
-        return 'bg-green-100 text-green-800';
-      case 'TRIAL_SHIFT':
-        return 'bg-orange-100 text-orange-800';
-      case 'EXAM_COURSE':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'STAFF_INTERVIEW':
-        return 'bg-pink-100 text-pink-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
   }, []);
 
   const getInvoiceStatusBadge = useCallback((status: string | null | undefined) => {

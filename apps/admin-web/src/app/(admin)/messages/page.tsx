@@ -77,7 +77,6 @@ export default function MessagesPage() {
     } else if (!activeContactId && !conversationParam) {
       // Auto-select most recent contact when no URL param
       (async () => {
-        const { useConversationsByContact } = await import('@/features/messages/api/queries');
         // This will be handled by the hook, but we can select the first one
         const supabase = getSupabaseClient() as any;
         const { data } = await supabase

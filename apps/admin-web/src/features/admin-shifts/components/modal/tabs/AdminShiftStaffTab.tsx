@@ -1,18 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, UserCheck, Plus } from "lucide-react";
-import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
-import { cn } from "@/shared/utils";
 import { ViewStaffModal } from '@/features/staff';
 import { StaffCard } from '@/shared/components/StaffCard';
-import { useChatStore } from '@/features/messages/state/chatStore';
-import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { useToast } from "@altitutor/ui";
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 interface AdminShiftStaffTabProps {
   adminShiftData: Tables<'admin_shifts'>;
@@ -25,7 +20,7 @@ interface AdminShiftStaffTabProps {
 }
 
 export function AdminShiftStaffTab({
-  adminShiftData,
+  adminShiftData: _adminShiftData,
   adminShiftStaff,
   allStaff,
   loadingStaff,
@@ -34,18 +29,13 @@ export function AdminShiftStaffTab({
   onRemoveStaff
 }: AdminShiftStaffTabProps) {
   const { toast } = useToast();
-  const openWindow = useChatStore(s => s.openWindow);
   const [assigningStaff, setAssigningStaff] = useState<Set<string>>(new Set());
-  const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Modal state for staff viewing
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  
-  // Get current staff for assignment
-  const { data: currentStaff } = useCurrentStaff();
 
   // Use staffToAdminShiftStaffId from props (fetched by API)
   const adminShiftStaffIds = staffToAdminShiftStaffId;
@@ -97,7 +87,6 @@ export function AdminShiftStaffTab({
     }
     
     try {
-      setRemovingStaff(prev => new Set(prev).add(staffId));
       await onRemoveStaff(adminShiftStaffId);
       toast({
         title: 'Success',
@@ -109,12 +98,6 @@ export function AdminShiftStaffTab({
         title: 'Removal failed',
         description: 'There was an error removing the staff. Please try again.',
         variant: 'destructive',
-      });
-    } finally {
-      setRemovingStaff(prev => {
-        const next = new Set(prev);
-        next.delete(staffId);
-        return next;
       });
     }
   }, [adminShiftStaffIds, onRemoveStaff, toast]);

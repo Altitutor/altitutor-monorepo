@@ -25,6 +25,7 @@ import { studentSubsidiesKeys } from './StudentBillingTab';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import type { Tables } from '@altitutor/shared';
+import { getErrorMessage } from '@/shared/utils';
 
 interface AddSubsidyModalProps {
   isOpen: boolean;
@@ -116,10 +117,11 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
       });
       queryClient.invalidateQueries({ queryKey: studentSubsidiesKeys.student(studentId) });
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create subsidy',
+        description: errorMessage || 'Failed to create subsidy',
         variant: 'destructive',
       });
     } finally {

@@ -1,4 +1,4 @@
-import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
+import type { Tables, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AutomationRuleWithActions, AutomationRuleInsert, AutomationRuleUpdate, AutomationActionInsert } from '../types';

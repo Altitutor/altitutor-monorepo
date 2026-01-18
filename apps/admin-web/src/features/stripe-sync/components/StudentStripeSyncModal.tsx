@@ -13,6 +13,7 @@ import { Input } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { Loader2, Search, CreditCard, X, Check, RefreshCw } from 'lucide-react';
+import { getErrorMessage } from '@/shared/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
@@ -105,7 +106,7 @@ export function StudentStripeSyncModal({
         try {
           const customer = await stripeSyncApi.getStripeCustomer(customerId);
           setLinkedCustomer(customer);
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Error fetching linked customer:', error);
           toast({
             title: 'Warning',
@@ -146,7 +147,7 @@ export function StudentStripeSyncModal({
             }
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error searching for exact matches:', error);
         // Don't show error toast for search failures, just log
       } finally {
@@ -330,10 +331,11 @@ export function StudentStripeSyncModal({
     try {
       const results = await stripeSyncApi.searchStripeCustomers(searchTerm.trim());
       setSearchResults(results);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to search Stripe customers',
+        description: errorMessage || 'Failed to search Stripe customers',
         variant: 'destructive',
       });
       setSearchResults([]);
@@ -382,10 +384,11 @@ export function StudentStripeSyncModal({
         console.error('Error reloading linked customer:', error);
       }
       onClose(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to sync student',
+        description: errorMessage || 'Failed to sync student',
         variant: 'destructive',
       });
     } finally {
@@ -409,10 +412,11 @@ export function StudentStripeSyncModal({
       setLinkedCustomer(null);
       setDbPaymentMethods([]);
       onClose(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to unlink student',
+        description: errorMessage || 'Failed to unlink student',
         variant: 'destructive',
       });
     } finally {
@@ -452,10 +456,11 @@ export function StudentStripeSyncModal({
       if (!error && data) {
         setDbPaymentMethods(data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to sync to Stripe',
+        description: errorMessage || 'Failed to sync to Stripe',
         variant: 'destructive',
       });
     } finally {

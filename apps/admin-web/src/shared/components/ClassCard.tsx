@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
-import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle, getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
+import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name

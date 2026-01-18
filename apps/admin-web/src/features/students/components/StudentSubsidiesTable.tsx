@@ -13,6 +13,7 @@ import {
 } from '@altitutor/ui';
 import { Edit2, Trash2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
+import { getErrorMessage } from '@/shared/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDate } from '@/shared/utils';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
@@ -61,10 +62,11 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
         description: 'Subsidy deleted successfully',
       });
       queryClient.invalidateQueries({ queryKey: studentSubsidiesKeys.student(studentId) });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete subsidy',
+        description: errorMessage || 'Failed to delete subsidy',
         variant: 'destructive',
       });
     } finally {

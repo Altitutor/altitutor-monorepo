@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import Stripe from 'stripe';
+import { getErrorMessage } from '@/shared/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -176,8 +177,9 @@ export async function POST(request: NextRequest) {
             syncedPaymentMethods.push(pm.id);
           }
         }
-      } catch (err: any) {
-        errors.push(`Error syncing payment method ${pm.id}: ${err.message}`);
+      } catch (err: unknown) {
+        const errMessage = getErrorMessage(err);
+        errors.push(`Error syncing payment method ${pm.id}: ${errMessage}`);
       }
     }
 
@@ -186,10 +188,11 @@ export async function POST(request: NextRequest) {
       syncedPaymentMethods,
       errors: errors.length > 0 ? errors : undefined,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
     console.error('Error syncing Stripe customer:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to sync Stripe customer' },
+      { error: errorMessage || 'Failed to sync Stripe customer' },
       { status: 500 }
     );
   }

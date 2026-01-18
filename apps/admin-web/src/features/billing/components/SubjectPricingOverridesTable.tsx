@@ -24,7 +24,7 @@ import {
   Label,
 } from '@altitutor/ui';
 import { Edit2, Trash2, Plus, Search } from 'lucide-react';
-import { subjectPricingOverridesApi, type SubjectPricingOverrideRow, type CreateSubjectOverrideInput } from '../api/subject-pricing-overrides';
+import { subjectPricingOverridesApi, type SubjectPricingOverrideRow } from '../api/subject-pricing-overrides';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import type { Tables } from '@altitutor/shared';
 

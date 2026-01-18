@@ -1,7 +1,6 @@
 'use client';
 
 import { Badge, Separator, Button } from '@altitutor/ui';
-import { format } from 'date-fns';
 import { MoreVertical, Check } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
 import { AttendanceCell } from './AttendanceCell';

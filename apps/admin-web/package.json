@@ -12,7 +12,7 @@
     "switch:remote": "node ../../scripts/switch-env.js remote",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=2000",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",

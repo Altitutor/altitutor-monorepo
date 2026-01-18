@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -36,7 +35,6 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
-import Link from 'next/link';
 
 type TutorLogsTableProps = {
   rangeStart?: string;
@@ -52,7 +50,7 @@ export function TutorLogsTable({
   rangeStart, 
   rangeEnd, 
   onOpenSession, 
-  onOpenStaff,
+  onOpenStaff: _onOpenStaff,
   onFromChange, 
   onToChange, 
   onResetDates 
@@ -146,21 +144,21 @@ export function TutorLogsTable({
   const isFetching = _isFetching;
   
   // Extract data from the response
-  const tutorLogs = (data?.tutorLogs || []) as any[];
-  const sessions = (data?.sessions || {}) as Record<string, Tables<'sessions'>>;
-  const classesById = (data?.classesById || {}) as Record<string, Tables<'classes'>>;
-  const subjectsById = (data?.subjectsById || {}) as Record<string, Tables<'subjects'>>;
-  const sessionStudents = (data?.sessionStudents || {}) as Record<string, any[]>;
-  const sessionStaff = (data?.sessionStaff || {}) as Record<string, any[]>;
-  const staffAttendance = (data?.staffAttendance || {}) as Record<string, any[]>;
-  const studentAttendance = (data?.studentAttendance || {}) as Record<string, any[]>;
-  const topics = (data?.topics || {}) as Record<string, any[]>;
-  const topicFiles = (data?.topicFiles || {}) as Record<string, any[]>;
+  const tutorLogs = useMemo(() => (data?.tutorLogs || []) as unknown[], [data?.tutorLogs]);
+  const sessions = useMemo(() => (data?.sessions || {}) as Record<string, Tables<'sessions'>>, [data?.sessions]);
+  const classesById = useMemo(() => (data?.classesById || {}) as Record<string, Tables<'classes'>>, [data?.classesById]);
+  const subjectsById = useMemo(() => (data?.subjectsById || {}) as Record<string, Tables<'subjects'>>, [data?.subjectsById]);
+  const sessionStudents = useMemo(() => (data?.sessionStudents || {}) as Record<string, unknown[]>, [data?.sessionStudents]);
+  const sessionStaff = useMemo(() => (data?.sessionStaff || {}) as Record<string, unknown[]>, [data?.sessionStaff]);
+  const staffAttendance = useMemo(() => (data?.staffAttendance || {}) as Record<string, unknown[]>, [data?.staffAttendance]);
+  const studentAttendance = useMemo(() => (data?.studentAttendance || {}) as Record<string, unknown[]>, [data?.studentAttendance]);
+  const topics = useMemo(() => (data?.topics || {}) as Record<string, unknown[]>, [data?.topics]);
+  const topicFiles = useMemo(() => (data?.topicFiles || {}) as Record<string, unknown[]>, [data?.topicFiles]);
 
   // Get unique created_by staff IDs
   const createdByStaffIds = useMemo(() => {
     const ids = new Set<string>();
-    tutorLogs.forEach(log => {
+    tutorLogs.forEach((log: { created_by?: string }) => {
       if (log.created_by) ids.add(log.created_by);
     });
     return Array.from(ids);

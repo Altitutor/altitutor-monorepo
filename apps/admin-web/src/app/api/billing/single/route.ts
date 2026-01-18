@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import type { Tables } from '@altitutor/shared';
+import { getErrorMessage } from '@/shared/utils';
 
 type StaffRoleStatus = Pick<Tables<'staff'>, 'role' | 'status'>;
 
@@ -76,10 +77,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error invoicing single session:', error);
     return NextResponse.json(
-      { error: 'Internal server error', message: error?.message },
+      { error: 'Internal server error', message: getErrorMessage(error) },
       { status: 500 }
     );
   }

@@ -19,8 +19,8 @@ import {
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
-import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { Search } from 'lucide-react';
 
 export function Navbar() {
@@ -29,9 +29,9 @@ export function Navbar() {
   const { resolvedTheme } = useTheme();
   const { data: staffRecord } = useCurrentStaff();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
+  const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Keyboard shortcut for command palette (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -39,11 +39,11 @@ export function Navbar() {
       // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setIsCommandPaletteOpen((prev) => !prev);
+        toggleCommandPalette();
       }
       // Also close with Escape when open
       if (e.key === 'Escape' && isCommandPaletteOpen) {
-        setIsCommandPaletteOpen(false);
+        closeCommandPalette();
       }
     };
 
@@ -51,7 +51,7 @@ export function Navbar() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isCommandPaletteOpen]);
+  }, [isCommandPaletteOpen, toggleCommandPalette, closeCommandPalette]);
 
   const handleLogout = async () => {
     try {
@@ -118,18 +118,18 @@ export function Navbar() {
         
         <div className="flex items-center gap-2 flex-shrink-0 justify-end">
           {/* Search Button */}
-          {user && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsCommandPaletteOpen(true)}
-              className="h-9 w-9"
-              aria-label="Open command palette"
-              title="Search (Cmd+K / Ctrl+K)"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          )}
+            {user && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleCommandPalette}
+                className="h-9 w-9"
+                aria-label="Open command palette"
+                title="Search (Cmd+K / Ctrl+K)"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            )}
           
           {/* Theme Toggle - Desktop only */}
           {user && (
@@ -174,10 +174,6 @@ export function Navbar() {
         open={showLogoutModal}
         onOpenChange={setShowLogoutModal}
         onConfirm={handleLogout}
-      />
-      <CommandPaletteModal
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
       />
     </nav>
   );

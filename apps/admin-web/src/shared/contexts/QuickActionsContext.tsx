@@ -21,7 +21,7 @@ interface QuickActionsContextType {
   closeBookingModal: () => void;
 }
 
-const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
+export const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
 
 export function QuickActionsProvider({ children }: { children: React.ReactNode }) {
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);

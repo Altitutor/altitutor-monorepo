@@ -6,7 +6,6 @@ import { getBookingConfirmationEmailTemplate } from '@/shared/lib/email-template
 import { getBookingConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
 import { format } from 'date-fns';
-import type { Database } from '@altitutor/shared';
 
 export async function POST(request: NextRequest) {
   try {
@@ -185,7 +184,7 @@ export async function POST(request: NextRequest) {
         try {
           // Get or create contact
           let contactId: string;
-          const { data: existingContact, error: contactFetchError } = await supabaseAdmin
+          const { data: existingContact } = await supabaseAdmin
             .from('contacts')
             .select('id')
             .eq('phone_e164', recipient.phone)
@@ -232,7 +231,7 @@ export async function POST(request: NextRequest) {
 
           // Get or create conversation
           let conversationId: string;
-          const { data: existingConvo, error: convoFetchError } = await supabaseAdmin
+          const { data: existingConvo } = await supabaseAdmin
             .from('conversations')
             .select('id')
             .eq('contact_id', contactId)

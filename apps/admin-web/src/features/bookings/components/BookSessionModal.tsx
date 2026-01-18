@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@altitutor/ui';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { Loader2, Search, ChevronLeft, ChevronRight } from 'lucide-react';

@@ -1,12 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, UserCheck, Plus } from "lucide-react";
-import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
-import { cn } from "@/shared/utils";
 import { ViewStaffModal } from '@/features/staff';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
@@ -36,10 +32,7 @@ export function ClassStaffTab({
 }: ClassStaffTabProps) {
   const { toast } = useToast();
   const openWindow = useChatStore(s => s.openWindow);
-  const [assigningStaff, setAssigningStaff] = useState<Set<string>>(new Set());
-  const [_removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [assigningStaff] = useState<Set<string>>(new Set());
   const [staffSubjects, setStaffSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for staff viewing
@@ -145,20 +138,6 @@ export function ClassStaffTab({
       });
     }
   };
-
-  const availableStaff = allStaff.filter(staff => 
-    !classStaff.some(classStaffMember => classStaffMember.id === staff.id)
-  );
-
-  const filteredAvailableStaff = availableStaff.filter(staff => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      staff.first_name.toLowerCase().includes(query) ||
-      staff.last_name.toLowerCase().includes(query) ||
-      (staff.email && staff.email.toLowerCase().includes(query))
-    );
-  });
 
   return (
     <div className="flex-1 min-h-0 flex flex-col space-y-4">

@@ -6,7 +6,6 @@ import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
 import { getStudentClasses } from '../api/bulk';
-import { messagesKeys } from '../api/queryKeys';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, type Sender } from '../api/queries';
@@ -26,7 +25,7 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: currentStaff } = useCurrentStaff();
-  const { data: availableSenders, isLoading: isLoadingSenders } = useAvailableSenders();
+  const { data: availableSenders } = useAvailableSenders();
   
   // Set default sender when senders load
   useEffect(() => {
@@ -154,13 +153,6 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
     }
   };
 
-  const getSenderDisplayName = (sender: Sender | undefined): string => {
-    if (!sender) return 'Select sender';
-    if (sender.sender_type === 'ALPHANUMERIC') {
-      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
-    }
-    return sender.phone_e164 || sender.label || 'Unknown';
-  };
 
   const getSenderDisplayForSelect = (sender: Sender | undefined): string => {
     if (!sender) return 'Select sender';

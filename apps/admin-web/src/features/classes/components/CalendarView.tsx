@@ -4,7 +4,6 @@ import { useState, useMemo } from 'react';
 import { Card, Button, Input, Switch, Label } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
-import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { AdminShiftCard } from '@/shared/components/AdminShiftCard';
 import { Search, X } from 'lucide-react';
@@ -400,32 +399,6 @@ export function CalendarView({
     
     return positions;
   };
-
-
-  // Get color for class based on subject (unused but kept for potential future use)
-  const _getClassColor = (classItem: Tables<'classes'>): { className: string; style: React.CSSProperties } => {
-    if (!classSubjects || !classItem.subject_id) {
-      // Default color for classes without subjects
-      return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
-    }
-    
-    const subject = classSubjects[classItem.id];
-    if (subject) {
-      const subjectColorHex = getSubjectColorHex(subject);
-      const { textColorClass } = getSubjectColorStyle(subject);
-      if (subjectColorHex) {
-        return {
-          className: `${textColorClass} border-2 dark:bg-opacity-80`,
-          style: { backgroundColor: subjectColorHex, borderColor: subjectColorHex }
-        };
-      }
-    }
-    
-    // Default color
-    return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
-  };
-
-  
 
   return (
     <div className="flex flex-col h-full space-y-4">

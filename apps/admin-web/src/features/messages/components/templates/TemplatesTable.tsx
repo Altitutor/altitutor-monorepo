@@ -36,7 +36,7 @@ import { useToast } from '@altitutor/ui';
 import { CreateEditTemplateDialog } from './CreateEditTemplateDialog';
 import type { Tables } from '@altitutor/shared';
 import { useDebounce } from '@/shared/hooks';
-import { cn } from '@/shared/utils';
+import { cn, getErrorMessage } from '@/shared/utils';
 
 interface TemplatesTableProps {
   onRefresh?: number;
@@ -118,11 +118,12 @@ export function TemplatesTable({ onRefresh: _onRefresh }: TemplatesTableProps) {
         description: 'Template duplicated successfully.',
       });
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       console.error('Error duplicating template:', error);
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to duplicate template.',
+        description: errorMessage || 'Failed to duplicate template.',
         variant: 'destructive',
       });
     }
@@ -145,11 +146,12 @@ export function TemplatesTable({ onRefresh: _onRefresh }: TemplatesTableProps) {
       setDeleteTemplateId(null);
       setDeleteTemplateName('');
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       console.error('Error deleting template:', error);
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to delete template.',
+        description: errorMessage || 'Failed to delete template.',
         variant: 'destructive',
       });
     }

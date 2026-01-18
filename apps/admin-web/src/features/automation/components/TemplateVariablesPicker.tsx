@@ -14,28 +14,6 @@ interface TemplateVariablesPickerProps {
   onInsert: (variable: string) => void;
 }
 
-// Entity types that have class_id available in activity events
-const ENTITY_TYPES_WITH_CLASS_ID: ActivityEntityType[] = [
-  'classes',
-  'classes_staff',
-  'classes_students',
-  'sessions', // Sessions have class_id
-];
-
-// Entity types that have session_id available in activity events
-const ENTITY_TYPES_WITH_SESSION_ID: ActivityEntityType[] = [
-  'sessions',
-  'sessions_students',
-  'sessions_staff',
-  'sessions_files',
-  'tutor_logs',
-  'tutor_logs_staff_attendance',
-  'tutor_logs_student_attendance',
-  'tutor_logs_topics',
-  'tutor_logs_topics_files',
-  'tutor_logs_topics_files_students',
-  'tutor_logs_topics_students',
-];
 
 interface VariableGroup {
   title: string;

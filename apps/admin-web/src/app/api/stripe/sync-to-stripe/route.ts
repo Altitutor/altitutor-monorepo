@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import Stripe from 'stripe';
+import { getErrorMessage } from '@/shared/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -135,7 +136,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Sync default payment method
-    let defaultPmUpdated = false;
     if (defaultDbPaymentMethod?.card_last4) {
       // Find matching Stripe payment method by last4
       const matchingStripePm = stripePaymentMethods.data.find(
@@ -152,7 +152,6 @@ export async function POST(request: NextRequest) {
               default_payment_method: matchingStripePm.id,
             },
           });
-          defaultPmUpdated = true;
           updates.push('default payment method');
         }
       }
@@ -165,10 +164,11 @@ export async function POST(request: NextRequest) {
         ? `Synced ${updates.join(', ')} to Stripe`
         : 'No changes needed',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
     console.error('Error syncing to Stripe:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to sync to Stripe' },
+      { error: errorMessage || 'Failed to sync to Stripe' },
       { status: 500 }
     );
   }

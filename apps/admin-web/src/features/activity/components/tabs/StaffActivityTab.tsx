@@ -5,7 +5,7 @@ import { Textarea } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '../ActivityFeed';
 import { useStaffActivity } from '../../hooks';
-import { useNotes, useCreateNote } from '@/shared/hooks/useNotes';
+import { useCreateNote } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '../../hooks';
@@ -17,7 +17,6 @@ interface StaffActivityTabProps {
 
 export function StaffActivityTab({ staffId, isOpen = true }: StaffActivityTabProps) {
   const { data, isLoading, error } = useStaffActivity(staffId, isOpen);
-  const { data: notes = [] } = useNotes('staff', staffId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();

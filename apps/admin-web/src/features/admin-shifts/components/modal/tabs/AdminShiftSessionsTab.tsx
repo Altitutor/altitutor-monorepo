@@ -7,7 +7,6 @@ import { DateRangePicker } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
 import { sessionsApi } from '@/features/sessions/api/sessions';
-import { Alert, AlertDescription } from '@altitutor/ui';
 
 interface AdminShiftSessionsTabProps {
   adminShiftData: Tables<'admin_shifts'>;

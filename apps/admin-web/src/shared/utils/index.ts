@@ -5,6 +5,48 @@ import type React from 'react'
 import { formatTime, getDayShortName } from './datetime'
 
 /**
+ * Safely extract error message from unknown error type
+ * Use this in catch blocks instead of `error: any`
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+  return 'An unknown error occurred';
+}
+
+/**
+ * Type guard to check if error has Stripe error properties
+ */
+function isStripeError(error: unknown): error is { statusCode?: number; type?: string; code?: string; message?: string } {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    ('statusCode' in error || 'type' in error || 'code' in error)
+  );
+}
+
+/**
+ * Extract Stripe error details safely
+ */
+export function getStripeErrorDetails(error: unknown): { type?: string; code?: string; statusCode?: number } {
+  if (isStripeError(error)) {
+    return {
+      type: error.type,
+      code: error.code,
+      statusCode: error.statusCode,
+    };
+  }
+  return {};
+}
+
+/**
  * Combines class names with Tailwind's merge utility
  */
 export function cn(...inputs: ClassValue[]) {

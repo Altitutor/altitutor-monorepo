@@ -15,7 +15,7 @@ interface ActivityItemProps {
   isNested?: boolean; // For nested events when expanded
 }
 
-export function ActivityItem({ activity, showConnector = true, className, isNested = false }: ActivityItemProps) {
+export function ActivityItem({ activity, showConnector = true, className, isNested: _isNested }: ActivityItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Check if this event can be expanded (has originalEvents)

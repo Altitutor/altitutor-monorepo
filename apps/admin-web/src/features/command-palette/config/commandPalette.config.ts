@@ -21,15 +21,11 @@
  */
 
 import {
-  Home,
-  CheckSquare,
   AlertTriangle,
   GraduationCap,
   UserRound,
   Users,
   Calendar,
-  ClipboardList,
-  MessageCircle,
   CreditCard,
   FileText,
   Beaker,

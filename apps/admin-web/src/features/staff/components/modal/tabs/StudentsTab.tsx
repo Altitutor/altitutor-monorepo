@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import type { Tables } from '@altitutor/shared';
 import { ScrollArea } from "@altitutor/ui";
 import { Loader2, Users } from "lucide-react";
 import { StudentCard } from '@/shared/components/StudentCard';

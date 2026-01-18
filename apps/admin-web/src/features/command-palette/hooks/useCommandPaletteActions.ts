@@ -18,34 +18,59 @@ export function useCommandPaletteActions() {
 export function useCommandPaletteCommandActions(onClose: () => void) {
   const quickActions = useCommandPaletteActions();
 
+  // All hooks must be called unconditionally - move them before the early return
+  const openTrialSession = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openBookingModal('TRIAL_SESSION');
+    }
+  }, [onClose, quickActions]);
+
+  const openSubsidyInterview = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openBookingModal('SUBSIDY_INTERVIEW');
+    }
+  }, [onClose, quickActions]);
+
+  const openDrafting = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openBookingModal('DRAFTING');
+    }
+  }, [onClose, quickActions]);
+
+  const openTutorLog = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openTutorLogModal();
+    }
+  }, [onClose, quickActions]);
+
+  const openLogStudentAbsence = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openLogAbsenceDialog();
+    }
+  }, [onClose, quickActions]);
+
+  const openLogStaffAbsence = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openLogStaffAbsenceDialog();
+    }
+  }, [onClose, quickActions]);
+
   if (!quickActions) {
     return null;
   }
 
   return {
-    openTrialSession: useCallback(() => {
-      onClose();
-      quickActions.openBookingModal('TRIAL_SESSION');
-    }, [onClose, quickActions]),
-    openSubsidyInterview: useCallback(() => {
-      onClose();
-      quickActions.openBookingModal('SUBSIDY_INTERVIEW');
-    }, [onClose, quickActions]),
-    openDrafting: useCallback(() => {
-      onClose();
-      quickActions.openBookingModal('DRAFTING');
-    }, [onClose, quickActions]),
-    openTutorLog: useCallback(() => {
-      onClose();
-      quickActions.openTutorLogModal();
-    }, [onClose, quickActions]),
-    openLogStudentAbsence: useCallback(() => {
-      onClose();
-      quickActions.openLogAbsenceDialog();
-    }, [onClose, quickActions]),
-    openLogStaffAbsence: useCallback(() => {
-      onClose();
-      quickActions.openLogStaffAbsenceDialog();
-    }, [onClose, quickActions]),
+    openTrialSession,
+    openSubsidyInterview,
+    openDrafting,
+    openTutorLog,
+    openLogStudentAbsence,
+    openLogStaffAbsence,
   };
 }

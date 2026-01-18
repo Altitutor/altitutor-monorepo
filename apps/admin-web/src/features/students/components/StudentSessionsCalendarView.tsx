@@ -5,7 +5,6 @@ import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { Button } from "@altitutor/ui";
 
