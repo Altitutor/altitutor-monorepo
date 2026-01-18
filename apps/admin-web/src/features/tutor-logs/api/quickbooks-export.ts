@@ -102,15 +102,9 @@ export async function fetchTutorLogsForExport(params: {
       }
       
       // Create an entry for each staff member who attended
-      // Exclude the created_by staff member (they created the log but shouldn't be paid for it)
-      const createdByStaffId = tutorLog.created_by;
-      
       for (const att of staffAtt) {
         // Only include staff with attended = TRUE
         if (!att.attended) continue;
-        
-        // Exclude the created_by staff member
-        if (att.staff_id === createdByStaffId) continue;
         
         const staff = staffById.get(att.staff_id);
         if (!staff) continue;
