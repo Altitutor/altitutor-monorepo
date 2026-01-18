@@ -8,6 +8,7 @@ import { ViewClassModal } from '@/features/classes/components';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { ViewSubjectModal } from '@/features/subjects/components';
 import { ViewTopicModal } from '@/features/topics/components';
+import { FilePreviewModal } from '@/features/topics/components';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -25,12 +26,14 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [selectedTopicFileId, setSelectedTopicFileId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isParentModalOpen, setIsParentModalOpen] = useState(false);
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
+  const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -52,12 +55,14 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     setSelectedParentId(null);
     setSelectedSubjectId(null);
     setSelectedTopicId(null);
+    setSelectedTopicFileId(null);
     setIsStudentModalOpen(false);
     setIsStaffModalOpen(false);
     setIsClassModalOpen(false);
     setIsParentModalOpen(false);
     setIsSubjectModalOpen(false);
     setIsTopicModalOpen(false);
+    setIsFilePreviewModalOpen(false);
     
     // Set the appropriate state based on entity type
     if (type === 'student') {
@@ -78,10 +83,14 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     } else if (type === 'topic') {
       setSelectedTopicId(id);
       setIsTopicModalOpen(true);
+    } else if (type === 'file') {
+      // For files, id is the topics_file_id
+      setSelectedTopicFileId(id);
+      setIsFilePreviewModalOpen(true);
     }
   };
 
-  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId) {
+  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId && !selectedTopicFileId) {
     return null;
   }
 
@@ -171,6 +180,17 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
           }}
           topicId={selectedTopicId}
           onTopicUpdated={() => {}}
+        />
+      )}
+
+      {selectedTopicFileId && (
+        <FilePreviewModal
+          isOpen={isFilePreviewModalOpen}
+          onClose={() => {
+            setIsFilePreviewModalOpen(false);
+            setSelectedTopicFileId(null);
+          }}
+          topicFileId={selectedTopicFileId}
         />
       )}
     </>

@@ -6,6 +6,7 @@ import { parentsApi } from '@/features/parents/api/parents';
 import { classesApi } from '@/features/classes/api/classes';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { topicsApi } from '@/features/topics/api/topics';
+import { topicsFilesApi } from '@/features/topics/api/topics-files';
 import { entityTypes } from '../config/commandPalette.config';
 import type { Tables } from '@altitutor/shared';
 
@@ -15,7 +16,8 @@ export type CommandPaletteEntityResult =
   | { type: 'parent'; id: string; data: Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone'> }
   | { type: 'class'; id: string; data: any } // ClassSummary from classes API
   | { type: 'subject'; id: string; data: Tables<'subjects'> }
-  | { type: 'topic'; id: string; data: Tables<'topics'> & { subject: Tables<'subjects'> } };
+  | { type: 'topic'; id: string; data: Tables<'topics'> & { subject: Tables<'subjects'> } }
+  | { type: 'file'; id: string; data: { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } } };
 
 export interface UseCommandPaletteSearchOptions {
   search: string;
@@ -160,6 +162,40 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
     staleTime: 30000,
   });
 
+  // Files search
+  const filesQuery = useQuery({
+    queryKey: ['command-palette-files', trimmedSearch],
+    queryFn: async () => {
+      const result = await topicsFilesApi.searchFiles({
+        search: trimmedSearch,
+        limit: entityTypes.files.limit,
+        offset: 0,
+      });
+      return result.files.slice(0, entityTypes.files.limit).map((file) => ({
+        type: 'file' as const,
+        id: file.id,
+        data: {
+          id: file.id,
+          topic_id: file.topic_id,
+          code: file.code,
+          file: {
+            filename: file.file.filename,
+          },
+          topic: {
+            id: file.topic.id,
+            name: file.topic.name,
+          },
+          subject: {
+            short_name: file.subject.short_name,
+            long_name: file.subject.long_name,
+          },
+        },
+      }));
+    },
+    enabled: shouldSearch && entityTypes.files.enabled,
+    staleTime: 30000,
+  });
+
   // Combine all results
   const allResults: CommandPaletteEntityResult[] = [
     ...(studentsQuery.data || []),
@@ -168,6 +204,7 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
     ...(classesQuery.data || []),
     ...(subjectsQuery.data || []),
     ...(topicsQuery.data || []),
+    ...(filesQuery.data || []),
   ];
 
   const isLoading = 
@@ -176,7 +213,8 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
     parentsQuery.isLoading ||
     classesQuery.isLoading ||
     subjectsQuery.isLoading ||
-    topicsQuery.isLoading;
+    topicsQuery.isLoading ||
+    filesQuery.isLoading;
 
   const hasError = 
     studentsQuery.isError ||
@@ -184,7 +222,8 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
     parentsQuery.isError ||
     classesQuery.isError ||
     subjectsQuery.isError ||
-    topicsQuery.isError;
+    topicsQuery.isError ||
+    filesQuery.isError;
 
   return {
     results: allResults,
@@ -198,6 +237,7 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
       classes: classesQuery,
       subjects: subjectsQuery,
       topics: topicsQuery,
+      files: filesQuery,
     },
   };
 }

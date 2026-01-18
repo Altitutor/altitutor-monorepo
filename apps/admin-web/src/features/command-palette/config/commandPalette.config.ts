@@ -39,6 +39,7 @@ import {
   Ban,
   Link2,
   Zap,
+  File,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -243,6 +244,13 @@ export const entityTypes: Record<string, EntityTypeConfig> = {
     id: 'topics',
     label: 'Topics',
     icon: Newspaper,
+    limit: 8,
+    enabled: true,
+  },
+  files: {
+    id: 'files',
+    label: 'Files',
+    icon: File,
     limit: 8,
     enabled: true,
   },
