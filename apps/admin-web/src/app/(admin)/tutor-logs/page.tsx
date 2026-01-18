@@ -6,11 +6,12 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { useToast, Button } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { isValid, parseISO } from 'date-fns';
 import { LogSessionModal } from '@/features/tutor-logs';
-import { Plus } from 'lucide-react';
+import { QuickBooksExportModal } from '@/features/tutor-logs/components/QuickBooksExportModal';
+import { Plus, Download } from 'lucide-react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 // Get today's date in local timezone (YYYY-MM-DD format)
@@ -38,7 +39,6 @@ const isValidDateString = (dateString: string | null): boolean => {
 export default function TutorLogsPage() {
   const search = useSearchParams();
   const router = useRouter();
-  const { toast } = useToast();
   
   // Initialize date range from URL params or default to today
   const fromParam = search.get('from');
@@ -54,6 +54,7 @@ export default function TutorLogsPage() {
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [tutorLogModalOpen, setTutorLogModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   
   // Refs to store debounce timers
   const fromDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -209,10 +210,16 @@ export default function TutorLogsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Tutor logs</h1>
-        <Button onClick={() => setTutorLogModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add tutor log
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setExportModalOpen(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button onClick={() => setTutorLogModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add tutor log
+          </Button>
+        </div>
       </div>
 
       <Suspense>
@@ -274,6 +281,11 @@ export default function TutorLogsPage() {
           adminMode={true}
         />
       )}
+      
+      <QuickBooksExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+      />
     </div>
   );
 }
