@@ -122,6 +122,7 @@ export function StudentSelector({
           p_search: trimmed,
           p_statuses: ['ACTIVE'],
           p_include_relationships: false,
+          p_exclude_class_search: false,
           p_limit: 20,
           p_offset: 0,
           p_order_by: 'last_name',
@@ -476,6 +477,7 @@ export function StudentSelector({
         p_search: undefined, // No search term - get all
         p_statuses: ['ACTIVE'],
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: 10000, // High limit to get all active students
         p_offset: 0,
         p_order_by: 'last_name',

@@ -90,6 +90,7 @@ export const staffApi = {
     offset?: number;
     orderBy?: keyof Tables<'staff'>;
     ascending?: boolean;
+    excludeClassSearch?: boolean;
   }): Promise<{ staff: StaffListItem[]; total: number }> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const {
@@ -102,6 +103,7 @@ export const staffApi = {
       offset = 0,
       orderBy = 'last_name',
       ascending = true,
+      excludeClassSearch = false,
     } = params || {};
 
     const trimmed = search.trim();
@@ -113,6 +115,7 @@ export const staffApi = {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: statusFilters.length > 0 ? statusFilters : ['ACTIVE'],
       p_include_relationships: true,
+      p_exclude_class_search: excludeClassSearch,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy as string,

@@ -83,6 +83,7 @@ export function TasksTable({ filters: _filters }: TasksTableProps) {
         p_search: trimmed.length > 0 ? trimmed : undefined,
         p_statuses: ['ACTIVE'],
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: 100,
         p_offset: 0,
         p_order_by: 'last_name',

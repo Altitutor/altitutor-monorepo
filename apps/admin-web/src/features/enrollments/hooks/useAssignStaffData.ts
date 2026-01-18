@@ -165,6 +165,7 @@ export function useAssignStaffData({
         p_statuses: ['ACTIVE'],
         p_subject_ids: subjectIds || (subjectFilters.length > 0 ? subjectFilters : undefined),
         p_include_relationships: true,
+        p_exclude_class_search: false,
         p_limit: 10000,
         p_offset: 0,
         p_order_by: 'last_name',

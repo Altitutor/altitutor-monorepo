@@ -55,6 +55,7 @@ export function NewConversationDialog({
         p_search: hasSearch ? trimmed : undefined,
         p_statuses: undefined,
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: hasSearch ? 100 : 20,
         p_offset: 0,
         p_order_by: 'last_name',

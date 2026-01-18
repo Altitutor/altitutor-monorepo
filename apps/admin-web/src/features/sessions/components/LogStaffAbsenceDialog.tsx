@@ -64,6 +64,7 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
         p_search: trimmed || undefined, // Pass undefined for empty search to get all
         p_statuses: ['ACTIVE'],
         p_include_relationships: true,
+        p_exclude_class_search: false,
         p_limit: pageSize,
         p_offset: page * pageSize,
         p_order_by: 'last_name',

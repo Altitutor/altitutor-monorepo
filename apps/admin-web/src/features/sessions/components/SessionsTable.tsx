@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSessionType } from '@/shared/utils/index';
+import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { useQuery } from '@tanstack/react-query';
@@ -99,6 +99,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
         p_search: trimmed.length > 0 ? trimmed : undefined,
         p_statuses: ['ACTIVE', 'TRIAL'], // Include both ACTIVE and TRIAL students
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: 100, // Limit to 100 results for filter dropdown
         p_offset: 0,
         p_order_by: 'last_name',
@@ -319,27 +320,6 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
 
   const handleSort = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-  };
-  
-  const getSessionTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'CLASS':
-        return 'bg-blue-100 text-blue-800';
-      case 'DRAFTING':
-        return 'bg-purple-100 text-purple-800';
-      case 'SUBSIDY_INTERVIEW':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'TRIAL_SESSION':
-        return 'bg-green-100 text-green-800';
-      case 'TRIAL_SHIFT':
-        return 'bg-orange-100 text-orange-800';
-      case 'EXAM_COURSE':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'STAFF_INTERVIEW':
-        return 'bg-pink-100 text-pink-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
   };
   
   const formatDate = (dateString: string) => {

@@ -65,6 +65,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         p_search: trimmed || undefined, // Pass undefined for empty search to get all
         p_statuses: ['ACTIVE'],
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: pageSize,
         p_offset: page * pageSize,
         p_order_by: 'first_name', // Sort alphabetically by first name

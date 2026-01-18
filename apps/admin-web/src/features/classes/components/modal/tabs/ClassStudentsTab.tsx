@@ -213,6 +213,7 @@ export function ClassStudentsTab({
       p_statuses: undefined, // Get all statuses
       p_subject_ids: [classSubject.id],
       p_include_relationships: true,
+      p_exclude_class_search: false,
       p_limit: 10000, // High limit to get all students
       p_offset: 0,
       p_order_by: 'last_name',

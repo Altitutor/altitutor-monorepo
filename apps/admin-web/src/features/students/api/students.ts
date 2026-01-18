@@ -137,6 +137,7 @@ export const studentsApi = {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: statuses.length > 0 ? statuses : ['ACTIVE', 'TRIAL'],
       p_include_relationships: true,
+      p_exclude_class_search: false,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy as string,
@@ -404,8 +405,9 @@ export const studentsApi = {
   /**
    * Search students by name, email, or status
    * Uses server-side RPC search to avoid pagination limits
+   * @param excludeClassSearch - If true, excludes class name search (name-only search)
    */
-  searchStudents: async (query: string, statuses?: Tables<'students'>['status'][]): Promise<Tables<'students'>[]> => {
+  searchStudents: async (query: string, statuses?: Tables<'students'>['status'][], excludeClassSearch?: boolean): Promise<Tables<'students'>[]> => {
     try {
       const trimmed = query.trim();
       if (!trimmed) return [];
@@ -418,6 +420,7 @@ export const studentsApi = {
       const rpcParams: Record<string, unknown> = {
         p_search: trimmed,
         p_include_relationships: false,
+        p_exclude_class_search: excludeClassSearch ?? false,
         p_limit: 1000, // Reasonable limit for search results
         p_offset: 0,
         p_order_by: 'last_name',
@@ -598,6 +601,7 @@ export const studentsApi = {
         p_search: undefined,
         p_statuses: statuses, // Get specified statuses or all if undefined
         p_include_relationships: true,
+        p_exclude_class_search: false,
         p_limit: limit,
         p_offset: 0,
         p_order_by: 'last_name',

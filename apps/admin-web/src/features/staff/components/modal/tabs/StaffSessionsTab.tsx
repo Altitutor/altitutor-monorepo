@@ -55,6 +55,7 @@ export function StaffSessionsTab({ staff }: StaffSessionsTabProps) {
         p_search: trimmed.length > 0 ? trimmed : undefined,
         p_statuses: ['ACTIVE', 'TRIAL'],
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: 100,
         p_offset: 0,
         p_order_by: 'last_name',

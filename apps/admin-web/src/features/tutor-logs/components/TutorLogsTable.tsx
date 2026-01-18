@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useSearchTutorLogs } from '../hooks/useTutorLogsQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSessionType } from '@/shared/utils/index';
+import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
@@ -80,6 +80,7 @@ export function TutorLogsTable({
         p_search: trimmed.length > 0 ? trimmed : undefined,
         p_statuses: ['ACTIVE'],
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: 100,
         p_offset: 0,
         p_order_by: 'last_name',
@@ -251,27 +252,6 @@ export function TutorLogsTable({
     } else {
       setSortField(field);
       setSortDirection('desc');
-    }
-  };
-  
-  const getSessionTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'CLASS':
-        return 'bg-blue-100 text-blue-800';
-      case 'DRAFTING':
-        return 'bg-purple-100 text-purple-800';
-      case 'SUBSIDY_INTERVIEW':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'TRIAL_SESSION':
-        return 'bg-green-100 text-green-800';
-      case 'TRIAL_SHIFT':
-        return 'bg-orange-100 text-orange-800';
-      case 'EXAM_COURSE':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'STAFF_INTERVIEW':
-        return 'bg-pink-100 text-pink-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
     }
   };
   
