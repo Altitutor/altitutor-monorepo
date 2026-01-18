@@ -36,6 +36,42 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
 
+type TutorLog = {
+  id: string;
+  session_id: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string | null;
+};
+
+type StaffAttendance = {
+  staff_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  attended: boolean;
+  type: string | null;
+};
+
+type StudentAttendance = {
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  attended: boolean;
+};
+
+type Topic = {
+  topic_id: string;
+  code: string;
+  name: string;
+};
+
+type TopicFile = {
+  file_id: string;
+  code: string;
+  file_type: string;
+};
+
 type TutorLogsTableProps = {
   rangeStart?: string;
   rangeEnd?: string;
@@ -144,21 +180,21 @@ export function TutorLogsTable({
   const isFetching = _isFetching;
   
   // Extract data from the response
-  const tutorLogs = useMemo(() => (data?.tutorLogs || []) as unknown[], [data?.tutorLogs]);
+  const tutorLogs = useMemo(() => (data?.tutorLogs || []) as TutorLog[], [data?.tutorLogs]);
   const sessions = useMemo(() => (data?.sessions || {}) as Record<string, Tables<'sessions'>>, [data?.sessions]);
   const classesById = useMemo(() => (data?.classesById || {}) as Record<string, Tables<'classes'>>, [data?.classesById]);
   const subjectsById = useMemo(() => (data?.subjectsById || {}) as Record<string, Tables<'subjects'>>, [data?.subjectsById]);
-  const sessionStudents = useMemo(() => (data?.sessionStudents || {}) as Record<string, unknown[]>, [data?.sessionStudents]);
-  const sessionStaff = useMemo(() => (data?.sessionStaff || {}) as Record<string, unknown[]>, [data?.sessionStaff]);
-  const staffAttendance = useMemo(() => (data?.staffAttendance || {}) as Record<string, unknown[]>, [data?.staffAttendance]);
-  const studentAttendance = useMemo(() => (data?.studentAttendance || {}) as Record<string, unknown[]>, [data?.studentAttendance]);
-  const topics = useMemo(() => (data?.topics || {}) as Record<string, unknown[]>, [data?.topics]);
-  const topicFiles = useMemo(() => (data?.topicFiles || {}) as Record<string, unknown[]>, [data?.topicFiles]);
+  const sessionStudents = useMemo(() => (data?.sessionStudents || {}) as Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>, [data?.sessionStudents]);
+  const sessionStaff = useMemo(() => (data?.sessionStaff || {}) as Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>, [data?.sessionStaff]);
+  const staffAttendance = useMemo(() => (data?.staffAttendance || {}) as Record<string, StaffAttendance[]>, [data?.staffAttendance]);
+  const studentAttendance = useMemo(() => (data?.studentAttendance || {}) as Record<string, StudentAttendance[]>, [data?.studentAttendance]);
+  const topics = useMemo(() => (data?.topics || {}) as Record<string, Topic[]>, [data?.topics]);
+  const topicFiles = useMemo(() => (data?.topicFiles || {}) as Record<string, TopicFile[]>, [data?.topicFiles]);
 
   // Get unique created_by staff IDs
   const createdByStaffIds = useMemo(() => {
     const ids = new Set<string>();
-    tutorLogs.forEach((log: { created_by?: string }) => {
+    tutorLogs.forEach((log) => {
       if (log.created_by) ids.add(log.created_by);
     });
     return Array.from(ids);
@@ -225,7 +261,7 @@ export function TutorLogsTable({
         if (staffFilters.includes(log.created_by)) return true;
         // Check if any selected staff attended
         const attendance = staffAttendance[log.id] || [];
-        return attendance.some((att: any) => staffFilters.includes(att.staff_id));
+        return attendance.some((att) => staffFilters.includes(att.staff_id));
       });
     }
     
@@ -569,7 +605,7 @@ export function TutorLogsTable({
                         <span className="text-muted-foreground text-sm">-</span>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          {staffAtt.map((att: any) => {
+                          {staffAtt.map((att) => {
                             const attended = att.attended === true;
                             const nameClass = attended 
                               ? "" 
@@ -596,7 +632,7 @@ export function TutorLogsTable({
                         <span className="text-muted-foreground text-sm">-</span>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          {studentAtt.map((att: any) => {
+                          {studentAtt.map((att) => {
                             const attended = att.attended === true;
                             const nameClass = attended 
                               ? "" 
@@ -627,7 +663,7 @@ export function TutorLogsTable({
                         <span className="text-muted-foreground text-sm">-</span>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          {logTopics.map((topic: any) => (
+                          {logTopics.map((topic) => (
                             <Button
                               key={topic.topic_id}
                               variant="link"
@@ -646,7 +682,7 @@ export function TutorLogsTable({
                         <span className="text-muted-foreground text-sm">-</span>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          {logFiles.map((file: any) => (
+                          {logFiles.map((file) => (
                             <Button
                               key={file.file_id}
                               variant="link"

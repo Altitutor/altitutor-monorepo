@@ -33,6 +33,7 @@ export function ClassStaffTab({
   const { toast } = useToast();
   const openWindow = useChatStore(s => s.openWindow);
   const [assigningStaff] = useState<Set<string>>(new Set());
+  const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
   const [staffSubjects, setStaffSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for staff viewing
