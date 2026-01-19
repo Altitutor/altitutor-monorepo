@@ -1,17 +1,20 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, RotateCcw } from 'lucide-react';
 import { Button } from '@altitutor/ui';
+import { cn } from '@/shared/utils';
 import { formatRelativeDate } from '@/features/messages/utils/templateHelpers';
 import type { Notification } from '../types';
 
 interface NotificationItemProps {
   notification: Notification;
-  onMarkRead: (notificationId: string) => void;
+  isDismissed?: boolean;
+  onDismiss: () => void;
+  onUndismiss: () => void;
 }
 
-export function NotificationItem({ notification, onMarkRead }: NotificationItemProps) {
+export function NotificationItem({ notification, isDismissed = false, onDismiss, onUndismiss }: NotificationItemProps) {
   const router = useRouter();
 
   const handleClick = () => {
@@ -26,7 +29,10 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
   };
 
   return (
-    <div className="p-4 hover:bg-muted/50 transition-colors">
+    <div className={cn(
+      "p-4 hover:bg-muted/50 transition-all",
+      isDismissed && "opacity-50"
+    )}>
       <div className="flex items-start justify-between gap-3">
         <div 
           className="flex-1 cursor-pointer min-w-0"
@@ -42,18 +48,33 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
             {notification.created_at ? formatRelativeDate(notification.created_at) : 'unknown'}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMarkRead(notification.id);
-          }}
-          className="h-8 w-8 flex-shrink-0"
-          aria-label="Mark as read"
-        >
-          <Check className="h-4 w-4" />
-        </Button>
+        {isDismissed ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUndismiss();
+            }}
+            className="h-8 w-8 flex-shrink-0"
+            aria-label="Mark as unread"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+            className="h-8 w-8 flex-shrink-0"
+            aria-label="Mark as read"
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

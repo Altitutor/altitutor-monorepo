@@ -1,21 +1,26 @@
 'use client';
 
+import { forwardRef } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 
 interface NotificationsButtonProps {
   unreadCount: number;
+  onClick?: (e: React.MouseEvent) => void;
 }
 
-export function NotificationsButton({ unreadCount }: NotificationsButtonProps) {
-  return (
-    <Button 
-      variant="outline" 
-      size="icon"
-      className="h-9 w-9 relative"
-      aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-    >
+export const NotificationsButton = forwardRef<HTMLButtonElement, NotificationsButtonProps>(
+  ({ unreadCount, onClick }, ref) => {
+    return (
+      <Button 
+        ref={ref}
+        variant="outline" 
+        size="icon"
+        className="h-9 w-9 relative"
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        onClick={onClick}
+      >
       <Bell className="h-[1.2rem] w-[1.2rem]" />
       {unreadCount > 0 && (
         <span 
@@ -27,6 +32,8 @@ export function NotificationsButton({ unreadCount }: NotificationsButtonProps) {
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
-    </Button>
-  );
-}
+      </Button>
+    );
+  }
+);
+NotificationsButton.displayName = 'NotificationsButton';
