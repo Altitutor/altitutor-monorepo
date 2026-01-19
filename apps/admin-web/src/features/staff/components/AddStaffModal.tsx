@@ -27,7 +27,7 @@ import { formatSubjectDisplay } from '@/shared/utils';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, AlertTriangle, Plus, X, Search } from 'lucide-react';
+import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 
 interface AddStaffModalProps {

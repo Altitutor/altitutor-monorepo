@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { subjectsApi } from '../api/subjects';
-import type { Tables, TablesUpdate, TablesInsert } from '@altitutor/shared';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 
 // Query Keys
 export const subjectsKeys = {

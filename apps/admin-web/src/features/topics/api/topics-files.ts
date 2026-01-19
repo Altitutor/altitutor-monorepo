@@ -171,7 +171,7 @@ export const topicsFilesApi = {
     // If topic_id or type is changing, we need to recalculate the index
     if (data.topic_id || data.type !== undefined) {
       // First get the current topic file
-      const { data: currentFile, error: fetchError } = await supabase
+      const { error: fetchError } = await supabase
         .from('topics_files')
         .select('*')
         .eq('id', id)
@@ -181,11 +181,6 @@ export const topicsFilesApi = {
         console.error('Failed to fetch current topic file:', fetchError);
         throw fetchError;
       }
-      
-      // Determine the new topic_id and type (use provided or existing)
-      const newTopicId = data.topic_id || currentFile.topic_id;
-      const newType = data.type !== undefined ? data.type : currentFile.type;
-      const newIsSolutions = data.is_solutions !== undefined ? data.is_solutions : currentFile.is_solutions;
       
       // Check if topic, type, or solutions status changed
       // Don't set index - database triggers will recalculate siblings automatically

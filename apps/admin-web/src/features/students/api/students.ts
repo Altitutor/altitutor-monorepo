@@ -1,7 +1,6 @@
 import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatClassShortName, formatClassName } from '@/shared/utils';
 
 /**
  * Students API client for working with student data
@@ -197,6 +196,59 @@ export const studentsApi = {
       total,
     };
   },
+
+  /**
+   * Search students for absence logging (simplified, paginated)
+   * Uses search_students_admin RPC with minimal fields
+   */
+  searchForAbsence: async (params: {
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ students: Tables<'students'>[]; total: number }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const {
+      search = '',
+      page = 0,
+      pageSize = 20,
+    } = params || {};
+
+    const trimmed = search.trim();
+    
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+      p_search: trimmed || undefined, // Pass undefined for empty search to get all
+      p_statuses: ['ACTIVE'],
+      p_include_relationships: false,
+      p_exclude_class_search: false,
+      p_limit: pageSize,
+      p_offset: page * pageSize,
+      p_order_by: 'first_name', // Sort alphabetically by first name
+      p_ascending: true,
+    });
+
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { students: [], total: 0 };
+
+    const rpcData = rpcResult as { students: any[]; total: number };
+    const students = (rpcData.students || []).map((s: any) => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      status: s.status,
+      curriculum: s.curriculum || null,
+      year_level: s.year_level || null,
+      school: s.school || null,
+      email: s.email || null,
+      phone: s.phone || null,
+      created_at: s.created_at || null,
+      updated_at: s.updated_at || null,
+    })) as Tables<'students'>[];
+    
+    return {
+      students,
+      total: rpcData.total || 0,
+    };
+  },
   
   /**
    * Get full student details for modal view
@@ -218,7 +270,7 @@ export const studentsApi = {
     
     try {
       // Get student with all related data in optimized queries
-      const [studentResult, subjectsResult, classesResult, parentsResult, sessionsResult, billingResult] = await Promise.all([
+      const [studentResult, subjectsResult, classesResult, parentsResult, sessionsResult] = await Promise.all([
         // Student record
         supabase
           .from('students')
@@ -255,13 +307,6 @@ export const studentsApi = {
           .from('sessions_students')
           .select('sessions!inner(*)')
           .eq('student_id', studentId),
-        
-        // Billing status (check if student has payment method)
-        supabase
-          .from('students')
-          .select('id')
-          .eq('id', studentId)
-          .single(),
       ]);
 
       if (studentResult.error && studentResult.error.code !== 'PGRST116') {

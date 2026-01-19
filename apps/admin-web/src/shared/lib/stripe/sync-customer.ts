@@ -48,8 +48,11 @@ export async function syncStudentToStripeCustomer(
       name: `${student.first_name} ${student.last_name}`.trim(),
       email: student.email || undefined,
     });
-  } catch (stripeError: any) {
-    console.error('[sync-customer] Failed to update Stripe customer:', stripeError?.message);
+  } catch (stripeError: unknown) {
+    const errorMessage = stripeError && typeof stripeError === 'object' && 'message' in stripeError 
+      ? String(stripeError.message) 
+      : 'Unknown error';
+    console.error('[sync-customer] Failed to update Stripe customer:', errorMessage);
     // Don't throw - this is a background sync, shouldn't fail the main request
   }
 }

@@ -29,19 +29,18 @@ import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils'
 import { CalendarIcon, Check, X, ArrowUpDown } from 'lucide-react';
 import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
 import { DateRangePicker } from '@altitutor/ui';
+import {
+  getTodayLocalDate,
+  formatDate,
+  getClassShortDisplay,
+  getClassDisplay,
+  getTimeRange,
+  getInvoiceStatusBadge,
+} from '../utils/sessionDisplayHelpers';
 
 interface StudentSessionsTabProps {
   student: Tables<'students'>;
 }
-
-// Get today's date in local timezone (YYYY-MM-DD format)
-const getTodayLocalDate = (): string => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
   // View mode state
@@ -119,57 +118,14 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
     setPage(1);
   }, [dateRangeStart, dateRangeEnd, selectedClassId]);
 
-  // Helper functions
-  const getClassShortDisplay = useCallback((session: Tables<'sessions'>) => {
-    const cls = session.class_id ? classesById[session.class_id] : undefined;
-    const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-    const parts: string[] = [];
-    if (subj?.curriculum) parts.push(String(subj.curriculum));
-    const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
-    const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
-    if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
-    return parts.filter(Boolean).join(' ');
+  // Memoized helper functions using extracted utilities
+  const getClassShortDisplayMemo = useCallback((session: Tables<'sessions'>) => {
+    return getClassShortDisplay(session, classesById, subjectsById);
   }, [classesById, subjectsById]);
 
-  const getClassDisplay = useCallback((session: Tables<'sessions'>) => {
-    const cls = session.class_id ? classesById[session.class_id] : undefined;
-    const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-    const parts: string[] = [];
-    if (subj?.curriculum) parts.push(String(subj.curriculum));
-    if (subj?.year_level != null) parts.push(String(subj.year_level));
-    if (subj?.name) parts.push(subj.name);
-    if (cls?.level) parts.push(String(cls.level));
-    return parts.join(' ');
+  const getClassDisplayMemo = useCallback((session: Tables<'sessions'>) => {
+    return getClassDisplay(session, classesById, subjectsById);
   }, [classesById, subjectsById]);
-
-  const getTimeRange = useCallback((session: Tables<'sessions'>) => {
-    const s = session.start_at ? new Date(session.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    const e = session.end_at ? new Date(session.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    return s && e ? `${s}–${e}` : s || e || '-';
-  }, []);
-
-  const getInvoiceStatusBadge = useCallback((status: string | null | undefined) => {
-    if (!status) return null;
-    
-    let label = '';
-    let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-    
-    if (status === 'draft' || status === 'open') {
-      label = 'Sent';
-      variant = 'secondary';
-    } else if (status === 'paid') {
-      label = 'Paid';
-      variant = 'default';
-    } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-      label = 'Failed';
-      variant = 'destructive';
-    } else {
-      label = status;
-      variant = 'outline';
-    }
-    
-    return <Badge variant={variant} className="text-xs ml-1">{label}</Badge>;
-  }, []);
 
   const handleSort = useCallback((field: SortField) => {
     if (sortField === field) {
@@ -198,21 +154,6 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
 
   const handleOpenSession = useCallback((sessionId: string) => {
     window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-  }, []);
-
-  // Format date for display
-  const formatDate = useCallback((dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString(undefined, {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (e) {
-      return dateString;
-    }
   }, []);
 
   // Loading state
@@ -398,8 +339,8 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
                     <TableCell>
                       {session.class_id ? (() => {
                         const cls = classesById[session.class_id];
-                        const shortDisplay = getClassShortDisplay(session);
-                        const fullDisplay = getClassDisplay(session);
+                        const shortDisplay = getClassShortDisplayMemo(session);
+                        const fullDisplay = getClassDisplayMemo(session);
                         if (cls) {
                           return (
                             <Button

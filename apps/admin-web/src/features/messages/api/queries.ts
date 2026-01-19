@@ -3,6 +3,10 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { messagesKeys } from './queryKeys';
+import type { Sender, AggregatedConversation } from '../types';
+
+// Re-export types for backward compatibility
+export type { Sender, AggregatedConversation } from '../types';
 
 const PAGE_SIZE = 30;
 
@@ -270,15 +274,6 @@ async function ensureConversation(contactId: string, ownedNumberId: string): Pro
   return created?.id as string;
 }
 
-export type Sender = {
-  id: string;
-  phone_e164: string | null;
-  alphanumeric_sender_id: string | null;
-  sender_type: 'PHONE' | 'ALPHANUMERIC';
-  label: string | null;
-  is_default: boolean;
-};
-
 export function useAvailableSenders() {
   return useQuery({
     queryKey: ['owned_numbers', 'senders'],
@@ -296,23 +291,6 @@ export function useAvailableSenders() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
-
-export type AggregatedConversation = {
-  contactId: string;
-  contact: any;
-  conversations: Array<{
-    id: string;
-    owned_number_id: string;
-    owned_number: any;
-    last_message_at: string | null;
-    last_message_id: string | null;
-    last_message: any;
-    status: string;
-  }>;
-  latestMessageAt: string | null;
-  latestMessage: any;
-  unreadCount: number;
-};
 
 /**
  * Aggregates conversations by contact - shows one "conversation" per contact
@@ -495,6 +473,118 @@ export function useMessagesForContact(contactId: string | null) {
     retry: 1,
     refetchOnWindowFocus: false, // Realtime handles updates
   });
+}
+
+/**
+ * Get contact ID from conversation ID
+ */
+export async function getContactIdFromConversation(conversationId: string): Promise<string | null> {
+  const supabase = getSupabaseClient() as any;
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('contact_id')
+    .eq('id', conversationId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.contact_id || null;
+}
+
+/**
+ * Get contact details for header display
+ */
+export async function getContactHeader(contactId: string) {
+  const supabase = getSupabaseClient() as any;
+  const { data, error } = await supabase
+    .from('contacts')
+    .select(`
+      id,
+      phone_e164,
+      contact_type,
+      students (id, first_name, last_name),
+      parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
+      staff (id, first_name, last_name)
+    `)
+    .eq('id', contactId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Hook to get contact ID from conversation ID
+ */
+export function useContactIdFromConversation(conversationId: string | null) {
+  return useQuery({
+    queryKey: ['contact-from-conversation', conversationId],
+    queryFn: () => conversationId ? getContactIdFromConversation(conversationId) : null,
+    enabled: !!conversationId,
+  });
+}
+
+/**
+ * Hook to get contact header details
+ */
+export function useContactHeader(contactId: string | null) {
+  return useQuery({
+    queryKey: ['contact-header', contactId],
+    queryFn: () => contactId ? getContactHeader(contactId) : null,
+    enabled: !!contactId,
+  });
+}
+
+/**
+ * Get contact data for template variable replacement
+ * Includes student and parent relationships
+ */
+export async function getContactForTemplate(contactId: string) {
+  const supabase = getSupabaseClient() as any;
+  const { data, error } = await supabase
+    .from('contacts')
+    .select(`
+      id,
+      contact_type,
+      students (id, first_name, last_name),
+      parents (
+        id,
+        first_name,
+        last_name,
+        parents_students (
+          students (id, first_name, last_name)
+        )
+      )
+    `)
+    .eq('id', contactId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Hook to get contact data for template variables
+ */
+export function useContactForTemplate(contactId: string | null) {
+  return useQuery({
+    queryKey: ['contact-for-template', contactId],
+    queryFn: () => contactId ? getContactForTemplate(contactId) : null,
+    enabled: !!contactId,
+  });
+}
+
+/**
+ * Get conversation ID for a contact (for pop-out functionality)
+ * Returns the first OPEN or SNOOZED conversation for the contact
+ */
+export async function getConversationIdForContact(contactId: string): Promise<string | null> {
+  const supabase = getSupabaseClient() as any;
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('contact_id', contactId)
+    .in('status', ['OPEN', 'SNOOZED'])
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.id || null;
 }
 
 

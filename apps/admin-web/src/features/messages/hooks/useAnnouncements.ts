@@ -6,8 +6,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getOrCreateContactsAndConversations, ensureContactForStudent, ensureContactForParent } from '../utils/contactHelpers';
-import { ensureConversationForContact } from '../api/queries';
+import { ensureContactForStudent, ensureContactForParent } from '../utils/contactHelpers';
 
 /**
  * Batch create/ensure contacts and conversations for students and parents using a specific sender

@@ -24,6 +24,7 @@ import {
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatClassName, formatClassShortName } from '@/shared/utils/index';
 import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils';
+import { sortStudentsByStatus } from '@/shared/utils/tableSorting';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
 import { 
@@ -37,7 +38,7 @@ import { useStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { LogAbsenceDialog } from '@/features/sessions/components/LogAbsenceDialog';
+import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {
   AlertDialog,
@@ -153,8 +154,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [isDeleting, setIsDeleting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   // Server provides filtered/sorted page; apply compound sorting for status field
   const filteredStudents = useMemo(() => {
@@ -162,23 +163,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     
     // If sorting by status, apply secondary sort by first_name
     if (sortField === 'status') {
-      const sorted = [...students].sort((a, b) => {
-        const aStatus = String(a.status || '');
-        const bStatus = String(b.status || '');
-        
-        const statusComparison = aStatus.localeCompare(bStatus);
-        const primarySort = sortDirection === 'asc' ? statusComparison : -statusComparison;
-        
-        // If status values are equal, sort by first_name
-        if (statusComparison === 0) {
-          const aFirstName = String(a.first_name || '');
-          const bFirstName = String(b.first_name || '');
-          return aFirstName.localeCompare(bFirstName);
-        }
-        
-        return primarySort;
-      });
-      return sorted;
+      return sortStudentsByStatus(students, sortDirection);
     }
     
     return students;
@@ -299,9 +284,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     refetch();
   };
 
-  const handleAddStudentClick = () => {
-    setIsAddModalOpen(true);
-  };
 
   const handleClassClick = (classId: string) => {
     setSelectedClassId(classId);

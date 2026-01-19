@@ -3,6 +3,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
+import { validateStripeEnv, validateSignatureHeader } from './shared/validation.ts';
+import { shouldSkipEvent, getEventId, getEventType } from './shared/idempotency.ts';
 
 function json(resp: any, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -23,32 +25,31 @@ Deno.serve(async (req: Request) => {
 
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
   const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')?.trim();
-  if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
-    console.error('[webhook] Missing Stripe environment variables', {
+  
+  const envValidation = validateStripeEnv(STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET);
+  if (!envValidation.valid) {
+    console.error('[webhook] Stripe environment validation failed', {
+      error: envValidation.error,
       hasSecretKey: !!STRIPE_SECRET_KEY,
       hasWebhookSecret: !!STRIPE_WEBHOOK_SECRET,
     });
-    return json({ error: 'Stripe env not configured' }, 500);
-  }
-  
-  // Validate webhook secret format - must start with whsec_
-  if (!STRIPE_WEBHOOK_SECRET.startsWith('whsec_')) {
-    console.error('[webhook] Invalid webhook secret format - must start with whsec_', {
-      secretPrefix: STRIPE_WEBHOOK_SECRET.substring(0, 10),
-      secretLength: STRIPE_WEBHOOK_SECRET.length,
-    });
     return json({ 
-      error: 'Invalid webhook secret format', 
-      details: 'Webhook secret must start with whsec_. Please check your Supabase secrets match the Stripe Dashboard signing secret exactly.' 
+      error: envValidation.error === 'Invalid webhook secret format - must start with whsec_' 
+        ? 'Invalid webhook secret format' 
+        : 'Stripe env not configured',
+      details: envValidation.error === 'Invalid webhook secret format - must start with whsec_'
+        ? 'Webhook secret must start with whsec_. Please check your Supabase secrets match the Stripe Dashboard signing secret exactly.'
+        : undefined
     }, 500);
   }
   
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
-  const sig = req.headers.get('stripe-signature') || '';
-  if (!sig) {
-    console.error('[webhook] Missing stripe-signature header');
-    return json({ error: 'Missing stripe-signature header' }, 400);
+  const sig = req.headers.get('stripe-signature');
+  const sigValidation = validateSignatureHeader(sig);
+  if (!sigValidation.valid || !sig) {
+    console.error('[webhook] Signature header validation failed:', sigValidation.error);
+    return json({ error: sigValidation.error || 'Missing stripe-signature header' }, 400);
   }
 
   // Read raw body as text - Stripe's constructEvent accepts string
@@ -59,7 +60,7 @@ Deno.serve(async (req: Request) => {
   try {
     // Use constructEventAsync for Deno/Supabase Edge Functions
     // constructEvent() uses synchronous crypto which isn't allowed in Deno
-    event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET);
+    event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
     console.error('[webhook] Signature verification failed:', err?.message || err);
     return json({ error: 'invalid signature', details: err?.message || 'Unknown error' }, 400);
@@ -74,10 +75,10 @@ Deno.serve(async (req: Request) => {
     const { data: existingEvent } = await supabase
       .from('stripe_webhook_events')
       .select('id, processed')
-      .eq('stripe_event_id', event.id)
+      .eq('stripe_event_id', getEventId(event))
       .maybeSingle();
 
-    if (existingEvent?.processed) {
+    if (shouldSkipEvent(existingEvent)) {
       return json({ received: true, already_processed: true });
     }
 

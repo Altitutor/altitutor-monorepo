@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { format, differenceInMinutes, isSameDay, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
+import { calculateSessionOverlapGroups, calculateSessionPosition } from '../utils/sessionOverlap';
 import type { Tables } from '@altitutor/shared';
 
 interface BookingConfirmationCalendarProps {
@@ -65,45 +66,15 @@ export function BookingConfirmationCalendar({
     ];
   }, [existingSessions, newSession]);
 
+  // Calculate overlap groups
+  const overlapGroups = useMemo(() => {
+    return calculateSessionOverlapGroups(allSessions, sessionDate);
+  }, [allSessions, sessionDate]);
+
   // Time grid: 9am to 8pm
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i);
   const slotHeight = 75; // px per hour
-
-  const getDaySessions = (d: Date) => {
-    return allSessions.filter((s) => s.start_at && isSameDay(parseISO(s.start_at), d));
-  };
-
-  const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (9 * 60);
-
-  const daySessions = getDaySessions(sessionDate).sort(
-    (a, b) => parseISO(a.start_at).getTime() - parseISO(b.start_at).getTime()
-  );
-
-  // Build overlap groups
-  type SessionItem = typeof allSessions[0];
-  const groups: SessionItem[][] = [];
-  const processed = new Set<string>();
-  const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
-
-  daySessions.forEach((s) => {
-    if (processed.has(s.id)) return;
-    const sStart = toMinutes(parseISO(s.start_at));
-    const sEnd = toMinutes(parseISO(s.end_at));
-    const group: SessionItem[] = [s];
-    processed.add(s.id);
-
-    daySessions.forEach((o) => {
-      if (processed.has(o.id)) return;
-      const oStart = toMinutes(parseISO(o.start_at));
-      const oEnd = toMinutes(parseISO(o.end_at));
-      if (sStart < oEnd && sEnd > oStart) {
-        group.push(o);
-        processed.add(o.id);
-      }
-    });
-
-    groups.push(group);
-  });
+  const startHour = 9;
 
   return (
     <div className="flex-1 overflow-auto relative border rounded-lg">
@@ -128,60 +99,57 @@ export function BookingConfirmationCalendar({
             <div className="relative border-b border-r h-[75px] bg-background">
               {idx === 0 && (
                 <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
-                  {(() => {
-                    const blocks: JSX.Element[] = [];
-                    groups.forEach((group) => {
-                      const total = group.length;
-                      const columnWidth = total > 1 ? 95 / total : 95;
-                      group.forEach((s, idx) => {
-                        const sStart = parseISO(s.start_at);
-                        const sEnd = parseISO(s.end_at);
-                        const top = Math.max(0, (minutesFromStart(sStart) / 60) * slotHeight);
-                        const height = Math.max(45, (differenceInMinutes(sEnd, sStart) / 60) * slotHeight);
-                        const left = idx * columnWidth + 2.5;
+                  {overlapGroups.map((group) => {
+                    const total = group.length;
+                    const columnWidth = total > 1 ? 95 / total : 95;
+                    
+                    return group.map((s, idx) => {
+                      const { top, height } = calculateSessionPosition(s, startHour, slotHeight);
+                      const left = idx * columnWidth + 2.5;
 
-                        const isNewSession = s.id === 'new-session-preview';
-                        const cls = s.class_id ? classesById[s.class_id] : undefined;
-                        const subj = cls?.subject_id ? subjectsById[cls.subject_id] : (s.subject_id ? subjectsById[s.subject_id] : undefined);
-                        const sessionStaffList = sessionStaff[s.id] || [];
-                        const sessionStudentsList = sessionStudents[s.id] || [];
+                      const isNewSession = s.id === 'new-session-preview';
+                      const cls = (s as any).class_id ? classesById[(s as any).class_id] : undefined;
+                      const subj = cls?.subject_id 
+                        ? subjectsById[cls.subject_id] 
+                        : (s as any).subject_id 
+                        ? subjectsById[(s as any).subject_id] 
+                        : undefined;
+                      const sessionStaffList = sessionStaff[s.id] || [];
+                      const sessionStudentsList = sessionStudents[s.id] || [];
 
-                        // Calculate card dimensions
-                        const cardHeight = Math.max(height, 45);
-                        const estimatedColumnWidth = 400; // Approximate column width for single day view
-                        const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
+                      // Calculate card dimensions
+                      const cardHeight = Math.max(height, 45);
+                      const estimatedColumnWidth = 400; // Approximate column width for single day view
+                      const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
 
-                        blocks.push(
-                          <div
-                            key={s.id}
-                            className="absolute"
-                            style={{
-                              top: `${top}px`,
-                              height: `${cardHeight}px`,
-                              left: `${left}%`,
-                              width: `${columnWidth}%`,
-                              zIndex: isNewSession ? 20 : 10,
-                              minHeight: '45px',
-                            }}
-                          >
-                            <SessionsCard
-                              session={s as Tables<'sessions'>}
-                              classData={cls}
-                              subject={subj}
-                              staff={sessionStaffList}
-                              students={sessionStudentsList}
-                              onClick={() => {}}
-                              isCalendarView={true}
-                              cardHeight={cardHeight}
-                              cardWidth={cardWidth}
-                            />
-                          </div>
-                        );
-                      });
+                      return (
+                        <div
+                          key={s.id}
+                          className="absolute"
+                          style={{
+                            top: `${top}px`,
+                            height: `${cardHeight}px`,
+                            left: `${left}%`,
+                            width: `${columnWidth}%`,
+                            zIndex: isNewSession ? 20 : 10,
+                            minHeight: '45px',
+                          }}
+                        >
+                          <SessionsCard
+                            session={s as Tables<'sessions'>}
+                            classData={cls}
+                            subject={subj}
+                            staff={sessionStaffList}
+                            students={sessionStudentsList}
+                            onClick={() => {}}
+                            isCalendarView={true}
+                            cardHeight={cardHeight}
+                            cardWidth={cardWidth}
+                          />
+                        </div>
+                      );
                     });
-
-                    return blocks;
-                  })()}
+                  }).flat()}
                 </div>
               )}
             </div>

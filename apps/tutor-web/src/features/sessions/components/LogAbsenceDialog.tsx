@@ -21,6 +21,7 @@ import type {
   RescheduleSession,
 } from '../types/absence';
 import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
+import { filterStudentsBySearch } from '@/shared/utils/filtering';
 import { Search, Loader2 } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
@@ -60,16 +61,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
 
   const filteredStudents = useMemo(() => {
     if (!allStudents || !searchQuery.trim()) return [];
-    const query = searchQuery.toLowerCase();
-    return allStudents
-      .filter(
-        (student: Tables<'students'>) =>
-          student.status === 'ACTIVE' && // Only show ACTIVE students
-          (student.first_name.toLowerCase().includes(query) ||
-          student.last_name.toLowerCase().includes(query) ||
-          `${student.first_name} ${student.last_name}`.toLowerCase().includes(query))
-      )
-      .slice(0, 10); // Limit to 10 results
+    return filterStudentsBySearch(allStudents, searchQuery, ['ACTIVE'], 10);
   }, [allStudents, searchQuery]);
 
   // Get student's future sessions (8 weeks ahead by default)
@@ -212,7 +204,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
               <div className="py-8 text-center text-muted-foreground">Loading students...</div>
             ) : searchQuery.trim() && filteredStudents.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredStudents.map((student) => (
+                {filteredStudents.map((student: Tables<'students'>) => (
                   <div
                     key={student.id}
                     className="p-3 rounded-lg border-2 border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all"

@@ -3,16 +3,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { billingApi, type InvoiceRow, type InvoiceItemRow, ViewInvoiceModal, useInvoicesList } from '@/features/billing';
+import { 
+  type InvoiceRow, 
+  ViewInvoiceModal, 
+  useInvoicesList,
+  useInvoiceItems,
+  formatInvoiceDate,
+  getInvoiceStatusBadge,
+} from '@/features/billing';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Checkbox, ScrollArea } from '@altitutor/ui';
 import { Filter, X } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { cn } from '@/shared/utils';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
-import type { Tables } from '@altitutor/shared';
+import { useStudentSearchFilter } from '@/features/students/hooks';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { DateRangePicker } from '@altitutor/ui';
 
@@ -77,11 +80,11 @@ export default function InvoicesPage() {
   const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
-  const [invoiceItemsMap, setInvoiceItemsMap] = useState<Record<string, InvoiceItemRow[]>>({});
   
   // Debounce date values to prevent query from running on every keystroke
   const debouncedFrom = useDebounce(from, 500);
   const debouncedTo = useDebounce(to, 500);
+  const debouncedStudentSearch = useDebounce(studentSearchQuery, 300);
   
   // Only include complete dates (YYYY-MM-DD format) to prevent API errors with partial dates
   const isCompleteFrom = /^\d{4}-\d{2}-\d{2}$/.test(debouncedFrom);
@@ -116,49 +119,13 @@ export default function InvoicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Fetch students for the filter using server-side search
-  const { data: searchResults } = useQuery({
-    queryKey: ['students', 'search', studentSearchQuery.trim()],
-    queryFn: async () => {
-      const trimmed = studentSearchQuery.trim();
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      
-      // Use server-side search function to avoid pagination limits
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
-        p_search: trimmed.length > 0 ? trimmed : undefined,
-        p_statuses: ['ACTIVE', 'TRIAL'], // Include both ACTIVE and TRIAL students
-        p_include_relationships: false,
-        p_exclude_class_search: false,
-        p_limit: 100, // Limit to 100 results for filter dropdown
-        p_offset: 0,
-        p_order_by: 'last_name',
-        p_ascending: true,
-      });
+  // Fetch students for the filter using React Query hook
+  const { data: studentSearchData } = useStudentSearchFilter(
+    debouncedStudentSearch,
+    ['ACTIVE', 'TRIAL']
+  );
 
-      if (rpcError) throw rpcError;
-      if (!rpcResult) return { students: [], total: 0 };
-
-      const rpcData = rpcResult as { students: any[]; total: number };
-      const students = (rpcData.students || []).map((s: any) => ({
-        id: s.id,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        status: s.status,
-        curriculum: s.curriculum || null,
-        year_level: s.year_level || null,
-        school: s.school || null,
-        email: s.email || null,
-        phone: s.phone || null,
-        created_at: s.created_at || null,
-        updated_at: s.updated_at || null,
-      })) as Tables<'students'>[];
-      
-      return { students, total: rpcData.total || 0 };
-    },
-    staleTime: 1000 * 30, // 30 seconds stale time
-  });
-
-  const allStudents = searchResults?.students || [];
+  const allStudents = studentSearchData?.students || [];
 
   // Fetch invoices with pagination
   // Use debounced and validated dates to prevent API calls with partial/invalid dates
@@ -180,42 +147,11 @@ export default function InvoicesPage() {
   const invoices = useMemo(() => data?.invoices || [], [data?.invoices]);
   const total = data?.total || 0;
 
-  // Fetch invoice items for displayed invoices
-  useEffect(() => {
-    if (invoices.length === 0) {
-      setInvoiceItemsMap({});
-      return;
-    }
+  // Extract invoice IDs for fetching items
+  const invoiceIds = useMemo(() => invoices.map(inv => inv.id), [invoices]);
 
-    const fetchItems = async () => {
-      const itemsPromises = invoices.map(async (invoice) => {
-        const items = await billingApi.getInvoiceItemsByInvoice(invoice.id);
-        return { invoiceId: invoice.id, items };
-      });
-      
-      const itemsResults = await Promise.all(itemsPromises);
-      const newMap: Record<string, InvoiceItemRow[]> = {};
-      itemsResults.forEach(({ invoiceId, items }) => {
-        newMap[invoiceId] = items;
-      });
-      setInvoiceItemsMap(newMap);
-    };
-
-    fetchItems();
-  }, [invoices]);
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    } catch (e) {
-      return dateString;
-    }
-  };
+  // Fetch invoice items for displayed invoices using React Query
+  const { data: invoiceItemsMap = {} } = useInvoiceItems(invoiceIds);
 
   // Filter toggle handlers - reset page when filters change
   const toggleStatusFilter = (status: InvoiceRow['status']) => {
@@ -267,53 +203,27 @@ export default function InvoicesPage() {
     (from && from !== today ? 1 : 0) +
     (to && to !== today ? 1 : 0);
 
-  // Filter students based on search query
-  const filteredStudents = allStudents.filter((student) => {
-    if (!studentSearchQuery) return true;
-    const query = studentSearchQuery.toLowerCase();
-    const firstName = (student.first_name || '').toLowerCase();
-    const lastName = (student.last_name || '').toLowerCase();
-    const school = (student.school || '').toLowerCase();
-    const email = (student.email || '').toLowerCase();
+  // Filter students based on search query (client-side filtering for display)
+  // Note: The API already filters by search query, but we do additional client-side
+  // filtering for fields like email that might not be in the search results
+  const filteredStudents = useMemo(() => {
+    if (!debouncedStudentSearch) return allStudents;
+    const query = debouncedStudentSearch.toLowerCase();
+    return allStudents.filter((student) => {
+      const firstName = (student.first_name || '').toLowerCase();
+      const lastName = (student.last_name || '').toLowerCase();
+      const school = (student.school || '').toLowerCase();
+      const email = (student.email || '').toLowerCase();
 
-    return (
-      firstName.includes(query) ||
-      lastName.includes(query) ||
-      school.includes(query) ||
-      email.includes(query) ||
-      `${firstName} ${lastName}`.includes(query)
-    );
-  });
-
-  const getStatusBadge = (status: string) => {
-    let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-    let label = status;
-
-    switch (status) {
-      case 'paid':
-        variant = 'default';
-        label = 'Paid';
-        break;
-      case 'draft':
-        variant = 'outline';
-        label = 'Draft';
-        break;
-      case 'open':
-        variant = 'secondary';
-        label = 'Open';
-        break;
-      case 'void':
-      case 'uncollectible':
-      case 'disputed':
-        variant = 'destructive';
-        label = status.charAt(0).toUpperCase() + status.slice(1);
-        break;
-      default:
-        variant = 'outline';
-    }
-
-    return <Badge variant={variant} className="text-xs">{label}</Badge>;
-  };
+      return (
+        firstName.includes(query) ||
+        lastName.includes(query) ||
+        school.includes(query) ||
+        email.includes(query) ||
+        `${firstName} ${lastName}`.includes(query)
+      );
+    });
+  }, [allStudents, debouncedStudentSearch]);
 
   return (
     <div className="p-6 space-y-4">
@@ -485,7 +395,7 @@ export default function InvoicesPage() {
                     onClick={() => setActiveInvoiceId(invoice.id)}
                   >
                     <TableCell>
-                      <span>{sessionDate ? formatDate(sessionDate.toISOString()) : '-'}</span>
+                      <span>{sessionDate ? formatInvoiceDate(sessionDate.toISOString()) : '-'}</span>
                     </TableCell>
                     <TableCell>
                       {invoice.student ? (
@@ -525,7 +435,9 @@ export default function InvoicesPage() {
                       )}
                     </TableCell>
                     <TableCell>{`$${((invoice.amount_due_cents || 0)/100).toFixed(2)}`}</TableCell>
-                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                    <TableCell>
+                      {getInvoiceStatusBadge(invoice.status)}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <ActionsMenu
                         type="invoice"

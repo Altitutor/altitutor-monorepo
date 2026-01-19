@@ -71,8 +71,8 @@ export function SessionDetailsTab({
   tutorLog,
   allTopics,
   sessionId,
-  isSessionInPast,
-  currentStaff,
+  isSessionInPast: _isSessionInPast,
+  currentStaff: _currentStaff,
   onOpenSession,
   onOpenStudent,
   onOpenStaff,
@@ -84,7 +84,7 @@ export function SessionDetailsTab({
   onLogAbsenceStudent,
   onLogAbsenceStaff,
   onSendBookingConfirmation,
-  onLogSession,
+  onLogSession: _onLogSession,
 }: SessionDetailsTabProps) {
   const hasTutorLog = !!tutorLog;
   const subject = (session as any).subject || session.class?.subject;

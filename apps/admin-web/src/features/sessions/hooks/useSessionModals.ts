@@ -1,0 +1,191 @@
+import { useState, useCallback } from 'react';
+
+interface UseSessionModalsReturn {
+  // Modal states
+  isStudentModalOpen: boolean;
+  selectedStudentId: string | null;
+  isStaffModalOpen: boolean;
+  selectedStaffId: string | null;
+  isClassModalOpen: boolean;
+  selectedClassId: string | null;
+  isLogSessionModalOpen: boolean;
+  isRescheduleModalOpen: boolean;
+  selectedStudentForReschedule: string | null;
+  isBookingConfirmationDialogOpen: boolean;
+  selectedStudentForBookingConfirmation: string | null;
+  isLogStudentAbsenceDialogOpen: boolean;
+  selectedStudentForAbsence: string | null;
+  isLogStaffAbsenceDialogOpen: boolean;
+  selectedStaffForAbsence: string | null;
+
+  // Actions
+  openStudentModal: (studentId: string) => void;
+  closeStudentModal: () => void;
+  openStaffModal: (staffId: string) => void;
+  closeStaffModal: () => void;
+  openClassModal: (classId: string) => void;
+  closeClassModal: () => void;
+  openLogSessionModal: () => void;
+  closeLogSessionModal: () => void;
+  openRescheduleModal: (studentId: string) => void;
+  closeRescheduleModal: () => void;
+  openBookingConfirmationDialog: (studentId: string) => void;
+  closeBookingConfirmationDialog: () => void;
+  openLogStudentAbsenceDialog: (studentId: string) => void;
+  closeLogStudentAbsenceDialog: () => void;
+  openLogStaffAbsenceDialog: (staffId: string) => void;
+  closeLogStaffAbsenceDialog: () => void;
+  reset: () => void;
+}
+
+/**
+ * Hook for managing all session-related modal states
+ */
+export function useSessionModals(): UseSessionModalsReturn {
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedStudentForReschedule, setSelectedStudentForReschedule] = useState<string | null>(null);
+  const [isBookingConfirmationDialogOpen, setIsBookingConfirmationDialogOpen] = useState(false);
+  const [selectedStudentForBookingConfirmation, setSelectedStudentForBookingConfirmation] = useState<string | null>(null);
+  const [isLogStudentAbsenceDialogOpen, setIsLogStudentAbsenceDialogOpen] = useState(false);
+  const [selectedStudentForAbsence, setSelectedStudentForAbsence] = useState<string | null>(null);
+  const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
+  const [selectedStaffForAbsence, setSelectedStaffForAbsence] = useState<string | null>(null);
+
+  const openStudentModal = useCallback((studentId: string) => {
+    setSelectedStudentId(studentId);
+    setIsStudentModalOpen(true);
+  }, []);
+
+  const closeStudentModal = useCallback(() => {
+    setIsStudentModalOpen(false);
+    setSelectedStudentId(null);
+  }, []);
+
+  const openStaffModal = useCallback((staffId: string) => {
+    setSelectedStaffId(staffId);
+    setIsStaffModalOpen(true);
+  }, []);
+
+  const closeStaffModal = useCallback(() => {
+    setIsStaffModalOpen(false);
+    setSelectedStaffId(null);
+  }, []);
+
+  const openClassModal = useCallback((classId: string) => {
+    setSelectedClassId(classId);
+    setIsClassModalOpen(true);
+  }, []);
+
+  const closeClassModal = useCallback(() => {
+    setIsClassModalOpen(false);
+    setSelectedClassId(null);
+  }, []);
+
+  const openLogSessionModal = useCallback(() => {
+    setIsLogSessionModalOpen(true);
+  }, []);
+
+  const closeLogSessionModal = useCallback(() => {
+    setIsLogSessionModalOpen(false);
+  }, []);
+
+  const openRescheduleModal = useCallback((studentId: string) => {
+    setSelectedStudentForReschedule(studentId);
+    setIsRescheduleModalOpen(true);
+  }, []);
+
+  const closeRescheduleModal = useCallback(() => {
+    setIsRescheduleModalOpen(false);
+    setSelectedStudentForReschedule(null);
+  }, []);
+
+  const openBookingConfirmationDialog = useCallback((studentId: string) => {
+    setSelectedStudentForBookingConfirmation(studentId);
+    setIsBookingConfirmationDialogOpen(true);
+  }, []);
+
+  const closeBookingConfirmationDialog = useCallback(() => {
+    setIsBookingConfirmationDialogOpen(false);
+    setSelectedStudentForBookingConfirmation(null);
+  }, []);
+
+  const openLogStudentAbsenceDialog = useCallback((studentId: string) => {
+    setSelectedStudentForAbsence(studentId);
+    setIsLogStudentAbsenceDialogOpen(true);
+  }, []);
+
+  const closeLogStudentAbsenceDialog = useCallback(() => {
+    setIsLogStudentAbsenceDialogOpen(false);
+    setSelectedStudentForAbsence(null);
+  }, []);
+
+  const openLogStaffAbsenceDialog = useCallback((staffId: string) => {
+    setSelectedStaffForAbsence(staffId);
+    setIsLogStaffAbsenceDialogOpen(true);
+  }, []);
+
+  const closeLogStaffAbsenceDialog = useCallback(() => {
+    setIsLogStaffAbsenceDialogOpen(false);
+    setSelectedStaffForAbsence(null);
+  }, []);
+
+  const reset = useCallback(() => {
+    setIsStudentModalOpen(false);
+    setSelectedStudentId(null);
+    setIsStaffModalOpen(false);
+    setSelectedStaffId(null);
+    setIsClassModalOpen(false);
+    setSelectedClassId(null);
+    setIsLogSessionModalOpen(false);
+    setIsRescheduleModalOpen(false);
+    setSelectedStudentForReschedule(null);
+    setIsBookingConfirmationDialogOpen(false);
+    setSelectedStudentForBookingConfirmation(null);
+    setIsLogStudentAbsenceDialogOpen(false);
+    setSelectedStudentForAbsence(null);
+    setIsLogStaffAbsenceDialogOpen(false);
+    setSelectedStaffForAbsence(null);
+  }, []);
+
+  return {
+    isStudentModalOpen,
+    selectedStudentId,
+    isStaffModalOpen,
+    selectedStaffId,
+    isClassModalOpen,
+    selectedClassId,
+    isLogSessionModalOpen,
+    isRescheduleModalOpen,
+    selectedStudentForReschedule,
+    isBookingConfirmationDialogOpen,
+    selectedStudentForBookingConfirmation,
+    isLogStudentAbsenceDialogOpen,
+    selectedStudentForAbsence,
+    isLogStaffAbsenceDialogOpen,
+    selectedStaffForAbsence,
+    openStudentModal,
+    closeStudentModal,
+    openStaffModal,
+    closeStaffModal,
+    openClassModal,
+    closeClassModal,
+    openLogSessionModal,
+    closeLogSessionModal,
+    openRescheduleModal,
+    closeRescheduleModal,
+    openBookingConfirmationDialog,
+    closeBookingConfirmationDialog,
+    openLogStudentAbsenceDialog,
+    closeLogStudentAbsenceDialog,
+    openLogStaffAbsenceDialog,
+    closeLogStaffAbsenceDialog,
+    reset,
+  };
+}

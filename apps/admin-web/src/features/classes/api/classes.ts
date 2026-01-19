@@ -1,4 +1,4 @@
-import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -1004,5 +1004,115 @@ export const classesApi = {
     
     if (error) throw error;
     return count ?? 0;
+  },
+
+  /**
+   * Fetch classes for a specific subject
+   * Returns classes with expanded subject, staff, and students data
+   */
+  fetchClassesForSubject: async (subjectId: string): Promise<ClassWithExpandedSubject[]> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
+      p_search: undefined,
+      p_statuses: ['ACTIVE'],
+      p_subject_ids: [subjectId],
+      p_include_relationships: true,
+      p_exclude_student_search: false,
+      p_exclude_staff_search: false,
+      p_limit: 10000,
+      p_offset: 0,
+      p_order_by: 'day_of_week',
+      p_ascending: true,
+    });
+    
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return [];
+    
+    interface RPCClass {
+      id: string;
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+      status: string;
+      room: string | null;
+      subject_id: string | null;
+      level: string | null;
+    }
+    
+    interface RPCSubject {
+      id: string;
+      name: string;
+      curriculum: string | null;
+      year_level: number | null;
+    }
+    
+    interface RPCStaff {
+      id: string;
+      first_name: string;
+      last_name: string;
+      role: string;
+      status: string;
+    }
+    
+    interface RPCStudent {
+      id: string;
+      first_name: string;
+      last_name: string;
+      status: string;
+    }
+    
+    const rpcData = rpcResult as unknown as { 
+      classes: RPCClass[]; 
+      classSubjects: Record<string, RPCSubject>; 
+      classStudents: Record<string, RPCStudent[]>; 
+      classStaff: Record<string, RPCStaff[]>; 
+      total: number 
+    };
+    
+    const rpcClasses = rpcData.classes || [];
+    
+    // Transform RPC response to match ClassWithExpandedSubject format
+    return rpcClasses.map(c => ({
+      id: c.id,
+      day_of_week: c.day_of_week,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      status: c.status as 'ACTIVE' | 'INACTIVE',
+      room: c.room,
+      level: c.level,
+      subject_id: c.subject_id,
+      created_at: null,
+      updated_at: null,
+      created_by: null,
+      session_start_date: null,
+      session_end_date: null,
+      subject: rpcData.classSubjects?.[c.id] as ClassWithExpandedSubject['subject'] | undefined,
+      staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        role: s.role as 'ADMINSTAFF' | 'TUTOR',
+        status: s.status as 'ACTIVE' | 'INACTIVE',
+        email: null,
+        phone_number: null,
+        created_at: null,
+        updated_at: null,
+      })),
+      students: (rpcData.classStudents?.[c.id] || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        status: s.status as 'ACTIVE' | 'CURRENT' | 'TRIAL' | 'INACTIVE',
+        curriculum: null,
+        year_level: null,
+        school: null,
+        email: null,
+        phone: null,
+        phone_number: null,
+        created_at: null,
+        updated_at: null,
+      }))
+    })) as unknown as ClassWithExpandedSubject[];
   },
 }; 

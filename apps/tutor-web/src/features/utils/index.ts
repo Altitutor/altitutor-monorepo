@@ -6,27 +6,27 @@ import { User, UserRole } from '../types';
 
 // These functions are kept for backwards compatibility but should not be used
 // They will always return false since we no longer store roles in JWT claims
-export function getUserRole(user: User | null): UserRole | null {
+export function getUserRole(_user: User | null): UserRole | null {
   // Role checking moved to database level - this always returns null
   return null;
 }
 
-export function isAdminStaff(user: User | null): boolean {
+export function isAdminStaff(_user: User | null): boolean {
   // Role checking moved to database level - this always returns false
   return false;
 }
 
-export function isTutor(user: User | null): boolean {
+export function isTutor(_user: User | null): boolean {
   // Role checking moved to database level - this always returns false
   return false;
 }
 
-export function isStudent(user: User | null): boolean {
+export function isStudent(_user: User | null): boolean {
   // Role checking moved to database level - this always returns false
   return false;
 }
 
-export function isStaff(user: User | null): boolean {
+export function isStaff(_user: User | null): boolean {
   // Role checking moved to database level - this always returns false
   return false;
 } 

@@ -25,7 +25,7 @@ export function useCreateSessionNote() {
         staffId: params.staffId,
       });
     },
-    onSuccess: (newNote, variables) => {
+    onSuccess: (_newNote, _variables) => {
       // Invalidate all session queries to refetch notes
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },

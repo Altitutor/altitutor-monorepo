@@ -6,8 +6,6 @@ import { Badge } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { CalendarIcon, Clock } from 'lucide-react';
 import { cn } from '@/shared/utils/index';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Step1SessionPickerProps = {
   staffId: string;
@@ -43,25 +41,27 @@ export function Step1SessionPicker({
         Select a session to log. Only past or current sessions are shown.
       </p>
       <div className="grid gap-3">
-        {sessions.map((session: any) => {
-          const isSelected = session.id === selectedSessionId;
+        {sessions.map((session) => {
+          // The API transforms session_id to id
+          const sessionId = session.id;
+          const isSelected = sessionId === selectedSessionId;
           const startDate = session.start_at ? new Date(session.start_at) : null;
           const endDate = session.end_at ? new Date(session.end_at) : null;
           const subject = session.class?.subject;
 
           return (
             <Card
-              key={session.id}
+              key={sessionId}
               className={cn(
                 'p-4 cursor-pointer transition-all hover:shadow-md',
                 isSelected && 'ring-2 ring-primary shadow-md'
               )}
-              onClick={() => onSelectSession(session.id)}
+              onClick={() => onSelectSession(sessionId)}
             >
               <div className="flex items-start justify-between">
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2">
-                    <Badge>{session.type}</Badge>
+                    <Badge>{session.session_type}</Badge>
                     {isSelected && (
                       <Badge variant="outline" className="bg-primary/10">
                         Selected

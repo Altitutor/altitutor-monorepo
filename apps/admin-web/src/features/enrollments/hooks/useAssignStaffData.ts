@@ -23,7 +23,7 @@ export function useAssignStaffData({
   dayFilters,
   subjectFilters,
   classData,
-  staff,
+  staff: _staff,
 }: UseAssignStaffDataProps) {
   // Fetch classes for staff context
   const { data: classes = [], isLoading: isFetchingClasses } = useQuery({

@@ -24,8 +24,8 @@ import { useUpdateTask } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables, Database } from '@altitutor/shared';
-import type { TaskStatus, TaskPriority, TaskWithAssignee } from '../types';
-import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials } from '../utils/taskUtils';
+import type { TaskStatus, TaskPriority } from '../types';
+import { isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
 import { cn } from '@/shared/utils/index';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import {
@@ -594,9 +594,9 @@ export function TasksTable({ filters: _filters }: TasksTableProps) {
                       )}
                     </TableCell>
                     <TableCell>
-                      {task.estimate ? (
+                      {task.estimate && getEstimateLabel(task.estimate) ? (
                         <Badge variant="outline" className="text-xs">
-                          {task.estimate} pts
+                          {getEstimateLabel(task.estimate)}
                         </Badge>
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>

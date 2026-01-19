@@ -1,0 +1,346 @@
+/**
+ * Tests for useSessionHelpers hook
+ * Tests computed values and helper functions for sessions
+ */
+
+import { renderHook } from '@testing-library/react';
+import { useSessionHelpers } from '../useSessionHelpers';
+
+describe('useSessionHelpers', () => {
+  const mockSession = {
+    id: 'session-1',
+    start_at: '2024-01-15T10:00:00Z',
+    end_at: '2024-01-15T11:00:00Z',
+    type: 'DRAFTING' as const,
+  };
+
+  const mockTutorLog = {
+    id: 'log-1',
+    session_id: 'session-1',
+  };
+
+  describe('hasTutorLog', () => {
+    it('should return true when tutor log exists', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: mockTutorLog as any,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.hasTutorLog).toBe(true);
+    });
+
+    it('should return false when tutor log does not exist', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.hasTutorLog).toBe(false);
+    });
+  });
+
+  describe('isSessionInPast', () => {
+    it('should return true for past session', () => {
+      const pastSession = {
+        ...mockSession,
+        start_at: '2020-01-15T10:00:00Z',
+      };
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: pastSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.isSessionInPast).toBe(true);
+    });
+
+    it('should return false for future session', () => {
+      const futureDate = new Date();
+      futureDate.setFullYear(futureDate.getFullYear() + 1);
+      const futureSession = {
+        ...mockSession,
+        start_at: futureDate.toISOString(),
+      };
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: futureSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.isSessionInPast).toBe(false);
+    });
+
+    it('should return false when start_at is null', () => {
+      const sessionWithoutDate = {
+        ...mockSession,
+        start_at: null,
+      };
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: sessionWithoutDate as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.isSessionInPast).toBe(false);
+    });
+  });
+
+  describe('canReschedule', () => {
+    it('should return true for DRAFTING session', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: { ...mockSession, type: 'DRAFTING' } as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.canReschedule).toBe(true);
+    });
+
+    it('should return true for TRIAL_SESSION', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: { ...mockSession, type: 'TRIAL_SESSION' } as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.canReschedule).toBe(true);
+    });
+
+    it('should return true for SUBSIDY_INTERVIEW', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: { ...mockSession, type: 'SUBSIDY_INTERVIEW' } as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.canReschedule).toBe(true);
+    });
+
+    it('should return false for CLASS session', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: { ...mockSession, type: 'CLASS' } as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.canReschedule).toBe(false);
+    });
+  });
+
+  describe('subject', () => {
+    it('should return subject from session.subject', () => {
+      const subject = { id: 'subject-1', name: 'Math' };
+      const sessionWithSubject = {
+        ...mockSession,
+        subject,
+      };
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: sessionWithSubject as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.subject).toEqual(subject);
+    });
+
+    it('should return subject from session.class.subject', () => {
+      const subject = { id: 'subject-1', name: 'Math' };
+      const sessionWithClassSubject = {
+        ...mockSession,
+        class: { subject },
+      };
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: sessionWithClassSubject as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.subject).toEqual(subject);
+    });
+
+    it('should return null when no subject available', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.subject).toBeNull();
+    });
+  });
+
+  describe('getFirstStudentIdForReschedule', () => {
+    it('should return first student ID without planned absence', () => {
+      const sessionsStudents = [
+        { student_id: 'student-1', planned_absence: true },
+        { student_id: 'student-2', planned_absence: false },
+        { student_id: 'student-3', planned_absence: false },
+      ];
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: sessionsStudents as any,
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.getFirstStudentIdForReschedule()).toBe('student-2');
+    });
+
+    it('should return null when all students have planned absence', () => {
+      const sessionsStudents = [
+        { student_id: 'student-1', planned_absence: true },
+        { student_id: 'student-2', planned_absence: true },
+      ];
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: sessionsStudents as any,
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.getFirstStudentIdForReschedule()).toBeNull();
+    });
+
+    it('should return null when sessionsStudents is empty', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.getFirstStudentIdForReschedule()).toBeNull();
+    });
+  });
+
+  describe('getFirstStaffForLogging', () => {
+    it('should return first staff ID from sessionsStaff', () => {
+      const sessionsStaff = [
+        { staff_id: 'staff-1' },
+        { staff_id: 'staff-2' },
+      ];
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: sessionsStaff as any,
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.getFirstStaffForLogging()).toBe('staff-1');
+    });
+
+    it('should return firstClassStaffId when sessionsStaff is empty', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: 'class-staff-1',
+        })
+      );
+
+      expect(result.current.getFirstStaffForLogging()).toBe('class-staff-1');
+    });
+
+    it('should return undefined when no staff available', () => {
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: [],
+          tutorLog: null,
+          firstClassStaffId: null,
+        })
+      );
+
+      expect(result.current.getFirstStaffForLogging()).toBeUndefined();
+    });
+
+    it('should prioritize sessionsStaff over firstClassStaffId', () => {
+      const sessionsStaff = [{ staff_id: 'staff-1' }];
+
+      const { result } = renderHook(() =>
+        useSessionHelpers({
+          session: mockSession as any,
+          sessionsStudents: [],
+          sessionsStaff: sessionsStaff as any,
+          tutorLog: null,
+          firstClassStaffId: 'class-staff-1',
+        })
+      );
+
+      expect(result.current.getFirstStaffForLogging()).toBe('staff-1');
+    });
+  });
+});

@@ -18,7 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatDate } from '@/shared/utils';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 import type { StudentSubsidyRow } from '../api/subsidies';
-import { updateSubsidy, deleteSubsidy } from '../api/subsidies';
+import { deleteSubsidy } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
 import { EditSubsidyModal } from './EditSubsidyModal';
 import { pricingApi } from '@/features/billing/api/pricing';

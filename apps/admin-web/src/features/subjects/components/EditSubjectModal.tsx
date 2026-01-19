@@ -28,7 +28,7 @@ import { useRouter } from 'next/navigation';
 import { subjectsApi } from '../api';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { DraggableTopicsList } from '@/features/topics/components';
-import { useTopics, useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
+import { useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Subject name is required'),
@@ -60,7 +60,8 @@ export function EditSubjectModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: allTopics = [] } = useTopics();
+  // Topics are not used in this component
+  // const { data: allTopics = [] } = useTopics();
   const { data: rootTopics = [] } = useRootTopics(subjectId);
   const updateIndicesMutation = useUpdateTopicIndices();
 

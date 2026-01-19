@@ -1,21 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { X, Search, Plus } from 'lucide-react';
 import { StudentCard } from '@/shared/components/StudentCard';
-import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { cn } from '@/shared/utils/index';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-type StudentAttendanceItem = {
-  studentId: string;
-  attended: boolean;
-};
+import { useStudentAttendance, type StudentAttendanceItem } from '../../hooks/useStudentAttendance';
 
 type Step3StudentAttendanceProps = {
   title?: string;
@@ -30,110 +20,30 @@ export function Step3StudentAttendance({
   studentAttendance,
   onUpdate,
 }: Step3StudentAttendanceProps) {
-  const [sessionStudents, setSessionStudents] = useState<
-    Array<Tables<'sessions_students'> & { student: Tables<'students'> }>
-  >([]);
-  const [allStudents, setAllStudents] = useState<Tables<'students'>[]>([]);
-  const [additionalStudents, setAdditionalStudents] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const hasInitialized = useRef(false);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      
-      // Get session students
-      const { data: ssData, error: ssError } = await supabase
-        .from('sessions_students')
-        .select('*, student:students(*)')
-        .eq('session_id', sessionId);
-
-      if (ssError) {
-        console.error('Error fetching session students:', ssError);
-        return;
-      }
-
-      setSessionStudents(ssData as any);
-
-      // Get all students for search
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
-        .order('first_name');
-
-      if (studentsError) {
-        console.error('Error fetching students:', studentsError);
-        return;
-      }
-
-      setAllStudents(studentsData as Tables<'students'>[]);
-
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [sessionId]);
-
-  // Initialize form data if empty (separate effect to avoid setState during render)
-  useEffect(() => {
-    if (!hasInitialized.current && studentAttendance.length === 0 && sessionStudents.length > 0 && !isLoading) {
-      hasInitialized.current = true;
-      const initialAttendance = sessionStudents.map((ss: any) => ({
-        studentId: ss.student_id,
-        attended: !ss.planned_absence,
-      }));
-      onUpdate(initialAttendance);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStudents.length, isLoading]); // Only depend on sessionStudents.length and isLoading
-
-  const handleAttendanceChange = (studentId: string, attended: boolean) => {
-    const updated = studentAttendance.map((sa) =>
-      sa.studentId === studentId ? { ...sa, attended } : sa
-    );
-
-    if (!studentAttendance.find((sa) => sa.studentId === studentId)) {
-      updated.push({ studentId, attended });
-    }
-
-    onUpdate(updated);
-  };
-
-  const handleAddStudent = (studentId: string) => {
-    if (!additionalStudents.includes(studentId)) {
-      setAdditionalStudents([...additionalStudents, studentId]);
-      handleAttendanceChange(studentId, true);
-    }
-    setSearchTerm('');
-    setShowSearch(false);
-  };
-
-  const handleRemoveStudent = (studentId: string) => {
-    setAdditionalStudents(additionalStudents.filter((id) => id !== studentId));
-    onUpdate(studentAttendance.filter((sa) => sa.studentId !== studentId));
-  };
-
-  const getStudentAttendance = (studentId: string) => {
-    return studentAttendance.find((sa) => sa.studentId === studentId);
-  };
-
-  const isStudentAlreadyAdded = (studentId: string) => {
-    return (
-      sessionStudents.some((ss: any) => ss.student_id === studentId) ||
-      additionalStudents.includes(studentId)
-    );
-  };
-
-  const filteredStudents = allStudents.filter(
-    (student) =>
-      !isStudentAlreadyAdded(student.id) &&
-      (searchTerm === '' ||
-        `${student.first_name} ${student.last_name}`
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()))
-  );
+  const {
+    // Data
+    sessionStudents,
+    allStudents,
+    filteredStudents,
+    isLoading,
+    
+    // UI state
+    additionalStudents,
+    showSearch,
+    searchTerm,
+    setShowSearch,
+    setSearchTerm,
+    
+    // Actions
+    handleAttendanceChange,
+    handleAddStudent,
+    handleRemoveStudent,
+    getStudentAttendance,
+  } = useStudentAttendance({
+    sessionId,
+    studentAttendance,
+    onUpdate,
+  });
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
@@ -150,7 +60,7 @@ export function Step3StudentAttendance({
       {sessionStudents.length > 0 && (
         <div className="space-y-3">
           <div className="font-medium">Planned Students</div>
-          {sessionStudents.map((ss: any) => {
+          {sessionStudents.map((ss) => {
             const student = ss.student;
             const attendance = getStudentAttendance(ss.student_id);
             const isAttended = attendance?.attended ?? !ss.planned_absence;

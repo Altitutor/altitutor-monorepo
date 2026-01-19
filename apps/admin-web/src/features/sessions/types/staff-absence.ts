@@ -46,7 +46,10 @@ export interface ReplacementStaff extends Tables<'staff'> {
  */
 export interface LogStaffAbsencesResponse {
   success: boolean;
-  data?: any;
+  data?: {
+    updated_sessions_staff: Tables<'sessions_staff'>[];
+    created_sessions_staff?: Tables<'sessions_staff'>[];
+  };
   error?: string;
 }
 

@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-  type KeyboardEvent,
-} from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -26,29 +19,32 @@ import {
   Beaker,
   Newspaper,
 } from 'lucide-react';
-import { Input, Badge, Button } from '@altitutor/ui';
-import { useCommandPaletteSearch, type CommandPaletteEntityResult } from '../hooks/useCommandPaletteSearch';
+import { Input, Button } from '@altitutor/ui';
+import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
 import {
-  commands,
   additionalPages,
   extractPagesFromNavItems,
   entityTypes,
-  type CommandPaletteCommand,
 } from '../config/commandPalette.config';
 import { useCommandPaletteCommandActions } from '../hooks/useCommandPaletteActions';
-import { formatClassShortName, formatClassName, cn } from '@/shared/utils';
+import { useCommandPaletteCommands } from '../hooks/useCommandPaletteCommands';
+import { useCommandPaletteFiltering } from '../hooks/useCommandPaletteFiltering';
+import { useCommandPaletteKeyboard } from '../hooks/useCommandPaletteKeyboard';
+import { CommandItem } from './CommandItem';
+import { PageItem } from './PageItem';
+import { EntityItem } from './EntityItem';
 import type { LucideIcon } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { FilterType } from '../utils/filtering';
 
 // Map singular entity types to plural keys in entityTypes config
 const ENTITY_TYPE_MAPPING: Record<string, string> = {
-  'student': 'students',
-  'staff': 'staff',
-  'parent': 'parents',
-  'class': 'classes',
-  'subject': 'subjects',
-  'topic': 'topics',
-  'file': 'files',
+  student: 'students',
+  staff: 'staff',
+  parent: 'parents',
+  class: 'classes',
+  subject: 'subjects',
+  topic: 'topics',
+  file: 'files',
 };
 
 // Nav items matching layout.tsx - pages will be automatically searchable
@@ -70,13 +66,6 @@ const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Topics', href: '/topics', icon: Newspaper },
 ];
 
-export type CommandPaletteItem =
-  | { type: 'command'; id: string; title: string; description?: string; icon: LucideIcon; action: () => void }
-  | { type: 'page'; id: string; title: string; href: string; icon: LucideIcon }
-  | { type: 'entity'; result: CommandPaletteEntityResult };
-
-export type FilterType = 'command' | 'page' | 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'topic' | 'file';
-
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
@@ -91,7 +80,6 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState<FilterType | null>(null);
 
-
   // Get command actions (may be null if QuickActionsProvider not available)
   const commandActions = useCommandPaletteCommandActions(onClose);
 
@@ -99,40 +87,10 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const navPages = useMemo(() => extractPagesFromNavItems(navItems as any), []);
   const allPages = useMemo(() => [...navPages, ...additionalPages], [navPages]);
 
-  // Setup command actions
-  const commandsWithActions = useMemo<CommandPaletteCommand[]>(() => {
-    if (!commandActions) {
-      // If QuickActionsProvider not available, return commands with no-op actions
-      return commands.map((cmd) => ({ ...cmd, action: () => {} }));
-    }
-
-    const mapped = commands.map((cmd) => {
-      let action: () => void = () => {};
-      switch (cmd.id) {
-        case 'trial-session':
-          action = commandActions.openTrialSession;
-          break;
-        case 'subsidy-interview':
-          action = commandActions.openSubsidyInterview;
-          break;
-        case 'drafting':
-          action = commandActions.openDrafting;
-          break;
-        case 'tutor-log':
-          action = commandActions.openTutorLog;
-          break;
-        case 'log-student-absence':
-          action = commandActions.openLogStudentAbsence;
-          break;
-        case 'log-staff-absence':
-          action = commandActions.openLogStaffAbsence;
-          break;
-      }
-      return { ...cmd, action };
-    });
-    
-    return mapped;
-  }, [commandActions]);
+  // Setup commands with actions
+  const { commandsWithActions } = useCommandPaletteCommands({
+    commandActions,
+  });
 
   // Search entities
   const { results: entityResults, isLoading: isSearching } = useCommandPaletteSearch({
@@ -140,99 +98,16 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     enabled: isOpen,
   });
 
-  // Filter and sort commands by search query (sort by match quality for section prioritization)
-  const filteredCommands = useMemo(() => {
-    if (!searchQuery.trim()) return commandsWithActions;
-    const query = searchQuery.toLowerCase();
-    const filtered = commandsWithActions.filter((cmd) => {
-      const titleMatch = cmd.title.toLowerCase().includes(query);
-      const descMatch = cmd.description?.toLowerCase().includes(query);
-      const keywordMatch = cmd.keywords?.some((k) => k.toLowerCase().includes(query));
-      return titleMatch || descMatch || keywordMatch;
-    });
-    
-    // Sort by match quality so first item has highest score (for section prioritization)
-    return filtered.sort((a, b) => {
-      const aTitle = a.title.toLowerCase();
-      const bTitle = b.title.toLowerCase();
-      const queryLower = query.toLowerCase();
-      
-      // Exact match > starts with > contains
-      if (aTitle === queryLower && bTitle !== queryLower) return -1;
-      if (bTitle === queryLower && aTitle !== queryLower) return 1;
-      if (aTitle.startsWith(queryLower) && !bTitle.startsWith(queryLower)) return -1;
-      if (bTitle.startsWith(queryLower) && !aTitle.startsWith(queryLower)) return 1;
-      return 0;
-    });
-  }, [searchQuery, commandsWithActions]);
-
-  // Filter and sort pages by search query (sort by match quality for section prioritization)
-  const filteredPages = useMemo(() => {
-    if (!searchQuery.trim()) return allPages;
-    const query = searchQuery.toLowerCase();
-    const filtered = allPages.filter((page) => {
-      const titleMatch = page.title.toLowerCase().includes(query);
-      const keywordMatch = page.keywords?.some((k) => k.toLowerCase().includes(query));
-      return titleMatch || keywordMatch;
-    });
-    
-    // Sort by match quality so first item has highest score (for section prioritization)
-    return filtered.sort((a, b) => {
-      const aTitle = a.title.toLowerCase();
-      const bTitle = b.title.toLowerCase();
-      const queryLower = query.toLowerCase();
-      
-      // Exact match > starts with > contains
-      if (aTitle === queryLower && bTitle !== queryLower) return -1;
-      if (bTitle === queryLower && aTitle !== queryLower) return 1;
-      if (aTitle.startsWith(queryLower) && !bTitle.startsWith(queryLower)) return -1;
-      if (bTitle.startsWith(queryLower) && !aTitle.startsWith(queryLower)) return 1;
-      return 0;
-    });
-  }, [searchQuery, allPages]);
-
-  // Combine all items
-  const allItems: CommandPaletteItem[] = useMemo(() => {
-    const items: CommandPaletteItem[] = [];
-    
-    // Commands first
-    filteredCommands.forEach((cmd) => {
-      items.push({ type: 'command', ...cmd });
-    });
-    
-    // Pages second
-    filteredPages.forEach((page) => {
-      items.push({ type: 'page', ...page });
-    });
-    
-    // Entities last
-    entityResults.forEach((result) => {
-      items.push({ type: 'entity', result });
-    });
-    
-    return items;
-  }, [filteredCommands, filteredPages, entityResults]);
-
-  // Filter items by selected filter type
-  const filteredItems: CommandPaletteItem[] = useMemo(() => {
-    // If no filter selected, show all items
-    if (selectedFilter === null) {
-      return allItems;
-    }
-
-    return allItems.filter((item) => {
-      if (item.type === 'command') {
-        return selectedFilter === 'command';
-      }
-      if (item.type === 'page') {
-        return selectedFilter === 'page';
-      }
-      if (item.type === 'entity') {
-        return selectedFilter === item.result.type;
-      }
-      return false;
-    });
-  }, [allItems, selectedFilter]);
+  // Filter and sort items
+  const { filteredItems, groupedItems } = useCommandPaletteFiltering({
+    commands: commandsWithActions,
+    pages: allPages,
+    entityResults,
+    searchQuery,
+    selectedFilter,
+    entityTypeMapping: ENTITY_TYPE_MAPPING,
+    entityTypes,
+  });
 
   // Reset selected index when items change
   useEffect(() => {
@@ -251,39 +126,9 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     }
   }, [isOpen]);
 
-  // Keyboard navigation
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev < filteredItems.length - 1 ? prev + 1 : 0));
-        return;
-      }
-
-      if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : filteredItems.length - 1));
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const selectedItem = filteredItems[selectedIndex];
-        if (selectedItem) {
-          handleSelectItem(selectedItem);
-        }
-      }
-    },
-    [filteredItems, selectedIndex, onClose]
-  );
-
+  // Handle item selection
   const handleSelectItem = useCallback(
-    (item: CommandPaletteItem) => {
+    (item: typeof filteredItems[number]) => {
       if (item.type === 'command') {
         // Execute the action
         if (item.action) {
@@ -295,302 +140,82 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
       } else if (item.type === 'entity') {
         const { result } = item;
         setSearchQuery('');
-        
+
         // Notify parent component to handle entity selection (modals will be rendered there)
         if (onEntitySelected) {
           onEntitySelected(result.type, result.id);
         }
-        
+
         // Close the palette
         onClose();
       }
     },
-    [onClose, router]
+    [onClose, router, onEntitySelected]
   );
 
-  // Highlight matching text
-  const highlightText = useCallback((text: string | null | undefined, query: string) => {
-    if (!text || !query.trim()) return text;
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
-    return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase() ? (
-        <span key={i} className="font-semibold text-brand-lightBlue">
-          {part}
-        </span>
-      ) : (
-        <span key={i}>{part}</span>
-      )
-    );
-  }, []);
+  // Keyboard navigation
+  const { handleKeyDown } = useCommandPaletteKeyboard({
+    filteredItems,
+    selectedIndex,
+    onIndexChange: setSelectedIndex,
+    onSelectItem: handleSelectItem,
+    onClose,
+  });
 
-  // Render item
+  // Render item helper
   const renderItem = useCallback(
-    (item: CommandPaletteItem, index: number) => {
+    (item: typeof filteredItems[number], index: number) => {
       const isSelected = index === selectedIndex;
-      const baseClasses = cn(
-        'w-full flex items-start gap-3 px-4 py-3 rounded-md cursor-pointer transition-colors text-left',
-        isSelected
-          ? 'bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20'
-          : 'hover:bg-muted'
-      );
 
       if (item.type === 'command') {
-        const Icon = item.icon;
         return (
-          <button
+          <CommandItem
             key={`command-${item.id}`}
-            type="button"
-            className={baseClasses}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleSelectItem(item);
-            }}
+            id={item.id}
+            title={item.title}
+            description={item.description}
+            icon={item.icon}
+            action={item.action}
+            isSelected={isSelected}
+            searchQuery={searchQuery}
+            onSelect={() => handleSelectItem(item)}
             onMouseEnter={() => setSelectedIndex(index)}
-          >
-            <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0 text-left">
-              <div className="font-medium">{highlightText(item.title, searchQuery)}</div>
-              {item.description && (
-                <div className="text-sm text-muted-foreground">{item.description}</div>
-              )}
-            </div>
-            <Badge variant="outline" className="text-xs flex-shrink-0">
-              Command
-            </Badge>
-          </button>
+          />
         );
       }
 
       if (item.type === 'page') {
-        const Icon = item.icon;
         return (
-          <button
+          <PageItem
             key={`page-${item.id}`}
-            type="button"
-            className={baseClasses}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleSelectItem(item);
-            }}
+            id={item.id}
+            title={item.title}
+            icon={item.icon}
+            isSelected={isSelected}
+            searchQuery={searchQuery}
+            onSelect={() => handleSelectItem(item)}
             onMouseEnter={() => setSelectedIndex(index)}
-          >
-            <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0 text-left">
-              <div className="font-medium">{highlightText(item.title, searchQuery)}</div>
-            </div>
-            <Badge variant="outline" className="text-xs flex-shrink-0">
-              Page
-            </Badge>
-          </button>
+          />
         );
       }
 
-      // Entity item
-      const { result } = item;
-      const configKey = ENTITY_TYPE_MAPPING[result.type] || result.type;
-      const config = entityTypes[configKey];
-      if (!config) return null;
-
-      const Icon = config.icon;
-      let title = '';
-      let subtitle: string | null = null;
-
-      if (result.type === 'student') {
-        const studentData = result.data as Tables<'students'>;
-        title = [studentData.first_name, studentData.last_name].filter(Boolean).join(' ').trim();
-        // Fallback for students without names (e.g., some trial students)
-        if (!title) {
-          title = `Student ${studentData.id.slice(0, 8)}`;
-        }
-        subtitle = studentData.school || null;
-      } else if (result.type === 'staff') {
-        title = [result.data.first_name, result.data.last_name].filter(Boolean).join(' ').trim();
-        subtitle = result.data.role || null;
-      } else if (result.type === 'parent') {
-        title = [result.data.first_name, result.data.last_name].filter(Boolean).join(' ').trim();
-        subtitle = result.data.email || result.data.phone || null;
-      } else if (result.type === 'class') {
-        const classData = result.data;
-        const subject = classData.subject;
-        title = formatClassShortName(classData as any, subject);
-        subtitle = formatClassName(classData as any, subject);
-      } else if (result.type === 'subject') {
-        title = result.data.long_name || result.data.short_name || result.data.name || '';
-        subtitle = result.data.curriculum || null;
-      } else if (result.type === 'topic') {
-        title = result.data.name || '';
-        subtitle = result.data.subject?.long_name || result.data.subject?.short_name || result.data.subject?.name || null;
-      } else if (result.type === 'file') {
-        const fileData = result.data;
-        const subjectShortName = fileData.subject.short_name || '';
-        const fileCode = fileData.code ? ` ${fileData.code}` : '';
-        const topicName = fileData.topic.name || '';
-        title = `${subjectShortName}${fileCode} ${topicName}`.trim();
-        subtitle = fileData.file.filename;
+      if (item.type === 'entity') {
+        return (
+          <EntityItem
+            key={`entity-${item.result.type}-${item.result.id}`}
+            result={item.result}
+            isSelected={isSelected}
+            searchQuery={searchQuery}
+            onSelect={() => handleSelectItem(item)}
+            onMouseEnter={() => setSelectedIndex(index)}
+          />
+        );
       }
 
-      return (
-        <button
-          key={`entity-${result.type}-${result.id}`}
-          type="button"
-          className={baseClasses}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleSelectItem(item);
-          }}
-          onMouseEnter={() => setSelectedIndex(index)}
-        >
-          <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-          <div className="flex-1 min-w-0 text-left">
-            <div className="font-medium">{highlightText(title, searchQuery)}</div>
-            {subtitle && (
-              <div className="text-sm text-muted-foreground">{highlightText(subtitle, searchQuery)}</div>
-            )}
-          </div>
-          <Badge variant="outline" className="text-xs flex-shrink-0">
-            {config.label}
-          </Badge>
-        </button>
-      );
+      return null;
     },
-    [selectedIndex, searchQuery, handleSelectItem, highlightText]
+    [selectedIndex, searchQuery, handleSelectItem]
   );
-
-  // Calculate match quality score for an item (used to prioritize sections)
-  const calculateMatchScore = useCallback((item: CommandPaletteItem, query: string): number => {
-    if (!query.trim()) return 0;
-    
-    const queryLower = query.toLowerCase().trim();
-    
-    if (item.type === 'command') {
-      const titleMatch = item.title.toLowerCase();
-      if (titleMatch === queryLower) return 1000;
-      if (titleMatch.startsWith(queryLower)) return 900;
-      if (titleMatch.includes(queryLower)) return 800;
-      return 0;
-    }
-    
-    if (item.type === 'page') {
-      const titleMatch = item.title.toLowerCase();
-      if (titleMatch === queryLower) return 1000;
-      if (titleMatch.startsWith(queryLower)) return 900;
-      if (titleMatch.includes(queryLower)) return 800;
-      return 0;
-    }
-    
-    if (item.type === 'entity') {
-      const { result } = item;
-      let title = '';
-      let subtitle: string | null = null;
-      
-      if (result.type === 'student') {
-        const studentData = result.data as Tables<'students'>;
-        title = [studentData.first_name, studentData.last_name].filter(Boolean).join(' ').trim();
-        if (!title) title = `Student ${studentData.id.slice(0, 8)}`;
-        subtitle = studentData.school || null;
-      } else if (result.type === 'staff') {
-        title = [result.data.first_name, result.data.last_name].filter(Boolean).join(' ').trim();
-        subtitle = result.data.role || null;
-      } else if (result.type === 'parent') {
-        title = [result.data.first_name, result.data.last_name].filter(Boolean).join(' ').trim();
-        subtitle = result.data.email || result.data.phone || null;
-      } else if (result.type === 'class') {
-        const classData = result.data;
-        const subject = classData.subject;
-        title = formatClassShortName(classData as any, subject);
-        subtitle = formatClassName(classData as any, subject);
-      } else if (result.type === 'subject') {
-        title = result.data.long_name || result.data.short_name || result.data.name || '';
-        subtitle = result.data.curriculum || null;
-      } else if (result.type === 'topic') {
-        title = result.data.name || '';
-        subtitle = result.data.subject?.long_name || result.data.subject?.short_name || result.data.subject?.name || null;
-      } else if (result.type === 'file') {
-        const fileData = result.data;
-        const subjectShortName = fileData.subject.short_name || '';
-        const fileCode = fileData.code ? ` ${fileData.code}` : '';
-        const topicName = fileData.topic.name || '';
-        title = `${subjectShortName}${fileCode} ${topicName}`.trim();
-        subtitle = fileData.file.filename;
-      }
-      
-      const titleLower = title.toLowerCase();
-      const subtitleLower = subtitle?.toLowerCase() || '';
-      const combinedLower = `${titleLower} ${subtitleLower}`.trim();
-      
-      // Exact match in title (highest priority)
-      if (titleLower === queryLower) return 1000;
-      // Starts with query in title
-      if (titleLower.startsWith(queryLower)) return 900;
-      // Contains query in title
-      if (titleLower.includes(queryLower)) return 800;
-      // Exact match in combined (title + subtitle)
-      if (combinedLower === queryLower) return 700;
-      // Starts with query in combined
-      if (combinedLower.startsWith(queryLower)) return 600;
-      // Contains query in combined
-      if (combinedLower.includes(queryLower)) return 500;
-      // Contains query in subtitle only
-      if (subtitleLower.includes(queryLower)) return 300;
-      
-      return 0;
-    }
-    
-    return 0;
-  }, []);
-
-  // Group items by type for display, sorted by highest match score
-  // Optimization: Only calculate score for first item in each section since results are already sorted by relevance
-  const groupedItems = useMemo(() => {
-    const groups: Array<{ label: string; items: CommandPaletteItem[]; maxScore: number }> = [];
-    
-    const commandItems = filteredItems.filter((i) => i.type === 'command');
-    if (commandItems.length > 0) {
-      // Commands are already sorted, so first item has highest match
-      const maxScore = commandItems.length > 0 ? calculateMatchScore(commandItems[0], searchQuery) : 0;
-      groups.push({ label: 'Commands', items: commandItems, maxScore });
-    }
-    
-    const pageItems = filteredItems.filter((i) => i.type === 'page');
-    if (pageItems.length > 0) {
-      // Pages are already sorted, so first item has highest match
-      const maxScore = pageItems.length > 0 ? calculateMatchScore(pageItems[0], searchQuery) : 0;
-      groups.push({ label: 'Pages', items: pageItems, maxScore });
-    }
-    
-    // Group entities by type
-    const entityGroups: Record<string, CommandPaletteItem[]> = {};
-    filteredItems
-      .filter((i) => i.type === 'entity')
-      .forEach((item) => {
-        if (item.type === 'entity') {
-          const type = item.result.type;
-          if (!entityGroups[type]) entityGroups[type] = [];
-          entityGroups[type].push(item);
-        }
-      });
-    
-    Object.entries(entityGroups).forEach(([type, items]) => {
-      const configKey = ENTITY_TYPE_MAPPING[type] || type;
-      const config = entityTypes[configKey];
-      if (config) {
-        // Calculate score for first item only - results are already sorted by relevance from database
-        const maxScore = items.length > 0 ? calculateMatchScore(items[0], searchQuery) : 0;
-        groups.push({ label: config.label, items, maxScore });
-      }
-    });
-    
-    // Sort groups by maxScore (highest first), then by label for consistency
-    return groups.sort((a, b) => {
-      if (b.maxScore !== a.maxScore) {
-        return b.maxScore - a.maxScore;
-      }
-      return a.label.localeCompare(b.label);
-    });
-  }, [filteredItems, searchQuery, calculateMatchScore]);
 
   // Toggle filter (single select - clicking same filter deselects it)
   const toggleFilter = useCallback((filterType: FilterType) => {

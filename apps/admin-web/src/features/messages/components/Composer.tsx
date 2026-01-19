@@ -1,17 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
 import { getStudentClasses } from '../api/bulk';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useAvailableSenders, type Sender } from '../api/queries';
+import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import type { Tables, Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Tables } from '@altitutor/shared';
 
 interface Props {
   contactId: string | null;
@@ -36,35 +33,7 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
   }, [availableSenders, selectedSenderId]);
 
   // Fetch contact data to get student/parent info for variable replacement
-  const { data: contactData } = useQuery({
-    queryKey: contactId ? ['contact-for-template', contactId] : ['contact-for-template'],
-    queryFn: async () => {
-      if (!contactId) return null;
-      
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const { data, error } = await supabase
-        .from('contacts')
-        .select(`
-          id,
-          contact_type,
-          students (id, first_name, last_name),
-          parents (
-            id,
-            first_name,
-            last_name,
-            parents_students (
-              students (id, first_name, last_name)
-            )
-          )
-        `)
-        .eq('id', contactId)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!contactId,
-  });
+  const { data: contactData } = useContactForTemplate(contactId);
 
   // Auto-expand textarea as user types
   useEffect(() => {

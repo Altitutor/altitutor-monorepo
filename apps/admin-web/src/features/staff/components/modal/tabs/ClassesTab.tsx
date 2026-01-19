@@ -2,19 +2,14 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Plus, Pencil, X } from "lucide-react";
 import { classesApi } from '@/shared/api';
-import { formatSubjectDisplay } from '@/shared/utils';
 import { ViewClassModal, CalendarView } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
-import { getDayOfWeek } from '@/shared/utils/datetime';
-import { formatTime } from '@/shared/utils/datetime';
 import { useStaffClasses, type StaffClass } from '@/features/staff/hooks/useStaffClasses';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
 import { useStaffWithSubjectsById, staffKeys, useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -22,6 +17,7 @@ import { staffApi } from '@/features/staff/api/staff';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { getDayOfWeek } from '@/shared/utils/datetime';
 import { AssignStaffModal } from '@/features/enrollments';
 
 type ViewMode = 'table' | 'calendar';
@@ -73,8 +69,6 @@ export function ClassesTab({
   const staffSubjects = useMemo(() => (staffWithSubjects?.subjects || []) as Tables<'subjects'>[], [staffWithSubjects?.subjects]);
   
   const [assigningClasses, setAssigningClasses] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   
   // Subjects editing state
@@ -142,36 +136,8 @@ export function ClassesTab({
     setIsClassModalOpen(true);
   };
 
-  // Get available classes for assignment (not currently assigned)
-  const availableClasses = allClasses.filter(classData => 
-    !classes.some(staffClass => staffClass.class.id === classData.class.id)
-  );
-
-  // Filter available classes based on search query
-  const filteredAvailableClasses = availableClasses.filter(classData => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const subject = classData.subject ? formatSubjectDisplay(classData.subject) : '-';
-    const level = classData.class.level || '';
-    const day = getDayOfWeek(classData.class.day_of_week);
-    const time = `${formatTime(classData.class.start_time)} - ${formatTime(classData.class.end_time)}`;
-    
-    return (
-      subject.toLowerCase().includes(query) ||
-      level.toLowerCase().includes(query) ||
-      day.toLowerCase().includes(query) ||
-      time.toLowerCase().includes(query)
-    );
-  });
-
   
 
-  const getSubjectDisplay = (staffClass: StaffClass): string => {
-    if (staffClass.subject) {
-      return formatSubjectDisplay(staffClass.subject);
-    }
-    return '-';
-  };
 
   // Fetch initial subjects (all subjects since staff don't have curriculum/year level)
   useEffect(() => {

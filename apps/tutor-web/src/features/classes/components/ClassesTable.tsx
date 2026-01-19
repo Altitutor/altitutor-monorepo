@@ -22,6 +22,7 @@ import {
 import { useClasses } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
+import { filterClassesBySearch, filterClassesByDay, sortClassesByDayAndTime } from '@/shared/utils/tableSorting';
 // import { AddClassModal } from './AddClassModal'; // TODO: Tutors can't create classes - removed
 // import { EditClassModal } from './EditClassModal'; // TODO: Tutors can't edit classes - removed
 import { ViewClassModal } from './modal';
@@ -91,13 +92,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
 
-  // Helper function to convert time to minutes for sorting - moved before useMemo
-  const timeToMinutes = (timeString: string): number => {
-    if (!timeString) return 0;
-    const [hours, minutes] = timeString.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
-
   const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
     const subject = classSubjects[classItem.id];
     if (subject) {
@@ -123,34 +117,13 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     let result = [...classes];
     
     // Apply search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(cls => {
-        const subjectDisplay = getSubjectDisplay(cls).toLowerCase();
-        return subjectDisplay.includes(searchLower);
-      });
-    }
+    result = filterClassesBySearch(result, searchTerm, getSubjectDisplay);
     
     // Apply day filter (multi-select)
-    if (dayFilter.length > 0) {
-      result = result.filter(cls => dayFilter.includes(cls.day_of_week));
-    }
+    result = filterClassesByDay(result, dayFilter);
     
     // Default sorting: by day (Monday-Sunday), then by start time (earliest to latest)
-    result.sort((a, b) => {
-      // First sort by day (Monday=1, Tuesday=2, etc., Sunday=0 should be last)
-      const dayA = a.day_of_week === 0 ? 7 : a.day_of_week; // Move Sunday to end
-      const dayB = b.day_of_week === 0 ? 7 : b.day_of_week;
-      
-      if (dayA !== dayB) {
-        return dayA - dayB;
-      }
-      
-      // If same day, sort by start time
-      const timeA = timeToMinutes(a.start_time);
-      const timeB = timeToMinutes(b.start_time);
-      return timeA - timeB;
-    });
+    result = sortClassesByDayAndTime(result);
     
     return result;
   }, [classes, searchTerm, dayFilter, classSubjects]);

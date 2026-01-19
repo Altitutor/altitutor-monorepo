@@ -190,7 +190,7 @@ export function UnpaidInvoicesTable({
       items={items}
       isLoading={isLoading}
       columns={['Date', 'Student', 'Amount Due', 'Status']}
-      renderRow={(item, index) => (
+      renderRow={(item, _index) => (
         <TableRow key={item.id}>
           <TableCell>
             {format(new Date(item.invoice_date), 'MMM d, yyyy')}
@@ -235,11 +235,11 @@ export function UnloggedSessionsTable({
       items={items}
       isLoading={isLoading}
       columns={['Date', 'Subject', 'Tutors']}
-      renderRow={(item, index) => {
+      renderRow={(item, _index) => {
         const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
         const { style, textColorClass } = getSubjectColorStyle(subject);
         const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-
+        
         return (
           <TableRow key={item.session_id}>
             <TableCell>
@@ -298,11 +298,11 @@ export function UnassignedClassesTable({
       items={items}
       isLoading={isLoading}
       columns={['Subject', 'Day', 'Time', 'Students']}
-      renderRow={(item, index) => {
+      renderRow={(item, _index) => {
         const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
         const { style, textColorClass } = getSubjectColorStyle(subject);
         const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-
+        
         return (
           <TableRow key={item.class_id}>
             <TableCell>
@@ -345,7 +345,7 @@ export function UnrepliedMessagesTable({
       items={items}
       isLoading={isLoading}
       columns={['Last Message', 'Contact', 'Preview']}
-      renderRow={(item, index) => {
+      renderRow={(item, _index) => {
         const hoursAgo = item.hours_since_last_message
           ? Math.floor(item.hours_since_last_message)
           : null;
@@ -384,7 +384,7 @@ export function FailedDeliveryMessagesTable({
       items={items}
       isLoading={isLoading}
       columns={['Failed At', 'Contact', 'Status', 'Error']}
-      renderRow={(item, index) => {
+      renderRow={(item, _index) => {
         const hoursAgo = item.hours_since_failure
           ? Math.floor(item.hours_since_failure)
           : null;
@@ -426,7 +426,7 @@ export function StudentsWithoutPaymentMethodTable({
       items={items}
       isLoading={isLoading}
       columns={['Student', 'Email', 'Status']}
-      renderRow={(item, index) => (
+      renderRow={(item, _index) => (
         <TableRow key={item.student_id}>
           <TableCell className="font-medium">
             {item.first_name} {item.last_name}
@@ -466,7 +466,7 @@ export function StudentsWithoutClassesTable({
       items={items}
       isLoading={isLoading}
       columns={['Student', 'Subject']}
-      renderRow={(item, index) => {
+      renderRow={(item, _index) => {
         const subject = subjectMap.get(item.subject_id) || {
           id: item.subject_id,
           name: item.subject_name,

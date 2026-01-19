@@ -13,4 +13,7 @@ export { Breadcrumb } from './Breadcrumb';
 export type { BreadcrumbItem } from './Breadcrumb';
 
 // Logout confirmation modal
-export { LogoutConfirmationModal } from './logout-confirmation-modal'; 
+export { LogoutConfirmationModal } from './logout-confirmation-modal';
+
+// Truncated text component
+export { TruncatedText } from './TruncatedText'; 

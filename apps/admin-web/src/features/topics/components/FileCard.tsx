@@ -45,7 +45,7 @@ export function FileCard({
   fileType,
   filename,
   storagePath,
-  mimeType,
+  mimeType: _mimeType,
   topicFileId,
   currentTopicId: _currentTopicId,
   currentSubjectId: _currentSubjectId,

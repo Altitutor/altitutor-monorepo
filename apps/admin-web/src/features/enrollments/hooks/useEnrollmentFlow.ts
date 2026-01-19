@@ -23,9 +23,9 @@ interface UseEnrollmentFlowProps {
 }
 
 export function useEnrollmentFlow({
-  isOpen,
+  isOpen: _isOpen,
   context,
-  classSubject,
+  classSubject: _classSubject,
   onEnroll,
   currentStaffId,
   student,

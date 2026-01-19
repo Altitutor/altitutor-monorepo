@@ -23,7 +23,7 @@ export function ChangeClassModal({
   oldClass,
   oldClassSubject,
   oldClassStaff = [],
-  onFetchClasses,
+  onFetchClasses: _onFetchClasses,
   onChange,
   currentStaffId,
 }: ChangeClassModalProps) {

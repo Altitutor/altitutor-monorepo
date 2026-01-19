@@ -9,11 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { Search, CreditCard } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { SkeletonTable } from '@altitutor/ui';
 import type { StudentWithStripe } from '../api/stripe-sync';
 import { StudentStripeSyncModal } from './StudentStripeSyncModal';
@@ -29,7 +28,6 @@ interface StripeSyncTableProps {
 export function StripeSyncTable({
   students,
   isLoading,
-  isFetching,
   onRefresh,
   initialStudentId,
 }: StripeSyncTableProps) {

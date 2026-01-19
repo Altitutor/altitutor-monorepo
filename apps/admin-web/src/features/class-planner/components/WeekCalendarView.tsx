@@ -64,7 +64,7 @@ export function WeekCalendarView({ plan, planId, selectedSubjectId, dragSubjectI
       grouped[day.value] = plan.slots.filter((slot) => slot.day_of_week === day.value);
     });
     return grouped;
-  }, [plan.slots]);
+  }, [plan]);
 
   // Group classes by day and slot (using filtered classes)
   const classesByDaySlot = useMemo(() => {
@@ -220,7 +220,7 @@ export function WeekCalendarView({ plan, planId, selectedSubjectId, dragSubjectI
     );
   };
 
-  const handleSlotDragOver = (e: React.DragEvent, dayOfWeek: number, startTime: string, endTime: string) => {
+  const handleSlotDragOver = (e: React.DragEvent, _dayOfWeek: number, _startTime: string, _endTime: string) => {
     e.preventDefault();
     const dragData = e.dataTransfer.getData('application/json');
     if (!dragData) return;

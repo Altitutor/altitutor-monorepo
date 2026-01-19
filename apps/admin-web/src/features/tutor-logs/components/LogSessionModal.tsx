@@ -1,17 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
-import type { TutorLogFormData } from '../types';
-import { useCreateTutorLog } from '../hooks';
+import { useLogSessionFlow } from '../hooks/useLogSessionFlow';
+import { getLogSessionStepTitle } from '../utils/logSessionHelpers';
+import { getAttendedStudentIds } from '../utils/logSessionHelpers';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Import step components
 import { Step0StaffSelector } from './steps/Step0StaffSelector';
@@ -34,226 +30,52 @@ type LogSessionModalProps = {
   initialStaffId?: string;
 };
 
-type SubmissionState = 'idle' | 'submitting' | 'success' | 'error';
+export function LogSessionModal({
+  isOpen,
+  onClose,
+  currentStaffId,
+  adminMode = false,
+  initialSessionId,
+  initialStaffId,
+}: LogSessionModalProps) {
+  const {
+    // State
+    currentStep,
+    selectedStaffId,
+    formData,
+    submissionState,
+    submissionError,
+    totalSteps,
 
-export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = false, initialSessionId, initialStaffId }: LogSessionModalProps) {
-  // Calculate initial step: if both initialSessionId and initialStaffId are provided in admin mode, start at step 2
-  const initialStep = adminMode && initialSessionId && initialStaffId ? 2 : 0;
-  
-  const [currentStep, setCurrentStep] = useState(initialStep);
-  const [selectedStaffId, setSelectedStaffId] = useState<string>(initialStaffId || currentStaffId);
-  const [formData, setFormData] = useState<Partial<TutorLogFormData>>(initialSessionId ? { sessionId: initialSessionId } : {});
-  const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
-  const [submissionError, setSubmissionError] = useState<string | null>(null);
-  const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
-  const [selectedSession, setSelectedSession] = useState<Tables<'sessions'> | null>(null);
-  const [sessionClassData, setSessionClassData] = useState<Tables<'classes'> | null>(null);
-  const [sessionSubject, setSessionSubject] = useState<Tables<'subjects'> | null>(null);
-  const [sessionStaff, setSessionStaff] = useState<Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>>([]);
-  const [sessionStudents, setSessionStudents] = useState<Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>>([]);
+    // Data
+    selectedStaff,
+    selectedSession,
+    sessionClassData,
+    sessionSubject,
+    sessionStaff,
+    sessionStudents,
 
-  const createMutation = useCreateTutorLog();
-
-  // Fetch selected staff data
-  useEffect(() => {
-    const fetchStaff = async () => {
-      if (!selectedStaffId) return;
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const { data } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('id', selectedStaffId)
-        .single();
-      setSelectedStaff(data || null);
-    };
-    fetchStaff();
-  }, [selectedStaffId]);
-
-  // Fetch selected session data
-  useEffect(() => {
-    const fetchSession = async () => {
-      if (!formData.sessionId) {
-        setSelectedSession(null);
-        setSessionClassData(null);
-        setSessionSubject(null);
-        setSessionStaff([]);
-        setSessionStudents([]);
-        return;
-      }
-
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      
-      try {
-        // Get session with class and subject
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('sessions')
-          .select(`
-            *,
-            class:classes(
-              *,
-              subject:subjects(*)
-            )
-          `)
-          .eq('id', formData.sessionId)
-          .single();
-
-        if (sessionError) {
-          if (sessionError.code === 'PGRST116') {
-            setSelectedSession(null);
-            setSessionClassData(null);
-            setSessionSubject(null);
-            return;
-          }
-          throw sessionError;
-        }
-
-        const session = sessionData as any;
-        setSelectedSession(session as Tables<'sessions'>);
-        setSessionClassData(session.class || null);
-        setSessionSubject(session.class?.subject || null);
-
-        // Get session staff
-        const { data: staffData, error: staffError } = await supabase
-          .from('sessions_staff')
-          .select(`
-            planned_absence,
-            staff:staff!sessions_staff_staff_id_fkey(*)
-          `)
-          .eq('session_id', formData.sessionId);
-
-        if (!staffError && staffData) {
-          const staff = staffData.map((row: any) => ({
-            ...row.staff,
-            planned_absence: row.planned_absence,
-          }));
-          setSessionStaff(staff);
-        }
-
-        // Get session students
-        const { data: studentsData, error: studentsError } = await supabase
-          .from('sessions_students')
-          .select(`
-            id,
-            planned_absence,
-            is_extra,
-            student:students(*)
-          `)
-          .eq('session_id', formData.sessionId);
-
-        if (!studentsError && studentsData) {
-          const students = studentsData.map((row: any) => ({
-            ...row.student,
-            planned_absence: row.planned_absence,
-            is_extra: row.is_extra,
-            sessions_students_id: row.id,
-          }));
-          setSessionStudents(students);
-        }
-      } catch (error) {
-        console.error('Error fetching session data:', error);
-        setSelectedSession(null);
-        setSessionClassData(null);
-        setSessionSubject(null);
-        setSessionStaff([]);
-        setSessionStudents([]);
-      }
-    };
-
-    fetchSession();
-  }, [formData.sessionId]);
-
-  // Initialize form data when modal opens with initial values
-  useEffect(() => {
-    if (isOpen) {
-      // Set initial values
-      if (initialSessionId) {
-        setFormData((prev) => ({ ...prev, sessionId: initialSessionId }));
-      }
-      if (initialStaffId) {
-        setSelectedStaffId(initialStaffId);
-      }
-      // Set the step based on what's pre-selected
-      const targetStep = adminMode && initialSessionId && initialStaffId ? 2 : 0;
-      setCurrentStep(targetStep);
-    }
-  }, [isOpen, initialSessionId, initialStaffId, adminMode]);
-
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentStep(0);
-      setSelectedStaffId(initialStaffId || currentStaffId);
-      setFormData(initialSessionId ? { sessionId: initialSessionId } : {});
-      setSubmissionState('idle');
-      setSubmissionError(null);
-      setSelectedSession(null);
-      setSessionClassData(null);
-      setSessionSubject(null);
-      setSessionStaff([]);
-      setSessionStudents([]);
-    }
-  }, [isOpen, currentStaffId, initialSessionId, initialStaffId]);
-
-  const actualTotalSteps = adminMode ? 10 : 9;
-
-  const handleNext = () => {
-    if (currentStep < actualTotalSteps - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!formData.sessionId) return;
-
-    const submitPayload = {
-      data: formData as TutorLogFormData,
-      createdBy: selectedStaffId,
-    };
-
-    setSubmissionState('submitting');
-    setSubmissionError(null);
-    try {
-      await createMutation.mutateAsync(submitPayload);
-      setSubmissionState('success');
-    } catch (error) {
-      console.error('❌ [LogSessionModal] Failed to create tutor log:', error);
-      setSubmissionState('error');
-      setSubmissionError(error instanceof Error ? error.message : 'Failed to submit log. Please try again.');
-    }
-  };
-
-  const handleClose = () => {
-    if (submissionState === 'success') {
-      onClose();
-    }
-  };
-
-  const updateFormData = (updates: Partial<TutorLogFormData>) => {
-    setFormData((prev) => ({ ...prev, ...updates }));
-  };
+    // Actions
+    setSelectedStaffId,
+    updateFormData,
+    handleNext,
+    handlePrevious,
+    handleSubmit,
+    handleClose,
+    handleTryAgain,
+    handleAddStaffToSession,
+    canGoNext,
+  } = useLogSessionFlow({
+    isOpen,
+    onClose,
+    currentStaffId,
+    adminMode,
+    initialSessionId,
+    initialStaffId,
+  });
 
   const getStepTitle = () => {
-    if (adminMode && currentStep === 0) return 'Select Staff Member';
-    const stepIndex = adminMode ? currentStep - 1 : currentStep;
-    
-    const titles = [
-      'Select Session',
-      'Staff Attendance',
-      'Student Attendance',
-      'Topics',
-      'Topic Students',
-      'Files',
-      'File Students',
-      'Notes',
-      'Confirmation',
-    ];
-    return titles[stepIndex] || 'Log Session';
+    return getLogSessionStepTitle(currentStep, adminMode);
   };
 
   const renderStep = () => {
@@ -312,9 +134,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
         <Step0StaffSelector
           title={getStepTitle()}
           selectedStaffId={selectedStaffId || undefined}
-          onSelectStaff={(staffId) => {
-            setSelectedStaffId(staffId);
-          }}
+          onSelectStaff={setSelectedStaffId}
         />
       );
     }
@@ -339,17 +159,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
             currentStaffId={selectedStaffId}
             staffAttendance={formData.staffAttendance || []}
             onUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
-            onAddStaffToSession={async (staffId: string) => {
-              const supabase = getSupabaseClient() as SupabaseClient<Database>;
-              const { error } = await supabase
-                .from('sessions_staff')
-                .insert({
-                  session_id: formData.sessionId!,
-                  staff_id: staffId,
-                  planned_absence: false,
-                });
-              if (error) throw error;
-            }}
+            onAddStaffToSession={handleAddStaffToSession}
           />
         );
       case 2:
@@ -375,9 +185,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
           <Step5TopicStudents
             title={getStepTitle()}
             topics={formData.topics || []}
-            attendedStudentIds={(formData.studentAttendance || [])
-              .filter((sa) => sa.attended)
-              .map((sa) => sa.studentId)}
+            attendedStudentIds={getAttendedStudentIds(formData)}
             onUpdate={(topics) => updateFormData({ topics })}
           />
         );
@@ -419,37 +227,6 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
     }
   };
 
-  const canGoNext = () => {
-    if (adminMode && currentStep === 0) return !!selectedStaffId;
-    const stepIndex = adminMode ? currentStep - 1 : currentStep;
-
-    switch (stepIndex) {
-      case 0:
-        return !!formData.sessionId;
-      case 1:
-        return (formData.staffAttendance || []).length > 0;
-      case 2:
-        // Allow proceeding if there are students OR if session type is ADMIN_SHIFT
-        const hasStudents = (formData.studentAttendance || []).length > 0;
-        const isAdminShift = selectedSession?.type === 'ADMIN_SHIFT';
-        return hasStudents || isAdminShift;
-      case 3:
-        return true; // Allow proceeding with no topics selected
-      case 4:
-        return true; // Can proceed even with no student assignments
-      case 5:
-        return true; // Allow proceeding with no files selected
-      case 6:
-        return true; // Allow proceeding with no file assignments
-      case 7:
-        return true; // Notes step
-      case 8:
-        return true; // Confirmation step - always allow submission
-      default:
-        return false;
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
@@ -458,7 +235,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
             <div className="flex-1">
               <DialogTitle>Log Session</DialogTitle>
               <DialogDescription className="sr-only">
-                Tutor log form step {currentStep + 1} of {actualTotalSteps}
+                Tutor log form step {currentStep + 1} of {totalSteps}
               </DialogDescription>
               {(selectedStaff || selectedSession) && (
                 <div className="mt-3 flex items-center gap-3 flex-wrap">
@@ -507,7 +284,7 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
             <>
               <Button
                 variant="outline"
-                onClick={() => setSubmissionState('idle')}
+                onClick={handleTryAgain}
               >
                 Try Again
               </Button>
@@ -526,15 +303,15 @@ export function LogSessionModal({ isOpen, onClose, currentStaffId, adminMode = f
                 Previous
               </Button>
 
-              {currentStep < actualTotalSteps - 1 ? (
-                <Button onClick={handleNext} disabled={!canGoNext()}>
+              {currentStep < totalSteps - 1 ? (
+                <Button onClick={handleNext} disabled={!canGoNext}>
                   Next
                   <ChevronRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
                 <Button
                   onClick={handleSubmit}
-                  disabled={submissionState === 'submitting' || !canGoNext()}
+                  disabled={submissionState === 'submitting' || !canGoNext}
                 >
                   {submissionState === 'submitting' ? 'Submitting...' : 'Submit Log'}
                 </Button>

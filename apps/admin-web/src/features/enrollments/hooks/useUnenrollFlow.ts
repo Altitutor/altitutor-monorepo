@@ -22,7 +22,7 @@ interface UseUnenrollFlowProps {
 }
 
 export function useUnenrollFlow({
-  isOpen,
+  isOpen: _isOpen,
   student,
   classData,
   unenrollmentDate,

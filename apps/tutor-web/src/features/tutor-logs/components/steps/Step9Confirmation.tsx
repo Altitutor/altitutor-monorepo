@@ -17,16 +17,26 @@ type Step9ConfirmationProps = {
   isSubmitting: boolean;
 };
 
+type SessionDisplay = {
+  id: string;
+  start_at: string | null;
+  end_at: string | null;
+  class: {
+    subject: {
+      name: string | null;
+    };
+  };
+};
+
 export function Step9Confirmation({
   formData,
-  onSubmit,
-  isSubmitting,
+  onSubmit: _onSubmit,
+  isSubmitting: _isSubmitting,
 }: Step9ConfirmationProps) {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<SessionDisplay | null>(null);
   const [studentsMap, setStudentsMap] = useState<Map<string, Tables<'students'>>>(new Map());
   const [staffMap, setStaffMap] = useState<Map<string, Tables<'staff'>>>(new Map());
   const [topicsMap, setTopicsMap] = useState<Map<string, Tables<'topics'>>>(new Map());
-  const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
   const [topicFilesMap, setTopicFilesMap] = useState<Map<string, Tables<'topics_files'>>>(new Map());
 
   useEffect(() => {
@@ -42,7 +52,7 @@ export function Step9Confirmation({
         .eq('session_id', formData.sessionId)
         .maybeSingle();
       
-      if (sessionDetail) {
+      if (sessionDetail && sessionDetail.session_id) {
         // Transform session detail to match expected format
         setSession({
           id: sessionDetail.session_id,
@@ -73,10 +83,16 @@ export function Step9Confirmation({
       if (staffIds.length > 0 && sessionDetail?.staff) {
         // Extract staff from session detail
         const staffArray = Array.isArray(sessionDetail.staff) ? sessionDetail.staff : [];
+        type StaffRecord = {
+          id: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          role?: string | null;
+        };
         const staffMap = new Map(
-          staffArray
-            .filter((s: any): s is Tables<'staff'> => s.id != null)
-            .map((s) => [s.id, s])
+          (staffArray as StaffRecord[])
+            .filter((s): s is StaffRecord & { id: string } => s.id != null)
+            .map((s) => [s.id, s as unknown as Tables<'staff'>])
         );
         setStaffMap(staffMap);
       } else if (staffIds.length > 0) {
@@ -99,11 +115,6 @@ export function Step9Confirmation({
         const validTopics = topics.filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null && t.index != null);
         setTopicsMap(new Map(validTopics.filter((t) => topicIds.includes(t.id)).map((t) => [t.id, t])));
         
-        // Get all topics for the session's subject to derive codes
-        if (sessionDetail?.subject_id) {
-          const subjectTopics = await topicsApi.getTopicsBySubject(sessionDetail.subject_id);
-          setAllTopics(subjectTopics.filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null && t.index != null));
-        }
       }
 
       // Get topic files from vtutor_topics_files view
@@ -262,8 +273,6 @@ export function Step9Confirmation({
               const topicData = topicsMap.get(topic.topicId);
               const files = (formData.topicFiles || []).filter((tf) => tf.topicId === topic.topicId);
               if (files.length === 0) return null;
-              
-              const topicCode = topicData?.code || '';
               
               return (
                 <div key={topic.topicId} className="space-y-2">

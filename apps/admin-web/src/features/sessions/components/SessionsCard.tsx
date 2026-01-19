@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
+import { formatTime, formatDate } from '@/shared/utils/datetime';
 import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
@@ -73,7 +73,7 @@ export function SessionsCard({
   // 2. Labels removed - never show "Tutor:" or "Student:" labels
   
   // 3. Subtitle always shown but truncated (never disappears)
-  const showSubtitle = true; // Always show subtitle, just truncate it
+  // Always show subtitle, just truncate it
   
   // 4. Names truncate to initials: width < 150px OR too many people
   const showFullNames = !forceCompact && actualWidth >= 150 && students.length <= 4 && staff.length <= 3;
@@ -86,7 +86,6 @@ export function SessionsCard({
     : subject 
       ? formatSubjectDisplay(subject) 
       : formatSessionType(session.type);
-  const day = classData ? getDayOfWeek(classData.day_of_week) : '';
   const sessionDate = session.start_at ? new Date(session.start_at) : null;
   const dateDisplay = sessionDate ? formatDate(sessionDate) : '';
   const timeRange = session.start_at && session.end_at

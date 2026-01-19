@@ -10,7 +10,7 @@ import {
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
-import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials } from '../utils/taskUtils';
+import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
 import { Calendar } from 'lucide-react';
 import { useUpdateTask } from '../api/mutations';
 
@@ -144,9 +144,9 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
         )}
 
         {/* Estimate */}
-        {task.estimate && (
+        {task.estimate && getEstimateLabel(task.estimate) && (
           <Badge variant="outline" className="text-xs">
-            {task.estimate} pts
+            {getEstimateLabel(task.estimate)}
           </Badge>
         )}
 

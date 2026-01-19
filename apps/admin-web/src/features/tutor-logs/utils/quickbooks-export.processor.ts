@@ -5,7 +5,6 @@
  */
 
 import type { Database } from '@altitutor/shared';
-import type { Tables } from '@altitutor/shared';
 import {
   determinePayCategory,
   generateEmployeeExternalId,
@@ -76,7 +75,7 @@ export function processTutorLogsForExport(
   // Process each staff member's entries
   const allEntries: QuickBooksEntry[] = [];
   
-  for (const [staffId, logs] of entriesByStaff.entries()) {
+  for (const [, logs] of entriesByStaff.entries()) {
     const staffEntries = processStaffEntries(logs);
     allEntries.push(...staffEntries);
   }

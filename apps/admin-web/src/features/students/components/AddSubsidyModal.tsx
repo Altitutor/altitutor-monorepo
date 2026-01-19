@@ -23,7 +23,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createSubsidy, type CreateSubsidyInput } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { subjectsApi } from '@/features/subjects/api/subjects';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
 
@@ -43,29 +42,8 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
   );
   const [effectiveUntil, setEffectiveUntil] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Load subjects when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setLoadingSubjects(true);
-      subjectsApi
-        .getAllSubjects()
-        .then(setAllSubjects)
-        .catch((error) => {
-          toast({
-            title: 'Error',
-            description: 'Failed to load subjects',
-            variant: 'destructive',
-          });
-          console.error(error);
-        })
-        .finally(() => setLoadingSubjects(false));
-    }
-  }, [isOpen, toast]);
 
   // Reset form when modal closes
   useEffect(() => {

@@ -2,6 +2,10 @@
 // deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import {
+  parseFormEncoded,
+  verifyTwilioSignature as verifySignature,
+} from './shared/security.ts';
 
 function parseFormEncoded(body: string): Record<string, string> {
   const params = new URLSearchParams(body);
@@ -10,58 +14,23 @@ function parseFormEncoded(body: string): Record<string, string> {
   return obj;
 }
 
-function timingSafeEqual(a: string, b: string) {
-  const aBytes = new TextEncoder().encode(a);
-  const bBytes = new TextEncoder().encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  let result = 0;
-  for (let i = 0; i < aBytes.length; i++) result |= aBytes[i] ^ bBytes[i];
-  return result === 0;
-}
-
-async function verifyTwilioSignature(req: Request, bodyObj: Record<string, string>, rawBody: string): Promise<{ ok: boolean; provided?: string; url?: string; tried?: string[] }> {
+async function verifyTwilioSignature(
+  req: Request,
+  bodyObj: Record<string, string>,
+  rawBody: string
+): Promise<{ ok: boolean; provided?: string; url?: string; tried?: string[] }> {
   const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const verifyEnabled = (Deno.env.get('TWILIO_VERIFY_SIGNATURE') ?? 'true') === 'true';
-  if (!authToken || !verifyEnabled) return { ok: true };
-  const signature = req.headers.get('X-Twilio-Signature') || '';
-
-  // Build public URL (proxy-safe)
-  const observed = new URL(req.url);
-  const hdrProto = req.headers.get('x-forwarded-proto') || observed.protocol.replace(':','') || 'https';
-  const hdrHost = req.headers.get('x-forwarded-host') || observed.host;
-  let path = observed.pathname;
-  if (!path.startsWith('/functions/v1/')) path = `/functions/v1${path}`;
-  const override = Deno.env.get('TWILIO_PUBLIC_URL_INBOUND');
-  const url = override || `${hdrProto}://${hdrHost}${path}`;
-
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(authToken), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
-
-  const candidates: string[] = [];
-
-  // Per Twilio: canonical string = URL + each POST parameter name and value concatenated, parameters sorted by name.
-  const keys1 = Object.keys(bodyObj).sort();
-  const data1 = url + keys1.map((k) => `${k}${bodyObj[k] ?? ''}`).join('');
-  candidates.push(data1);
-
-  // Raw form values (no decoding) sorted by decoded key names, concatenating key+rawValue
-  const rawPairs = rawBody.split('&').map(p => p.split('='));
-  const decodedForSort = rawPairs.map(([k, v]) => ({ key: decodeURIComponent(k || ''), rawV: (v ?? '') }));
-  decodedForSort.sort((a,b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
-  const data2 = url + decodedForSort.map((p) => `${p.key}${p.rawV}`).join('');
-  candidates.push(data2);
-
-  // Raw values with '+' treated as space, concatenating key+value
-  const data3 = url + decodedForSort.map((p) => `${p.key}${p.rawV.replace(/\+/g, ' ')}`).join('');
-  candidates.push(data3);
-
-  for (const data of candidates) {
-    const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
-    const expected = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
-    if (timingSafeEqual(signature, expected)) {
-      return { ok: true, provided: signature, url };
-    }
-  }
-  return { ok: false, provided: signature, url, tried: candidates.map((d) => `len:${d.length}`) };
+  const verifyEnabled =
+    (Deno.env.get('TWILIO_VERIFY_SIGNATURE') ?? 'true') === 'true';
+  const publicUrlOverride = Deno.env.get('TWILIO_PUBLIC_URL_INBOUND');
+  return await verifySignature(
+    req,
+    bodyObj,
+    rawBody,
+    authToken,
+    verifyEnabled,
+    publicUrlOverride
+  );
 }
 
 Deno.serve(async (req: Request) => {

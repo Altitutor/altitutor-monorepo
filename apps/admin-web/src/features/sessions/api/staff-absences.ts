@@ -9,6 +9,29 @@ import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// Type definitions for joined query results
+type SessionsStaffWithSessionRow = Tables<'sessions_staff'> & {
+  session: (Tables<'sessions'> & {
+    class: (Tables<'classes'> & {
+      subject: Tables<'subjects'> | null;
+    }) | null;
+  }) | null;
+};
+
+type ClassesStaffWithStaffRow = {
+  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone_number' | 'role' | 'status'> | null;
+};
+
+type StaffSubjectsWithStaffRow = {
+  staff_id: string;
+  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone_number' | 'role' | 'status'> | null;
+};
+
+type StaffSubjectsWithSubjectRow = {
+  staff_id: string;
+  subject: Tables<'subjects'> | null;
+};
+
 /**
  * Staff Absences API client for logging staff absences
  */
@@ -104,14 +127,15 @@ export const staffAbsencesApi = {
       if (error) throw error;
 
       // Transform, filter by date range, and sort the data client-side
-      const sessions: StaffSession[] = (data || [])
-        .filter((row: any) => row.session) // Filter out any null sessions
-        .map((row: any) => {
-          const session = row.session as Tables<'sessions'>;
+      const typedData = (data || []) as SessionsStaffWithSessionRow[];
+      const sessions: StaffSession[] = typedData
+        .filter((row): row is SessionsStaffWithSessionRow & { session: NonNullable<SessionsStaffWithSessionRow['session']> } => row.session !== null)
+        .map((row) => {
+          const session = row.session;
           return {
             ...session,
-            class: row.session.class || null,
-            subject: row.session.class?.subject || null,
+            class: session.class || null,
+            subject: session.class?.subject || null,
             sessionsStaffId: row.id,
           } as StaffSession;
         })
@@ -192,8 +216,11 @@ export const staffAbsencesApi = {
 
       if (classesError) throw classesError;
 
+      const typedStaffFromClasses = (staffFromClasses || []) as ClassesStaffWithStaffRow[];
       const staffIdsFromClasses = new Set(
-        (staffFromClasses || []).map((cs: any) => cs.staff.id)
+        typedStaffFromClasses
+          .map((cs) => cs.staff?.id)
+          .filter((id): id is string => id !== undefined && id !== null)
       );
 
       // Query staff from staff_subjects → subject_id
@@ -216,8 +243,11 @@ export const staffAbsencesApi = {
 
       if (subjectsError) throw subjectsError;
 
+      const typedStaffFromSubjects = (staffFromSubjects || []) as StaffSubjectsWithStaffRow[];
       const staffIdsFromSubjects = new Set(
-        (staffFromSubjects || []).map((ss: any) => ss.staff.id)
+        typedStaffFromSubjects
+          .map((ss) => ss.staff?.id)
+          .filter((id): id is string => id !== undefined && id !== null)
       );
 
       // Combine both sets of staff IDs
@@ -257,8 +287,9 @@ export const staffAbsencesApi = {
       if (staffSubjectsError) throw staffSubjectsError;
 
       // Build subjects map
+      const typedStaffSubjectsData = (staffSubjectsData || []) as StaffSubjectsWithSubjectRow[];
       const subjectsMap = new Map<string, Tables<'subjects'>[]>();
-      (staffSubjectsData || []).forEach((row: any) => {
+      typedStaffSubjectsData.forEach((row) => {
         if (!subjectsMap.has(row.staff_id)) {
           subjectsMap.set(row.staff_id, []);
         }

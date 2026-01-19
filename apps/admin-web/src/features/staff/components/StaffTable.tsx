@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, memo, useMemo, useEffect } from 'react';
+import { useState, useCallback, memo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
@@ -18,7 +18,6 @@ import { ViewClassModal } from '@/features/classes';
 import { StaffTableFilters } from './StaffTableFilters';
 import { StaffTableHeader } from './StaffTableHeader';
 import { StaffTableRow } from './StaffTableRow';
-import { formatClassShortName, formatClassName } from '@/shared/utils';
 
 interface StaffTableProps {
   onRefresh?: number;
@@ -119,10 +118,6 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const handleStaffUpdated = useCallback(() => {
     refetch();
   }, [refetch]);
-
-  const _handleAddStaffClick = useCallback(() => {
-    setIsAddModalOpen(true);
-  }, []);
 
   const handleClassClick = useCallback((classId: string) => {
     setSelectedClassId(classId);

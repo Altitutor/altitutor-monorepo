@@ -61,7 +61,7 @@ export function ClassCard({
   cardWidth
 }: ClassCardProps) {
   // Measure actual card dimensions using ResizeObserver
-  const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
+  const [, cardSize] = useElementSize<HTMLDivElement>();
   
   // Use actual measured size if available, otherwise fall back to props
   const actualWidth = cardSize.width > 0 ? cardSize.width : (cardWidth ?? Infinity);
@@ -85,7 +85,6 @@ export function ClassCard({
   // 2. Labels removed - never show "Tutor:" or "Student:" labels
   
   // 3. Subtitle always shown but truncated (never disappears)
-  const showSubtitle = true; // Always show subtitle, just truncate it
   
   // 4. Names truncate to initials: width < 150px OR too many people
   const showFullNames = !forceCompact && actualWidth >= 150 && students.length <= 4 && staff.length <= 3;
@@ -99,7 +98,6 @@ export function ClassCard({
       : '-';
   const day = getDayOfWeek(classData.day_of_week);
   const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
-  const staffNames = staff.map(s => `${s.first_name} ${s.last_name}`).join(', ');
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
   const hasMenuActions = !hideActions && (onChangeClass || onUnenroll);
   

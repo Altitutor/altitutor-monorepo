@@ -40,7 +40,7 @@ import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
 import { getFileTypeLabel } from '../utils/file-type-icons';
 import { FilePreviewModal } from './FilePreviewModal';
-import { subjectsApi } from '@/features/subjects/api/subjects';
+import { useSubjectSearch } from '@/features/subjects/hooks';
 
 interface TopicsTableProps {
   onRefresh?: number;
@@ -108,8 +108,6 @@ export function TopicsTable({
   // Subject filter popover state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
-  const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
-  const [isSubjectSearching, setIsSubjectSearching] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -122,48 +120,16 @@ export function TopicsTable({
       });
     }, 300);
     return () => clearTimeout(timeoutId);
+    // updateUrlParams is stable (uses searchParams which is from useSearchParams)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
-  // Debounced subject search
-  useEffect(() => {
-    if (!isSubjectPopoverOpen) {
-      setSubjectSearchQuery('');
-      setSubjectSearchResults([]);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      if (subjectSearchQuery.trim().length === 0) {
-        setIsSubjectSearching(true);
-        try {
-          const { subjects } = await subjectsApi.list({ limit: 100, offset: 0 });
-          setSubjectSearchResults(subjects);
-        } catch (error) {
-          console.error('Error fetching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSubjectSearching(false);
-        }
-      } else {
-        setIsSubjectSearching(true);
-        try {
-          const { subjects } = await subjectsApi.list({ 
-            search: subjectSearchQuery.trim(), 
-            limit: 100, 
-            offset: 0 
-          });
-          setSubjectSearchResults(subjects);
-        } catch (error) {
-          console.error('Error searching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSubjectSearching(false);
-        }
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen]);
+  // Use React Query hook for debounced subject search
+  const { subjects: subjectSearchResults, isLoading: isSubjectSearching } = useSubjectSearch({
+    searchQuery: subjectSearchQuery,
+    isOpen: isSubjectPopoverOpen,
+    limit: 100,
+  });
 
   // React Query hook for data fetching with server-side filtering
   // If subjectId prop is provided, always use it; otherwise use subjectFilters from URL
@@ -607,7 +573,6 @@ function TopicRow({
                 const fileCode = tf.code || '';
                 const typeLabel = getFileTypeLabel(tf.type);
                 const filename = tf.file?.filename || 'Unknown file';
-                const storagePath = tf.file?.storage_path || '';
                 const fileId = tf.file?.id;
 
                 return (

@@ -6,22 +6,20 @@ import { Button as UIButton } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { staffApi } from "../../api";
 import { useStaffDetails, useCurrentStaff } from '../../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
-import type { Tables, Database } from '@altitutor/shared';
+import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { StaffSessionsTab } from './tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
-import { LogStaffAbsenceDialog } from '@/features/sessions/components/LogStaffAbsenceDialog';
+import { LogStaffAbsenceDialog } from '@/features/sessions/components';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +32,13 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { SendInviteDialog } from './SendInviteDialog';
+import {
+  useStaffEditFlow,
+  useStaffPasswordReset,
+  useStaffMutations,
+  useStaffModals,
+  useStaffConversation,
+} from '../../hooks';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -62,30 +67,35 @@ export function ViewStaffModal({
   const staffMember = staffData?.staff || null;
   const staffSubjects = staffData?.subjects || [];
   
-  // Local state
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  // Business logic hooks
+  const editFlow = useStaffEditFlow({
+    initialSubjects: staffSubjects,
+  });
+
+  const passwordReset = useStaffPasswordReset({ staff: staffMember });
+
+  const mutations = useStaffMutations({
+    staffId: staffId || '',
+    onSuccess: () => {
+      if (staffId) {
+        queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
+      }
+      editFlow.reset();
+      onStaffUpdated();
+    },
+  });
+
+  const modals = useStaffModals();
+
+  const conversationId = useStaffConversation({
+    staffId: staffId,
+    enabled: isOpen && !!staffId,
+  });
+
+  // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [baseUrl, setBaseUrl] = useState('');
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [loadingStaffUpdate, setLoadingStaffUpdate] = useState(false);
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  
-  // Subject modal state
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
-
-  // Absence and delete modals
-  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  
-  
-  // Temporary subjects state for editing (not saved until form submit)
-  const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
-  const [subjectsToRemove, setSubjectsToRemove] = useState<string[]>([]);
 
   // Set base URL for password reset
   useEffect(() => {
@@ -95,146 +105,38 @@ export function ViewStaffModal({
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setIsEditing(false);
-      setHasPasswordResetLinkSent(false);
+      editFlow.cancelEdit();
+      passwordReset.setPasswordResetLinkSent(false);
       setActiveTab('details');
-      setTempStaffSubjects([]);
-      setSubjectsToAdd([]);
-      setSubjectsToRemove([]);
-      setLoadingStaffUpdate(false);
+      modals.reset();
       setLoadingPasswordReset(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
-      
-  // Fetch conversation ID when staff data loads
-  useEffect(() => {
-    if (staffMember && staffId) {
-      getExistingConversationForRelated(staffId, 'staff').then(convId => {
-        setConversationId(convId);
-      });
-    }
-  }, [staffMember, staffId]);
 
-  // Update staff handler
-  const handleStaffUpdate = async (data: StaffDetailsFormData) => {
-    if (!staffMember) {
-      return;
-    }
-    
-    try {
-      setLoadingStaffUpdate(true);
-      // Map form data to staff update
-      const updateData = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        // Email can be null or empty string
-        email: data.email || undefined,
-        phone_number: data.phoneNumber || null,
-        role: data.role,
-        status: data.status,
-        office_key_number: data.officeKeyNumber,
-        has_parking_remote: data.hasParkingRemote,
-        availability_monday: data.availability_monday,
-        availability_tuesday: data.availability_tuesday,
-        availability_wednesday: data.availability_wednesday,
-        availability_thursday: data.availability_thursday,
-        availability_friday: data.availability_friday,
-        availability_saturday_am: data.availability_saturday_am,
-        availability_saturday_pm: data.availability_saturday_pm,
-        availability_sunday_am: data.availability_sunday_am,
-        availability_sunday_pm: data.availability_sunday_pm,
-        drafting_availability: data.drafting_availability,
-        trial_session_availability: data.trial_session_availability,
-        subsidy_interview_availability: data.subsidy_interview_availability,
-      };
-      await staffApi.updateStaff(staffMember.id, updateData);
-      
-      // Apply subject changes
-      for (const subjectId of subjectsToAdd) {
-        await staffApi.assignSubjectToStaff(staffMember.id, subjectId);
-      }
-      for (const subjectId of subjectsToRemove) {
-        await staffApi.removeSubjectFromStaff(staffMember.id, subjectId);
-      }
-      
-      // Clear temporary subject changes
-      setSubjectsToAdd([]);
-      setSubjectsToRemove([]);
-      
-      // Invalidate queries to refetch
-      await queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffMember.id) });
-      await queryClient.invalidateQueries({ queryKey: staffKeys.minimal({}) });
-      
-      // Reset edit mode
-      setIsEditing(false);
-      
-      toast({
-        title: 'Staff updated',
-        description: 'Staff member has been updated successfully.',
-      });
-      
-      // Notify parent of update
-      onStaffUpdated();
-    } catch (err) {
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the staff member. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingStaffUpdate(false);
-    }
-  };
-
-  // Handle password reset/invite request
-  const handlePasswordResetOrRegistration = () => {
+  // Handle details submit
+  const handleDetailsSubmit = async (data: StaffDetailsFormData) => {
     if (!staffMember) return;
     
-    if (!staffMember.user_id) {
-      // No account -> Send Invite
-      setInviteDialogOpen(true);
-    } else {
-      // Has account -> Password Reset
-      handlePasswordResetRequest();
-    }
+    await mutations.updateDetails(
+      data,
+      {
+        toAdd: editFlow.subjectsToAdd,
+        toRemove: editFlow.subjectsToRemove,
+      }
+    );
   };
 
-  // Get password reset label
-  const getPasswordResetLabel = () => {
-    if (!staffMember) return 'Send password reset';
-    
-    if (!staffMember.user_id) {
-      return 'Send invite';
-    } else {
-      return 'Send password reset';
-    }
-  };
-
-  // Delete staff handler
+  // Handle delete with modal close
   const handleDelete = async () => {
     if (!staffMember) return;
     
     try {
-      setIsDeleting(true);
-      await staffApi.deleteStaff(staffMember.id);
-      setIsDeleteDialogOpen(false);
-      
-      toast({
-        title: 'Staff deleted',
-        description: 'Staff member has been deleted successfully.',
-      });
-      
-      // Close the modal and refresh the list
+      await mutations.deleteStaff();
+      modals.closeDeleteDialog();
       onClose();
-      onStaffUpdated();
-    } catch (err) {
-      toast({
-        title: 'Delete failed',
-        description: 'There was an error deleting the staff member. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
+    } catch (error) {
+      // Error handling is done in the mutation hook
     }
   };
 
@@ -272,7 +174,7 @@ export function ViewStaffModal({
       
       if (error) throw error;
       
-      setHasPasswordResetLinkSent(true);
+      passwordReset.setPasswordResetLinkSent(true);
       
       toast({
         title: 'Password reset link sent',
@@ -289,55 +191,11 @@ export function ViewStaffModal({
     }
   };
 
-  // Handle starting edit mode
-  const handleStartEdit = () => {
-    setTempStaffSubjects([...staffSubjects]);
-    setSubjectsToAdd([]);
-    setSubjectsToRemove([]);
-    setIsEditing(true);
-  };
-
-  // Handle canceling edit mode
-  const handleCancelEdit = () => {
-    setTempStaffSubjects([]);
-    setSubjectsToAdd([]);
-    setSubjectsToRemove([]);
-    setIsEditing(false);
-  };
-
-  // Handle subject assignment (in edit mode - temporary)
+  // Handle subject assignment (needs allSubjects for lookup)
   const handleAssignSubject = (subjectId: string) => {
     const subject = allSubjects.find(s => s.id === subjectId);
     if (!subject) return;
-    
-    // Add to temporary subjects list
-    setTempStaffSubjects(prev => [...prev, subject]);
-    
-    // Track as added (unless it was previously marked for removal)
-    if (subjectsToRemove.includes(subjectId)) {
-      setSubjectsToRemove(prev => prev.filter(id => id !== subjectId));
-    } else {
-      setSubjectsToAdd(prev => [...prev, subjectId]);
-    }
-  };
-
-  // Handle subject removal (in edit mode - temporary)
-  const handleRemoveSubject = (subjectId: string) => {
-    // Remove from temporary subjects list
-    setTempStaffSubjects(prev => prev.filter(s => s.id !== subjectId));
-    
-    // Track as removed (unless it was previously marked for addition)
-    if (subjectsToAdd.includes(subjectId)) {
-      setSubjectsToAdd(prev => prev.filter(id => id !== subjectId));
-    } else {
-      setSubjectsToRemove(prev => [...prev, subjectId]);
-    }
-  };
-
-  // Handle viewing subject details
-  const handleViewSubject = (subjectId: string) => {
-    setSelectedSubjectId(subjectId);
-    setSubjectModalOpen(true);
+    editFlow.assignSubject(subject);
   };
 
   // Always render the Sheet to allow exit animation
@@ -373,7 +231,7 @@ export function ViewStaffModal({
                       </Button>
                       <div className="flex-1">
                         <SheetTitle>
-                          {isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
+                          {editFlow.isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
                         </SheetTitle>
                         <SheetDescription className="text-lg font-medium">
                           {staffMember.first_name} {staffMember.last_name}
@@ -389,16 +247,17 @@ export function ViewStaffModal({
                         }}
                         onEditDetails={() => {
                           setActiveTab('details');
-                          handleStartEdit();
+                          editFlow.startEdit();
                         }}
-                        onPasswordResetOrRegistration={handlePasswordResetOrRegistration}
-                        passwordResetLabel={getPasswordResetLabel()}
-                        onLogAbsence={() => {
-                          setIsLogAbsenceDialogOpen(true);
+                        onPasswordResetOrRegistration={() => {
+                          passwordReset.openPasswordResetOrRegistration();
+                          if (staffMember?.user_id) {
+                            handlePasswordResetRequest();
+                          }
                         }}
-                        onDelete={() => {
-                          setIsDeleteDialogOpen(true);
-                        }}
+                        passwordResetLabel={passwordReset.passwordResetLabel}
+                        onLogAbsence={modals.openLogAbsence}
+                        onDelete={modals.openDeleteDialog}
                       />
                     )}
                   </div>
@@ -420,25 +279,25 @@ export function ViewStaffModal({
                   <div className="p-6">
                     <StaffDetailsTab
                       staffMember={staffMember}
-                      isEditing={isEditing}
-                      isLoading={loadingStaffUpdate}
-                      onEdit={handleStartEdit}
-                      onCancelEdit={handleCancelEdit}
-                      onSubmit={handleStaffUpdate}
+                      isEditing={editFlow.isEditing}
+                      isLoading={mutations.isUpdatingDetails}
+                      onEdit={editFlow.startEdit}
+                      onCancelEdit={editFlow.cancelEdit}
+                      onSubmit={handleDetailsSubmit}
                       onDelete={undefined}
-                      isDeleting={isDeleting}
-                      staffSubjects={isEditing ? tempStaffSubjects : staffSubjects}
+                      isDeleting={mutations.isDeleting}
+                      staffSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
                       loadingSubjects={isLoading}
-                      onRemoveSubject={handleRemoveSubject}
-                      onViewSubject={handleViewSubject}
+                      onRemoveSubject={editFlow.removeSubject}
+                      onViewSubject={modals.openSubjectModal}
                       addSubjectButton={
                         <SubjectSearchPopover
-                          selectedSubjects={isEditing ? tempStaffSubjects : staffSubjects}
+                          selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
                           onSelectSubject={(subject) => handleAssignSubject(subject.id)}
                         />
                       }
                       isLoadingAccount={loadingPasswordReset}
-                      hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+                      hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
                       onPasswordResetRequest={handlePasswordResetRequest}
                     />
                   </div>
@@ -485,16 +344,16 @@ export function ViewStaffModal({
           )}
           
           {/* Sticky Footer with Buttons */}
-          {staffMember && isEditing && activeTab === 'details' && (
+          {staffMember && editFlow.isEditing && activeTab === 'details' && (
             <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
               <div className="flex w-full justify-end">
                 <div className="flex space-x-2">
-                  <UIButton variant="outline" type="button" onClick={handleCancelEdit} disabled={loadingStaffUpdate}>
+                  <UIButton variant="outline" type="button" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
                     Cancel
                   </UIButton>
                   <UIButton 
                     type="button"
-                    disabled={loadingStaffUpdate}
+                    disabled={mutations.isUpdatingDetails}
                     onClick={() => {
                       const form = document.getElementById('staff-edit-form') as HTMLFormElement;
                       if (form) {
@@ -507,7 +366,7 @@ export function ViewStaffModal({
                       }
                     }}
                   >
-                    {loadingStaffUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Changes
                   </UIButton>
                 </div>
@@ -518,14 +377,11 @@ export function ViewStaffModal({
       </Sheet>
 
       {/* Subject Modal */}
-      {selectedSubjectId && (
+      {modals.selectedSubjectId && (
         <ViewSubjectModal
-          isOpen={subjectModalOpen}
-          onClose={() => {
-            setSubjectModalOpen(false);
-            setSelectedSubjectId(null);
-          }}
-          subjectId={selectedSubjectId}
+          isOpen={modals.subjectModalOpen}
+          onClose={modals.closeSubjectModal}
+          subjectId={modals.selectedSubjectId}
           onSubjectUpdated={() => {
             if (staffId) {
               queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
@@ -537,8 +393,8 @@ export function ViewStaffModal({
       {/* Log Staff Absence Dialog */}
       {currentStaff && staffId && (
         <LogStaffAbsenceDialog
-          isOpen={isLogAbsenceDialogOpen}
-          onClose={() => setIsLogAbsenceDialogOpen(false)}
+          isOpen={modals.isLogAbsenceDialogOpen}
+          onClose={modals.closeLogAbsence}
           staffId={currentStaff.id}
           initialStaffId={staffId}
           allowPastSessions={true}
@@ -548,15 +404,15 @@ export function ViewStaffModal({
       {/* Send Invite Dialog */}
       {staffMember && (
         <SendInviteDialog
-          isOpen={inviteDialogOpen}
-          onClose={() => setInviteDialogOpen(false)}
+          isOpen={passwordReset.inviteDialogOpen}
+          onClose={passwordReset.closeInviteDialog}
           staffMember={staffMember}
         />
       )}
 
       {/* Delete Confirmation Dialog */}
       {staffMember && (
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog open={modals.isDeleteDialogOpen} onOpenChange={modals.closeDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -569,10 +425,10 @@ export function ViewStaffModal({
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                disabled={isDeleting}
+                disabled={mutations.isDeleting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {isDeleting ? (
+                {mutations.isDeleting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Deleting...

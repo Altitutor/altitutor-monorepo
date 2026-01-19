@@ -8,21 +8,10 @@ import { subjectsApi } from '@/features/subjects/api/subjects';
 import { topicsApi } from '@/features/topics/api/topics';
 import { topicsFilesApi } from '@/features/topics/api/topics-files';
 import { entityTypes } from '../config/commandPalette.config';
-import type { Tables } from '@altitutor/shared';
+import type { CommandPaletteEntityResult, UseCommandPaletteSearchOptions } from '../types';
 
-export type CommandPaletteEntityResult = 
-  | { type: 'student'; id: string; data: Tables<'students'> }
-  | { type: 'staff'; id: string; data: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'email' | 'phone_number'> }
-  | { type: 'parent'; id: string; data: Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone'> }
-  | { type: 'class'; id: string; data: any } // ClassSummary from classes API
-  | { type: 'subject'; id: string; data: Tables<'subjects'> }
-  | { type: 'topic'; id: string; data: Tables<'topics'> & { subject: Tables<'subjects'> } }
-  | { type: 'file'; id: string; data: { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } } };
-
-export interface UseCommandPaletteSearchOptions {
-  search: string;
-  enabled?: boolean;
-}
+// Re-export types for backward compatibility
+export type { CommandPaletteEntityResult, UseCommandPaletteSearchOptions } from '../types';
 
 /**
  * Hook for searching all entity types in parallel

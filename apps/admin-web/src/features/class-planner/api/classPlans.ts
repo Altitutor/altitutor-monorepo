@@ -225,7 +225,7 @@ export const classPlansApi = {
       }
 
       if (Object.keys(updatePayload).length > 0) {
-        const { data: plan, error: planError } = await supabase
+        const { error: planError } = await supabase
           .from('draft_class_plans')
           .update(updatePayload)
           .eq('id', id)

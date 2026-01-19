@@ -4,6 +4,92 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
+// Type definitions for RPC responses and joined queries
+type SessionStudentRow = {
+  planned_absence: boolean;
+  student: Tables<'students'> | null;
+};
+
+type SessionStaffRow = {
+  planned_absence: boolean;
+  staff: Tables<'staff'> | null;
+};
+
+type SessionWithRelationsRow = {
+  student: Tables<'students'> | null;
+};
+
+type SessionStaffWithRelationsRow = {
+  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone_number' | 'status' | 'role'> | null;
+};
+
+type SearchSessionsRpcResponse = {
+  sessions: Tables<'sessions'>[];
+  sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>>;
+  sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>>;
+  tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
+  classesById: Record<string, Tables<'classes'>>;
+  subjectsById: Record<string, Tables<'subjects'>>;
+  total: number;
+};
+
+type SessionStudentWithDetails = Tables<'sessions_students'> & {
+  student: Tables<'students'> | null;
+  rescheduled_sessions_students_id?: string | null;
+};
+
+type RescheduledSessionRow = {
+  id: string;
+  session: (Tables<'sessions'> & {
+    class: Tables<'classes'> | null;
+  }) | null;
+};
+
+type InvoiceItemRow = {
+  sessions_students_id: string;
+  invoice: { status: string } | null;
+};
+
+type EnrollmentRow = {
+  student_id: string;
+  unenrolled_at: string | null;
+};
+
+type SessionStaffWithDetails = Tables<'sessions_staff'> & {
+  swapped_sessions_staff_id?: string | null;
+};
+
+type TutorLogTopicRow = Tables<'tutor_logs_topics'> & {
+  topic: Tables<'topics'> | null;
+};
+
+type TutorLogTopicStudentRow = Tables<'tutor_logs_topics_students'> & {
+  student: Tables<'students'> | null;
+};
+
+type TutorLogTopicFileRow = Tables<'tutor_logs_topics_files'> & {
+  topics_file: (Tables<'topics_files'> & {
+    file: Tables<'files'> | null;
+  }) | null;
+};
+
+type TutorLogTopicFileStudentRow = Tables<'tutor_logs_topics_files_students'> & {
+  student: Tables<'students'> | null;
+};
+
+type TutorLogStudentAttendanceRow = Tables<'tutor_logs_student_attendance'> & {
+  student: Tables<'students'> | null;
+};
+
+type TutorLogStaffAttendanceRow = Tables<'tutor_logs_staff_attendance'> & {
+  staff: Tables<'staff'> | null;
+};
+
+type NoteWithStaff = Omit<Tables<'notes'>, 'created_by'> & {
+  created_by: string;
+  staff: Tables<'staff'> | null;
+};
+
 /**
  * Sessions API client for working with session data
  */
@@ -35,9 +121,9 @@ export const sessionsApi = {
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
 
-      const rpcData = rpcResult as { sessions: any[]; total: number };
+      const rpcData = rpcResult as { sessions: Tables<'sessions'>[]; total: number };
       // Transform RPC response to match Tables<'sessions'> format
-      return (rpcData.sessions || []).map((s: any) => ({
+      return (rpcData.sessions || []).map((s) => ({
         id: s.id,
         class_id: s.class_id,
         start_at: s.start_at,
@@ -108,15 +194,7 @@ export const sessionsApi = {
       }
       
       // Transform RPC response to match expected format
-      const rpcData = rpcResult as {
-        sessions: any[];
-        sessionStudents: Record<string, any[]>;
-        sessionStaff: Record<string, any[]>;
-        tutorLogs: Record<string, any>;
-        classesById: Record<string, any>;
-        subjectsById: Record<string, any>;
-        total: number;
-      };
+      const rpcData = rpcResult as SearchSessionsRpcResponse;
       
       // Transform sessions
       const sessions = (rpcData.sessions || []) as Tables<'sessions'>[];
@@ -124,7 +202,7 @@ export const sessionsApi = {
       // Transform sessionStudents - RPC returns full student objects with additional fields
       const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = {};
       Object.entries(rpcData.sessionStudents || {}).forEach(([sessionId, students]) => {
-        sessionStudents[sessionId] = (students || []).map((s: any) => {
+        sessionStudents[sessionId] = (students || []).map((s) => {
           const mapped = {
             id: s.id,
             first_name: s.first_name,
@@ -146,7 +224,7 @@ export const sessionsApi = {
       // Transform sessionStaff - RPC returns full staff objects with additional fields
       const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>> = {};
       Object.entries(rpcData.sessionStaff || {}).forEach(([sessionId, staff]) => {
-        sessionStaff[sessionId] = (staff || []).map((s: any) => ({
+        sessionStaff[sessionId] = (staff || []).map((s) => ({
           id: s.id,
           first_name: s.first_name,
           last_name: s.last_name,
@@ -244,14 +322,12 @@ export const sessionsApi = {
       
       // Transform data
       const session = sessionData as Tables<'sessions'>;
-      const students = studentsData
-        ?.map((row: any) => row.student)
-        .filter(Boolean)
-        .map((student: any) => student as Tables<'students'>) || [];
-      const staff = staffData
-        ?.map((row: any) => row.staff)
-        .filter(Boolean)
-        .map((staffMember: any) => staffMember as Tables<'staff'>) || [];
+      const students = (studentsData as SessionWithRelationsRow[] | null)
+        ?.map((row) => row.student)
+        .filter((student): student is Tables<'students'> => student !== null) || [];
+      const staff = (staffData as SessionStaffWithRelationsRow[] | null)
+        ?.map((row) => row.staff)
+        .filter((staffMember): staffMember is Tables<'staff'> => staffMember !== null) || [];
       
       return { session, students, staff };
       
@@ -350,7 +426,7 @@ export const sessionsApi = {
         id: crypto.randomUUID(),
         session_id: sessionId,
         staff_id: staffId,
-        type: type as any,
+        type: type as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR',
       };
       const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').insert(payload).select().single();
       if (error) throw error;
@@ -409,7 +485,7 @@ export const sessionsApi = {
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
       
-      const rpcData = rpcResult as { sessions: any[]; total: number };
+      const rpcData = rpcResult as { sessions: Tables<'sessions'>[]; total: number };
       return (rpcData.sessions || []) as Tables<'sessions'>[];
     } catch (error) {
       console.error('Error getting sessions for student:', error);
@@ -444,7 +520,7 @@ export const sessionsApi = {
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
       
-      const rpcData = rpcResult as { sessions: any[]; total: number };
+      const rpcData = rpcResult as { sessions: Tables<'sessions'>[]; total: number };
       return (rpcData.sessions || []) as Tables<'sessions'>[];
     } catch (error) {
       console.error('Error getting sessions for staff:', error);
@@ -468,9 +544,9 @@ export const sessionsApi = {
       .eq('session_id', sessionId);
     if (ssErr) throw ssErr;
 
-    const plannedStudents = (ssRows ?? [])
-      .filter((r: any) => !r.planned_absence && r.student)
-      .map((r: any) => r.student as Tables<'students'>);
+    const plannedStudents = (ssRows as SessionStudentRow[] | null ?? [])
+      .filter((r): r is SessionStudentRow & { student: Tables<'students'> } => !r.planned_absence && r.student !== null)
+      .map((r) => r.student);
 
     // sessions_staff with joined staff (only those without planned_absence)
     const { data: sfRows, error: sfErr } = await supabase
@@ -479,9 +555,9 @@ export const sessionsApi = {
       .eq('session_id', sessionId);
     if (sfErr) throw sfErr;
     
-    const plannedStaff = (sfRows ?? [])
-      .filter((r: any) => !r.planned_absence && r.staff)
-      .map((r: any) => r.staff as Tables<'staff'>);
+    const plannedStaff = (sfRows as SessionStaffRow[] | null ?? [])
+      .filter((r): r is SessionStaffRow & { staff: Tables<'staff'> } => !r.planned_absence && r.staff !== null)
+      .map((r) => r.staff);
 
     return { plannedStudents, plannedStaff };
   },
@@ -521,11 +597,13 @@ export const sessionsApi = {
       if (ssError) throw ssError;
       
       // Fetch rescheduled sessions separately if needed
-      const rescheduledIds = (sessionsStudentsData || [])
-        .filter((ss: any) => ss.rescheduled_sessions_students_id)
-        .map((ss: any) => ss.rescheduled_sessions_students_id);
+      const typedSessionsStudentsData = (sessionsStudentsData || []) as SessionStudentWithDetails[];
+      const rescheduledIds = typedSessionsStudentsData
+        .filter((ss) => ss.rescheduled_sessions_students_id)
+        .map((ss) => ss.rescheduled_sessions_students_id)
+        .filter((id): id is string => id !== null && id !== undefined);
       
-      const rescheduledSessionsMap: Record<string, any> = {};
+      const rescheduledSessionsMap: Record<string, RescheduledSessionRow> = {};
       if (rescheduledIds.length > 0) {
         const { data: rescheduledData, error: reschedError } = await supabase
           .from('sessions_students')
@@ -540,13 +618,13 @@ export const sessionsApi = {
         
         if (reschedError) throw reschedError;
         
-        (rescheduledData || []).forEach((rd: any) => {
+        (rescheduledData as RescheduledSessionRow[] || []).forEach((rd) => {
           rescheduledSessionsMap[rd.id] = rd;
         });
       }
       
       // Fetch invoice status for sessions_students
-      const sessionsStudentsIds = (sessionsStudentsData || []).map((ss: any) => ss.id).filter(Boolean);
+      const sessionsStudentsIds = typedSessionsStudentsData.map((ss) => ss.id).filter(Boolean);
       const { data: invoiceItemsData, error: invoiceItemsError } = sessionsStudentsIds.length > 0
         ? await supabase
             .from('invoice_items')
@@ -558,7 +636,7 @@ export const sessionsApi = {
 
       // Build invoice status map: sessions_students_id -> invoice.status
       const invoiceStatusMap: Record<string, string | null> = {};
-      invoiceItemsData?.forEach((row: any) => {
+      (invoiceItemsData as InvoiceItemRow[] | null)?.forEach((row) => {
         if (row.sessions_students_id && row.invoice) {
           invoiceStatusMap[row.sessions_students_id] = row.invoice.status || null;
         }
@@ -568,8 +646,8 @@ export const sessionsApi = {
       const session = sessionData as Tables<'sessions'>;
       const isExtraMap: Record<string, boolean> = {};
       
-      if (session.class_id && sessionsStudentsData && sessionsStudentsData.length > 0) {
-        const studentIds = sessionsStudentsData.map((ss: any) => ss.student_id).filter(Boolean);
+      if (session.class_id && typedSessionsStudentsData && typedSessionsStudentsData.length > 0) {
+        const studentIds = typedSessionsStudentsData.map((ss) => ss.student_id).filter(Boolean);
         const sessionStartAt = session.start_at ? new Date(session.start_at) : null;
         
         // Fetch class enrollments for these students
@@ -582,14 +660,14 @@ export const sessionsApi = {
         if (!enrollError && enrollmentsData) {
           // Build map of enrolled students (enrolled and not unenrolled before session)
           const enrolledStudentIds = new Set<string>();
-          enrollmentsData.forEach((enrollment: any) => {
+          (enrollmentsData as EnrollmentRow[]).forEach((enrollment) => {
             if (!enrollment.unenrolled_at || (sessionStartAt && new Date(enrollment.unenrolled_at) > sessionStartAt)) {
               enrolledStudentIds.add(enrollment.student_id);
             }
           });
           
           // Mark students as extra if they're not enrolled
-          sessionsStudentsData.forEach((ss: any) => {
+          typedSessionsStudentsData.forEach((ss) => {
             if (ss.student_id && !enrolledStudentIds.has(ss.student_id)) {
               isExtraMap[ss.id] = true;
             } else {
@@ -598,19 +676,19 @@ export const sessionsApi = {
           });
         } else {
           // If error fetching enrollments, assume all students are extra if class_id exists
-          sessionsStudentsData.forEach((ss: any) => {
+          typedSessionsStudentsData.forEach((ss) => {
             isExtraMap[ss.id] = session.class_id ? true : false;
           });
         }
       } else {
         // No class_id means no extra students
-        sessionsStudentsData?.forEach((ss: any) => {
+        typedSessionsStudentsData?.forEach((ss) => {
           isExtraMap[ss.id] = false;
         });
       }
 
       // Attach rescheduled session data, invoice status, and is_extra flag to sessions_students
-      const enrichedSessionsStudentsData = (sessionsStudentsData || []).map((ss: any) => ({
+      const enrichedSessionsStudentsData = typedSessionsStudentsData.map((ss) => ({
         ...ss,
         sessions_students_id: ss.id, // Map id to sessions_students_id for UI consistency
         rescheduled_session: ss.rescheduled_sessions_students_id
@@ -628,7 +706,16 @@ export const sessionsApi = {
         .maybeSingle();
       
       // If tutor log exists, get unplanned students (students who attended but aren't in sessions_students)
-      const unplannedStudents: any[] = [];
+      type UnplannedStudent = {
+        student_id: string;
+        student: Tables<'students'>;
+        planned_absence: boolean;
+        is_extra: boolean;
+        sessions_students_id: null;
+        invoice_status: null;
+        rescheduled_session: null;
+      };
+      const unplannedStudents: UnplannedStudent[] = [];
       if (tutorLogDataForUnplanned && !tlErrorForUnplanned) {
         const { data: studentAttendanceData, error: saError } = await supabase
           .from('tutor_logs_student_attendance')
@@ -639,11 +726,11 @@ export const sessionsApi = {
         if (!saError && studentAttendanceData) {
           // Get student IDs that are already in sessions_students
           const plannedStudentIds = new Set(
-            (sessionsStudentsData || []).map((ss: any) => ss.student_id).filter(Boolean)
+            typedSessionsStudentsData.map((ss) => ss.student_id).filter(Boolean)
           );
           
           // Find students who attended but aren't in sessions_students
-          studentAttendanceData.forEach((att: any) => {
+          (studentAttendanceData as Array<{ student: Tables<'students'> | null; attended: boolean }>).forEach((att) => {
             if (att.student && att.student.id && !plannedStudentIds.has(att.student.id)) {
               unplannedStudents.push({
                 student_id: att.student.id,
@@ -674,11 +761,13 @@ export const sessionsApi = {
       if (sfError) throw sfError;
       
       // Fetch swapped staff separately if needed
-      const swappedStaffIds = (sessionsStaffData || [])
-        .filter((sf: any) => sf.swapped_sessions_staff_id)
-        .map((sf: any) => sf.swapped_sessions_staff_id);
+      const typedSessionsStaffData = (sessionsStaffData || []) as SessionStaffWithDetails[];
+      const swappedStaffIds = typedSessionsStaffData
+        .filter((sf) => sf.swapped_sessions_staff_id)
+        .map((sf) => sf.swapped_sessions_staff_id)
+        .filter((id): id is string => id !== null && id !== undefined);
       
-      const swappedStaffMap: Record<string, any> = {};
+      const swappedStaffMap: Record<string, Tables<'staff'>> = {};
       if (swappedStaffIds.length > 0) {
         const { data: swappedData, error: swapError } = await supabase
           .from('sessions_staff')
@@ -690,13 +779,15 @@ export const sessionsApi = {
         
         if (swapError) throw swapError;
         
-        (swappedData || []).forEach((sd: any) => {
-          swappedStaffMap[sd.id] = sd.staff;
+        (swappedData as Array<{ id: string; staff: Tables<'staff'> | null }> || []).forEach((sd) => {
+          if (sd.staff) {
+            swappedStaffMap[sd.id] = sd.staff;
+          }
         });
       }
       
       // Attach swapped staff data to sessions_staff
-      const enrichedSessionsStaffData = (sessionsStaffData || []).map((sf: any) => ({
+      const enrichedSessionsStaffData = typedSessionsStaffData.map((sf) => ({
         ...sf,
         swapped_staff: sf.swapped_sessions_staff_id
           ? swappedStaffMap[sf.swapped_sessions_staff_id]
@@ -740,7 +831,8 @@ export const sessionsApi = {
         if (topicsError) throw topicsError;
         
         // Get topic-student links
-        const topicIds = (topicsData || []).map((t: any) => t.id);
+        const typedTopicsData = (topicsData || []) as TutorLogTopicRow[];
+        const topicIds = typedTopicsData.map((t) => t.id);
         const { data: topicStudentsData, error: tsError } = topicIds.length > 0 ? await supabase
           .from('tutor_logs_topics_students')
           .select('*, student:students(*)')
@@ -758,7 +850,8 @@ export const sessionsApi = {
         if (filesError) throw filesError;
         
         // Get file-student links
-        const fileIds = (filesData || []).map((f: any) => f.id);
+        const typedFilesData = (filesData || []) as TutorLogTopicFileRow[];
+        const fileIds = typedFilesData.map((f) => f.id);
         const { data: fileStudentsData, error: fsError } = fileIds.length > 0 ? await supabase
           .from('tutor_logs_topics_files_students')
           .select('*, student:students(*)')
@@ -768,22 +861,26 @@ export const sessionsApi = {
         if (fsError) throw fsError;
         
         // Build tutor log structure
+        const typedTopicStudentsData = (topicStudentsData || []) as TutorLogTopicStudentRow[];
+        const typedFileStudentsData = (fileStudentsData || []) as TutorLogTopicFileStudentRow[];
         tutorLog = {
           ...tutorLogData,
-          studentAttendance: studentAttendanceData || [],
-          staffAttendance: staffAttendanceData || [],
-          topics: (topicsData || []).map((topic: any) => ({
+          studentAttendance: (studentAttendanceData || []) as TutorLogStudentAttendanceRow[],
+          staffAttendance: (staffAttendanceData || []) as TutorLogStaffAttendanceRow[],
+          topics: typedTopicsData.map((topic) => ({
             ...topic,
-            students: (topicStudentsData || [])
-              .filter((ts: any) => ts.tutor_logs_topics_id === topic.id)
-              .map((ts: any) => ts.student),
-            files: (filesData || [])
-              .filter((f: any) => f.topics_file && f.topics_file.topic_id === topic.topic.id)
-              .map((file: any) => ({
+            students: typedTopicStudentsData
+              .filter((ts) => ts.tutor_logs_topics_id === topic.id && ts.student)
+              .map((ts) => ts.student!)
+              .filter((student): student is Tables<'students'> => student !== null),
+            files: typedFilesData
+              .filter((f) => f.topics_file && f.topics_file.topic_id === topic.topic?.id)
+              .map((file) => ({
                 ...file,
-                students: (fileStudentsData || [])
-                  .filter((fs: any) => fs.tutor_logs_topics_files_id === file.id)
-                  .map((fs: any) => fs.student),
+                students: typedFileStudentsData
+                  .filter((fs) => fs.tutor_logs_topics_files_id === file.id && fs.student)
+                  .map((fs) => fs.student!)
+                  .filter((student): student is Tables<'students'> => student !== null),
               })),
           })),
         };
@@ -804,7 +901,7 @@ export const sessionsApi = {
         sessionsStudents: allSessionsStudents || [],
         sessionsStaff: enrichedSessionsStaffData || [],
         tutorLog,
-        notes: (sessionNotesData || []) as any[],
+        notes: (sessionNotesData || []) as NoteWithStaff[],
       };
     } catch (error) {
       console.error('Error getting session with tutor log:', error);

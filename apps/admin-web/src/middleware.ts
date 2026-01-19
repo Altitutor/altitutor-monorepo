@@ -73,7 +73,6 @@ export async function middleware(req: NextRequest) {
   // getSession() reads from cookies without validation (insecure)
   const {
     data: { user },
-    error: getUserError,
   } = await supabase.auth.getUser();
 
   const isProtected = pathname !== '/';

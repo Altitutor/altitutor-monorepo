@@ -34,7 +34,8 @@ export const tutorLogsApi = {
     }
 
     // Extract tutor_log_id from RPC result
-    const tutorLogId = (result.data as any)?.tutor_log_id;
+    type RpcResult = { tutor_log_id?: string };
+    const tutorLogId = (result.data as RpcResult)?.tutor_log_id;
     
     if (!tutorLogId) {
       throw new Error('Tutor log ID not returned from RPC function');
@@ -97,9 +98,13 @@ export const tutorLogsApi = {
   /**
    * Get sessions that haven't been logged yet for the current tutor
    * Only returns past/current sessions (start_at <= NOW())
+   * Note: staffId parameter is kept for API consistency but not used (RLS handles filtering)
    */
-  getUnloggedSessions: async (staffId: string): Promise<Array<Database['public']['Views']['vtutor_sessions']['Row'] & { 
+  getUnloggedSessions: async (_staffId: string): Promise<Array<Database['public']['Views']['vtutor_sessions']['Row'] & {
+    id: string;
     class?: { 
+      id: string;
+      level?: string | null;
       subject?: Database['public']['Tables']['subjects']['Row'] 
     } 
   }>> => {
@@ -135,24 +140,38 @@ export const tutorLogsApi = {
       const loggedSessionIds = new Set((existingLogs || []).map((log) => log.session_id));
 
       // Filter and transform sessions to match expected format
-      return (sessions || []).filter((s) => !loggedSessionIds.has(s.session_id)).map((s) => {
+      type TransformedSession = Database['public']['Views']['vtutor_sessions']['Row'] & {
+        id: string;
+        class?: {
+          id: string;
+          level?: string | null;
+          subject?: Database['public']['Tables']['subjects']['Row'];
+        };
+      };
+      
+      return (sessions || []).filter((s) => !loggedSessionIds.has(s.session_id)).map((s): TransformedSession => {
         // Transform vtutor_sessions row to match expected format
         return {
           ...s,
-          id: s.session_id,
+          id: s.session_id || '',
           class: s.class_id ? {
             id: s.class_id,
+            level: s.class_level,
             subject: s.subject_id ? {
               id: s.subject_id,
-              name: s.subject_name,
+              name: s.subject_name || '',
               curriculum: s.subject_curriculum,
               discipline: s.subject_discipline,
               level: s.subject_level,
               color: s.subject_color,
               year_level: s.subject_year_level,
+              created_at: null,
+              long_name: null,
+              short_name: null,
+              updated_at: null,
             } : undefined,
           } : undefined,
-        } as any;
+        };
       });
     } catch (error) {
       console.error('Error getting unlogged sessions:', error);

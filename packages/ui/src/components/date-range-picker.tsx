@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from './button';
-import { Input } from './input';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { parseISO, format, addDays, subDays, isValid, isAfter, setDate, setMonth, setYear, getDate, getMonth, getYear } from 'date-fns';
 import { cn } from '../lib/cn';
@@ -22,21 +21,6 @@ const getTodayLocalDate = (): string => {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-};
-
-// Format date for display (dd/mm/yy)
-const formatDateDisplay = (dateString: string): string => {
-  if (!dateString) return '';
-  try {
-    const date = parseISO(dateString);
-    if (!isValid(date)) return '';
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = String(date.getFullYear()).slice(-2);
-    return `${day}/${month}/${year}`;
-  } catch {
-    return '';
-  }
 };
 
 type DatePart = 'day' | 'month' | 'year';
@@ -73,24 +57,6 @@ export function DateRangePicker({
   const toDateInputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Format display value: "dd/mm/yy - dd/mm/yy" or "/ - /" if empty
-  const getDisplayValue = (): string => {
-    // If both dates are empty, show "/ - /"
-    if (!fromValue && !toValue) {
-      return '/ - /';
-    }
-    
-    // Format dates, showing "/ - /" for empty ones
-    const fromDisplay = fromValue ? formatDateDisplay(fromValue) : '';
-    const toDisplay = toValue ? formatDateDisplay(toValue) : '';
-    
-    if (!fromDisplay && !toDisplay) {
-      return '/ - /';
-    }
-    
-    return `${fromDisplay || '/ - /'} - ${toDisplay || '/ - /'}`;
-  };
 
   // Get date parts for a date string
   const getDateParts = (dateString: string): { day: number; month: number; year: number } | null => {
@@ -385,7 +351,7 @@ export function DateRangePicker({
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [activePart]);
+  }, [activePart, fromValue, toValue, onFromChange, onToChange]);
 
   // Handle incrementing both dates by one day
   const handleIncrement = () => {

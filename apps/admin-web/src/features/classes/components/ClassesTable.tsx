@@ -116,13 +116,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
 
-  // Helper function to convert time to minutes for sorting - moved before useMemo
-  const timeToMinutes = (timeString: string): number => {
-    if (!timeString) return 0;
-    const [hours, minutes] = timeString.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
-
   const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
     const subject = (classItem as any).subject as Tables<'subjects'> | null | undefined;
     return subject ? formatSubjectDisplay(subject) : '-';
@@ -142,19 +135,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   useEffect(() => {
     setPage(1);
   }, [searchTerm, dayFilter]);
-
-  const _getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
-      case 'INACTIVE':
-        return 'bg-gray-100 text-gray-800';
-      case 'FULL':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
   
   const getDayOfWeek = (day: number) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

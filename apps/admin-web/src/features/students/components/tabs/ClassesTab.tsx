@@ -16,7 +16,6 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 

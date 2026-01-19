@@ -20,7 +20,7 @@ interface UseChangeClassFlowProps {
 }
 
 export function useChangeClassFlow({
-  isOpen,
+  isOpen: _isOpen,
   student,
   oldClass,
   selectedNewClassId,

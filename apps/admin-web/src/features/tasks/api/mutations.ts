@@ -3,7 +3,7 @@ import { tasksApi } from './tasks';
 import { tasksKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { TaskInsert, TaskUpdate } from '../types';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 
 /**
  * Create a new task

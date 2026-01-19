@@ -5,13 +5,14 @@ import { Checkbox } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { staffApi, type StaffListItem } from '@/features/staff/api/staff';
+import { useSessionForLogging } from '../../hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { filterAvailableStaff } from '@/shared/utils/filtering';
 import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 type StaffAttendanceItem = {
   staffId: string;
@@ -36,48 +37,36 @@ export function Step2StaffAttendance({
   onUpdate,
   onAddStaffToSession,
 }: Step2StaffAttendanceProps) {
-  const [sessionStaff, setSessionStaff] = useState<
-    Array<Tables<'sessions_staff'> & { staff: Tables<'staff'> }>
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: sessionData, isLoading } = useSessionForLogging(sessionId);
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [availableStaff, setAvailableStaff] = useState<StaffListItem[]>([]);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
 
+  // Transform session staff data to match expected format
+  const sessionStaff = sessionData?.staff.map((staffMember) => ({
+    staff_id: staffMember.id,
+    staff: staffMember,
+    planned_absence: staffMember.planned_absence,
+    type: 'MAIN_TUTOR' as const, // Default type
+  })) || [];
+
+  // Initialize form data if empty
   useEffect(() => {
-    const fetchSessionStaff = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { data, error } = await supabase
-        .from('sessions_staff')
-        .select('*, staff:staff!sessions_staff_staff_id_fkey(*)')
-        .eq('session_id', sessionId);
-
-      if (error) {
-        console.error('Error fetching session staff:', error);
-        return;
-      }
-
-      setSessionStaff(data as any);
-
-      // Initialize form data if empty
-      if (staffAttendance.length === 0 && data) {
-        const initialAttendance = data.map((ss: any) => ({
-          staffId: ss.staff_id,
-          attended: !ss.planned_absence, // Default to true unless planned absence
-          type:
-            ss.staff_id === currentStaffId
-              ? ('MAIN_TUTOR' as const)
-              : (ss.type || ('SECONDARY_TUTOR' as const)),
-        }));
-        onUpdate(initialAttendance);
-      }
-
-      setIsLoading(false);
-    };
-
-    fetchSessionStaff();
-  }, [sessionId, currentStaffId, staffAttendance.length, onUpdate]);
+    if (staffAttendance.length === 0 && sessionStaff.length > 0) {
+      const initialAttendance = sessionStaff.map((ss) => ({
+        staffId: ss.staff_id,
+        attended: !ss.planned_absence, // Default to true unless planned absence
+        type:
+          ss.staff_id === currentStaffId
+            ? ('MAIN_TUTOR' as const)
+            : ('SECONDARY_TUTOR' as const),
+      }));
+      onUpdate(initialAttendance);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStaff.length, currentStaffId]);
 
   const handleAttendanceChange = (staffId: string, attended: boolean) => {
     const updated = staffAttendance.map((sa) =>
@@ -126,7 +115,7 @@ export function Step2StaffAttendance({
       });
       // Filter out staff already in session
       const existingStaffIds = new Set(sessionStaff.map((ss: any) => ss.staff_id));
-      setAvailableStaff(result.staff.filter((s) => !existingStaffIds.has(s.id)));
+      setAvailableStaff(filterAvailableStaff(result.staff, existingStaffIds));
     } catch (error) {
       console.error('Error searching staff:', error);
     } finally {
@@ -137,20 +126,10 @@ export function Step2StaffAttendance({
   const handleAddStaff = async (staffId: string) => {
     if (onAddStaffToSession) {
       await onAddStaffToSession(staffId);
-      // Refresh session staff
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const { data } = await supabase
-        .from('sessions_staff')
-        .select('*, staff:staff!sessions_staff_staff_id_fkey(*)')
-        .eq('session_id', sessionId);
-      if (data) {
-        setSessionStaff(data as any);
-        // Initialize attendance for new staff
-        const newStaff = data.find((ss: any) => ss.staff_id === staffId);
-        if (newStaff) {
-          handleAttendanceChange(staffId, true);
-        }
-      }
+      // Invalidate session data to refetch with new staff
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
+      // Initialize attendance for new staff
+      handleAttendanceChange(staffId, true);
     }
     setShowAddStaff(false);
     setSearchTerm('');

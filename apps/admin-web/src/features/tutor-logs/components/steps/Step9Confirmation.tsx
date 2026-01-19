@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Separator } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Check, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../../types';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -285,7 +284,6 @@ export function Step9Confirmation({
               {(formData.topics || []).map((topic) => {
                 const topicData = topicsMap.get(topic.topicId);
                 if (!topicData) return null;
-                const topicCode = topicData.code || '';
                 const students = topic.studentIds || [];
                 const parentTopic = topicData.parent_id ? allTopics.find((t) => t.id === topicData.parent_id) : undefined;
                 const subject = topicData.subject_id ? subjectsMap.get(topicData.subject_id) : undefined;
