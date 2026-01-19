@@ -3,24 +3,36 @@
 import { Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { TaskTitleField, TaskDescriptionField } from '../fields';
+import { TaskPropertyPills } from '../fields/TaskPropertyPills';
 import { TaskActivityTab } from '@/features/activity/components/tabs/TaskActivityTab';
 import { TaskNotes } from '../TaskNotes';
 import type { TaskStatus } from '../../types';
+import type { Tables } from '@altitutor/shared';
+
+type NoteWithStaff = Tables<'notes'> & {
+  staff?: Tables<'staff'> | null;
+};
+
+type TaskFormData = {
+  title: string;
+  description?: string;
+  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
+  priority: number;
+  assignedTo: string | null;
+  estimate: number | null;
+  dueDate: string | null;
+};
 
 interface TaskContentPanelProps {
-  form: UseFormReturn<{
-    title: string;
-    description?: string;
-    status: TaskStatus;
-    priority: number;
-    assignedTo: string | null;
-    estimate: number | null;
-    dueDate: string | null;
-  }>;
+  form: UseFormReturn<TaskFormData>;
   taskId: string | null;
-  notes: unknown[];
+  notes: NoteWithStaff[];
   isOpen: boolean;
   showActivity?: boolean;
+  selectedAssignee?: Tables<'staff'> | null;
+  onAssigneeChange?: (staff: Tables<'staff'> | null) => void;
+  taskStatus?: TaskStatus;
+  enabled?: boolean;
 }
 
 export function TaskContentPanel({
@@ -29,13 +41,30 @@ export function TaskContentPanel({
   notes,
   isOpen,
   showActivity = true,
+  selectedAssignee,
+  onAssigneeChange,
+  taskStatus,
+  enabled = true,
 }: TaskContentPanelProps) {
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* Property Pills - Mobile Only */}
+      {selectedAssignee !== undefined && onAssigneeChange && (
+        <div className="md:hidden -mt-2">
+          <TaskPropertyPills
+            form={form}
+            selectedAssignee={selectedAssignee || null}
+            onAssigneeChange={onAssigneeChange}
+            taskStatus={taskStatus}
+            enabled={enabled}
+          />
+        </div>
+      )}
+
       {/* Title */}
       <div className="space-y-2">
         <TaskTitleField
-          form={form as UseFormReturn<{ title: string }>}
+          form={form as unknown as UseFormReturn<{ title: string }>}
           value={form.getValues('title')}
         />
       </div>
@@ -43,7 +72,7 @@ export function TaskContentPanel({
       {/* Description */}
       <div className="space-y-2">
         <TaskDescriptionField
-          form={form as UseFormReturn<{ description?: string }>}
+          form={form as unknown as UseFormReturn<{ description?: string }>}
           value={form.getValues('description')}
         />
       </div>

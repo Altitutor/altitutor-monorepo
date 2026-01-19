@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, Path, PathValue } from 'react-hook-form';
 
 /**
  * Converts HTML content from contentEditable to plain text with preserved line breaks
@@ -38,7 +38,7 @@ function setTextWithLineBreaks(element: HTMLElement, text: string): void {
  */
 export function useContentEditableField<T extends Record<string, unknown>>(
   form: UseFormReturn<T>,
-  fieldName: keyof T,
+  fieldName: Path<T>,
   value?: string | null | undefined
 ) {
   const ref = useRef<HTMLDivElement>(null);
@@ -65,7 +65,7 @@ export function useContentEditableField<T extends Record<string, unknown>>(
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     const text = getTextWithLineBreaks(e.currentTarget);
-    form.setValue(fieldName, text as T[keyof T]);
+    form.setValue(fieldName, text as PathValue<T, Path<T>>);
   };
 
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
@@ -73,7 +73,7 @@ export function useContentEditableField<T extends Record<string, unknown>>(
     if (isUpdatingRef.current) return;
     
     const text = getTextWithLineBreaks(e.currentTarget);
-    form.setValue(fieldName, text as T[keyof T], { shouldValidate: true });
+    form.setValue(fieldName, text as PathValue<T, Path<T>>, { shouldValidate: true });
   };
 
   return {

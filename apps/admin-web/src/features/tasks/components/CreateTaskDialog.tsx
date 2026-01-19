@@ -19,15 +19,26 @@ import type { Tables } from '@altitutor/shared';
 import type { TaskStatus } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
+import type { UseFormReturn } from 'react-hook-form';
+
+type TaskFormData = {
+  title: string;
+  description?: string;
+  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
+  priority: number;
+  assignedTo: string | null;
+  estimate: number | null;
+  dueDate: string | null;
+};
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
-  assignedTo: z.string().uuid().optional().nullable(),
-  estimate: z.number().min(1).max(5).optional().nullable(),
-  dueDate: z.string().optional().nullable(),
+  assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
+  estimate: z.union([z.number().min(1).max(5), z.null()]).default(null),
+  dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -51,14 +62,17 @@ export function CreateTaskDialog({
 
   // Fetch notes for created task
   const { data: notesData } = useNotes('tasks', createdTaskId || '', !!createdTaskId);
-  const notes = (notesData || []) as unknown[];
+  type NoteWithStaff = Tables<'notes'> & {
+    staff?: Tables<'staff'> | null;
+  };
+  const notes = (notesData || []) as NoteWithStaff[];
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       title: '',
       description: '',
-      status: defaultStatus || 'backlog',
+      status: defaultStatus || 'todo',
       priority: 0,
       assignedTo: null,
       estimate: null,
@@ -72,7 +86,7 @@ export function CreateTaskDialog({
       form.reset({
         title: '',
         description: '',
-        status: defaultStatus || 'backlog',
+        status: defaultStatus || 'todo',
         priority: 0,
         assignedTo: null,
         estimate: null,
@@ -85,7 +99,7 @@ export function CreateTaskDialog({
 
   const onSubmit = async (data: FormData): Promise<void> => {
     try {
-      const result = await createTask.mutateAsync({
+      await createTask.mutateAsync({
         title: data.title,
         description: data.description || null,
         status: data.status,
@@ -95,11 +109,8 @@ export function CreateTaskDialog({
         due_date: data.dueDate ? new Date(data.dueDate as string).toISOString() : null,
       });
 
-      // Set created task ID to show activity and notes
-      setCreatedTaskId(result.id);
-
-      // Don't close immediately - let user see activity and add notes
       onTaskCreated?.();
+      handleClose();
     } catch (error) {
       // Error handling is done in the mutation
       console.error('Failed to create task:', error);
@@ -123,20 +134,24 @@ export function CreateTaskDialog({
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full flex">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex min-h-0">
+              <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
                 <TaskPropertiesPanel
-                  form={form}
+                  form={form as unknown as UseFormReturn<TaskFormData>}
                   selectedAssignee={selectedAssignee}
                   onAssigneeChange={setSelectedAssignee}
                   taskStatus={defaultStatus}
                   enabled={isOpen}
                 />
                 <TaskContentPanel
-                  form={form}
+                  form={form as unknown as UseFormReturn<TaskFormData>}
                   taskId={createdTaskId}
                   notes={notes}
                   isOpen={isOpen}
                   showActivity={!!createdTaskId}
+                  selectedAssignee={selectedAssignee}
+                  onAssigneeChange={setSelectedAssignee}
+                  taskStatus={defaultStatus}
+                  enabled={isOpen}
                 />
               </form>
             </Form>
@@ -144,18 +159,20 @@ export function CreateTaskDialog({
         </div>
 
         <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-          <Button type="button" variant="outline" onClick={handleClose}>
-            {createdTaskId ? 'Close' : 'Cancel'}
-          </Button>
-          {!createdTaskId && (
-            <Button
-              type="submit"
-              onClick={form.handleSubmit(onSubmit)}
-              disabled={createTask.isPending}
-            >
-              {createTask.isPending ? 'Creating...' : 'Create Task'}
+          <div className="flex items-center gap-2 w-full justify-end">
+            <Button type="button" variant="outline" onClick={handleClose}>
+              {createdTaskId ? 'Close' : 'Cancel'}
             </Button>
-          )}
+            {!createdTaskId && (
+              <Button
+                type="submit"
+                onClick={form.handleSubmit(onSubmit as any)}
+                disabled={createTask.isPending}
+              >
+                {createTask.isPending ? 'Creating...' : 'Create Task'}
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

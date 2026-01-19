@@ -19,15 +19,26 @@ import type { Tables } from '@altitutor/shared';
 import type { TaskStatus } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
+import type { UseFormReturn } from 'react-hook-form';
+
+type TaskFormData = {
+  title: string;
+  description?: string;
+  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
+  priority: number;
+  assignedTo: string | null;
+  estimate: number | null;
+  dueDate: string | null;
+};
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
-  assignedTo: z.string().uuid().optional().nullable(),
-  estimate: z.number().min(1).max(5).optional().nullable(),
-  dueDate: z.string().optional().nullable(),
+  assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
+  estimate: z.union([z.number().min(1).max(5), z.null()]).default(null),
+  dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -49,10 +60,13 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
 
   // Fetch notes for task
   const { data: notesData } = useNotes('tasks', taskId || '', !!taskId && isOpen);
-  const notes = (notesData || []) as unknown[];
+  type NoteWithStaff = Tables<'notes'> & {
+    staff?: Tables<'staff'> | null;
+  };
+  const notes = (notesData || []) as NoteWithStaff[];
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       title: '',
       description: '',
@@ -82,17 +96,12 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
 
       // Set selected assignee if task has one
       if (task.assignee) {
+        // Create a minimal staff object with only the fields we need
         setSelectedAssignee({
           id: task.assignee.id,
           first_name: task.assignee.first_name,
           last_name: task.assignee.last_name,
-          role: null,
-          status: null,
-          email: null,
-          phone_number: null,
-          created_at: null,
-          updated_at: null,
-        });
+        } as Tables<'staff'>);
       } else {
         setSelectedAssignee(null);
       }
@@ -134,6 +143,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
         },
       });
       onTaskUpdated?.();
+      onClose();
     } catch (error) {
       console.error('Failed to update task:', error);
     }
@@ -189,19 +199,23 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full flex">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex min-h-0">
+              <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
                 <TaskPropertiesPanel
-                  form={form}
+                  form={form as unknown as UseFormReturn<TaskFormData>}
                   selectedAssignee={selectedAssignee}
                   onAssigneeChange={setSelectedAssignee}
                   taskStatus={task.status as TaskStatus}
                   enabled={isOpen}
                 />
                 <TaskContentPanel
-                  form={form}
+                  form={form as unknown as UseFormReturn<TaskFormData>}
                   taskId={taskId}
                   notes={notes}
                   isOpen={isOpen}
+                  selectedAssignee={selectedAssignee}
+                  onAssigneeChange={setSelectedAssignee}
+                  taskStatus={task.status as TaskStatus}
+                  enabled={isOpen}
                 />
               </form>
             </Form>
@@ -249,7 +263,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
                 </Button>
                 <Button
                   type="submit"
-                  onClick={form.handleSubmit(onSubmit)}
+                  onClick={form.handleSubmit(onSubmit as any)}
                   disabled={updateTask.isPending || deleteTask.isPending}
                 >
                   {updateTask.isPending ? 'Saving...' : 'Save Changes'}

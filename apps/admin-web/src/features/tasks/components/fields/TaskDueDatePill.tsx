@@ -4,19 +4,17 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormMessage,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Calendar } from 'lucide-react';
 import { useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { cn } from '@/shared/utils/index';
 
-interface TaskDueDateFieldProps {
+interface TaskDueDatePillProps {
   form: UseFormReturn<{ dueDate: string | null }>;
 }
 
-export function TaskDueDateField({ form }: TaskDueDateFieldProps) {
+export function TaskDueDatePill({ form }: TaskDueDatePillProps) {
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -34,7 +32,6 @@ export function TaskDueDateField({ form }: TaskDueDateFieldProps) {
           ? new Date(dueDateValue).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
-              year: 'numeric',
             })
           : null;
 
@@ -44,17 +41,15 @@ export function TaskDueDateField({ form }: TaskDueDateFieldProps) {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full justify-start"
+                className="h-8 px-3 text-xs border rounded-full"
                 onClick={(e) => {
                   e.preventDefault();
                   dateInputRef.current?.click();
                 }}
               >
-                <div className="flex items-center gap-2 flex-1">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className={cn(!dueDateValue && 'text-muted-foreground')}>
-                    {displayValue || 'Set due date'}
-                  </span>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span>{displayValue || 'Due date'}</span>
                 </div>
               </Button>
             </FormControl>
@@ -80,7 +75,6 @@ export function TaskDueDateField({ form }: TaskDueDateFieldProps) {
               className="sr-only"
               tabIndex={-1}
             />
-            <FormMessage />
           </FormItem>
         );
       }}
