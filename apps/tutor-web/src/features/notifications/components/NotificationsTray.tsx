@@ -24,10 +24,11 @@ export function NotificationsTray() {
         <NotificationsButton unreadCount={unreadCount} />
       </PopoverTrigger>
       <PopoverContent 
-        className="w-96 max-w-[calc(100vw-2rem)] p-0 max-h-[80vh] overflow-y-auto"
+        className="w-96 max-w-[calc(100vw-2rem)] p-0 max-h-[80vh] overflow-y-auto !z-[100]"
         side="bottom"
         align="end"
         sideOffset={8}
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="p-4 border-b">
           <h3 className="font-semibold text-sm">Notifications</h3>
