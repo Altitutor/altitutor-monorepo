@@ -8,6 +8,7 @@ import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isO
 import { Calendar } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { TaskTextWithTags } from './fields/TaskTextWithTags';
 
 interface TaskCardProps {
   task: TaskWithAssignee;
@@ -57,12 +58,14 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       )}
     >
       {/* Title */}
-      <div className="font-medium text-sm">{task.title}</div>
+      <div className="font-medium text-sm">
+        <TaskTextWithTags text={task.title} />
+      </div>
 
       {/* Description preview */}
       {descriptionPreview && (
         <div className="text-xs text-muted-foreground line-clamp-2">
-          {descriptionPreview}
+          <TaskTextWithTags text={descriptionPreview} />
         </div>
       )}
 

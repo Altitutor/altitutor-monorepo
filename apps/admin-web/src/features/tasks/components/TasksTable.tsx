@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import { EditTaskDialog } from './EditTaskDialog';
+import { TaskTextWithTags } from './fields/TaskTextWithTags';
 
 interface TasksTableProps {
   filters?: {
@@ -516,11 +517,12 @@ export function TasksTable({ filters: _filters }: TasksTableProps) {
                   >
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
-                        <span>{task.title}</span>
+                        <TaskTextWithTags text={task.title} />
                         {task.description && (
-                          <span className="text-xs text-muted-foreground line-clamp-1">
-                            {task.description}
-                          </span>
+                          <TaskTextWithTags
+                            text={task.description}
+                            className="text-xs text-muted-foreground line-clamp-1"
+                          />
                         )}
                       </div>
                     </TableCell>

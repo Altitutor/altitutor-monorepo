@@ -8172,6 +8172,34 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
+      test_assert_access_allowed: {
+        Args: { test_query: string }
+        Returns: Record<string, unknown>
+      }
+      test_assert_access_denied: {
+        Args: { test_query: string }
+        Returns: Record<string, unknown>
+      }
+      test_cleanup: { Args: never; Returns: undefined }
+      test_create_admin_staff: {
+        Args: { test_email?: string; test_user_id?: string }
+        Returns: string
+      }
+      test_create_student: {
+        Args: { test_email?: string; test_user_id?: string }
+        Returns: string
+      }
+      test_create_tutor: {
+        Args: { test_email?: string; test_user_id?: string }
+        Returns: string
+      }
+      test_reset_context: { Args: never; Returns: undefined }
+      test_set_role: { Args: { role_name: string }; Returns: undefined }
+      test_set_user_context: {
+        Args: { role_name: string; user_uuid: string }
+        Returns: undefined
+      }
+      test_set_user_id: { Args: { user_uuid: string }; Returns: undefined }
       user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {
         Args: never

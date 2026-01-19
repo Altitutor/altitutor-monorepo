@@ -13,6 +13,7 @@ import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
 import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
 import { Calendar } from 'lucide-react';
 import { useUpdateTask } from '../api/mutations';
+import { TaskTextWithTags } from './fields/TaskTextWithTags';
 
 interface SimpleTaskCardProps {
   task: TaskWithAssignee;
@@ -74,12 +75,14 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
         {/* Left side - Title, description, assignee */}
         <div className="flex-1 min-w-0 space-y-2">
           {/* Title */}
-          <div className="font-medium text-sm">{task.title}</div>
+          <div className="font-medium text-sm">
+            <TaskTextWithTags text={task.title} />
+          </div>
 
           {/* Description preview */}
           {descriptionPreview && (
             <div className="text-xs text-muted-foreground line-clamp-2">
-              {descriptionPreview}
+              <TaskTextWithTags text={descriptionPreview} />
             </div>
           )}
 

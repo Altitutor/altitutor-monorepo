@@ -7,7 +7,7 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Calendar } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, type MutableRefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 
 interface TaskDueDatePillProps {
@@ -15,7 +15,7 @@ interface TaskDueDatePillProps {
 }
 
 export function TaskDueDatePill({ form }: TaskDueDatePillProps) {
-  const dateInputRef = useRef<HTMLInputElement>(null);
+  const dateInputRef = useRef<HTMLInputElement | null>(null) as MutableRefObject<HTMLInputElement | null>;
 
   return (
     <FormField
@@ -55,13 +55,15 @@ export function TaskDueDatePill({ form }: TaskDueDatePillProps) {
             </FormControl>
             <input
               ref={(el) => {
+                // Update local ref
                 dateInputRef.current = el;
                 // Call React Hook Form's ref if it exists
                 if (field.ref) {
                   if (typeof field.ref === 'function') {
                     field.ref(el);
-                  } else {
-                    field.ref.current = el;
+                  } else if ('current' in field.ref) {
+                    // field.ref is a RefObject, assign to its current property
+                    (field.ref as MutableRefObject<HTMLInputElement | null>).current = el;
                   }
                 }
               }}
