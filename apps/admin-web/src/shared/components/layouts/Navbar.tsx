@@ -22,6 +22,8 @@ import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { Search } from 'lucide-react';
+import { NotificationsTray } from '@/features/notifications';
+import { useNotificationsRealtime } from '@/features/notifications';
 
 export function Navbar() {
   const router = useRouter();
@@ -32,6 +34,9 @@ export function Navbar() {
   const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Subscribe to notifications real-time updates
+  useNotificationsRealtime(staffRecord?.id ?? '');
 
   // Keyboard shortcut for command palette (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -130,6 +135,11 @@ export function Navbar() {
                 <Search className="h-4 w-4" />
               </Button>
             )}
+          
+          {/* Notifications Button */}
+          {user && staffRecord?.id && (
+            <NotificationsTray staffId={staffRecord.id} />
+          )}
           
           {/* Theme Toggle - Desktop only */}
           {user && (

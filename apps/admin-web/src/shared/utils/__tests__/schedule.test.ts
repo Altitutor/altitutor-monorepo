@@ -253,11 +253,110 @@ describe('formatSessionDateTime', () => {
   });
 
   it('should handle different times correctly', () => {
-    const morningDate = new Date('2024-01-15T09:00:00');
-    morningDate.setHours(9, 0, 0, 0);
+    // Create dates that represent the intended Adelaide time
+    // We need UTC times that, when formatted with Adelaide timezone, give us the desired times
+    // Adelaide is UTC+10:30 in January (ACDT)
     
-    const afternoonDate = new Date('2024-01-15T15:30:00');
-    afternoonDate.setHours(15, 30, 0, 0);
+    // Helper to create a UTC date that represents a specific Adelaide time
+    const createAdelaideDate = (year: number, month: number, day: number, hour: number, minute: number): Date => {
+      const formatter = new Intl.DateTimeFormat('en', {
+        timeZone: 'Australia/Adelaide',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      
+      // Calculate UTC time: Adelaide is UTC+10:30 in January (ACDT)
+      // Convert Adelaide offset to total minutes: 10.5 hours = 630 minutes
+      const adelaideOffsetMinutes = 10.5 * 60; // 630 minutes
+      const totalAdelaideMinutes = hour * 60 + minute;
+      let totalUtcMinutes = totalAdelaideMinutes - adelaideOffsetMinutes;
+      
+      let utcDay = day;
+      let utcMonth = month - 1;
+      
+      // Handle day rollover
+      if (totalUtcMinutes < 0) {
+        totalUtcMinutes += 24 * 60; // Add 24 hours
+        utcDay -= 1;
+        if (utcDay < 1) {
+          utcMonth -= 1;
+          if (utcMonth < 0) {
+            utcMonth = 11;
+            year -= 1;
+          }
+          utcDay = new Date(year, utcMonth + 1, 0).getDate(); // Last day of previous month
+        }
+      }
+      
+      const utcHour = Math.floor(totalUtcMinutes / 60);
+      const utcMinute = totalUtcMinutes % 60;
+      
+      // Try a few UTC times around the calculated value to account for DST variations
+      for (let hourOffset = -1; hourOffset <= 1; hourOffset++) {
+        for (let minuteOffset = -30; minuteOffset <= 30; minuteOffset += 30) {
+          let testUtcHour = utcHour + hourOffset;
+          let testUtcMinute = utcMinute + minuteOffset;
+          let testUtcDay = utcDay;
+          let testUtcMonth = utcMonth;
+          
+          // Normalize minutes
+          if (testUtcMinute < 0) {
+            testUtcMinute += 60;
+            testUtcHour -= 1;
+          } else if (testUtcMinute >= 60) {
+            testUtcMinute -= 60;
+            testUtcHour += 1;
+          }
+          
+          // Normalize hours
+          if (testUtcHour < 0) {
+            testUtcHour += 24;
+            testUtcDay -= 1;
+            if (testUtcDay < 1) {
+              testUtcMonth -= 1;
+              if (testUtcMonth < 0) {
+                testUtcMonth = 11;
+                year -= 1;
+              }
+              testUtcDay = new Date(year, testUtcMonth + 1, 0).getDate();
+            }
+          } else if (testUtcHour >= 24) {
+            testUtcHour -= 24;
+            testUtcDay += 1;
+            const daysInMonth = new Date(year, testUtcMonth + 1, 0).getDate();
+            if (testUtcDay > daysInMonth) {
+              testUtcDay = 1;
+              testUtcMonth += 1;
+              if (testUtcMonth >= 12) {
+                testUtcMonth = 0;
+                year += 1;
+              }
+            }
+          }
+          
+          const testDate = new Date(Date.UTC(year, testUtcMonth, testUtcDay, testUtcHour, testUtcMinute, 0));
+          const formatted = formatter.formatToParts(testDate);
+          const formattedHour = parseInt(formatted.find(p => p.type === 'hour')?.value || '0', 10);
+          const formattedMinute = parseInt(formatted.find(p => p.type === 'minute')?.value || '0', 10);
+          const formattedDay = parseInt(formatted.find(p => p.type === 'day')?.value || '0', 10);
+          const formattedMonth = parseInt(formatted.find(p => p.type === 'month')?.value || '0', 10);
+          
+          if (formattedHour === hour && formattedMinute === minute && formattedDay === day && formattedMonth === month) {
+            return testDate;
+          }
+        }
+      }
+      
+      // Fallback: return the calculated date
+      return new Date(Date.UTC(year, utcMonth, utcDay, utcHour, utcMinute, 0));
+    };
+    
+    const morningDate = createAdelaideDate(2024, 1, 15, 9, 0);
+    const afternoonDate = createAdelaideDate(2024, 1, 15, 15, 30);
     
     const morningResult = formatSessionDateTime(morningDate);
     const afternoonResult = formatSessionDateTime(afternoonDate);
