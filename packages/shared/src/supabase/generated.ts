@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       activity_events: {
@@ -632,6 +637,56 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_routing_rules: {
+        Row: {
+          audio_url: string | null
+          created_at: string | null
+          forward_to_phone: string | null
+          id: string
+          is_active: boolean | null
+          message_text: string | null
+          message_type: string | null
+          owned_number_id: string
+          priority: number
+          rule_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string | null
+          forward_to_phone?: string | null
+          id?: string
+          is_active?: boolean | null
+          message_text?: string | null
+          message_type?: string | null
+          owned_number_id: string
+          priority?: number
+          rule_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string | null
+          forward_to_phone?: string | null
+          id?: string
+          is_active?: boolean | null
+          message_text?: string | null
+          message_type?: string | null
+          owned_number_id?: string
+          priority?: number
+          rule_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_routing_rules_owned_number_id_fkey"
+            columns: ["owned_number_id"]
+            isOneToOne: false
+            referencedRelation: "owned_numbers"
             referencedColumns: ["id"]
           },
         ]
@@ -2293,6 +2348,54 @@ export type Database = {
           },
         ]
       }
+      on_call_schedules: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean | null
+          staff_id: string
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          staff_id: string
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          staff_id?: string
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "on_call_schedules_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "on_call_schedules_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opening_hours: {
         Row: {
           created_at: string | null
@@ -3605,7 +3708,7 @@ export type Database = {
           curriculum?: string | null
           email?: string | null
           first_name: string
-          id: string
+          id?: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -7580,10 +7683,6 @@ export type Database = {
       }
     }
     Functions: {
-      add_enum_value: {
-        Args: { enum_name: string; new_value: string }
-        Returns: undefined
-      }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -7745,29 +7844,29 @@ export type Database = {
       format_class_full_name:
         | {
             Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               p_curriculum: string
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_end_time: string
               p_name: string
@@ -7779,27 +7878,27 @@ export type Database = {
       format_class_short_name:
         | {
             Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               p_curriculum: string
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_name: string
               p_start_time: string
@@ -7907,9 +8006,7 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
-      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
-      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       log_activity_event: {
@@ -7940,6 +8037,8 @@ export type Database = {
         Args: { logged_by_student_id: string; operations: Json }
         Returns: Json
       }
+      map_day_to_number: { Args: { day_string: string }; Returns: number }
+      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -8163,6 +8262,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_claim: {
+        Args: { claim: string; uid: string; value: Json }
+        Returns: undefined
+      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -8172,35 +8275,6 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
-      test_assert_access_allowed: {
-        Args: { test_query: string }
-        Returns: Record<string, unknown>
-      }
-      test_assert_access_denied: {
-        Args: { test_query: string }
-        Returns: Record<string, unknown>
-      }
-      test_cleanup: { Args: never; Returns: undefined }
-      test_create_admin_staff: {
-        Args: { test_email?: string; test_user_id?: string }
-        Returns: string
-      }
-      test_create_student: {
-        Args: { test_email?: string; test_user_id?: string }
-        Returns: string
-      }
-      test_create_tutor: {
-        Args: { test_email?: string; test_user_id?: string }
-        Returns: string
-      }
-      test_reset_context: { Args: never; Returns: undefined }
-      test_set_role: { Args: { role_name: string }; Returns: undefined }
-      test_set_user_context: {
-        Args: { role_name: string; user_uuid: string }
-        Returns: undefined
-      }
-      test_set_user_id: { Args: { user_uuid: string }; Returns: undefined }
-      user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {
         Args: never
         Returns: {
@@ -8220,6 +8294,7 @@ export type Database = {
         }[]
       }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
+      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
@@ -8411,4 +8486,3 @@ export const Constants = {
     },
   },
 } as const
-
