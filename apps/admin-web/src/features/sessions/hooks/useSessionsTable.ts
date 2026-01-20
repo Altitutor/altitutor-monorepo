@@ -19,6 +19,7 @@ export interface UseSessionsTableProps {
   studentId?: string;
   staffId?: string;
   classId?: string;
+  adminShiftId?: string;
   limit?: number;
   rangeStart?: string;
   rangeEnd?: string;
@@ -90,6 +91,7 @@ export function useSessionsTable({
   studentId,
   staffId,
   classId,
+  adminShiftId,
   limit,
   rangeStart,
   rangeEnd,
@@ -190,6 +192,7 @@ export function useSessionsTable({
     studentId: apiStudentId,
     staffId,
     classId,
+    adminShiftId,
     types: typeFilters.length > 0 ? typeFilters : undefined,
     orderBy: 'start_at',
     ascending: sortDirection === 'asc',

@@ -41,6 +41,7 @@ type SessionsTableProps = {
   studentId?: string;
   staffId?: string;
   classId?: string;
+  adminShiftId?: string;
   limit?: number;
   rangeStart?: string; // YYYY-MM-DD
   rangeEnd?: string;   // YYYY-MM-DD
@@ -53,7 +54,11 @@ type SessionsTableProps = {
   hideBilling?: boolean; // Hide invoice status badges
   hideStudentFilter?: boolean; // Hide student filter UI
   hideTypeFilter?: boolean; // Hide type filter UI
+  hideTutorLogFilter?: boolean; // Hide tutor log filter UI
   hideSearch?: boolean; // Hide search input
+  hideTypeColumn?: boolean; // Hide Type column
+  hideClassColumn?: boolean; // Hide Class column
+  hideStudentsColumn?: boolean; // Hide Students column
   initialStudentFilters?: string[]; // Initial student filters (for external filter control)
 };
 
@@ -61,6 +66,7 @@ export function SessionsTable({
   studentId,
   staffId,
   classId,
+  adminShiftId,
   limit,
   rangeStart,
   rangeEnd,
@@ -73,7 +79,11 @@ export function SessionsTable({
   hideBilling = false,
   hideStudentFilter = false,
   hideTypeFilter = false,
+  hideTutorLogFilter = false,
   hideSearch = false,
+  hideTypeColumn = false,
+  hideClassColumn = false,
+  hideStudentsColumn = false,
   initialStudentFilters = [],
 }: SessionsTableProps) {
   const router = useRouter();
@@ -156,6 +166,7 @@ export function SessionsTable({
     studentId,
     staffId,
     classId,
+    adminShiftId,
     limit,
     rangeStart,
     rangeEnd,
@@ -234,7 +245,8 @@ export function SessionsTable({
             </div>
           )}
           
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Clear Filters */}
               {!isDefaultState && (
                 <Button 
@@ -335,45 +347,50 @@ export function SessionsTable({
               )}
 
               {/* Tutor Log Filter */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant={!showLogged || !showUnlogged ? "secondary" : "outline"} 
-                    size="sm"
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Tutor Log
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56" align="end">
-                  <div className="space-y-2">
-                    <div className="font-medium text-sm mb-2">Tutor Log</div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={showLogged}
-                        onCheckedChange={(checked) => setShowLogged(checked === true)}
-                      />
-                      <span className="text-sm">Tutor log</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={showUnlogged}
-                        onCheckedChange={(checked) => setShowUnlogged(checked === true)}
-                      />
-                      <span className="text-sm">Unlogged</span>
-                    </label>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {!hideTutorLogFilter && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant={!showLogged || !showUnlogged ? "secondary" : "outline"} 
+                      size="sm"
+                    >
+                      <Filter className="h-4 w-4 mr-2" />
+                      Tutor Log
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56" align="end">
+                    <div className="space-y-2">
+                      <div className="font-medium text-sm mb-2">Tutor Log</div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={showLogged}
+                          onCheckedChange={(checked) => setShowLogged(checked === true)}
+                        />
+                        <span className="text-sm">Tutor log</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={showUnlogged}
+                          onCheckedChange={(checked) => setShowUnlogged(checked === true)}
+                        />
+                        <span className="text-sm">Unlogged</span>
+                      </label>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
 
-            {/* Date Range Filter */}
+            {/* Date Range Filter - Right aligned */}
             {onFromChange && onToChange && (
-              <DateRangePicker
-                from={rangeStart || ''}
-                to={rangeEnd || ''}
-                onFromChange={onFromChange}
-                onToChange={onToChange}
-              />
+              <div className="ml-auto">
+                <DateRangePicker
+                  from={rangeStart || ''}
+                  to={rangeEnd || ''}
+                  onFromChange={onFromChange}
+                  onToChange={onToChange}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -388,14 +405,18 @@ export function SessionsTable({
                 <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-100" />
               </TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>
-                Type
-              </TableHead>
-              {!classId && (
+              {!hideTypeColumn && (
+                <TableHead>
+                  Type
+                </TableHead>
+              )}
+              {!classId && !hideClassColumn && (
                 <TableHead>Class</TableHead>
               )}
               <TableHead>Staff</TableHead>
-              <TableHead>Students</TableHead>
+              {!hideStudentsColumn && (
+                <TableHead>Students</TableHead>
+              )}
               <TableHead>Tutor Log</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -403,7 +424,12 @@ export function SessionsTable({
           <TableBody>
             {paginatedSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={(classId ? 7 : 8)} className="text-center h-24">
+                <TableCell colSpan={
+                  5 + 
+                  (!hideTypeColumn ? 1 : 0) + 
+                  (!classId && !hideClassColumn ? 1 : 0) + 
+                  (!hideStudentsColumn ? 1 : 0)
+                } className="text-center h-24">
                   {searchTerm || studentFilters.length > 0 || typeFilters.length > 0
                     ? "No sessions match your filters"
                     : "No sessions found"}
@@ -427,12 +453,14 @@ export function SessionsTable({
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
-                  <TableCell>
-                    <Badge className={getSessionTypeBadgeColor(session.type)}>
-                      {formatSessionType(session.type)}
-                    </Badge>
-                  </TableCell>
-                  {!classId && (
+                  {!hideTypeColumn && (
+                    <TableCell>
+                      <Badge className={getSessionTypeBadgeColor(session.type)}>
+                        {formatSessionType(session.type)}
+                      </Badge>
+                    </TableCell>
+                  )}
+                  {!classId && !hideClassColumn && (
                   <TableCell>
                     {session.class_id ? (() => {
                         const cls = classesById[session.class_id];
@@ -497,55 +525,57 @@ export function SessionsTable({
                       );
                     })()}
                   </TableCell>
-                  <TableCell>
-                    {(() => {
-                      const studentList: any[] = (sessionStudents[session.id] || []) as any[];
-                      if (!studentList.length) return <span className="text-muted-foreground text-sm">-</span>;
-                      
-                      return (
-                        <div className="flex flex-col gap-1">
-                          {studentList.map((s) => {
-                            const plannedAbsence = s.planned_absence === true;
-                            const actualAttended = s.actual_attended;
-                            const invoiceStatus = s.invoice_status;
-                            const isExtra = s.is_extra === true;
-                            const nameClass = plannedAbsence 
-                              ? "text-muted-foreground line-through" 
-                              : isExtra
-                              ? "text-orange-600 dark:text-orange-400"
-                              : "";
-                            
-                            const badgeInfo = getInvoiceStatusBadgeVariant(invoiceStatus);
-                            
-                            return (
-                              <div key={s.id} className="flex items-center gap-1 flex-wrap">
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  className={cn("h-auto p-0 text-xs justify-start", nameClass)}
-                                  onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
-                                >
-                                  {s.first_name} {s.last_name}
-                                </Button>
-                                {actualAttended !== null && (
-                                  actualAttended ? (
-                                    <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                  ) : (
-                                    <X className="h-3 w-3 text-red-600 flex-shrink-0" />
-                                  )
-                                )}
-                                {!hideBilling && badgeInfo && (
-                                  <Badge variant={badgeInfo.variant} className="text-xs ml-1">
-                                    {badgeInfo.label}
-                                  </Badge>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </TableCell>
+                  {!hideStudentsColumn && (
+                    <TableCell>
+                      {(() => {
+                        const studentList: any[] = (sessionStudents[session.id] || []) as any[];
+                        if (!studentList.length) return <span className="text-muted-foreground text-sm">-</span>;
+                        
+                        return (
+                          <div className="flex flex-col gap-1">
+                            {studentList.map((s) => {
+                              const plannedAbsence = s.planned_absence === true;
+                              const actualAttended = s.actual_attended;
+                              const invoiceStatus = s.invoice_status;
+                              const isExtra = s.is_extra === true;
+                              const nameClass = plannedAbsence 
+                                ? "text-muted-foreground line-through" 
+                                : isExtra
+                                ? "text-orange-600 dark:text-orange-400"
+                                : "";
+                              
+                              const badgeInfo = getInvoiceStatusBadgeVariant(invoiceStatus);
+                              
+                              return (
+                                <div key={s.id} className="flex items-center gap-1 flex-wrap">
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    className={cn("h-auto p-0 text-xs justify-start", nameClass)}
+                                    onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
+                                  >
+                                    {s.first_name} {s.last_name}
+                                  </Button>
+                                  {actualAttended !== null && (
+                                    actualAttended ? (
+                                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                    ) : (
+                                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                    )
+                                  )}
+                                  {!hideBilling && badgeInfo && (
+                                    <Badge variant={badgeInfo.variant} className="text-xs ml-1">
+                                      {badgeInfo.label}
+                                    </Badge>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                  )}
                   <TableCell>
                     {tutorLogs[session.id] ? (
                       <TutorLogAvatar
