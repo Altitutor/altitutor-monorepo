@@ -238,21 +238,22 @@ export function TaskNotes({ taskId, notes, onNoteAdded }: TaskNotesProps) {
       )}
 
       {/* New Note Input */}
-      <div className="space-y-2 pt-2">
+      <div className="relative rounded-lg border bg-card p-4">
         <Textarea
           ref={textareaRef}
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Add a note..."
-          className="min-h-[80px] resize-none text-sm"
+          className="min-h-[80px] resize-none border-0 bg-transparent pr-20 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={createNoteMutation.isPending || !currentStaff}
         />
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
-            {createNoteMutation.isPending ? 'Posting...' : ''}
-          </span>
+        <div className="absolute bottom-4 right-4 flex items-center gap-2">
+          {createNoteMutation.isPending && (
+            <span className="text-xs text-muted-foreground">Posting...</span>
+          )}
           <Button
+            type="button"
             onClick={handleSubmit}
             disabled={!newNote.trim() || createNoteMutation.isPending || !currentStaff}
             size="sm"

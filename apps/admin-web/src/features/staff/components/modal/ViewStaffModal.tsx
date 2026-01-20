@@ -279,8 +279,8 @@ export function ViewStaffModal({
                   <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
-                    <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
+                    <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="activity">Activity</TabsTrigger>
                   </TabsList>
                 </div>
@@ -325,14 +325,6 @@ export function ViewStaffModal({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
-                  <div className="h-full p-6">
-                    {staffMember && (
-                      <StaffSessionsTab staff={staffMember} />
-                    )}
-                  </div>
-                </TabsContent>
-
                 <TabsContent value="messages" className="absolute inset-0 overflow-hidden m-0 p-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
                   <div className="h-full p-6">
                     <MessagesTabContent 
@@ -342,6 +334,14 @@ export function ViewStaffModal({
                       relatedId={staffId || undefined}
                       relatedType="staff"
                     />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="h-full p-6">
+                    {staffMember && (
+                      <StaffSessionsTab staff={staffMember} />
+                    )}
                   </div>
                 </TabsContent>
 

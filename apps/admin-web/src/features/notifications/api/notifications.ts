@@ -29,14 +29,14 @@ export const notificationsApi = {
   getUnreadCount: async (staffId: string): Promise<number> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .eq('staff_id', staffId)
       .is('read_at', null);
 
     if (error) throw error;
-    return data?.length ?? 0;
+    return count ?? 0;
   },
 
   /**

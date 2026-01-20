@@ -636,6 +636,56 @@ export type Database = {
           },
         ]
       }
+      call_routing_rules: {
+        Row: {
+          audio_url: string | null
+          created_at: string | null
+          forward_to_phone: string | null
+          id: string
+          is_active: boolean | null
+          message_text: string | null
+          message_type: string | null
+          owned_number_id: string
+          priority: number
+          rule_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string | null
+          forward_to_phone?: string | null
+          id?: string
+          is_active?: boolean | null
+          message_text?: string | null
+          message_type?: string | null
+          owned_number_id: string
+          priority?: number
+          rule_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string | null
+          forward_to_phone?: string | null
+          id?: string
+          is_active?: boolean | null
+          message_text?: string | null
+          message_type?: string | null
+          owned_number_id?: string
+          priority?: number
+          rule_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_routing_rules_owned_number_id_fkey"
+            columns: ["owned_number_id"]
+            isOneToOne: false
+            referencedRelation: "owned_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           created_at: string | null
@@ -2289,6 +2339,54 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      on_call_schedules: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean | null
+          staff_id: string
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          staff_id: string
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          staff_id?: string
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "on_call_schedules_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "on_call_schedules_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -5951,7 +6049,9 @@ export type Database = {
             | null
           subject_id: string | null
           subject_level: string | null
+          subject_long_name: string | null
           subject_name: string | null
+          subject_short_name: string | null
           subject_year_level: number | null
         }
         Relationships: [
@@ -6053,7 +6153,10 @@ export type Database = {
             | null
           subject_id: string | null
           subject_level: string | null
+          subject_long_name: string | null
           subject_name: string | null
+          subject_short_name: string | null
+          subject_year_level: number | null
         }
         Relationships: [
           {
@@ -6858,7 +6961,9 @@ export type Database = {
             | null
           subject_id: string | null
           subject_level: string | null
+          subject_long_name: string | null
           subject_name: string | null
+          subject_short_name: string | null
           subject_year_level: number | null
         }
         Relationships: [
@@ -8172,34 +8277,6 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
-      test_assert_access_allowed: {
-        Args: { test_query: string }
-        Returns: Record<string, unknown>
-      }
-      test_assert_access_denied: {
-        Args: { test_query: string }
-        Returns: Record<string, unknown>
-      }
-      test_cleanup: { Args: never; Returns: undefined }
-      test_create_admin_staff: {
-        Args: { test_email?: string; test_user_id?: string }
-        Returns: string
-      }
-      test_create_student: {
-        Args: { test_email?: string; test_user_id?: string }
-        Returns: string
-      }
-      test_create_tutor: {
-        Args: { test_email?: string; test_user_id?: string }
-        Returns: string
-      }
-      test_reset_context: { Args: never; Returns: undefined }
-      test_set_role: { Args: { role_name: string }; Returns: undefined }
-      test_set_user_context: {
-        Args: { role_name: string; user_uuid: string }
-        Returns: undefined
-      }
-      test_set_user_id: { Args: { user_uuid: string }; Returns: undefined }
       user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {
         Args: never

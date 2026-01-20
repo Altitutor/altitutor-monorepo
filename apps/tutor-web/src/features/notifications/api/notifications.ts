@@ -29,13 +29,13 @@ export const notificationsApi = {
   getUnreadCount: async (): Promise<number> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from('vtutor_notifications')
       .select('id', { count: 'exact', head: true })
       .is('read_at', null);
 
     if (error) throw error;
-    return data?.length ?? 0;
+    return count ?? 0;
   },
 
   /**

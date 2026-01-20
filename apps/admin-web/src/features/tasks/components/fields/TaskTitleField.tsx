@@ -44,27 +44,19 @@ export function TaskTitleField({ form, value, onTagClick, onEnter, titleRef }: T
     onEnter,
   });
 
-  // Combine refs: use the internal ref and also forward to titleRef if provided
-  const combinedRef = useCallback((node: HTMLDivElement | null) => {
-    // Set internal ref
-    if (typeof internalRef === 'function') {
-      internalRef(node);
-    } else if (internalRef) {
-      (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    }
-    // Forward to titleRef if provided
-    if (titleRef) {
-      if (typeof titleRef === 'function') {
-        titleRef(node);
-      } else {
-        titleRef.current = node;
-      }
-    }
-  }, [internalRef, titleRef]);
-
   const handleSelectEntity = useCallback((result: EntitySearchResult) => {
     insertTag(result);
   }, [insertTag]);
+
+  // Memoize ref callback to ensure stability
+  const combinedRef = useCallback((node: HTMLDivElement | null) => {
+    // Set internal ref (use type assertion since RefObject.current is read-only in types)
+    (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    // Forward to titleRef if provided
+    if (titleRef) {
+      (titleRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }
+  }, [internalRef, titleRef]);
 
   return (
     <FormField
@@ -75,7 +67,7 @@ export function TaskTitleField({ form, value, onTagClick, onEnter, titleRef }: T
           <FormControl>
             <div className="relative">
               <div
-                ref={titleRef ? combinedRef : internalRef}
+                ref={combinedRef}
                 contentEditable
                 onBlur={handleBlur}
                 onInput={handleInput}

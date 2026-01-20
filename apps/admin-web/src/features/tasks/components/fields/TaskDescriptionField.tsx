@@ -42,27 +42,19 @@ export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }
     onTagClick: handleTagClick,
   });
 
-  // Combine refs: use the internal ref and also forward to descriptionRef if provided
-  const combinedRef = useCallback((node: HTMLDivElement | null) => {
-    // Set internal ref
-    if (typeof internalRef === 'function') {
-      internalRef(node);
-    } else if (internalRef) {
-      (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    }
-    // Forward to descriptionRef if provided
-    if (descriptionRef) {
-      if (typeof descriptionRef === 'function') {
-        descriptionRef(node);
-      } else {
-        descriptionRef.current = node;
-      }
-    }
-  }, [internalRef, descriptionRef]);
-
   const handleSelectEntity = useCallback((result: EntitySearchResult) => {
     insertTag(result);
   }, [insertTag]);
+
+  // Memoize ref callback to ensure stability
+  const combinedRef = useCallback((node: HTMLDivElement | null) => {
+    // Set internal ref (use type assertion since RefObject.current is read-only in types)
+    (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    // Forward to descriptionRef if provided
+    if (descriptionRef) {
+      (descriptionRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }
+  }, [internalRef, descriptionRef]);
 
   return (
     <FormField
@@ -73,7 +65,7 @@ export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }
           <FormControl>
             <div className="relative">
               <div
-                ref={descriptionRef ? combinedRef : internalRef}
+                ref={combinedRef}
                 contentEditable
                 onBlur={handleBlur}
                 onInput={handleInput}

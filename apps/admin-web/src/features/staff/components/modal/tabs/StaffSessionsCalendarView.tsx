@@ -2,24 +2,23 @@
 
 import { useMemo, useState } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { Button } from "@altitutor/ui";
 
-interface StudentSessionsCalendarViewProps {
-  studentId: string;
+interface StaffSessionsCalendarViewProps {
+  staffId: string;
   onOpenSession?: (id: string) => void;
   classId?: string;
 }
 
-export function StudentSessionsCalendarView({ 
-  studentId, 
+export function StaffSessionsCalendarView({ 
+  staffId, 
   onOpenSession,
   classId 
-}: StudentSessionsCalendarViewProps) {
+}: StaffSessionsCalendarViewProps) {
   const [anchor, setAnchor] = useState<Date>(new Date());
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
@@ -32,14 +31,14 @@ export function StudentSessionsCalendarView({
   const { data, isLoading, error } = useSessionsWithDetails({ 
     rangeStart: rangeStartStr, 
     rangeEnd: rangeEndStr,
-    studentId,
+    staffId,
     classId,
     includeInactive: false // Only show active sessions in calendar view
   });
   
   // #region agent log
   if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StudentSessionsCalendarView.tsx:32',message:'useSessionsWithDetails result',data:{rangeStart:rangeStartStr,rangeEnd:rangeEndStr,studentId,classId,hasData:!!data,sessionsCount:data?.sessions?.length||0,isLoading,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StaffSessionsCalendarView.tsx:32',message:'useSessionsWithDetails result',data:{rangeStart:rangeStartStr,rangeEnd:rangeEndStr,staffId,classId,hasData:!!data,sessionsCount:data?.sessions?.length||0,isLoading,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
   }
   // #endregion
 
@@ -51,7 +50,7 @@ export function StudentSessionsCalendarView({
     const allSessions = (data?.sessions as Tables<'sessions'>[]) || [];
     // #region agent log
     if (typeof window !== 'undefined') {
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StudentSessionsCalendarView.tsx:42',message:'getDaySessions called',data:{day:format(d,'yyyy-MM-dd'),allSessionsCount:allSessions.length,daySessionsCount:allSessions.filter((s:any)=>s.start_at&&isSameDay(new Date(s.start_at),d)).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StaffSessionsCalendarView.tsx:42',message:'getDaySessions called',data:{day:format(d,'yyyy-MM-dd'),allSessionsCount:allSessions.length,daySessionsCount:allSessions.filter((s:any)=>s.start_at&&isSameDay(new Date(s.start_at),d)).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     }
     // #endregion
     const sessions = allSessions
@@ -73,13 +72,9 @@ export function StudentSessionsCalendarView({
   return (
     <div className="flex flex-col gap-3 h-full">
       <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>Previous</Button>
         <Button variant="outline" onClick={() => setAnchor(new Date())}>Today</Button>
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>Next</Button>
       </div>
 
       <div className="flex-1 overflow-auto relative">

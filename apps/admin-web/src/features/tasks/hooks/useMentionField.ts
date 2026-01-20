@@ -41,19 +41,12 @@ function getTextWithLineBreaks(element: HTMLElement | null): string {
     return false;
   };
   
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-    null
-  );
-
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
+  // Process nodes recursively to handle line breaks and mention pills
+  const processNode = (node: Node): void => {
     if (node.nodeType === Node.TEXT_NODE) {
       // Skip text nodes that are inside mention-pill elements
-      // These are the display text that we'll reconstruct from the tag marker
       if (isInsideMentionPill(node)) {
-        continue; // Skip - this text is already included in the tag marker
+        return; // Skip - this text is already included in the tag marker
       }
       // Remove zero-width spaces that we added after tag pills for cursor positioning
       const nodeText = node.textContent || '';
@@ -68,8 +61,36 @@ function getTextWithLineBreaks(element: HTMLElement | null): string {
           // Reconstruct tag marker
           text += `@[${type}:${id}:${displayText}]`;
         }
+      } else if (el.tagName === 'BR') {
+        // Convert <br> tags to newline characters
+        text += '\n';
+      } else {
+        // Process children of other elements
+        // For block elements (div, p), add newlines between siblings
+        const isBlockElement = el.tagName === 'DIV' || el.tagName === 'P';
+        const children = el.childNodes;
+        
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          // Add newline before block element content if it's not the first child
+          if (isBlockElement && i > 0) {
+            text += '\n';
+          }
+          processNode(child);
+        }
+        
+        // Add newline after block element if it has a next sibling
+        if (isBlockElement && el.nextSibling) {
+          text += '\n';
+        }
       }
     }
+  };
+
+  // Process all direct child nodes
+  const children = element.childNodes;
+  for (let i = 0; i < children.length; i++) {
+    processNode(children[i]);
   }
 
   return text;
@@ -97,6 +118,7 @@ function setTextWithTags(element: HTMLElement | null, text: string, onTagClick?:
     staff: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
     parent: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     class: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    subject: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
     session: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
     topic: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
     file: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
@@ -107,6 +129,7 @@ function setTextWithTags(element: HTMLElement | null, text: string, onTagClick?:
     staff: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     parent: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
     class: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>',
+    subject: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44L2 22"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44L22 22"/></svg>',
     session: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>',
     topic: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>',
     file: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>',
@@ -306,12 +329,13 @@ export function useMentionField<T extends Record<string, unknown>>({
             const selection = window.getSelection();
             if (selection && selection.rangeCount > 0) {
               const range = selection.getRangeAt(0).cloneRange();
-              // Collapse range to start to get accurate cursor position
-              range.collapse(true);
+              // Collapse range to end to get the actual cursor position (where text is being typed)
+              range.collapse(false);
               const rect = range.getBoundingClientRect();
               // Use viewport coordinates directly (getBoundingClientRect returns viewport coordinates)
               // If rect has no width/height, use a default height
               const height = rect.height || 20;
+              // Position dropdown with top-left corner at bottom-left of cursor
               setMentionPosition({
                 top: rect.top + height + 4,
                 left: rect.left,
@@ -771,8 +795,8 @@ function getCaretPosition(element: HTMLElement, textPosition: number): { top: nu
 
   // Use current selection position
   const range = selection.getRangeAt(0).cloneRange();
-  // Collapse to start to get accurate cursor position
-  range.collapse(true);
+  // Collapse to end to get the actual cursor position (where text is being typed)
+  range.collapse(false);
   const rect = range.getBoundingClientRect();
   
   return {

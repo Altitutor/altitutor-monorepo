@@ -91,6 +91,8 @@ export function TaskContentPanel({
       setSelectedClassId(id);
     } else if (type === 'parent') {
       setSelectedParentId(id);
+    } else if (type === 'subject') {
+      setSelectedSubjectId(id);
     } else if (type === 'topic') {
       setSelectedTopicId(id);
     } else if (type === 'session') {
@@ -121,14 +123,19 @@ export function TaskContentPanel({
     if (isOpen && autoFocusTitle && titleFieldRef.current) {
       // Use setTimeout to ensure the dialog is fully rendered
       const timer = setTimeout(() => {
-        titleFieldRef.current?.focus();
+        const titleElement = titleFieldRef.current;
+        if (!titleElement) return;
+        
+        titleElement.focus();
         // Place cursor at the start
         const selection = window.getSelection();
+        if (!selection) return;
+        
         const range = document.createRange();
-        range.selectNodeContents(titleFieldRef.current);
+        range.selectNodeContents(titleElement);
         range.collapse(true); // Collapse to start
-        selection?.removeAllRanges();
-        selection?.addRange(range);
+        selection.removeAllRanges();
+        selection.addRange(range);
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -171,17 +178,6 @@ export function TaskContentPanel({
           />
         </div>
 
-      {/* Activity Section */}
-      {showActivity && taskId && (
-        <>
-          <Separator />
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Activity</h3>
-            <TaskActivityTab taskId={taskId} isOpen={isOpen} />
-          </div>
-        </>
-      )}
-
       {/* Notes Section */}
       {taskId && (
         <>
@@ -193,6 +189,17 @@ export function TaskContentPanel({
               // Notes will auto-refresh via query invalidation
             }}
           />
+        </>
+      )}
+
+      {/* Activity Section */}
+      {showActivity && taskId && (
+        <>
+          <Separator />
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Activity</h3>
+            <TaskActivityTab taskId={taskId} isOpen={isOpen} />
+          </div>
         </>
       )}
       </div>

@@ -201,6 +201,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     level: (session as any).subject_level,
     color: (session as any).subject_color,
     year_level: (session as any).subject_year_level,
+    short_name: (session as any).subject_short_name,
+    long_name: (session as any).subject_long_name,
   } as Tables<'subjects'> : null;
 
   // Check if current student has planned absence (from session.planned_absence)

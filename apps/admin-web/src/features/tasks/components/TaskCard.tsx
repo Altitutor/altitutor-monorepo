@@ -3,8 +3,8 @@
 import { Badge } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
-import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
-import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
+import type { TaskWithAssignee, TaskPriority } from '../types';
+import { getPriorityColor, getPriorityLabel, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
 import { Calendar } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -38,11 +38,6 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     : 'Unassigned';
 
   const overdue = isOverdue(task.due_date);
-  const descriptionPreview = task.description
-    ? task.description.length > 100
-      ? `${task.description.substring(0, 100)}...`
-      : task.description
-    : null;
 
   return (
     <div
@@ -62,20 +57,8 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         <TaskTextWithTags text={task.title} />
       </div>
 
-      {/* Description preview */}
-      {descriptionPreview && (
-        <div className="text-xs text-muted-foreground line-clamp-2">
-          <TaskTextWithTags text={descriptionPreview} />
-        </div>
-      )}
-
       {/* Badges row */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Status */}
-        <Badge className={cn('text-xs', getStatusColor(task.status as TaskStatus))}>
-          {getStatusLabel(task.status as TaskStatus)}
-        </Badge>
-
         {/* Priority */}
         {task.priority !== 0 && (
           <Badge className={cn('text-xs', getPriorityColor((task.priority ?? 0) as TaskPriority))}>

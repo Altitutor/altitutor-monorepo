@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Check, RotateCcw } from 'lucide-react';
+import { X, RotateCcw } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { formatRelativeDate } from '@/shared/utils/datetime';
@@ -64,7 +64,7 @@ export function NotificationItem({ notification, isDismissed = false, onDismiss,
           </Button>
         ) : (
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={(e) => {
               e.stopPropagation();
@@ -73,7 +73,7 @@ export function NotificationItem({ notification, isDismissed = false, onDismiss,
             className="h-8 w-8 flex-shrink-0"
             aria-label="Mark as read"
           >
-            <Check className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </Button>
         )}
       </div>
