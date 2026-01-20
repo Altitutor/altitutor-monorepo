@@ -10,23 +10,29 @@ import {
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
-import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
-import { Calendar } from 'lucide-react';
+import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, getStatusIconColor, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
+import { Calendar, Circle, Clock, Eye, CheckCircle } from 'lucide-react';
 import { useUpdateTask } from '../api/mutations';
 import { TaskTextWithTags } from './fields/TaskTextWithTags';
+import type { LucideIcon } from 'lucide-react';
 
 interface SimpleTaskCardProps {
   task: TaskWithAssignee;
   onClick?: () => void;
 }
 
-const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'todo', label: 'Todo' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'in_review', label: 'In Review' },
-  { value: 'done', label: 'Done' },
+const STATUS_OPTIONS: { value: TaskStatus; label: string; icon: LucideIcon }[] = [
+  { value: 'backlog', label: 'Backlog', icon: Circle },
+  { value: 'todo', label: 'Todo', icon: Circle },
+  { value: 'in_progress', label: 'In Progress', icon: Clock },
+  { value: 'in_review', label: 'In Review', icon: Eye },
+  { value: 'done', label: 'Done', icon: CheckCircle },
 ];
+
+function getStatusIcon(status: TaskStatus): LucideIcon {
+  const option = STATUS_OPTIONS.find((opt) => opt.value === status);
+  return option?.icon || Circle;
+}
 
 export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
   const updateTask = useUpdateTask();
@@ -38,11 +44,8 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
     : 'Unassigned';
 
   const overdue = isOverdue(task.due_date);
-  const descriptionPreview = task.description
-    ? task.description.length > 100
-      ? `${task.description.substring(0, 100)}...`
-      : task.description
-    : null;
+  const StatusIcon = getStatusIcon(task.status as TaskStatus);
+  const statusIconColor = getStatusIconColor(task.status as TaskStatus);
 
   const handleStatusChange = (newStatus: TaskStatus, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
@@ -70,21 +73,14 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
         'flex flex-col gap-2'
       )}
     >
-      {/* Top row - Title/Description on left, Status on right */}
+      {/* Top row - Title on left, Status on right */}
       <div className="flex items-start justify-between gap-3">
-        {/* Left side - Title, description, assignee */}
+        {/* Left side - Title, assignee */}
         <div className="flex-1 min-w-0 space-y-2">
           {/* Title */}
           <div className="font-medium text-sm">
             <TaskTextWithTags text={task.title} />
           </div>
-
-          {/* Description preview */}
-          {descriptionPreview && (
-            <div className="text-xs text-muted-foreground line-clamp-2">
-              <TaskTextWithTags text={descriptionPreview} />
-            </div>
-          )}
 
           {/* Assignee */}
           {task.assignee && (
@@ -115,24 +111,32 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
                 'text-xs cursor-pointer px-2 py-0.5 rounded-md font-medium transition-all flex-shrink-0',
                 'hover:opacity-90 hover:scale-105 hover:shadow-sm',
                 'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current',
+                'flex items-center gap-1.5',
                 getStatusColor(task.status as TaskStatus)
               )}
             >
-              {getStatusLabel(task.status as TaskStatus)}
+              <StatusIcon className={cn('h-3 w-3', statusIconColor)} />
+              <span>{getStatusLabel(task.status as TaskStatus)}</span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            {STATUS_OPTIONS.map((status) => (
-              <DropdownMenuItem
-                key={status.value}
-                onClick={(e) => handleStatusChange(status.value, e)}
-                className={cn(
-                  task.status === status.value && 'bg-muted'
-                )}
-              >
-                {status.label}
-              </DropdownMenuItem>
-            ))}
+            {STATUS_OPTIONS.map((status) => {
+              const StatusIcon = status.icon;
+              const iconColor = getStatusIconColor(status.value);
+              return (
+                <DropdownMenuItem
+                  key={status.value}
+                  onClick={(e) => handleStatusChange(status.value, e)}
+                  className={cn(
+                    'flex items-center gap-2',
+                    task.status === status.value && 'bg-muted'
+                  )}
+                >
+                  <StatusIcon className={cn('h-4 w-4', iconColor)} />
+                  <span>{status.label}</span>
+                </DropdownMenuItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
