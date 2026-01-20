@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { ScrollArea, Button } from "@altitutor/ui";
@@ -38,7 +38,6 @@ export function ClassStudentsTab({
   const { data: currentStaff } = useCurrentStaff();
   const queryClient = useQueryClient();
   const openWindow = useChatStore(s => s.openWindow);
-  const [studentSubjects, setStudentSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for student viewing
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -49,24 +48,6 @@ export function ClassStudentsTab({
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
-  
-  // Fetch student subjects
-  useEffect(() => {
-    const fetchStudentSubjects = async () => {
-      if (classStudents.length === 0) return;
-      
-      try {
-        const { studentSubjects: subjectsData } = await import('@/features/students/api').then(m => 
-          m.studentsApi.getDetailsForStudentIds(classStudents.map(s => s.id))
-        );
-        setStudentSubjects(subjectsData);
-      } catch (err) {
-        console.error('Error fetching student subjects:', err);
-      }
-    };
-    
-    fetchStudentSubjects();
-  }, [classStudents]);
 
   // Modal handlers
   const handleViewStudent = (studentId: string) => {
@@ -326,7 +307,7 @@ export function ClassStudentsTab({
                   <StudentCard
                     key={student.id}
                     student={student}
-                    subjects={studentSubjects[student.id] || []}
+                    showSubjects={false}
                     onClick={() => handleViewStudent(student.id)}
                     onChangeClass={() => openChangeClassModal(student.id)}
                     onUnenroll={() => openUnenrollModal(student.id)}
@@ -360,7 +341,6 @@ export function ClassStudentsTab({
             setSelectedStudent(null);
           }}
           student={selectedStudent}
-          studentSubjects={studentSubjects[selectedStudent.id] || []}
           oldClass={classData}
           oldClassSubject={classSubject}
           oldClassStaff={classStaff}
@@ -378,7 +358,6 @@ export function ClassStudentsTab({
             setSelectedStudent(null);
           }}
           student={selectedStudent}
-          studentSubjects={studentSubjects[selectedStudent.id] || []}
           class={classData}
           classSubject={classSubject}
           classStaff={classStaff}

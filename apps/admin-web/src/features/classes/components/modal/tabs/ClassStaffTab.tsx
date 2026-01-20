@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
@@ -34,7 +34,6 @@ export function ClassStaffTab({
   const openWindow = useChatStore(s => s.openWindow);
   const [assigningStaff] = useState<Set<string>>(new Set());
   const [, setRemovingStaff] = useState<Set<string>>(new Set());
-  const [staffSubjects, setStaffSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
   
   // Modal state for staff viewing
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -45,36 +44,6 @@ export function ClassStaffTab({
   
   // Get current staff for assignment
   const { data: currentStaff } = useCurrentStaff();
-
-  // Fetch subjects for all staff members
-  useEffect(() => {
-    const fetchStaffSubjects = async () => {
-      if (classStaff.length === 0) return;
-      
-      try {
-        const { staffApi } = await import('@/features/staff/api');
-        const subjectsMap: Record<string, Tables<'subjects'>[]> = {};
-        
-        await Promise.all(
-          classStaff.map(async (staff) => {
-            try {
-              const subjects = await staffApi.getStaffSubjects(staff.id);
-              subjectsMap[staff.id] = subjects as Tables<'subjects'>[];
-            } catch (err) {
-              console.error(`Error fetching subjects for staff ${staff.id}:`, err);
-              subjectsMap[staff.id] = [];
-            }
-          })
-        );
-        
-        setStaffSubjects(subjectsMap);
-      } catch (err) {
-        console.error('Error fetching staff subjects:', err);
-      }
-    };
-    
-    fetchStaffSubjects();
-  }, [classStaff]);
 
   const handleViewStaff = (staffId: string) => {
     setSelectedStaffId(staffId);
@@ -218,7 +187,7 @@ export function ClassStaffTab({
                 <StaffCard
                   key={staff.id}
                   staff={staff}
-                  subjects={staffSubjects[staff.id] || []}
+                  showSubjects={false}
                   onClick={() => handleViewStaff(staff.id)}
                   onRemoveStaff={() => handleRemoveStaff(staff.id)}
                   onMessage={() => handleMessageStaff(staff.id)}
