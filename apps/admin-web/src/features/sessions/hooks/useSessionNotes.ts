@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { notesApi } from '@/shared/api/notes';
-import type { Tables } from '@altitutor/shared';
 
 export const sessionNotesKeys = {
   all: ['session-notes'] as const,
@@ -26,7 +25,7 @@ export function useCreateSessionNote() {
         staffId: params.staffId,
       });
     },
-    onSuccess: (newNote, variables) => {
+    onSuccess: (_newNote, _variables) => {
       // Invalidate all session queries to refetch notes
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },

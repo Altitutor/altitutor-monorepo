@@ -10,7 +10,11 @@
       "outputs": [".next/**", "dist/**", "build/**"]
     },
     "lint": {},
+    "lint:fix": {},
     "test": {},
+    "test:coverage": {
+      "outputs": ["coverage/**"]
+    },
     "typecheck": {}
   }
 }

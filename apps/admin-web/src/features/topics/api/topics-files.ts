@@ -64,6 +64,31 @@ export const topicsFilesApi = {
     
     return (data ?? null) as Tables<'topics_files'> | null;
   },
+
+  /**
+   * Get topic file with file and topic details by file ID
+   */
+  getTopicFileByFileId: async (fileId: string): Promise<(Tables<'topics_files'> & { file: Tables<'files'>, topic: Tables<'topics'> }) | null> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    const { data, error } = await supabase
+      .from('topics_files')
+      .select(`
+        *,
+        file:files(*),
+        topic:topics(*)
+      `)
+      .eq('file_id', fileId)
+      .limit(1)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('Failed to get topic file by file ID:', error);
+      throw error;
+    }
+    
+    return (data ?? null) as any;
+  },
   
   /**
    * Get all topic files for a topic with file details
@@ -146,7 +171,7 @@ export const topicsFilesApi = {
     // If topic_id or type is changing, we need to recalculate the index
     if (data.topic_id || data.type !== undefined) {
       // First get the current topic file
-      const { data: currentFile, error: fetchError } = await supabase
+      const { error: fetchError } = await supabase
         .from('topics_files')
         .select('*')
         .eq('id', id)
@@ -156,11 +181,6 @@ export const topicsFilesApi = {
         console.error('Failed to fetch current topic file:', fetchError);
         throw fetchError;
       }
-      
-      // Determine the new topic_id and type (use provided or existing)
-      const newTopicId = data.topic_id || currentFile.topic_id;
-      const newType = data.type !== undefined ? data.type : currentFile.type;
-      const newIsSolutions = data.is_solutions !== undefined ? data.is_solutions : currentFile.is_solutions;
       
       // Check if topic, type, or solutions status changed
       // Don't set index - database triggers will recalculate siblings automatically
@@ -278,6 +298,96 @@ export const topicsFilesApi = {
     }
     
     return (data ?? []) as Tables<'topics_files'>[];
+  },
+
+  /**
+   * Search files using search_files_admin RPC
+   * Returns files with topic and subject relationships
+   */
+  searchFiles: async (params: {
+    search?: string;
+    subjectIds?: string[];
+    topicIds?: string[];
+    fileTypes?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    files: Array<{
+      id: string;
+      topic_id: string;
+      type: string;
+      index: number;
+      code: string | null;
+      file_id: string;
+      file: {
+        id: string;
+        filename: string;
+        mimetype: string | null;
+        size_bytes: number | null;
+      };
+      topic: {
+        id: string;
+        name: string;
+        code: string | null;
+      };
+      subject: {
+        id: string;
+        name: string;
+        short_name: string | null;
+        long_name: string | null;
+      };
+    }>;
+    total: number;
+  }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    
+    const { data, error } = await supabase.rpc('search_files_admin', {
+      p_search: params.search?.trim() || undefined,
+      p_subject_ids: params.subjectIds && params.subjectIds.length > 0 ? params.subjectIds : undefined,
+      p_topic_ids: params.topicIds && params.topicIds.length > 0 ? params.topicIds : undefined,
+      p_file_types: params.fileTypes && params.fileTypes.length > 0 ? params.fileTypes : undefined,
+      p_limit: params.limit ?? 20,
+      p_offset: params.offset ?? 0,
+    });
+    
+    if (error) {
+      console.error('Failed to search files:', error);
+      throw error;
+    }
+    
+    const result = data as {
+      files: Array<{
+        id: string;
+        topic_id: string;
+        type: string;
+        index: number;
+        code: string | null;
+        file_id: string;
+        file: {
+          id: string;
+          filename: string;
+          mimetype: string | null;
+          size_bytes: number | null;
+        };
+        topic: {
+          id: string;
+          name: string;
+          code: string | null;
+        };
+        subject: {
+          id: string;
+          name: string;
+          short_name: string | null;
+          long_name: string | null;
+        };
+      }>;
+      total: number;
+    } | null;
+    
+    return {
+      files: result?.files ?? [],
+      total: result?.total ?? 0,
+    };
   },
 };
 

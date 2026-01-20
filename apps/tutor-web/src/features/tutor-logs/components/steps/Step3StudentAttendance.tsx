@@ -8,7 +8,6 @@ import { Label } from '@altitutor/ui';
 import { Plus, X, Search } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { cn } from '@/shared/utils/index';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -48,13 +47,19 @@ export function Step3StudentAttendance({
         .eq('session_id', sessionId);
 
       if (ssError) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching session students:', ssError);
         return;
       }
 
       // Transform session students
+      type SessionStudentRow = {
+        student_id: string;
+        planned_absence: boolean;
+      };
+      
       if (ssData) {
-        const transformed = ssData.map((ss: any) => ({
+        const transformed = (ssData as SessionStudentRow[]).map((ss) => ({
           student_id: ss.student_id,
           planned_absence: ss.planned_absence,
           student: {
@@ -64,7 +69,7 @@ export function Step3StudentAttendance({
             year_level: null,
           },
         }));
-        setSessionStudents(transformed as any);
+        setSessionStudents(transformed as Array<Tables<'sessions_students'> & { student: Tables<'students'> }>);
       }
 
       // Get all students for search from vtutor_students view
@@ -74,6 +79,7 @@ export function Step3StudentAttendance({
         .order('first_name');
 
       if (studentsError) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching students:', studentsError);
         return;
       }
@@ -82,10 +88,15 @@ export function Step3StudentAttendance({
 
       // Populate student data in sessionStudents
       if (ssData && studentsData) {
-        const updatedSessionStudents = ssData.map((ss: any) => {
+        type SessionStudentRow = {
+          student_id: string;
+          planned_absence: boolean;
+        };
+        const updatedSessionStudents = (ssData as SessionStudentRow[]).map((ss) => {
           const student = studentsData.find((s) => s.id === ss.student_id);
           return {
-            ...ss,
+            student_id: ss.student_id,
+            planned_absence: ss.planned_absence,
             student: student || {
               id: ss.student_id,
               first_name: '',
@@ -94,12 +105,16 @@ export function Step3StudentAttendance({
             },
           };
         });
-        setSessionStudents(updatedSessionStudents as any);
+        setSessionStudents(updatedSessionStudents as Array<Tables<'sessions_students'> & { student: Tables<'students'> }>);
       }
 
       // Initialize form data if empty
       if (studentAttendance.length === 0 && ssData) {
-        const initialAttendance = ssData.map((ss: any) => ({
+        type SessionStudentRow = {
+          student_id: string;
+          planned_absence: boolean;
+        };
+        const initialAttendance = (ssData as SessionStudentRow[]).map((ss) => ({
           studentId: ss.student_id,
           attended: !ss.planned_absence,
         }));
@@ -110,7 +125,8 @@ export function Step3StudentAttendance({
     };
 
     fetchData();
-  }, [sessionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, studentAttendance.length]);
 
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) =>
@@ -144,7 +160,7 @@ export function Step3StudentAttendance({
 
   const isStudentAlreadyAdded = (studentId: string) => {
     return (
-      sessionStudents.some((ss: any) => ss.student_id === studentId) ||
+      sessionStudents.some((ss) => ss.student_id === studentId) ||
       additionalStudents.includes(studentId)
     );
   };
@@ -172,7 +188,7 @@ export function Step3StudentAttendance({
       {sessionStudents.length > 0 && (
         <div className="space-y-3">
           <div className="font-medium">Planned Students</div>
-          {sessionStudents.map((ss: any) => {
+          {sessionStudents.map((ss) => {
             const student = ss.student;
             const attendance = getStudentAttendance(ss.student_id);
             const isAttended = attendance?.attended ?? !ss.planned_absence;

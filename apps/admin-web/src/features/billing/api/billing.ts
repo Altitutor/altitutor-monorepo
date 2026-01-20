@@ -1,15 +1,10 @@
-import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { InvoiceRow, InvoiceItemRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
 
-export type InvoiceRow = Tables<'invoices'>;
-export type InvoiceItemRow = Tables<'invoice_items'>;
-
-// View types for reconciliation (may need updates later)
-export type MissingPaymentObligation = any; // Views aren't in generated types yet
-export type FailedPaymentAttempt = any;
-export type StuckPaymentAttempt = any;
+// Re-export types for backward compatibility
+export type { InvoiceRow, InvoiceItemRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
 
 export const billingApi = {
   // Get all invoices for a student
@@ -135,7 +130,7 @@ export const billingApi = {
   },
 
   // Backward compatibility - returns invoices instead of payment attempts
-  async getPaymentAttemptsByStudent(studentId: string): Promise<any[]> {
+  async getPaymentAttemptsByStudent(studentId: string): Promise<InvoiceRow[]> {
     return this.getInvoicesByStudent(studentId);
   },
 

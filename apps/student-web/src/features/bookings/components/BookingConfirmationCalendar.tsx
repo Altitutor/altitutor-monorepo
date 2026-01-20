@@ -39,12 +39,15 @@ export function BookingConfirmationCalendar({
     return date;
   }, [newSessionStart]);
 
+  // Build overlap groups
+  type SessionItem = StudentSessionWithStaff & { id: string };
+
   // Combine existing sessions with the new session for display
-  const allSessions = useMemo(() => {
+  const allSessions = useMemo<SessionItem[]>(() => {
     return [
       ...existingSessions.map(s => ({
         ...s,
-        id: s.session_id, // Add id field for compatibility
+        id: s.session_id || '', // Add id field for compatibility
       })),
       {
         session_id: 'new-session-preview',
@@ -58,6 +61,8 @@ export function BookingConfirmationCalendar({
         students: [],
         // Add subject details for display (matching vstudent_session_base structure)
         subject_name: newSession.subject?.name || null,
+        subject_long_name: newSession.subject?.name || null,
+        subject_short_name: newSession.subject?.name || null,
         subject_curriculum: newSession.subject?.curriculum || null,
         subject_level: newSession.subject?.level || null,
         subject_year_level: newSession.subject?.year_level || null,
@@ -122,22 +127,20 @@ export function BookingConfirmationCalendar({
 
   const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (timeRange.startHour * 60);
 
-  // Build overlap groups
-  type SessionItem = StudentSessionWithStaff & { id: string };
   const groups: SessionItem[][] = [];
   const processed = new Set<string>();
   const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
 
   daySessions.forEach((s) => {
-    const sessionId = (s as any).id || s.session_id || '';
+    const sessionId = s.id || s.session_id || '';
     if (processed.has(sessionId)) return;
     const sStart = toMinutes(parseISO(s.start_at!));
     const sEnd = toMinutes(parseISO(s.end_at!));
-    const group: SessionItem[] = [s as SessionItem];
+    const group: SessionItem[] = [s];
     processed.add(sessionId);
 
     daySessions.forEach((o) => {
-      const oSessionId = (o as any).id || o.session_id || '';
+      const oSessionId = o.id || o.session_id || '';
       if (processed.has(oSessionId)) return;
       const oStart = toMinutes(parseISO(o.start_at!));
       const oEnd = toMinutes(parseISO(o.end_at!));
@@ -185,7 +188,7 @@ export function BookingConfirmationCalendar({
                         const height = Math.max(45, (differenceInMinutes(sEnd, sStart) / 60) * slotHeight);
                         const left = idx * columnWidth + 2.5;
 
-                        const sessionId = (s as any).id || s.session_id || '';
+                        const sessionId = s.id || s.session_id || '';
                         const isNewSession = sessionId === 'new-session-preview';
                         const cardHeight = Math.max(height, 45);
                         const estimatedColumnWidth = 400;

@@ -15,6 +15,10 @@ type StaffAttendanceItem = {
   type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
 };
 
+function isValidStaffType(type: string | null | undefined): type is 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' {
+  return type === 'MAIN_TUTOR' || type === 'SECONDARY_TUTOR' || type === 'TRIAL_TUTOR';
+}
+
 type Step2StaffAttendanceProps = {
   sessionId: string;
   currentStaffId: string;
@@ -45,6 +49,7 @@ export function Step2StaffAttendance({
         .maybeSingle();
 
       if (error) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching session staff:', error);
         setIsLoading(false);
         return;
@@ -56,35 +61,83 @@ export function Step2StaffAttendance({
       }
 
       // Extract staff from vtutor_session_detail (staff is an array in the view)
-      const staffArray = (data.staff || []) as any[];
+      type StaffMember = {
+        id: string;
+        first_name?: string | null;
+        last_name?: string | null;
+        role?: string | null;
+        subjects?: unknown[];
+        type?: string | null;
+      };
+      const staffArray = Array.isArray(data.staff) ? (data.staff as StaffMember[]) : [];
       
       // Transform to match expected format
       // Note: vtutor_session_detail doesn't include planned_absence, so we default to false
-      const transformedStaff = staffArray.map((staffMember: any) => ({
+      const transformedStaff: Array<Tables<'sessions_staff'> & { staff: Tables<'staff'> }> = staffArray.map((staffMember) => ({
+        id: '', // Not available in view, will be set if needed
+        session_id: sessionId,
         staff_id: staffMember.id,
+        created_at: new Date().toISOString(),
+        created_by: null,
+        is_swapped: false,
+        planned_absence: false, // Not available in tutor view, default to false
+        planned_absence_logged_at: null,
+        planned_absence_logged_by: null,
+        swapped_at: null,
+        swapped_sessions_staff_id: null,
+        type: isValidStaffType(staffMember.type) 
+          ? staffMember.type 
+          : 'SECONDARY_TUTOR',
+        updated_at: new Date().toISOString(),
         staff: {
           id: staffMember.id,
-          first_name: staffMember.first_name,
-          last_name: staffMember.last_name,
-          role: staffMember.role,
-          subjects: staffMember.subjects || [],
+          first_name: staffMember.first_name || '',
+          last_name: staffMember.last_name || '',
+          role: staffMember.role || '',
+          status: 'ACTIVE',
+          availability_monday: null,
+          availability_tuesday: null,
+          availability_wednesday: null,
+          availability_thursday: null,
+          availability_friday: null,
+          availability_saturday_am: null,
+          availability_saturday_pm: null,
+          availability_sunday_am: null,
+          availability_sunday_pm: null,
+          drafting_availability: null,
+          trial_session_availability: null,
+          subsidy_interview_availability: null,
+          created_at: null,
+          updated_at: null,
+          email: null,
+          phone_number: null,
+          notes: null,
+          office_key_number: null,
+          has_parking_remote: null,
+          invite_token: null,
+          user_id: null,
         },
-        planned_absence: false, // Not available in tutor view, default to false
-        type: staffMember.type || null,
       }));
 
-      setSessionStaff(transformedStaff as any);
+      setSessionStaff(transformedStaff);
 
       // Initialize form data if empty
       if (staffAttendance.length === 0 && transformedStaff.length > 0) {
-        const initialAttendance = transformedStaff.map((ss: any) => ({
-          staffId: ss.staff_id,
-          attended: true, // Default to true (planned_absence not available in tutor view)
-          type:
-            ss.staff_id === currentStaffId
-              ? ('MAIN_TUTOR' as const)
-              : (ss.type || ('SECONDARY_TUTOR' as const)),
-        }));
+        const initialAttendance: StaffAttendanceItem[] = transformedStaff.map((ss) => {
+          let type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
+          if (ss.staff_id === currentStaffId) {
+            type = 'MAIN_TUTOR';
+          } else if (isValidStaffType(ss.type)) {
+            type = ss.type;
+          } else {
+            type = 'SECONDARY_TUTOR';
+          }
+          return {
+            staffId: ss.staff_id,
+            attended: true, // Default to true (planned_absence not available in tutor view)
+            type,
+          };
+        });
         onUpdate(initialAttendance);
       }
 
@@ -141,7 +194,7 @@ export function Step2StaffAttendance({
         Select which staff members attended this session.
       </p>
       <div className="space-y-3">
-        {sessionStaff.map((ss: any) => {
+        {sessionStaff.map((ss) => {
           const staff = ss.staff;
           const attendance = getStaffAttendance(ss.staff_id);
           const isAttended = attendance?.attended ?? !ss.planned_absence;

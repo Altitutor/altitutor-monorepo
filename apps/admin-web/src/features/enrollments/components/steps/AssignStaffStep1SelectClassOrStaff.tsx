@@ -9,7 +9,7 @@ import { Loader2, Search, Filter, X } from 'lucide-react';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { cn, formatClassName } from '@/shared/utils';
+import { formatClassName } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { AssignStaffContext, StaffConflictInfo, ClassConflictInfo, StaffUnavailabilityInfo } from '../../types/enrollment';
 
@@ -56,11 +56,11 @@ interface AssignStaffStep1SelectClassOrStaffProps {
 export function AssignStaffStep1SelectClassOrStaff({
   context,
   isFetching,
-  classData,
-  classSubject,
-  classStaff,
-  staff,
-  staffSubjects,
+  classData: _classData,
+  classSubject: _classSubject,
+  classStaff: _classStaff,
+  staff: _staff,
+  staffSubjects: _staffSubjects,
   filteredClasses,
   filteredStaff,
   availableDays,
@@ -70,10 +70,10 @@ export function AssignStaffStep1SelectClassOrStaff({
   onToggleStaff,
   searchQuery,
   dayFilters,
-  subjectFilters,
+  subjectFilters: _subjectFilters,
   onSearchChange,
   onToggleDay,
-  onToggleSubject,
+  onToggleSubject: _onToggleSubject,
   onClearFilters,
   staffConflicts,
   classConflicts,

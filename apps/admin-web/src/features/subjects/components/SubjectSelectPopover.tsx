@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';

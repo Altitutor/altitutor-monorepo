@@ -1,7 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { topicsFilesApi } from '../api';
-import type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
-import { useToast } from '@altitutor/ui';
+import type { Enums } from '@altitutor/shared';
 
 /**
  * React Query hooks for topics_files

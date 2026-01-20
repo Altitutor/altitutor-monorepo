@@ -7,7 +7,7 @@ export const studentsKeys = {
   all: ['students'] as const,
   lists: () => [...studentsKeys.all, 'list'] as const,
   list: (filters: string) => [...studentsKeys.lists(), { filters }] as const,
-  minimal: (params: any) => [...studentsKeys.all, 'minimal', params] as const,
+  minimal: (params: unknown) => [...studentsKeys.all, 'minimal', params] as const,
   details: () => [...studentsKeys.all, 'detail'] as const,
   detail: (id: string) => [...studentsKeys.details(), id] as const,
   detailFull: (id: string) => [...studentsKeys.detail(id), 'details'] as const,
@@ -213,8 +213,8 @@ export function useUpdateStudent() {
       studentsApi.updateStudent(id, data),
     onSuccess: (updatedStudent, { id }) => {
       // Update specific entity in cache
-      queryClient.setQueryData(studentsKeys.detailFull(id), (old: any) => {
-        if (!old) return old;
+      queryClient.setQueryData(studentsKeys.detailFull(id), (old: unknown) => {
+        if (!old || typeof old !== 'object') return old;
         return { ...old, student: updatedStudent };
       });
 
@@ -265,6 +265,32 @@ export function useRemoveSubjectFromStudent() {
   });
 }
 
+export function useAssignParentToStudent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ studentId, parentId }: { studentId: string; parentId: string }) =>
+      studentsApi.assignParentToStudent(studentId, parentId),
+    onSuccess: (_, { studentId }) => {
+      // Invalidate specific student details
+      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
+    },
+  });
+}
+
+export function useRemoveParentFromStudent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ studentId, parentId }: { studentId: string; parentId: string }) =>
+      studentsApi.removeParentFromStudent(studentId, parentId),
+    onSuccess: (_, { studentId }) => {
+      // Invalidate specific student details
+      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
+    },
+  });
+}
+
 /**
  * Get students for multiple parents
  */
@@ -275,5 +301,22 @@ export function useParentStudents(parentIds: string[], enabled = true) {
     enabled: enabled && parentIds.length > 0,
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
+  });
+}
+
+/**
+ * Search students for absence logging (paginated)
+ */
+export function useStudentsSearchForAbsence(params: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { search = '', page = 0, pageSize = 20 } = params;
+  
+  return useQuery({
+    queryKey: ['students', 'search-for-absence', search.trim(), page],
+    queryFn: () => studentsApi.searchForAbsence({ search, page, pageSize }),
+    staleTime: 1000 * 30, // 30 seconds
   });
 } 

@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { filesApi } from '../api';
-import type { Tables } from '@altitutor/shared';
 import { useToast } from '@altitutor/ui';
 
 /**

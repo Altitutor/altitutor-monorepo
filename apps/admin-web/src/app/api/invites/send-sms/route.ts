@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create contact record for this phone number
-    const { data: contact, error: _contactError } = await supabase
+    const { data: contact } = await supabase
       .from('contacts')
       .select('id, phone_e164')
       .eq(type === 'staff' ? 'staff_id' : 'student_id', id)
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     // Get or create conversation
     let conversationId: string;
-    const { data: existingConvo, error: _convoFetchError } = await supabase
+    const { data: existingConvo } = await supabase
       .from('conversations')
       .select('id')
       .eq('contact_id', contactId)

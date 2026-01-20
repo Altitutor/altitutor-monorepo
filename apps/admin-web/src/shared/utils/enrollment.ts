@@ -38,7 +38,7 @@ export function checkTimeOverlap(
 export async function getEnrollmentConflicts(
   studentId: string,
   classId: string,
-  enrollmentDate: Date
+  _enrollmentDate: Date
 ): Promise<{
   sameSubjectWarning: string | null;
   timeOverlapWarnings: string[];

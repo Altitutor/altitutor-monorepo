@@ -8,10 +8,13 @@ export const queryClient = new QueryClient({
       // Keep data in cache for 10 minutes after component unmounts
       gcTime: 1000 * 60 * 10,
       // Retry failed requests 3 times with exponential backoff
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: unknown) => {
         // Don't retry cancelled queries
-        if (error?.message === 'Query cancelled' || error?.name === 'AbortError') {
-          return false;
+        if (error && typeof error === 'object') {
+          const errorObj = error as { message?: unknown; name?: unknown };
+          if (errorObj.message === 'Query cancelled' || errorObj.name === 'AbortError') {
+            return false;
+          }
         }
         return failureCount < 3;
       },

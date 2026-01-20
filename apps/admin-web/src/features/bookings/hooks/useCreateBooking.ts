@@ -7,7 +7,7 @@ export function useCreateBooking() {
   
   return useMutation({
     mutationFn: (input: CreateBookingInput) => bookingsApi.createBooking(input),
-    onSuccess: (sessionId) => {
+    onSuccess: (_sessionId) => {
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['available-slots'] });
       queryClient.invalidateQueries({ queryKey: ['reservations'] });

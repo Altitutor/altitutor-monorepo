@@ -4,7 +4,6 @@ export * from './ViewTopicModal';
 export * from './TopicsHierarchy';
 export * from './DraggableTopicsList';
 export * from './DraggableFilesList';
-export * from './FilePreview';
 export * from './FilePreviewModal';
 export * from './FileCard';
 export * from './EditTopicFileModal';

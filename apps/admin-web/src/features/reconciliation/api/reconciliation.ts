@@ -5,9 +5,11 @@ import type {
   UninvoicedSession,
   UnloggedSession,
   UnassignedClass,
-  UnreadMessage,
+  UnrepliedMessage,
+  FailedDeliveryMessage,
   UnpaidInvoice,
   StudentWithoutClasses,
+  StudentWithoutPaymentMethod,
 } from '../types';
 
 /**
@@ -103,16 +105,29 @@ export const reconciliationApi = {
   },
 
   /**
-   * Get unread messages
+   * Get unreplied messages
    */
-  getUnreadMessages: async (): Promise<UnreadMessage[]> => {
+  getUnrepliedMessages: async (): Promise<UnrepliedMessage[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data, error } = await (supabase as any)
-      .from('vadmin_reconciliation_unread_messages')
+      .from('vadmin_reconciliation_unreplied_messages')
       .select('*')
       .order('last_message_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as UnreadMessage[];
+    return (data ?? []) as UnrepliedMessage[];
+  },
+
+  /**
+   * Get failed delivery messages
+   */
+  getFailedDeliveryMessages: async (): Promise<FailedDeliveryMessage[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await (supabase as any)
+      .from('vadmin_reconciliation_failed_delivery_messages')
+      .select('*')
+      .order('status_updated_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as FailedDeliveryMessage[];
   },
 
   /**
@@ -127,5 +142,19 @@ export const reconciliationApi = {
       .order('first_name', { ascending: true });
     if (error) throw error;
     return (data ?? []) as StudentWithoutClasses[];
+  },
+
+  /**
+   * Get students without payment method
+   */
+  getStudentsWithoutPaymentMethod: async (): Promise<StudentWithoutPaymentMethod[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await (supabase as any)
+      .from('vadmin_reconciliation_students_without_payment_method')
+      .select('*')
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as StudentWithoutPaymentMethod[];
   },
 };

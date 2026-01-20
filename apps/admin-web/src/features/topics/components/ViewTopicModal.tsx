@@ -31,41 +31,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-import { PencilIcon, TrashIcon, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { PencilIcon, TrashIcon, Loader2, AlertTriangle, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useToast } from '@altitutor/ui';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
-import type { TablesUpdate } from '@altitutor/shared';
 import {
   useTopicById,
   useTopics,
-  useUpdateTopic,
   useDeleteTopic,
   useTopicsBySubject,
   useTopicFilesByTopic,
-  useUpdateTopicIndices,
   useDeleteTopicFile,
-  useUpdateTopicFileIndices,
-  useUpdateTopicFile,
+  useTopicUpdate,
 } from '../hooks';
-import { useQueryClient } from '@tanstack/react-query';
-import { topicsFilesKeys } from '../hooks/useTopicsFilesQuery';
-import { topicsFilesApi } from '../api/topics-files';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { TopicNode } from './TopicsHierarchy';
 import { DraggableTopicsList } from './DraggableTopicsList';
 import { DraggableFilesList, type TopicFileWithFile } from './DraggableFilesList';
 import { FileCard } from './FileCard';
 import { getFileTypeLabel } from '../utils/file-type-icons';
+import { groupFilesByType, getNonSolutionFiles, findLinkedSolution } from '../utils/fileDisplay';
 import type { Enums } from '@altitutor/shared';
 import { AddTopicModal } from './AddTopicModal';
 import { AddResourceFileModal } from './AddResourceFileModal';
 import { EditTopicFileModal } from './EditTopicFileModal';
 import { buildTopicTree } from '../utils/codes';
 import { Plus } from 'lucide-react';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -107,16 +101,11 @@ export function ViewTopicModal({
   const { data: subjects = [] } = useSubjects();
   const { data: allTopics = [] } = useTopics();
   const { data: subjectTopics = [] } = useTopicsBySubject(topic?.subject_id || null);
-  const { data: topicFiles = [], refetch: refetchTopicFiles } = useTopicFilesByTopic(topicId);
-  const queryClient = useQueryClient();
+  const { data: topicFiles = [] } = useTopicFilesByTopic(topicId);
   
-  const { toast } = useToast();
-  const updateTopicMutation = useUpdateTopic();
+  const { updateTopic, isPending: isUpdatingTopic } = useTopicUpdate();
   const deleteTopicMutation = useDeleteTopic();
-  const updateTopicIndices = useUpdateTopicIndices();
   const deleteTopicFileMutation = useDeleteTopicFile();
-  const updateTopicFileIndices = useUpdateTopicFileIndices();
-  const updateTopicFile = useUpdateTopicFile();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -162,148 +151,36 @@ export function ViewTopicModal({
   };
 
   const onSubmit = async (values: FormData) => {
-    if (!topicId) return;
-    
-    const changes: string[] = [];
-    
-    try {
-      const topicData: TablesUpdate<'topics'> = {
-        name: values.name,
-        subject_id: values.subject_id,
-        parent_id: values.parent_id === 'none' ? null : values.parent_id || null,
-      };
+    if (!topicId || !topic) return;
 
-      // Check if topic data changed
-      const topicChanged = topic &&
-        (topic.name !== values.name ||
-        topic.subject_id !== values.subject_id ||
-        (topic.parent_id || null) !== (values.parent_id === 'none' ? null : values.parent_id));
-      
-      // Helper to call mutation without showing toast
-      const mutateSilently = <T,>(mutation: any, variables: T): Promise<any> => {
-        return new Promise((resolve, reject) => {
-          mutation.mutate(variables, {
-            onSuccess: (data: any) => {
-              resolve(data);
-            },
-            onError: (error: any) => {
-              reject(error);
-            },
-          });
-        });
-      };
+    const formData = {
+      name: values.name,
+      subject_id: values.subject_id,
+      parent_id: values.parent_id === 'none' ? null : values.parent_id || null,
+    };
 
-      if (topicChanged) {
-        await mutateSilently(updateTopicMutation, { id: topicId, data: topicData });
-        changes.push('Topic details');
-      }
-      
-      // Update children indices if they were reordered
-      if (reorderedChildren.length > 0) {
-        await mutateSilently(updateTopicIndices, reorderedChildren);
-        setReorderedChildren([]);
-        changes.push('Topic order');
-      }
-      
-      // IMPORTANT: Update solutions first (unlink/convert), then link, then update indices
-      // This ensures type changes are applied before we recalculate indices
-      
-      // Unlink solutions and convert to regular files if needed (do this first)
-      if (solutionUnlinks.length > 0) {
-        for (const solutionFileId of solutionUnlinks) {
-          await mutateSilently(updateTopicFile, {
-            id: solutionFileId,
-            data: { 
-              is_solutions_of_id: null,
-              is_solutions: false,
-            },
-          });
-        }
-        setSolutionUnlinks([]);
-        changes.push('Solution links');
-      }
-      
-      // Link solutions (after unlinking, so we know the final state)
-      if (solutionLinks.length > 0) {
-        for (const link of solutionLinks) {
-          // Find the target file to get its type
-          const targetFile = topicFiles.find(f => f.id === link.targetFileId);
-          await mutateSilently(updateTopicFile, {
-            id: link.solutionFileId,
-            data: { 
-              is_solutions_of_id: link.targetFileId,
-              // Update solution type to match target file type
-              type: targetFile?.type,
-            },
-          });
-        }
-        setSolutionLinks([]);
-        if (!changes.includes('Solution links')) {
-          changes.push('Solution links');
-        }
-      }
-      
-      // Update file types and indices if they were reordered (do this last, after all type changes)
-      // First, update types for files that changed type (including their solutions)
-      const typeChanges = reorderedFiles.filter(f => {
-        const originalFile = topicFiles.find(orig => orig.id === f.id);
-        return originalFile && originalFile.type !== f.type;
-      });
-      
-      if (typeChanges.length > 0) {
-        // Refresh files to get latest state (including solution links)
-        await queryClient.invalidateQueries({ queryKey: topicsFilesKeys.byTopic(topicId!) });
-        const refreshedFiles = await topicsFilesApi.getTopicFilesByTopic(topicId!);
-        
-        // Update types for files that changed, including their solutions
-        for (const fileUpdate of typeChanges) {
-          await mutateSilently(updateTopicFile, {
-            id: fileUpdate.id,
-            data: { type: fileUpdate.type },
-          });
-          
-          // Also update type for any solution files linked to this file
-          const linkedSolutions = refreshedFiles.filter(
-            f => f.is_solutions && f.is_solutions_of_id === fileUpdate.id
-          );
-          for (const solution of linkedSolutions) {
-            await mutateSilently(updateTopicFile, {
-              id: solution.id,
-              data: { type: fileUpdate.type },
-            });
-          }
-        }
-        changes.push('File types');
-      }
-      
-      // Then update indices (batch_update will ensure sequential order)
-      if (reorderedFiles.length > 0) {
-        // Pass explicit indices directly - batch_update will ensure sequential order
-        await mutateSilently(updateTopicFileIndices, reorderedFiles.map(f => ({ id: f.id, index: f.index })));
-        setReorderedFiles([]);
-        changes.push('File order');
-      }
-      
+    const result = await updateTopic({
+      topicId,
+      currentTopic: topic,
+      formData,
+      reorderedChildren,
+      reorderedFiles,
+      solutionLinks,
+      solutionUnlinks,
+      currentTopicFiles: topicFiles,
+    });
+
+    if (result.success) {
+      // Clear all pending changes
+      setReorderedChildren([]);
+      setReorderedFiles([]);
+      setSolutionLinks([]);
+      setSolutionUnlinks([]);
       setIsEditing(false);
-      
-      // Show single grouped toast notification
-      if (changes.length > 0) {
-        toast({
-          title: 'Success',
-          description: `Updated: ${changes.join(', ')}`,
-        });
-      }
-      
+
       if (onTopicUpdated) {
         onTopicUpdated();
       }
-    } catch (error) {
-      console.error('Failed to update topic:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update topic',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -337,32 +214,37 @@ export function ViewTopicModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <SheetTitle className="text-xl">
-                  {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
-                </SheetTitle>
-                {!isLoading && topic && (
-                  <SheetDescription className="text-lg font-medium">
-                    {topic.name}
-                  </SheetDescription>
-                )}
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <SheetTitle className="text-xl">
+                    {isLoading ? 'Topic' : isEditing ? 'Edit Topic' : 'Topic Details'}
+                  </SheetTitle>
+                  {!isLoading && topic && (
+                    <SheetDescription className="text-lg font-medium">
+                      {topic.code ? `${topic.code} - ` : ''}{topic.name}
+                    </SheetDescription>
+                  )}
+                </div>
               </div>
               {topicId && topic && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
+                <ActionsMenu
+                  type="topic"
+                  onOpenInPage={() => {
                     router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
                     onClose();
                   }}
-                  className="shrink-0"
-                  title="Open in new page"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
+                />
               )}
             </div>
           </SheetHeader>
@@ -539,8 +421,11 @@ export function ViewTopicModal({
                         </button>
                       ) : (
                         'None (root topic)'
-                    )}
-                  </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-sm font-medium">Topic Code:</div>
+                    <div>{topic.code || 'N/A'}</div>
                 </div>
               
               <Separator className="my-4" />
@@ -565,32 +450,13 @@ export function ViewTopicModal({
                     ) : (
                       <div className="space-y-6">
                         {(() => {
-                          // Group files by type
-                          const filesByType: Record<Enums<'resource_type'>, typeof topicFiles> = {
-                            NOTES: [],
-                            PRACTICE_QUESTIONS: [],
-                            TEST: [],
-                            VIDEO: [],
-                            EXAM: [],
-                            FLASHCARDS: [],
-                            REVISION_SHEET: [],
-                            CHEAT_SHEET: [],
-                          };
-                          
-                          topicFiles.forEach(file => {
-                            filesByType[file.type].push(file);
-                          });
-                          
-                          // Sort each group by index
-                          Object.keys(filesByType).forEach(type => {
-                            filesByType[type as Enums<'resource_type'>].sort((a, b) => a.index - b.index);
-                          });
+                          const filesByType = groupFilesByType(topicFiles);
                           
                           return Object.entries(filesByType).map(([type, files]) => {
                             if (files.length === 0) return null;
                             
                             const typeLabel = getFileTypeLabel(type as Enums<'resource_type'>);
-                            const nonSolutionFiles = files.filter(f => !f.is_solutions);
+                            const nonSolutionFiles = getNonSolutionFiles(files);
                             
                             return (
                               <div key={type} className="space-y-2">
@@ -598,7 +464,7 @@ export function ViewTopicModal({
                                 <div className="space-y-2">
                                   {nonSolutionFiles.map((topicFile) => {
                                     const code = topicFile.code || '';
-                                    const linkedSolution = files.find(f => f.is_solutions && f.is_solutions_of_id === topicFile.id);
+                                    const linkedSolution = findLinkedSolution(topicFile.id, files);
                                     
                                     return (
                                       <div key={topicFile.id} className="flex gap-2">
@@ -610,6 +476,8 @@ export function ViewTopicModal({
                                             storagePath={topicFile.file.storage_path}
                                             mimeType={topicFile.file.mimetype}
                                             topicFileId={topicFile.id}
+                                            fileId={topicFile.file.id}
+                                            topicName={topic.name}
                                             onEdit={(id) => {
                                               setEditingFileId(id);
                                               setIsEditFileModalOpen(true);
@@ -628,6 +496,8 @@ export function ViewTopicModal({
                                               storagePath={linkedSolution.file.storage_path}
                                               mimeType={linkedSolution.file.mimetype}
                                               topicFileId={linkedSolution.id}
+                                              fileId={linkedSolution.file.id}
+                                              topicName={topic.name}
                                               onEdit={(id) => {
                                                 setEditingFileId(id);
                                                 setIsEditFileModalOpen(true);
@@ -726,7 +596,7 @@ export function ViewTopicModal({
                       type="button" 
                       variant="destructive" 
                       onClick={() => setShowDeleteDialog(true)}
-                      disabled={updateTopicMutation.isPending}
+                      disabled={isUpdatingTopic}
                     >
                       <TrashIcon className="h-4 w-4 mr-2" />
                       Delete
@@ -737,16 +607,16 @@ export function ViewTopicModal({
                         type="button"
                         variant="outline"
                         onClick={handleCancelEdit}
-                        disabled={updateTopicMutation.isPending}
+                        disabled={isUpdatingTopic}
                       >
                         Cancel
                       </Button>
                       <Button 
                         type="button" 
-                        disabled={updateTopicMutation.isPending}
+                        disabled={isUpdatingTopic}
                         onClick={form.handleSubmit(onSubmit)}
                       >
-                        {updateTopicMutation.isPending ? (
+                        {isUpdatingTopic ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Saving...

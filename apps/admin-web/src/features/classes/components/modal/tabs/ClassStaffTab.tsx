@@ -1,12 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, UserCheck, Plus } from "lucide-react";
-import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
-import { cn } from "@/shared/utils";
 import { ViewStaffModal } from '@/features/staff';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
@@ -36,11 +32,8 @@ export function ClassStaffTab({
 }: ClassStaffTabProps) {
   const { toast } = useToast();
   const openWindow = useChatStore(s => s.openWindow);
-  const [assigningStaff, setAssigningStaff] = useState<Set<string>>(new Set());
-  const [_removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [staffSubjects, setStaffSubjects] = useState<Record<string, Tables<'subjects'>[]>>({});
+  const [assigningStaff] = useState<Set<string>>(new Set());
+  const [, setRemovingStaff] = useState<Set<string>>(new Set());
   
   // Modal state for staff viewing
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -51,36 +44,6 @@ export function ClassStaffTab({
   
   // Get current staff for assignment
   const { data: currentStaff } = useCurrentStaff();
-
-  // Fetch subjects for all staff members
-  useEffect(() => {
-    const fetchStaffSubjects = async () => {
-      if (classStaff.length === 0) return;
-      
-      try {
-        const { staffApi } = await import('@/features/staff/api');
-        const subjectsMap: Record<string, Tables<'subjects'>[]> = {};
-        
-        await Promise.all(
-          classStaff.map(async (staff) => {
-            try {
-              const subjects = await staffApi.getStaffSubjects(staff.id);
-              subjectsMap[staff.id] = subjects as Tables<'subjects'>[];
-            } catch (err) {
-              console.error(`Error fetching subjects for staff ${staff.id}:`, err);
-              subjectsMap[staff.id] = [];
-            }
-          })
-        );
-        
-        setStaffSubjects(subjectsMap);
-      } catch (err) {
-        console.error('Error fetching staff subjects:', err);
-      }
-    };
-    
-    fetchStaffSubjects();
-  }, [classStaff]);
 
   const handleViewStaff = (staffId: string) => {
     setSelectedStaffId(staffId);
@@ -145,20 +108,6 @@ export function ClassStaffTab({
       });
     }
   };
-
-  const availableStaff = allStaff.filter(staff => 
-    !classStaff.some(classStaffMember => classStaffMember.id === staff.id)
-  );
-
-  const filteredAvailableStaff = availableStaff.filter(staff => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      staff.first_name.toLowerCase().includes(query) ||
-      staff.last_name.toLowerCase().includes(query) ||
-      (staff.email && staff.email.toLowerCase().includes(query))
-    );
-  });
 
   return (
     <div className="flex-1 min-h-0 flex flex-col space-y-4">
@@ -238,7 +187,7 @@ export function ClassStaffTab({
                 <StaffCard
                   key={staff.id}
                   staff={staff}
-                  subjects={staffSubjects[staff.id] || []}
+                  showSubjects={false}
                   onClick={() => handleViewStaff(staff.id)}
                   onRemoveStaff={() => handleRemoveStaff(staff.id)}
                   onMessage={() => handleMessageStaff(staff.id)}

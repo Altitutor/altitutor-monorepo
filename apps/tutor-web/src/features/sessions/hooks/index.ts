@@ -2,3 +2,4 @@
 export * from './useSessionsQuery';
 export * from './usePrecreateSessions';
 export * from './useAbsences';
+export * from './useSessionModalData';

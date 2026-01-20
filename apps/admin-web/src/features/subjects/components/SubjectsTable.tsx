@@ -31,7 +31,7 @@ import {
   Loader2
 } from 'lucide-react';
 import type { Tables, Enums } from '@altitutor/shared';
-import { cn, getSubjectColorHex, getSubjectColorStyle, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
+import { cn, getSubjectColorHex, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils/index';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
@@ -84,7 +84,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   };
   
   // Track table width for responsive display
-  const [tableRef, tableSize] = useElementSize<HTMLDivElement>();
+  const [tableRef] = useElementSize<HTMLDivElement>();
 
   // Filter and sort state initialized from URL
   const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
@@ -115,7 +115,6 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   }, [searchParams]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [_isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Select mode state
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -136,6 +135,8 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
       });
     }, 300);
     return () => clearTimeout(timeoutId);
+    // updateUrlParams is stable (uses searchParams which is from useSearchParams)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   // Map sortField to RPC orderBy parameter
@@ -326,17 +327,6 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     }
   };
   
-  const _handleViewSubject = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedSubjectId(id);
-    setIsViewModalOpen(true);
-  };
-
-  const _handleEditSubject = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedSubjectId(id);
-    setIsEditModalOpen(true);
-  };
 
   const handleSubjectUpdated = () => {
     refetch();

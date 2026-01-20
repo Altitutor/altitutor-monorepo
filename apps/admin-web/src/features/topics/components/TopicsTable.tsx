@@ -31,7 +31,6 @@ import {
   ChevronDown,
   Filter,
   X,
-  Download,
   Loader2,
 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
@@ -41,8 +40,7 @@ import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
 import { getFileTypeLabel } from '../utils/file-type-icons';
 import { FilePreviewModal } from './FilePreviewModal';
-import { getSignedUrl } from '@/shared/lib/supabase/storage';
-import { subjectsApi } from '@/features/subjects/api/subjects';
+import { useSubjectSearch } from '@/features/subjects/hooks';
 
 interface TopicsTableProps {
   onRefresh?: number;
@@ -110,8 +108,6 @@ export function TopicsTable({
   // Subject filter popover state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
-  const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
-  const [isSubjectSearching, setIsSubjectSearching] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -124,48 +120,16 @@ export function TopicsTable({
       });
     }, 300);
     return () => clearTimeout(timeoutId);
+    // updateUrlParams is stable (uses searchParams which is from useSearchParams)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
-  // Debounced subject search
-  useEffect(() => {
-    if (!isSubjectPopoverOpen) {
-      setSubjectSearchQuery('');
-      setSubjectSearchResults([]);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      if (subjectSearchQuery.trim().length === 0) {
-        setIsSubjectSearching(true);
-        try {
-          const { subjects } = await subjectsApi.list({ limit: 100, offset: 0 });
-          setSubjectSearchResults(subjects);
-        } catch (error) {
-          console.error('Error fetching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSubjectSearching(false);
-        }
-      } else {
-        setIsSubjectSearching(true);
-        try {
-          const { subjects } = await subjectsApi.list({ 
-            search: subjectSearchQuery.trim(), 
-            limit: 100, 
-            offset: 0 
-          });
-          setSubjectSearchResults(subjects);
-        } catch (error) {
-          console.error('Error searching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSubjectSearching(false);
-        }
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen]);
+  // Use React Query hook for debounced subject search
+  const { subjects: subjectSearchResults, isLoading: isSubjectSearching } = useSubjectSearch({
+    searchQuery: subjectSearchQuery,
+    isOpen: isSubjectPopoverOpen,
+    limit: 100,
+  });
 
   // React Query hook for data fetching with server-side filtering
   // If subjectId prop is provided, always use it; otherwise use subjectFilters from URL
@@ -236,19 +200,14 @@ export function TopicsTable({
     });
   };
 
-  const handleFileClick = (fileId: string) => {
+  const [selectedTopicInfo, setSelectedTopicInfo] = useState<{ topicName: string; fileCode: string } | null>(null);
+
+  const handleFileClick = (fileId: string, topicName?: string, fileCode?: string) => {
     setSelectedFileId(fileId);
+    setSelectedTopicInfo(topicName && fileCode ? { topicName, fileCode } : null);
     setIsFileModalOpen(true);
   };
 
-  const handleFileDownload = async (storagePath: string, filename: string) => {
-    try {
-      const signedUrl = await getSignedUrl(storagePath);
-      window.open(signedUrl, '_blank');
-    } catch (error) {
-      console.error('Failed to download file:', error);
-    }
-  };
 
   // Count active filters
   const activeFiltersCount = subjectFilters.length;
@@ -411,7 +370,6 @@ export function TopicsTable({
                 expandedTopics={expandedTopics}
                 onToggleExpansion={toggleTopicExpansion}
                 onFileClick={handleFileClick}
-                onFileDownload={handleFileDownload}
                 onViewTopic={onViewTopic}
                 level={0}
               />
@@ -444,9 +402,12 @@ export function TopicsTable({
       <FilePreviewModal
         isOpen={isFileModalOpen}
         fileId={selectedFileId}
+        topicName={selectedTopicInfo?.topicName}
+        fileCode={selectedTopicInfo?.fileCode}
         onClose={() => {
           setIsFileModalOpen(false);
           setSelectedFileId(null);
+          setSelectedTopicInfo(null);
         }}
       />
     </div>
@@ -458,8 +419,7 @@ interface TopicRowsProps {
   topics: TopicWithSubject[];
   expandedTopics: Set<string>;
   onToggleExpansion: (topicId: string) => void;
-  onFileClick: (fileId: string) => void;
-  onFileDownload: (storagePath: string, filename: string) => void;
+  onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
   onViewTopic?: (topicId: string) => void;
   level: number;
   parentId?: string | null;
@@ -471,7 +431,6 @@ function TopicRows({
   expandedTopics,
   onToggleExpansion,
   onFileClick,
-  onFileDownload,
   onViewTopic,
   level,
   parentId = null,
@@ -516,7 +475,6 @@ function TopicRows({
             expandedTopics={expandedTopics}
             onToggleExpansion={onToggleExpansion}
             onFileClick={onFileClick}
-            onFileDownload={onFileDownload}
             onViewTopic={onViewTopic}
           />
         );
@@ -535,8 +493,7 @@ interface TopicRowProps {
   allTopics: TopicWithSubject[];
   expandedTopics: Set<string>;
   onToggleExpansion: (topicId: string) => void;
-  onFileClick: (fileId: string) => void;
-  onFileDownload: (storagePath: string, filename: string) => void;
+  onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
   onViewTopic?: (topicId: string) => void;
 }
 
@@ -551,7 +508,6 @@ function TopicRow({
   expandedTopics,
   onToggleExpansion,
   onFileClick,
-  onFileDownload,
   onViewTopic,
 }: TopicRowProps) {
   const { data: topicFiles = [] } = useTopicFilesByTopic(topic.id);
@@ -617,7 +573,6 @@ function TopicRow({
                 const fileCode = tf.code || '';
                 const typeLabel = getFileTypeLabel(tf.type);
                 const filename = tf.file?.filename || 'Unknown file';
-                const storagePath = tf.file?.storage_path || '';
                 const fileId = tf.file?.id;
 
                 return (
@@ -628,7 +583,7 @@ function TopicRow({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={() => fileId && onFileClick(fileId)}
+                          onClick={() => fileId && onFileClick(fileId, topic.name, fileCode)}
                           className="flex-1 text-left min-w-0 truncate text-sm"
                         >
                           <span className="font-mono">{fileCode}</span>{' '}
@@ -639,19 +594,6 @@ function TopicRow({
                         <p>{filename}</p>
                       </TooltipContent>
                     </Tooltip>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (storagePath) {
-                          onFileDownload(storagePath, filename);
-                        }
-                      }}
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
                   </div>
                 );
               })}
@@ -669,7 +611,6 @@ function TopicRow({
           expandedTopics={expandedTopics}
           onToggleExpansion={onToggleExpansion}
           onFileClick={onFileClick}
-          onFileDownload={onFileDownload}
           onViewTopic={onViewTopic}
           level={level + 1}
           parentId={topic.id}

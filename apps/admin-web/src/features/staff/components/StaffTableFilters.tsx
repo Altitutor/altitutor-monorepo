@@ -15,9 +15,6 @@ import {
   X
 } from 'lucide-react';
 
-type _StaffRole = 'ADMINSTAFF' | 'TUTOR' | 'ADMIN';
-type _StaffStatus = 'ACTIVE' | 'INACTIVE' | 'TRIAL';
-
 interface StaffTableFiltersProps {
   searchTerm: string;
   roleFilters: string[];

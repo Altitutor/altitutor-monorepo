@@ -16,7 +16,6 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
@@ -217,6 +216,8 @@ export function ClassesTab({
       p_statuses: ['ACTIVE'],
       p_subject_ids: [subjectId], // Filter by specific subject
       p_include_relationships: true,
+      p_exclude_student_search: false,
+      p_exclude_staff_search: false,
       p_limit: 10000,
       p_offset: 0,
       p_order_by: 'day_of_week',

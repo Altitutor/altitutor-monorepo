@@ -54,7 +54,6 @@ export async function middleware(req: NextRequest) {
         path: '/',
         sameSite: 'lax' as const,
         secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
       },
     }
   );
@@ -73,7 +72,6 @@ export async function middleware(req: NextRequest) {
   // getSession() reads from cookies without validation (insecure)
   const {
     data: { user },
-    error: getUserError,
   } = await supabase.auth.getUser();
 
   const isProtected = pathname !== '/';

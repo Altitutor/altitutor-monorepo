@@ -5,7 +5,6 @@ import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { Pencil, Loader2 } from 'lucide-react';
-import { useToast } from '@altitutor/ui';
 import { useUpdateProfile } from '../../hooks';
 import type { Tables } from '@altitutor/shared';
 
@@ -16,7 +15,6 @@ interface AvailabilityTabProps {
 }
 
 export function AvailabilityTab({ profile }: AvailabilityTabProps) {
-  const { toast } = useToast();
   const updateProfile = useUpdateProfile();
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

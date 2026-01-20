@@ -1,98 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Separator, Badge } from '@altitutor/ui';
-import { Download, Loader2, ArrowLeft } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { billingApi, type InvoiceRow, type InvoiceItemRow } from '@/features/billing/api/billing';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { cn } from '@/shared/utils';
+import {
+  useInvoiceData,
+  useInvoiceModals,
+  formatInvoiceDate,
+  getInvoiceStatusBadge,
+  formatInvoiceAmount,
+  calculateLineItemsSubtotal,
+} from '@/features/billing';
 
 export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
-  const [invoice, setInvoice] = useState<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null }) | null>(null);
-  const [invoiceItems, setInvoiceItems] = useState<InvoiceItemRow[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!id) return;
-      setIsLoading(true);
-      try {
-        const foundInvoice = await billingApi.getInvoiceById(id);
-        
-        if (foundInvoice) {
-          setInvoice(foundInvoice);
-          
-          const items = await billingApi.getInvoiceItemsByInvoice(id);
-          setInvoiceItems(items);
-        }
-      } catch (error) {
-        console.error('Failed to load invoice:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    if (id) {
-      load();
-    }
-  }, [id]);
+  // Business logic hooks
+  const invoiceData = useInvoiceData({
+    invoiceId: id,
+    enabled: !!id,
+  });
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return format(date, 'EEEE, MMMM d, yyyy');
-    } catch (e) {
-      return dateString;
-    }
-  };
+  const modals = useInvoiceModals();
 
-  const getStatusBadge = (status: string) => {
-    let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-    let label = status;
+  const { invoice, invoiceItems, isLoading } = invoiceData;
 
-    switch (status) {
-      case 'paid':
-        variant = 'default';
-        label = 'Paid';
-        break;
-      case 'draft':
-        variant = 'outline';
-        label = 'Draft';
-        break;
-      case 'open':
-        variant = 'secondary';
-        label = 'Open';
-        break;
-      case 'void':
-      case 'uncollectible':
-      case 'disputed':
-        variant = 'destructive';
-        label = status.charAt(0).toUpperCase() + status.slice(1);
-        break;
-      default:
-        variant = 'outline';
-    }
-
-    return <Badge variant={variant} className="text-xs">{label}</Badge>;
-  };
-
+  // Computed values
   const totalAmount = invoice?.amount_due_cents || 0;
   const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
-  
-  const lineItemsSubtotal = invoiceItems.reduce((sum, item) => sum + (item.amount_cents || 0), 0);
-
-  const handleSessionClick = (sessionId: string) => {
-    setActiveSessionId(sessionId);
-  };
+  const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
 
   if (isLoading) {
     return (
@@ -166,7 +107,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                   variant="link"
                   size="sm"
                   className="h-auto p-0 text-sm justify-start"
-                  onClick={() => setActiveStudentId(invoice.student!.id)}
+                  onClick={() => modals.openStudentModal(invoice.student!.id)}
                 >
                   {invoice.student.first_name} {invoice.student.last_name}
                 </Button>
@@ -176,19 +117,19 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
             </div>
             
             <div className="text-sm font-medium text-muted-foreground">Invoice Date:</div>
-            <div className="text-sm">{formatDate(invoice.invoice_date)}</div>
+            <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
             
             <div className="text-sm font-medium text-muted-foreground">Status:</div>
-            <div className="text-sm">{getStatusBadge(invoice.status)}</div>
+            <div className="text-sm">{getInvoiceStatusBadge(invoice.status)}</div>
             
             <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
             <div className="text-sm">
-              ${((invoice.amount_due_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
+              {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
             </div>
             
             <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
             <div className="text-sm">
-              ${((invoice.amount_paid_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
+              {formatInvoiceAmount(invoice.amount_paid_cents, invoice.currency || 'AUD')}
             </div>
           </div>
         </div>
@@ -211,7 +152,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                   )}
                   onClick={() => {
                     if (item.session_id) {
-                      handleSessionClick(item.session_id);
+                      modals.openSessionModal(item.session_id);
                     }
                   }}
                 >
@@ -261,19 +202,23 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
       </div>
 
       {/* Student Modal */}
-      <ViewStudentModal
-        isOpen={!!activeStudentId}
-        studentId={activeStudentId}
-        onClose={() => setActiveStudentId(null)}
-        onStudentUpdated={() => {}}
-      />
+      {modals.selectedStudentId && (
+        <ViewStudentModal
+          isOpen={modals.studentModalOpen}
+          studentId={modals.selectedStudentId}
+          onClose={modals.closeStudentModal}
+          onStudentUpdated={() => {}}
+        />
+      )}
 
       {/* Session Modal */}
-      <SessionModal
-        isOpen={!!activeSessionId}
-        sessionId={activeSessionId}
-        onClose={() => setActiveSessionId(null)}
-      />
+      {modals.selectedSessionId && (
+        <SessionModal
+          isOpen={modals.sessionModalOpen}
+          sessionId={modals.selectedSessionId}
+          onClose={modals.closeSessionModal}
+        />
+      )}
     </div>
   );
 }

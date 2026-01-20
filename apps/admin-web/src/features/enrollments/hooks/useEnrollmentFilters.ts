@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
+import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext, EnrollmentFilters, StudentWithEnrollmentInfo } from '../types/enrollment';
 import {
   filterStudents,

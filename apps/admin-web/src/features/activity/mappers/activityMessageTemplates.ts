@@ -1,7 +1,4 @@
 import type { ActivityEvent, ActivityIconType, ActivityIconColor, ActivityEventDisplay, ActivityEventsResponse } from '../types';
-import { formatClassName, formatSubjectShortName } from '@/shared/utils';
-import { formatDate, formatTime } from '@/shared/utils/datetime';
-import type { Tables } from '@altitutor/shared';
 
 /**
  * Template for activity message generation
@@ -344,43 +341,6 @@ export function getGroupedActivityTemplate(
   const performedByName = activity.performedBy.name;
   const targetEntity = activity.relatedEntities?.student || activity.relatedEntities?.staff;
   const targetName = targetEntity?.name || '';
-  
-  // Helper to get session name
-  const getSessionName = (sessionId: string): string | undefined => {
-    const session = relatedEntities.sessions?.[sessionId];
-    if (!session) return undefined;
-    
-    // Get subject short name directly from session
-    let subjectShortName = '';
-    const sessionWithSubjectId = session as Tables<'sessions'> & { subject_id?: string | null };
-    if (sessionWithSubjectId.subject_id) {
-      const subject = relatedEntities.subjects?.[sessionWithSubjectId.subject_id];
-      if (subject) {
-        subjectShortName = formatSubjectShortName(subject);
-      }
-    }
-    
-    if (session.start_at) {
-      const date = new Date(session.start_at);
-      // Use the Date object's local time methods instead of extracting UTC string
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      const paddedMinutes = minutes.toString().padStart(2, '0');
-      const timeStr = `${hour12}:${paddedMinutes} ${ampm}`;
-      const datetimeStr = `${formatDate(date.toISOString())} ${timeStr}`;
-      return subjectShortName ? `${subjectShortName} ${datetimeStr}` : datetimeStr;
-    }
-    return `Session ${session.type || ''}`;
-  };
-  
-  // Helper to get class name
-  const getClassName = (classId: string): string | undefined => {
-    const class_ = relatedEntities.classes?.[classId];
-    if (!class_) return undefined;
-    return formatClassName(class_);
-  };
   
   // Determine entity type from activity
   const entityType = activity.relatedEntities?.session ? 'session' : 

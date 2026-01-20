@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Calendar, FileText, Megaphone, Plus, Loader2 } from 'lucide-react';
+import { Calendar, FileText, Megaphone, Plus, Loader2, CheckSquare } from 'lucide-react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog, TodaySessionsView } from '@/features/sessions';
@@ -33,6 +33,7 @@ export default function DashboardPage() {
     closeLogStaffAbsenceDialog,
     openAnnouncementsModal,
     closeAnnouncementsModal,
+    openCreateTaskDialog,
     openBookingModal,
     closeBookingModal,
   } = useQuickActions();
@@ -159,6 +160,13 @@ export default function DashboardPage() {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Drafting
+              </Button>
+              <Button
+                onClick={openCreateTaskDialog}
+                variant="outline"
+              >
+                <CheckSquare className="h-4 w-4 mr-2" />
+                Add Task
               </Button>
               <Button
                 onClick={openAnnouncementsModal}

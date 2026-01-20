@@ -45,7 +45,8 @@ export async function POST(request: Request) {
     const cleanedOperations = operations.map((op: unknown) => {
       const operation = op as { action: string; replacement_staff_id?: unknown };
       if (operation.action === 'log') {
-        const { replacement_staff_id: _replacement_staff_id, ...rest } = operation;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { replacement_staff_id, ...rest } = operation;
         return rest;
       }
       return op;

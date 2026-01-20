@@ -3,7 +3,7 @@ import { getActivityTemplate, getGroupedActivityTemplate, FIELD_LABELS } from '.
 import { coalesceRelatedEvents } from './activityEventCoalescer';
 import type { Tables } from '@altitutor/shared';
 import { formatClassName, formatSubjectShortName } from '@/shared/utils';
-import { formatDate, formatTime, formatActivityTimestamp } from '@/shared/utils/datetime';
+import { formatDate, formatActivityTimestamp } from '@/shared/utils/datetime';
 
 /**
  * Get staff name from related entities
@@ -482,7 +482,6 @@ function createGroupedActivity(
   }
   
   const first = activities[0];
-  const last = activities[activities.length - 1];
   
   // Collect entity IDs for grouped entities (e.g., session IDs)
   const groupedEntityIds: string[] = [];
@@ -498,9 +497,6 @@ function createGroupedActivity(
       groupedEntityIds.push(entityId);
     }
   });
-  
-  // Get target entity (student/staff being acted upon)
-  const targetEntity = first.relatedEntities?.student || first.relatedEntities?.staff;
   
   // Get changed field name for UPDATE events
   const changedFieldName = first.changedFieldName;

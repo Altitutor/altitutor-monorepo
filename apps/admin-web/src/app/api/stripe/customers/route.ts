@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
+import { getErrorMessage, getStripeErrorDetails } from '@/shared/utils';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Verify user is authenticated and has admin role
     const supabase = createClient();
@@ -123,24 +124,20 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({ customers: customersWithPaymentMethods });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
+    const stripeDetails = getStripeErrorDetails(error);
     console.error('[stripe/customers] Error fetching Stripe customers:', error);
     console.error('[stripe/customers] Error details:', {
-      message: error.message,
-      type: error.type,
-      code: error.code,
-      statusCode: error.statusCode,
+      message: errorMessage,
+      ...stripeDetails,
     });
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to fetch Stripe customers',
-        details: process.env.NODE_ENV === 'development' ? {
-          type: error.type,
-          code: error.code,
-          statusCode: error.statusCode,
-        } : undefined,
+        error: errorMessage || 'Failed to fetch Stripe customers',
+        details: process.env.NODE_ENV === 'development' ? stripeDetails : undefined,
       },
-      { status: 500 }
+      { status: stripeDetails.statusCode || 500 }
     );
   }
 }

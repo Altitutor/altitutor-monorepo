@@ -1,7 +1,6 @@
 import type { Tables } from '@altitutor/shared';
 
 interface CalculateSessionChangesParams {
-  classData: Tables<'classes'>;
   newStartDate: string | null;
   newEndDate: string | null;
   newDayOfWeek: number;
@@ -20,7 +19,6 @@ interface SessionChangeResult {
  * Only considers future sessions (start_at >= NOW())
  */
 export function calculateSessionChanges({
-  classData,
   newStartDate,
   newEndDate,
   newDayOfWeek,
@@ -30,15 +28,6 @@ export function calculateSessionChanges({
 }: CalculateSessionChangesParams): SessionChangeResult {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
-  // Determine old date range
-  const oldStartDate = classData.session_start_date 
-    ? new Date(classData.session_start_date)
-    : today;
-  
-  const oldEndDate = classData.session_end_date
-    ? new Date(classData.session_end_date)
-    : new Date(oldStartDate.getFullYear(), 11, 31); // Dec 31 of year containing start date
   
   // Determine new date range
   const newStart = newStartDate 
@@ -50,7 +39,6 @@ export function calculateSessionChanges({
     : new Date(newStart.getFullYear(), 11, 31); // Dec 31 of year containing start date
   
   // Only consider future sessions
-  const effectiveOldStart = oldStartDate < today ? today : oldStartDate;
   const effectiveNewStart = newStart < today ? today : newStart;
   
   // Sessions to delete: future sessions that are outside the new date range

@@ -1,7 +1,9 @@
+import type { ConversationWithRelations } from '../types';
+
 // Utility to format contact names based on type
-export function formatContactName(conversation: any): string {
-  const contact = conversation?.contacts;
-  if (!contact) return contact?.phone_e164 || 'Unknown';
+export function formatContactName(conversation: ConversationWithRelations | { contacts: ConversationWithRelations['contacts'] }): string {
+  const contact = 'contacts' in conversation ? conversation.contacts : conversation;
+  if (!contact) return 'Unknown';
 
   switch (contact.contact_type) {
     case 'STUDENT': {
@@ -9,7 +11,7 @@ export function formatContactName(conversation: any): string {
       if (student) {
         return `${student.first_name} ${student.last_name}`.trim();
       }
-      return contact.phone_e164;
+      return contact.phone_e164 || 'Unknown';
     }
     case 'PARENT': {
       const parent = contact.parents;
@@ -23,18 +25,18 @@ export function formatContactName(conversation: any): string {
         }
         return `${parent.first_name} ${parent.last_name}`.trim();
       }
-      return contact.phone_e164;
+      return contact.phone_e164 || 'Unknown';
     }
     case 'STAFF': {
       const staff = contact.staff;
       if (staff) {
         return `${staff.first_name} ${staff.last_name}`.trim();
       }
-      return contact.phone_e164;
+      return contact.phone_e164 || 'Unknown';
     }
     default:
       // For LEAD or unknown types, just show phone number
-      return contact.phone_e164;
+      return contact.phone_e164 || 'Unknown';
   }
 }
 

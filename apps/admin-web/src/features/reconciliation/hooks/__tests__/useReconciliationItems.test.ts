@@ -1,0 +1,106 @@
+import { renderHook } from '@testing-library/react';
+import { useReconciliationItems } from '../useReconciliationItems';
+import type {
+  UninvoicedSession,
+  UnpaidInvoice,
+  UnloggedSession,
+  UnassignedClass,
+  UnrepliedMessage,
+  FailedDeliveryMessage,
+  StudentWithoutClasses,
+  StudentWithoutPaymentMethod,
+} from '../../types';
+
+type ReconciliationQueries = {
+  uninvoicedSessions: { data?: UninvoicedSession[] };
+  unpaidInvoices: { data?: UnpaidInvoice[] };
+  unloggedSessions: { data?: UnloggedSession[] };
+  unassignedClasses: { data?: UnassignedClass[] };
+  unrepliedMessages: { data?: UnrepliedMessage[] };
+  failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
+  studentsWithoutClasses: { data?: StudentWithoutClasses[] };
+  studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
+};
+
+const createMockQueries = (overrides?: Partial<ReconciliationQueries>): ReconciliationQueries => ({
+  uninvoicedSessions: { data: [] as UninvoicedSession[] },
+  unpaidInvoices: { data: [] as UnpaidInvoice[] },
+  unloggedSessions: { data: [] as UnloggedSession[] },
+  unassignedClasses: { data: [] as UnassignedClass[] },
+  unrepliedMessages: { data: [] as UnrepliedMessage[] },
+  failedDeliveryMessages: { data: [] as FailedDeliveryMessage[] },
+  studentsWithoutClasses: { data: [] as StudentWithoutClasses[] },
+  studentsWithoutPaymentMethod: { data: [] as StudentWithoutPaymentMethod[] },
+  ...overrides,
+});
+
+describe('useReconciliationItems', () => {
+  it('should aggregate financial items correctly', () => {
+    const queries = createMockQueries({
+      uninvoicedSessions: { data: [{ sessions_students_id: '1' } as UninvoicedSession] },
+      unpaidInvoices: { data: [{ id: '1' } as UnpaidInvoice] },
+      studentsWithoutPaymentMethod: { data: [{ student_id: '1' } as StudentWithoutPaymentMethod] },
+    });
+
+    const { result } = renderHook(() => useReconciliationItems(queries));
+
+    expect(result.current.financialItems).toHaveLength(3);
+    expect(result.current.hasAnyItems).toBe(true);
+  });
+
+  it('should aggregate scheduling items correctly', () => {
+    const queries = createMockQueries({
+      unloggedSessions: { data: [{ session_id: '1' } as UnloggedSession] },
+      unassignedClasses: { data: [{ class_id: '1' } as UnassignedClass] },
+      studentsWithoutClasses: { data: [{ student_id: '1' } as StudentWithoutClasses] },
+    });
+
+    const { result } = renderHook(() => useReconciliationItems(queries));
+
+    expect(result.current.schedulingItems).toHaveLength(3);
+    expect(result.current.hasAnyItems).toBe(true);
+  });
+
+  it('should aggregate communication items correctly', () => {
+    const queries = createMockQueries({
+      unrepliedMessages: { data: [{ conversation_id: '1' } as UnrepliedMessage] },
+      failedDeliveryMessages: { data: [{ message_id: '1' } as FailedDeliveryMessage] },
+    });
+
+    const { result } = renderHook(() => useReconciliationItems(queries));
+
+    expect(result.current.communicationItems).toHaveLength(2);
+    expect(result.current.hasAnyItems).toBe(true);
+  });
+
+  it('should return hasAnyItems false when all arrays are empty', () => {
+    const queries = createMockQueries();
+
+    const { result } = renderHook(() => useReconciliationItems(queries));
+
+    expect(result.current.financialItems).toHaveLength(0);
+    expect(result.current.schedulingItems).toHaveLength(0);
+    expect(result.current.communicationItems).toHaveLength(0);
+    expect(result.current.hasAnyItems).toBe(false);
+  });
+
+  it('should handle undefined data arrays', () => {
+    const queries = {
+      uninvoicedSessions: {},
+      unpaidInvoices: {},
+      unloggedSessions: {},
+      unassignedClasses: {},
+      unrepliedMessages: {},
+      failedDeliveryMessages: {},
+      studentsWithoutClasses: {},
+      studentsWithoutPaymentMethod: {},
+    };
+
+    const { result } = renderHook(() => useReconciliationItems(queries as any));
+
+    expect(result.current.financialItems).toHaveLength(0);
+    expect(result.current.schedulingItems).toHaveLength(0);
+    expect(result.current.communicationItems).toHaveLength(0);
+    expect(result.current.hasAnyItems).toBe(false);
+  });
+});

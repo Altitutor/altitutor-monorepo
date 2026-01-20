@@ -59,7 +59,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
   const [addTopicParentId, setAddTopicParentId] = useState<string | undefined>(undefined);
   const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
   const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
-  const [viewTopicId, setViewTopicId] = useState<string | null>(null);
+  const [viewTopicId] = useState<string | null>(null);
   const [isEditFileModalOpen, setIsEditFileModalOpen] = useState(false);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [reorderedChildren, setReorderedChildren] = useState<Array<{ id: string; index: number }>>([]);

@@ -4,13 +4,14 @@ import { ConversationList } from '@/features/messages/components/ConversationLis
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
-import { InfoPanel } from '@/features/messages/components/InfoPanel';
-import { InfoModal } from '@/features/messages/components/InfoModal';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
+import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -21,7 +22,11 @@ export default function MessagesPage() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showInfoModal, setShowInfoModal] = useState(false);
+  
+  // Modal states
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   
   // Convert conversationId to contactId if provided (backward compatibility)
   useEffect(() => {
@@ -77,7 +82,6 @@ export default function MessagesPage() {
     } else if (!activeContactId && !conversationParam) {
       // Auto-select most recent contact when no URL param
       (async () => {
-        const { useConversationsByContact } = await import('@/features/messages/api/queries');
         // This will be handled by the hook, but we can select the first one
         const supabase = getSupabaseClient() as any;
         const { data } = await supabase
@@ -112,6 +116,29 @@ export default function MessagesPage() {
     setMobileView('list');
   };
   
+  const handleTitleClick = () => {
+    if (!activeContact) return;
+    
+    const contact = activeContact;
+    switch (contact.contact_type) {
+      case 'STUDENT':
+        if (contact.students?.id) {
+          setSelectedStudentId(contact.students.id);
+        }
+        break;
+      case 'STAFF':
+        if (contact.staff?.id) {
+          setSelectedStaffId(contact.staff.id);
+        }
+        break;
+      case 'PARENT':
+        if (contact.parents?.id) {
+          setSelectedParentId(contact.parents.id);
+        }
+        break;
+    }
+  };
+  
   return (
     <div className="p-0 h-full overflow-hidden">
       <div className="flex h-full">
@@ -142,7 +169,7 @@ export default function MessagesPage() {
           <ConversationHeader 
             title={conversationTitle}
             onSearchToggle={() => setIsSearching(!isSearching)}
-            onInfoToggle={() => setShowInfoModal(true)}
+            onTitleClick={activeContact ? handleTitleClick : undefined}
             onBack={handleBack}
             showBackButton={mobileView === 'thread'}
           />
@@ -166,21 +193,35 @@ export default function MessagesPage() {
           </div>
         </div>
         
-        {/* Info Panel 
-            - Hidden on mobile and medium (< xl)
-            - Shown on wide screens (xl+): 480px fixed width
-        */}
-        <div className="hidden xl:flex xl:flex-col w-[480px] flex-shrink-0 min-h-0">
-          <InfoPanel contactId={activeContactId} className="flex-1 overflow-y-auto" />
-        </div>
       </div>
       
-      {/* Info Modal for mobile and medium screens */}
-      <InfoModal 
-        contactId={activeContactId}
-        isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-      />
+      {/* Modals */}
+      {selectedStudentId && (
+        <ViewStudentModal
+          isOpen={!!selectedStudentId}
+          onClose={() => setSelectedStudentId(null)}
+          studentId={selectedStudentId}
+          onStudentUpdated={() => {}}
+        />
+      )}
+      
+      {selectedStaffId && (
+        <ViewStaffModal
+          isOpen={!!selectedStaffId}
+          onClose={() => setSelectedStaffId(null)}
+          staffId={selectedStaffId}
+          onStaffUpdated={() => {}}
+        />
+      )}
+      
+      {selectedParentId && (
+        <ViewParentModal
+          isOpen={!!selectedParentId}
+          onClose={() => setSelectedParentId(null)}
+          parentId={selectedParentId}
+          onParentUpdated={() => {}}
+        />
+      )}
     </div>
   );
 }

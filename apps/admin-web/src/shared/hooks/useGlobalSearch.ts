@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { searchApi, type GlobalSearchResult, type GlobalSearchParams } from '@/shared/api/search';
+import { searchApi, type GlobalSearchResult } from '@/shared/api/search';
 
 export type UseGlobalSearchOptions = {
   search: string;

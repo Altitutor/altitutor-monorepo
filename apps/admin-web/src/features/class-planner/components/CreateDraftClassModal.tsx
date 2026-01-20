@@ -78,6 +78,8 @@ export function CreateDraftClassModal({
         setEndTime(`${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`);
       }
     }
+    // endTime is intentionally excluded to avoid infinite loop (effect sets endTime)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startTime, defaultClassLength]);
   
   const handleSubmit = async (e: React.FormEvent) => {

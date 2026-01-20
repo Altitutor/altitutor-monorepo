@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -225,6 +225,11 @@ export function EnrollStudentModal({
             <DialogTitle>
               {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
             </DialogTitle>
+            <DialogDescription>
+              {context === 'class' 
+                ? 'Select a student to enroll in this class.'
+                : 'Select a class to enroll this student in.'}
+            </DialogDescription>
             {shouldShowStudentCardInHeader && (
               <div>
                 <StudentCard

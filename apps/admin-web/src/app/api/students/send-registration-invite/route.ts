@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const registrationUrl = `${baseUrl}/register/${token}`;
 
     // Fetch parents for this student
-    const { data: parentsData, error: parentsError } = await supabaseAdmin
+    const { data: parentsData } = await supabaseAdmin
       .from('parents_students')
       .select('parent_id, parents(id, first_name, last_name, email, phone)')
       .eq('student_id', studentId);
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
       for (const recipient of smsRecipients) {
         try {
           // Get or create contact record for this phone number
-          const { data: contact, error: contactError } = await supabaseAdmin
+          const { data: contact } = await supabaseAdmin
             .from('contacts')
             .select('id, phone_e164')
             .eq('student_id', studentId)
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
 
           // Get or create conversation
           let conversationId: string;
-          const { data: existingConvo, error: convoFetchError } = await supabaseAdmin
+          const { data: existingConvo } = await supabaseAdmin
             .from('conversations')
             .select('id')
             .eq('contact_id', contactId)

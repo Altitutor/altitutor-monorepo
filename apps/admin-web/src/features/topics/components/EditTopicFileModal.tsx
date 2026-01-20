@@ -79,7 +79,7 @@ export function EditTopicFileModal({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { toast } = useToast();
-  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
+  const { data: subjects = [] } = useSubjects();
   const { data: topics = [], isLoading: topicsLoading } = useTopicsBySubject(currentSubjectId);
   const { data: currentTopicFile } = useTopicFileById(topicFileId);
   const { data: availableSolutionLinks = [] } = useAvailableSolutionLinks(

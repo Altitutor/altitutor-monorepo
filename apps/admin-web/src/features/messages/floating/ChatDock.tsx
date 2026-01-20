@@ -1,23 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { useChatStore } from '../state/chatStore';
 import { MessageThread } from '../components/MessageThread';
 import { Composer } from '../components/Composer';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { useToast } from '@altitutor/ui';
-import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
-import { useQuery } from '@tanstack/react-query';
-import { useConversations } from '../api/queries';
+import { useConversations, useContactIdFromConversation, useContactHeader } from '../api/queries';
+import { useMessageSubscription } from '../hooks/useMessageSubscription';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
+import { ViewParentModal } from '@/features/students/components/ViewParentModal';
+import { useState } from 'react';
+import type { ConversationWithRelations } from '../types';
 
 // Get initials from conversation
-function getInitials(conversation: any): string {
+function getInitials(conversation: ConversationWithRelations): string {
   const contact = conversation?.contacts;
   if (!contact) return '?';
 
@@ -61,7 +61,7 @@ function HorizontalConversationList({
   const { data: conversations } = useConversations();
   
   // Check if conversation is unread (no conversation_reads entries exist)
-  const isUnread = (conversation: any) => {
+  const isUnread = (conversation: ConversationWithRelations) => {
     return !conversation.conversation_reads || conversation.conversation_reads.length === 0;
   };
   
@@ -94,7 +94,7 @@ function HorizontalConversationList({
               No conversations
             </div>
           ) : (
-            sortedConversations.map((conversation: any) => {
+            sortedConversations.map((conversation: ConversationWithRelations) => {
               const conversationId = conversation.id;
               const isActive = conversationId === activeConversationId;
               const hasUnread = isUnread(conversation);
@@ -146,104 +146,21 @@ export function ChatDock() {
   const conversations = useChatStore(s => s.conversations);
   const setActiveConversation = useChatStore(s => s.setActiveConversation);
   const toggleMinimize = useChatStore(s => s.toggleMinimize);
-  const openWindow = useChatStore(s => s.openWindow);
-  const incrementUnread = useChatStore(s => s.incrementUnread);
-  const hasWindow = useChatStore(s => s.hasWindow);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  // Modal states
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
   const isMessagesPage = pathname?.startsWith('/messages');
 
-  // Extract function references using useRef to prevent re-subscriptions
-  const hasWindowRef = useRef(hasWindow);
-  const openWindowRef = useRef(openWindow);
-  const incrementUnreadRef = useRef(incrementUnread);
-
-  // Update refs on every render to always have latest functions
-  useEffect(() => {
-    hasWindowRef.current = hasWindow;
-    openWindowRef.current = openWindow;
-    incrementUnreadRef.current = incrementUnread;
-  });
+  // Subscribe to new messages
+  useMessageSubscription();
 
   // Get contactId from conversationId
-  const { data: activeContactId } = useQuery({
-    queryKey: ['contact-from-conversation', activeConversationId],
-    queryFn: async () => {
-      if (!activeConversationId) return null;
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { data, error } = await supabase
-        .from('conversations')
-        .select('contact_id')
-        .eq('id', activeConversationId)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.contact_id || null;
-    },
-    enabled: !!activeConversationId,
-  });
+  const { data: activeContactId } = useContactIdFromConversation(activeConversationId ?? null);
 
   // Fetch active contact details for header
-  const { data: activeContact } = useQuery({
-    queryKey: ['contact-header', activeContactId],
-    queryFn: async () => {
-      if (!activeContactId) return null;
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { data, error } = await supabase
-        .from('contacts')
-        .select(`
-          id,
-          phone_e164,
-          contact_type,
-          students (id, first_name, last_name),
-          parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-          staff (id, first_name, last_name)
-        `)
-        .eq('id', activeContactId)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!activeContactId,
-  });
-
-  useEffect(() => {
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    const channel = supabase
-      .channel('messages-inbound')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload: any) => {
-        const row: any = (payload as any).new;
-        if (row?.direction === 'INBOUND') {
-          // Mark conversation as unread for all staff by deleting conversation_reads
-          try {
-            await supabase
-              .from('conversation_reads')
-              .delete()
-              .eq('conversation_id', row.conversation_id);
-            
-            // Invalidate conversations query to update unread indicators
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
-          } catch (error) {
-            console.error('[ChatDock] Failed to mark conversation as unread', error);
-          }
-          
-          if (!hasWindowRef.current(row.conversation_id)) {
-            openWindowRef.current({ conversationId: row.conversation_id, title: 'New message' });
-          } else {
-            incrementUnreadRef.current(row.conversation_id);
-          }
-          toast({ title: 'New message', description: row.body });
-        }
-      })
-      .subscribe((status: string) => {
-        if (status === 'SUBSCRIPTION_ERROR') {
-          console.error('[ChatDock] Subscription error');
-        }
-      });
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [toast, queryClient]);
+  const { data: activeContact } = useContactHeader(activeContactId ?? null);
 
   // Convert conversations Map to unreadCounts Map (extract unreadCount from each value)
   // All hooks must be called unconditionally before any early returns
@@ -257,8 +174,33 @@ export function ChatDock() {
 
   // Compute display title (non-hook computation, can be after hooks but before early return)
   const displayTitle = useMemo(() => {
-    return activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
+    if (!activeContact) return 'Messages';
+    // activeContact is a contact object directly from the contacts table query
+    return formatContactName({ contacts: activeContact as ConversationWithRelations['contacts'] });
   }, [activeContact]);
+  
+  const handleTitleClick = () => {
+    if (!activeContact) return;
+    
+    const contact = activeContact;
+    switch (contact.contact_type) {
+      case 'STUDENT':
+        if (contact.students?.id) {
+          setSelectedStudentId(contact.students.id);
+        }
+        break;
+      case 'STAFF':
+        if (contact.staff?.id) {
+          setSelectedStaffId(contact.staff.id);
+        }
+        break;
+      case 'PARENT':
+        if (contact.parents?.id) {
+          setSelectedParentId(contact.parents.id);
+        }
+        break;
+    }
+  };
 
   // Early return after all hooks
   if (isMessagesPage) return null;
@@ -292,7 +234,16 @@ export function ChatDock() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b dark:border-brand-dark-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm truncate">{displayTitle}</span>
+            {activeContact ? (
+              <button
+                onClick={handleTitleClick}
+                className="font-medium text-sm truncate hover:underline cursor-pointer"
+              >
+                {displayTitle}
+              </button>
+            ) : (
+              <span className="font-medium text-sm truncate">{displayTitle}</span>
+            )}
           </div>
         </div>
       
@@ -323,6 +274,34 @@ export function ChatDock() {
         onSelect={setActiveConversation}
         unreadCounts={unreadCounts}
       />
+      
+      {/* Modals */}
+      {selectedStudentId && (
+        <ViewStudentModal
+          isOpen={!!selectedStudentId}
+          onClose={() => setSelectedStudentId(null)}
+          studentId={selectedStudentId}
+          onStudentUpdated={() => {}}
+        />
+      )}
+      
+      {selectedStaffId && (
+        <ViewStaffModal
+          isOpen={!!selectedStaffId}
+          onClose={() => setSelectedStaffId(null)}
+          staffId={selectedStaffId}
+          onStaffUpdated={() => {}}
+        />
+      )}
+      
+      {selectedParentId && (
+        <ViewParentModal
+          isOpen={!!selectedParentId}
+          onClose={() => setSelectedParentId(null)}
+          parentId={selectedParentId}
+          onParentUpdated={() => {}}
+        />
+      )}
     </>
   );
 }

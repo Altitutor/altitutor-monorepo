@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ import { getStudentClasses } from '../../api/bulk';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
+import { getErrorMessage } from '@/shared/utils';
 
 interface CreateEditTemplateDialogProps {
   isOpen: boolean;
@@ -57,6 +58,26 @@ export function CreateEditTemplateDialog({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const loadSampleStudents = useCallback(async () => {
+    setIsLoadingStudents(true);
+    try {
+      const students = await getSampleStudents();
+      setSampleStudents(students);
+      if (students.length > 0 && !selectedStudentId) {
+        setSelectedStudentId(students[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading sample students:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load sample students for preview.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  }, [selectedStudentId, toast]);
+
   // Initialize form when dialog opens or template changes
   useEffect(() => {
     if (isOpen) {
@@ -71,7 +92,7 @@ export function CreateEditTemplateDialog({
       // Load sample students
       loadSampleStudents();
     }
-  }, [isOpen, template]);
+  }, [isOpen, template, loadSampleStudents]);
 
   // Auto-focus on name input when creating, content when editing
   useEffect(() => {
@@ -99,26 +120,6 @@ export function CreateEditTemplateDialog({
       setSelectedStudentId(sampleStudents[0].id);
     }
   }, [sampleStudents, selectedStudentId]);
-
-  const loadSampleStudents = async () => {
-    setIsLoadingStudents(true);
-    try {
-      const students = await getSampleStudents();
-      setSampleStudents(students);
-      if (students.length > 0 && !selectedStudentId) {
-        setSelectedStudentId(students[0].id);
-      }
-    } catch (error) {
-      console.error('Error loading sample students:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load sample students for preview.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingStudents(false);
-    }
-  };
 
   const loadStudentClasses = async (studentId: string) => {
     setIsLoadingClasses(true);
@@ -190,11 +191,12 @@ export function CreateEditTemplateDialog({
       
       onSuccess?.();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       console.error('Error saving template:', error);
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to save template. Please try again.',
+        description: errorMessage || 'Failed to save template. Please try again.',
         variant: 'destructive',
       });
     }

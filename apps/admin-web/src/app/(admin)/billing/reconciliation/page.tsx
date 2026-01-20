@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { billingApi, type MissingPaymentObligation, type FailedPaymentAttempt, type StuckPaymentAttempt } from '@/features/billing';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Button, Badge, useToast, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
+import { getErrorMessage } from '@/shared/utils';
 
 export default function ReconciliationPage() {
   const { toast } = useToast();
@@ -10,7 +11,7 @@ export default function ReconciliationPage() {
   const [failedAttempts, setFailedAttempts] = useState<FailedPaymentAttempt[]>([]);
   const [stuckAttempts, setStuckAttempts] = useState<StuckPaymentAttempt[]>([]);
   const [loading, setLoading] = useState(false);
-  const [reconciling, setReconciling] = useState(false);
+  const [reconciling] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -26,17 +27,17 @@ export default function ReconciliationPage() {
         setMissingObligations(missing);
         setFailedAttempts(failed);
         setStuckAttempts(stuck);
-      } catch (viewError: any) {
+      } catch (viewError: unknown) {
         // Views don't exist anymore - Stripe handles reconciliation automatically
-        console.log('Reconciliation views deprecated - Stripe handles reconciliation automatically');
         setMissingObligations([]);
         setFailedAttempts([]);
         setStuckAttempts([]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error loading reconciliation data',
-        description: error?.message || 'Failed to load data',
+        description: errorMessage || 'Failed to load data',
         variant: 'destructive',
       });
     } finally {

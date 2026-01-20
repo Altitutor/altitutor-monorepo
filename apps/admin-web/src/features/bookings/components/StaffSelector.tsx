@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
@@ -32,10 +32,6 @@ export function StaffSelector({
     return allStaff.staff.filter((s) => availableSet.has(s.id));
   }, [allStaff, availableStaffIds]);
 
-  const selectedStaff = useMemo(() => {
-    if (!selectedStaffId || !allStaff?.staff) return null;
-    return allStaff.staff.find((s) => s.id === selectedStaffId) || null;
-  }, [selectedStaffId, allStaff]);
 
   const formatStaffName = (staff: { first_name: string; last_name: string; email?: string | null }) => {
     return `${staff.first_name} ${staff.last_name}${staff.email ? ` (${staff.email})` : ''}`;

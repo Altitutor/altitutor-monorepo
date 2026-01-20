@@ -1,4 +1,4 @@
-import type { Tables, Database, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { staffApi } from '@/features/staff/api/staff';

@@ -158,7 +158,7 @@ export function useDeleteAutomationAction() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ actionId, ruleId }: { actionId: string; ruleId: string }) =>
+    mutationFn: async ({ actionId, ruleId: _ruleId }: { actionId: string; ruleId: string }) =>
       automationApi.deleteAction(actionId),
     onSuccess: (_data, { ruleId }) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.rule(ruleId) });
@@ -185,7 +185,7 @@ export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ notificationId, staffId }: { notificationId: string; staffId: string }) =>
+    mutationFn: async ({ notificationId, staffId: _staffId }: { notificationId: string; staffId: string }) =>
       automationApi.markNotificationRead(notificationId),
     onSuccess: (_, { staffId }) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.staffNotifications(staffId) });

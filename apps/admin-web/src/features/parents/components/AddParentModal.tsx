@@ -22,6 +22,7 @@ import * as z from 'zod';
 import { Loader2, AlertTriangle, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
+import { getErrorMessage } from '@/shared/utils';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
 import { studentsApi } from '@/features/students/api/students';
 
@@ -110,9 +111,10 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
       setSelectedStudents([]);
       onParentAdded();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       console.error('Error adding parent:', error);
-      setErrorMessage(error?.message || 'Failed to add parent. Please try again.');
+      setErrorMessage(errorMessage || 'Failed to add parent. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

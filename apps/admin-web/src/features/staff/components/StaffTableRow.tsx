@@ -8,7 +8,7 @@ import { formatClassName, formatClassShortName } from '@/shared/utils';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useRouter } from 'next/navigation';
 import { useCurrentStaff } from '../hooks/useStaffQuery';
-import { LogStaffAbsenceDialog } from '@/features/sessions/components/LogStaffAbsenceDialog';
+import { LogStaffAbsenceDialog } from '@/features/sessions/components';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,28 +46,12 @@ export const StaffTableRow = memo(function StaffTableRow({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   const handleClick = useCallback(() => {
     onStaffClick(staff.id);
   }, [staff.id, onStaffClick]);
-
-  const handlePasswordResetOrRegistration = useCallback(() => {
-    if (!staff.user_id) {
-      setInviteDialogOpen(true);
-    } else {
-      handlePasswordResetRequest();
-    }
-  }, [staff.user_id]);
-
-  const getPasswordResetLabel = useCallback(() => {
-    if (!staff.user_id) {
-      return 'Send invite';
-    } else {
-      return 'Send password reset';
-    }
-  }, [staff.user_id]);
 
   const handlePasswordResetRequest = useCallback(async () => {
     if (!staff.email) {
@@ -98,6 +82,22 @@ export const StaffTableRow = memo(function StaffTableRow({
       setLoadingPasswordReset(false);
     }
   }, [staff.email, toast]);
+
+  const handlePasswordResetOrRegistration = useCallback(() => {
+    if (!staff.user_id) {
+      setInviteDialogOpen(true);
+    } else {
+      handlePasswordResetRequest();
+    }
+  }, [staff.user_id, handlePasswordResetRequest]);
+
+  const getPasswordResetLabel = useCallback(() => {
+    if (!staff.user_id) {
+      return 'Send invite';
+    } else {
+      return 'Send password reset';
+    }
+  }, [staff.user_id]);
 
   const handleDelete = useCallback(async () => {
     try {

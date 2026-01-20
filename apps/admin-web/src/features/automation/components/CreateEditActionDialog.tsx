@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -98,7 +98,6 @@ const actionFormSchema = z.object({
   message: 'Please fill in all required fields for the selected action type',
 });
 
-type ActionFormData = z.infer<typeof actionFormSchema>;
 
 interface CreateEditActionDialogProps {
   isOpen: boolean;

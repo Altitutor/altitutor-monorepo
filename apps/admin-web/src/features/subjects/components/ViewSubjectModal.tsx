@@ -50,7 +50,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
 import { SubjectCurriculumBadge, SubjectDisciplineBadge } from "@altitutor/ui";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -250,11 +249,6 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     } finally {
       setIsDeleting(false);
     }
-  };
-
-  const _navigateTo = (path: string) => {
-    router.push(path);
-    onClose();
   };
 
   return (

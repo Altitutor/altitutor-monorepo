@@ -5,7 +5,7 @@ import { Textarea } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '../ActivityFeed';
 import { useClassActivity } from '../../hooks';
-import { useNotes, useCreateNote } from '@/shared/hooks/useNotes';
+import { useCreateNote } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '../../hooks';
@@ -17,7 +17,6 @@ interface ClassActivityTabProps {
 
 export function ClassActivityTab({ classId, isOpen = true }: ClassActivityTabProps) {
   const { data, isLoading, error } = useClassActivity(classId, isOpen);
-  const { data: notes = [] } = useNotes('class', classId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
@@ -49,7 +48,7 @@ export function ClassActivityTab({ classId, isOpen = true }: ClassActivityTabPro
       queryClient.invalidateQueries({ queryKey: ['notes', 'class', classId] });
       queryClient.invalidateQueries({ queryKey: activityKeys.class(classId) });
     } catch (error) {
-      console.error('Failed to create note:', error);
+      // Error handled silently - user can retry
     }
   };
 

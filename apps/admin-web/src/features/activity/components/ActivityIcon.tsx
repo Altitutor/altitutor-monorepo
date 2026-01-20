@@ -1,9 +1,7 @@
 import { 
   UserPlus, 
   UserMinus, 
-  User, 
   Edit, 
-  Plus, 
   X, 
   Check, 
   ArrowRight, 

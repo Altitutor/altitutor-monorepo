@@ -51,12 +51,24 @@ export function useUnassignedClasses() {
 }
 
 /**
- * Get unread messages
+ * Get unreplied messages
  */
-export function useUnreadMessages() {
+export function useUnrepliedMessages() {
   return useQuery({
-    queryKey: reconciliationKeys.unreadMessages(),
-    queryFn: () => reconciliationApi.getUnreadMessages(),
+    queryKey: reconciliationKeys.unrepliedMessages(),
+    queryFn: () => reconciliationApi.getUnrepliedMessages(),
+    staleTime: 1000 * 60 * 1, // 1 minute (messages change frequently)
+    gcTime: 1000 * 60 * 3, // 3 minutes
+  });
+}
+
+/**
+ * Get failed delivery messages
+ */
+export function useFailedDeliveryMessages() {
+  return useQuery({
+    queryKey: reconciliationKeys.failedDeliveryMessages(),
+    queryFn: () => reconciliationApi.getFailedDeliveryMessages(),
     staleTime: 1000 * 60 * 1, // 1 minute (messages change frequently)
     gcTime: 1000 * 60 * 3, // 3 minutes
   });
@@ -69,6 +81,18 @@ export function useStudentsWithoutClasses() {
   return useQuery({
     queryKey: reconciliationKeys.studentsWithoutClasses(),
     queryFn: () => reconciliationApi.getStudentsWithoutClasses(),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+/**
+ * Get students without payment method
+ */
+export function useStudentsWithoutPaymentMethod() {
+  return useQuery({
+    queryKey: reconciliationKeys.studentsWithoutPaymentMethod(),
+    queryFn: () => reconciliationApi.getStudentsWithoutPaymentMethod(),
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
   });

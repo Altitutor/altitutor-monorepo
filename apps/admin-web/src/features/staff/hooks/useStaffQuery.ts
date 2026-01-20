@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { staffApi } from '../api/staff';
-import type { Tables, TablesInsert } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 type Staff = Tables<'staff'>;
-type Subject = Tables<'subjects'>;
 type StaffRole = string;
 type StaffStatus = string;
 
@@ -267,5 +266,22 @@ export function useStaffStudents(staffId: string, enabled = true) {
     enabled: enabled && !!staffId,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+/**
+ * Search staff for absence logging (paginated)
+ */
+export function useStaffSearchForAbsence(params: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { search = '', page = 0, pageSize = 20 } = params;
+  
+  return useQuery({
+    queryKey: ['staff', 'search-for-absence', search.trim(), page],
+    queryFn: () => staffApi.searchForAbsence({ search, page, pageSize }),
+    staleTime: 1000 * 30, // 30 seconds
   });
 } 

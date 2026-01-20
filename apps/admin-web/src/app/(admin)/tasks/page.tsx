@@ -26,8 +26,8 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="max-h-[calc(100vh-var(--navbar-height)-4rem)] flex flex-col p-6 overflow-hidden" style={{ height: 'calc(100vh - var(--navbar-height) - 4rem)' }}>
+      <div className="flex items-center justify-between flex-shrink-0 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
         <div className="flex items-center gap-4">
           <Tabs value={viewParam} onValueChange={(v) => setView(v as 'kanban' | 'table')}>
@@ -43,19 +43,21 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <Suspense>
-        {viewParam === 'kanban' ? (
-          <TasksBoard
-            onCreateTask={(status) => {
-              // Set default status and open create modal
-              setDefaultStatus(status);
-              setIsCreateModalOpen(true);
-            }}
-          />
-        ) : (
-          <TasksTable />
-        )}
-      </Suspense>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <Suspense>
+          {viewParam === 'kanban' ? (
+            <TasksBoard
+              onCreateTask={(status) => {
+                // Set default status and open create modal
+                setDefaultStatus(status);
+                setIsCreateModalOpen(true);
+              }}
+            />
+          ) : (
+            <TasksTable />
+          )}
+        </Suspense>
+      </div>
 
       {/* Create Task Modal */}
       <CreateTaskDialog

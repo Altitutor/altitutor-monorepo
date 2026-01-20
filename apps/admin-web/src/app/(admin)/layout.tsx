@@ -11,10 +11,13 @@ import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound } from 'luci
 import dynamic from 'next/dynamic';
 import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
+import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
+import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { BookSessionModal } from '@/features/bookings/components';
+import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { NotepadButton, NotepadPanel } from '@/features/notepad';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
@@ -340,9 +343,10 @@ function AdminLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
-  const { bookingSessionType, isBookingModalOpen, closeBookingModal } = useQuickActions();
+  const { bookingSessionType, isBookingModalOpen, closeBookingModal, isCreateTaskDialogOpen, closeCreateTaskDialog } = useQuickActions();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
+  const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isAnnouncementsModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeAnnouncementsModal } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
@@ -356,6 +360,10 @@ function AdminLayoutContent({
   return (
     <>
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={closeCommandPalette}
+      />
       <div className="flex h-[calc(100vh-var(--navbar-height))] overflow-hidden">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
         <div className="flex-1 overflow-auto relative">
@@ -405,6 +413,10 @@ function AdminLayoutContent({
                   }}
                 />
               )}
+              <CreateTaskDialog
+                isOpen={isCreateTaskDialogOpen}
+                onClose={closeCreateTaskDialog}
+              />
             </>
           )}
         </div>

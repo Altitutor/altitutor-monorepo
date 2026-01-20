@@ -1,12 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from '@altitutor/ui';
 import { Separator, Badge } from '@altitutor/ui';
-import { format } from 'date-fns';
-import type { Tables } from '@altitutor/shared';
-import { sessionsApi } from '../api/sessions';
-import { tutorLogsApi } from '@/features/tutor-logs/api/tutor-logs';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { StudentCard, StaffCard } from '@/shared/components';
 import { AttendanceCell } from './AttendanceCell';
@@ -16,7 +12,7 @@ import { useSessionNotes } from '../hooks/useSessionNotes';
 import { SessionNotes } from './SessionNotes';
 import { LogSessionModal } from '@/features/tutor-logs/components/LogSessionModal';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { StudentAvatar } from './StudentAvatar';
+import { useSessionModalData } from '../hooks/useSessionModalData';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -25,83 +21,29 @@ type SessionModalProps = {
 };
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
-  const [data, setData] = useState<any>(null);
-  const [tutorLog, setTutorLog] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   
   // Fetch session notes
   const { data: notesData } = useSessionNotes(sessionId || '');
   const { data: currentStaff } = useCurrentStaff();
 
-  useEffect(() => {
-    const load = async () => {
-      if (!isOpen || !sessionId) return;
-      setIsLoading(true);
-      try {
-        // Use getSessionWithDetails which returns data from vtutor_session_detail view
-        const result = await sessionsApi.getSessionWithDetails(sessionId);
-        setData(result);
-        
-        // Fetch tutor log for this session
-        const logResult = await tutorLogsApi.getTutorLogBySessionId(sessionId);
-        setTutorLog(logResult);
-        
-        // Fetch all topics for the subject to derive topic codes
-        // Use session's subject_id from result
-        const subjectId = result?.subject_id;
-        if (subjectId) {
-          const { topicsApi } = await import('@/features/topics/api');
-          const topicsData = await topicsApi.getTopicsBySubject(subjectId);
-          // Filter to ensure valid topics
-          const validTopics = (topicsData || []).filter((t: any): t is any => 
-            t && typeof t.id === 'string' && typeof t.name === 'string'
-          );
-          setAllTopics(validTopics as any);
-        }
-        
-        // Also fetch topics if tutor log exists and has topics with subject_id
-        if (logResult?.topics && Array.isArray(logResult.topics) && logResult.topics.length > 0) {
-          const firstTopic = logResult.topics[0] as any;
-          const topicSubjectId = firstTopic?.subject_id;
-          if (topicSubjectId && topicSubjectId !== subjectId) {
-            // If different subject, fetch those topics too
-            const { topicsApi } = await import('@/features/topics/api');
-            const topicsData = await topicsApi.getTopicsBySubject(topicSubjectId);
-            const validTopics = (topicsData || []).filter((t: any): t is any => 
-              t && typeof t.id === 'string' && typeof t.name === 'string'
-            );
-            // Merge with existing topics
-            setAllTopics((prev) => {
-              const existingIds = new Set(prev.map((t: any) => t.id));
-              const newTopics = validTopics.filter((t: any) => !existingIds.has(t.id));
-              return [...prev, ...newTopics] as any;
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load session:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    if (isOpen && sessionId) {
-      load();
-    } else if (!isOpen) {
-      // Delay state reset to allow exit animation to complete
-      const timer = setTimeout(() => {
-        setData(null);
-        setTutorLog(null);
-        setAllTopics([]);
-      }, 300); // Match Sheet animation duration
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, sessionId]);
+  // Use hook for all session data loading and processing
+  const {
+    session,
+    tutorLog,
+    allTopics,
+    studentsData,
+    staffData,
+    subject,
+    isLoading,
+    refresh,
+  } = useSessionModalData({
+    isOpen,
+    sessionId,
+  });
 
   // Always render the Sheet to allow exit animation
-  if (isLoading || !data) {
+  if (isLoading || !session) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
@@ -118,95 +60,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     );
   }
 
-  // The data from vtutor_session_detail is a single row with flattened fields
-  const session = data;
-  const sessionsStudents = (data.students || []).map((student: any) => ({
-    student_id: student.id,
-    student: student,
-    planned_absence: student.planned_absence,
-    is_rescheduled: student.is_rescheduled,
-    is_credited: student.is_credited,
-  }));
-  const sessionsStaff = (data.staff || []).map((staffMember: any) => ({
-    staff_id: staffMember.id,
-    staff: staffMember,
-    type: staffMember.type,
-  }));
-  
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
-  
-  // Build subject object from flattened fields
-  const subject = (session as any).subject_name ? {
-    id: (session as any).subject_id,
-    name: (session as any).subject_name,
-    curriculum: (session as any).subject_curriculum,
-    discipline: (session as any).subject_discipline,
-    level: (session as any).subject_level,
-    color: (session as any).subject_color,
-    year_level: (session as any).subject_year_level,
-  } as Tables<'subjects'> : null;
-
-  // Build student attendance map from tutor log
-  const actualStudentAttendance: Record<string, { attended: boolean }> = {};
-  if (tutorLog?.student_attendance) {
-    tutorLog.student_attendance.forEach((att: any) => {
-      actualStudentAttendance[att.student_id] = { attended: att.attended };
-    });
-  }
-
-  // Build staff attendance map from tutor log
-  const actualStaffAttendance: Record<string, { attended: boolean; type?: string }> = {};
-  if (tutorLog?.staff_attendance) {
-    tutorLog.staff_attendance.forEach((att: any) => {
-      actualStaffAttendance[att.staff_id] = { attended: att.attended, type: att.type };
-    });
-  }
-
-  // Process students with attendance status
-  const studentsData = sessionsStudents.map((ss: any) => {
-    const plannedStatus: 'attending' | 'absent' = ss.planned_absence ? 'absent' : 'attending';
-    const actualAttendance = actualStudentAttendance[ss.student_id || ss.student?.id];
-    const actualStatus = !hasTutorLog
-      ? 'not-logged' as const
-      : actualAttendance?.attended
-      ? 'attended' as const
-      : 'did-not-attend' as const;
-    
-    return {
-      student: ss.student,
-      plannedStatus,
-      actualStatus,
-    };
-  });
-
-  // Process staff with attendance status
-  const staffData = sessionsStaff.map((sf: any) => {
-    const plannedStatus: 'attending' = 'attending' as const;
-    const actualAttendance = actualStaffAttendance[sf.staff_id];
-    const actualStatus = !hasTutorLog
-      ? 'not-logged' as const
-      : actualAttendance?.attended
-      ? 'attended' as const
-      : 'did-not-attend' as const;
-    
-    return {
-      staff: sf.staff,
-      plannedStatus,
-      actualStatus,
-      staffType: actualAttendance?.type,
-    };
-  });
-
-  const handleRefresh = async () => {
-    if (!sessionId) return;
-    try {
-      const result = await sessionsApi.getSessionWithDetails(sessionId);
-      setData(result);
-    } catch (error) {
-      console.error('Failed to refresh session:', error);
-    }
-  };
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -434,7 +289,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               <SessionNotes
                 sessionId={sessionId}
                 notes={(notesData || []) as any}
-                onNoteAdded={handleRefresh}
+                onNoteAdded={refresh}
               />
             )}
           </div>
@@ -449,7 +304,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
             setIsLogSessionModalOpen(false);
             // Refresh session data to show new tutor log
             if (sessionId) {
-              handleRefresh();
+              refresh();
             }
           }}
           currentStaffId={currentStaff.id}

@@ -1,7 +1,6 @@
 'use client';
 
 import { Badge, Separator, Button } from '@altitutor/ui';
-import { format } from 'date-fns';
 import { MoreVertical, Check } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
 import { AttendanceCell } from './AttendanceCell';
@@ -72,8 +71,8 @@ export function SessionDetailsTab({
   tutorLog,
   allTopics,
   sessionId,
-  isSessionInPast,
-  currentStaff,
+  isSessionInPast: _isSessionInPast,
+  currentStaff: _currentStaff,
   onOpenSession,
   onOpenStudent,
   onOpenStaff,
@@ -85,7 +84,7 @@ export function SessionDetailsTab({
   onLogAbsenceStudent,
   onLogAbsenceStaff,
   onSendBookingConfirmation,
-  onLogSession,
+  onLogSession: _onLogSession,
 }: SessionDetailsTabProps) {
   const hasTutorLog = !!tutorLog;
   const subject = (session as any).subject || session.class?.subject;

@@ -5,7 +5,7 @@ import { Textarea } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '../ActivityFeed';
 import { useParentActivity } from '../../hooks';
-import { useNotes, useCreateNote } from '@/shared/hooks/useNotes';
+import { useCreateNote } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '../../hooks';
@@ -17,7 +17,6 @@ interface ParentActivityTabProps {
 
 export function ParentActivityTab({ parentId, isOpen = true }: ParentActivityTabProps) {
   const { data, isLoading, error } = useParentActivity(parentId, isOpen);
-  const { data: notes = [] } = useNotes('parent', parentId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();

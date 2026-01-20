@@ -15,7 +15,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ReconciliationActions } from './ReconciliationActions';
 import { useSubjects } from '@/features/subjects';
-import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor, cn } from '@/shared/utils';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import type {
@@ -23,8 +23,10 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnreadMessage,
+  UnrepliedMessage,
+  FailedDeliveryMessage,
   StudentWithoutClasses,
+  StudentWithoutPaymentMethod,
 } from '../types';
 
 interface ReconciliationTableProps<T> {
@@ -145,8 +147,11 @@ export function UninvoicedSessionsTable({
           }
         }
 
+        // Use a combination of fields to ensure unique keys, even if sessions_students_id has duplicates
+        const uniqueKey = `${item.sessions_students_id}-${item.session_id}-${index}`;
+        
         return (
-          <TableRow key={item.sessions_students_id}>
+          <TableRow key={uniqueKey}>
             <TableCell>
               {format(new Date(item.session_start_at), 'MMM d, yyyy')}
             </TableCell>
@@ -185,7 +190,7 @@ export function UnpaidInvoicesTable({
       items={items}
       isLoading={isLoading}
       columns={['Date', 'Student', 'Amount Due', 'Status']}
-      renderRow={(item, index) => (
+      renderRow={(item, _index) => (
         <TableRow key={item.id}>
           <TableCell>
             {format(new Date(item.invoice_date), 'MMM d, yyyy')}
@@ -230,27 +235,32 @@ export function UnloggedSessionsTable({
       items={items}
       isLoading={isLoading}
       columns={['Date', 'Subject', 'Tutors']}
-      renderRow={(item, index) => {
+      renderRow={(item, _index) => {
         const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
         const { style, textColorClass } = getSubjectColorStyle(subject);
         const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-
+        
         return (
           <TableRow key={item.session_id}>
             <TableCell>
               {format(new Date(item.start_at), 'MMM d, yyyy')}
             </TableCell>
             <TableCell>
-              {subject ? (
-                <Badge
-                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
-                  style={style.backgroundColor ? style : undefined}
-                >
-                  {formatSubjectDisplay(subject)}
+              <div className="flex items-center gap-2 flex-wrap">
+                {subject ? (
+                  <Badge
+                    className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                    style={style.backgroundColor ? style : undefined}
+                  >
+                    {formatSubjectDisplay(subject)}
+                  </Badge>
+                ) : (
+                  <span>{item.subject_name || '—'}</span>
+                )}
+                <Badge className={getSessionTypeBadgeColor(item.session_type)}>
+                  {formatSessionType(item.session_type)}
                 </Badge>
-              ) : (
-                item.subject_name || '—'
-              )}
+              </div>
             </TableCell>
             <TableCell>
               {item.assigned_tutors && item.assigned_tutors.length > 0
@@ -287,17 +297,14 @@ export function UnassignedClassesTable({
       title="Classes without staff"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Subject', 'Day', 'Time', 'Students']}
-      renderRow={(item, index) => {
+      columns={['Subject', 'Day', 'Time', 'Students']}
+      renderRow={(item, _index) => {
         const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
         const { style, textColorClass } = getSubjectColorStyle(subject);
         const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-
+        
         return (
           <TableRow key={item.class_id}>
-            <TableCell>
-              {format(new Date(item.created_at), 'MMM d, yyyy')}
-            </TableCell>
             <TableCell>
               {subject ? (
                 <Badge
@@ -325,20 +332,20 @@ export function UnassignedClassesTable({
   );
 }
 
-export function UnreadMessagesTable({
+export function UnrepliedMessagesTable({
   items,
   isLoading,
 }: {
-  items: UnreadMessage[];
+  items: UnrepliedMessage[];
   isLoading?: boolean;
 }) {
   return (
     <ReconciliationTable
-      title="Unread Messages"
+      title="Unreplied Messages"
       items={items}
       isLoading={isLoading}
-      columns={['Last Message', 'Contact', 'Preview', 'Unread']}
-      renderRow={(item, index) => {
+      columns={['Last Message', 'Contact', 'Preview']}
+      renderRow={(item, _index) => {
         const hoursAgo = item.hours_since_last_message
           ? Math.floor(item.hours_since_last_message)
           : null;
@@ -355,14 +362,86 @@ export function UnreadMessagesTable({
               {item.last_message_preview || '—'}
             </TableCell>
             <TableCell>
-              <Badge variant="destructive">{item.unread_count}</Badge>
-            </TableCell>
-            <TableCell>
-              <ReconciliationActions type="unread_messages" item={item} />
+              <ReconciliationActions type="unreplied_messages" item={item} />
             </TableCell>
           </TableRow>
         );
       }}
+    />
+  );
+}
+
+export function FailedDeliveryMessagesTable({
+  items,
+  isLoading,
+}: {
+  items: FailedDeliveryMessage[];
+  isLoading?: boolean;
+}) {
+  return (
+    <ReconciliationTable
+      title="Messages which failed delivery"
+      items={items}
+      isLoading={isLoading}
+      columns={['Failed At', 'Contact', 'Status', 'Error']}
+      renderRow={(item, _index) => {
+        const hoursAgo = item.hours_since_failure
+          ? Math.floor(item.hours_since_failure)
+          : null;
+
+        return (
+          <TableRow key={item.message_id}>
+            <TableCell>
+              {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
+            </TableCell>
+            <TableCell className="font-medium">
+              {item.contact_name || item.contact_phone}
+            </TableCell>
+            <TableCell>
+              <Badge variant="destructive">{item.status}</Badge>
+            </TableCell>
+            <TableCell className="max-w-md truncate">
+              {item.error_message || item.error_code || '—'}
+            </TableCell>
+            <TableCell>
+              <ReconciliationActions type="failed_delivery_messages" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
+    />
+  );
+}
+
+export function StudentsWithoutPaymentMethodTable({
+  items,
+  isLoading,
+}: {
+  items: StudentWithoutPaymentMethod[];
+  isLoading?: boolean;
+}) {
+  return (
+    <ReconciliationTable
+      title="Students with no payment method"
+      items={items}
+      isLoading={isLoading}
+      columns={['Student', 'Email', 'Status']}
+      renderRow={(item, _index) => (
+        <TableRow key={item.student_id}>
+          <TableCell className="font-medium">
+            {item.first_name} {item.last_name}
+          </TableCell>
+          <TableCell>
+            {item.email || '—'}
+          </TableCell>
+          <TableCell>
+            <Badge variant="secondary">{item.student_status}</Badge>
+          </TableCell>
+          <TableCell>
+            <ReconciliationActions type="students_without_payment_method" item={item} />
+          </TableCell>
+        </TableRow>
+      )}
     />
   );
 }
@@ -387,7 +466,7 @@ export function StudentsWithoutClassesTable({
       items={items}
       isLoading={isLoading}
       columns={['Student', 'Subject']}
-      renderRow={(item, index) => {
+      renderRow={(item, _index) => {
         const subject = subjectMap.get(item.subject_id) || {
           id: item.subject_id,
           name: item.subject_name,

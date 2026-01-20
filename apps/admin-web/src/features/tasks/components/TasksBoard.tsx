@@ -61,11 +61,11 @@ function Column({ status, label, tasks, onTaskClick, onCreateTask }: ColumnProps
       data-status={status}
       className={cn(
         'flex-1 min-w-[250px] bg-muted/30 rounded-lg p-4',
-        'flex flex-col gap-3',
+        'flex flex-col gap-3 h-full',
         isOver && 'ring-2 ring-primary ring-offset-2'
       )}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <h3 className="font-semibold text-sm">{label}</h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
@@ -87,7 +87,7 @@ function Column({ status, label, tasks, onTaskClick, onCreateTask }: ColumnProps
         </div>
       </div>
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-2 min-h-[100px]">
+        <div className="flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto">
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
           ))}
@@ -182,11 +182,11 @@ export function TasksBoard({ filters, onCreateTask }: TasksBoardProps) {
 
   if (isLoading) {
     return (
-      <div className="flex gap-4">
+      <div className="flex gap-4 h-full">
         {STATUS_COLUMNS.map((col) => (
-          <div key={col.status} className="flex-1 min-w-[250px] bg-muted/30 rounded-lg p-4">
-            <Skeleton className="h-6 w-24 mb-4" />
-            <div className="space-y-2">
+          <div key={col.status} className="flex-1 min-w-[250px] bg-muted/30 rounded-lg p-4 flex flex-col">
+            <Skeleton className="h-6 w-24 mb-4 flex-shrink-0" />
+            <div className="space-y-2 flex-1 overflow-y-auto">
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
             </div>
@@ -204,7 +204,7 @@ export function TasksBoard({ filters, onCreateTask }: TasksBoardProps) {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 h-full overflow-x-auto overflow-y-hidden">
           {STATUS_COLUMNS.map((column) => (
             <Column
               key={column.status}

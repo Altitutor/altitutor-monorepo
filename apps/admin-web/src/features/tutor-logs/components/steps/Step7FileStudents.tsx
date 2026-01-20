@@ -153,7 +153,6 @@ export function Step7FileStudents({
           const topicData = getTopic(file.topicId);
           if (!fileData || !topicData) return null;
 
-          const topicCode = topicData?.code || '';
           const fileCode = fileData?.code || '';
           const availableStudents = getAvailableStudents(file.topicId);
 

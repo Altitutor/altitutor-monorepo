@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Separator } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, useToast } from "@altitutor/ui";
 import type { Tables } from "@altitutor/shared";
 import { StudentCard } from '@/shared/components/StudentCard';
+import { TruncatedText } from '@/shared/components/TruncatedText';
 import { Loader2, Pencil, X, Copy, Check } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { studentsApi } from '../../api/students';
+import { useStudentSubjectsForIds } from '../../hooks/useStudentSubjectsForIds';
+import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { PhoneInput } from '@altitutor/ui';
 
 export interface ParentDetailsFormData {
@@ -50,19 +50,18 @@ export function ParentDetailsTab({
   onRemoveStudent,
   addStudentButton,
 }: ParentDetailsTabProps) {
-  // Fetch subjects for all students in a single query
+  // Determine which students to display based on edit mode
   const displayStudents = isEditing ? parentStudents : students;
   const displayStudentIds = isEditing ? parentStudents.map(s => s.id) : studentIds;
-  const { toast } = useToast();
   
-  const { data: detailsData, isLoading: isLoadingSubjects } = useQuery({
-    queryKey: ['parent-students-subjects', displayStudentIds.sort().join(',')],
-    queryFn: () => studentsApi.getDetailsForStudentIds(displayStudentIds),
-    enabled: displayStudentIds.length > 0,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  const studentSubjects = detailsData?.studentSubjects || {};
+  // Fetch subjects for all students using custom hook
+  const { data: studentSubjects = {}, isLoading: isLoadingSubjects } = useStudentSubjectsForIds(
+    displayStudentIds,
+    displayStudentIds.length > 0
+  );
+  
+  // Copy to clipboard functionality
+  const { copy, copiedField } = useCopyToClipboard();
 
   const [formData, setFormData] = useState<ParentDetailsFormData>({
     firstName: parent.first_name || '',
@@ -70,8 +69,6 @@ export function ParentDetailsTab({
     email: parent.email || '',
     phone: parent.phone || '',
   });
-  
-  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,45 +165,6 @@ export function ParentDetailsTab({
     );
   }
 
-  // View mode
-  const handleCopy = async (text: string, field: string) => {
-    if (!text || text === '-') return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(field);
-      toast({
-        title: 'Copied!',
-        description: 'Copied to clipboard',
-      });
-      setTimeout(() => setCopiedField(null), 2000);
-    } catch (error) {
-      toast({
-        title: 'Failed to copy',
-        description: 'Please try again',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const TruncatedText = ({ text, className = '' }: { text: string; className?: string }) => {
-    const displayText = text || '-';
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className={`truncate ${className}`} title={displayText}>
-              {displayText}
-            </div>
-          </TooltipTrigger>
-          {displayText !== '-' && (
-            <TooltipContent>
-              <p>{displayText}</p>
-            </TooltipContent>
-          )}
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
 
   return (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
@@ -239,7 +197,7 @@ export function ParentDetailsTab({
               variant="ghost"
               size="icon"
               className="h-6 w-6 flex-shrink-0"
-              onClick={() => handleCopy(parent.email!, 'email')}
+              onClick={() => copy(parent.email!, 'email')}
             >
               {copiedField === 'email' ? (
                 <Check className="h-3 w-3" />
@@ -258,7 +216,7 @@ export function ParentDetailsTab({
               variant="ghost"
               size="icon"
               className="h-6 w-6 flex-shrink-0"
-              onClick={() => handleCopy(parent.phone!, 'phone')}
+              onClick={() => copy(parent.phone!, 'phone')}
             >
               {copiedField === 'phone' ? (
                 <Check className="h-3 w-3" />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { getEnrollmentConflicts, getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { formatSubjectDisplay } from '@/shared/utils';
@@ -31,8 +31,37 @@ export function useEnrollmentConflicts({
     timeOverlapWarnings: [],
   });
 
+  // Store selectedClass in a ref to avoid dependency issues
+  const selectedClassRef = useRef(selectedClass);
+  selectedClassRef.current = selectedClass;
+
+  // Extract stable primitive values for dependencies
+  const selectedClassIdStable = selectedClass?.id ?? null;
+  const selectedClassSubjectId = selectedClass?.subject_id ?? null;
+  const studentId = student?.id ?? null;
+  const classDataId = classData?.id ?? null;
+
+  // Use ref to track previous dependency values to prevent unnecessary re-runs
+  const prevDepsRef = useRef<string>('');
+
+  // Create a stable dependency string for comparison
+  const depsString = useMemo(
+    () => `${step}-${selectedStudentId}-${selectedClassId}-${selectedClassIdStable}-${enrollmentDate}-${context}-${studentId}-${classDataId}-${selectedClassSubjectId}`,
+    [step, selectedStudentId, selectedClassId, selectedClassIdStable, enrollmentDate, context, studentId, classDataId, selectedClassSubjectId]
+  );
+
   useEffect(() => {
-    if (step === 3 && selectedStudentId && selectedClassId && selectedClass) {
+    // Skip if dependencies haven't actually changed
+    if (depsString === prevDepsRef.current) {
+      return;
+    }
+    
+    prevDepsRef.current = depsString;
+
+    // Use ref to get latest selectedClass value
+    const currentSelectedClass = selectedClassRef.current;
+
+    if (step === 3 && selectedStudentId && selectedClassId && currentSelectedClass) {
       const finalStudentId = context === 'student' ? student!.id : selectedStudentId;
       const finalClassId = context === 'class' ? classData!.id : selectedClassId;
       
@@ -43,9 +72,9 @@ export function useEnrollmentConflicts({
       const checkDuplicateSubject = async () => {
         if (cancelled) return;
         
-        if (context === 'student' && selectedClass && student) {
-          const selectedClassSubjectId = selectedClass.subject_id;
-          if (selectedClassSubjectId && selectedClass.subject) {
+        if (context === 'student' && currentSelectedClass && student) {
+          const selectedClassSubjectId = currentSelectedClass.subject_id;
+          if (selectedClassSubjectId && currentSelectedClass.subject) {
             try {
               const { studentClasses } = await studentsApi.getDetailsForStudentIds([student.id]);
               const enrolledClasses = studentClasses[student.id] || [];
@@ -93,7 +122,7 @@ export function useEnrollmentConflicts({
       // Reset conflicts when not on step 3
       setConflicts({ sameSubjectWarning: null, timeOverlapWarnings: [] });
     }
-  }, [step, selectedStudentId, selectedClassId, enrollmentDate, context, student, classData, selectedClass]);
+  }, [depsString, step, selectedStudentId, selectedClassId, enrollmentDate, context, studentId, classDataId]);
 
   return conflicts;
 }

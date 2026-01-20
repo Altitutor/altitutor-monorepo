@@ -8,6 +8,7 @@ import { AuthProvider } from '@/features/auth/providers'
 import { ConditionalNavbar } from '@/shared/components/layouts/ConditionalNavbar'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
+import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
 
@@ -44,12 +45,14 @@ export default function RootLayout({
               >
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
-                    <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
-                      <ConditionalNavbar />
-                      <MainContentWrapper>
-                        {children}
-                      </MainContentWrapper>
-                    </div>
+                    <CommandPaletteProvider>
+                      <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                        <ConditionalNavbar />
+                        <MainContentWrapper>
+                          {children}
+                        </MainContentWrapper>
+                      </div>
+                    </CommandPaletteProvider>
                   </MobileMenuProvider>
                 </ToastProviderWrapper>
               </ThemeProvider>
