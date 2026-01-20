@@ -54,7 +54,6 @@ export async function middleware(req: NextRequest) {
         path: '/',
         sameSite: 'lax' as const,
         secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
       },
     }
   );
