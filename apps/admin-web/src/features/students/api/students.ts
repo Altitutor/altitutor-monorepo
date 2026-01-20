@@ -1,7 +1,6 @@
 import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatClassShortName, formatClassName } from '@/shared/utils';
 
 /**
  * Students API client for working with student data
@@ -137,6 +136,7 @@ export const studentsApi = {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: statuses.length > 0 ? statuses : ['ACTIVE', 'TRIAL'],
       p_include_relationships: true,
+      p_exclude_class_search: false,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy as string,
@@ -196,6 +196,59 @@ export const studentsApi = {
       total,
     };
   },
+
+  /**
+   * Search students for absence logging (simplified, paginated)
+   * Uses search_students_admin RPC with minimal fields
+   */
+  searchForAbsence: async (params: {
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ students: Tables<'students'>[]; total: number }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const {
+      search = '',
+      page = 0,
+      pageSize = 20,
+    } = params || {};
+
+    const trimmed = search.trim();
+    
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+      p_search: trimmed || undefined, // Pass undefined for empty search to get all
+      p_statuses: ['ACTIVE'],
+      p_include_relationships: false,
+      p_exclude_class_search: false,
+      p_limit: pageSize,
+      p_offset: page * pageSize,
+      p_order_by: 'first_name', // Sort alphabetically by first name
+      p_ascending: true,
+    });
+
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { students: [], total: 0 };
+
+    const rpcData = rpcResult as { students: any[]; total: number };
+    const students = (rpcData.students || []).map((s: any) => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      status: s.status,
+      curriculum: s.curriculum || null,
+      year_level: s.year_level || null,
+      school: s.school || null,
+      email: s.email || null,
+      phone: s.phone || null,
+      created_at: s.created_at || null,
+      updated_at: s.updated_at || null,
+    })) as Tables<'students'>[];
+    
+    return {
+      students,
+      total: rpcData.total || 0,
+    };
+  },
   
   /**
    * Get full student details for modal view
@@ -217,7 +270,7 @@ export const studentsApi = {
     
     try {
       // Get student with all related data in optimized queries
-      const [studentResult, subjectsResult, classesResult, parentsResult, sessionsResult, billingResult] = await Promise.all([
+      const [studentResult, subjectsResult, classesResult, parentsResult, sessionsResult] = await Promise.all([
         // Student record
         supabase
           .from('students')
@@ -254,13 +307,6 @@ export const studentsApi = {
           .from('sessions_students')
           .select('sessions!inner(*)')
           .eq('student_id', studentId),
-        
-        // Billing status (check if student has payment method)
-        supabase
-          .from('students')
-          .select('id')
-          .eq('id', studentId)
-          .single(),
       ]);
 
       if (studentResult.error && studentResult.error.code !== 'PGRST116') {
@@ -404,8 +450,9 @@ export const studentsApi = {
   /**
    * Search students by name, email, or status
    * Uses server-side RPC search to avoid pagination limits
+   * @param excludeClassSearch - If true, excludes class name search (name-only search)
    */
-  searchStudents: async (query: string, statuses?: Tables<'students'>['status'][]): Promise<Tables<'students'>[]> => {
+  searchStudents: async (query: string, statuses?: Tables<'students'>['status'][], excludeClassSearch?: boolean): Promise<Tables<'students'>[]> => {
     try {
       const trimmed = query.trim();
       if (!trimmed) return [];
@@ -418,6 +465,7 @@ export const studentsApi = {
       const rpcParams: Record<string, unknown> = {
         p_search: trimmed,
         p_include_relationships: false,
+        p_exclude_class_search: excludeClassSearch ?? false,
         p_limit: 1000, // Reasonable limit for search results
         p_offset: 0,
         p_order_by: 'last_name',
@@ -598,6 +646,7 @@ export const studentsApi = {
         p_search: undefined,
         p_statuses: statuses, // Get specified statuses or all if undefined
         p_include_relationships: true,
+        p_exclude_class_search: false,
         p_limit: limit,
         p_offset: 0,
         p_order_by: 'last_name',

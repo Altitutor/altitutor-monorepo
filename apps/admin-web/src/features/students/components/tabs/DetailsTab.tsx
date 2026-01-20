@@ -91,7 +91,7 @@ export function DetailsTab({
   studentSubjects = [],
   loadingSubjects: _loadingSubjects = false,
   onRemoveSubject,
-  onViewSubject,
+  onViewSubject: _onViewSubject,
   addSubjectButton,
   parents = [],
   onViewParent,
@@ -243,21 +243,14 @@ export function DetailsTab({
                         return (
                           <Badge
                             key={subject.id}
-                            className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1`}
+                            className={defaultClass || `${textColorClass} flex items-center gap-1 pr-1`}
                             style={style.backgroundColor ? style : undefined}
-                            onClick={(e) => {
-                              // Don't trigger view if clicking the X button
-                              if ((e.target as HTMLElement).closest('.remove-subject-btn')) {
-                                return;
-                              }
-                              onViewSubject?.(subject.id);
-                            }}
                           >
                             <span>{shortName}</span>
                             {onRemoveSubject && (
                               <button
                                 type="button"
-                                className="remove-subject-btn ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                                className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onRemoveSubject(subject.id);
@@ -696,9 +689,8 @@ export function DetailsTab({
                 return (
                   <Badge
                     key={subject.id}
-                    className={defaultClass || `${textColorClass} cursor-pointer hover:opacity-80`}
+                    className={defaultClass || textColorClass}
                     style={style.backgroundColor ? style : undefined}
-                    onClick={() => onViewSubject?.(subject.id)}
                   >
                     {shortName}
                   </Badge>

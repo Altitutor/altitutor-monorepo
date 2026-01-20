@@ -22,7 +22,7 @@ interface UseAssignStaffFlowProps {
 }
 
 export function useAssignStaffFlow({
-  isOpen,
+  isOpen: _isOpen,
   context,
   onAssign,
   currentStaffId,

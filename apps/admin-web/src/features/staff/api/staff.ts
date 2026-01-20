@@ -90,6 +90,7 @@ export const staffApi = {
     offset?: number;
     orderBy?: keyof Tables<'staff'>;
     ascending?: boolean;
+    excludeClassSearch?: boolean;
   }): Promise<{ staff: StaffListItem[]; total: number }> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const {
@@ -102,6 +103,7 @@ export const staffApi = {
       offset = 0,
       orderBy = 'last_name',
       ascending = true,
+      excludeClassSearch = false,
     } = params || {};
 
     const trimmed = search.trim();
@@ -113,6 +115,7 @@ export const staffApi = {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: statusFilters.length > 0 ? statusFilters : ['ACTIVE'],
       p_include_relationships: true,
+      p_exclude_class_search: excludeClassSearch,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy as string,
@@ -628,5 +631,109 @@ export const staffApi = {
     }
 
     return data?.map((item: { subjects: unknown }) => item.subjects).filter(Boolean) || [];
-  }
+  },
+
+  /**
+   * Search staff for absence logging (simplified, paginated)
+   * Uses search_staff_admin RPC with minimal fields
+   */
+  searchForAbsence: async (params: {
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ staff: Tables<'staff'>[]; total: number }> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const {
+      search = '',
+      page = 0,
+      pageSize = 20,
+    } = params || {};
+
+    const trimmed = search.trim();
+    
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_staff_admin', {
+      p_search: trimmed || undefined, // Pass undefined for empty search to get all
+      p_statuses: ['ACTIVE'],
+      p_include_relationships: true,
+      p_exclude_class_search: false,
+      p_limit: pageSize,
+      p_offset: page * pageSize,
+      p_order_by: 'last_name',
+      p_ascending: true,
+    });
+
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return { staff: [], total: 0 };
+
+    const rpcData = rpcResult as { staff: any[]; total: number };
+    const staff = (rpcData.staff || []).map((s: any) => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      email: s.email,
+      phone_number: s.phone_number,
+      role: s.role,
+      status: s.status,
+      created_at: s.created_at || null,
+      updated_at: s.updated_at || null,
+    })) as Tables<'staff'>[];
+    
+    return {
+      staff,
+      total: rpcData.total || 0,
+    };
+  },
+
+  /**
+   * Search staff for task assignment (simplified, uses search_staff_admin RPC)
+   * Returns active staff, optionally filtered by role
+   */
+  searchForTasks: async (params: {
+    search?: string;
+    role?: string;
+    limit?: number;
+  }): Promise<Tables<'staff'>[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const {
+      search = '',
+      role,
+      limit = 100,
+    } = params || {};
+
+    const trimmed = search.trim();
+    
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_staff_admin', {
+      p_search: trimmed.length > 0 ? trimmed : undefined,
+      p_statuses: ['ACTIVE'],
+      p_include_relationships: false,
+      p_exclude_class_search: false,
+      p_limit: limit,
+      p_offset: 0,
+      p_order_by: 'last_name',
+      p_ascending: true,
+    });
+
+    if (rpcError) throw rpcError;
+    if (!rpcResult) return [];
+
+    const rpcData = rpcResult as { staff: unknown[]; total: number };
+    let staff = (rpcData.staff || []).map((s: any) => ({
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      role: s.role,
+      status: s.status,
+      email: s.email,
+      phone_number: s.phone_number,
+      created_at: s.created_at || null,
+      updated_at: s.updated_at || null,
+    })) as Tables<'staff'>[];
+
+    // Filter by role if specified
+    if (role) {
+      staff = staff.filter((s) => s.role === role);
+    }
+
+    return staff;
+  },
 }; 

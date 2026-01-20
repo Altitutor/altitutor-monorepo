@@ -1,14 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Separator, Badge, Button } from '@altitutor/ui';
-import { ExternalLink, Download, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { billingApi, type InvoiceRow, type InvoiceItemRow } from '../api/billing';
+import { getInvoiceStatusBadge } from '../utils/invoiceFormatters';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { cn } from '@/shared/utils';
+import {
+  useInvoiceData,
+  useInvoiceModals,
+  formatInvoiceDate,
+  formatInvoiceAmount,
+  calculateLineItemsSubtotal,
+} from '../index';
 
 type ViewInvoiceModalProps = {
   isOpen: boolean;
@@ -18,104 +24,21 @@ type ViewInvoiceModalProps = {
 
 export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModalProps) {
   const router = useRouter();
-  const [invoice, setInvoice] = useState<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null }) | null>(null);
-  const [invoiceItems, setInvoiceItems] = useState<InvoiceItemRow[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!isOpen || !invoiceId) return;
-      setIsLoading(true);
-      try {
-        // Fetch invoice with student info
-        const foundInvoice = await billingApi.getInvoiceById(invoiceId);
-        
-        if (foundInvoice) {
-          setInvoice(foundInvoice);
-          
-          // Fetch invoice items
-          const items = await billingApi.getInvoiceItemsByInvoice(invoiceId);
-          setInvoiceItems(items);
-        } else {
-          console.error('Invoice not found:', invoiceId);
-        }
-      } catch (error) {
-        console.error('Failed to load invoice:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    if (isOpen && invoiceId) {
-      load();
-    } else if (!isOpen) {
-      // Delay state reset to allow exit animation to complete
-      const timer = setTimeout(() => {
-        setInvoice(null);
-        setInvoiceItems([]);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, invoiceId]);
+  // Business logic hooks
+  const invoiceData = useInvoiceData({
+    invoiceId: invoiceId,
+    enabled: isOpen && !!invoiceId,
+  });
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return format(date, 'EEEE, MMMM d, yyyy');
-    } catch (e) {
-      return dateString;
-    }
-  };
+  const modals = useInvoiceModals();
 
-  const getStatusBadge = (status: string) => {
-    let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-    let label = status;
+  const { invoice, invoiceItems, isLoading } = invoiceData;
 
-    switch (status) {
-      case 'paid':
-        variant = 'default';
-        label = 'Paid';
-        break;
-      case 'draft':
-        variant = 'outline';
-        label = 'Draft';
-        break;
-      case 'open':
-        variant = 'secondary';
-        label = 'Open';
-        break;
-      case 'void':
-      case 'uncollectible':
-      case 'disputed':
-        variant = 'destructive';
-        label = status.charAt(0).toUpperCase() + status.slice(1);
-        break;
-      default:
-        variant = 'outline';
-    }
-
-    return <Badge variant={variant} className="text-xs">{label}</Badge>;
-  };
-
-  // Use Stripe invoice total (amount_due_cents) instead of summing line items
-  // This ensures we show the correct total including any Stripe charges/fees
+  // Computed values
   const totalAmount = invoice?.amount_due_cents || 0;
   const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
-  
-  // Calculate line items subtotal for display
-  const lineItemsSubtotal = invoiceItems.reduce((sum, item) => sum + (item.amount_cents || 0), 0);
-  
-  // Note: We don't show a separate "card processing charge" line item because:
-  // 1. Fees are already included as separate invoice items in Stripe (if they exist)
-  // 2. The difference between line items and total might be due to other reasons (taxes, discounts, etc.)
-  // 3. If fees exist, they should be in invoiceItems already (from the database)
-
-  const handleSessionClick = (sessionId: string) => {
-    setActiveSessionId(sessionId);
-  };
+  const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
 
   // Always render the Sheet to allow exit animation
   if (isLoading || !invoice) {
@@ -136,29 +59,40 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <SheetTitle>Invoice Details</SheetTitle>
-                  <SheetDescription className="text-lg font-medium">
-                    Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
-                  </SheetDescription>
+                <div className="flex items-center gap-3 flex-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={onClose}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1">
+                    <SheetTitle>Invoice Details</SheetTitle>
+                    <SheetDescription className="text-lg font-medium">
+                      Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                    </SheetDescription>
+                  </div>
                 </div>
                 {invoiceId && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
+                  <ActionsMenu
+                    type="invoice"
+                    onOpenInPage={() => {
                       router.push(`/invoices/${invoiceId}`);
                       onClose();
                     }}
-                    className="shrink-0"
-                    title="Open in new page"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                    onViewOnStripe={invoice.hosted_invoice_url ? () => {
+                      window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+                    } : undefined}
+                    onDownloadPdf={invoice.invoice_pdf ? () => {
+                      window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
+                    } : undefined}
+                  />
                 )}
               </div>
             </SheetHeader>
@@ -175,7 +109,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                         variant="link"
                         size="sm"
                         className="h-auto p-0 text-sm justify-start"
-                        onClick={() => setActiveStudentId(invoice.student!.id)}
+                        onClick={() => modals.openStudentModal(invoice.student!.id)}
                       >
                         {invoice.student.first_name} {invoice.student.last_name}
                       </Button>
@@ -185,19 +119,21 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   </div>
                   
                   <div className="text-sm font-medium text-muted-foreground">Invoice Date:</div>
-                  <div className="text-sm">{formatDate(invoice.invoice_date)}</div>
+                  <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
                   
                   <div className="text-sm font-medium text-muted-foreground">Status:</div>
-                  <div className="text-sm">{getStatusBadge(invoice.status)}</div>
+                  <div className="text-sm">
+                    {getInvoiceStatusBadge(invoice.status)}
+                  </div>
                   
                   <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
                   <div className="text-sm">
-                    ${((invoice.amount_due_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
+                    {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
                   </div>
                   
                   <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
                   <div className="text-sm">
-                    ${((invoice.amount_paid_cents || 0) / 100).toFixed(2)} {invoice.currency || 'AUD'}
+                    {formatInvoiceAmount(invoice.amount_paid_cents, invoice.currency || 'AUD')}
                   </div>
                 </div>
               </div>
@@ -220,7 +156,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                         )}
                         onClick={() => {
                           if (item.session_id) {
-                            handleSessionClick(item.session_id);
+                            modals.openSessionModal(item.session_id);
                           }
                         }}
                       >
@@ -262,47 +198,27 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                 )}
               </div>
 
-              <Separator />
-
-              {/* Actions */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Actions</h3>
-                <div className="flex gap-2">
-                  {invoice.hosted_invoice_url && (
-                    <Button variant="outline" asChild>
-                      <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        View on Stripe
-                      </a>
-                    </Button>
-                  )}
-                  {invoice.invoice_pdf && (
-                    <Button variant="outline" asChild>
-                      <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download PDF
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </SheetContent>
       </Sheet>
 
-      <ViewStudentModal
-        isOpen={!!activeStudentId}
-        studentId={activeStudentId}
-        onClose={() => setActiveStudentId(null)}
-        onStudentUpdated={() => {}}
-      />
+      {modals.selectedStudentId && (
+        <ViewStudentModal
+          isOpen={modals.studentModalOpen}
+          studentId={modals.selectedStudentId}
+          onClose={modals.closeStudentModal}
+          onStudentUpdated={() => {}}
+        />
+      )}
 
-      <SessionModal
-        isOpen={!!activeSessionId}
-        sessionId={activeSessionId}
-        onClose={() => setActiveSessionId(null)}
-      />
+      {modals.selectedSessionId && (
+        <SessionModal
+          isOpen={modals.sessionModalOpen}
+          sessionId={modals.selectedSessionId}
+          onClose={modals.closeSessionModal}
+        />
+      )}
     </>
   );
 }

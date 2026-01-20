@@ -20,7 +20,7 @@ export const filesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
     
     // Upload to storage
-    const { path, url } = await uploadToStorage({
+    const { path } = await uploadToStorage({
       subjectId: params.subjectId,
       topicId: params.topicId,
       file: params.file,

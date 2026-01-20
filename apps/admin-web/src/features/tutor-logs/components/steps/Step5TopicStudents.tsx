@@ -1,13 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { TopicCard } from '../TopicCard';
 import { StudentCard } from '@/shared/components/StudentCard';
-import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useTopicsByIds, useStudentsByIds, useTopicsWithSubjects } from '../../hooks';
 
 type TopicItem = {
   topicId: string;
@@ -27,36 +24,13 @@ export function Step5TopicStudents({
   attendedStudentIds,
   onUpdate,
 }: Step5TopicStudentsProps) {
-  const [topicsData, setTopicsData] = useState<Tables<'topics'>[]>([]);
-  const [studentsData, setStudentsData] = useState<Tables<'students'>[]>([]);
   const hasInitialized = useRef(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-
-      const topicIds = topics.map((t) => t.topicId);
-
-      if (topicIds.length > 0) {
-        const { data: topicsRes } = await supabase
-          .from('topics')
-          .select('*')
-          .in('id', topicIds);
-        setTopicsData(topicsRes || []);
-      }
-
-      if (attendedStudentIds.length > 0) {
-        const { data: studentsRes } = await supabase
-          .from('students')
-          .select('*')
-          .in('id', attendedStudentIds);
-        setStudentsData(studentsRes || []);
-      }
-    };
-
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attendedStudentIds.length, topics.length]);
+  // Fetch topics and students using hooks
+  const topicIds = topics.map((t) => t.topicId);
+  const { data: topicsData = [] } = useTopicsByIds(topicIds);
+  const { data: studentsData = [] } = useStudentsByIds(attendedStudentIds);
+  const { data: subjectsMap = new Map() } = useTopicsWithSubjects(topicIds);
 
   // Initialize with all students for all topics (separate effect to avoid setState during render)
   useEffect(() => {
@@ -72,7 +46,7 @@ export function Step5TopicStudents({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicsData.length, studentsData.length]);
+  }, [topicsData.length, studentsData.length, topics.length, attendedStudentIds.length]);
 
   const handleRemoveStudent = (topicId: string, studentId: string) => {
     onUpdate(
@@ -93,33 +67,6 @@ export function Step5TopicStudents({
       )
     );
   };
-
-  const [subjectsMap, setSubjectsMap] = useState<Map<string, Tables<'subjects'>>>(new Map());
-
-  useEffect(() => {
-    const fetchSubjects = async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const topicIds = topics.map((t) => t.topicId);
-      if (topicIds.length > 0) {
-        // Get unique subject IDs from topics
-        const { data: topicsWithSubjects } = await supabase
-          .from('topics')
-          .select('id, subject_id, subjects:subjects(*)')
-          .in('id', topicIds);
-        
-        if (topicsWithSubjects) {
-          const subjects = new Map<string, Tables<'subjects'>>();
-          topicsWithSubjects.forEach((t: any) => {
-            if (t.subjects && t.subject_id) {
-              subjects.set(t.subject_id, t.subjects);
-            }
-          });
-          setSubjectsMap(subjects);
-        }
-      }
-    };
-    fetchSubjects();
-  }, [topics]);
 
   const getTopic = (topicId: string) => topicsData.find((t) => t.id === topicId);
   const getStudent = (studentId: string) => studentsData.find((s) => s.id === studentId);

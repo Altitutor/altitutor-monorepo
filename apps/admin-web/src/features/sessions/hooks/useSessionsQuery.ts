@@ -15,9 +15,9 @@ export const sessionsKeys = {
 };
 
 // Get all sessions with details (optimized query)
-export function useSessionsWithDetails(args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean; search?: string; studentId?: string; staffId?: string; classId?: string; types?: string[]; orderBy?: string; ascending?: boolean }) {
+export function useSessionsWithDetails(args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean; search?: string; studentId?: string; staffId?: string; classId?: string; adminShiftId?: string; types?: string[]; orderBy?: string; ascending?: boolean }) {
   return useQuery({
-    queryKey: [...sessionsKeys.withDetails(), args?.rangeStart ?? null, args?.rangeEnd ?? null, args?.includeInactive ?? false, args?.search ?? null, args?.studentId ?? null, args?.staffId ?? null, args?.classId ?? null, args?.types ?? null, args?.orderBy ?? null, args?.ascending ?? null],
+    queryKey: [...sessionsKeys.withDetails(), args?.rangeStart ?? null, args?.rangeEnd ?? null, args?.includeInactive ?? false, args?.search ?? null, args?.studentId ?? null, args?.staffId ?? null, args?.classId ?? null, args?.adminShiftId ?? null, args?.types ?? null, args?.orderBy ?? null, args?.ascending ?? null],
     queryFn: () => sessionsApi.getAllSessionsWithDetails(args),
     staleTime: 1000 * 60 * 3, // 3 minutes - balance freshness with request volume
     gcTime: 1000 * 60 * 3, // 3 minutes

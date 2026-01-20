@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { LogOut, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { format, isValid, parseISO } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,86 +18,45 @@ import {
   AnimatedHamburgerIcon,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { GlobalSearch } from '../GlobalSearch';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
-
-// Get today's date in local timezone (YYYY-MM-DD format)
-const getTodayLocalDate = (): string => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// Validate date string format (YYYY-MM-DD)
-const isValidDateString = (dateString: string | null): boolean => {
-  if (!dateString) return false;
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(dateString)) return false;
-  try {
-    const date = parseISO(dateString);
-    return isValid(date);
-  } catch {
-    return false;
-  }
-};
+import { Search } from 'lucide-react';
+import { NotificationsTray } from '@/features/notifications';
+import { useNotificationsRealtime } from '@/features/notifications';
 
 export function Navbar() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { user, signOut } = useAuthStore();
   const { resolvedTheme } = useTheme();
   const { data: staffRecord } = useCurrentStaff();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
+  const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   
-  // Initialize date from URL if on sessions page, otherwise use today
-  const getInitialDate = (): string => {
-    if (pathname === '/sessions') {
-      const dateParam = searchParams.get('date');
-      if (isValidDateString(dateParam) && dateParam) {
-        return dateParam;
-      }
-    }
-    return getTodayLocalDate();
-  };
-  
-  const [selectedDate, setSelectedDate] = useState<string>(getInitialDate());
-  const dateInputRefDesktop = useRef<HTMLInputElement>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Sync date with URL when on sessions page
-  useEffect(() => {
-    if (pathname === '/sessions') {
-      const dateParam = searchParams.get('date');
-      if (isValidDateString(dateParam) && dateParam && dateParam !== selectedDate) {
-        setSelectedDate(dateParam);
-      } else if (!dateParam) {
-        // If no date param, reset to today
-        const today = getTodayLocalDate();
-        if (selectedDate !== today) {
-          setSelectedDate(today);
-        }
-      }
-    }
-  }, [pathname, searchParams, selectedDate]);
+  // Subscribe to notifications real-time updates
+  useNotificationsRealtime(staffRecord?.id ?? '');
 
-  // Close date picker on scroll
+  // Keyboard shortcut for command palette (Cmd+K / Ctrl+K)
   useEffect(() => {
-    const handleScroll = () => {
-      if (dateInputRefDesktop.current && document.activeElement === dateInputRefDesktop.current) {
-        dateInputRefDesktop.current.blur();
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+      // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleCommandPalette();
+      }
+      // Also close with Escape when open
+      if (e.key === 'Escape' && isCommandPaletteOpen) {
+        closeCommandPalette();
       }
     };
 
-    document.addEventListener('scroll', handleScroll, true);
-    
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [isCommandPaletteOpen, toggleCommandPalette, closeCommandPalette]);
 
   const handleLogout = async () => {
     try {
@@ -123,60 +81,6 @@ export function Navbar() {
       return `${staffRecord.first_name} ${staffRecord.last_name}`;
     }
     return user?.email?.split('@')[0] || 'User';
-  };
-
-  // Format date for display
-  const formatDateDisplay = (dateString: string): string => {
-    try {
-      const date = parseISO(dateString);
-      if (!isValid(date)) return format(new Date(), 'MMM d, yyyy');
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const dateToCheck = new Date(date);
-      dateToCheck.setHours(0, 0, 0, 0);
-      
-      if (dateToCheck.getTime() === today.getTime()) {
-        return `Today, ${format(date, 'MMM d')}`;
-      }
-      return format(date, 'MMM d, yyyy');
-    } catch {
-      return format(new Date(), 'MMM d, yyyy');
-    }
-  };
-
-  // Handle date change
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = e.target.value;
-    if (!newDate) return;
-    
-    // Validate date format (YYYY-MM-DD)
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(newDate)) return;
-    
-    setSelectedDate(newDate);
-    
-    // Navigate to sessions page with date filter
-    router.push(`/sessions?view=table&date=${newDate}`);
-  };
-
-  // Handle button click to open date picker (desktop)
-  const handleDateButtonClickDesktop = () => {
-    const input = dateInputRefDesktop.current;
-    if (!input) return;
-    
-    // Try showPicker() if available (modern browsers)
-    if ('showPicker' in input && typeof input.showPicker === 'function') {
-      try {
-        input.showPicker();
-      } catch {
-        // Fallback if showPicker throws synchronously
-        input.click();
-      }
-      } else {
-        // Fallback: trigger click
-      input.click();
-    }
   };
 
   return (
@@ -210,55 +114,46 @@ export function Navbar() {
           </div>
         </div>
         
-        {/* Search - same on desktop and mobile */}
+        {/* Search Button - same on desktop and mobile */}
         {user && (
           <div className="flex-1 flex justify-center min-w-0">
-            <GlobalSearch />
+            {/* Spacer to center the search button */}
           </div>
         )}
         
-        <div className="flex items-center gap-4 flex-shrink-0 justify-end">
-          {/* Date Picker - Desktop only */}
-          {user && (
-            <div className="hidden md:flex items-center gap-2">
-              <div className="relative">
-                <input
-                  ref={dateInputRefDesktop}
-                  type="date"
-                  value={selectedDate}
-                  onChange={handleDateChange}
-                  className="sr-only"
-                  aria-label="Select date"
-                  id="date-picker-desktop"
-                />
-                <Button
-                  variant="outline"
-                  className="h-9 px-3 text-sm font-normal cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDateButtonClickDesktop();
-                  }}
-                  type="button"
-                  data-date-picker-button
-                >
-                  {formatDateDisplay(selectedDate)}
-                </Button>
-              </div>
-            </div>
+        <div className="flex items-center gap-2 flex-shrink-0 justify-end">
+          {/* Search Button */}
+            {user && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleCommandPalette}
+                className="h-9 w-9"
+                aria-label="Open command palette"
+                title="Search (Cmd+K / Ctrl+K)"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            )}
+          
+          {/* Notifications Button */}
+          {user && staffRecord?.id && (
+            <NotificationsTray staffId={staffRecord.id} />
           )}
           
           {/* Theme Toggle - Desktop only */}
-          <div className="hidden md:block">
-            <ThemeToggle />
-          </div>
+          {user && (
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
+          )}
           
           {/* Profile Menu */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 border-0">
-                  <div className="h-8 w-8 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-sm">
+                <Button variant="outline" className="flex items-center gap-2 h-9">
+                  <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
                   <span className="hidden sm:inline">{getFullName()}</span>

@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@altitutor/shared';
 
@@ -51,7 +51,6 @@ export function createClient() {
         path: '/',
         sameSite: 'lax' as const,
         secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
       },
     }
   );

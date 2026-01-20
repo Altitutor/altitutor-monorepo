@@ -147,18 +147,24 @@ export function ClassInfoTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, classData?.id]); // form is stable, don't include it
 
+  // Watch form values for session changes calculation
+  const sessionStartDate = form.watch('sessionStartDate');
+  const sessionEndDate = form.watch('sessionEndDate');
+  const dayOfWeek = form.watch('dayOfWeek');
+  const startTime = form.watch('startTime');
+  const endTime = form.watch('endTime');
+
   // Calculate session changes based on form values
   const sessionChanges = useMemo(() => {
     if (!isEditing || !classData) {
       return null;
     }
 
-    const formValues = form.getValues();
-    const newStartDate = formValues.sessionStartDate || null;
-    const newEndDate = formValues.sessionEndDate || null;
-    const newDayOfWeek = formValues.dayOfWeek;
-    const newStartTime = formValues.startTime;
-    const newEndTime = formValues.endTime;
+    const newStartDate = sessionStartDate || null;
+    const newEndDate = sessionEndDate || null;
+    const newDayOfWeek = dayOfWeek;
+    const newStartTime = startTime;
+    const newEndTime = endTime;
 
     // Check if dates/times actually changed
     const datesChanged = 
@@ -173,7 +179,6 @@ export function ClassInfoTab({
     }
 
     return calculateSessionChanges({
-      classData,
       newStartDate,
       newEndDate,
       newDayOfWeek,
@@ -181,14 +186,16 @@ export function ClassInfoTab({
       newEndTime,
       existingFutureSessions: futureSessions,
     });
+    // form is stable from react-hook-form, watched values are already in deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isEditing,
     classData,
-    form.watch('sessionStartDate'),
-    form.watch('sessionEndDate'),
-    form.watch('dayOfWeek'),
-    form.watch('startTime'),
-    form.watch('endTime'),
+    sessionStartDate,
+    sessionEndDate,
+    dayOfWeek,
+    startTime,
+    endTime,
     futureSessions,
   ]);
 

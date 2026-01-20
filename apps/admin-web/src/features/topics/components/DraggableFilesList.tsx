@@ -87,7 +87,7 @@ interface SortableFileItemProps {
   linkedSolution: TopicFileWithFile | undefined;
 }
 
-function SortableFileItem({ file, onSolutionLink, onSolutionUnlink, linkedSolution }: SortableFileItemProps) {
+function SortableFileItem({ file, onSolutionLink: _onSolutionLink, onSolutionUnlink: _onSolutionUnlink, linkedSolution }: SortableFileItemProps) {
   const {
     attributes,
     listeners,
@@ -175,7 +175,7 @@ interface FileTypeSectionProps {
   onSolutionUnlink: (solutionFileId: string) => void;
 }
 
-function FileTypeSection({ type, files, allFiles, onSolutionLink, onSolutionUnlink }: FileTypeSectionProps) {
+function FileTypeSection({ type, files, allFiles: _allFiles, onSolutionLink, onSolutionUnlink }: FileTypeSectionProps) {
   const {
     setNodeRef,
     isOver,
@@ -262,7 +262,6 @@ export function DraggableFilesList({
   onSolutionUnlink,
 }: DraggableFilesListProps) {
   const [localFiles, setLocalFiles] = useState(files);
-  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -297,22 +296,16 @@ export function DraggableFilesList({
     return grouped;
   }, [localFiles]);
 
-  // Get all solution files for drag handling
-  const allSolutionFiles = useMemo(() => {
-    return localFiles.filter(f => f.is_solutions);
-  }, [localFiles]);
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+  const handleDragStart = (_event: DragStartEvent) => {
+    // Drag start handled by DnD kit
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = (_event: DragOverEvent) => {
     // Visual feedback is handled by droppable areas
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveId(null);
 
     if (!over) return;
 

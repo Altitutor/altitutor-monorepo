@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
@@ -16,23 +16,13 @@ import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
-  MessageSquare,
-  Eye,
-  MoreVertical,
 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useParentsList } from '../hooks/useParentsQuery';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@altitutor/ui";
-import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { useChatStore } from '@/features/messages/state/chatStore';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 
 interface ParentsTableProps {
   onRefresh?: number;
@@ -41,7 +31,6 @@ interface ParentsTableProps {
 export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const openWindow = useChatStore(s => s.openWindow);
   
   // Initialize state from URL params
   const getSearchFromUrl = () => searchParams.get('search') || '';
@@ -128,24 +117,6 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
   const handleParentClick = (id: string) => {
     setSelectedParentId(id);
     setIsViewModalOpen(true);
-  };
-
-  const handleViewParent = (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setSelectedParentId(id);
-    setIsViewModalOpen(true);
-  };
-
-  const handleMessageParent = async (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    try {
-      const conversationId = await ensureConversationForRelated(id, 'parent');
-      if (conversationId) {
-        openWindow({ conversationId, title: 'Parent' });
-      }
-    } catch (error) {
-      console.error('Failed to open conversation:', error);
-    }
   };
 
   const handleParentUpdated = () => {
@@ -245,7 +216,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
           <TableBody>
             {parents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center h-24">
+                <TableCell colSpan={5} className="text-center h-24">
                   {isLoading ? (
                     "Loading parents..."
                   ) : searchTerm ? (
@@ -293,23 +264,12 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleMessageParent(parent.id)}>
-                            <MessageSquare className="mr-2 h-4 w-4" />
-                            Message
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleViewParent(parent.id)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <ActionsMenu
+                        type="parent"
+                        onOpenInPage={() => {
+                          router.push(`/parents/${parent.id}`);
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 );

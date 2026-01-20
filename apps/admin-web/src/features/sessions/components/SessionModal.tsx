@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
-import { ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import type { Tables, Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { sessionsApi } from '../api/sessions';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { X } from 'lucide-react';
 import { getSessionTitle } from '../utils/session-helpers';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
@@ -18,11 +15,21 @@ import { SessionFiles } from './SessionFiles';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { classesApi } from '@/features/classes/api/classes';
 import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
-import { LogAbsenceDialog } from './LogAbsenceDialog';
-import { LogStaffAbsenceDialog } from './LogStaffAbsenceDialog';
+import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
 import { SessionDetailsTab } from './SessionDetailsTab';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import {
+  useSessionData,
+  useSessionModals,
+  useSessionHelpers,
+} from '../hooks';
+import {
+  buildStudentAttendanceMap,
+  buildStaffAttendanceMap,
+  processSessionStudents,
+  processSessionStaff,
+} from '../utils';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -32,79 +39,27 @@ type SessionModalProps = {
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('details');
-  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
-  const [firstClassStaffId, setFirstClassStaffId] = useState<string | null>(null);
-  const [isBookingConfirmationDialogOpen, setIsBookingConfirmationDialogOpen] = useState(false);
-  const [selectedStudentForBookingConfirmation, setSelectedStudentForBookingConfirmation] = useState<string | null>(null);
-  const [isLogStudentAbsenceDialogOpen, setIsLogStudentAbsenceDialogOpen] = useState(false);
-  const [selectedStudentForAbsence, setSelectedStudentForAbsence] = useState<string | null>(null);
-  const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
-  const [selectedStaffForAbsence, setSelectedStaffForAbsence] = useState<string | null>(null);
   const openWindow = useChatStore(s => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
 
-  useEffect(() => {
-    const load = async () => {
-      if (!isOpen || !sessionId) return;
-      setIsLoading(true);
-      try {
-        const result = await sessionsApi.getSessionWithTutorLog(sessionId);
-        setData(result);
-        
-        // Fetch all topics for the subject to derive topic codes
-        // Use session's subject if available, otherwise fall back to class's subject
-        const subjectId = (result.session as any)?.subject?.id || result.session?.class?.subject?.id;
-        if (subjectId) {
-          const supabaseClient = (await import('@/shared/lib/supabase/client')).getSupabaseClient() as SupabaseClient<Database>;
-          const { data: topicsData } = await supabaseClient
-            .from('topics')
-            .select('*')
-            .eq('subject_id', subjectId)
-            .order('index', { ascending: true });
-          
-          setAllTopics(topicsData || []);
-        }
+  // Business logic hooks
+  const sessionData = useSessionData({
+    sessionId: sessionId,
+    enabled: isOpen && !!sessionId,
+  });
 
-        // If session is a CLASS type and has a class_id, get the first staff member from the class
-        if (result.session?.type === 'CLASS' && result.session?.class_id) {
-          try {
-            const classStaff = await classesApi.getClassStaff(result.session.class_id);
-            if (classStaff && classStaff.length > 0) {
-              setFirstClassStaffId(classStaff[0].id);
-            }
-          } catch (error) {
-            console.error('Failed to get class staff:', error);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load session:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    if (isOpen && sessionId) {
-      load();
-    } else if (!isOpen) {
-      // Delay state reset to allow exit animation to complete
-      const timer = setTimeout(() => {
-        setData(null);
-        setAllTopics([]);
-        setFirstClassStaffId(null);
-      }, 300); // Match Sheet animation duration
-      return () => clearTimeout(timer);
+  const modals = useSessionModals();
+
+  // UI state
+  const [activeTab, setActiveTab] = useState('details');
+
+  // Reset modals when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      modals.reset();
     }
-  }, [isOpen, sessionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleOpenSession = (id: string) => {
     // Close current modal and open new one
@@ -115,13 +70,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   };
 
   const handleOpenStaff = (id: string) => {
-    setSelectedStaffId(id);
-    setIsStaffModalOpen(true);
+    modals.openStaffModal(id);
   };
 
   const handleOpenClass = (id: string) => {
-    setSelectedClassId(id);
-    setIsClassModalOpen(true);
+    modals.openClassModal(id);
   };
 
   const handleOpenTopic = (id: string) => {
@@ -160,15 +113,24 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     }
   };
 
+  // Session helpers
+  const helpers = useSessionHelpers({
+    session: sessionData.data?.session,
+    sessionsStudents: sessionData.data?.sessionsStudents || [],
+    sessionsStaff: sessionData.data?.sessionsStaff || [],
+    tutorLog: sessionData.data?.tutorLog,
+    firstClassStaffId: sessionData.firstClassStaffId,
+  });
+
   // Always render the Sheet to allow exit animation
-  if (isLoading || !data) {
+  if (sessionData.isLoading || !sessionData.data) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
           <SheetHeader className="px-6 py-4">
-            <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
+            <SheetTitle>{sessionData.isLoading ? 'Loading...' : ''}</SheetTitle>
           </SheetHeader>
-          {isLoading && (
+          {sessionData.isLoading && (
             <div className="py-6 text-center text-muted-foreground px-6">Loading session details...</div>
           )}
         </SheetContent>
@@ -176,162 +138,59 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     );
   }
 
-  const { session, sessionsStudents, sessionsStaff, tutorLog } = data;
+  const { session, sessionsStudents, sessionsStaff, tutorLog } = sessionData.data;
   const sessionTitle = getSessionTitle(session);
-  const hasTutorLog = !!tutorLog;
-  // Use session's subject if available, otherwise fall back to class's subject
-  const subject = (session as any).subject || session.class?.subject;
-  
-  // Check if session is in the past
-  const isSessionInPast = session.start_at ? new Date(session.start_at) < new Date() : false;
-  
-  // Get first staff member from class for logging (use sessionsStaff if available, otherwise use firstClassStaffId)
-  const getFirstStaffForLogging = () => {
-    // If session has staff assigned, use the first one
-    if (sessionsStaff && sessionsStaff.length > 0 && sessionsStaff[0].staff_id) {
-      return sessionsStaff[0].staff_id;
-    }
-    // Otherwise use the first class staff member (if fetched)
-    return firstClassStaffId || undefined;
-  };
 
-  // Build student attendance map from tutor log
-  const actualStudentAttendance: Record<string, { attended: boolean }> = {};
-  if (tutorLog?.studentAttendance) {
-    tutorLog.studentAttendance.forEach((att: any) => {
-      actualStudentAttendance[att.student_id] = { attended: att.attended };
-    });
-  }
+  // Process attendance data
+  const actualStudentAttendance = buildStudentAttendanceMap(tutorLog);
+  const actualStaffAttendance = buildStaffAttendanceMap(tutorLog);
 
-  // Build staff attendance map from tutor log
-  const actualStaffAttendance: Record<string, { attended: boolean; type?: string }> = {};
-  if (tutorLog?.staffAttendance) {
-    tutorLog.staffAttendance.forEach((att: any) => {
-      actualStaffAttendance[att.staff_id] = { attended: att.attended, type: att.type };
-    });
-  }
-
-  // Process students
-  // Build set of student IDs that are in sessions_students (planned students)
-  // Include all planned students regardless of is_extra status
-  const plannedStudentIds = new Set(
-    sessionsStudents
-      .filter((ss: any) => ss.student_id && (ss.sessions_students_id !== null && ss.sessions_students_id !== undefined))
-      .map((ss: any) => ss.student_id)
-  );
-  
-  const studentsData = sessionsStudents.map((ss: any) => {
-    let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
-    let rescheduledDate = '';
-    
-    // Check if this is an unplanned student (not in sessions_students originally)
-    // Unplanned students don't have a sessions_students_id (it's null/undefined)
-    // They are in the tutor log but not in sessions_students
-    const isUnplanned = (ss.sessions_students_id === null || ss.sessions_students_id === undefined) && ss.is_extra;
-    
-    if (ss.planned_absence && !isUnplanned) {
-      // Only mark as absent if it's a planned student with planned absence
-      plannedStatus = 'absent';
-      if (ss.is_rescheduled && ss.rescheduled_session?.session) {
-        plannedStatus = 'rescheduled';
-        const resSession = ss.rescheduled_session.session;
-        rescheduledDate = resSession.start_at 
-          ? `${format(new Date(resSession.start_at), 'EEE dd/MM')} ${resSession.class?.start_time || ''}`
-          : '';
-      } else if (ss.is_credited) {
-        plannedStatus = 'credited';
-      }
-    } else if (isUnplanned) {
-      // Unplanned student (attended but not in sessions_students)
-      plannedStatus = 'unplanned';
-    } else if (ss.is_extra && plannedStudentIds.has(ss.student_id)) {
-      // Planned extra student (in sessions_students but marked as extra)
-      plannedStatus = 'attending-extra';
-    }
-    
-    const actualAttendance = actualStudentAttendance[ss.student_id];
-    const actualStatus = !hasTutorLog
-      ? 'not-logged'
-      : actualAttendance?.attended
-      ? 'attended'
-      : 'did-not-attend';
-    
-    return {
-      student: ss.student,
-      plannedStatus,
-      actualStatus,
-      rescheduledDate,
-      rescheduledSessionId: ss.rescheduled_session?.session?.id,
-      invoiceStatus: ss.invoice_status || null,
-      plannedAbsence: ss.planned_absence || false,
-      hasInvoiceItems: !!ss.invoice_status, // If invoice_status exists, invoice_items exist
-    };
-  });
-
-  // Process staff
-  const staffData = sessionsStaff.map((sf: any) => {
-    let plannedStatus: 'attending' | 'absent' | 'swapped' = 'attending';
-    let swappedStaffName = '';
-    let swappedStaffId = '';
-    
-    if (sf.planned_absence) {
-      plannedStatus = 'absent';
-      if (sf.is_swapped && sf.swapped_staff) {
-        plannedStatus = 'swapped';
-        swappedStaffName = `${sf.swapped_staff.first_name} ${sf.swapped_staff.last_name}`;
-        swappedStaffId = sf.swapped_staff.id;
-      }
-    }
-    
-    const actualAttendance = actualStaffAttendance[sf.staff_id];
-    const actualStatus = !hasTutorLog
-      ? 'not-logged'
-      : actualAttendance?.attended
-      ? 'attended'
-      : 'did-not-attend';
-    
-    const submittedTutorLog = tutorLog?.created_by === sf.staff_id;
-    
-    return {
-      staff: sf.staff,
-      plannedStatus,
-      actualStatus,
-      staffType: actualAttendance?.type,
-      swappedStaffName,
-      swappedStaffId,
-      submittedTutorLog,
-      plannedAbsence: sf.planned_absence || false,
-    };
-  });
+  // Process students and staff data
+  const studentsData = processSessionStudents(sessionsStudents, actualStudentAttendance, helpers.hasTutorLog);
+  const staffData = processSessionStaff(sessionsStaff, actualStaffAttendance, helpers.hasTutorLog, tutorLog?.created_by);
 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
             <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
               <SheetHeader className="px-6 pt-6 pb-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <SheetTitle>Session Details</SheetTitle>
-                    <SheetDescription className="text-lg font-medium">
-                      {sessionTitle}
-                    </SheetDescription>
+                  <div className="flex items-center gap-3 flex-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={onClose}
+                      className="shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <div className="flex-1">
+                      <SheetTitle>Session Details</SheetTitle>
+                      <SheetDescription className="text-lg font-medium">
+                        {sessionTitle}
+                      </SheetDescription>
+                    </div>
                   </div>
                   {sessionId && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
+                    <ActionsMenu
+                      type="session"
+                      onOpenInPage={() => {
                         router.push(`/sessions/${sessionId}`);
                         onClose();
                       }}
-                      className="shrink-0"
-                      title="Open in new page"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                      onLogSession={modals.openLogSessionModal}
+                      hasTutorLog={helpers.hasTutorLog}
+                      onReschedule={() => {
+                        const studentId = helpers.getFirstStudentIdForReschedule();
+                        if (studentId) {
+                          modals.openRescheduleModal(studentId);
+                        }
+                      }}
+                      canReschedule={helpers.canReschedule}
+                    />
                   )}
                 </div>
               </SheetHeader>
@@ -352,36 +211,21 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     studentsData={studentsData}
                     staffData={staffData}
                     tutorLog={tutorLog}
-                    allTopics={allTopics}
+                    allTopics={sessionData.allTopics}
                     sessionId={sessionId}
-                    isSessionInPast={isSessionInPast}
+                    isSessionInPast={helpers.isSessionInPast}
                     currentStaff={currentStaff || null}
                     onOpenSession={handleOpenSession}
-                    onOpenStudent={(studentId) => {
-                      setSelectedStudentId(studentId);
-                      setIsStudentModalOpen(true);
-                    }}
+                    onOpenStudent={modals.openStudentModal}
                     onOpenStaff={handleOpenStaff}
                     onOpenClass={handleOpenClass}
                     onMessageStudent={handleMessageStudent}
                     onMessageStaff={handleMessageStaff}
                     onOpenTopic={handleOpenTopic}
                     onOpenFile={handleOpenFile}
-                    onLogAbsenceStudent={(studentId) => {
-                      setSelectedStudentForAbsence(studentId);
-                      setIsLogStudentAbsenceDialogOpen(true);
-                    }}
-                    onLogAbsenceStaff={(staffId) => {
-                      setSelectedStaffForAbsence(staffId);
-                      setIsLogStaffAbsenceDialogOpen(true);
-                    }}
-                    onSendBookingConfirmation={(studentId) => {
-                      setSelectedStudentForBookingConfirmation(studentId);
-                      setIsBookingConfirmationDialogOpen(true);
-                    }}
-                    onLogSession={() => {
-                      setIsLogSessionModalOpen(true);
-                    }}
+                    onLogAbsenceStudent={modals.openLogStudentAbsenceDialog}
+                    onLogAbsenceStaff={modals.openLogStaffAbsenceDialog}
+                    onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                   />
                   <Separator className="my-6" />
                   {/* Session Files Section - Only show for meetings, not classes */}
@@ -404,14 +248,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       </Sheet>
       
       {/* Student Modal */}
-      {selectedStudentId && (
+      {modals.selectedStudentId && (
         <ViewStudentModal
-          isOpen={isStudentModalOpen}
-          onClose={() => {
-            setIsStudentModalOpen(false);
-            setSelectedStudentId(null);
-          }}
-          studentId={selectedStudentId}
+          isOpen={modals.isStudentModalOpen}
+          onClose={modals.closeStudentModal}
+          studentId={modals.selectedStudentId}
           onStudentUpdated={() => {
             // Optionally refresh session data
           }}
@@ -419,14 +260,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       )}
 
       {/* Staff Modal */}
-      {selectedStaffId && (
+      {modals.selectedStaffId && (
         <ViewStaffModal
-          isOpen={isStaffModalOpen}
-          onClose={() => {
-            setIsStaffModalOpen(false);
-            setSelectedStaffId(null);
-          }}
-          staffId={selectedStaffId}
+          isOpen={modals.isStaffModalOpen}
+          onClose={modals.closeStaffModal}
+          staffId={modals.selectedStaffId}
           onStaffUpdated={() => {
             // Optionally refresh session data
           }}
@@ -434,14 +272,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       )}
 
       {/* Class Modal */}
-      {selectedClassId && (
+      {modals.selectedClassId && (
         <ViewClassModal
-          isOpen={isClassModalOpen}
-          onClose={() => {
-            setIsClassModalOpen(false);
-            setSelectedClassId(null);
-          }}
-          classId={selectedClassId}
+          isOpen={modals.isClassModalOpen}
+          onClose={modals.closeClassModal}
+          classId={modals.selectedClassId}
           onClassUpdated={() => {
             // Optionally refresh session data
           }}
@@ -451,82 +286,81 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       {/* Log Session Modal */}
       {currentStaff && (
         <LogSessionModal
-          isOpen={isLogSessionModalOpen}
+          isOpen={modals.isLogSessionModalOpen}
           onClose={async () => {
-            setIsLogSessionModalOpen(false);
-            // Refresh session data after logging
+            modals.closeLogSessionModal();
             if (sessionId && isOpen) {
-              try {
-                const result = await sessionsApi.getSessionWithTutorLog(sessionId);
-                setData(result);
-              } catch (error) {
-                console.error('Failed to refresh session data:', error);
-              }
+              await sessionData.refresh();
             }
           }}
           currentStaffId={currentStaff.id}
           adminMode={true}
           initialSessionId={sessionId || undefined}
-          initialStaffId={getFirstStaffForLogging()}
+          initialStaffId={helpers.getFirstStaffForLogging()}
         />
       )}
 
       {/* Booking Confirmation Dialog */}
-      {selectedStudentForBookingConfirmation && sessionId && (
+      {modals.selectedStudentForBookingConfirmation && sessionId && (
         <SendBookingConfirmationDialog
-          isOpen={isBookingConfirmationDialogOpen}
-          onClose={() => {
-            setIsBookingConfirmationDialogOpen(false);
-            setSelectedStudentForBookingConfirmation(null);
-          }}
+          isOpen={modals.isBookingConfirmationDialogOpen}
+          onClose={modals.closeBookingConfirmationDialog}
           sessionId={sessionId}
-          studentId={selectedStudentForBookingConfirmation}
+          studentId={modals.selectedStudentForBookingConfirmation}
         />
       )}
 
       {/* Log Student Absence Dialog */}
-      {selectedStudentForAbsence && sessionId && currentStaff && (
+      {modals.selectedStudentForAbsence && sessionId && currentStaff && (
         <LogAbsenceDialog
-          isOpen={isLogStudentAbsenceDialogOpen}
+          isOpen={modals.isLogStudentAbsenceDialogOpen}
           onClose={async () => {
-            setIsLogStudentAbsenceDialogOpen(false);
-            setSelectedStudentForAbsence(null);
-            // Refresh session data after logging absence
+            modals.closeLogStudentAbsenceDialog();
             if (sessionId && isOpen) {
-              try {
-                const result = await sessionsApi.getSessionWithTutorLog(sessionId);
-                setData(result);
-              } catch (error) {
-                console.error('Failed to refresh session data:', error);
-              }
+              await sessionData.refresh();
             }
           }}
           staffId={currentStaff.id}
-          initialStudentId={selectedStudentForAbsence}
+          initialStudentId={modals.selectedStudentForAbsence}
           initialSessionId={sessionId}
+          allowPastSessions={true}
         />
       )}
 
       {/* Log Staff Absence Dialog */}
-      {selectedStaffForAbsence && sessionId && currentStaff && (
+      {modals.selectedStaffForAbsence && sessionId && currentStaff && (
         <LogStaffAbsenceDialog
-          isOpen={isLogStaffAbsenceDialogOpen}
+          isOpen={modals.isLogStaffAbsenceDialogOpen}
           onClose={async () => {
-            setIsLogStaffAbsenceDialogOpen(false);
-            setSelectedStaffForAbsence(null);
-            // Refresh session data after logging absence
+            modals.closeLogStaffAbsenceDialog();
             if (sessionId && isOpen) {
-              try {
-                const result = await sessionsApi.getSessionWithTutorLog(sessionId);
-                setData(result);
-              } catch (error) {
-                console.error('Failed to refresh session data:', error);
-              }
+              await sessionData.refresh();
             }
           }}
           staffId={currentStaff.id}
-          initialStaffId={selectedStaffForAbsence}
+          initialStaffId={modals.selectedStaffForAbsence}
           initialSessionId={sessionId}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Reschedule Session Modal */}
+      {modals.selectedStudentForReschedule && sessionId && helpers.canReschedule && (
+        <BookSessionModal
+          isOpen={modals.isRescheduleModalOpen}
+          onClose={async () => {
+            modals.closeRescheduleModal();
+            if (sessionId && isOpen) {
+              await sessionData.refresh();
+            }
+          }}
+          sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
+          initialStudentId={modals.selectedStudentForReschedule}
+          originalSessionId={sessionId}
+          originalSubjectId={helpers.subject?.id || null}
+          onBookingCreated={(_newSessionId) => {
+            modals.closeRescheduleModal();
+          }}
         />
       )}
 

@@ -58,6 +58,44 @@ export function getStatusColor(status: TaskStatus): string {
 }
 
 /**
+ * Get status icon color class
+ */
+export function getStatusIconColor(status: TaskStatus): string {
+  switch (status) {
+    case 'backlog':
+      return 'text-gray-500 dark:text-gray-400';
+    case 'todo':
+      return 'text-blue-500 dark:text-blue-400';
+    case 'in_progress':
+      return 'text-yellow-500 dark:text-yellow-400';
+    case 'in_review':
+      return 'text-purple-500 dark:text-purple-400';
+    case 'done':
+      return 'text-green-500 dark:text-green-400';
+    default:
+      return 'text-gray-500 dark:text-gray-400';
+  }
+}
+
+/**
+ * Get priority icon color class
+ */
+export function getPriorityIconColor(priority: TaskPriority): string {
+  switch (priority) {
+    case 1: // Urgent
+      return 'text-red-500 dark:text-red-400';
+    case 2: // High
+      return 'text-orange-500 dark:text-orange-400';
+    case 3: // Medium
+      return 'text-yellow-500 dark:text-yellow-400';
+    case 4: // Low
+      return 'text-blue-500 dark:text-blue-400';
+    default: // No priority
+      return 'text-muted-foreground';
+  }
+}
+
+/**
  * Get status label
  */
 export function getStatusLabel(status: TaskStatus): string {
@@ -104,5 +142,34 @@ export function getUserInitials(firstName?: string | null, lastName?: string | n
     return firstName.charAt(0).toUpperCase();
   }
   return '?';
+}
+
+/**
+ * Estimate size options mapping
+ */
+export type EstimateSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
+
+export const ESTIMATE_OPTIONS: { value: number; label: EstimateSize }[] = [
+  { value: 1, label: 'XS' },
+  { value: 2, label: 'S' },
+  { value: 3, label: 'M' },
+  { value: 4, label: 'L' },
+  { value: 5, label: 'XL' },
+];
+
+/**
+ * Convert estimate number (1-5) to size label
+ */
+export function getEstimateLabel(estimate: number | null | undefined): EstimateSize | null {
+  if (!estimate || estimate < 1 || estimate > 5) return null;
+  return ESTIMATE_OPTIONS.find(opt => opt.value === estimate)?.label || null;
+}
+
+/**
+ * Convert size label to estimate number (1-5)
+ */
+export function getEstimateValue(label: EstimateSize | null | undefined): number | null {
+  if (!label) return null;
+  return ESTIMATE_OPTIONS.find(opt => opt.label === label)?.value || null;
 }
 

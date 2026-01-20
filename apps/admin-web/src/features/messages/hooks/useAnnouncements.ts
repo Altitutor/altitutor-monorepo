@@ -6,8 +6,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getOrCreateContactsAndConversations, ensureContactForStudent, ensureContactForParent } from '../utils/contactHelpers';
-import { ensureConversationForContact } from '../api/queries';
+import { ensureContactForStudent, ensureContactForParent } from '../utils/contactHelpers';
 
 /**
  * Batch create/ensure contacts and conversations for students and parents using a specific sender
@@ -143,6 +142,7 @@ async function ensureConversationForContactWithSender(contactId: string, ownedNu
 }
 import { getStudentClasses } from '../api/bulk';
 import { replaceVariables } from '../utils/variableReplacer';
+import { getErrorMessage } from '@/shared/utils';
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 200;
@@ -329,14 +329,18 @@ export function useAnnouncements() {
               // Fire-and-forget the send to avoid blocking UI
               supabase.functions
                 .invoke('send-sms', { body: { messageId: created.id } })
-                .catch((e: any) => console.error('[send-sms invoke] error', e?.message || e));
+                .catch((e: unknown) => {
+                  const errMsg = getErrorMessage(e);
+                  console.error('[send-sms invoke] error', errMsg);
+                });
 
               result.sent++;
-            } catch (error: any) {
+            } catch (error: unknown) {
+              const errorMessage = getErrorMessage(error);
               result.failed++;
               result.errors.push({
                 recipientId: msg.conversationId,
-                error: error.message || 'Unknown error',
+                error: errorMessage || 'Unknown error',
               });
             }
           })
@@ -356,7 +360,7 @@ export function useAnnouncements() {
       qc.invalidateQueries({ queryKey: ['messages'] });
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Announcement send error:', error);
       throw error;
     } finally {

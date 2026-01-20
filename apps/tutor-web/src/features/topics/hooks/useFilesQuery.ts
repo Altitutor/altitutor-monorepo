@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { filesApi } from '../api';
-import type { Tables } from '@altitutor/shared';
 
 /**
  * React Query hooks for files - tutor-web

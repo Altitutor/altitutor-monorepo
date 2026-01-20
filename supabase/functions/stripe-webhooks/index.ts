@@ -3,6 +3,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
+import { validateStripeEnv, validateSignatureHeader } from './shared/validation.ts';
+import { shouldSkipEvent, getEventId, getEventType } from './shared/idempotency.ts';
 
 function json(resp: any, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -23,32 +25,31 @@ Deno.serve(async (req: Request) => {
 
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
   const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')?.trim();
-  if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
-    console.error('[webhook] Missing Stripe environment variables', {
+  
+  const envValidation = validateStripeEnv(STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET);
+  if (!envValidation.valid) {
+    console.error('[webhook] Stripe environment validation failed', {
+      error: envValidation.error,
       hasSecretKey: !!STRIPE_SECRET_KEY,
       hasWebhookSecret: !!STRIPE_WEBHOOK_SECRET,
     });
-    return json({ error: 'Stripe env not configured' }, 500);
-  }
-  
-  // Validate webhook secret format - must start with whsec_
-  if (!STRIPE_WEBHOOK_SECRET.startsWith('whsec_')) {
-    console.error('[webhook] Invalid webhook secret format - must start with whsec_', {
-      secretPrefix: STRIPE_WEBHOOK_SECRET.substring(0, 10),
-      secretLength: STRIPE_WEBHOOK_SECRET.length,
-    });
     return json({ 
-      error: 'Invalid webhook secret format', 
-      details: 'Webhook secret must start with whsec_. Please check your Supabase secrets match the Stripe Dashboard signing secret exactly.' 
+      error: envValidation.error === 'Invalid webhook secret format - must start with whsec_' 
+        ? 'Invalid webhook secret format' 
+        : 'Stripe env not configured',
+      details: envValidation.error === 'Invalid webhook secret format - must start with whsec_'
+        ? 'Webhook secret must start with whsec_. Please check your Supabase secrets match the Stripe Dashboard signing secret exactly.'
+        : undefined
     }, 500);
   }
   
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
-  const sig = req.headers.get('stripe-signature') || '';
-  if (!sig) {
-    console.error('[webhook] Missing stripe-signature header');
-    return json({ error: 'Missing stripe-signature header' }, 400);
+  const sig = req.headers.get('stripe-signature');
+  const sigValidation = validateSignatureHeader(sig);
+  if (!sigValidation.valid || !sig) {
+    console.error('[webhook] Signature header validation failed:', sigValidation.error);
+    return json({ error: sigValidation.error || 'Missing stripe-signature header' }, 400);
   }
 
   // Read raw body as text - Stripe's constructEvent accepts string
@@ -59,7 +60,7 @@ Deno.serve(async (req: Request) => {
   try {
     // Use constructEventAsync for Deno/Supabase Edge Functions
     // constructEvent() uses synchronous crypto which isn't allowed in Deno
-    event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET);
+    event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
     console.error('[webhook] Signature verification failed:', err?.message || err);
     return json({ error: 'invalid signature', details: err?.message || 'Unknown error' }, 400);
@@ -74,10 +75,10 @@ Deno.serve(async (req: Request) => {
     const { data: existingEvent } = await supabase
       .from('stripe_webhook_events')
       .select('id, processed')
-      .eq('stripe_event_id', event.id)
+      .eq('stripe_event_id', getEventId(event))
       .maybeSingle();
 
-    if (existingEvent?.processed) {
+    if (shouldSkipEvent(existingEvent)) {
       return json({ received: true, already_processed: true });
     }
 
@@ -327,15 +328,30 @@ Deno.serve(async (req: Request) => {
         const invoice = event.data.object as any;
         console.log('[webhook] Invoice finalized:', invoice.id);
         
-        // Update finalized_at timestamp if invoice exists
+        // Check current invoice status before updating
+        // Don't overwrite 'paid' status if invoice was already paid
+        const { data: currentInvoice } = await supabase
+          .from('invoices')
+          .select('status')
+          .eq('stripe_invoice_id', invoice.id)
+          .maybeSingle();
+        
+        // Only update finalized_at timestamp, don't overwrite status if already paid
+        const updateData: any = {
+          finalized_at: invoice.status_transitions?.finalized_at 
+            ? new Date(invoice.status_transitions.finalized_at * 1000).toISOString()
+            : new Date().toISOString(),
+        };
+        
+        // Only update status if invoice is not already paid
+        // This prevents invoice.finalized from overwriting 'paid' status set by invoice.paid
+        if (currentInvoice?.status !== 'paid') {
+          updateData.status = invoice.status;
+        }
+        
         await supabase
           .from('invoices')
-          .update({
-            finalized_at: invoice.status_transitions?.finalized_at 
-              ? new Date(invoice.status_transitions.finalized_at * 1000).toISOString()
-              : new Date().toISOString(),
-            status: invoice.status,
-          })
+          .update(updateData)
           .eq('stripe_invoice_id', invoice.id);
         
         await supabase
@@ -348,29 +364,60 @@ Deno.serve(async (req: Request) => {
       case 'invoice.paid': {
         // CRITICAL: Invoice payment succeeded
         const invoice = event.data.object as any;
-        const chargeId = invoice.charge as string | undefined;
         
+        let chargeId: string | null = null;
+        let payment_intent_id: string | null = null;
         let fee_cents: number | null = null;
         let net_cents: number | null = null;
         let receipt_url: string | null = null;
-        let payment_intent_id: string | null = null;
         
-        // Retrieve charge details if available
-        if (chargeId) {
-          try {
-            const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction', 'payment_intent'] });
-            const bt: any = charge.balance_transaction;
-            if (bt) {
-              fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
-              net_cents = typeof bt.net === 'number' ? bt.net : null;
-            }
-            receipt_url = charge.receipt_url || null;
-            payment_intent_id = typeof charge.payment_intent === 'string' 
-              ? charge.payment_intent 
-              : (charge.payment_intent as any)?.id || null;
-          } catch (e: any) {
-            console.error('[webhook] Error retrieving charge details:', e?.message || e);
+        // Fetch invoice from Stripe with expanded fields to get charge/payment_intent IDs
+        // Webhook payloads are minimal and don't include expanded fields
+        try {
+          const fullInvoice = await stripe.invoices.retrieve(invoice.id, {
+            expand: ['latest_charge', 'payment_intent']
+          });
+          
+          // Extract charge ID from latest_charge (can be string ID or expanded object)
+          if (fullInvoice.latest_charge) {
+            chargeId = typeof fullInvoice.latest_charge === 'string'
+              ? fullInvoice.latest_charge
+              : (fullInvoice.latest_charge as any)?.id || null;
           }
+          
+          // Extract payment intent ID from payment_intent (can be string ID or expanded object)
+          if (fullInvoice.payment_intent) {
+            payment_intent_id = typeof fullInvoice.payment_intent === 'string'
+              ? fullInvoice.payment_intent
+              : (fullInvoice.payment_intent as any)?.id || null;
+          }
+          
+          // Retrieve charge details if we have charge ID
+          if (chargeId) {
+            try {
+              const charge = await stripe.charges.retrieve(chargeId, { 
+                expand: ['balance_transaction', 'payment_intent'] 
+              });
+              const bt: any = charge.balance_transaction;
+              if (bt) {
+                fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
+                net_cents = typeof bt.net === 'number' ? bt.net : null;
+              }
+              receipt_url = charge.receipt_url || null;
+              
+              // If payment_intent_id wasn't found from invoice, get it from charge
+              if (!payment_intent_id && charge.payment_intent) {
+                payment_intent_id = typeof charge.payment_intent === 'string'
+                  ? charge.payment_intent
+                  : (charge.payment_intent as any)?.id || null;
+              }
+            } catch (e: any) {
+              console.error('[webhook] Error retrieving charge details:', e?.message || e);
+            }
+          }
+        } catch (e: any) {
+          console.error('[webhook] Error fetching invoice from Stripe:', e?.message || e);
+          // Continue with update even if fetch fails - we'll just have null charge/payment_intent IDs
         }
         
         // Update invoice status to 'paid'
@@ -378,7 +425,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .update({
             status: 'paid',
-            stripe_charge_id: chargeId || null, // CRITICAL: For disputes
+            stripe_charge_id: chargeId, // CRITICAL: For disputes
             stripe_payment_intent_id: payment_intent_id,
             amount_paid_cents: invoice.amount_paid || invoice.amount_due,
             fee_cents,
@@ -436,15 +483,34 @@ Deno.serve(async (req: Request) => {
         // MEDIUM: Handle status changes, updates to amounts, etc.
         const invoice = event.data.object as any;
         
+        // Check current invoice status before updating
+        // Don't downgrade status from 'paid' to lower statuses (e.g., 'open')
+        const { data: currentInvoice } = await supabase
+          .from('invoices')
+          .select('status')
+          .eq('stripe_invoice_id', invoice.id)
+          .maybeSingle();
+        
+        const updateData: any = {
+          amount_due_cents: invoice.amount_due,
+          amount_paid_cents: invoice.amount_paid || 0,
+          hosted_invoice_url: invoice.hosted_invoice_url || null,
+          invoice_pdf: invoice.invoice_pdf || null,
+        };
+        
+        // Only update status if it's not a downgrade from 'paid'
+        // Valid transitions: draft -> open -> paid, but not paid -> open
+        if (currentInvoice?.status === 'paid' && invoice.status !== 'paid') {
+          // Don't overwrite 'paid' status with lower status
+          console.log('[webhook] Skipping status update from paid to', invoice.status, 'for invoice:', invoice.id);
+        } else {
+          // Safe to update status
+          updateData.status = invoice.status;
+        }
+        
         await supabase
           .from('invoices')
-          .update({
-            status: invoice.status,
-            amount_due_cents: invoice.amount_due,
-            amount_paid_cents: invoice.amount_paid || 0,
-            hosted_invoice_url: invoice.hosted_invoice_url || null,
-            invoice_pdf: invoice.invoice_pdf || null,
-          })
+          .update(updateData)
           .eq('stripe_invoice_id', invoice.id);
         
         await supabase

@@ -97,7 +97,8 @@ export function Step7FileStudents({
     };
 
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicFiles.length, topics.length]);
 
   const handleRemoveStudent = (fileId: string, studentId: string) => {
     onUpdate(

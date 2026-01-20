@@ -19,7 +19,7 @@ interface Step3SummaryAndConfirmProps {
 }
 
 export function Step3SummaryAndConfirm({
-  context,
+  context: _context,
   selectedStudent,
   selectedClass,
   studentSubjects,

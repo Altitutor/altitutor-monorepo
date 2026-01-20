@@ -19,6 +19,8 @@ import {
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
+import { NotificationsTray } from '@/features/notifications';
+import { useNotificationsRealtime } from '@/features/notifications';
 
 export function Navbar() {
   const router = useRouter();
@@ -28,6 +30,9 @@ export function Navbar() {
   // Only fetch staff data when user is authenticated
   const { data: staffRecord } = useCurrentStaff(!!user);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Subscribe to notifications real-time updates
+  useNotificationsRealtime(staffRecord?.id ?? '');
 
   const handleLogout = async () => {
     try {
@@ -96,7 +101,11 @@ export function Navbar() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {/* Notifications Button */}
+          {user && staffRecord?.id && (
+            <NotificationsTray />
+          )}
           <ThemeToggle />
           {user ? (
             <DropdownMenu>

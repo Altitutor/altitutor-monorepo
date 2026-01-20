@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
 

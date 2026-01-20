@@ -19,6 +19,8 @@ import {
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useProfile } from '@/features/profile';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
+import { NotificationsTray } from '@/features/notifications';
+import { useNotificationsRealtime } from '@/features/notifications';
 
 export function Navbar() {
   const router = useRouter();
@@ -28,6 +30,9 @@ export function Navbar() {
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   const { data: profile } = useProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Subscribe to notifications real-time updates
+  useNotificationsRealtime(profile?.id ?? '');
 
   // Hide navbar on booking/trial-session route
   if (pathname === '/booking/trial-session') {
@@ -108,13 +113,17 @@ export function Navbar() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {/* Notifications Button */}
+          {user && profile?.id && (
+            <NotificationsTray />
+          )}
           <ThemeToggle />
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium">
+                <Button variant="outline" className="flex items-center gap-2 h-9">
+                  <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
                   <span className="hidden sm:inline">{getFullName()}</span>

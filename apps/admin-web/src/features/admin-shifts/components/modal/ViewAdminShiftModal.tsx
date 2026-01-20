@@ -3,8 +3,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useQueryClient } from '@tanstack/react-query';
 import { adminShiftsApi } from "../../api";
 import { useAdminShiftDetails, adminShiftsKeys, useDeleteAdminShift } from '../../hooks/useAdminShiftsQuery';
@@ -17,6 +18,10 @@ import { AdminShiftStaffTab } from './tabs/AdminShiftStaffTab';
 import { AdminShiftSessionsTab } from './tabs/AdminShiftSessionsTab';
 import { AdminShiftActivityTab } from './tabs/AdminShiftActivityTab';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
+import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 
 interface ViewAdminShiftModalProps {
   isOpen: boolean;
@@ -46,6 +51,16 @@ export function ViewAdminShiftModal({
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Nested modal state for sessions table interactions
+  const {
+    nestedSessionId,
+    nestedStaffId,
+    nestedStudentId,
+    setNestedSessionId,
+    setNestedStaffId,
+    setNestedStudentId,
+  } = useNestedModalEvents({ isOpen });
   
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
@@ -184,19 +199,49 @@ export function ViewAdminShiftModal({
   // Early return if no admin shift data loaded
   if (!adminShiftData) {
     return (
-      <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full md:w-[600px] md:max-w-none">
-          <SheetHeader>
-            <SheetTitle>Loading admin shift...</SheetTitle>
-          </SheetHeader>
-        </SheetContent>
-      </Sheet>
+      <>
+        <Sheet open={isOpen} onOpenChange={onClose}>
+          <SheetContent className="w-full md:w-[600px] md:max-w-none">
+            <SheetHeader>
+              <SheetTitle>Loading admin shift...</SheetTitle>
+            </SheetHeader>
+          </SheetContent>
+        </Sheet>
+
+        {/* Nested Session Modal */}
+        <SessionModal
+          isOpen={!!nestedSessionId}
+          sessionId={nestedSessionId}
+          onClose={() => setNestedSessionId(null)}
+        />
+
+        {/* Nested Staff Modal */}
+        {nestedStaffId && (
+          <ViewStaffModal
+            isOpen={!!nestedStaffId}
+            staffId={nestedStaffId}
+            onClose={() => setNestedStaffId(null)}
+            onStaffUpdated={onAdminShiftUpdated}
+          />
+        )}
+
+        {/* Nested Student Modal */}
+        {nestedStudentId && (
+          <ViewStudentModal
+            isOpen={!!nestedStudentId}
+            studentId={nestedStudentId}
+            onClose={() => setNestedStudentId(null)}
+            onStudentUpdated={onAdminShiftUpdated}
+          />
+        )}
+      </>
     );
   }
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
+      <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
         <Tabs 
           defaultValue="details" 
           value={activeTab} 
@@ -207,27 +252,32 @@ export function ViewAdminShiftModal({
           <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
             <SheetHeader className="px-6 pt-6 pb-4">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <SheetTitle>
-                    {isEditing ? 'Edit Admin Shift' : 'Admin Shift Details'}
-                  </SheetTitle>
-                  <SheetDescription className="text-lg font-medium">
-                    {formatAdminShiftName()}
-                  </SheetDescription>
+                <div className="flex items-center gap-3 flex-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={onClose}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1">
+                    <SheetTitle>
+                      {isEditing ? 'Edit Admin Shift' : 'Admin Shift Details'}
+                    </SheetTitle>
+                    <SheetDescription className="text-lg font-medium">
+                      {formatAdminShiftName()}
+                    </SheetDescription>
+                  </div>
                 </div>
                 {adminShiftId && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
+                  <ActionsMenu
+                    type="adminShift"
+                    onOpenInPage={() => {
                       router.push(`/admin-shifts/${adminShiftId}`);
                       onClose();
                     }}
-                    className="shrink-0"
-                    title="Open in new page"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                  />
                 )}
               </div>
             </SheetHeader>
@@ -319,5 +369,33 @@ export function ViewAdminShiftModal({
         )}
       </SheetContent>
     </Sheet>
+
+    {/* Nested Session Modal */}
+    <SessionModal
+      isOpen={!!nestedSessionId}
+      sessionId={nestedSessionId}
+      onClose={() => setNestedSessionId(null)}
+    />
+
+    {/* Nested Staff Modal */}
+    {nestedStaffId && (
+      <ViewStaffModal
+        isOpen={!!nestedStaffId}
+        staffId={nestedStaffId}
+        onClose={() => setNestedStaffId(null)}
+        onStaffUpdated={onAdminShiftUpdated}
+      />
+    )}
+
+    {/* Nested Student Modal */}
+    {nestedStudentId && (
+      <ViewStudentModal
+        isOpen={!!nestedStudentId}
+        studentId={nestedStudentId}
+        onClose={() => setNestedStudentId(null)}
+        onStudentUpdated={onAdminShiftUpdated}
+      />
+    )}
+  </>
   );
 }

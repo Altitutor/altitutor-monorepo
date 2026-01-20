@@ -3,8 +3,7 @@
 import { useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
-import type { StudentSession, RescheduleSession } from '../types/absence';
+import { formatDate } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
 import type { Tables } from '@altitutor/shared';
 

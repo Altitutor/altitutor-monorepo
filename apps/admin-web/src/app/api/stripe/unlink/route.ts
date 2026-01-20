@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
+import { getErrorMessage } from '@/shared/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,10 +57,11 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
     console.error('Error unlinking Stripe customer:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to unlink Stripe customer' },
+      { error: errorMessage || 'Failed to unlink Stripe customer' },
       { status: 500 }
     );
   }

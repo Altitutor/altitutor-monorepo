@@ -21,8 +21,8 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { updateSubsidy, type UpdateSubsidyInput, type StudentSubsidyRow } from '../api/subsidies';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { subjectsApi } from '@/features/subjects/api/subjects';
 import type { Tables } from '@altitutor/shared';
+import { getErrorMessage } from '@/shared/utils';
 
 interface EditSubsidyModalProps {
   isOpen: boolean;
@@ -45,28 +45,7 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
     subsidy.effective_until ? new Date(subsidy.effective_until).toISOString().split('T')[0] : ''
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
   const { toast } = useToast();
-
-  // Load subjects when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setLoadingSubjects(true);
-      subjectsApi
-        .getAllSubjects()
-        .then(setAllSubjects)
-        .catch((error) => {
-          toast({
-            title: 'Error',
-            description: 'Failed to load subjects',
-            variant: 'destructive',
-          });
-          console.error(error);
-        })
-        .finally(() => setLoadingSubjects(false));
-    }
-  }, [isOpen, toast]);
 
   // Reset form when subsidy changes
   useEffect(() => {
@@ -120,10 +99,11 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
         description: 'Subsidy updated successfully',
       });
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update subsidy',
+        description: errorMessage || 'Failed to update subsidy',
         variant: 'destructive',
       });
     } finally {

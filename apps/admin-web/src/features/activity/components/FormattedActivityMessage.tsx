@@ -1,4 +1,5 @@
 import type { ActivityEventDisplay } from '../types';
+import { renderTextWithTagsAsPlainText } from '@/features/tasks/utils/tagDisplay';
 
 interface FormattedActivityMessageProps {
   activity: ActivityEventDisplay;
@@ -15,9 +16,9 @@ export function FormattedActivityMessage({ activity }: FormattedActivityMessageP
   const message = activity.message;
   const performedByName = activity.performedBy.name;
   
-  // For grouped activities, just display the simple message directly
+  // For grouped activities, just display the simple message directly (with tags parsed)
   if (activity.isGrouped) {
-    return <>{message}</>;
+    return <>{renderTextWithTagsAsPlainText(message)}</>;
   }
   
   // Remove the performer name from the message to format the rest
@@ -60,9 +61,9 @@ export function FormattedActivityMessage({ activity }: FormattedActivityMessageP
         {/* Subsequent lines: field changes indented */}
         <div className="space-y-1 mt-1">
           {activity.changedFields.map((field) => {
-          // Remove quotes from values
-          const cleanOldValue = field.oldValue?.replace(/^["']|["']$/g, '') || '';
-          const cleanNewValue = field.newValue?.replace(/^["']|["']$/g, '') || '';
+          // Remove quotes from values and parse tags
+          const cleanOldValue = renderTextWithTagsAsPlainText(field.oldValue?.replace(/^["']|["']$/g, '') || '');
+          const cleanNewValue = renderTextWithTagsAsPlainText(field.newValue?.replace(/^["']|["']$/g, '') || '');
           
           if (cleanOldValue && cleanNewValue) {
             // Field changed from old to new
@@ -93,8 +94,8 @@ export function FormattedActivityMessage({ activity }: FormattedActivityMessageP
   }
   
   // Fallback to single field handling (backward compatibility)
-  const cleanOldValue = activity.oldValue?.replace(/^["']|["']$/g, '') || '';
-  const cleanNewValue = activity.newValue?.replace(/^["']|["']$/g, '') || '';
+  const cleanOldValue = renderTextWithTagsAsPlainText(activity.oldValue?.replace(/^["']|["']$/g, '') || '');
+  const cleanNewValue = renderTextWithTagsAsPlainText(activity.newValue?.replace(/^["']|["']$/g, '') || '');
   const fieldName = activity.changedFieldLabel || 
     (activity.changedFieldName 
       ? activity.changedFieldName.replace(/_/g, ' ')
@@ -148,45 +149,45 @@ export function FormattedActivityMessage({ activity }: FormattedActivityMessageP
   const formatMessage = (msg: string): JSX.Element => {
     // Pattern: "{action} {field} from {old} to {new}"
     const fromToPattern = /^(\w+)\s+(.+?)\s+from\s+(.+?)\s+to\s+(.+?)$/i;
-    const fromToMatch = msg.match(fromToPattern);
-    if (fromToMatch) {
-      const [, actionVerb, field, oldVal, newVal] = fromToMatch;
-      return (
-        <>
-          {actionVerb} <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span> from <span className="text-primary">{oldVal.replace(/^["']|["']$/g, '')}</span> to <span className="text-primary">{newVal.replace(/^["']|["']$/g, '')}</span>
-        </>
-      );
-    }
-    
-    // Pattern: "{action} {field} to {value}"
-    const toPattern = /^(\w+)\s+(.+?)\s+to\s+(.+?)$/i;
-    const toMatch = msg.match(toPattern);
-    if (toMatch) {
-      const [, actionVerb, field, value] = toMatch;
-      return (
-        <>
-          {actionVerb} <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span> to <span className="text-primary">{value.replace(/^["']|["']$/g, '')}</span>
-        </>
-      );
-    }
-    
-    // Pattern: "{action} {field}"
-    const simplePattern = /^(\w+)\s+(.+?)$/i;
-    const simpleMatch = msg.match(simplePattern);
-    if (simpleMatch) {
-      const [, actionVerb, field] = simpleMatch;
-      // Only style if it looks like a field name (not a full sentence)
-      if (field.length < 50 && !field.includes('.')) {
+      const fromToMatch = msg.match(fromToPattern);
+      if (fromToMatch) {
+        const [, actionVerb, field, oldVal, newVal] = fromToMatch;
         return (
           <>
-            {actionVerb} <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span>
+            {actionVerb} <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span> from <span className="text-primary">{renderTextWithTagsAsPlainText(oldVal.replace(/^["']|["']$/g, ''))}</span> to <span className="text-primary">{renderTextWithTagsAsPlainText(newVal.replace(/^["']|["']$/g, ''))}</span>
           </>
         );
       }
-    }
-    
-    // Fallback: return message as-is
-    return <>{msg}</>;
+      
+      // Pattern: "{action} {field} to {value}"
+      const toPattern = /^(\w+)\s+(.+?)\s+to\s+(.+?)$/i;
+      const toMatch = msg.match(toPattern);
+      if (toMatch) {
+        const [, actionVerb, field, value] = toMatch;
+        return (
+          <>
+            {actionVerb} <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span> to <span className="text-primary">{renderTextWithTagsAsPlainText(value.replace(/^["']|["']$/g, ''))}</span>
+          </>
+        );
+      }
+      
+      // Pattern: "{action} {field}"
+      const simplePattern = /^(\w+)\s+(.+?)$/i;
+      const simpleMatch = msg.match(simplePattern);
+      if (simpleMatch) {
+        const [, actionVerb, field] = simpleMatch;
+        // Only style if it looks like a field name (not a full sentence)
+        if (field.length < 50 && !field.includes('.')) {
+          return (
+            <>
+              {actionVerb} <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span>
+            </>
+          );
+        }
+      }
+      
+      // Fallback: return message as-is (parse tags if present)
+      return <>{renderTextWithTagsAsPlainText(msg)}</>;
   };
   
   return formatMessage(messageWithoutName);

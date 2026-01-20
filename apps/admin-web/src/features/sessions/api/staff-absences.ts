@@ -9,6 +9,29 @@ import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// Type definitions for joined query results
+type SessionsStaffWithSessionRow = Tables<'sessions_staff'> & {
+  session: (Tables<'sessions'> & {
+    class: (Tables<'classes'> & {
+      subject: Tables<'subjects'> | null;
+    }) | null;
+  }) | null;
+};
+
+type ClassesStaffWithStaffRow = {
+  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone_number' | 'role' | 'status'> | null;
+};
+
+type StaffSubjectsWithStaffRow = {
+  staff_id: string;
+  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone_number' | 'role' | 'status'> | null;
+};
+
+type StaffSubjectsWithSubjectRow = {
+  staff_id: string;
+  subject: Tables<'subjects'> | null;
+};
+
 /**
  * Staff Absences API client for logging staff absences
  */
@@ -59,14 +82,22 @@ export const staffAbsencesApi = {
    * because we need the sessionsStaffId from sessions_staff table for absence logging.
    * The RPC returns sessions but doesn't provide the sessions_staff.id we need.
    */
-  getStaffFutureSessions: async (staffId: string, weeksAhead: number = 8): Promise<StaffSession[]> => {
+  getStaffFutureSessions: async (
+    staffId: string, 
+    weeksAhead: number = 8,
+    allowPastSessions: boolean = false,
+    weeksBack: number = 4
+  ): Promise<StaffSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const now = new Date();
     const maxDate = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
+    const minDate = allowPastSessions 
+      ? new Date(now.getTime() - weeksBack * 7 * 24 * 60 * 60 * 1000)
+      : now;
 
     try {
-      // Get sessions_staff records for this staff with session details
-      const { data, error } = await supabase
+      // Build query
+      let query = supabase
         .from('sessions_staff')
         .select(`
           id,
@@ -81,27 +112,37 @@ export const staffAbsencesApi = {
           )
         `)
         .eq('staff_id', staffId)
-        .eq('planned_absence', false)
-        .gte('session.start_at', now.toISOString());
+        .eq('planned_absence', false);
+
+      // Only filter by start_at if we're not allowing past sessions
+      if (!allowPastSessions) {
+        query = query.gte('session.start_at', now.toISOString());
+      } else {
+        // When allowing past sessions, set a minimum date to avoid loading too many old sessions
+        query = query.gte('session.start_at', minDate.toISOString());
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
       // Transform, filter by date range, and sort the data client-side
-      const sessions: StaffSession[] = (data || [])
-        .filter((row: any) => row.session) // Filter out any null sessions
-        .map((row: any) => {
-          const session = row.session as Tables<'sessions'>;
+      const typedData = (data || []) as SessionsStaffWithSessionRow[];
+      const sessions: StaffSession[] = typedData
+        .filter((row): row is SessionsStaffWithSessionRow & { session: NonNullable<SessionsStaffWithSessionRow['session']> } => row.session !== null)
+        .map((row) => {
+          const session = row.session;
           return {
             ...session,
-            class: row.session.class || null,
-            subject: row.session.class?.subject || null,
+            class: session.class || null,
+            subject: session.class?.subject || null,
             sessionsStaffId: row.id,
           } as StaffSession;
         })
         .filter((session) => {
           // Filter by date range on the client side
           const sessionDate = new Date(session.start_at || 0);
-          return sessionDate <= maxDate;
+          return sessionDate >= minDate && sessionDate <= maxDate;
         })
         .sort((a, b) => {
           // Sort by start_at ascending
@@ -175,8 +216,11 @@ export const staffAbsencesApi = {
 
       if (classesError) throw classesError;
 
+      const typedStaffFromClasses = (staffFromClasses || []) as ClassesStaffWithStaffRow[];
       const staffIdsFromClasses = new Set(
-        (staffFromClasses || []).map((cs: any) => cs.staff.id)
+        typedStaffFromClasses
+          .map((cs) => cs.staff?.id)
+          .filter((id): id is string => id !== undefined && id !== null)
       );
 
       // Query staff from staff_subjects → subject_id
@@ -199,8 +243,11 @@ export const staffAbsencesApi = {
 
       if (subjectsError) throw subjectsError;
 
+      const typedStaffFromSubjects = (staffFromSubjects || []) as StaffSubjectsWithStaffRow[];
       const staffIdsFromSubjects = new Set(
-        (staffFromSubjects || []).map((ss: any) => ss.staff.id)
+        typedStaffFromSubjects
+          .map((ss) => ss.staff?.id)
+          .filter((id): id is string => id !== undefined && id !== null)
       );
 
       // Combine both sets of staff IDs
@@ -240,8 +287,9 @@ export const staffAbsencesApi = {
       if (staffSubjectsError) throw staffSubjectsError;
 
       // Build subjects map
+      const typedStaffSubjectsData = (staffSubjectsData || []) as StaffSubjectsWithSubjectRow[];
       const subjectsMap = new Map<string, Tables<'subjects'>[]>();
-      (staffSubjectsData || []).forEach((row: any) => {
+      typedStaffSubjectsData.forEach((row) => {
         if (!subjectsMap.has(row.staff_id)) {
           subjectsMap.set(row.staff_id, []);
         }

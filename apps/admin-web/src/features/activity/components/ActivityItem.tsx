@@ -7,6 +7,7 @@ import { FormattedActivityMessage } from './FormattedActivityMessage';
 import { cn } from '@/shared/utils';
 import { Card, CardContent, Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
+import { renderTextWithTagsAsPlainText } from '@/features/tasks/utils/tagDisplay';
 
 interface ActivityItemProps {
   activity: ActivityEventDisplay;
@@ -15,7 +16,7 @@ interface ActivityItemProps {
   isNested?: boolean; // For nested events when expanded
 }
 
-export function ActivityItem({ activity, showConnector = true, className, isNested = false }: ActivityItemProps) {
+export function ActivityItem({ activity, showConnector = true, className, isNested: _isNested }: ActivityItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Check if this event can be expanded (has originalEvents)
@@ -50,7 +51,7 @@ export function ActivityItem({ activity, showConnector = true, className, isNest
                   <Card className="mt-2">
                     <CardContent className="p-4">
                       <div className="text-muted-foreground whitespace-pre-wrap break-words">
-                        {activity.noteContent}
+                        {renderTextWithTagsAsPlainText(activity.noteContent)}
                       </div>
                     </CardContent>
                   </Card>

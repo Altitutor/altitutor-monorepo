@@ -1,4 +1,27 @@
+import { formatDistanceToNow } from 'date-fns';
+
 // Utilities for formatting dates/times and working with day-of-week values
+
+/**
+ * Format relative date ("2 days ago", "just now", etc.)
+ */
+export function formatRelativeDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    
+    // If less than 60 seconds, show "just now"
+    if (diffSeconds < 60) {
+      return 'just now';
+    }
+    
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch (e) {
+    return 'unknown';
+  }
+}
 
 export function formatTime(timeString: string | null | undefined): string {
   if (!timeString) return '';

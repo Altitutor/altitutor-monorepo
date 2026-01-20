@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext, StudentWithEnrollmentInfo } from '../types/enrollment';
 
@@ -17,30 +17,36 @@ export function useEnrollmentData({
   onFetchStudents,
   onFetchClasses,
 }: UseEnrollmentDataProps) {
-  const [students, setStudents] = useState<StudentWithEnrollmentInfo[]>([]);
-  const [classes, setClasses] = useState<ClassWithExpandedSubject[]>([]);
-  const [isFetching, setIsFetching] = useState(false);
+  // Fetch students when enrolling a student to a class
+  const shouldFetchStudents = isOpen && step === 1 && context === 'class' && !!onFetchStudents;
+  const studentsQuery = useQuery({
+    queryKey: ['enrollment-data', 'students', context, step],
+    queryFn: async () => {
+      if (!onFetchStudents) return [];
+      return onFetchStudents();
+    },
+    enabled: shouldFetchStudents,
+    staleTime: 1000 * 30, // 30 seconds
+    gcTime: 1000 * 60 * 2, // 2 minutes
+  });
 
-  useEffect(() => {
-    if (isOpen && step === 1) {
-      if (context === 'class' && onFetchStudents) {
-        setIsFetching(true);
-        onFetchStudents()
-          .then(setStudents)
-          .finally(() => setIsFetching(false));
-      } else if (context === 'student' && onFetchClasses) {
-        setIsFetching(true);
-        onFetchClasses()
-          .then(setClasses)
-          .finally(() => setIsFetching(false));
-      }
-    }
-  }, [isOpen, step, context, onFetchStudents, onFetchClasses]);
+  // Fetch classes when enrolling a class to a student
+  const shouldFetchClasses = isOpen && step === 1 && context === 'student' && !!onFetchClasses;
+  const classesQuery = useQuery({
+    queryKey: ['enrollment-data', 'classes', context, step],
+    queryFn: async () => {
+      if (!onFetchClasses) return [];
+      return onFetchClasses();
+    },
+    enabled: shouldFetchClasses,
+    staleTime: 1000 * 30, // 30 seconds
+    gcTime: 1000 * 60 * 2, // 2 minutes
+  });
 
   return {
-    students,
-    classes,
-    isFetching,
+    students: studentsQuery.data || [],
+    classes: classesQuery.data || [],
+    isFetching: studentsQuery.isLoading || classesQuery.isLoading,
   };
 }
 

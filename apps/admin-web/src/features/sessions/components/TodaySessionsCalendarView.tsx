@@ -1,10 +1,9 @@
 "use client";
 
-import type { CSSProperties } from 'react';
 import { format, differenceInMinutes, isSameDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
-import { getSubjectColorHex, getSubjectColorStyle, formatSessionType, cn } from '@/shared/utils';
+import { cn } from '@/shared/utils';
 import { SessionsCard } from './SessionsCard';
 
 type Props = { onOpenSession?: (id: string) => void };
@@ -66,35 +65,6 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
   };
 
   const { startHour, slots } = calculateTimeRange();
-
-  const _getDisplayLabel = (s: any): string => {
-    const cls: any = (data as any)?.classesById?.[s.class_id];
-    const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-    if (!cls || !subj) return formatSessionType(s.type);
-    const parts: string[] = [];
-    if (subj.curriculum) parts.push(String(subj.curriculum));
-    if (subj.year_level != null) parts.push(String(subj.year_level));
-    if (subj.name) parts.push(subj.name);
-    if (cls.level) parts.push(String(cls.level));
-    return parts.join(' ');
-  };
-
-  const _getSessionColorClasses = (s: any): { className: string; style: CSSProperties } => {
-    const cls: any = (data as any)?.classesById?.[s.class_id];
-    const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-    if (!subj) {
-      return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
-    }
-    const subjectColorHex = getSubjectColorHex(subj);
-    const { textColorClass } = getSubjectColorStyle(subj);
-    if (subjectColorHex) {
-      return {
-        className: `${textColorClass} border-2 dark:bg-opacity-80`,
-        style: { backgroundColor: subjectColorHex, borderColor: subjectColorHex }
-      };
-    }
-    return { className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600', style: {} };
-  };
 
   // Helpers to compute block positions
   const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (startHour * 60);

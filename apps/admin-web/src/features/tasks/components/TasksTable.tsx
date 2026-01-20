@@ -24,8 +24,8 @@ import { useUpdateTask } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables, Database } from '@altitutor/shared';
-import type { TaskStatus, TaskPriority, TaskWithAssignee } from '../types';
-import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, isOverdue, formatDueDate, getUserInitials } from '../utils/taskUtils';
+import type { TaskStatus, TaskPriority } from '../types';
+import { isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
 import { cn } from '@/shared/utils/index';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import {
@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import { EditTaskDialog } from './EditTaskDialog';
+import { TaskTextWithTags } from './fields/TaskTextWithTags';
 
 interface TasksTableProps {
   filters?: {
@@ -83,6 +84,7 @@ export function TasksTable({ filters: _filters }: TasksTableProps) {
         p_search: trimmed.length > 0 ? trimmed : undefined,
         p_statuses: ['ACTIVE'],
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: 100,
         p_offset: 0,
         p_order_by: 'last_name',
@@ -515,11 +517,12 @@ export function TasksTable({ filters: _filters }: TasksTableProps) {
                   >
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
-                        <span>{task.title}</span>
+                        <TaskTextWithTags text={task.title} />
                         {task.description && (
-                          <span className="text-xs text-muted-foreground line-clamp-1">
-                            {task.description}
-                          </span>
+                          <TaskTextWithTags
+                            text={task.description}
+                            className="text-xs text-muted-foreground line-clamp-1"
+                          />
                         )}
                       </div>
                     </TableCell>
@@ -593,9 +596,9 @@ export function TasksTable({ filters: _filters }: TasksTableProps) {
                       )}
                     </TableCell>
                     <TableCell>
-                      {task.estimate ? (
+                      {task.estimate && getEstimateLabel(task.estimate) ? (
                         <Badge variant="outline" className="text-xs">
-                          {task.estimate} pts
+                          {getEstimateLabel(task.estimate)}
                         </Badge>
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>

@@ -27,6 +27,7 @@ import { ViewClassModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { ViewStudentModal } from '@/features/students';
 import { formatTime } from '@/shared/utils/datetime';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface ClassesTableProps {
@@ -115,13 +116,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
 
-  // Helper function to convert time to minutes for sorting - moved before useMemo
-  const timeToMinutes = (timeString: string): number => {
-    if (!timeString) return 0;
-    const [hours, minutes] = timeString.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
-
   const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
     const subject = (classItem as any).subject as Tables<'subjects'> | null | undefined;
     return subject ? formatSubjectDisplay(subject) : '-';
@@ -141,19 +135,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   useEffect(() => {
     setPage(1);
   }, [searchTerm, dayFilter]);
-
-  const _getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
-      case 'INACTIVE':
-        return 'bg-gray-100 text-gray-800';
-      case 'FULL':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
   
   const getDayOfWeek = (day: number) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -374,12 +355,13 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                 </TableHead>
                 <TableHead>Students</TableHead>
                 <TableHead>Staff</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {classes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">
+                  <TableCell colSpan={7} className="text-center h-24">
                     {isLoading ? (
                       "Loading classes..."
                     ) : searchTerm || dayFilter.length > 0 ? (
@@ -460,13 +442,21 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                           )}
                         </div>
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <ActionsMenu
+                          type="class"
+                          onOpenInPage={() => {
+                            router.push(`/classes/${cls.id}`);
+                          }}
+                        />
+                      </TableCell>
                     </TableRow>
                   );
                 })
               )}
             </TableBody>
           </Table>
-      </div>
+        </div>
       
       <TablePagination
         page={page}

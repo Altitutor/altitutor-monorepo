@@ -14,6 +14,7 @@ import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
 import { fetchStudentSubsidies } from '../api/subsidies';
 import { StudentSubsidiesTable } from './StudentSubsidiesTable';
 import { AddSubsidyModal } from './AddSubsidyModal';
+import { getErrorMessage } from '@/shared/utils';
 
 type PaymentMethod = Tables<'student_payment_methods'>;
 
@@ -70,10 +71,11 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
       });
       // Invalidate and refetch the query
       queryClient.invalidateQueries({ queryKey: studentPaymentMethodsKeys.student(student.id) });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to set default payment method',
+        description: errorMessage || 'Failed to set default payment method',
         variant: 'destructive',
       });
     } finally {
@@ -107,10 +109,11 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
       });
       // Invalidate and refetch the query
       queryClient.invalidateQueries({ queryKey: studentPaymentMethodsKeys.student(student.id) });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to remove payment method',
+        description: errorMessage || 'Failed to remove payment method',
         variant: 'destructive',
       });
     } finally {

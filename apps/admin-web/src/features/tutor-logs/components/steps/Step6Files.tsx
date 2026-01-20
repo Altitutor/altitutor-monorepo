@@ -1,12 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { FileCard } from '@/features/topics/components/FileCard';
-import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useTopicsByIds, useTopicFilesByTopicIds } from '../../hooks';
 
 type TopicItem = {
   topicId: string;
@@ -26,54 +22,14 @@ type Step6FilesProps = {
   onUpdate: (topicFiles: TopicFileItem[]) => void;
 };
 
-type TopicFileWithFile = Tables<'topics_files'> & {
-  file: Tables<'files'>;
-};
-
 export function Step6Files({ title, topics, topicFiles, onUpdate }: Step6FilesProps) {
-  const [filesData, setFilesData] = useState<
-    Record<string, Array<TopicFileWithFile>>
-  >({});
-  const [topicsData, setTopicsData] = useState<Tables<'topics'>[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const topicIds = topics.map((t) => t.topicId);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const topicIds = topics.map((t) => t.topicId);
+  // Fetch topics and topic files using hooks
+  const { data: topicsData = [], isLoading: isLoadingTopics } = useTopicsByIds(topicIds);
+  const { data: filesData = {}, isLoading: isLoadingFiles } = useTopicFilesByTopicIds(topicIds);
 
-      if (topicIds.length === 0) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Get all topics
-      const { data: topicsRes } = await supabase
-        .from('topics')
-        .select('*')
-        .in('id', topicIds);
-      setTopicsData(topicsRes || []);
-
-      // Get files for each topic with file details
-      const filesMap: Record<string, Array<TopicFileWithFile>> = {};
-      for (const topicId of topicIds) {
-        const { data } = await supabase
-          .from('topics_files')
-          .select(`
-            *,
-            file:files(*)
-          `)
-          .eq('topic_id', topicId)
-          .order('type')
-          .order('index');
-        filesMap[topicId] = (data || []) as TopicFileWithFile[];
-      }
-      setFilesData(filesMap);
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [topics]);
+  const isLoading = isLoadingTopics || isLoadingFiles;
 
   const handleToggleFile = (topicsFilesId: string, topicId: string, checked: boolean) => {
     if (checked) {

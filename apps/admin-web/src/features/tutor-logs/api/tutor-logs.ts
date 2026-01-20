@@ -1,4 +1,4 @@
-import type { Tables, TablesInsert } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { TutorLogFormData, TutorLogWithDetails } from '../types';
 import type { Database } from '@altitutor/shared';
@@ -19,13 +19,6 @@ export const tutorLogsApi = {
         createdBy,
       };
       
-      console.log('📤 [Tutor Log Client] Sending request:', JSON.stringify(payload, null, 2));
-      console.log('🔍 [Tutor Log Client] createdBy details:', {
-        value: createdBy,
-        type: typeof createdBy,
-        isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdBy),
-      });
-      
       const response = await fetch('/api/tutor-logs/create', {
         method: 'POST',
         headers: {
@@ -34,16 +27,12 @@ export const tutorLogsApi = {
         body: JSON.stringify(payload),
       });
 
-      console.log('📥 [Tutor Log Client] Response status:', response.status, response.statusText);
-
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ [Tutor Log Client] Error response:', JSON.stringify(errorData, null, 2));
         throw new Error(errorData.error || 'Failed to create tutor log');
       }
 
       const result = await response.json();
-      console.log('✅ [Tutor Log Client] Success response:', JSON.stringify(result, null, 2));
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to create tutor log');
@@ -68,7 +57,6 @@ export const tutorLogsApi = {
 
       return tutorLog as Tables<'tutor_logs'>;
     } catch (error) {
-      console.error('Error creating tutor log:', error);
       throw error;
     }
   },
@@ -154,7 +142,6 @@ export const tutorLogsApi = {
         notes: notes || [],
       } as TutorLogWithDetails;
     } catch (error) {
-      console.error('Error getting tutor log:', error);
       throw error;
     }
   },
@@ -228,7 +215,6 @@ export const tutorLogsApi = {
 
       return (sessions || []).filter((s: any) => !loggedSessionIds.has(s.id)) as any[];
     } catch (error) {
-      console.error('Error getting unlogged sessions:', error);
       throw error;
     }
   },
@@ -398,7 +384,6 @@ export const tutorLogsApi = {
         total: rpcData.total || 0,
       };
     } catch (error) {
-      console.error('Error searching tutor logs:', error);
       throw error;
     }
   },
@@ -406,7 +391,7 @@ export const tutorLogsApi = {
   /**
    * Update a tutor log (admin only)
    */
-  updateTutorLog: async (id: string, updates: Partial<TutorLogFormData>): Promise<void> => {
+  updateTutorLog: async (_id: string, _updates: Partial<TutorLogFormData>): Promise<void> => {
     // This is complex - for now, just throw an error
     // In a real implementation, you'd need to diff the changes and update accordingly
     throw new Error('Tutor log updates not yet implemented');

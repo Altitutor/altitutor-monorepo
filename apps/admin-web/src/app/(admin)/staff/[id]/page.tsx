@@ -1,182 +1,97 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
-import { staffApi } from '@/features/staff/api';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogStaffAbsenceDialog } from '@/features/sessions/components/absences/LogStaffAbsenceDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { SendInviteDialog } from '@/features/staff/components/modal/SendInviteDialog';
 import { useStaffDetails, staffKeys } from '@/features/staff/hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables } from '@altitutor/shared';
 import { StaffDetailsTab, StaffDetailsFormData } from '@/features/staff/components/modal/tabs/StaffDetailsTab';
 import { ClassesTab } from '@/features/staff/components/modal/tabs/ClassesTab';
 import { StudentsTab } from '@/features/staff/components/modal/tabs/StudentsTab';
 import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
+import {
+  useStaffEditFlow,
+  useStaffPasswordReset,
+  useStaffMutations,
+  useStaffModals,
+  useStaffConversation,
+} from '@/features/staff/hooks';
 
 export default function StaffDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: currentStaff } = useCurrentStaff();
   
+  // Data fetching
   const { data: staffData, isLoading } = useStaffDetails(id, !!id);
   const { data: allSubjects = [] } = useSubjects();
   
   const staffMember = staffData?.staff || null;
   const staffSubjects = staffData?.subjects || [];
   
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  // Business logic hooks
+  const editFlow = useStaffEditFlow({
+    initialSubjects: staffSubjects,
+  });
+
+  const passwordReset = useStaffPasswordReset({ staff: staffMember });
+
+  const mutations = useStaffMutations({
+    staffId: id,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(id) });
+      editFlow.reset();
+    },
+  });
+
+  const modals = useStaffModals();
+
+  const conversationId = useStaffConversation({
+    staffId: id,
+    enabled: !!id,
+  });
+
+  // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [loadingStaffUpdate, setLoadingStaffUpdate] = useState(false);
-  
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
-  
-  const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
-  const [subjectsToRemove, setSubjectsToRemove] = useState<string[]>([]);
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
 
-  useEffect(() => {
-    if (staffMember && id) {
-      getExistingConversationForRelated(id, 'staff').then(convId => {
-        setConversationId(convId);
-      });
-    }
-  }, [staffMember, id]);
-
-  const handleStartEdit = () => {
-    setTempStaffSubjects([...staffSubjects]);
-    setSubjectsToAdd([]);
-    setSubjectsToRemove([]);
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setTempStaffSubjects([]);
-    setSubjectsToAdd([]);
-    setSubjectsToRemove([]);
-    setIsEditing(false);
-  };
-
-  const handleStaffUpdate = async (data: StaffDetailsFormData) => {
+  // Handle details submit
+  const handleDetailsSubmit = async (data: StaffDetailsFormData) => {
     if (!staffMember) return;
     
-    try {
-      setLoadingStaffUpdate(true);
-      const updateData = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email || undefined,
-        phone_number: data.phoneNumber || null,
-        role: data.role,
-        status: data.status,
-        office_key_number: data.officeKeyNumber,
-        has_parking_remote: data.hasParkingRemote,
-        availability_monday: data.availability_monday,
-        availability_tuesday: data.availability_tuesday,
-        availability_wednesday: data.availability_wednesday,
-        availability_thursday: data.availability_thursday,
-        availability_friday: data.availability_friday,
-        availability_saturday_am: data.availability_saturday_am,
-        availability_saturday_pm: data.availability_saturday_pm,
-        availability_sunday_am: data.availability_sunday_am,
-        availability_sunday_pm: data.availability_sunday_pm,
-        drafting_availability: data.drafting_availability,
-        trial_session_availability: data.trial_session_availability,
-        subsidy_interview_availability: data.subsidy_interview_availability,
-      };
-      await staffApi.updateStaff(staffMember.id, updateData);
-      
-      for (const subjectId of subjectsToAdd) {
-        await staffApi.assignSubjectToStaff(staffMember.id, subjectId);
+    await mutations.updateDetails(
+      data,
+      {
+        toAdd: editFlow.subjectsToAdd,
+        toRemove: editFlow.subjectsToRemove,
       }
-      for (const subjectId of subjectsToRemove) {
-        await staffApi.removeSubjectFromStaff(staffMember.id, subjectId);
-      }
-      
-      setSubjectsToAdd([]);
-      setSubjectsToRemove([]);
-      
-      await queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffMember.id) });
-      await queryClient.invalidateQueries({ queryKey: staffKeys.minimal({}) });
-      
-      setIsEditing(false);
-      
-      toast({
-        title: 'Staff updated',
-        description: 'Staff member has been updated successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to update staff:', err);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the staff member. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingStaffUpdate(false);
-    }
+    );
   };
 
-  const handleDelete = async () => {
-    if (!staffMember) return;
-    
-    try {
-      setIsDeleting(true);
-      await staffApi.deleteStaff(staffMember.id);
-      router.push('/staff');
-      
-      toast({
-        title: 'Staff deleted',
-        description: 'Staff member has been deleted successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to delete staff:', err);
-      toast({
-        title: 'Delete failed',
-        description: 'There was an error deleting the staff member. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleAssignSubject = (subjectId: string) => {
-    const subject = allSubjects.find(s => s.id === subjectId);
-    if (!subject) return;
-    setTempStaffSubjects(prev => [...prev, subject]);
-    if (subjectsToRemove.includes(subjectId)) {
-      setSubjectsToRemove(prev => prev.filter(id => id !== subjectId));
-    } else {
-      setSubjectsToAdd(prev => [...prev, subjectId]);
-    }
-  };
-
-  const handleRemoveSubject = (subjectId: string) => {
-    setTempStaffSubjects(prev => prev.filter(s => s.id !== subjectId));
-    if (subjectsToAdd.includes(subjectId)) {
-      setSubjectsToAdd(prev => prev.filter(id => id !== subjectId));
-    } else {
-      setSubjectsToRemove(prev => [...prev, subjectId]);
-    }
-  };
-
-  const handleViewSubject = (subjectId: string) => {
-    setSelectedSubjectId(subjectId);
-    setSubjectModalOpen(true);
-  };
-
+  // Handle password reset request
   const handlePasswordResetRequest = async () => {
     if (!staffMember || !staffMember.email) {
       toast({
@@ -188,7 +103,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     }
 
     try {
-      setHasPasswordResetLinkSent(true);
+      setLoadingPasswordReset(true);
+      passwordReset.setPasswordResetLinkSent(true);
       toast({
         title: "Success",
         description: "Password reset link sent successfully.",
@@ -200,7 +116,29 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         description: "Failed to send password reset link. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoadingPasswordReset(false);
     }
+  };
+
+  // Handle delete with navigation
+  const handleDelete = async () => {
+    if (!staffMember) return;
+    
+    try {
+      await mutations.deleteStaff();
+      modals.closeDeleteDialog();
+      router.push('/staff');
+    } catch (error) {
+      // Error handling is done in the mutation hook
+    }
+  };
+
+  // Handle subject assignment (needs allSubjects for lookup)
+  const handleAssignSubject = (subjectId: string) => {
+    const subject = allSubjects.find(s => s.id === subjectId);
+    if (!subject) return;
+    editFlow.assignSubject(subject);
   };
 
   const handleStaffUpdated = () => {
@@ -249,12 +187,31 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         </UIButton>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">
-            {isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
+            {editFlow.isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
           </h1>
           <p className="text-lg text-muted-foreground mt-1">
             {staffMember.first_name} {staffMember.last_name}
           </p>
         </div>
+        <ActionsMenu
+          type="staff"
+          onOpenInPage={() => {
+            router.push(`/staff/${id}`);
+          }}
+          onEditDetails={() => {
+            setActiveTab('details');
+            editFlow.startEdit();
+          }}
+          onPasswordResetOrRegistration={() => {
+            passwordReset.openPasswordResetOrRegistration();
+            if (staffMember?.user_id) {
+              handlePasswordResetRequest();
+            }
+          }}
+          passwordResetLabel={passwordReset.passwordResetLabel}
+          onLogAbsence={modals.openLogAbsence}
+          onDelete={modals.openDeleteDialog}
+        />
       </div>
 
       {/* Tabs */}
@@ -271,34 +228,34 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         <TabsContent value="details" className="space-y-6">
           <StaffDetailsTab
             staffMember={staffMember}
-            isEditing={isEditing}
-            isLoading={loadingStaffUpdate}
-            onEdit={handleStartEdit}
-            onCancelEdit={handleCancelEdit}
-            onSubmit={handleStaffUpdate}
-            onDelete={isEditing ? handleDelete : undefined}
-            isDeleting={isDeleting}
-            staffSubjects={isEditing ? tempStaffSubjects : staffSubjects}
+            isEditing={editFlow.isEditing}
+            isLoading={mutations.isUpdatingDetails}
+            onEdit={editFlow.startEdit}
+            onCancelEdit={editFlow.cancelEdit}
+            onSubmit={handleDetailsSubmit}
+            onDelete={undefined}
+            isDeleting={mutations.isDeleting}
+            staffSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
             loadingSubjects={isLoading}
-            onRemoveSubject={handleRemoveSubject}
-            onViewSubject={handleViewSubject}
+            onRemoveSubject={editFlow.removeSubject}
+            onViewSubject={modals.openSubjectModal}
             addSubjectButton={
               <SubjectSearchPopover
-                selectedSubjects={isEditing ? tempStaffSubjects : staffSubjects}
+                selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
                 onSelectSubject={(subject) => handleAssignSubject(subject.id)}
               />
             }
-            isLoadingAccount={isLoading}
-            hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+            isLoadingAccount={loadingPasswordReset}
+            hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
             onPasswordResetRequest={handlePasswordResetRequest}
           />
-          {isEditing && (
+          {editFlow.isEditing && (
             <div className="flex justify-end gap-2 pt-4 border-t">
-              <UIButton variant="outline" onClick={handleCancelEdit} disabled={loadingStaffUpdate}>
+              <UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
                 Cancel
               </UIButton>
               <UIButton 
-                disabled={loadingStaffUpdate}
+                disabled={mutations.isUpdatingDetails}
                 onClick={() => {
                   const form = document.getElementById('staff-edit-form') as HTMLFormElement;
                   if (form) {
@@ -311,7 +268,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
                   }
                 }}
               >
-                {loadingStaffUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes
               </UIButton>
             </div>
@@ -356,16 +313,65 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
       </Tabs>
 
       {/* Subject Modal */}
-      {selectedSubjectId && (
+      {modals.selectedSubjectId && (
         <ViewSubjectModal
-          isOpen={subjectModalOpen}
-          onClose={() => {
-            setSubjectModalOpen(false);
-            setSelectedSubjectId(null);
-          }}
-          subjectId={selectedSubjectId}
+          isOpen={modals.subjectModalOpen}
+          onClose={modals.closeSubjectModal}
+          subjectId={modals.selectedSubjectId}
           onSubjectUpdated={handleStaffUpdated}
         />
+      )}
+
+      {/* Log Staff Absence Dialog */}
+      {currentStaff && (
+        <LogStaffAbsenceDialog
+          isOpen={modals.isLogAbsenceDialogOpen}
+          onClose={modals.closeLogAbsence}
+          staffId={currentStaff.id}
+          initialStaffId={id}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Send Invite Dialog */}
+      {staffMember && (
+        <SendInviteDialog
+          isOpen={passwordReset.inviteDialogOpen}
+          onClose={passwordReset.closeInviteDialog}
+          staffMember={staffMember}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {staffMember && (
+        <AlertDialog open={modals.isDeleteDialogOpen} onOpenChange={modals.closeDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the staff member
+                "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={mutations.isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {mutations.isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import { Textarea } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '../ActivityFeed';
 import { useSessionActivity } from '../../hooks';
-import { useNotes, useCreateNote } from '@/shared/hooks/useNotes';
+import { useCreateNote } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '../../hooks';
@@ -17,7 +17,6 @@ interface SessionActivityTabProps {
 
 export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivityTabProps) {
   const { data, isLoading, error } = useSessionActivity(sessionId, isOpen);
-  const { data: notes = [] } = useNotes('session', sessionId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();

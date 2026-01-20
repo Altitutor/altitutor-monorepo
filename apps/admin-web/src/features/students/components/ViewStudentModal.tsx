@@ -3,15 +3,26 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
-import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { studentsApi } from '../api';
-import { useStudentDetails, useUpdateStudent, studentsKeys } from '../hooks/useStudentsQuery';
-import { useSubjects } from '@/features/subjects';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useStudentDetails } from '../hooks/useStudentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables } from '@altitutor/shared';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogAbsenceDialog } from '@/features/sessions/components';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { SendStudentInviteDialog } from './SendStudentInviteDialog';
 import { 
   DetailsTab,
   ClassesTab,
@@ -19,15 +30,24 @@ import {
 } from './tabs';
 import { StudentSessionsTab } from './StudentSessionsTab';
 import { StudentBillingTab } from './StudentBillingTab';
-import { ViewSubjectModal, SubjectSearchPopover } from '@/features/subjects/components';
+import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { mapDetailsFormToStudentUpdate } from '@/features/students/mappers/studentMappers';
 import { ViewParentModal } from './ViewParentModal';
-import { getExistingConversationForRelated } from '@/features/messages/api/queries';
 import { ParentSearchPopover } from './ParentSearchPopover';
-import { Separator } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
+import {
+  useStudentEditFlow,
+  useStudentPasswordReset,
+  useStudentMutations,
+  useStudentModals,
+  useStudentConversation,
+  useAllParents,
+  studentsKeys,
+} from '../hooks';
+import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -42,260 +62,103 @@ export function ViewStudentModal({
   studentId,
   onStudentUpdated
 }: ViewStudentModalProps) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data: currentStaff } = useCurrentStaff();
   
-  // Use React Query hooks for data fetching
+  // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
-  const { data: allSubjects = [] } = useSubjects();
-  const updateStudentMutation = useUpdateStudent();
-  
-  // Extract data from studentDetails
   const student = studentDetails?.student || null;
   const studentSubjects = studentDetails?.subjects || [];
   const parents = studentDetails?.parents || [];
-  const _upcomingSessions = studentDetails?.upcomingSessions || [];
-  const _billingStatus = studentDetails?.billingStatus;
-  
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  
-  // Edit states for each tab
-  const [isEditingDetails, setIsEditingDetails] = useState(false);
-  const [activeTab, setActiveTab] = useState('details');
-  
-  // Loading states for each tab
-  const [loadingDetailsUpdate, setLoadingDetailsUpdate] = useState(false);
-  const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
 
-  // Delete state
-  const [loadingDelete, setLoadingDelete] = useState(false);
+  // Business logic hooks
+  const editFlow = useStudentEditFlow({
+    initialSubjects: studentSubjects,
+    initialParents: parents,
+  });
 
-  // Password reset state
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
-  
-  // Parent modal state
-  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
-  const [parentModalOpen, setParentModalOpen] = useState(false);
-  const [parentModalDefaultTab, setParentModalDefaultTab] = useState<string>('students');
-  
-  // Subject modal state
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+  const passwordReset = useStudentPasswordReset({ student });
 
-  // Temporary subjects state for editing (not saved until form submit)
-  const [tempStudentSubjects, setTempStudentSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [subjectsToAdd, setSubjectsToAdd] = useState<string[]>([]);
-  const [subjectsToRemove, setSubjectsToRemove] = useState<string[]>([]);
-
-  // Temporary parents state for editing (not saved until form submit)
-  const [tempStudentParents, setTempStudentParents] = useState<Tables<'parents'>[]>([]);
-  const [parentsToAdd, setParentsToAdd] = useState<string[]>([]);
-  const [parentsToRemove, setParentsToRemove] = useState<string[]>([]);
-
-  // Get all parents for the search popover
-  const [allParents, setAllParents] = useState<Tables<'parents'>[]>([]);
-  useEffect(() => {
-    if (isOpen && isEditingDetails) {
-      studentsApi.getAllParents().then(setAllParents).catch(console.error);
-    }
-  }, [isOpen, isEditingDetails]);
-
-  // Get existing conversation ID for messages tab when modal opens
-  useEffect(() => {
-    if (isOpen && studentId) {
-      getExistingConversationForRelated(studentId, 'student').then((convId) => {
-      if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
-        console.log('[ViewStudentModal] Existing conversation ID for student', studentId, ':', convId);
+  const mutations = useStudentMutations({
+    studentId: studentId || '',
+    onSuccess: () => {
+      if (studentId) {
+        queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
       }
-      setConversationId(convId);
-      });
-    } else if (!isOpen) {
-      setConversationId(null);
-    }
-  }, [isOpen, studentId]);
+      editFlow.reset();
+      onStudentUpdated();
+    },
+  });
+
+  const modals = useStudentModals();
+
+  const conversationId = useStudentConversation({
+    studentId,
+    enabled: isOpen && !!studentId,
+  });
+
+  const { data: allParentsData } = useAllParents({
+    enabled: isOpen && editFlow.isEditing,
+  });
+  const allParents = allParentsData || [];
+
+  // UI state
+  const [activeTab, setActiveTab] = useState('details');
+  const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
+  
+  // Nested modal state for sessions table interactions
+  const {
+    nestedSessionId,
+    nestedStaffId,
+    nestedStudentId,
+    setNestedSessionId,
+    setNestedStaffId,
+    setNestedStudentId,
+  } = useNestedModalEvents({ isOpen });
 
   // Reset edit states when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setIsEditingDetails(false);
+      editFlow.cancelEdit();
       setActiveTab('details');
+      modals.reset();
     }
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle starting edit mode
-  const handleStartEditDetails = () => {
-    setTempStudentSubjects([...studentSubjects]);
-    setSubjectsToAdd([]);
-    setSubjectsToRemove([]);
-    setTempStudentParents([...parents]);
-    setParentsToAdd([]);
-    setParentsToRemove([]);
-    setIsEditingDetails(true);
-  };
-
-  // Handle canceling edit mode
-  const handleCancelEditDetails = () => {
-    setTempStudentSubjects([]);
-    setSubjectsToAdd([]);
-    setSubjectsToRemove([]);
-    setIsEditingDetails(false);
-  };
-
-  // Handle details update (merged student, parent, and availability)
+  // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
-    if (!student) return;
+    if (!student || !studentId) return;
     
-    try {
-      setLoadingDetailsUpdate(true);
-      const payload = mapDetailsFormToStudentUpdate(data);
-      await updateStudentMutation.mutateAsync({ id: student.id, data: payload });
-      
-      // Apply subject changes
-      for (const subjectId of subjectsToAdd) {
-        await studentsApi.assignSubjectToStudent(student.id, subjectId);
+    await mutations.updateDetails(
+      data,
+      {
+        toAdd: editFlow.subjectsToAdd,
+        toRemove: editFlow.subjectsToRemove,
+      },
+      {
+        toAdd: editFlow.parentsToAdd,
+        toRemove: editFlow.parentsToRemove,
       }
-      for (const subjectId of subjectsToRemove) {
-        await studentsApi.removeSubjectFromStudent(student.id, subjectId);
-      }
-      
-      // Apply parent changes
-      for (const parentId of parentsToAdd) {
-        await studentsApi.assignParentToStudent(student.id, parentId);
-      }
-      for (const parentId of parentsToRemove) {
-        await studentsApi.removeParentFromStudent(student.id, parentId);
-      }
-      
-      // Clear temporary changes
-      setSubjectsToAdd([]);
-      setSubjectsToRemove([]);
-      setParentsToAdd([]);
-      setParentsToRemove([]);
-      
-      // Invalidate student details query to refetch with updated subjects and parents
-      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(student.id) });
-      
-      setIsEditingDetails(false);
-      onStudentUpdated();
-      
-      toast({
-        title: "Success",
-        description: "Details updated successfully.",
-      });
-    } catch (error) {
-      console.error('Failed to update details:', error);
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "Failed to update details. Please try again.";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingDetailsUpdate(false);
-    }
+    );
   };
 
   // Handle password reset request
   const handlePasswordResetRequest = async () => {
     if (!student || !student.email) {
-      toast({
-        title: "Error",
-        description: "No email address found for this student.",
-        variant: "destructive",
-      });
       return;
     }
 
     try {
       setLoadingAccountUpdate(true);
+      passwordReset.setPasswordResetLinkSent(true);
       // TODO: Implement password reset API call
       // await authApi.requestPasswordReset(student.email);
-      
-      setHasPasswordResetLinkSent(true);
-      
-      toast({
-        title: "Success",
-        description: "Password reset link sent successfully.",
-      });
     } catch (error) {
       console.error('Failed to send password reset:', error);
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "Failed to send password reset link. Please try again.";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
     } finally {
       setLoadingAccountUpdate(false);
     }
-  };
-
-  // Handle subject assignment (in edit mode - temporary)
-  const handleAssignSubject = (subject: Tables<'subjects'>) => {
-    if (!subject) return;
-    
-    // Add to temporary subjects list
-    setTempStudentSubjects(prev => [...prev, subject]);
-    
-    // Track as added (unless it was previously marked for removal)
-    if (subjectsToRemove.includes(subject.id)) {
-      setSubjectsToRemove(prev => prev.filter(id => id !== subject.id));
-    } else {
-      setSubjectsToAdd(prev => [...prev, subject.id]);
-    }
-  };
-
-  // Handle subject removal (in edit mode - temporary)
-  const handleRemoveSubject = (subjectId: string) => {
-    // Remove from temporary subjects list
-    setTempStudentSubjects(prev => prev.filter(s => s.id !== subjectId));
-    
-    // Track as removed (unless it was previously marked for addition)
-    if (subjectsToAdd.includes(subjectId)) {
-      setSubjectsToAdd(prev => prev.filter(id => id !== subjectId));
-    } else {
-      setSubjectsToRemove(prev => [...prev, subjectId]);
-    }
-  };
-  
-  // Handle parent assignment (in edit mode - temporary)
-  const handleAssignParent = (parent: Tables<'parents'>) => {
-    if (!parent) return;
-    
-    // Add to temporary parents list
-    setTempStudentParents(prev => [...prev, parent]);
-    
-    // Track as added (unless it was previously marked for removal)
-    if (parentsToRemove.includes(parent.id)) {
-      setParentsToRemove(prev => prev.filter(id => id !== parent.id));
-    } else {
-      setParentsToAdd(prev => [...prev, parent.id]);
-    }
-  };
-
-  // Handle parent removal (in edit mode - temporary)
-  const handleRemoveParent = (parentId: string) => {
-    // Remove from temporary parents list
-    setTempStudentParents(prev => prev.filter(p => p.id !== parentId));
-    
-    // Track as removed (unless it was previously marked for addition)
-    if (parentsToAdd.includes(parentId)) {
-      setParentsToAdd(prev => prev.filter(id => id !== parentId));
-    } else {
-      setParentsToRemove(prev => [...prev, parentId]);
-    }
-  };
-
-  // Handle viewing subject details
-  const handleViewSubject = (subjectId: string) => {
-    setSelectedSubjectId(subjectId);
-    setSubjectModalOpen(true);
   };
 
   // Handle student deletion
@@ -303,27 +166,11 @@ export function ViewStudentModal({
     if (!student) return;
     
     try {
-      setLoadingDelete(true);
-      await studentsApi.deleteStudent(student.id);
+      await mutations.deleteStudent();
+      modals.closeDeleteDialog();
       onClose();
-      onStudentUpdated();
-      
-      toast({
-        title: "Success",
-        description: "Student deleted successfully.",
-      });
     } catch (error) {
-      console.error('Failed to delete student:', error);
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "Failed to delete student. Please try again.";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingDelete(false);
+      // Error handling is done in the hook
     }
   };
 
@@ -331,7 +178,7 @@ export function ViewStudentModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100vh] flex flex-col p-0">
+        <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100vh] flex flex-col p-0">
           {!student ? (
             <div className="flex justify-center items-center h-full p-6">
               <div className="text-muted-foreground">
@@ -344,38 +191,54 @@ export function ViewStudentModal({
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <SheetTitle>
-                        {isEditingDetails ? 'Edit Student' : 'Student Details'}
-                      </SheetTitle>
-                      <SheetDescription className="text-lg font-medium flex items-center gap-2">
-                        {student.first_name} {student.last_name}
-                        <Badge 
-                          variant={
-                            student.status === 'ACTIVE' ? 'success' :
-                            student.status === 'TRIAL' ? 'secondary' :
-                            student.status === 'DISCONTINUED' ? 'destructive' :
-                            'outline'
-                          }
-                          className="text-xs"
-                        >
-                          {student.status}
-                        </Badge>
-                      </SheetDescription>
+                    <div className="flex items-center gap-3 flex-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={onClose}
+                        className="shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <div className="flex-1">
+                        <SheetTitle>
+                          {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
+                        </SheetTitle>
+                        <SheetDescription className="text-lg font-medium">
+                          <div className="flex items-center gap-2">
+                            {student.first_name} {student.last_name}
+                            <Badge 
+                              variant={
+                                student.status === 'ACTIVE' ? 'success' :
+                                student.status === 'TRIAL' ? 'secondary' :
+                                student.status === 'DISCONTINUED' ? 'destructive' :
+                                'outline'
+                              }
+                              className="text-xs"
+                            >
+                              {student.status}
+                            </Badge>
+                          </div>
+                        </SheetDescription>
+                      </div>
                     </div>
                     {studentId && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
+                      <ActionsMenu
+                        type="student"
+                        onOpenInPage={() => {
                           router.push(`/students/${studentId}`);
                           onClose();
                         }}
-                        className="shrink-0"
-                        title="Open in new page"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                        onEditDetails={() => {
+                          setActiveTab('details');
+                          editFlow.startEdit();
+                        }}
+                        onPasswordResetOrRegistration={passwordReset.openPasswordResetOrRegistration}
+                        passwordResetLabel={passwordReset.passwordResetLabel}
+                        onLogAbsence={modals.openLogAbsence}
+                        onBookDraftingSession={modals.openBookDraftingSession}
+                        onDelete={modals.openDeleteDialog}
+                      />
                     )}
                   </div>
                 </SheetHeader>
@@ -397,41 +260,34 @@ export function ViewStudentModal({
                   <div className="p-6">
                     <DetailsTab
                       student={student}
-                      isEditing={isEditingDetails}
-                      isLoading={loadingDetailsUpdate}
-                      onEdit={handleStartEditDetails}
-                      onCancelEdit={handleCancelEditDetails}
+                      isEditing={editFlow.isEditing}
+                      isLoading={mutations.isUpdatingDetails}
+                      onEdit={editFlow.startEdit}
+                      onCancelEdit={editFlow.cancelEdit}
                       onSubmit={handleDetailsSubmit}
-                      onDelete={isEditingDetails ? handleDeleteStudent : undefined}
-                      isDeleting={loadingDelete}
-                      studentSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
+                      onDelete={undefined}
+                      isDeleting={mutations.isDeleting}
+                      studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
                       loadingSubjects={false}
-                      onRemoveSubject={handleRemoveSubject}
-                      onViewSubject={handleViewSubject}
-                      addSubjectButton={
-                        <SubjectSearchPopover
-                          selectedSubjects={isEditingDetails ? tempStudentSubjects : studentSubjects}
-                          onSelectSubject={handleAssignSubject}
-                        />
-                      }
-                      parents={isEditingDetails ? tempStudentParents : parents}
+                      onRemoveSubject={undefined}
+                      onViewSubject={modals.openSubjectModal}
+                      addSubjectButton={undefined}
+                      parents={editFlow.isEditing ? editFlow.tempStudentParents : parents}
                       onViewParent={(parentId) => {
-                        setSelectedParentId(parentId);
-                        setParentModalDefaultTab('messages');
-                        setParentModalOpen(true);
+                        modals.openParentModal(parentId, 'messages');
                       }}
-                      onRemoveParent={isEditingDetails ? handleRemoveParent : undefined}
+                      onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
                       addParentButton={
-                        isEditingDetails ? (
+                        editFlow.isEditing ? (
                           <ParentSearchPopover
                             allParents={allParents}
-                            selectedParents={tempStudentParents}
-                            onSelectParent={handleAssignParent}
+                            selectedParents={editFlow.tempStudentParents}
+                            onSelectParent={editFlow.assignParent}
                           />
                         ) : undefined
                       }
                       isLoadingAccount={loadingAccountUpdate}
-                      hasPasswordResetLinkSent={hasPasswordResetLinkSent}
+                      hasPasswordResetLinkSent={passwordReset.hasPasswordResetLinkSent}
                       onPasswordResetRequest={handlePasswordResetRequest}
                     />
                   </div>
@@ -482,16 +338,16 @@ export function ViewStudentModal({
           )}
           
           {/* Sticky Footer with Buttons */}
-          {student && isEditingDetails && activeTab === 'details' && (
+          {student && editFlow.isEditing && activeTab === 'details' && (
             <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
               <div className="flex w-full justify-end">
                 <div className="flex space-x-2">
-                  <Button variant="outline" type="button" onClick={handleCancelEditDetails} disabled={loadingDetailsUpdate}>
+                  <Button variant="outline" type="button" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
                     Cancel
                   </Button>
                   <Button 
                     type="button"
-                    disabled={loadingDetailsUpdate}
+                    disabled={mutations.isUpdatingDetails}
                     onClick={() => {
                       const form = document.getElementById('student-edit-form') as HTMLFormElement;
                       if (form) {
@@ -499,7 +355,7 @@ export function ViewStudentModal({
                       }
                     }}
                   >
-                    {loadingDetailsUpdate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Changes
                   </Button>
                 </div>
@@ -511,30 +367,117 @@ export function ViewStudentModal({
 
       {/* Parent Modal */}
       <ViewParentModal
-        isOpen={parentModalOpen}
-        onClose={() => {
-          setParentModalOpen(false);
-          setSelectedParentId(null);
-          setParentModalDefaultTab('students');
-        }}
-        parentId={selectedParentId}
+        isOpen={modals.parentModalOpen}
+        onClose={modals.closeParentModal}
+        parentId={modals.selectedParentId}
         onParentUpdated={onStudentUpdated}
-        defaultTab={parentModalDefaultTab}
+        defaultTab={modals.parentModalDefaultTab}
       />
       
       {/* Subject Modal */}
-      {selectedSubjectId && (
+      {modals.selectedSubjectId && (
         <ViewSubjectModal
-          isOpen={subjectModalOpen}
-          onClose={() => {
-            setSubjectModalOpen(false);
-            setSelectedSubjectId(null);
-          }}
-          subjectId={selectedSubjectId}
+          isOpen={modals.subjectModalOpen}
+          onClose={modals.closeSubjectModal}
+          subjectId={modals.selectedSubjectId}
           onSubjectUpdated={onStudentUpdated}
+        />
+      )}
+
+      {/* Log Absence Dialog */}
+      {currentStaff && studentId && (
+        <LogAbsenceDialog
+          isOpen={modals.isLogAbsenceDialogOpen}
+          onClose={modals.closeLogAbsence}
+          staffId={currentStaff.id}
+          initialStudentId={studentId}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Book Drafting Session Modal */}
+      {studentId && (
+        <BookSessionModal
+          isOpen={modals.isBookDraftingSessionModalOpen}
+          onClose={modals.closeBookDraftingSession}
+          sessionType="DRAFTING"
+          initialStudentId={studentId}
+          onBookingCreated={() => {
+            modals.closeBookDraftingSession();
+            onStudentUpdated();
+          }}
+        />
+      )}
+
+      {/* Send Invite Dialog */}
+      {student && (
+        <SendStudentInviteDialog
+          isOpen={passwordReset.inviteDialogOpen}
+          onClose={passwordReset.closeInviteDialog}
+          student={student}
+          linkType={passwordReset.inviteDialogType}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {student && (
+        <AlertDialog open={modals.isDeleteDialogOpen} onOpenChange={modals.closeDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the student
+                "{student.first_name} {student.last_name}" and all associated data from the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteStudent}
+                disabled={mutations.isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {mutations.isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Nested Session Modal */}
+      <SessionModal
+        isOpen={!!nestedSessionId}
+        sessionId={nestedSessionId}
+        onClose={() => setNestedSessionId(null)}
+      />
+
+      {/* Nested Staff Modal */}
+      {nestedStaffId && (
+        <ViewStaffModal
+          isOpen={!!nestedStaffId}
+          staffId={nestedStaffId}
+          onClose={() => setNestedStaffId(null)}
+          onStaffUpdated={onStudentUpdated}
+        />
+      )}
+
+      {/* Nested Student Modal */}
+      {nestedStudentId && (
+        <ViewStudentModal
+          isOpen={!!nestedStudentId}
+          studentId={nestedStudentId}
+          onClose={() => setNestedStudentId(null)}
+          onStudentUpdated={onStudentUpdated}
         />
       )}
       
     </>
   );
-} 
+}

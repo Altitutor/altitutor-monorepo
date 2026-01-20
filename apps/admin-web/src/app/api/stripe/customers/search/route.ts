@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
+import { getErrorMessage, getStripeErrorDetails } from '@/shared/utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -96,9 +97,10 @@ export async function GET(request: NextRequest) {
             })),
           }],
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If not found, return empty results
-        if (error.statusCode === 404) {
+        const stripeDetails = getStripeErrorDetails(error);
+        if (stripeDetails.statusCode === 404) {
           return NextResponse.json({ customers: [] });
         }
         throw error;
@@ -173,18 +175,16 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({ customers: customersWithPaymentMethods });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
+    const stripeDetails = getStripeErrorDetails(error);
     console.error('[stripe/customers/search] Error searching Stripe customers:', error);
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to search Stripe customers',
-        details: process.env.NODE_ENV === 'development' ? {
-          type: error.type,
-          code: error.code,
-          statusCode: error.statusCode,
-        } : undefined,
+        error: errorMessage || 'Failed to search Stripe customers',
+        details: process.env.NODE_ENV === 'development' ? stripeDetails : undefined,
       },
-      { status: error.statusCode || 500 }
+      { status: stripeDetails.statusCode || 500 }
     );
   }
 }

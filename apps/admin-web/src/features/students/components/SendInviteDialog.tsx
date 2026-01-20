@@ -123,7 +123,7 @@ export function SendInviteDialog({
 
     try {
       setIsSendingEmail(true);
-      const result = await invitesApi.sendInviteEmail({
+      await invitesApi.sendInviteEmail({
         type: 'student',
         id: student.id,
         token,

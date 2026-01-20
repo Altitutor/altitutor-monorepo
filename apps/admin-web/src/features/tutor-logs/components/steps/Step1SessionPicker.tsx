@@ -1,12 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
-import { sessionsApi } from '@/features/sessions/api/sessions';
 import { cn } from '@/shared/utils/index';
-import type { Tables, Database } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useUnloggedSessionsForStaff } from '../../hooks';
 
 type Step1SessionPickerProps = {
   title?: string;
@@ -21,75 +17,13 @@ export function Step1SessionPicker({
   selectedSessionId,
   onSelectSession,
 }: Step1SessionPickerProps) {
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sessionStudents, setSessionStudents] = useState<Record<string, any[]>>({});
-  const [sessionStaff, setSessionStaff] = useState<Record<string, any[]>>({});
-  const [classesById, setClassesById] = useState<Record<string, Tables<'classes'>>>({});
-  const [subjectsById, setSubjectsById] = useState<Record<string, Tables<'subjects'>>>({});
+  const { data, isLoading } = useUnloggedSessionsForStaff(staffId);
 
-  useEffect(() => {
-    const fetchSessions = async () => {
-      setIsLoading(true);
-      try {
-        const supabase = getSupabaseClient() as SupabaseClient<Database>;
-        
-        // Get all sessions for this staff using RPC
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        
-        const { data: rpcResult, error: rpcError } = await supabase.rpc('search_sessions_admin', {
-          p_search: undefined,
-          p_range_start: undefined,
-          p_range_end: today.toISOString(),
-          p_staff_id: staffId,
-          p_class_id: undefined,
-          p_student_id: undefined,
-          p_statuses: ['ACTIVE'],
-          p_types: undefined, // Include all session types
-          p_include_relationships: true,
-          p_limit: 1000,
-          p_offset: 0,
-          p_order_by: 'start_at',
-          p_ascending: false,
-        });
-
-        if (rpcError) throw rpcError;
-        if (!rpcResult) return;
-
-        const rpcData = rpcResult as {
-          sessions: any[];
-          sessionStudents: Record<string, any[]>;
-          sessionStaff: Record<string, any[]>;
-          classesById: Record<string, any>;
-          subjectsById: Record<string, any>;
-          total: number;
-        };
-
-        // Filter out sessions that already have tutor logs
-        const { data: existingLogs } = await supabase
-          .from('tutor_logs')
-          .select('session_id');
-        
-        const loggedSessionIds = new Set((existingLogs || []).map((log: any) => log.session_id));
-        const unloggedSessions = (rpcData.sessions || []).filter(
-          (s: any) => !loggedSessionIds.has(s.id)
-        );
-
-        setSessions(unloggedSessions);
-        setSessionStudents(rpcData.sessionStudents || {});
-        setSessionStaff(rpcData.sessionStaff || {});
-        setClassesById(rpcData.classesById || {});
-        setSubjectsById(rpcData.subjectsById || {});
-      } catch (error) {
-        console.error('Error fetching sessions:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSessions();
-  }, [staffId]);
+  const sessions = data?.sessions || [];
+  const sessionStudents = data?.sessionStudents || {};
+  const sessionStaff = data?.sessionStaff || {};
+  const classesById = data?.classesById || {};
+  const subjectsById = data?.subjectsById || {};
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>;
@@ -112,7 +46,7 @@ export function Step1SessionPicker({
       <div className="grid gap-3">
         {sessions.map((session) => {
           const isSelected = session.id === selectedSessionId;
-          const classData = classesById[session.class_id];
+          const classData = session.class_id ? classesById[session.class_id] : undefined;
           const subject = classData?.subject_id ? subjectsById[classData.subject_id] : undefined;
           const staff = (sessionStaff[session.id] || []).map((sf: any) => ({
             ...sf.staff || sf,

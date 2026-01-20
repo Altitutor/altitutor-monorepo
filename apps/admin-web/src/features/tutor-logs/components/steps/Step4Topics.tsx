@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
 import { TopicCard } from '../TopicCard';
-import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { cn } from '@/shared/utils/index';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useSessionForLogging } from '../../hooks';
+import { useTopicsBySubject, useTopics } from '@/features/topics/hooks/useTopicsQuery';
+import { useTopicsWithSubjects } from '../../hooks';
 
 type TopicItem = {
   topicId: string;
@@ -25,83 +23,34 @@ type Step4TopicsProps = {
 };
 
 export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsProps) {
-  const [subjectTopics, setSubjectTopics] = useState<Tables<'topics'>[]>([]);
-  const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
+  const { data: sessionData, isLoading: isLoadingSession } = useSessionForLogging(sessionId);
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
-  const [sessionData, setSessionData] = useState<any>(null);
-  const [subjectsMap, setSubjectsMap] = useState<Map<string, Tables<'subjects'>>>(new Map());
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+  // Get subject ID from session data
+  const subjectId = sessionData?.classData?.subject_id || sessionData?.subject?.id || null;
 
-      // Get session to find subject
-      // Use LEFT join for classes since trial sessions may not have class_id
-      const { data: sessionDataResult } = await supabase
-        .from('sessions')
-        .select('*, class:classes(*, subject:subjects(*)), subject:subjects(*)')
-        .eq('id', sessionId)
-        .single();
+  // Fetch topics for the session's subject
+  const { data: subjectTopicsData = [], isLoading: isLoadingSubjectTopics } = useTopicsBySubject(subjectId);
 
-      if (!sessionDataResult) {
-        setIsLoading(false);
-        return;
-      }
+  // Fetch all topics for search
+  const { data: allTopicsData = [], isLoading: isLoadingAllTopics } = useTopics();
 
-      setSessionData(sessionDataResult);
-      // Try to get subject from class first, then fall back to direct subject_id
-      const subjectId = (sessionDataResult as any).class?.subject?.id || 
-                        (sessionDataResult as any).subject?.id ||
-                        (sessionDataResult as any).subject_id;
+  // Get subjects for all topics (for additional topics display)
+  const allTopicIds = allTopicsData.map((t) => t.id);
+  const { data: subjectsMap = new Map() } = useTopicsWithSubjects(allTopicIds);
 
-      // Get topics for this subject
-      if (subjectId) {
-        const { data: topicsData } = await supabase
-          .from('topics')
-          .select('*')
-          .eq('subject_id', subjectId)
-          .order('index');
+  const subjectTopics = subjectTopicsData;
+  const allTopics = allTopicsData;
+  const isLoading = isLoadingSession || isLoadingSubjectTopics || isLoadingAllTopics;
 
-        setSubjectTopics(topicsData || []);
-      }
-
-      // Get all topics for search
-      const { data: allTopicsData } = await supabase
-        .from('topics')
-        .select('*')
-        .order('name');
-
-      setAllTopics(allTopicsData || []);
-
-      // Get subjects for all topics (for additional topics display)
-      if (allTopicsData && allTopicsData.length > 0) {
-        const subjectIds = [...new Set(allTopicsData.map((t: any) => t.subject_id).filter(Boolean))];
-        if (subjectIds.length > 0) {
-          const { data: subjectsData } = await supabase
-            .from('subjects')
-            .select('*')
-            .in('id', subjectIds);
-          
-          if (subjectsData) {
-            const subjects = new Map<string, Tables<'subjects'>>();
-            subjectsData.forEach((s: any) => {
-              subjects.set(s.id, s);
-            });
-            setSubjectsMap(subjects);
-          }
-        }
-      }
-
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [sessionId]);
+  // Get subject from class if available, otherwise from direct subject relation
+  const subject = sessionData?.classData?.subject_id 
+    ? sessionData.subject ?? undefined
+    : sessionData?.subject ?? undefined;
 
   const handleToggleTopic = (topicId: string, checked: boolean) => {
     if (checked) {
@@ -144,55 +93,6 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
     setExpandedTopics(newExpanded);
   };
 
-  const renderTopicTree = (parentId: string | null, depth: number = 0) => {
-    const childTopics = subjectTopics.filter((t) => t.parent_id === parentId);
-
-    return childTopics.map((topic) => {
-      const hasChildren = subjectTopics.some((t) => t.parent_id === topic.id);
-      const isExpanded = expandedTopics.has(topic.id);
-      const parentTopic = topic.parent_id ? subjectTopics.find((t) => t.id === topic.parent_id) : undefined;
-      // Get subject from class if available, otherwise from direct subject relation
-      const subject = sessionData?.class?.subject || sessionData?.subject;
-
-      return (
-        <div key={topic.id}>
-          <div
-            className="flex items-start gap-2 py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
-            style={{ paddingLeft: `${depth * 20}px` }}
-          >
-            {hasChildren && (
-              <button
-                type="button"
-                onClick={() => toggleExpanded(topic.id)}
-                className="p-1 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded mt-1"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            )}
-            {!hasChildren && <div className="w-6" />}
-            <Checkbox
-              checked={isTopicSelected(topic.id)}
-              onCheckedChange={(checked) => handleToggleTopic(topic.id, checked === true)}
-              className="mt-1"
-            />
-            <div className="flex-1">
-              <TopicCard
-                topic={topic}
-                subject={subject}
-                parentTopic={parentTopic}
-              />
-            </div>
-          </div>
-          {isExpanded && hasChildren && renderTopicTree(topic.id, depth + 1)}
-        </div>
-      );
-    });
-  };
-
   const handleAddTopic = (topicId: string) => {
     if (!additionalTopicIds.includes(topicId)) {
       setAdditionalTopicIds([...additionalTopicIds, topicId]);
@@ -225,8 +125,6 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
       const hasChildren = filteredSubjectTopics.some((t) => t.parent_id === topic.id);
       const isExpanded = expandedTopics.has(topic.id);
       const parentTopic = topic.parent_id ? filteredSubjectTopics.find((t) => t.id === topic.parent_id) : undefined;
-      // Get subject from class if available, otherwise from direct subject relation
-      const subject = sessionData?.class?.subject || sessionData?.subject;
 
       return (
         <div key={topic.id}>
@@ -256,7 +154,7 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
             <div className="flex-1">
               <TopicCard
                 topic={topic}
-                subject={subject}
+                subject={subject ?? undefined}
                 parentTopic={parentTopic}
               />
             </div>
@@ -299,13 +197,13 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
               const topic = allTopics.find((t) => t.id === topicId);
               if (!topic) return null;
               // Get subject for this specific topic
-              const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : undefined;
+              const topicSubject = topic.subject_id ? subjectsMap.get(topic.subject_id) : undefined;
               const parentTopic = topic.parent_id ? allTopics.find((t) => t.id === topic.parent_id) : undefined;
               return (
                 <TopicCard
                   key={topicId}
                   topic={topic}
-                  subject={subject}
+                  subject={topicSubject}
                   parentTopic={parentTopic}
                 />
               );

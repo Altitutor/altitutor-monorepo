@@ -12,12 +12,17 @@ import type {
 /**
  * Hook to get a student's future sessions
  */
-export function useStudentFutureSessions(studentId: string | null, weeksAhead: number = 8) {
+export function useStudentFutureSessions(
+  studentId: string | null, 
+  weeksAhead: number = 8,
+  allowPastSessions: boolean = false,
+  weeksBack: number = 4
+) {
   return useQuery<StudentSession[], Error>({
-    queryKey: ['studentFutureSessions', studentId, weeksAhead],
+    queryKey: ['studentFutureSessions', studentId, weeksAhead, allowPastSessions, weeksBack],
     queryFn: () => {
       if (!studentId) throw new Error('Student ID is required');
-      return absencesApi.getStudentFutureSessions(studentId, weeksAhead);
+      return absencesApi.getStudentFutureSessions(studentId, weeksAhead, allowPastSessions, weeksBack);
     },
     enabled: !!studentId,
     staleTime: 1000 * 60 * 5, // 5 minutes

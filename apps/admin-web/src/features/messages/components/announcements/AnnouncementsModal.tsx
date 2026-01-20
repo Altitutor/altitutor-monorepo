@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
+import { getErrorMessage } from '@/shared/utils';
 import { StudentSelector } from '../bulk/StudentSelector';
 import { MessageComposer } from '../bulk/MessageComposer';
 import { MessagePreview } from '../bulk/MessagePreview';
@@ -60,11 +61,12 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
         title: 'Announcements sent!',
         description: `Successfully sent ${result.sent} announcement${result.sent !== 1 ? 's' : ''}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       console.error('Error sending announcements:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to send announcements',
+        description: errorMessage || 'Failed to send announcements',
         variant: 'destructive',
       });
     }

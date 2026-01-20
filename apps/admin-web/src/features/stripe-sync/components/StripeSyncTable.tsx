@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -9,11 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { Search, CreditCard } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { SkeletonTable } from '@altitutor/ui';
 import type { StudentWithStripe } from '../api/stripe-sync';
 import { StudentStripeSyncModal } from './StudentStripeSyncModal';
@@ -23,18 +22,31 @@ interface StripeSyncTableProps {
   isLoading?: boolean;
   isFetching?: boolean;
   onRefresh: () => void;
+  initialStudentId?: string | null;
 }
 
 export function StripeSyncTable({
   students,
   isLoading,
-  isFetching,
   onRefresh,
+  initialStudentId,
 }: StripeSyncTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [stripeFilter, setStripeFilter] = useState<'all' | 'present' | 'absent'>('all');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Open modal for initial student ID if provided
+  useEffect(() => {
+    if (initialStudentId && !isLoading && students.length > 0) {
+      // Check if student exists in the list
+      const studentExists = students.some(s => s.student_id === initialStudentId);
+      if (studentExists) {
+        setSelectedStudentId(initialStudentId);
+        setIsModalOpen(true);
+      }
+    }
+  }, [initialStudentId, isLoading, students]);
 
   // Filter students
   const filteredStudents = useMemo(() => {

@@ -24,6 +24,8 @@ export type FlattenedSessionDetail = {
   subject_level: string | null;
   subject_color: string | null;
   subject_year_level: number | null;
+  subject_short_name: string | null;
+  subject_long_name: string | null;
   // Related data
   students?: any[];
   staff?: any[];

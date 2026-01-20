@@ -4,18 +4,6 @@ import type { Tables, Enums } from '@altitutor/shared';
  * Utility functions for deriving topic codes and resource codes
  */
 
-// Map of resource type to code abbreviations
-const RESOURCE_TYPE_CODES: Record<Enums<'resource_type'>, string> = {
-  NOTES: 'N',
-  PRACTICE_QUESTIONS: 'PQ',
-  TEST: 'T',
-  VIDEO: 'V',
-  EXAM: 'E',
-  REVISION_SHEET: 'RS',
-  CHEAT_SHEET: 'CS',
-  FLASHCARDS: 'F',
-};
-
 // Note: deriveTopicCode and deriveTopicFileCode have been removed.
 // Codes are now stored in the database and should be accessed via topic.code and topicFile.code
 

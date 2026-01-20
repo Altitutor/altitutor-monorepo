@@ -3,9 +3,12 @@
 import { useState, createContext, useContext } from 'react';
 import { Button } from '@altitutor/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus } from 'lucide-react';
+import { useDeleteMessage } from '@/features/messages/api/mutations';
+import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '@/shared/utils';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import type {
@@ -13,8 +16,10 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnreadMessage,
+  UnrepliedMessage,
+  FailedDeliveryMessage,
   StudentWithoutClasses,
+  StudentWithoutPaymentMethod,
   ReconciliationItemType,
 } from '../types';
 
@@ -59,16 +64,20 @@ interface ReconciliationActionsProps {
     | UnpaidInvoice
     | UnloggedSession
     | UnassignedClass
-    | UnreadMessage
-    | StudentWithoutClasses;
+    | UnrepliedMessage
+    | FailedDeliveryMessage
+    | StudentWithoutClasses
+    | StudentWithoutPaymentMethod;
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
+  const router = useRouter();
   const openWindow = useChatStore((s) => s.openWindow);
   const handlers = useReconciliationHandlers();
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const deleteMessageMutation = useDeleteMessage();
 
   const handleOpenConversation = async (conversationId: string) => {
     try {
@@ -137,7 +146,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
 
   const handleResendInvoice = () => {
     // TODO: Implement invoice resending
-    console.log('Resend invoice - to be implemented');
   };
 
   switch (type) {
@@ -254,8 +262,8 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       );
     }
 
-    case 'unread_messages': {
-      const message = item as UnreadMessage;
+    case 'unreplied_messages': {
+      const message = item as UnrepliedMessage;
       return (
         <div className="flex gap-2">
           <Button
@@ -266,6 +274,82 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <MessageCircle className="h-4 w-4 mr-1" />
             Open Message
+          </Button>
+        </div>
+      );
+    }
+
+    case 'failed_delivery_messages': {
+      const message = item as FailedDeliveryMessage;
+      
+      const handleDeleteMessage = async () => {
+        if (!confirm('Are you sure you want to delete this failed message? This action cannot be undone.')) {
+          return;
+        }
+        
+        try {
+          await deleteMessageMutation.mutateAsync(message.message_id);
+          toast({
+            title: 'Success',
+            description: 'Message deleted successfully',
+          });
+        } catch (error: unknown) {
+          const errorMessage = getErrorMessage(error);
+          toast({
+            title: 'Error',
+            description: errorMessage || 'Failed to delete message',
+            variant: 'destructive',
+          });
+        }
+      };
+      
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleOpenConversation(message.conversation_id)}
+            disabled={isLoading}
+          >
+            <MessageCircle className="h-4 w-4 mr-1" />
+            Open Conversation
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteMessage}
+            disabled={isLoading || deleteMessageMutation.isPending}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            {deleteMessageMutation.isPending ? 'Deleting...' : 'Delete'}
+          </Button>
+        </div>
+      );
+    }
+
+    case 'students_without_payment_method': {
+      const student = item as StudentWithoutPaymentMethod;
+      const handleOpenStripeSync = () => {
+        router.push(`/settings/stripe-sync?studentId=${student.student_id}`);
+      };
+      
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlers.onOpenStudent(student.student_id)}
+          >
+            <User className="h-4 w-4 mr-1" />
+            View Student
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleOpenStripeSync}
+          >
+            <CreditCard className="h-4 w-4 mr-1" />
+            Stripe Sync
           </Button>
         </div>
       );

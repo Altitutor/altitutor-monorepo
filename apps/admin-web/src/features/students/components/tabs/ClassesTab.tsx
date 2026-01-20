@@ -16,7 +16,6 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { subjectsApi } from '@/features/subjects/api/subjects';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
@@ -217,6 +216,8 @@ export function ClassesTab({
       p_statuses: ['ACTIVE'],
       p_subject_ids: [subjectId], // Filter by specific subject
       p_include_relationships: true,
+      p_exclude_student_search: false,
+      p_exclude_staff_search: false,
       p_limit: 10000,
       p_offset: 0,
       p_order_by: 'day_of_week',
@@ -351,6 +352,37 @@ export function ClassesTab({
       toast({
         title: 'Add failed',
         description: 'There was an error adding the subject. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle removing a subject
+  const handleRemoveSubject = async (subjectId: string) => {
+    // Check if student is enrolled in any classes for this subject
+    const subjectClasses = classesBySubject[subjectId] || [];
+    if (subjectClasses.length > 0) {
+      toast({
+        title: 'Cannot Remove Subject',
+        description: 'Cannot remove subject because the student is enrolled in classes for this subject. Please unenroll from all classes first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await studentsApi.removeSubjectFromStudent(student.id, subjectId);
+      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      onStudentUpdated?.();
+      toast({
+        title: 'Success',
+        description: 'Subject removed successfully.',
+      });
+    } catch (error) {
+      console.error('Failed to remove subject:', error);
+      toast({
+        title: 'Remove failed',
+        description: 'There was an error removing the subject. Please try again.',
         variant: 'destructive',
       });
     }
@@ -514,6 +546,19 @@ export function ClassesTab({
                           style={style.backgroundColor ? style : undefined}
                         >
                           <span>{shortName}</span>
+                          {isEditMode && (
+                            <button
+                              type="button"
+                              className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveSubject(subjectId);
+                              }}
+                              title="Remove subject"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
                         </Badge>
                       </div>
                       

@@ -39,7 +39,7 @@ interface AccountTabProps {
   profile: StaffProfile;
 }
 
-export function AccountTab({ profile }: AccountTabProps) {
+export function AccountTab({ profile: _profile }: AccountTabProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);

@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import {
@@ -25,17 +24,15 @@ import {
 import { Input } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
-import { Separator } from '@altitutor/ui';
 import { Switch } from '@altitutor/ui';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
-import { Loader2, Plus, Trash2, X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useCreateAutomationRule, useUpdateAutomationRule } from '../api/mutations';
-import { useAutomationRule, useAutomationRules } from '../api/queries';
+import { useAutomationRule } from '../api/queries';
 import { useMessageTemplates } from '@/features/messages/api/templates';
 import { staffApi } from '@/features/staff/api/staff';
-import type { AutomationRuleWithActions, ActionType, ActivityEntityType, ActivityEventType } from '../types';
+import type { AutomationRuleWithActions, ActivityEntityType, ActivityEventType } from '../types';
 import { AutomationActionsList } from './AutomationActionsList';
 import { AutomationConditionsBuilder } from './AutomationConditionsBuilder';
 import { useQueryClient } from '@tanstack/react-query';
@@ -51,7 +48,6 @@ const ruleFormSchema = z.object({
   conditions: z.any().optional().nullable(), // AutomationCondition | null
 });
 
-type RuleFormData = z.infer<typeof ruleFormSchema>;
 
 interface CreateEditAutomationRuleDialogProps {
   isOpen: boolean;
@@ -87,7 +83,7 @@ export function CreateEditAutomationRuleDialog({
   const createMutation = useCreateAutomationRule();
   const updateMutation = useUpdateAutomationRule();
   const queryClient = useQueryClient();
-  const { data: existingRule, refetch: refetchRule } = useAutomationRule(rule?.id || '', isEditing && !!rule?.id);
+  const { data: existingRule } = useAutomationRule(rule?.id || '', isEditing && !!rule?.id);
   const { data: templates } = useMessageTemplates();
   const [staffList, setStaffList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
   const [createdRuleId, setCreatedRuleId] = useState<string | null>(null);
@@ -156,15 +152,6 @@ export function CreateEditAutomationRuleDialog({
   }, [createdRuleId, isEditing]);
 
   const selectedEventTypes = form.watch('event_types');
-
-  const toggleEventType = (eventType: ActivityEventType) => {
-    const current = form.getValues('event_types');
-    if (current.includes(eventType)) {
-      form.setValue('event_types', current.filter((e) => e !== eventType));
-    } else {
-      form.setValue('event_types', [...current, eventType]);
-    }
-  };
 
   const onSubmit = async (data: z.infer<typeof ruleFormSchema>) => {
     try {
@@ -506,7 +493,7 @@ export function CreateEditAutomationRuleDialog({
               </ScrollArea>
             </div>
           
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+          <div className="flex-shrink-0 px-6 py-4 border-t flex justify-end gap-2">
             <Button variant="outline" onClick={handleClose} disabled={isLoading}>
               {ruleId && activeTab === 'actions' ? 'Close' : 'Cancel'}
             </Button>
@@ -516,7 +503,7 @@ export function CreateEditAutomationRuleDialog({
                 {isEditing ? 'Update Rule' : 'Create Rule'}
               </Button>
             )}
-          </DialogFooter>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>

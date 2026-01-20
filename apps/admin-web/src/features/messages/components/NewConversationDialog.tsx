@@ -12,9 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getExistingConversationForRelated, ensureConversationForContact } from '../api/queries';
 import { ensureContactForStudent, ensureContactForParent, ensureContactForStaff } from '../utils/contactHelpers';
-import { studentsApi } from '@/features/students/api/students';
 import { staffApi, type StaffListItem } from '@/features/staff/api/staff';
-import { parentsApi } from '@/features/parents/api/parents';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ViewStudentModal } from '@/features/students/components';
@@ -55,6 +53,7 @@ export function NewConversationDialog({
         p_search: hasSearch ? trimmed : undefined,
         p_statuses: undefined,
         p_include_relationships: false,
+        p_exclude_class_search: false,
         p_limit: hasSearch ? 100 : 20,
         p_offset: 0,
         p_order_by: 'last_name',

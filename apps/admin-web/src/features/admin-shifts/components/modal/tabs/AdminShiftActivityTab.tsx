@@ -5,7 +5,7 @@ import { Textarea } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '@/features/activity/components/ActivityFeed';
 import { useAdminShiftActivity } from '@/features/activity/hooks';
-import { useNotes, useCreateNote } from '@/shared/hooks/useNotes';
+import { useCreateNote } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '@/features/activity/hooks/useActivityEvents';
@@ -17,7 +17,6 @@ interface AdminShiftActivityTabProps {
 
 export function AdminShiftActivityTab({ adminShiftId, isOpen = true }: AdminShiftActivityTabProps) {
   const { data, isLoading, error } = useAdminShiftActivity(adminShiftId, isOpen);
-  const { data: notes = [] } = useNotes('admin_shift', adminShiftId, isOpen);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();

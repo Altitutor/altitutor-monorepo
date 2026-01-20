@@ -5,15 +5,19 @@ export function HeroSection() {
   return (
     <section 
       id="hero"
-      className="min-h-screen flex items-center justify-center py-20 relative"
-      style={{
-        backgroundImage: 'url(/images/landing/background-alt-scaled.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
+      className="min-h-screen flex items-center justify-center py-20 relative overflow-hidden"
     >
-      <div className="absolute inset-0 bg-black/40" />
+      {/* Optimized background image using next/image */}
+      <Image
+        src={images.heroBackground.src}
+        alt={images.heroBackground.alt}
+        fill
+        priority={images.heroBackground.priority}
+        sizes="100vw"
+        className="object-cover object-center"
+        quality={90}
+      />
+      <div className="absolute inset-0 bg-black/40 z-[1]" />
       <div className="container mx-auto px-4 text-center relative z-10">
         <div className="mb-8 flex justify-center">
           <Image

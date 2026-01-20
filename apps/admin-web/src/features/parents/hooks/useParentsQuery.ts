@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { keepPreviousData } from '@tanstack/react-query';
 import { parentsApi } from '../api/parents';
-import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const parentsKeys = {
   all: () => ['parents'] as const,
@@ -65,6 +67,40 @@ export function useUpdateParent() {
       queryClient.invalidateQueries({ queryKey: parentsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: parentsKeys.detail(variables.id) });
     },
+  });
+}
+
+export function useParentDetails(id: string | null, enabled: boolean = true) {
+  return useQuery({
+    queryKey: parentsKeys.detail(id || ''),
+    queryFn: async () => {
+      if (!id) return null;
+      
+      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+      const { data, error } = await supabase
+        .from('parents')
+        .select(`
+          *,
+          parents_students (
+            id,
+            students (*)
+          )
+        `)
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (!data) return null;
+      
+      // Extract students from the join
+      const studentsList = data?.parents_students?.map((ps: any) => ps.students).filter(Boolean) || [];
+      
+      return {
+        parent: data as Tables<'parents'>,
+        students: studentsList as Tables<'students'>[],
+      };
+    },
+    enabled: enabled && !!id,
   });
 }
 

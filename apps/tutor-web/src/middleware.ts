@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
           return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+          cookiesToSet.forEach(({ name, value }) => {
             req.cookies.set(name, value);
           });
           supabaseResponse = NextResponse.next({
@@ -41,7 +41,6 @@ export async function middleware(req: NextRequest) {
   // getSession() reads from cookies without validation (insecure)
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser();
 
   // For API routes, we just refresh the token but don't redirect
@@ -75,18 +74,28 @@ export async function middleware(req: NextRequest) {
   // Check if user is staff using vtutor_profile view
   // This view is accessible to tutors (unlike direct staff table access which may have RLS restrictions)
   // The view automatically filters to the current user's record via current_tutor_id() function
-  const { data: staff, error: staffError } = await (supabase as any)
+  const { data: staff, error: staffError } = await (supabase as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        maybeSingle: () => Promise<{
+          data: { role: 'ADMINSTAFF' | 'TUTOR' } | null;
+          error: Error | null;
+        }>;
+      };
+    };
+  })
     .from('vtutor_profile')
     .select('role')
-    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
+    .maybeSingle();
 
   if (staffError) {
+    // Error fetching staff - log but continue
+    // eslint-disable-next-line no-console
     console.error('[TUTOR-WEB MIDDLEWARE] Error fetching staff:', staffError);
   }
 
   // Block students - if not in staff table, redirect to login
   if (!staff) {
-    console.log('[TUTOR-WEB MIDDLEWARE] No staff record found, redirecting to login');
     const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -94,8 +103,6 @@ export async function middleware(req: NextRequest) {
     });
     return redirectResponse;
   }
-
-  const role = staff.role;
 
   if (pathname === '/') {
     const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));

@@ -11,7 +11,6 @@ import { sessionsApi } from '@/features/sessions/api';
 import { subjectsApi } from '@/features/subjects/api';
 import { topicsApi } from '@/features/topics/api';
 import { formatClassShortName, formatSubjectShortName } from '@/shared/utils';
-import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
@@ -244,7 +243,6 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     queryFn: async () => {
       const topicIds = entityIds.filter(e => e.type === 'topic').map(e => e.id);
       const results: Record<string, string> = {};
-      const allTopics = await topicsApi.getAllTopics();
       await Promise.all(
         topicIds.map(async (id) => {
           try {

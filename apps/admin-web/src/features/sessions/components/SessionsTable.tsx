@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -24,22 +23,25 @@ import {
   X,
   Filter
 } from 'lucide-react';
-import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSessionType } from '@/shared/utils/index';
+import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from './TutorLogAvatar';
-import { useQuery } from '@tanstack/react-query';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { useRouter } from 'next/navigation';
+import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import { useSessionsTable } from '../hooks/useSessionsTable';
+import { getInvoiceStatusBadgeVariant } from '../utils/sessionsTableHelpers';
 
 type SessionsTableProps = {
   studentId?: string;
   staffId?: string;
   classId?: string;
+  adminShiftId?: string;
   limit?: number;
   rangeStart?: string; // YYYY-MM-DD
   rangeEnd?: string;   // YYYY-MM-DD
@@ -52,334 +54,127 @@ type SessionsTableProps = {
   hideBilling?: boolean; // Hide invoice status badges
   hideStudentFilter?: boolean; // Hide student filter UI
   hideTypeFilter?: boolean; // Hide type filter UI
+  hideTutorLogFilter?: boolean; // Hide tutor log filter UI
   hideSearch?: boolean; // Hide search input
+  hideTypeColumn?: boolean; // Hide Type column
+  hideClassColumn?: boolean; // Hide Class column
+  hideStudentsColumn?: boolean; // Hide Students column
   initialStudentFilters?: string[]; // Initial student filters (for external filter control)
 };
 
-export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff, onFromChange, onToChange, onResetDates, hideBilling = false, hideStudentFilter = false, hideTypeFilter = false, hideSearch = false, initialStudentFilters = [] }: SessionsTableProps) {
-  const _router = useRouter();
-  
-  // Filter and sort state
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
-  const [studentFilters, setStudentFilters] = useState<string[]>(initialStudentFilters);
-  const [typeFilters, setTypeFilters] = useState<string[]>([]);
-  const [studentSearchQuery, setStudentSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [sortField, setSortField] = useState<'start_at'>('start_at');
-  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('asc');
-  const [showLogged, setShowLogged] = useState(true);
-  const [showUnlogged, setShowUnlogged] = useState(true);
-  
-  // Session types
-  const SESSION_TYPES = ['CLASS', 'DRAFTING', 'EXAM_COURSE', 'SUBSIDY_INTERVIEW', 'TRIAL_SESSION', 'STAFF_INTERVIEW', 'TRIAL_SHIFT'] as const;
-  
-  // Fetch students for the filter using server-side search
-  const { data: studentSearchResults } = useQuery({
-    queryKey: ['students', 'search', studentSearchQuery.trim()],
-    queryFn: async () => {
-      const trimmed = studentSearchQuery.trim();
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      
-      // Use server-side search function to avoid pagination limits
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
-        p_search: trimmed.length > 0 ? trimmed : undefined,
-        p_statuses: ['ACTIVE', 'TRIAL'], // Include both ACTIVE and TRIAL students
-        p_include_relationships: false,
-        p_limit: 100, // Limit to 100 results for filter dropdown
-        p_offset: 0,
-        p_order_by: 'last_name',
-        p_ascending: true,
-      });
+export function SessionsTable({
+  studentId,
+  staffId,
+  classId,
+  adminShiftId,
+  limit,
+  rangeStart,
+  rangeEnd,
+  onOpenSession,
+  onOpenStudent,
+  onOpenStaff,
+  onFromChange,
+  onToChange,
+  onResetDates,
+  hideBilling = false,
+  hideStudentFilter = false,
+  hideTypeFilter = false,
+  hideTutorLogFilter = false,
+  hideSearch = false,
+  hideTypeColumn = false,
+  hideClassColumn = false,
+  hideStudentsColumn = false,
+  initialStudentFilters = [],
+}: SessionsTableProps) {
+  const router = useRouter();
+  const { data: currentStaff } = useCurrentStaff();
 
-      if (rpcError) throw rpcError;
-      if (!rpcResult) return { students: [], total: 0 };
-
-      const rpcData = rpcResult as { students: any[]; total: number };
-      const students = (rpcData.students || []).map((s: any) => ({
-        id: s.id,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        status: s.status,
-        curriculum: s.curriculum || null,
-        year_level: s.year_level || null,
-        school: s.school || null,
-        email: s.email || null,
-        phone: s.phone || null,
-        created_at: s.created_at || null,
-        updated_at: s.updated_at || null,
-      })) as Tables<'students'>[];
-      
-      return { students, total: rpcData.total || 0 };
-    },
-    staleTime: 1000 * 30, // 30 seconds stale time
-  });
-
-  const allStudents = studentSearchResults?.students || [];
-  
-  // Filter students based on search query
-  const filteredStudents = useMemo(() => {
-    if (!studentSearchQuery.trim()) return allStudents;
-    const query = studentSearchQuery.toLowerCase().trim();
-    return allStudents.filter((student) => {
-      const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
-      const school = student.school?.toLowerCase() || '';
-      return fullName.includes(query) || school.includes(query);
-    });
-  }, [allStudents, studentSearchQuery]);
-  
-  // Toggle student filter
-  const toggleStudentFilter = useCallback((studentId: string) => {
-    setStudentFilters(prev => {
-      const newFilters = prev.includes(studentId) 
-        ? prev.filter(id => id !== studentId)
-        : [...prev, studentId];
-      setPage(1); // Reset to first page when filter changes
-      return newFilters;
-    });
-  }, []);
-  
-  // Toggle type filter
-  const toggleTypeFilter = useCallback((type: string) => {
-    setTypeFilters(prev => {
-      const newFilters = prev.includes(type) 
-        ? prev.filter(t => t !== type)
-        : [...prev, type];
-      setPage(1); // Reset to first page when filter changes
-      return newFilters;
-    });
-  }, []);
-
-  // Check if filters are in default state
-  // Default: no student/type filters, no search, dates are today
-  const isDefaultState = useMemo(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayString = `${year}-${month}-${day}`;
-    
-    return (
-      studentFilters.length === 0 &&
-      typeFilters.length === 0 &&
-      searchTerm === '' &&
-      rangeStart === todayString &&
-      rangeEnd === todayString
-    );
-  }, [studentFilters, typeFilters, searchTerm, rangeStart, rangeEnd]);
-
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setStudentFilters([]);
-    setTypeFilters([]);
-    setSearchTerm('');
-    setStudentSearchQuery('');
-    setPage(1);
-    // Reset dates to default (today) via callback
-    if (onResetDates) {
-      onResetDates();
-    }
-  }, [onResetDates]);
-  
-  // Debounce search term
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setPage(1); // Reset to first page when search changes
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
-  
-  // Determine which student filters to use for API call
-  const activeStudentFilters = hideStudentFilter ? initialStudentFilters : studentFilters;
-  const apiStudentId = studentId || (activeStudentFilters.length === 1 ? activeStudentFilters[0] : undefined);
-  
-  // React Query hook for data fetching
-  const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch,
-    isFetching: _isFetching 
-  } = useSessionsWithDetails({ 
-    rangeStart: rangeStart || undefined, // Convert empty string to undefined
-    rangeEnd: rangeEnd || undefined, // Convert empty string to undefined
-    includeInactive: false,
-    search: debouncedSearchTerm,
-    studentId: apiStudentId,
-    staffId,
-    classId,
-    types: typeFilters.length > 0 ? typeFilters : undefined,
-    orderBy: 'start_at',
-    ascending: sortDirection === 'asc',
-  });
-  
-  const isFetching = _isFetching;
-  
-  // Extract sessions array from the data structure
-  const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
-  const classesById: Record<string, Tables<'classes'>> = (data as any)?.classesById || {};
-  const subjectsById: Record<string, Tables<'subjects'>> = (data as any)?.subjectsById || {};
-  const tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }> = (data as any)?.tutorLogs || {};
-  
-  // Class modal state
+  // Modal state (UI-specific, stays in component)
+  const [actionSessionId, setActionSessionId] = useState<string | null>(null);
+  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedSessionForReschedule, setSelectedSessionForReschedule] =
+    useState<Tables<'sessions'> | null>(null);
+  const [selectedStudentForReschedule, setSelectedStudentForReschedule] =
+    useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  const _getClassSubject = (session: Tables<'sessions'>) => {
-    const cls = session.class_id ? classesById[session.class_id] : undefined;
-    if (!cls) return '-';
-    const subj = cls.subject_id ? subjectsById[cls.subject_id] : undefined;
-    return subj ? subj.name : '-';
-  };
+  // Session types constant
+  const SESSION_TYPES = [
+    'CLASS',
+    'DRAFTING',
+    'EXAM_COURSE',
+    'SUBSIDY_INTERVIEW',
+    'TRIAL_SESSION',
+    'STAFF_INTERVIEW',
+    'TRIAL_SHIFT',
+  ] as const;
 
-  const getClassDisplay = useCallback((session: Tables<'sessions'>) => {
-    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
-    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
-    const parts: string[] = [];
-    if (subj?.curriculum) parts.push(String(subj.curriculum));
-    if (subj?.year_level != null) parts.push(String(subj.year_level));
-    if (subj?.name) parts.push(subj.name);
-    if (cls?.level) parts.push(String(cls.level));
-    return parts.join(' ');
-  }, [classesById, subjectsById]);
+  // Use the main hook for all business logic
+  const {
+    // Filter state
+    searchTerm,
+    setSearchTerm,
+    studentFilters,
+    toggleStudentFilter,
+    typeFilters,
+    toggleTypeFilter,
+    showLogged,
+    setShowLogged,
+    showUnlogged,
+    setShowUnlogged,
+    sortDirection,
+    toggleSort,
 
-  const getClassShortDisplay = (session: Tables<'sessions'>) => {
-    const cls: any = session.class_id ? (classesById as any)[session.class_id] : undefined;
-    const subj: any = cls?.subject_id ? (subjectsById as any)[cls.subject_id] : undefined;
-    const parts: string[] = [];
-    if (subj?.curriculum) parts.push(String(subj.curriculum));
-    const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
-    const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
-    if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
-    return parts.filter(Boolean).join(' ');
-  };
+    // Student search
+    studentSearchQuery,
+    setStudentSearchQuery,
+    filteredStudents,
 
-  // Memoized sessions (filtering and sorting is now done server-side via RPC)
-  // Apply client-side filtering for multiple student IDs if needed
-  const filteredSessions = useMemo(() => {
-    if (!allSessions.length) return [];
-    
-    let result = [...allSessions];
-    
-    // Client-side filter for multiple student IDs (if more than one selected)
-    // Also handle initialStudentFilters when hideStudentFilter is true
-    const activeStudentFilters = hideStudentFilter ? initialStudentFilters : studentFilters;
-    if (activeStudentFilters.length > 1) {
-      result = result.filter(session => {
-        const sessionStudents = (data?.sessionStudents?.[session.id] || []) as Tables<'students'>[];
-        return sessionStudents.some(s => activeStudentFilters.includes(s.id));
-      });
-    }
-    
-    // Filter by tutor log status
-    if (!showLogged || !showUnlogged) {
-      result = result.filter(session => {
-        const hasTutorLog = !!tutorLogs[session.id];
-        if (hasTutorLog) {
-          return showLogged;
-        } else {
-          return showUnlogged;
-        }
-      });
-    }
-    
-    return result;
-  }, [allSessions, studentFilters, initialStudentFilters, hideStudentFilter, data?.sessionStudents, showLogged, showUnlogged, tutorLogs]);
+    // Pagination
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
 
-  // Paginated sessions
-  const paginatedSessions = useMemo(() => {
-    if (limit && limit > 0) {
-      // If limit is provided, use it instead of pagination
-      return filteredSessions.slice(0, limit);
-    }
-    
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    return filteredSessions.slice(start, end);
-  }, [filteredSessions, page, pageSize, limit]);
+    // Data
+    allSessions,
+    filteredSessions,
+    paginatedSessions,
+    classesById,
+    sessionStudents,
+    sessionStaff,
+    tutorLogs,
+    isLoading,
+    error,
+    isFetching,
+    refetch,
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [studentFilters, initialStudentFilters, typeFilters, debouncedSearchTerm, rangeStart, rangeEnd, showLogged, showUnlogged]);
+    // Computed
+    isDefaultState,
+    clearAllFilters,
 
-  const handleSort = () => {
-    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-  };
-  
-  const getSessionTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'CLASS':
-        return 'bg-blue-100 text-blue-800';
-      case 'DRAFTING':
-        return 'bg-purple-100 text-purple-800';
-      case 'SUBSIDY_INTERVIEW':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'TRIAL_SESSION':
-        return 'bg-green-100 text-green-800';
-      case 'TRIAL_SHIFT':
-        return 'bg-orange-100 text-orange-800';
-      case 'EXAM_COURSE':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'STAFF_INTERVIEW':
-        return 'bg-pink-100 text-pink-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-  
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString(undefined, {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (e) {
-      return dateString;
-    }
-  };
-  
-  // Staff/name display relies on details map from hook; keep simple for now
-  const _getStaffName = (session: Tables<'sessions'>) => {
-    const staffList: Tables<'staff'>[] = (data?.sessionStaff?.[session.id] as Tables<'staff'>[]) || [];
-    if (!staffList.length) return '-';
-    return staffList.map(s => `${(s as any).first_name} ${(s as any).last_name}`).join(', ');
-  };
-  
-  // helpers defined once (avoid redefinition)
-  // (removed duplicate helper definitions)
+    // Formatting helpers
+    formatDate,
+    getTimeRange,
+    getClassDisplayName,
+    getClassShortDisplayName,
+    canReschedule,
+    getRescheduleStudentId,
+  } = useSessionsTable({
+    studentId,
+    staffId,
+    classId,
+    adminShiftId,
+    limit,
+    rangeStart,
+    rangeEnd,
+    hideStudentFilter,
+    initialStudentFilters,
+    onResetDates,
+  });
 
-  const getTimeRange = (session: Tables<'sessions'>) => {
-    const formatTime = (date: Date) => {
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
-      const period = hours >= 12 ? 'pm' : 'am';
-      const displayHours = hours % 12 || 12;
-      const displayMinutes = minutes.toString().padStart(2, '0');
-      return `${displayHours}:${displayMinutes}${period}`;
-    };
-    
-    if (!session.start_at || !session.end_at) {
-      if (session.start_at) {
-        return formatTime(new Date(session.start_at));
-      }
-      if (session.end_at) {
-        return formatTime(new Date(session.end_at));
-      }
-      return '-';
-    }
-    
-    const startDate = new Date(session.start_at);
-    const endDate = new Date(session.end_at);
-    
-    return `${formatTime(startDate)} - ${formatTime(endDate)}`;
-  };
-  
   const handleSessionClick = (id: string) => {
     if (onOpenSession) onOpenSession(id);
   };
@@ -406,9 +201,9 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
             </div>
           </div>
         )}
-        
+
         <SkeletonTable rows={limit || 8} columns={6} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading sessions...
         </div>
@@ -421,8 +216,8 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     return (
       <div className="text-red-500 p-4">
         Failed to load sessions. Please try again.
-        <button 
-          onClick={() => refetch()} 
+        <button
+          onClick={() => refetch()}
           className="ml-2 text-blue-600 hover:text-blue-800 underline"
         >
           Retry
@@ -450,7 +245,8 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
             </div>
           )}
           
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Clear Filters */}
               {!isDefaultState && (
                 <Button 
@@ -551,45 +347,50 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
               )}
 
               {/* Tutor Log Filter */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant={!showLogged || !showUnlogged ? "secondary" : "outline"} 
-                    size="sm"
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Tutor Log
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56" align="end">
-                  <div className="space-y-2">
-                    <div className="font-medium text-sm mb-2">Tutor Log</div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={showLogged}
-                        onCheckedChange={(checked) => setShowLogged(checked === true)}
-                      />
-                      <span className="text-sm">Tutor log</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={showUnlogged}
-                        onCheckedChange={(checked) => setShowUnlogged(checked === true)}
-                      />
-                      <span className="text-sm">Unlogged</span>
-                    </label>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {!hideTutorLogFilter && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant={!showLogged || !showUnlogged ? "secondary" : "outline"} 
+                      size="sm"
+                    >
+                      <Filter className="h-4 w-4 mr-2" />
+                      Tutor Log
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56" align="end">
+                    <div className="space-y-2">
+                      <div className="font-medium text-sm mb-2">Tutor Log</div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={showLogged}
+                          onCheckedChange={(checked) => setShowLogged(checked === true)}
+                        />
+                        <span className="text-sm">Tutor log</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={showUnlogged}
+                          onCheckedChange={(checked) => setShowUnlogged(checked === true)}
+                        />
+                        <span className="text-sm">Unlogged</span>
+                      </label>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
 
-            {/* Date Range Filter */}
+            {/* Date Range Filter - Right aligned */}
             {onFromChange && onToChange && (
-              <DateRangePicker
-                from={rangeStart || ''}
-                to={rangeEnd || ''}
-                onFromChange={onFromChange}
-                onToChange={onToChange}
-              />
+              <div className="ml-auto">
+                <DateRangePicker
+                  from={rangeStart || ''}
+                  to={rangeEnd || ''}
+                  onFromChange={onFromChange}
+                  onToChange={onToChange}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -599,28 +400,38 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={handleSort}>
+              <TableHead className="cursor-pointer" onClick={toggleSort}>
                 Date
                 <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-100" />
               </TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>
-                Type
-              </TableHead>
-              {!classId && (
+              {!hideTypeColumn && (
+                <TableHead>
+                  Type
+                </TableHead>
+              )}
+              {!classId && !hideClassColumn && (
                 <TableHead>Class</TableHead>
               )}
               <TableHead>Staff</TableHead>
-              <TableHead>Students</TableHead>
+              {!hideStudentsColumn && (
+                <TableHead>Students</TableHead>
+              )}
               <TableHead>Tutor Log</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={(classId ? 6 : 7)} className="text-center h-24">
+                <TableCell colSpan={
+                  5 + 
+                  (!hideTypeColumn ? 1 : 0) + 
+                  (!classId && !hideClassColumn ? 1 : 0) + 
+                  (!hideStudentsColumn ? 1 : 0)
+                } className="text-center h-24">
                   {searchTerm || studentFilters.length > 0 || typeFilters.length > 0
-                    ? "No sessions match your filters" 
+                    ? "No sessions match your filters"
                     : "No sessions found"}
                 </TableCell>
               </TableRow>
@@ -642,17 +453,19 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
-                  <TableCell>
-                    <Badge className={getSessionTypeBadgeColor(session.type)}>
-                      {formatSessionType(session.type)}
-                    </Badge>
-                  </TableCell>
-                  {!classId && (
+                  {!hideTypeColumn && (
                     <TableCell>
-                      {session.class_id ? (() => {
+                      <Badge className={getSessionTypeBadgeColor(session.type)}>
+                        {formatSessionType(session.type)}
+                      </Badge>
+                    </TableCell>
+                  )}
+                  {!classId && !hideClassColumn && (
+                  <TableCell>
+                    {session.class_id ? (() => {
                         const cls = classesById[session.class_id];
-                        const shortDisplay = getClassShortDisplay(session);
-                        const fullDisplay = getClassDisplay(session);
+                        const shortDisplay = getClassShortDisplayName(session);
+                        const fullDisplay = getClassDisplayName(session);
                         // Show button if class exists, even if display is empty (fallback to "Class")
                         if (cls) {
                           return (
@@ -677,7 +490,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                   )}
                   <TableCell>
                     {(() => {
-                      const staffList: any[] = ((data as any)?.sessionStaff?.[session.id] || []) as any[];
+                      const staffList: any[] = (sessionStaff[session.id] || []) as any[];
                       if (!staffList.length) return <span className="text-muted-foreground text-sm">-</span>;
                       return (
                         <div className="flex flex-col gap-1">
@@ -712,72 +525,57 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                       );
                     })()}
                   </TableCell>
-                  <TableCell>
-                    {(() => {
-                      const studentList: any[] = ((data as any)?.sessionStudents?.[session.id] || []) as any[];
-                      if (!studentList.length) return <span className="text-muted-foreground text-sm">-</span>;
-                      
-                      const getInvoiceStatusBadge = (status: string | null | undefined) => {
-                        if (!status) return null;
+                  {!hideStudentsColumn && (
+                    <TableCell>
+                      {(() => {
+                        const studentList: any[] = (sessionStudents[session.id] || []) as any[];
+                        if (!studentList.length) return <span className="text-muted-foreground text-sm">-</span>;
                         
-                        let label = '';
-                        let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-                        
-                        if (status === 'draft' || status === 'open') {
-                          label = 'Sent';
-                          variant = 'secondary';
-                        } else if (status === 'paid') {
-                          label = 'Paid';
-                          variant = 'default';
-                        } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-                          label = 'Failed';
-                          variant = 'destructive';
-                        } else {
-                          label = status;
-                          variant = 'outline';
-                        }
-                        
-                        return <Badge variant={variant} className="text-xs ml-1">{label}</Badge>;
-                      };
-                      
-                      return (
-                        <div className="flex flex-col gap-1">
-                          {studentList.map((s) => {
-                            const plannedAbsence = s.planned_absence === true;
-                            const actualAttended = s.actual_attended;
-                            const invoiceStatus = s.invoice_status;
-                            const isExtra = s.is_extra === true;
-                            const nameClass = plannedAbsence 
-                              ? "text-muted-foreground line-through" 
-                              : isExtra
-                              ? "text-orange-600 dark:text-orange-400"
-                              : "";
-                            
-                            return (
-                              <div key={s.id} className="flex items-center gap-1 flex-wrap">
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  className={cn("h-auto p-0 text-xs justify-start", nameClass)}
-                                  onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
-                                >
-                                  {s.first_name} {s.last_name}
-                                </Button>
-                                {actualAttended !== null && (
-                                  actualAttended ? (
-                                    <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                  ) : (
-                                    <X className="h-3 w-3 text-red-600 flex-shrink-0" />
-                                  )
-                                )}
-                                {!hideBilling && getInvoiceStatusBadge(invoiceStatus)}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </TableCell>
+                        return (
+                          <div className="flex flex-col gap-1">
+                            {studentList.map((s) => {
+                              const plannedAbsence = s.planned_absence === true;
+                              const actualAttended = s.actual_attended;
+                              const invoiceStatus = s.invoice_status;
+                              const isExtra = s.is_extra === true;
+                              const nameClass = plannedAbsence 
+                                ? "text-muted-foreground line-through" 
+                                : isExtra
+                                ? "text-orange-600 dark:text-orange-400"
+                                : "";
+                              
+                              const badgeInfo = getInvoiceStatusBadgeVariant(invoiceStatus);
+                              
+                              return (
+                                <div key={s.id} className="flex items-center gap-1 flex-wrap">
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    className={cn("h-auto p-0 text-xs justify-start", nameClass)}
+                                    onClick={(e) => { e.stopPropagation(); (onOpenStudent as any)?.(s.id); }}
+                                  >
+                                    {s.first_name} {s.last_name}
+                                  </Button>
+                                  {actualAttended !== null && (
+                                    actualAttended ? (
+                                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                    ) : (
+                                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                    )
+                                  )}
+                                  {!hideBilling && badgeInfo && (
+                                    <Badge variant={badgeInfo.variant} className="text-xs ml-1">
+                                      {badgeInfo.label}
+                                    </Badge>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                  )}
                   <TableCell>
                     {tutorLogs[session.id] ? (
                       <TutorLogAvatar
@@ -787,6 +585,34 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
                     ) : (
                       <span className="text-muted-foreground text-sm">-</span>
                     )}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {(() => {
+                      const sessionCanReschedule = canReschedule(session);
+                      const rescheduleStudentId = getRescheduleStudentId(session.id);
+                      
+                      return (
+                        <ActionsMenu
+                          type="session"
+                          onOpenInPage={() => {
+                            router.push(`/sessions/${session.id}`);
+                          }}
+                          onLogSession={() => {
+                            setActionSessionId(session.id);
+                            setIsLogSessionModalOpen(true);
+                          }}
+                          hasTutorLog={!!tutorLogs[session.id]}
+                          onReschedule={() => {
+                            if (rescheduleStudentId) {
+                              setSelectedStudentForReschedule(rescheduleStudentId);
+                              setSelectedSessionForReschedule(session);
+                              setIsRescheduleModalOpen(true);
+                            }
+                          }}
+                          canReschedule={sessionCanReschedule}
+                        />
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               ))
@@ -822,6 +648,50 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
           }}
           onClassUpdated={() => {
             // Refresh sessions when class is updated
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Log Session Modal */}
+      {currentStaff && actionSessionId && (
+        <LogSessionModal
+          isOpen={isLogSessionModalOpen}
+          onClose={() => {
+            setIsLogSessionModalOpen(false);
+            setActionSessionId(null);
+            refetch();
+          }}
+          currentStaffId={currentStaff.id}
+          adminMode={true}
+          initialSessionId={actionSessionId}
+        />
+      )}
+
+      {/* Reschedule Session Modal */}
+      {selectedSessionForReschedule && selectedStudentForReschedule && (
+        <BookSessionModal
+          isOpen={isRescheduleModalOpen}
+          onClose={async () => {
+            setIsRescheduleModalOpen(false);
+            setSelectedSessionForReschedule(null);
+            setSelectedStudentForReschedule(null);
+            refetch();
+          }}
+          sessionType={selectedSessionForReschedule.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
+          initialStudentId={selectedStudentForReschedule}
+          originalSessionId={selectedSessionForReschedule.id}
+          originalSubjectId={(() => {
+            if (selectedSessionForReschedule.class_id) {
+              const cls = classesById[selectedSessionForReschedule.class_id];
+              return cls?.subject_id || null;
+            }
+            return null;
+          })()}
+          onBookingCreated={(_newSessionId) => {
+            setIsRescheduleModalOpen(false);
+            setSelectedSessionForReschedule(null);
+            setSelectedStudentForReschedule(null);
             refetch();
           }}
         />

@@ -5,10 +5,8 @@ import { Button as UIButton } from '@altitutor/ui';
 import { MessageThread } from './MessageThread';
 import { Composer } from './Composer';
 import { useChatStore } from '../state/chatStore';
-import { getContactIdByRelatedId } from '../api/queries';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { getContactIdByRelatedId, getConversationIdForContact } from '../api/queries';
+import { useContactIdFromConversation } from '../hooks/useContactQueries';
 
 interface MessagesTabContentProps {
   conversationId: string | null; // For backward compatibility, will be converted to contactId
@@ -29,27 +27,20 @@ export function MessagesTabContent({
   const [contactId, setContactId] = useState<string | null>(null);
 
   // Convert conversationId to contactId if provided (for backward compatibility)
+  const { data: contactIdFromConversation } = useContactIdFromConversation(
+    initialConversationId && !relatedId ? initialConversationId : undefined
+  );
+
   useEffect(() => {
-    if (initialConversationId && !relatedId) {
-      // If we have a conversationId but no relatedId, fetch the contactId from conversation
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      supabase
-        .from('conversations')
-        .select('contact_id')
-        .eq('id', initialConversationId)
-        .maybeSingle()
-        .then(({ data }: any) => {
-          if (data?.contact_id) {
-            setContactId(data.contact_id);
-          }
-        });
+    if (contactIdFromConversation) {
+      setContactId(contactIdFromConversation);
     } else if (relatedId && relatedType) {
       // Get contactId from relatedId
       getContactIdByRelatedId(relatedId, relatedType).then((cid) => {
         setContactId(cid);
       });
     }
-  }, [initialConversationId, relatedId, relatedType]);
+  }, [contactIdFromConversation, relatedId, relatedType]);
 
   const handleFirstMessage = async (_messageBody: string, _selectedSenderId: string) => {
     // ContactId should already be set from useEffect
@@ -64,23 +55,14 @@ export function MessagesTabContent({
         <div className="font-medium text-sm">Messages</div>
         <UIButton
           size="sm"
-          onClick={() => {
+          onClick={async () => {
             if (contactId) {
               // For pop out, we still need a conversationId - use the first/default one
-              const supabase = getSupabaseClient() as SupabaseClient<Database>;
-              supabase
-                .from('conversations')
-                .select('id')
-                .eq('contact_id', contactId)
-                .in('status', ['OPEN', 'SNOOZED'])
-                .limit(1)
-                .maybeSingle()
-                .then(({ data }: any) => {
-                  if (data?.id) {
-                    useChatStore.getState().openWindow({ conversationId: data.id, title });
-                    onClose();
-                  }
-                });
+              const conversationId = await getConversationIdForContact(contactId);
+              if (conversationId) {
+                useChatStore.getState().openWindow({ conversationId, title });
+                onClose();
+              }
             }
           }}
           disabled={!contactId}

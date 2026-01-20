@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutGrid, Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap } from 'lucide-react';
+import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
 export default function SettingsPage() {
@@ -43,6 +43,12 @@ export default function SettingsPage() {
           description: 'Create and manage message templates',
           href: '/settings/templates',
           icon: FileText,
+        },
+        {
+          title: 'Call Routing',
+          description: 'Configure call routing rules and on-call schedules',
+          href: '/settings/call-routing',
+          icon: Phone,
         },
         {
           title: 'Automation Rules',
