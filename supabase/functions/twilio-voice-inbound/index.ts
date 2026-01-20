@@ -72,13 +72,13 @@ function generateTwiML(decision: RoutingDecision): string {
   if (decision.dial) {
     // Use <Dial> to forward call and preserve caller ID
     // The callerId attribute should be your Twilio number (the one receiving the call)
-    const dialAttrs: string[] = [];
+    // answerOnBridge="true" waits until the forwarded party answers before connecting audio
+    // This improves audio quality and prevents crackling/distortion
+    const dialAttrs: string[] = ['answerOnBridge="true"'];
     if (decision.callerId) {
       dialAttrs.push(`callerId="${escapeXml(decision.callerId)}"`);
     }
-    const dialTag = dialAttrs.length > 0 
-      ? `<Dial ${dialAttrs.join(' ')}>`
-      : '<Dial>';
+    const dialTag = `<Dial ${dialAttrs.join(' ')}>`;
     parts.push(`${dialTag}${escapeXml(decision.dial)}</Dial>`);
   }
   
