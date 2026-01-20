@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -37,7 +37,19 @@ const formSchema = z.object({
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
-  estimate: z.union([z.number().min(1).max(5), z.null()]).default(null),
+  estimate: z.preprocess(
+    (val) => {
+      // Convert falsy or invalid values to null
+      if (val === null || val === undefined || val === '' || val === 0 || val === 'none') {
+        return null;
+      }
+      // Parse string to number if needed
+      const num = typeof val === 'string' ? Number(val) : (typeof val === 'number' ? val : null);
+      // Return null if invalid, otherwise return the number
+      return (num !== null && typeof num === 'number' && !isNaN(num) && num >= 1 && num <= 5) ? num : null;
+    },
+    z.union([z.number().min(1).max(5), z.null()]).default(null)
+  ),
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -128,7 +140,6 @@ export function CreateTaskDialog({
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle>Create Task</DialogTitle>
-          <DialogDescription>Create a new task to track work items.</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden min-h-0">
@@ -152,6 +163,7 @@ export function CreateTaskDialog({
                   onAssigneeChange={setSelectedAssignee}
                   taskStatus={defaultStatus}
                   enabled={isOpen}
+                  autoFocusTitle={true}
                 />
               </form>
             </Form>

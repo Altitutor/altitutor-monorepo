@@ -17,6 +17,7 @@ import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { BookSessionModal } from '@/features/bookings/components';
+import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { NotepadButton, NotepadPanel } from '@/features/notepad';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
@@ -342,7 +343,7 @@ function AdminLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
-  const { bookingSessionType, isBookingModalOpen, closeBookingModal } = useQuickActions();
+  const { bookingSessionType, isBookingModalOpen, closeBookingModal, isCreateTaskDialogOpen, closeCreateTaskDialog } = useQuickActions();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
@@ -412,6 +413,10 @@ function AdminLayoutContent({
                   }}
                 />
               )}
+              <CreateTaskDialog
+                isOpen={isCreateTaskDialogOpen}
+                onClose={closeCreateTaskDialog}
+              />
             </>
           )}
         </div>

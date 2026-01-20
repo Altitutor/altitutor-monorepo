@@ -36,6 +36,7 @@ import {
   Link2,
   Zap,
   File,
+  CheckSquare,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -117,6 +118,14 @@ export const commands: CommandPaletteCommand[] = [
     description: 'Record a staff absence',
     icon: AlertTriangle,
     keywords: ['absence', 'staff', 'log', 'record'],
+    action: () => {},
+  },
+  {
+    id: 'add-task',
+    title: 'Add task',
+    description: 'Create a new task',
+    icon: CheckSquare,
+    keywords: ['task', 'create', 'new', 'todo'],
     action: () => {},
   },
 ];

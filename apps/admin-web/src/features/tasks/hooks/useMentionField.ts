@@ -16,7 +16,12 @@ import type { EntitySearchResult } from '@/shared/hooks/useEntitySearch';
  * Converts HTML content from contentEditable to plain text with preserved line breaks
  * Handles both text nodes and tag markers properly
  */
-function getTextWithLineBreaks(element: HTMLElement): string {
+function getTextWithLineBreaks(element: HTMLElement | null): string {
+  // Guard: ensure element is a valid Node
+  if (!element || !(element instanceof Node)) {
+    return '';
+  }
+  
   // Extract text while reconstructing tag markers from rendered pills
   // Important: Skip text nodes that are inside mention-pill elements to avoid duplication
   let text = '';
@@ -74,7 +79,10 @@ function getTextWithLineBreaks(element: HTMLElement): string {
  * Converts plain text with \n to HTML that contentEditable can display
  * Renders tags as pill elements with colored icons
  */
-function setTextWithTags(element: HTMLElement, text: string, onTagClick?: (tag: { type: TagEntityType; id: string }) => void): void {
+function setTextWithTags(element: HTMLElement | null, text: string, onTagClick?: (tag: { type: TagEntityType; id: string }) => void): void {
+  if (!element || !(element instanceof Node)) {
+    return;
+  }
   if (!text) {
     element.innerHTML = '';
     return;
@@ -161,6 +169,7 @@ interface UseMentionFieldOptions<T extends Record<string, unknown>> {
   fieldName: Path<T>;
   value?: string | null | undefined;
   onTagClick?: (tag: { type: TagEntityType; id: string }) => void;
+  onEnter?: () => void;
 }
 
 export function useMentionField<T extends Record<string, unknown>>({
@@ -168,6 +177,7 @@ export function useMentionField<T extends Record<string, unknown>>({
   fieldName,
   value,
   onTagClick,
+  onEnter,
 }: UseMentionFieldOptions<T>) {
   const ref = useRef<HTMLDivElement>(null);
   const isUpdatingRef = useRef(false);
@@ -178,7 +188,7 @@ export function useMentionField<T extends Record<string, unknown>>({
 
   // Sync contentEditable with form value
   useEffect(() => {
-    if (ref.current && !isUpdatingRef.current) {
+    if (ref.current && ref.current instanceof Node && !isUpdatingRef.current) {
       const formValue = form.getValues(fieldName) as string | null | undefined;
       const currentText = getTextWithLineBreaks(ref.current);
       const formText = formValue || '';
@@ -217,10 +227,16 @@ export function useMentionField<T extends Record<string, unknown>>({
       }
       
       // Check if there's still a mention being typed
-      const text = getTextWithLineBreaks(e.currentTarget);
+      const target = e.currentTarget;
+      if (!target || !(target instanceof Node)) {
+        setIsMentionOpen(false);
+        mentionStartRef.current = -1;
+        return;
+      }
+      const text = getTextWithLineBreaks(target);
       const selection = window.getSelection();
       const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
-      const cursorPosition = range ? getCursorPositionInText(e.currentTarget, range) : -1;
+      const cursorPosition = range ? getCursorPositionInText(target, range) : -1;
       
       if (cursorPosition >= 0) {
         const mentionStart = findMentionStart(text, cursorPosition);
@@ -240,6 +256,7 @@ export function useMentionField<T extends Record<string, unknown>>({
     if (isUpdatingRef.current) return;
 
     const element = e.currentTarget;
+    if (!element || !(element instanceof Node)) return;
     
     // Get cursor position first, before we modify anything
     const selection = window.getSelection();
@@ -335,8 +352,15 @@ export function useMentionField<T extends Record<string, unknown>>({
       return; // Let MentionAutocomplete handle these
     }
 
+    // Handle Enter key for title field - prevent newline and move to description
+    if (e.key === 'Enter' && fieldName === 'title' && onEnter) {
+      e.preventDefault();
+      onEnter();
+      return;
+    }
+
     // Prevent breaking tags
-    if (ref.current) {
+    if (ref.current && ref.current instanceof Node) {
       const text = getTextWithLineBreaks(ref.current);
       const selection = window.getSelection();
       const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
@@ -361,7 +385,7 @@ export function useMentionField<T extends Record<string, unknown>>({
         }
       }
     }
-  }, [form, fieldName, isMentionOpen, onTagClick]);
+  }, [form, fieldName, isMentionOpen, onTagClick, onEnter]);
 
   const insertTag = useCallback((result: EntitySearchResult) => {
     if (!ref.current) {
@@ -369,6 +393,9 @@ export function useMentionField<T extends Record<string, unknown>>({
     }
 
     const element = ref.current;
+    if (!element || !(element instanceof Node)) {
+      return;
+    }
     
     // Ensure element has focus before inserting tag
     if (document.activeElement !== element) {

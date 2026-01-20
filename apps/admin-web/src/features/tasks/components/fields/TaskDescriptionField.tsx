@@ -17,15 +17,16 @@ interface TaskDescriptionFieldProps {
   form: UseFormReturn<{ description?: string }>;
   value?: string | null;
   onTagClick?: (type: TagEntityType, id: string) => void;
+  descriptionRef?: React.RefObject<HTMLDivElement>;
 }
 
-export function TaskDescriptionField({ form, value, onTagClick }: TaskDescriptionFieldProps) {
+export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }: TaskDescriptionFieldProps) {
   const handleTagClick = useCallback((tag: { type: TagEntityType; id: string }) => {
     onTagClick?.(tag.type, tag.id);
   }, [onTagClick]);
 
   const {
-    ref,
+    ref: internalRef,
     handleBlur,
     handleInput,
     handleKeyDown,
@@ -41,6 +42,24 @@ export function TaskDescriptionField({ form, value, onTagClick }: TaskDescriptio
     onTagClick: handleTagClick,
   });
 
+  // Combine refs: use the internal ref and also forward to descriptionRef if provided
+  const combinedRef = useCallback((node: HTMLDivElement | null) => {
+    // Set internal ref
+    if (typeof internalRef === 'function') {
+      internalRef(node);
+    } else if (internalRef) {
+      (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }
+    // Forward to descriptionRef if provided
+    if (descriptionRef) {
+      if (typeof descriptionRef === 'function') {
+        descriptionRef(node);
+      } else {
+        descriptionRef.current = node;
+      }
+    }
+  }, [internalRef, descriptionRef]);
+
   const handleSelectEntity = useCallback((result: EntitySearchResult) => {
     insertTag(result);
   }, [insertTag]);
@@ -54,7 +73,7 @@ export function TaskDescriptionField({ form, value, onTagClick }: TaskDescriptio
           <FormControl>
             <div className="relative">
               <div
-                ref={ref}
+                ref={descriptionRef ? combinedRef : internalRef}
                 contentEditable
                 onBlur={handleBlur}
                 onInput={handleInput}

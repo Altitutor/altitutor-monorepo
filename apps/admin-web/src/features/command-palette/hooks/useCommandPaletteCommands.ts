@@ -13,6 +13,7 @@ interface CommandActions {
   openTutorLog: () => void;
   openLogStudentAbsence: () => void;
   openLogStaffAbsence: () => void;
+  openCreateTask: () => void;
 }
 
 interface UseCommandPaletteCommandsOptions {
@@ -48,6 +49,9 @@ export function useCommandPaletteCommands({
           break;
         case 'log-staff-absence':
           action = commandActions.openLogStaffAbsence;
+          break;
+        case 'add-task':
+          action = commandActions.openCreateTask;
           break;
       }
       return { ...cmd, action };

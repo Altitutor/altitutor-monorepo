@@ -2,7 +2,7 @@
 
 import { Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { TaskTitleField, TaskDescriptionField } from '../fields';
 import { TaskPropertyPills } from '../fields/TaskPropertyPills';
 import { TaskActivityTab } from '@/features/activity/components/tabs/TaskActivityTab';
@@ -42,6 +42,7 @@ interface TaskContentPanelProps {
   onAssigneeChange?: (staff: Tables<'staff'> | null) => void;
   taskStatus?: TaskStatus;
   enabled?: boolean;
+  autoFocusTitle?: boolean;
 }
 
 export function TaskContentPanel({
@@ -54,7 +55,12 @@ export function TaskContentPanel({
   onAssigneeChange,
   taskStatus,
   enabled = true,
+  autoFocusTitle = false,
 }: TaskContentPanelProps) {
+  // Refs for fields
+  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const descriptionFieldRef = useRef<HTMLDivElement>(null);
+
   // Modal state for entity tags
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -96,6 +102,38 @@ export function TaskContentPanel({
     }
   }, []);
 
+  // Handle Enter key in title field - move focus to description
+  const handleTitleEnter = useCallback(() => {
+    if (descriptionFieldRef.current) {
+      descriptionFieldRef.current.focus();
+      // Place cursor at the start of description
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(descriptionFieldRef.current);
+      range.collapse(true); // Collapse to start
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+  }, []);
+
+  // Auto-focus title field when dialog opens
+  useEffect(() => {
+    if (isOpen && autoFocusTitle && titleFieldRef.current) {
+      // Use setTimeout to ensure the dialog is fully rendered
+      const timer = setTimeout(() => {
+        titleFieldRef.current?.focus();
+        // Place cursor at the start
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(titleFieldRef.current);
+        range.collapse(true); // Collapse to start
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoFocusTitle]);
+
   return (
     <>
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -118,6 +156,8 @@ export function TaskContentPanel({
             form={form as unknown as UseFormReturn<{ title: string }>}
             value={form.getValues('title')}
             onTagClick={handleTagClick}
+            onEnter={handleTitleEnter}
+            titleRef={titleFieldRef}
           />
         </div>
 
@@ -127,6 +167,7 @@ export function TaskContentPanel({
             form={form as unknown as UseFormReturn<{ description?: string }>}
             value={form.getValues('description')}
             onTagClick={handleTagClick}
+            descriptionRef={descriptionFieldRef}
           />
         </div>
 

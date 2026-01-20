@@ -61,6 +61,13 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     }
   }, [onClose, quickActions]);
 
+  const openCreateTask = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openCreateTaskDialog();
+    }
+  }, [onClose, quickActions]);
+
   if (!quickActions) {
     return null;
   }
@@ -72,5 +79,6 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     openTutorLog,
     openLogStudentAbsence,
     openLogStaffAbsence,
+    openCreateTask,
   };
 }
