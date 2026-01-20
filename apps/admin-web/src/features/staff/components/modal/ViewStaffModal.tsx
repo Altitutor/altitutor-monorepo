@@ -32,6 +32,8 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { SendInviteDialog } from './SendInviteDialog';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import {
   useStaffEditFlow,
   useStaffPasswordReset,
@@ -39,6 +41,7 @@ import {
   useStaffModals,
   useStaffConversation,
 } from '../../hooks';
+import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -96,6 +99,16 @@ export function ViewStaffModal({
   const [activeTab, setActiveTab] = useState('details');
   const [baseUrl, setBaseUrl] = useState('');
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  
+  // Nested modal state for sessions table interactions
+  const {
+    nestedSessionId,
+    nestedStaffId,
+    nestedStudentId,
+    setNestedSessionId,
+    setNestedStaffId,
+    setNestedStudentId,
+  } = useNestedModalEvents({ isOpen });
 
   // Set base URL for password reset
   useEffect(() => {
@@ -440,6 +453,33 @@ export function ViewStaffModal({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {/* Nested Session Modal */}
+      <SessionModal
+        isOpen={!!nestedSessionId}
+        sessionId={nestedSessionId}
+        onClose={() => setNestedSessionId(null)}
+      />
+
+      {/* Nested Staff Modal */}
+      {nestedStaffId && (
+        <ViewStaffModal
+          isOpen={!!nestedStaffId}
+          staffId={nestedStaffId}
+          onClose={() => setNestedStaffId(null)}
+          onStaffUpdated={onStaffUpdated}
+        />
+      )}
+
+      {/* Nested Student Modal */}
+      {nestedStudentId && (
+        <ViewStudentModal
+          isOpen={!!nestedStudentId}
+          studentId={nestedStudentId}
+          onClose={() => setNestedStudentId(null)}
+          onStudentUpdated={onStaffUpdated}
+        />
       )}
     </>
   );

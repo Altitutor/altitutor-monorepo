@@ -36,6 +36,8 @@ import { ViewParentModal } from './ViewParentModal';
 import { ParentSearchPopover } from './ParentSearchPopover';
 import { Badge } from '@altitutor/ui';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
@@ -45,6 +47,7 @@ import {
   useAllParents,
   studentsKeys,
 } from '../hooks';
+import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -103,6 +106,16 @@ export function ViewStudentModal({
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
+  
+  // Nested modal state for sessions table interactions
+  const {
+    nestedSessionId,
+    nestedStaffId,
+    nestedStudentId,
+    setNestedSessionId,
+    setNestedStaffId,
+    setNestedStudentId,
+  } = useNestedModalEvents({ isOpen });
 
   // Reset edit states when modal closes
   useEffect(() => {
@@ -436,6 +449,33 @@ export function ViewStudentModal({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {/* Nested Session Modal */}
+      <SessionModal
+        isOpen={!!nestedSessionId}
+        sessionId={nestedSessionId}
+        onClose={() => setNestedSessionId(null)}
+      />
+
+      {/* Nested Staff Modal */}
+      {nestedStaffId && (
+        <ViewStaffModal
+          isOpen={!!nestedStaffId}
+          staffId={nestedStaffId}
+          onClose={() => setNestedStaffId(null)}
+          onStaffUpdated={onStudentUpdated}
+        />
+      )}
+
+      {/* Nested Student Modal */}
+      {nestedStudentId && (
+        <ViewStudentModal
+          isOpen={!!nestedStudentId}
+          studentId={nestedStudentId}
+          onClose={() => setNestedStudentId(null)}
+          onStudentUpdated={onStudentUpdated}
+        />
       )}
       
     </>
