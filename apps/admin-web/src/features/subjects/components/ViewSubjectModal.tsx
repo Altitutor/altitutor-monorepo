@@ -57,7 +57,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@altitutor/ui";
 import { useRouter } from "next/navigation";
 import { Separator } from "@altitutor/ui";
-import { ExternalLink } from "lucide-react";
+import { X } from "lucide-react";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
 
 export interface ViewSubjectModalProps {
   isOpen: boolean;
@@ -256,33 +257,40 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       <Sheet open={isOpen} onOpenChange={(isOpen) => {
         if (!isOpen) onClose();
       }}>
-        <SheetContent className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <SheetTitle className="text-xl">
-                    {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
-                  </SheetTitle>
-                  {!loading && subject && (
-                    <SheetDescription className="text-lg font-medium">
-                      {subject.name}
-                    </SheetDescription>
-                  )}
-                </div>
-                {subjectId && (
+                <div className="flex items-center gap-3 flex-1">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    onClick={() => {
+                    onClick={onClose}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1">
+                    <SheetTitle className="text-xl">
+                      {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
+                    </SheetTitle>
+                    {!loading && subject && (
+                      <SheetDescription className="text-lg font-medium">
+                        {subject.name}
+                      </SheetDescription>
+                    )}
+                  </div>
+                </div>
+                {subjectId && !isEditing && (
+                  <ActionsMenu
+                    type="subject"
+                    onOpenInPage={() => {
                       router.push(`/subjects/${subjectId}`);
                       onClose();
                     }}
-                    className="shrink-0"
-                    title="Open in new page"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                    onEdit={handleEditClick}
+                    onDelete={() => setIsDeleteDialogOpen(true)}
+                  />
                 )}
               </div>
             </SheetHeader>
@@ -578,100 +586,88 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
           </div>
         
           {/* Action buttons at the bottom - sticky footer */}
-        {!loading && subject && (
+        {!loading && subject && isEditing && (
           <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
             <div className="flex w-full justify-between">
-              {isEditing ? (
-                <>
-                  <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-                    setIsDeleteDialogOpen(open);
-                    if (!open) {
-                      setDeleteConfirmText('');
-                    }
-                  }}>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="destructive" 
-                        type="button"
-                        disabled={loading}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the subject
-                          "{subject.name}" and all associated data from the database.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <div className="py-4">
-                        <div className="space-y-2">
-                          <Label>
-                            Type <strong>{subject.name}</strong> to confirm deletion
-                          </Label>
-                          <Input
-                            type="text"
-                            placeholder={subject.name}
-                            value={deleteConfirmText}
-                            onChange={(e) => setDeleteConfirmText(e.target.value)}
-                            className="mt-2"
-                          />
-                        </div>
-                      </div>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={handleDeleteSubject}
-                          disabled={isDeleting || deleteConfirmText !== subject.name}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Deleting...
-                            </>
-                          ) : (
-                            'Delete'
-                          )}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="button"
-                      disabled={loading}
-                      onClick={form.handleSubmit(onSubmit)}
-                    >
-                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save Changes
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex w-full justify-end">
-                  <Button 
-                    variant="outline" 
-                    className="flex items-center" 
-                    onClick={handleEditClick}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </Button>
-                </div>
-              )}
+              <Button 
+                variant="destructive" 
+                type="button"
+                disabled={loading}
+                onClick={() => setIsDeleteDialogOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+              
+              <div className="flex space-x-2">
+                <Button variant="outline" type="button" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="button"
+                  disabled={loading}
+                  onClick={form.handleSubmit(onSubmit)}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
             </div>
           </SheetFooter>
         )}
       </SheetContent>
     </Sheet>
+    
+    {/* Delete Confirmation Dialog - accessible from ActionsMenu */}
+    {subject && (
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        setIsDeleteDialogOpen(open);
+        if (!open) {
+          setDeleteConfirmText('');
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the subject
+              "{subject.name}" and all associated data from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label>
+                Type <strong>{subject.name}</strong> to confirm deletion
+              </Label>
+              <Input
+                type="text"
+                placeholder={subject.name}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteSubject}
+              disabled={isDeleting || deleteConfirmText !== subject.name}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    )}
     
     {/* Topics Modals */}
     <AddTopicModal

@@ -66,7 +66,13 @@ interface TopicActionsMenuProps extends BaseActionsMenuProps {
   type: 'topic';
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps;
+interface SubjectActionsMenuProps extends BaseActionsMenuProps {
+  type: 'subject';
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
+
+type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps;
 
 export function ActionsMenu(props: ActionsMenuProps) {
   if (props.type === 'student') {
@@ -224,6 +230,42 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <DropdownMenuItem onClick={props.onChargeCard} disabled={props.isLoadingAction}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 Charge Card
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'subject') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {props.onEdit && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onEdit}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit subject
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete subject
               </DropdownMenuItem>
             </>
           )}
