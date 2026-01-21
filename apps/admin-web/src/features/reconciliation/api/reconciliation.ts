@@ -10,6 +10,7 @@ import type {
   UnpaidInvoice,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
+  TrialStudentNotSignedUp,
 } from '../types';
 
 /**
@@ -156,5 +157,19 @@ export const reconciliationApi = {
       .order('first_name', { ascending: true });
     if (error) throw error;
     return (data ?? []) as StudentWithoutPaymentMethod[];
+  },
+
+  /**
+   * Get trial students who haven't signed up
+   */
+  getTrialStudentsNotSignedUp: async (): Promise<TrialStudentNotSignedUp[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await (supabase as any)
+      .from('vadmin_reconciliation_trial_students_not_signed_up')
+      .select('*')
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as TrialStudentNotSignedUp[];
   },
 };

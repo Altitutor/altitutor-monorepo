@@ -8,6 +8,7 @@ import type {
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
+  TrialStudentNotSignedUp,
 } from '../types';
 
 interface ReconciliationQueries {
@@ -19,6 +20,7 @@ interface ReconciliationQueries {
   failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
+  trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
 }
 
 /**
@@ -43,11 +45,16 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
       ...(queries.failedDeliveryMessages.data ?? []),
     ];
 
+    const trialItems = [
+      ...(queries.trialStudentsNotSignedUp.data ?? []),
+    ];
+
     return {
       financialItems,
       schedulingItems,
       communicationItems,
-      hasAnyItems: financialItems.length > 0 || schedulingItems.length > 0 || communicationItems.length > 0,
+      trialItems,
+      hasAnyItems: financialItems.length > 0 || schedulingItems.length > 0 || communicationItems.length > 0 || trialItems.length > 0,
     };
   }, [
     queries.uninvoicedSessions.data,
@@ -58,5 +65,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     queries.failedDeliveryMessages.data,
     queries.studentsWithoutClasses.data,
     queries.studentsWithoutPaymentMethod.data,
+    queries.trialStudentsNotSignedUp.data,
   ]);
 }

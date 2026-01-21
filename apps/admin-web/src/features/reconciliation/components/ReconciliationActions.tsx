@@ -20,6 +20,7 @@ import type {
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
+  TrialStudentNotSignedUp,
   ReconciliationItemType,
 } from '../types';
 
@@ -67,7 +68,8 @@ interface ReconciliationActionsProps {
     | UnrepliedMessage
     | FailedDeliveryMessage
     | StudentWithoutClasses
-    | StudentWithoutPaymentMethod;
+    | StudentWithoutPaymentMethod
+    | TrialStudentNotSignedUp;
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
@@ -374,6 +376,31 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <Plus className="h-4 w-4 mr-1" />
             Add Class
+          </Button>
+        </div>
+      );
+    }
+
+    case 'trial_students_not_signed_up': {
+      const student = item as TrialStudentNotSignedUp;
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlers.onOpenStudent(student.student_id)}
+          >
+            <User className="h-4 w-4 mr-1" />
+            View Student
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleMessageStudent(student.student_id)}
+            disabled={isLoading}
+          >
+            <MessageCircle className="h-4 w-4 mr-1" />
+            Message
           </Button>
         </div>
       );

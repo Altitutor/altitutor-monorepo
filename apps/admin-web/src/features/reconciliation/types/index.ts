@@ -147,6 +147,19 @@ export interface StudentWithoutPaymentMethod {
   updated_at: string;
 }
 
+// Trial Students Not Signed Up
+export interface TrialStudentNotSignedUp {
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  student_status: string;
+  user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Unpaid Invoices (from invoices table directly)
 export interface UnpaidInvoice {
   id: string;
@@ -174,7 +187,8 @@ export type ReconciliationItemType =
   | 'unreplied_messages'
   | 'failed_delivery_messages'
   | 'students_without_classes'
-  | 'students_without_payment_method';
+  | 'students_without_payment_method'
+  | 'trial_students_not_signed_up';
 
 export interface ReconciliationCategoryData {
   category: ReconciliationCategory;
@@ -187,6 +201,7 @@ export interface ReconciliationCategoryData {
     failed_delivery_messages?: FailedDeliveryMessage[];
     students_without_classes?: StudentWithoutClasses[];
     students_without_payment_method?: StudentWithoutPaymentMethod[];
+    trial_students_not_signed_up?: TrialStudentNotSignedUp[];
   };
   counts: {
     uninvoiced_sessions: number;
@@ -197,5 +212,6 @@ export interface ReconciliationCategoryData {
     failed_delivery_messages: number;
     students_without_classes: number;
     students_without_payment_method: number;
+    trial_students_not_signed_up: number;
   };
 }

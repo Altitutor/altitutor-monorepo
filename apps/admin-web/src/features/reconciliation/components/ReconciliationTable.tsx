@@ -27,6 +27,7 @@ import type {
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
+  TrialStudentNotSignedUp,
 } from '../types';
 
 interface ReconciliationTableProps<T> {
@@ -495,6 +496,39 @@ export function StudentsWithoutClassesTable({
           </TableRow>
         );
       }}
+    />
+  );
+}
+
+export function TrialStudentsNotSignedUpTable({
+  items,
+  isLoading,
+}: {
+  items: TrialStudentNotSignedUp[];
+  isLoading?: boolean;
+}) {
+  return (
+    <ReconciliationTable
+      title="Trial Students Who Haven't Signed Up"
+      items={items}
+      isLoading={isLoading}
+      columns={['Student', 'Email', 'Phone']}
+      renderRow={(item, _index) => (
+        <TableRow key={item.student_id}>
+          <TableCell className="font-medium">
+            {item.first_name} {item.last_name}
+          </TableCell>
+          <TableCell>
+            {item.email || '—'}
+          </TableCell>
+          <TableCell>
+            {item.phone || '—'}
+          </TableCell>
+          <TableCell>
+            <ReconciliationActions type="trial_students_not_signed_up" item={item} />
+          </TableCell>
+        </TableRow>
+      )}
     />
   );
 }
