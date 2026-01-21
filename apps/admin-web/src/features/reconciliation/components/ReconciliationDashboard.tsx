@@ -161,6 +161,10 @@ export function ReconciliationDashboard() {
             items={reconciliationData.studentsWithoutClasses.data ?? []}
             isLoading={reconciliationData.studentsWithoutClasses.isLoading}
           />
+          <TrialStudentsNotSignedUpTable
+            items={reconciliationData.trialStudentsNotSignedUp.data ?? []}
+            isLoading={reconciliationData.trialStudentsNotSignedUp.isLoading}
+          />
         </div>
 
         {/* Communication Reconciliation */}
@@ -173,15 +177,6 @@ export function ReconciliationDashboard() {
           <FailedDeliveryMessagesTable
             items={reconciliationData.failedDeliveryMessages.data ?? []}
             isLoading={reconciliationData.failedDeliveryMessages.isLoading}
-          />
-        </div>
-
-        {/* Trial Students */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold">Trial Students</h2>
-          <TrialStudentsNotSignedUpTable
-            items={reconciliationData.trialStudentsNotSignedUp.data ?? []}
-            isLoading={reconciliationData.trialStudentsNotSignedUp.isLoading}
           />
         </div>
 

@@ -512,7 +512,7 @@ export function TrialStudentsNotSignedUpTable({
       title="Trial Students Who Haven't Signed Up"
       items={items}
       isLoading={isLoading}
-      columns={['Student', 'Email', 'Phone']}
+      columns={['Student', 'Email']}
       renderRow={(item, _index) => (
         <TableRow key={item.student_id}>
           <TableCell className="font-medium">
@@ -520,9 +520,6 @@ export function TrialStudentsNotSignedUpTable({
           </TableCell>
           <TableCell>
             {item.email || '—'}
-          </TableCell>
-          <TableCell>
-            {item.phone || '—'}
           </TableCell>
           <TableCell>
             <ReconciliationActions type="trial_students_not_signed_up" item={item} />
