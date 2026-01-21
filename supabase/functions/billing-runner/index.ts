@@ -49,6 +49,7 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const billingCronSecret = Deno.env.get('BILLING_CRON_SECRET_KEY')?.trim();
 
   // Parse request body for date override (must be done before auth check to avoid consuming body)
   let dateOverride: string | null = null;
@@ -66,27 +67,27 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  let isServiceRole = false;
+  let isCronJob = false;
   let isAdminUser = false;
 
   try {
     const authHeader = req.headers.get('authorization');
     const apiKey = req.headers.get('apikey');
 
-    // Check if this is a service role request (cron job or direct service call)
+    // Check if this is a cron job request using custom cron secret
     // Handle both Bearer token format and direct key comparison
     const bearerToken = authHeader?.startsWith('Bearer ')
       ? authHeader.substring(7).trim()
       : authHeader;
 
-    if (apiKey === supabaseServiceKey || bearerToken === supabaseServiceKey) {
-      isServiceRole = true;
+    // Authenticate cron jobs using custom secret (more secure and controllable)
+    if (billingCronSecret && (apiKey === billingCronSecret || bearerToken === billingCronSecret)) {
+      isCronJob = true;
     }
 
-    // Development mode: Allow admin users to test (only when using test Stripe keys)
-    // This bypasses service role requirement for local/testing scenarios
-    // Check admin token even if service role is provided, as a fallback for local dev
-    if (isStripeTestKey) {
+    // Allow admin users to call this function (for manual invoicing from admin web)
+    // Enabled for both test and live keys (same as billing-single)
+    if (isStripeTestKey || isStripeLiveKey) {
       try {
         // Check for admin token in custom header (sent by API route)
         const adminToken = req.headers.get('x-admin-token');
@@ -115,12 +116,12 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Only allow service role or admin users (in test mode)
-    if (!isServiceRole && !isAdminUser) {
+    // Only allow cron jobs or admin users
+    if (!isCronJob && !isAdminUser) {
       return json(
         {
           error:
-            'Unauthorized: Billing can only be triggered by service role (cron jobs or manual service calls)',
+            'Unauthorized: Billing can only be triggered by cron jobs or admin staff',
         },
         403
       );
