@@ -9,6 +9,7 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
+import { generateLinkTokensForStudent, templateContainsLinkVariables } from '../utils/generateLinkTokens';
 
 interface Props {
   contactId: string | null;
@@ -77,6 +78,9 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
       ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
       : null;
     
+    // Check if template contains link variables
+    const needsLinks = templateContainsLinkVariables(template.content);
+    
     // Try to replace variables if we have contact data
     if (contactData) {
       const contact = contactData;
@@ -87,8 +91,24 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
         try {
           // Fetch student classes
           const classes = await getStudentClasses(student.id);
+          
+          // Generate link tokens if template contains link variables
+          let linkTokens = null;
+          if (needsLinks) {
+            try {
+              linkTokens = await generateLinkTokensForStudent(student.id, {
+                includeRegistration: template.content.includes('{registration_link}'),
+                includeInvite: template.content.includes('{invite_link}'),
+                includePasswordReset: template.content.includes('{forgot_password_link}'),
+              });
+            } catch (error) {
+              console.error('Error generating link tokens:', error);
+              // Continue without tokens - variables will be replaced with empty strings
+            }
+          }
+          
           // Replace variables with actual data
-          content = replaceVariables(template.content, student, classes, senderName);
+          content = replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
         } catch (error) {
           console.error('Error fetching student classes for template:', error);
           // Fall back to template with placeholders if we can't fetch classes
@@ -105,8 +125,24 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
             try {
               // Fetch student classes
               const classes = await getStudentClasses(student.id);
+              
+              // Generate link tokens if template contains link variables
+              let linkTokens = null;
+              if (needsLinks) {
+                try {
+                  linkTokens = await generateLinkTokensForStudent(student.id, {
+                    includeRegistration: template.content.includes('{registration_link}'),
+                    includeInvite: template.content.includes('{invite_link}'),
+                    includePasswordReset: template.content.includes('{forgot_password_link}'),
+                  });
+                } catch (error) {
+                  console.error('Error generating link tokens:', error);
+                  // Continue without tokens - variables will be replaced with empty strings
+                }
+              }
+              
               // Replace variables with actual data
-              content = replaceVariables(template.content, student, classes, senderName);
+              content = replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
             } catch (error) {
               console.error('Error fetching student classes for template:', error);
               // Fall back to template with placeholders if we can't fetch classes
