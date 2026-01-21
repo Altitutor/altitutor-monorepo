@@ -9,6 +9,83 @@ export interface LinkTokens {
 }
 
 /**
+ * Generate tokens/links for a staff member
+ * Returns tokens that can be used with replaceVariables
+ * Note: Staff don't have registration links
+ */
+export async function generateLinkTokensForStaff(
+  staffId: string,
+  staffRole: string,
+  options?: {
+    includeInvite?: boolean;
+    includePasswordReset?: boolean;
+  }
+): Promise<LinkTokens> {
+  const tokens: LinkTokens = {};
+  const {
+    includeInvite = true,
+    includePasswordReset = true,
+  } = options || {};
+
+  try {
+    // Generate invite token if needed
+    if (includeInvite) {
+      try {
+        const response = await fetch('/api/invites/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'staff', id: staffId }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          tokens.inviteToken = data.token;
+        }
+      } catch (error) {
+        console.error('Failed to generate invite token:', error);
+      }
+    }
+
+    // Generate password reset link if needed (requires staff to have account)
+    if (includePasswordReset) {
+      try {
+        // First check if staff has an account
+        const supabase = (await import('@/shared/lib/supabase/client')).getSupabaseClient();
+        const { data: staff } = await supabase
+          .from('staff')
+          .select('user_id, email, role')
+          .eq('id', staffId)
+          .single();
+
+        if (staff?.user_id && staff?.email) {
+          // Staff has account, generate password reset link
+          const response = await fetch('/api/generate-password-reset-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              userId: staff.user_id,
+              email: staff.email,
+              userType: staff.role === 'TUTOR' ? 'tutor' : 'admin',
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            tokens.forgotPasswordLink = data.link;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to generate password reset link:', error);
+      }
+    }
+  } catch (error) {
+    console.error('Error generating link tokens for staff:', error);
+  }
+
+  return tokens;
+}
+
+/**
  * Generate tokens/links for a student
  * Returns tokens that can be used with replaceVariables
  */

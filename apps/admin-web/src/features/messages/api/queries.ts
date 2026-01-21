@@ -551,7 +551,8 @@ export async function getContactForTemplate(contactId: string) {
         parents_students (
           students (id, first_name, last_name)
         )
-      )
+      ),
+      staff (id, first_name, last_name, role, email, user_id)
     `)
     .eq('id', contactId)
     .maybeSingle();
