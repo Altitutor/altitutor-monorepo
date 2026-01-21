@@ -98,7 +98,7 @@ export function ChatWindow({ descriptor }: Props) {
       currentDraftRef.current = '';
     }
     
-    previousContactIdRef.current = contactId;
+    previousContactIdRef.current = contactId ?? null;
   }, [contactId]);
   
   // Handler to update draft for current conversation
