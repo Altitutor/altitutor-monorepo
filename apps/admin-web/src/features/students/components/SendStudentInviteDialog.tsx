@@ -32,13 +32,13 @@ export function SendStudentInviteDialog({
 }: SendStudentInviteDialogProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [isSendingSms, setIsSendingSms] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [emailSent, setEmailSent] = useState(false);
-  const [smsSent, setSmsSent] = useState(false);
+  const [emailSent, setEmailSent] = useState<Record<string, boolean>>({});
+  const [smsSent, setSmsSent] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState<Record<string, boolean>>({});
+  const [sendingSms, setSendingSms] = useState<Record<string, boolean>>({});
   const [parents, setParents] = useState<Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }>>([]);
 
   // Fetch parent data and existing token
@@ -165,11 +165,13 @@ export function SendStudentInviteDialog({
     }
   };
 
-  const handleSendEmail = async () => {
+  const handleSendEmail = async (recipientType: 'student' | 'parent', recipientId?: string) => {
     if (!token) return;
 
+    const key = recipientType === 'student' ? 'student' : `parent-${recipientId}`;
+    
     try {
-      setIsSendingEmail(true);
+      setSendingEmail(prev => ({ ...prev, [key]: true }));
       
       if (linkType === 'invite') {
         const result = await fetch('/api/invites/send-email', {
@@ -187,7 +189,7 @@ export function SendStudentInviteDialog({
           throw new Error(error.error || 'Failed to send email');
         }
 
-        setEmailSent(true);
+        setEmailSent(prev => ({ ...prev, [key]: true }));
         toast({
           title: 'Invite email sent',
           description: `An invite has been sent to ${student.email || 'the parent(s)'}`,
@@ -200,6 +202,9 @@ export function SendStudentInviteDialog({
             studentId: student.id,
             token,
             sendEmail: true,
+            recipientType,
+            recipientId,
+            contactMethod: 'email',
           }),
         });
 
@@ -208,10 +213,13 @@ export function SendStudentInviteDialog({
           throw new Error(error.error || 'Failed to send email');
         }
 
-        setEmailSent(true);
+        setEmailSent(prev => ({ ...prev, [key]: true }));
+        const recipientName = recipientType === 'student' 
+          ? 'Student' 
+          : parents.find(p => p.id === recipientId)?.first_name || 'Parent';
         toast({
           title: 'Registration email sent',
-          description: 'The registration link has been sent via email',
+          description: `The registration link has been sent via email to ${recipientName}`,
         });
       }
     } catch (error) {
@@ -222,15 +230,17 @@ export function SendStudentInviteDialog({
         variant: 'destructive',
       });
     } finally {
-      setIsSendingEmail(false);
+      setSendingEmail(prev => ({ ...prev, [key]: false }));
     }
   };
 
-  const handleSendSms = async () => {
+  const handleSendSms = async (recipientType: 'student' | 'parent', recipientId?: string) => {
     if (!token) return;
 
+    const key = recipientType === 'student' ? 'student' : `parent-${recipientId}`;
+    
     try {
-      setIsSendingSms(true);
+      setSendingSms(prev => ({ ...prev, [key]: true }));
       
       if (linkType === 'invite') {
         await fetch('/api/invites/send-sms', {
@@ -243,7 +253,7 @@ export function SendStudentInviteDialog({
           }),
         });
 
-        setSmsSent(true);
+        setSmsSent(prev => ({ ...prev, [key]: true }));
         toast({
           title: 'Invite SMS sent',
           description: `An invite has been sent to ${student.phone || 'the parent(s)'}`,
@@ -256,6 +266,9 @@ export function SendStudentInviteDialog({
             studentId: student.id,
             token,
             sendSms: true,
+            recipientType,
+            recipientId,
+            contactMethod: 'sms',
           }),
         });
 
@@ -267,10 +280,13 @@ export function SendStudentInviteDialog({
           throw new Error(errorMessage + errorDetails);
         }
 
-        setSmsSent(true);
+        setSmsSent(prev => ({ ...prev, [key]: true }));
+        const recipientName = recipientType === 'student' 
+          ? 'Student' 
+          : parents.find(p => p.id === recipientId)?.first_name || 'Parent';
         toast({
           title: 'Registration SMS sent',
-          description: 'The registration link has been sent via SMS',
+          description: `The registration link has been sent via SMS to ${recipientName}`,
         });
       }
     } catch (error) {
@@ -281,27 +297,28 @@ export function SendStudentInviteDialog({
         variant: 'destructive',
       });
     } finally {
-      setIsSendingSms(false);
+      setSendingSms(prev => ({ ...prev, [key]: false }));
     }
   };
 
   const handleClose = () => {
     setToken(null);
     setInviteUrl(null);
-    setEmailSent(false);
-    setSmsSent(false);
+    setEmailSent({});
+    setSmsSent({});
     setCopied(false);
+    setSendingEmail({});
+    setSendingSms({});
     onClose();
   };
 
-  // Determine recipients (prefer parents, fallback to student)
-  const recipients = parents.filter(p => p.email || p.phone);
-  const hasRecipients = recipients.length > 0 || (student.email || student.phone);
+  // Check if there are any available recipients
+  const hasRecipients = (student.email || student.phone) || parents.some(p => p.email || p.phone);
   
   const dialogTitle = linkType === 'invite' ? 'Send Invite' : 'Send Registration Link';
   const dialogDescription = linkType === 'invite' 
     ? `Send an account creation invite to ${student.first_name} ${student.last_name}`
-    : `Send a registration link to ${student.first_name} ${student.last_name}'s parent(s) to complete registration`;
+    : `Send a registration link to ${student.first_name} ${student.last_name} or their parent(s) to complete registration`;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -375,28 +392,92 @@ export function SendStudentInviteDialog({
               <div className="space-y-3">
                 <h4 className="text-sm font-medium">Send via:</h4>
                 
-                {/* Email Options for Parents */}
-                {recipients.map((parent) => (
+                {/* Student Email */}
+                {student.email && (
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Student Email</p>
+                        <p className="text-sm text-muted-foreground">{student.email}</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleSendEmail('student')}
+                      disabled={isGenerating || sendingEmail['student'] || emailSent['student']}
+                      size="sm"
+                    >
+                      {sendingEmail['student'] ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : emailSent['student'] ? (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Sent
+                        </>
+                      ) : (
+                        'Send Email'
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Student Phone */}
+                {student.phone && (
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Student Phone</p>
+                        <p className="text-sm text-muted-foreground">{student.phone}</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleSendSms('student')}
+                      disabled={isGenerating || sendingSms['student'] || smsSent['student']}
+                      size="sm"
+                    >
+                      {sendingSms['student'] ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : smsSent['student'] ? (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Sent
+                        </>
+                      ) : (
+                        'Send SMS'
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Parent Emails - one per parent */}
+                {parents.map((parent) => (
                   parent.email && (
-                    <div key={parent.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={`parent-email-${parent.id}`} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <Mail className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">{parent.first_name} {parent.last_name}</p>
+                          <p className="font-medium">{parent.first_name} {parent.last_name} (Parent)</p>
                           <p className="text-sm text-muted-foreground">{parent.email}</p>
                         </div>
                       </div>
                       <Button
-                        onClick={handleSendEmail}
-                        disabled={isSendingEmail || isGenerating || emailSent}
+                        onClick={() => handleSendEmail('parent', parent.id)}
+                        disabled={isGenerating || sendingEmail[`parent-${parent.id}`] || emailSent[`parent-${parent.id}`]}
                         size="sm"
                       >
-                        {isSendingEmail ? (
+                        {sendingEmail[`parent-${parent.id}`] ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Sending...
                           </>
-                        ) : emailSent ? (
+                        ) : emailSent[`parent-${parent.id}`] ? (
                           <>
                             <CheckCircle2 className="mr-2 h-4 w-4" />
                             Sent
@@ -409,28 +490,28 @@ export function SendStudentInviteDialog({
                   )
                 ))}
 
-                {/* SMS Options for Parents */}
-                {recipients.map((parent) => (
+                {/* Parent Phones - one per parent */}
+                {parents.map((parent) => (
                   parent.phone && (
-                    <div key={parent.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={`parent-phone-${parent.id}`} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <MessageSquare className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">{parent.first_name} {parent.last_name}</p>
+                          <p className="font-medium">{parent.first_name} {parent.last_name} (Parent)</p>
                           <p className="text-sm text-muted-foreground">{parent.phone}</p>
                         </div>
                       </div>
                       <Button
-                        onClick={handleSendSms}
-                        disabled={isSendingSms || isGenerating || smsSent}
+                        onClick={() => handleSendSms('parent', parent.id)}
+                        disabled={isGenerating || sendingSms[`parent-${parent.id}`] || smsSent[`parent-${parent.id}`]}
                         size="sm"
                       >
-                        {isSendingSms ? (
+                        {sendingSms[`parent-${parent.id}`] ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Sending...
                           </>
-                        ) : smsSent ? (
+                        ) : smsSent[`parent-${parent.id}`] ? (
                           <>
                             <CheckCircle2 className="mr-2 h-4 w-4" />
                             Sent
@@ -442,80 +523,14 @@ export function SendStudentInviteDialog({
                     </div>
                   )
                 ))}
-
-                {/* Fallback to student if no parents */}
-                {recipients.length === 0 && (
-                  <>
-                    {student.email && (
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Mail className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">Student Email</p>
-                            <p className="text-sm text-muted-foreground">{student.email}</p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={handleSendEmail}
-                          disabled={!student.email || isSendingEmail || isGenerating || emailSent}
-                          size="sm"
-                        >
-                          {isSendingEmail ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Sending...
-                            </>
-                          ) : emailSent ? (
-                            <>
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Sent
-                            </>
-                          ) : (
-                            'Send Email'
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                    {student.phone && (
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">Student Phone</p>
-                            <p className="text-sm text-muted-foreground">{student.phone}</p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={handleSendSms}
-                          disabled={!student.phone || isSendingSms || isGenerating || smsSent}
-                          size="sm"
-                        >
-                          {isSendingSms ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Sending...
-                            </>
-                          ) : smsSent ? (
-                            <>
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Sent
-                            </>
-                          ) : (
-                            'Send SMS'
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
               </div>
 
-              {(emailSent || smsSent) && (
+              {(Object.keys(emailSent).length > 0 || Object.keys(smsSent).length > 0) && (
                 <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                   <p className="text-sm text-green-800 dark:text-green-200">
                     {linkType === 'invite' 
                       ? `Invite sent successfully! ${student.first_name} can now create their account using the link.`
-                      : 'Registration link sent successfully! The parent can now complete the student\'s registration.'}
+                      : 'Registration link sent successfully! The recipient can now complete the student\'s registration.'}
                   </p>
                 </div>
               )}
