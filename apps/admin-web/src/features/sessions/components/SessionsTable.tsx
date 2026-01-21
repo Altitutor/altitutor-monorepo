@@ -591,6 +591,18 @@ export function SessionsTable({
                       const sessionCanReschedule = canReschedule(session);
                       const rescheduleStudentId = getRescheduleStudentId(session.id);
                       
+                      // Debug logging
+                      if (session.type && ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type)) {
+                        console.log('Reschedule check', {
+                          sessionId: session.id,
+                          sessionType: session.type,
+                          canReschedule: sessionCanReschedule,
+                          rescheduleStudentId,
+                          hasTutorLog: !!tutorLogs[session.id],
+                          sessionStudents: sessionStudents[session.id]?.length || 0
+                        });
+                      }
+                      
                       return (
                         <ActionsMenu
                           type="session"
@@ -603,14 +615,27 @@ export function SessionsTable({
                           }}
                           hasTutorLog={!!tutorLogs[session.id]}
                           onReschedule={() => {
+                            console.log('Reschedule handler called', {
+                              sessionId: session.id,
+                              rescheduleStudentId,
+                              sessionType: session.type
+                            });
                             if (rescheduleStudentId) {
+                              console.log('Setting reschedule state', {
+                                studentId: rescheduleStudentId,
+                                sessionId: session.id
+                              });
                               setSelectedStudentForReschedule(rescheduleStudentId);
                               setSelectedSessionForReschedule(session);
                               setIsRescheduleModalOpen(true);
                             } else {
                               // This shouldn't happen if canReschedule is working correctly,
                               // but handle gracefully just in case
-                              console.warn('Cannot reschedule: no valid student found for session', session.id);
+                              console.warn('Cannot reschedule: no valid student found for session', {
+                                sessionId: session.id,
+                                sessionType: session.type,
+                                students: sessionStudents[session.id]
+                              });
                             }
                           }}
                           canReschedule={sessionCanReschedule}
