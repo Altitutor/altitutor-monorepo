@@ -4,7 +4,7 @@ import { ConversationList } from '@/features/messages/components/ConversationLis
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -22,6 +22,11 @@ export default function MessagesPage() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Per-conversation draft messages (keyed by contactId)
+  const draftsRef = useRef<Map<string, string>>(new Map());
+  const [currentDraft, setCurrentDraft] = useState<string>('');
+  const currentDraftRef = useRef<string>(''); // Keep latest draft value for saving on switch
   
   // Modal states
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -100,6 +105,47 @@ export default function MessagesPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+  
+  // Track previous contactId to save draft when switching
+  const previousContactIdRef = useRef<string | null>(null);
+  
+  // Manage per-conversation drafts: save current draft when switching conversations
+  useEffect(() => {
+    // Save draft for previous conversation before switching (use ref to get latest value)
+    if (previousContactIdRef.current && previousContactIdRef.current !== activeContactId) {
+      draftsRef.current.set(previousContactIdRef.current, currentDraftRef.current);
+    }
+    
+    // Restore draft for new conversation
+    if (activeContactId) {
+      const savedDraft = draftsRef.current.get(activeContactId) || '';
+      setCurrentDraft(savedDraft);
+      currentDraftRef.current = savedDraft;
+    } else {
+      setCurrentDraft('');
+      currentDraftRef.current = '';
+    }
+    
+    previousContactIdRef.current = activeContactId;
+  }, [activeContactId]);
+  
+  // Handler to update draft for current conversation
+  const handleDraftChange = (newDraft: string) => {
+    setCurrentDraft(newDraft);
+    currentDraftRef.current = newDraft;
+    if (activeContactId) {
+      draftsRef.current.set(activeContactId, newDraft);
+    }
+  };
+  
+  // Handler to clear draft after sending (called from Composer)
+  const handleDraftClear = () => {
+    setCurrentDraft('');
+    currentDraftRef.current = '';
+    if (activeContactId) {
+      draftsRef.current.set(activeContactId, '');
+    }
+  };
   
   const conversationTitle = activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
   
@@ -183,7 +229,13 @@ export default function MessagesPage() {
                   onSearchTermChange={setSearchTerm}
                   onExitSearch={() => setIsSearching(false)}
                 />
-                <Composer contactId={activeContactId} onTyping={() => setIsSearching(false)} />
+                <Composer 
+                  contactId={activeContactId} 
+                  onTyping={() => setIsSearching(false)}
+                  draft={currentDraft}
+                  onDraftChange={handleDraftChange}
+                  onDraftClear={handleDraftClear}
+                />
               </>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">

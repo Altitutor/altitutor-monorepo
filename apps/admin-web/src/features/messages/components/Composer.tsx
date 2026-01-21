@@ -17,10 +17,24 @@ interface Props {
   contactId: string | null;
   onTyping?: () => void;
   onBeforeSend?: (messageBody: string, selectedSenderId: string) => Promise<string | null>;
+  draft?: string;
+  onDraftChange?: (draft: string) => void;
+  onDraftClear?: () => void;
 }
 
-export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
-  const [text, setText] = useState('');
+export function Composer({ 
+  contactId, 
+  onTyping, 
+  onBeforeSend,
+  draft,
+  onDraftChange,
+  onDraftClear
+}: Props) {
+  // Use controlled draft if provided, otherwise fall back to internal state
+  const [internalText, setInternalText] = useState('');
+  const text = draft !== undefined ? draft : internalText;
+  const setText = draft !== undefined && onDraftChange ? onDraftChange : setInternalText;
+  
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const send = useSendMessage();
@@ -55,7 +69,13 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
   const onSend = async () => {
     const body = text.trim();
     if (!body || !contactId || !selectedSenderId) return;
-    setText('');
+    
+    // Clear draft (either via callback or directly)
+    if (onDraftClear) {
+      onDraftClear();
+    } else {
+      setText('');
+    }
     
     try {
       // Call onBeforeSend if provided (for backward compatibility)
@@ -70,6 +90,7 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
       });
     } catch (e) {
       console.error(e);
+      // Restore draft on error
       setText(body);
     }
   };
