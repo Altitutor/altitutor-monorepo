@@ -190,28 +190,47 @@ export function UnpaidInvoicesTable({
       title="Unpaid Invoices"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Amount Due', 'Status']}
-      renderRow={(item, _index) => (
-        <TableRow key={item.id}>
-          <TableCell>
-            {format(new Date(item.invoice_date), 'MMM d, yyyy')}
-          </TableCell>
-          <TableCell className="font-medium">
-            {item.student_first_name} {item.student_last_name}
-          </TableCell>
-          <TableCell>
-            ${(item.amount_due_cents / 100).toFixed(2)} {item.currency}
-          </TableCell>
-          <TableCell>
-            <Badge variant={item.status === 'open' ? 'destructive' : 'secondary'}>
-              {item.status}
-            </Badge>
-          </TableCell>
-          <TableCell>
-            <ReconciliationActions type="unpaid_invoices" item={item} />
-          </TableCell>
-        </TableRow>
-      )}
+      columns={['Date', 'Student', 'Amount Due', 'Status', 'Collection Method', 'Last Payment Error']}
+      renderRow={(item, _index) => {
+        const collectionMethodLabel = item.collection_method === 'charge_automatically' 
+          ? 'Charge Automatically' 
+          : item.collection_method === 'send_invoice'
+          ? 'Send Invoice'
+          : '—';
+        
+        const lastError = item.last_payment_error;
+        const errorDisplay = lastError 
+          ? `${lastError.code}: ${lastError.message}`
+          : '—';
+
+        return (
+          <TableRow key={item.id}>
+            <TableCell>
+              {format(new Date(item.invoice_date), 'MMM d, yyyy')}
+            </TableCell>
+            <TableCell className="font-medium">
+              {item.student_first_name} {item.student_last_name}
+            </TableCell>
+            <TableCell>
+              ${(item.amount_due_cents / 100).toFixed(2)} {item.currency}
+            </TableCell>
+            <TableCell>
+              <Badge variant={item.status === 'open' ? 'destructive' : 'secondary'}>
+                {item.status}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Badge variant="outline">{collectionMethodLabel}</Badge>
+            </TableCell>
+            <TableCell className="max-w-xs truncate" title={errorDisplay}>
+              {item.collection_method === 'charge_automatically' ? errorDisplay : '—'}
+            </TableCell>
+            <TableCell>
+              <ReconciliationActions type="unpaid_invoices" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
     />
   );
 }

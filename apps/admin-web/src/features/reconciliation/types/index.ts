@@ -170,6 +170,12 @@ export interface UnpaidInvoice {
   amount_due_cents: number;
   currency: string;
   stripe_invoice_id: string | null;
+  collection_method: 'charge_automatically' | 'send_invoice' | null;
+  last_payment_error: {
+    code: string;
+    message: string;
+    type: string;
+  } | null;
   student_first_name: string | null;
   student_last_name: string | null;
   student_email: string | null;

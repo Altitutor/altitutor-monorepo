@@ -11,6 +11,7 @@ import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus, Tra
 import { getErrorMessage } from '@/shared/utils';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
+import { format } from 'date-fns';
 import type {
   UninvoicedSession,
   UnpaidInvoice,
@@ -138,7 +139,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     },
   });
 
-  const handleSendInvoice = (sessions_students_id: string) => {
+  const handleSendInvoiceForSession = (sessions_students_id: string) => {
     invoiceSessionMutation.mutate(sessions_students_id);
   };
 
@@ -146,8 +147,96 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     await handleMessageStudent(studentId);
   };
 
-  const handleResendInvoice = () => {
-    // TODO: Implement invoice resending
+  const handleSendInvoice = async (invoiceId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/send-invoice`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send invoice');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Invoice email sent successfully',
+      });
+      
+      // Invalidate reconciliation queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.unpaidInvoices() });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Error',
+        description: errorMessage || 'Failed to send invoice',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChargeCard = async (invoiceId: string, stripeInvoiceId: string | null) => {
+    if (!stripeInvoiceId) {
+      toast({
+        title: 'Error',
+        description: 'Invoice has no Stripe invoice ID',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Fetch invoice details from Stripe to check next_payment_attempt
+    try {
+      const detailsResponse = await fetch(`/api/invoices/${invoiceId}/stripe-details`);
+      if (detailsResponse.ok) {
+        const details = await detailsResponse.json();
+        
+        // If there's a future retry scheduled, show confirmation
+        if (details.next_payment_attempt) {
+          const nextAttemptDate = new Date(details.next_payment_attempt * 1000);
+          const formattedDate = format(nextAttemptDate, 'MMM d, yyyy h:mm a');
+          
+          if (!confirm(`Are you sure you want to attempt this payment now? This payment will already be automatically attempted at ${formattedDate}.`)) {
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      // If we can't fetch details, proceed anyway
+      console.warn('Could not fetch invoice details for confirmation:', error);
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/charge-card`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to charge card');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Payment attempt initiated successfully',
+      });
+      
+      // Invalidate reconciliation queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.unpaidInvoices() });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Error',
+        description: errorMessage || 'Failed to charge card',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   switch (type) {
@@ -166,7 +255,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="default"
             size="sm"
-            onClick={() => handleSendInvoice(session.sessions_students_id)}
+            onClick={() => handleSendInvoiceForSession(session.sessions_students_id)}
             disabled={isLoading || invoiceSessionMutation.isPending}
           >
             <CreditCard className="h-4 w-4 mr-1" />
@@ -197,15 +286,27 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             <MessageCircle className="h-4 w-4 mr-1" />
             Contact
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleResendInvoice}
-            disabled={isLoading}
-          >
-            <CreditCard className="h-4 w-4 mr-1" />
-            Resend Invoice
-          </Button>
+          {invoice.collection_method === 'send_invoice' ? (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => handleSendInvoice(invoice.id)}
+              disabled={isLoading}
+            >
+              <CreditCard className="h-4 w-4 mr-1" />
+              Resend Invoice
+            </Button>
+          ) : invoice.collection_method === 'charge_automatically' ? (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => handleChargeCard(invoice.id, invoice.stripe_invoice_id)}
+              disabled={isLoading}
+            >
+              <CreditCard className="h-4 w-4 mr-1" />
+              Charge Card
+            </Button>
+          ) : null}
         </div>
       );
     }
