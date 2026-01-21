@@ -131,27 +131,52 @@ export function StaffSessionsCalendarView({
                         )}
                         {(() => {
                         const daySessions = getDaySessions(d).sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
-                        // Build overlap groups using Adelaide timezone for consistent calculations
+                        // Separate ADMIN_SHIFT sessions from regular sessions
+                        // ADMIN_SHIFT sessions are long-duration availability windows and should not be grouped with regular sessions
+                        const adminShiftSessions = daySessions.filter((s: any) => s.type === 'ADMIN_SHIFT');
+                        const regularSessions = daySessions.filter((s: any) => s.type !== 'ADMIN_SHIFT');
+                        
+                        // Build overlap groups for regular sessions only (exclude ADMIN_SHIFT)
+                        // Fix: Check if session overlaps with ANY session in the group, not just the first one
                         const groups: any[][] = [];
                         const processed = new Set<string>();
-                        daySessions.forEach((s: any) => {
+                        regularSessions.forEach((s: any) => {
                           if (processed.has(s.id)) return;
-                          const sStart = adelaideTimeToMinutes(s.start_at);
-                          const sEnd = adelaideTimeToMinutes(s.end_at);
                           const group = [s];
                           processed.add(s.id);
-                          daySessions.forEach((o: any) => {
-                            if (processed.has(o.id)) return;
-                            const oStart = adelaideTimeToMinutes(o.start_at);
-                            const oEnd = adelaideTimeToMinutes(o.end_at);
-                            // Events that end exactly when another starts should NOT overlap
-                            // Use strict comparison: sStart < oEnd && sEnd > oStart
-                            if (sStart < oEnd && sEnd > oStart) {
-                              group.push(o);
-                              processed.add(o.id);
-                            }
-                          });
+                          
+                          // Keep checking for new overlaps until no more sessions can be added
+                          let foundNewOverlap = true;
+                          while (foundNewOverlap) {
+                            foundNewOverlap = false;
+                            regularSessions.forEach((o: any) => {
+                              if (processed.has(o.id)) return;
+                              const oStart = adelaideTimeToMinutes(o.start_at);
+                              const oEnd = adelaideTimeToMinutes(o.end_at);
+                              
+                              // Check if o overlaps with ANY session already in the group
+                              const overlapsWithGroup = group.some((groupSession: any) => {
+                                const gStart = adelaideTimeToMinutes(groupSession.start_at);
+                                const gEnd = adelaideTimeToMinutes(groupSession.end_at);
+                                // Events that end exactly when another starts should NOT overlap
+                                // Use strict comparison: gStart < oEnd && gEnd > oStart
+                                return gStart < oEnd && gEnd > oStart;
+                              });
+                              
+                              if (overlapsWithGroup) {
+                                group.push(o);
+                                processed.add(o.id);
+                                foundNewOverlap = true;
+                              }
+                            });
+                          }
+                          
                           groups.push(group);
+                        });
+                        
+                        // Add ADMIN_SHIFT sessions as individual groups (one session per group)
+                        adminShiftSessions.forEach((s: any) => {
+                          groups.push([s]);
                         });
                         const blocks: JSX.Element[] = [];
                         groups.forEach((group) => {
