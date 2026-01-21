@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -103,12 +103,16 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
   }, [isOpen, selectedStaff, initialStaffId, hasInitialized, step]);
 
   // Auto-advance to process-sessions when session is selected and both initial values are provided
+  // Track selectedSessionIds size and whether it contains initialSessionId for stable comparison
+  const selectedSessionIdsSize = selectedSessionIds.size;
+  const hasInitialSessionSelected = initialSessionId ? selectedSessionIds.has(initialSessionId) : false;
+
   useEffect(() => {
-    if (isOpen && selectedStaff && initialSessionId && selectedSessionIds.has(initialSessionId) && step === 'select-sessions' && hasInitialized) {
+    if (isOpen && selectedStaff && initialSessionId && hasInitialSessionSelected && step === 'select-sessions' && hasInitialized) {
       // Auto-advance to process step since we have everything pre-filled
       setStep('process-sessions');
     }
-  }, [isOpen, selectedStaff, initialSessionId, selectedSessionIds, step, hasInitialized]);
+  }, [isOpen, selectedStaff, initialSessionId, hasInitialSessionSelected, selectedSessionIdsSize, step, hasInitialized]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -152,7 +156,7 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
     setStep('process-sessions');
   };
 
-  const handleBulkDecisionsChange = (bulkDecisions: Array<{ sessionId: string; action: StaffAbsenceAction; replacementStaffId?: string; replacementStaff?: ReplacementStaff }>) => {
+  const handleBulkDecisionsChange = useCallback((bulkDecisions: Array<{ sessionId: string; action: StaffAbsenceAction; replacementStaffId?: string; replacementStaff?: ReplacementStaff }>) => {
     if (!selectedStaff) return;
 
     // Convert bulk decisions to StaffAbsenceDecision format
@@ -176,7 +180,7 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
     });
 
     setDecisions(newDecisions);
-  };
+  }, [selectedStaff, selectedSessionsArray]);
 
   const handleConfirmAndSubmit = () => {
     if (!selectedStaff) return;

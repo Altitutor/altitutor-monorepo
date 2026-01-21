@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import type { StaffAbsenceAction, StaffSession, ReplacementStaff } from '../types/staff-absence';
 
 interface SessionDecision {
@@ -148,9 +148,16 @@ export function useStaffAbsenceDecisions({
   }, [decisions, replacementStaffMap]);
 
   // Only call onDecisionsChange when completedDecisions actually change
+  // Use a ref to store the callback to avoid infinite loops
+  const onDecisionsChangeRef = useRef(onDecisionsChange);
+  
   useEffect(() => {
-    onDecisionsChange(completedDecisions);
-  }, [completedDecisions, onDecisionsChange]);
+    onDecisionsChangeRef.current = onDecisionsChange;
+  }, [onDecisionsChange]);
+
+  useEffect(() => {
+    onDecisionsChangeRef.current(completedDecisions);
+  }, [completedDecisions]);
 
   const getDecision = useCallback((sessionId: string) => {
     return decisions.get(sessionId);
