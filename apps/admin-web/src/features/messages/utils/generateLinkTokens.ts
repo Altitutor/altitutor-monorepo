@@ -1,6 +1,7 @@
 'use client';
 
 import type { Tables } from '@altitutor/shared';
+import { invitesApi } from '@/features/auth/api/invites';
 
 export interface LinkTokens {
   registrationToken?: string | null;
@@ -31,16 +32,11 @@ export async function generateLinkTokensForStaff(
     // Generate invite token if needed
     if (includeInvite) {
       try {
-        const response = await fetch('/api/invites/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'staff', id: staffId }),
+        const result = await invitesApi.generateInviteToken({
+          type: 'staff',
+          id: staffId,
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          tokens.inviteToken = data.token;
-        }
+        tokens.inviteToken = result.token;
       } catch (error) {
         console.error('Failed to generate invite token:', error);
       }
@@ -126,16 +122,11 @@ export async function generateLinkTokensForStudent(
     // Generate invite token if needed
     if (includeInvite) {
       try {
-        const response = await fetch('/api/invites/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'student', id: studentId }),
+        const result = await invitesApi.generateInviteToken({
+          type: 'student',
+          id: studentId,
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          tokens.inviteToken = data.token;
-        }
+        tokens.inviteToken = result.token;
       } catch (error) {
         console.error('Failed to generate invite token:', error);
       }
@@ -256,19 +247,14 @@ export async function batchGenerateLinkTokens(
       for (const student of studentsNeedingInvite) {
         if (!tokensMap[student.id]?.inviteToken) {
           try {
-            const response = await fetch('/api/invites/generate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'student', id: student.id }),
+            const result = await invitesApi.generateInviteToken({
+              type: 'student',
+              id: student.id,
             });
-
-            if (response.ok) {
-              const data = await response.json();
-              tokensMap[student.id] = {
-                ...tokensMap[student.id],
-                inviteToken: data.token,
-              };
-            }
+            tokensMap[student.id] = {
+              ...tokensMap[student.id],
+              inviteToken: result.token,
+            };
           } catch (error) {
             console.error(`Failed to generate invite token for ${student.id}:`, error);
           }
