@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
+import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { Button } from "@altitutor/ui";
 
@@ -62,12 +63,17 @@ export function StudentSessionsCalendarView({
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // Helpers to compute block positions
-  const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (9 * 60);
+  // Use Adelaide timezone for consistent calculations
+  const minutesFromStart = (isoString: string) => {
+    const minutes = adelaideTimeToMinutes(isoString);
+    return minutes - (9 * 60);
+  };
 
   // Current time indicator
   const now = new Date();
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
-  const currentMinutesFromStart = minutesFromStart(now);
+  // For current time indicator, use local time (user's current time)
+  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (9 * 60);
   const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 75);
 
   return (
@@ -130,20 +136,21 @@ export function StudentSessionsCalendarView({
                         )}
                         {(() => {
                         const daySessions = getDaySessions(d).sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
-                        // Build overlap groups
+                        // Build overlap groups using Adelaide timezone for consistent calculations
                         const groups: any[][] = [];
                         const processed = new Set<string>();
-                        const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
                         daySessions.forEach((s: any) => {
                           if (processed.has(s.id)) return;
-                          const sStart = toMinutes(new Date(s.start_at));
-                          const sEnd = toMinutes(new Date(s.end_at));
+                          const sStart = adelaideTimeToMinutes(s.start_at);
+                          const sEnd = adelaideTimeToMinutes(s.end_at);
                           const group = [s];
                           processed.add(s.id);
                           daySessions.forEach((o: any) => {
                             if (processed.has(o.id)) return;
-                            const oStart = toMinutes(new Date(o.start_at));
-                            const oEnd = toMinutes(new Date(o.end_at));
+                            const oStart = adelaideTimeToMinutes(o.start_at);
+                            const oEnd = adelaideTimeToMinutes(o.end_at);
+                            // Events that end exactly when another starts should NOT overlap
+                            // Use strict comparison: sStart < oEnd && sEnd > oStart
                             if (sStart < oEnd && sEnd > oStart) {
                               group.push(o);
                               processed.add(o.id);
@@ -156,10 +163,10 @@ export function StudentSessionsCalendarView({
                           const total = group.length;
                           const columnWidth = total > 1 ? 95 / total : 95;
                           group.forEach((s: any, idx: number) => {
-                            const sStart = new Date(s.start_at);
-                            const sEnd = new Date(s.end_at);
-                            const top = Math.max(0, (minutesFromStart(sStart) / 60) * slotHeight);
-                            const height = Math.max(30, (differenceInMinutes(sEnd, sStart) / 60) * slotHeight);
+                            const sStartMinutes = adelaideTimeToMinutes(s.start_at);
+                            const sEndMinutes = adelaideTimeToMinutes(s.end_at);
+                            const top = Math.max(0, (minutesFromStart(s.start_at) / 60) * slotHeight);
+                            const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
                             
                             const cls: any = (data as any)?.classesById?.[s.class_id];

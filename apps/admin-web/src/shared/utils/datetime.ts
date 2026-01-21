@@ -132,3 +132,38 @@ export function formatActivityTimestamp(dateString: string | Date): string {
   
   return `${timeStr} ${dayOfWeek} ${day} ${month} ${year}`;
 }
+
+/**
+ * Extract hours and minutes from a UTC ISO string in Adelaide timezone
+ * This ensures consistent time calculations regardless of browser timezone
+ * @param isoString - UTC ISO date string (e.g., "2026-01-10T00:30:00Z")
+ * @returns Object with hours and minutes in Adelaide timezone
+ */
+export function getAdelaideTimeComponents(isoString: string): { hours: number; minutes: number } {
+  const date = new Date(isoString);
+  
+  // Use Intl.DateTimeFormat to get Adelaide timezone components
+  const formatter = new Intl.DateTimeFormat('en', {
+    timeZone: 'Australia/Adelaide',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const hours = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const minutes = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  
+  return { hours, minutes };
+}
+
+/**
+ * Convert a UTC ISO string to minutes from midnight in Adelaide timezone
+ * Used for calendar overlap detection to ensure consistent calculations
+ * @param isoString - UTC ISO date string (e.g., "2026-01-10T00:30:00Z")
+ * @returns Minutes from midnight in Adelaide timezone
+ */
+export function adelaideTimeToMinutes(isoString: string): number {
+  const { hours, minutes } = getAdelaideTimeComponents(isoString);
+  return hours * 60 + minutes;
+}
