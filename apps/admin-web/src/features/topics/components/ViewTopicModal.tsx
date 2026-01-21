@@ -237,13 +237,15 @@ export function ViewTopicModal({
                   )}
                 </div>
               </div>
-              {topicId && topic && (
+              {topicId && topic && !isEditing && (
                 <ActionsMenu
                   type="topic"
                   onOpenInPage={() => {
                     router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
                     onClose();
                   }}
+                  onEdit={handleEdit}
+                  onDelete={() => setShowDeleteDialog(true)}
                 />
               )}
             </div>
@@ -587,54 +589,43 @@ export function ViewTopicModal({
           </div>
           
           {/* Action buttons at the bottom */}
-          {!isLoading && topic && (
-            <SheetFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
+          {!isLoading && topic && isEditing && (
+            <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
               <div className="flex w-full justify-between">
-                {isEditing ? (
-                  <>
-                    <Button 
-                      type="button" 
-                      variant="destructive" 
-                      onClick={() => setShowDeleteDialog(true)}
-                      disabled={isUpdatingTopic}
-                    >
-                      <TrashIcon className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
-                    
-                    <div className="flex space-x-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleCancelEdit}
-                        disabled={isUpdatingTopic}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="button" 
-                        disabled={isUpdatingTopic}
-                        onClick={form.handleSubmit(onSubmit)}
-                      >
-                        {isUpdatingTopic ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          'Save Changes'
-                        )}
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex w-full justify-end">
-                    <Button variant="outline" onClick={handleEdit} disabled={!topic}>
-                      <PencilIcon className="h-4 w-4 mr-2" />
-                      Edit
-                    </Button>
-                  </div>
-                )}
+                <Button 
+                  type="button" 
+                  variant="destructive" 
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={isUpdatingTopic}
+                >
+                  <TrashIcon className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+                
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={isUpdatingTopic}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="button" 
+                    disabled={isUpdatingTopic}
+                    onClick={form.handleSubmit(onSubmit)}
+                  >
+                    {isUpdatingTopic ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </div>
               </div>
             </SheetFooter>
           )}
