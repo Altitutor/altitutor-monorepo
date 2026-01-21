@@ -7,7 +7,7 @@ import { Button } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Alert, AlertDescription, AlertTitle } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getExistingConversationForRelated, ensureConversationForContact } from '../api/queries';
@@ -311,12 +311,26 @@ export function NewConversationDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle>New Conversation</DialogTitle>
-            <DialogDescription>
-              Search for a student, staff member, or parent to start a new conversation
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <DialogTitle>New Conversation</DialogTitle>
+                  <DialogDescription>
+                    Search for a student, staff member, or parent to start a new conversation
+                  </DialogDescription>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
 
           {showNoPhoneWarning && selectedItem ? (

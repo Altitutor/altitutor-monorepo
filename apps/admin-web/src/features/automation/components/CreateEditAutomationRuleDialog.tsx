@@ -203,17 +203,31 @@ export function CreateEditAutomationRuleDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
           {/* Sticky Header */}
           <div className="flex-shrink-0 border-b bg-background">
             <DialogHeader className="px-6 pt-6 pb-4">
-              <DialogTitle>{isEditing ? 'Edit Automation Rule' : 'Create Automation Rule'}</DialogTitle>
-              <DialogDescription>
-                {isEditing
-                  ? 'Update the automation rule and its actions.'
-                  : 'Create a new automation rule that triggers actions based on activity events.'}
-              </DialogDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleClose}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1">
+                    <DialogTitle>{isEditing ? 'Edit Automation Rule' : 'Create Automation Rule'}</DialogTitle>
+                    <DialogDescription>
+                      {isEditing
+                        ? 'Update the automation rule and its actions.'
+                        : 'Create a new automation rule that triggers actions based on activity events.'}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </div>
             </DialogHeader>
             <div className="px-6 pb-4">
               <TabsList className="grid w-full grid-cols-3">

@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useLogSessionFlow } from '../hooks/useLogSessionFlow';
 import { getLogSessionStepTitle } from '../utils/logSessionHelpers';
 import { getAttendedStudentIds } from '../utils/logSessionHelpers';
@@ -229,39 +229,49 @@ export function LogSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <DialogTitle>Log Session</DialogTitle>
-              <DialogDescription className="sr-only">
-                Tutor log form step {currentStep + 1} of {totalSteps}
-              </DialogDescription>
-              {(selectedStaff || selectedSession) && (
-                <div className="mt-3 flex items-center gap-3 flex-wrap">
-                  {selectedStaff && (
-                    <div className="flex-shrink-0">
-                      <StaffCard
-                        staff={selectedStaff}
-                        showSubjects={false}
-                        showActions={false}
-                      />
-                    </div>
-                  )}
-                  {selectedSession && (
-                    <div className="flex-shrink-0 w-fit max-w-md">
-                      <SessionsCard
-                        session={selectedSession}
-                        classData={sessionClassData || undefined}
-                        subject={sessionSubject || undefined}
-                        staff={sessionStaff}
-                        students={sessionStudents}
-                        compact={true}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={submissionState === 'success' ? handleClose : onClose}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle>Log Session</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Tutor log form step {currentStep + 1} of {totalSteps}
+                </DialogDescription>
+                {(selectedStaff || selectedSession) && (
+                  <div className="mt-3 flex items-center gap-3 flex-wrap">
+                    {selectedStaff && (
+                      <div className="flex-shrink-0">
+                        <StaffCard
+                          staff={selectedStaff}
+                          showSubjects={false}
+                          showActions={false}
+                        />
+                      </div>
+                    )}
+                    {selectedSession && (
+                      <div className="flex-shrink-0 w-fit max-w-md">
+                        <SessionsCard
+                          session={selectedSession}
+                          classData={sessionClassData || undefined}
+                          subject={sessionSubject || undefined}
+                          staff={sessionStaff}
+                          students={sessionStudents}
+                          compact={true}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </DialogHeader>

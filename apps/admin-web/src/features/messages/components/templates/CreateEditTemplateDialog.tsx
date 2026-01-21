@@ -13,6 +13,7 @@ import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
+import { X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -230,14 +231,28 @@ export function CreateEditTemplateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0" onKeyDown={handleKeyDown}>
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden" onKeyDown={handleKeyDown}>
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
-          <DialogDescription>
-            {template 
-              ? 'Update your message template. Variables will be replaced when sending messages.'
-              : 'Create a new message template. Use variables to personalize messages for each student.'}
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onClose}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
+                <DialogDescription>
+                  {template 
+                    ? 'Update your message template. Variables will be replaced when sending messages.'
+                    : 'Create a new message template. Use variables to personalize messages for each student.'}
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6 overflow-hidden min-h-0 px-6 py-4">
@@ -262,7 +277,7 @@ export function CreateEditTemplateDialog({
                 ref={contentTextareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}, {sender_name}..."
+                placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}, {sender_name}, {registration_link}, {invite_link}, {forgot_password_link}..."
                 className="flex-1 min-h-[300px] resize-none"
                 disabled={isLoading}
               />
@@ -306,9 +321,39 @@ export function CreateEditTemplateDialog({
                   >
                     {'{sender_name}'}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleInsertVariable('registration_link')}
+                    disabled={isLoading}
+                  >
+                    {'{registration_link}'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleInsertVariable('invite_link')}
+                    disabled={isLoading}
+                  >
+                    {'{invite_link}'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleInsertVariable('forgot_password_link')}
+                    disabled={isLoading}
+                  >
+                    {'{forgot_password_link}'}
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Click to insert variables at cursor position
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Note: Link variables ({'{registration_link}'}, {'{invite_link}'}, {'{forgot_password_link}'}) require tokens/links to be generated when sending messages.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {characterCount} character{characterCount !== 1 ? 's' : ''}
