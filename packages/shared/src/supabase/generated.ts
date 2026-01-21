@@ -7955,6 +7955,7 @@ export type Database = {
           start_at: string
         }[]
       }
+      get_billing_cron_secret: { Args: never; Returns: string }
       get_excluded_fields_for_table: {
         Args: { table_name: string }
         Returns: string[]
