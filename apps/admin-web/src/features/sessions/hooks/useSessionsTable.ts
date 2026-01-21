@@ -306,12 +306,15 @@ export function useSessionsTable({
   );
 
   const canReschedule = useCallback((session: Tables<'sessions'>) => {
-    return canRescheduleSession(session);
-  }, []);
+    const hasTutorLog = !!tutorLogs[session.id];
+    const rescheduleInfo = getFirstStudentIdForReschedule(session.id, sessionStudents as any);
+    return canRescheduleSession(session, hasTutorLog, rescheduleInfo.hasPaidInvoice);
+  }, [tutorLogs, sessionStudents]);
 
   const getRescheduleStudentId = useCallback(
     (sessionId: string) => {
-      return getFirstStudentIdForReschedule(sessionId, sessionStudents as any);
+      const rescheduleInfo = getFirstStudentIdForReschedule(sessionId, sessionStudents as any);
+      return rescheduleInfo.studentId;
     },
     [sessionStudents]
   );

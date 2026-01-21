@@ -357,7 +357,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
           initialStudentId={modals.selectedStudentForReschedule}
           originalSessionId={sessionId}
-          originalSubjectId={helpers.subject?.id || null}
+          originalSubjectId={helpers.subject?.id || (session as any)?.subject_id || null}
           onBookingCreated={(_newSessionId) => {
             modals.closeRescheduleModal();
           }}

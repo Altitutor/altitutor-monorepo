@@ -72,16 +72,49 @@ export function useBookSessionFlow({
   const currentStepData = steps[currentStep];
   const currentStepId = currentStepData?.id;
 
-  // Initialize with initialStudentId if provided
+  // Initialize with initialStudentId if provided (for rescheduling)
   useEffect(() => {
-    if (isOpen && initialStudentId && !selectedStudentId) {
+    if (!isOpen) {
+      // Reset state when modal closes
+      return;
+    }
+
+    if (originalSessionId && initialStudentId) {
+      // When rescheduling, pre-fill student and skip to appropriate step
       setSelectedStudentId(initialStudentId);
-      // For DRAFTING sessions, advance to step 1 (time slot selection) since student is pre-selected
+      
+      // Calculate starting step based on session type and what's pre-filled
+      let startingStep = 0;
+      
+      if (sessionType === 'TRIAL_SESSION') {
+        // For trial sessions, skip trial-contact form and go straight to time selection
+        // Steps: trial-contact (0) -> time (1) -> staff (2) -> confirm (3)
+        startingStep = 1; // Skip to time selection
+      } else if (sessionType === 'DRAFTING') {
+        // For drafting, skip student (0) and subject (1), go to time (2)
+        // Steps: student (0) -> subject (1) -> time (2) -> staff (3) -> confirm (4)
+        if (originalSubjectId) {
+          setSelectedSubjectId(originalSubjectId);
+          startingStep = 2; // Skip to time selection (student and subject are pre-filled)
+        } else {
+          startingStep = 1; // Skip to subject selection (student is pre-filled)
+        }
+      } else if (sessionType === 'SUBSIDY_INTERVIEW') {
+        // For subsidy interview, skip student (0), go to time (1)
+        // Steps: student (0) -> time (1) -> staff (2) -> confirm (3)
+        startingStep = 1; // Skip to time selection
+      }
+      
+      setCurrentStep(startingStep);
+    } else if (initialStudentId && !originalSessionId) {
+      // Regular booking flow (not rescheduling)
+      setSelectedStudentId(initialStudentId);
+      // For DRAFTING sessions, advance to step 1 (subject selection) since student is pre-selected
       if (sessionType === 'DRAFTING') {
         setCurrentStep(1);
       }
     }
-  }, [isOpen, initialStudentId, sessionType, selectedStudentId]);
+  }, [isOpen, initialStudentId, originalSessionId, sessionType, originalSubjectId]);
 
   // Search students - filter by status for drafting sessions (only active students)
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
@@ -102,20 +135,7 @@ export function useBookSessionFlow({
     enabled: isOpen,
   });
 
-  // Auto-select subject from original session when rescheduling
-  useEffect(() => {
-    if (isOpen && originalSubjectId && subjects && sessionType === 'DRAFTING' && !selectedSubjectId) {
-      // Verify the subject exists in available subjects
-      const subjectExists = subjects.some(s => s.id === originalSubjectId);
-      if (subjectExists) {
-        setSelectedSubjectId(originalSubjectId);
-        // Auto-advance to time selection step if subject is pre-selected
-        if (selectedStudentId) {
-          setCurrentStep(1);
-        }
-      }
-    }
-  }, [isOpen, originalSubjectId, subjects, sessionType, selectedSubjectId, selectedStudentId]);
+  // Auto-select subject from original session when rescheduling (handled in the main useEffect above)
 
   // Get student's subjects if student selected
   const { data: studentSubjects } = useStudentSubjects(

@@ -35,11 +35,35 @@ export function useSessionHelpers({
   }, [session?.start_at]);
 
   const canReschedule = useMemo(() => {
+    // Cannot reschedule if session is already logged
+    if (hasTutorLog) {
+      return false;
+    }
+    
+    // Cannot reschedule if any student has a paid invoice
+    const hasPaidInvoice = sessionsStudents?.some(
+      (ss: any) => ss.invoice_status === 'paid'
+    ) || false;
+    
+    if (hasPaidInvoice) {
+      return false;
+    }
+    
     return session?.type && ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type);
-  }, [session?.type]);
+  }, [session?.type, hasTutorLog, sessionsStudents]);
 
   const subject = useMemo(() => {
-    return (session as any)?.subject || session?.class?.subject || null;
+    // Check nested subject object first (if session data includes it)
+    if ((session as any)?.subject) {
+      return (session as any).subject;
+    }
+    // Check class.subject
+    if (session?.class?.subject) {
+      return session.class.subject;
+    }
+    // If we only have subject_id, we can't return the full subject object here
+    // The caller should handle subject_id separately if needed
+    return null;
   }, [session]);
 
   const getFirstStudentIdForReschedule = useMemo(() => {

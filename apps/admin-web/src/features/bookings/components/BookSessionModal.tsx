@@ -206,7 +206,9 @@ export function BookSessionModal({
                 : `Book ${getSessionTypeLabel(sessionType)}`}
             </DialogTitle>
             <DialogDescription>
-              Create a new {getSessionTypeLabel(sessionType).toLowerCase()} booking
+              {originalSessionId 
+                ? `Select a new time for this ${getSessionTypeLabel(sessionType).toLowerCase()}. The original session will be marked as an absence.`
+                : `Create a new ${getSessionTypeLabel(sessionType).toLowerCase()} booking`}
             </DialogDescription>
           </DialogHeader>
 
@@ -249,7 +251,8 @@ export function BookSessionModal({
           {/* Footer with Back/Next buttons */}
           <div className="flex justify-between px-6 py-4 border-t bg-background">
             <div className="flex gap-2">
-              {currentStep > 0 && (
+              {/* Disable back button when rescheduling - user should not go back to earlier steps */}
+              {currentStep > 0 && !originalSessionId && (
                 <Button
                   variant="outline"
                   onClick={handleBack}

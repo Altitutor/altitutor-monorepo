@@ -607,6 +607,10 @@ export function SessionsTable({
                               setSelectedStudentForReschedule(rescheduleStudentId);
                               setSelectedSessionForReschedule(session);
                               setIsRescheduleModalOpen(true);
+                            } else {
+                              // This shouldn't happen if canReschedule is working correctly,
+                              // but handle gracefully just in case
+                              console.warn('Cannot reschedule: no valid student found for session', session.id);
                             }
                           }}
                           canReschedule={sessionCanReschedule}
@@ -682,6 +686,11 @@ export function SessionsTable({
           initialStudentId={selectedStudentForReschedule}
           originalSessionId={selectedSessionForReschedule.id}
           originalSubjectId={(() => {
+            // Check session.subject_id first (for DRAFTING sessions)
+            if (selectedSessionForReschedule.subject_id) {
+              return selectedSessionForReschedule.subject_id;
+            }
+            // Fall back to class.subject_id if session doesn't have subject_id
             if (selectedSessionForReschedule.class_id) {
               const cls = classesById[selectedSessionForReschedule.class_id];
               return cls?.subject_id || null;
