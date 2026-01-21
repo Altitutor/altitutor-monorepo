@@ -10,7 +10,7 @@ export interface CreateBookingInput {
   subject_id?: string;
   staff_id?: string; // Optional: override auto-assignment
   reservation_id?: string; // Optional: convert reservation to session
-  original_session_id?: string; // Optional: if provided, marks old session as absence (reschedule)
+  original_session_id?: string; // Optional: if provided, updates existing session time (reschedule)
 }
 
 export const bookingsApi = {
@@ -39,7 +39,7 @@ export const bookingsApi = {
       
       if (error) throw error;
       if (!data) throw new Error('Failed to reschedule session: no session ID returned');
-      return data as string; // Returns new session_id
+      return data as string; // Returns the original session_id (session is updated in place)
     }
 
     // Otherwise, use regular booking RPC

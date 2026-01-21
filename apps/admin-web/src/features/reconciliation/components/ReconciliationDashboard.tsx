@@ -10,6 +10,7 @@ import {
   FailedDeliveryMessagesTable,
   StudentsWithoutClassesTable,
   StudentsWithoutPaymentMethodTable,
+  TrialStudentsNotSignedUpTable,
 } from './ReconciliationTable';
 import { ViewStudentModal } from '@/features/students';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -159,6 +160,10 @@ export function ReconciliationDashboard() {
           <StudentsWithoutClassesTable
             items={reconciliationData.studentsWithoutClasses.data ?? []}
             isLoading={reconciliationData.studentsWithoutClasses.isLoading}
+          />
+          <TrialStudentsNotSignedUpTable
+            items={reconciliationData.trialStudentsNotSignedUp.data ?? []}
+            isLoading={reconciliationData.trialStudentsNotSignedUp.isLoading}
           />
         </div>
 

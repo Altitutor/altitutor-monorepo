@@ -1,4 +1,5 @@
-import { parseISO, isSameDay, differenceInMinutes } from 'date-fns';
+import { parseISO, isSameDay } from 'date-fns';
+import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 
 export interface SessionItem {
   id: string;
@@ -9,6 +10,7 @@ export interface SessionItem {
 /**
  * Calculate overlap groups for sessions on a given day
  * Sessions that overlap in time are grouped together
+ * Uses Adelaide timezone for consistent calculations
  */
 export function calculateSessionOverlapGroups(
   sessions: SessionItem[],
@@ -19,23 +21,24 @@ export function calculateSessionOverlapGroups(
     .filter((s) => s.start_at && isSameDay(parseISO(s.start_at), targetDate))
     .sort((a, b) => parseISO(a.start_at).getTime() - parseISO(b.start_at).getTime());
 
-  // Build overlap groups
+  // Build overlap groups using Adelaide timezone for consistent calculations
   const groups: SessionItem[][] = [];
   const processed = new Set<string>();
-  const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
 
   daySessions.forEach((s) => {
     if (processed.has(s.id)) return;
     
-    const sStart = toMinutes(parseISO(s.start_at));
-    const sEnd = toMinutes(parseISO(s.end_at));
+    const sStart = adelaideTimeToMinutes(s.start_at);
+    const sEnd = adelaideTimeToMinutes(s.end_at);
     const group: SessionItem[] = [s];
     processed.add(s.id);
 
     daySessions.forEach((o) => {
       if (processed.has(o.id)) return;
-      const oStart = toMinutes(parseISO(o.start_at));
-      const oEnd = toMinutes(parseISO(o.end_at));
+      const oStart = adelaideTimeToMinutes(o.start_at);
+      const oEnd = adelaideTimeToMinutes(o.end_at);
+      // Events that end exactly when another starts should NOT overlap
+      // Use strict comparison: sStart < oEnd && sEnd > oStart
       if (sStart < oEnd && sEnd > oStart) {
         group.push(o);
         processed.add(o.id);
@@ -50,20 +53,20 @@ export function calculateSessionOverlapGroups(
 
 /**
  * Calculate time grid position for a session
+ * Uses Adelaide timezone for consistent calculations
  */
 export function calculateSessionPosition(
   session: SessionItem,
   startHour: number = 9,
   slotHeight: number = 75
 ): { top: number; height: number } {
-  const sessionStart = parseISO(session.start_at);
-  const sessionEnd = parseISO(session.end_at);
+  const sStartMinutes = adelaideTimeToMinutes(session.start_at);
+  const sEndMinutes = adelaideTimeToMinutes(session.end_at);
   
-  const minutesFromStart = (date: Date) => 
-    (date.getHours() * 60 + date.getMinutes()) - (startHour * 60);
+  const minutesFromStart = sStartMinutes - (startHour * 60);
   
-  const top = Math.max(0, (minutesFromStart(sessionStart) / 60) * slotHeight);
-  const height = Math.max(45, (differenceInMinutes(sessionEnd, sessionStart) / 60) * slotHeight);
+  const top = Math.max(0, (minutesFromStart / 60) * slotHeight);
+  const height = Math.max(45, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
   
   return { top, height };
 }

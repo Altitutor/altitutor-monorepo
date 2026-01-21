@@ -284,9 +284,6 @@ export function SendRegistrationInviteDialog({
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Share this link with the parent to complete student registration
-              </p>
             </div>
           )}
 

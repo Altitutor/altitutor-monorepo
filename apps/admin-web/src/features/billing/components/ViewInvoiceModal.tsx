@@ -1,13 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Separator, Badge, Button } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getInvoiceStatusBadge } from '../utils/invoiceFormatters';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { cn } from '@/shared/utils';
+import { useToast } from '@altitutor/ui';
+import { format } from 'date-fns';
+import { getErrorMessage } from '@/shared/utils';
 import {
   useInvoiceData,
   useInvoiceModals,
@@ -15,6 +20,7 @@ import {
   formatInvoiceAmount,
   calculateLineItemsSubtotal,
 } from '../index';
+import { invoicesKeys } from '../hooks/useInvoicesQuery';
 
 type ViewInvoiceModalProps = {
   isOpen: boolean;
@@ -24,6 +30,8 @@ type ViewInvoiceModalProps = {
 
 export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModalProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
 
   // Business logic hooks
   const invoiceData = useInvoiceData({
@@ -32,13 +40,107 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   });
 
   const modals = useInvoiceModals();
+  const queryClient = useQueryClient();
 
   const { invoice, invoiceItems, isLoading } = invoiceData;
+
+  // Fetch Stripe details for retry information
+  const { data: stripeDetails, isLoading: isLoadingStripeDetails } = useQuery({
+    queryKey: ['invoice-stripe-details', invoiceId],
+    queryFn: async () => {
+      if (!invoiceId) return null;
+      const response = await fetch(`/api/invoices/${invoiceId}/stripe-details`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch Stripe details');
+      }
+      return response.json();
+    },
+    enabled: isOpen && !!invoiceId && !!invoice?.stripe_invoice_id,
+    staleTime: 1000 * 60, // 1 minute
+  });
 
   // Computed values
   const totalAmount = invoice?.amount_due_cents || 0;
   const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
+  
+  // Extract last payment error from metadata
+  const metadata = invoice?.metadata as any;
+  const lastPaymentError = metadata?.last_payment_error || null;
+  const collectionMethod = invoice?.collection_method;
+
+  const handleSendInvoiceEmail = async () => {
+    if (!invoiceId) return;
+    setIsLoadingAction(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/send-invoice`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send invoice');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Invoice email sent successfully',
+      });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Error',
+        description: errorMessage || 'Failed to send invoice',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
+
+  const handleChargeCard = async () => {
+    if (!invoiceId || !invoice?.stripe_invoice_id) return;
+
+    // Check if there's a future retry scheduled
+    if (stripeDetails?.next_payment_attempt) {
+      const nextAttemptDate = new Date(stripeDetails.next_payment_attempt * 1000);
+      const formattedDate = format(nextAttemptDate, 'MMM d, yyyy h:mm a');
+      
+      if (!confirm(`Are you sure you want to attempt this payment now? This payment will already be automatically attempted at ${formattedDate}.`)) {
+        return;
+      }
+    }
+
+    setIsLoadingAction(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/charge-card`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to charge card');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Payment attempt initiated successfully',
+      });
+      
+      // Invalidate invoice queries to refresh data
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
+      queryClient.invalidateQueries({ queryKey: ['invoice-stripe-details', invoiceId] });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Error',
+        description: errorMessage || 'Failed to charge card',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
 
   // Always render the Sheet to allow exit animation
   if (isLoading || !invoice) {
@@ -92,6 +194,9 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                     onDownloadPdf={invoice.invoice_pdf ? () => {
                       window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
                     } : undefined}
+                    onSendInvoice={collectionMethod === 'send_invoice' ? handleSendInvoiceEmail : undefined}
+                    onChargeCard={collectionMethod === 'charge_automatically' ? handleChargeCard : undefined}
+                    isLoadingAction={isLoadingAction}
                   />
                 )}
               </div>
@@ -135,6 +240,53 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   <div className="text-sm">
                     {formatInvoiceAmount(invoice.amount_paid_cents, invoice.currency || 'AUD')}
                   </div>
+                  
+                  <div className="text-sm font-medium text-muted-foreground">Collection Method:</div>
+                  <div className="text-sm">
+                    <Badge variant="outline">
+                      {collectionMethod === 'charge_automatically' 
+                        ? 'Charge Automatically' 
+                        : collectionMethod === 'send_invoice'
+                        ? 'Send Invoice'
+                        : '—'}
+                    </Badge>
+                  </div>
+                  
+                  {collectionMethod === 'charge_automatically' && lastPaymentError && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Last Payment Error:</div>
+                      <div className="text-sm text-destructive">
+                        {lastPaymentError.code}: {lastPaymentError.message}
+                      </div>
+                    </>
+                  )}
+                  
+                  {collectionMethod === 'charge_automatically' && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Attempt Count:</div>
+                      <div className="text-sm">
+                        {isLoadingStripeDetails ? 'Loading...' : stripeDetails?.attempt_count ?? '—'}
+                      </div>
+                      
+                      <div className="text-sm font-medium text-muted-foreground">Next Payment Attempt:</div>
+                      <div className="text-sm">
+                        {isLoadingStripeDetails 
+                          ? 'Loading...' 
+                          : stripeDetails?.next_payment_attempt
+                          ? format(new Date(stripeDetails.next_payment_attempt * 1000), 'MMM d, yyyy h:mm a')
+                          : 'No retry scheduled'}
+                      </div>
+                      
+                      <div className="text-sm font-medium text-muted-foreground">Auto Retry Active:</div>
+                      <div className="text-sm">
+                        {isLoadingStripeDetails 
+                          ? 'Loading...' 
+                          : stripeDetails?.auto_retry_active 
+                          ? <Badge variant="default">Yes</Badge>
+                          : <Badge variant="secondary">No</Badge>}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

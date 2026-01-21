@@ -7,6 +7,7 @@ import {
   useFailedDeliveryMessages,
   useStudentsWithoutClasses,
   useStudentsWithoutPaymentMethod,
+  useTrialStudentsNotSignedUp,
 } from '../api/queries';
 
 /**
@@ -21,6 +22,7 @@ export function useReconciliationData() {
   const failedDeliveryMessages = useFailedDeliveryMessages();
   const studentsWithoutClasses = useStudentsWithoutClasses();
   const studentsWithoutPaymentMethod = useStudentsWithoutPaymentMethod();
+  const trialStudentsNotSignedUp = useTrialStudentsNotSignedUp();
 
   const isLoading =
     uninvoicedSessions.isLoading ||
@@ -30,7 +32,8 @@ export function useReconciliationData() {
     unrepliedMessages.isLoading ||
     failedDeliveryMessages.isLoading ||
     studentsWithoutClasses.isLoading ||
-    studentsWithoutPaymentMethod.isLoading;
+    studentsWithoutPaymentMethod.isLoading ||
+    trialStudentsNotSignedUp.isLoading;
 
   const hasError =
     uninvoicedSessions.isError ||
@@ -40,7 +43,8 @@ export function useReconciliationData() {
     unrepliedMessages.isError ||
     failedDeliveryMessages.isError ||
     studentsWithoutClasses.isError ||
-    studentsWithoutPaymentMethod.isError;
+    studentsWithoutPaymentMethod.isError ||
+    trialStudentsNotSignedUp.isError;
 
   return {
     uninvoicedSessions,
@@ -51,6 +55,7 @@ export function useReconciliationData() {
     failedDeliveryMessages,
     studentsWithoutClasses,
     studentsWithoutPaymentMethod,
+    trialStudentsNotSignedUp,
     isLoading,
     hasError,
   };

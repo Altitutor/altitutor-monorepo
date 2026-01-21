@@ -10,6 +10,7 @@ import type {
   UnpaidInvoice,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
+  TrialStudentNotSignedUp,
 } from '../types';
 
 /**
@@ -44,6 +45,8 @@ export const reconciliationApi = {
         amount_due_cents,
         currency,
         stripe_invoice_id,
+        collection_method,
+        metadata,
         student:students!invoices_student_id_fkey (
           first_name,
           last_name,
@@ -59,6 +62,8 @@ export const reconciliationApi = {
     // Transform the data to match UnpaidInvoice type
     return (data ?? []).map((invoice: any) => {
       const student = invoice.student;
+      const metadata = invoice.metadata as any;
+      const lastPaymentError = metadata?.last_payment_error || null;
       
       return {
         id: invoice.id,
@@ -69,6 +74,8 @@ export const reconciliationApi = {
         amount_due_cents: invoice.amount_due_cents,
         currency: invoice.currency,
         stripe_invoice_id: invoice.stripe_invoice_id,
+        collection_method: invoice.collection_method,
+        last_payment_error: lastPaymentError,
         student_first_name: student?.first_name || null,
         student_last_name: student?.last_name || null,
         student_email: student?.email || null,
@@ -156,5 +163,19 @@ export const reconciliationApi = {
       .order('first_name', { ascending: true });
     if (error) throw error;
     return (data ?? []) as StudentWithoutPaymentMethod[];
+  },
+
+  /**
+   * Get trial students who haven't signed up
+   */
+  getTrialStudentsNotSignedUp: async (): Promise<TrialStudentNotSignedUp[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await (supabase as any)
+      .from('vadmin_reconciliation_trial_students_not_signed_up')
+      .select('*')
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as TrialStudentNotSignedUp[];
   },
 };

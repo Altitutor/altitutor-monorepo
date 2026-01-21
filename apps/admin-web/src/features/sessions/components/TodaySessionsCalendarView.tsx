@@ -4,6 +4,7 @@ import { format, differenceInMinutes, isSameDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils';
+import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
 
 type Props = { onOpenSession?: (id: string) => void };
@@ -40,13 +41,11 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
 
     todaySessions.forEach((s: any) => {
       if (s.start_at) {
-        const startDate = new Date(s.start_at);
-        const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+        const startMinutes = adelaideTimeToMinutes(s.start_at);
         earliestStart = Math.min(earliestStart, startMinutes);
       }
       if (s.end_at) {
-        const endDate = new Date(s.end_at);
-        const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+        const endMinutes = adelaideTimeToMinutes(s.end_at);
         latestEnd = Math.max(latestEnd, endMinutes);
       }
     });
@@ -67,10 +66,15 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
   const { startHour, slots } = calculateTimeRange();
 
   // Helpers to compute block positions
-  const minutesFromStart = (date: Date) => (date.getHours() * 60 + date.getMinutes()) - (startHour * 60);
+  // Use Adelaide timezone for consistent calculations
+  const minutesFromStart = (isoString: string) => {
+    const minutes = adelaideTimeToMinutes(isoString);
+    return minutes - (startHour * 60);
+  };
 
   // Current time indicator
-  const currentMinutesFromStart = minutesFromStart(today);
+  // For current time indicator, use local time (user's current time)
+  const currentMinutesFromStart = (today.getHours() * 60 + today.getMinutes()) - (startHour * 60);
   const totalMinutesInRange = slots.length * 60;
   const showTodayIndicator = currentMinutesFromStart >= 0 && currentMinutesFromStart < totalMinutesInRange;
 
@@ -121,20 +125,21 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
                     const daySessions = todaySessions.sort(
                       (a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
                     );
-                    // Build overlap groups
+                    // Build overlap groups using Adelaide timezone for consistent calculations
                     const groups: any[][] = [];
                     const processed = new Set<string>();
-                    const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
                     daySessions.forEach((s: any) => {
                       if (processed.has(s.id)) return;
-                      const sStart = toMinutes(new Date(s.start_at));
-                      const sEnd = toMinutes(new Date(s.end_at));
+                      const sStart = adelaideTimeToMinutes(s.start_at);
+                      const sEnd = adelaideTimeToMinutes(s.end_at);
                       const group = [s];
                       processed.add(s.id);
                       daySessions.forEach((o: any) => {
                         if (processed.has(o.id)) return;
-                        const oStart = toMinutes(new Date(o.start_at));
-                        const oEnd = toMinutes(new Date(o.end_at));
+                        const oStart = adelaideTimeToMinutes(o.start_at);
+                        const oEnd = adelaideTimeToMinutes(o.end_at);
+                        // Events that end exactly when another starts should NOT overlap
+                        // Use strict comparison: sStart < oEnd && sEnd > oStart
                         if (sStart < oEnd && sEnd > oStart) {
                           group.push(o);
                           processed.add(o.id);
@@ -147,10 +152,10 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
                       const total = group.length;
                       const columnWidth = total > 1 ? 95 / total : 95;
                       group.forEach((s: any, idx: number) => {
-                        const sStart = new Date(s.start_at);
-                        const sEnd = new Date(s.end_at);
-                        const top = Math.max(0, (minutesFromStart(sStart) / 60) * slotHeight);
-                        const height = Math.max(30, (differenceInMinutes(sEnd, sStart) / 60) * slotHeight);
+                        const sStartMinutes = adelaideTimeToMinutes(s.start_at);
+                        const sEndMinutes = adelaideTimeToMinutes(s.end_at);
+                        const top = Math.max(0, (minutesFromStart(s.start_at) / 60) * slotHeight);
+                        const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                         const left = (idx * columnWidth) + 2.5;
                         
                         const cls: any = (data as any)?.classesById?.[s.class_id];

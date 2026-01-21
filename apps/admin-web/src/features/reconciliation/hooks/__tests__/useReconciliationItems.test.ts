@@ -9,6 +9,7 @@ import type {
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
+  TrialStudentNotSignedUp,
 } from '../../types';
 
 type ReconciliationQueries = {
@@ -20,6 +21,7 @@ type ReconciliationQueries = {
   failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
+  trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
 };
 
 const createMockQueries = (overrides?: Partial<ReconciliationQueries>): ReconciliationQueries => ({
@@ -31,6 +33,7 @@ const createMockQueries = (overrides?: Partial<ReconciliationQueries>): Reconcil
   failedDeliveryMessages: { data: [] as FailedDeliveryMessage[] },
   studentsWithoutClasses: { data: [] as StudentWithoutClasses[] },
   studentsWithoutPaymentMethod: { data: [] as StudentWithoutPaymentMethod[] },
+  trialStudentsNotSignedUp: { data: [] as TrialStudentNotSignedUp[] },
   ...overrides,
 });
 
@@ -73,6 +76,17 @@ describe('useReconciliationItems', () => {
     expect(result.current.hasAnyItems).toBe(true);
   });
 
+  it('should aggregate trial items correctly', () => {
+    const queries = createMockQueries({
+      trialStudentsNotSignedUp: { data: [{ student_id: '1' } as TrialStudentNotSignedUp] },
+    });
+
+    const { result } = renderHook(() => useReconciliationItems(queries));
+
+    expect(result.current.trialItems).toHaveLength(1);
+    expect(result.current.hasAnyItems).toBe(true);
+  });
+
   it('should return hasAnyItems false when all arrays are empty', () => {
     const queries = createMockQueries();
 
@@ -81,6 +95,7 @@ describe('useReconciliationItems', () => {
     expect(result.current.financialItems).toHaveLength(0);
     expect(result.current.schedulingItems).toHaveLength(0);
     expect(result.current.communicationItems).toHaveLength(0);
+    expect(result.current.trialItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);
   });
 
@@ -94,6 +109,7 @@ describe('useReconciliationItems', () => {
       failedDeliveryMessages: {},
       studentsWithoutClasses: {},
       studentsWithoutPaymentMethod: {},
+      trialStudentsNotSignedUp: {},
     };
 
     const { result } = renderHook(() => useReconciliationItems(queries as any));
@@ -101,6 +117,7 @@ describe('useReconciliationItems', () => {
     expect(result.current.financialItems).toHaveLength(0);
     expect(result.current.schedulingItems).toHaveLength(0);
     expect(result.current.communicationItems).toHaveLength(0);
+    expect(result.current.trialItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);
   });
 });

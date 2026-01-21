@@ -198,8 +198,23 @@ export function getInvoiceStatusBadgeVariant(
 
 /**
  * Check if session can be rescheduled
+ * Sessions cannot be rescheduled if they have a tutor log (already logged) or if any student has paid invoice
  */
-export function canRescheduleSession(session: Tables<'sessions'>): boolean {
+export function canRescheduleSession(
+  session: Tables<'sessions'>,
+  hasTutorLog?: boolean,
+  hasPaidInvoice?: boolean
+): boolean {
+  // Cannot reschedule if session is already logged
+  if (hasTutorLog) {
+    return false;
+  }
+  
+  // Cannot reschedule if any student has a paid invoice
+  if (hasPaidInvoice) {
+    return false;
+  }
+  
   return (
     !!session.type &&
     ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type)
@@ -208,17 +223,27 @@ export function canRescheduleSession(session: Tables<'sessions'>): boolean {
 
 /**
  * Get first student ID for rescheduling
+ * Also checks if any student has a paid invoice
  */
 export function getFirstStudentIdForReschedule(
   sessionId: string,
-  sessionStudents: Record<string, Array<{ student_id?: string; planned_absence?: boolean }>>
-): string | null {
+  sessionStudents: Record<string, Array<{ id?: string; planned_absence?: boolean; invoice_status?: string | null }>>
+): { studentId: string | null; hasPaidInvoice: boolean } {
   const studentList = sessionStudents[sessionId] || [];
   if (studentList.length > 0) {
-    const firstStudent = studentList.find(
-      (ss) => ss.student_id && !ss.planned_absence
+    // Check if any student has a paid invoice
+    const hasPaidInvoice = studentList.some(
+      (ss) => ss.invoice_status === 'paid'
     );
-    return firstStudent?.student_id || null;
+    
+    // Find first student without planned absence
+    const firstStudent = studentList.find(
+      (ss) => ss.id && !ss.planned_absence
+    );
+    return {
+      studentId: firstStudent?.id || null,
+      hasPaidInvoice,
+    };
   }
-  return null;
+  return { studentId: null, hasPaidInvoice: false };
 }

@@ -59,6 +59,12 @@ describe('useReconciliationData', () => {
       isLoading: false,
       isError: false,
     } as any);
+    
+    mockQueries.useTrialStudentsNotSignedUp.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as any);
   });
 
   it('should aggregate all queries', () => {
@@ -72,6 +78,7 @@ describe('useReconciliationData', () => {
     expect(result.current).toHaveProperty('failedDeliveryMessages');
     expect(result.current).toHaveProperty('studentsWithoutClasses');
     expect(result.current).toHaveProperty('studentsWithoutPaymentMethod');
+    expect(result.current).toHaveProperty('trialStudentsNotSignedUp');
   });
 
   it('should return isLoading true when any query is loading', () => {

@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX } from 'lucide-react';
+import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard } from 'lucide-react';
 
 interface BaseActionsMenuProps {
   onOpenInPage: () => void;
@@ -45,6 +45,9 @@ interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
   type: 'invoice';
   onViewOnStripe?: () => void;
   onDownloadPdf?: () => void;
+  onSendInvoice?: () => void;
+  onChargeCard?: () => void;
+  isLoadingAction?: boolean;
 }
 
 interface ClassActionsMenuProps extends BaseActionsMenuProps {
@@ -182,7 +185,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" disabled={props.isLoadingAction}>
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -205,6 +208,24 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </DropdownMenuItem>
+          )}
+          {props.onSendInvoice && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onSendInvoice} disabled={props.isLoadingAction}>
+                <Mail className="h-4 w-4 mr-2" />
+                Send Invoice
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onChargeCard && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onChargeCard} disabled={props.isLoadingAction}>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Charge Card
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
