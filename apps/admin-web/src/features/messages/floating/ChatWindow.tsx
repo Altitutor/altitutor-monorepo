@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Minus } from 'lucide-react';
 import { useChatStore, ChatWindowDescriptor } from '../state/chatStore';
 import { MessageThread } from '../components/MessageThread';
@@ -27,6 +27,12 @@ export function ChatWindow({ descriptor }: Props) {
   useEffect(() => {
     updateWindowTitleRef.current = updateWindowTitle;
   });
+  
+  // Per-conversation draft messages (keyed by contactId) - separate from main page drafts
+  const draftsRef = useRef<Map<string, string>>(new Map());
+  const [currentDraft, setCurrentDraft] = useState<string>('');
+  const currentDraftRef = useRef<string>('');
+  const previousContactIdRef = useRef<string | null>(null);
 
   // Get contactId from conversationId
   const { data: contactId } = useQuery({
@@ -74,6 +80,44 @@ export function ChatWindow({ descriptor }: Props) {
       updateWindowTitleRef.current(descriptor.conversationId, contactName);
     }
   }, [contact, descriptor.conversationId]);
+  
+  // Manage per-conversation drafts: save current draft when contactId changes
+  useEffect(() => {
+    // Save draft for previous conversation before switching (use ref to get latest value)
+    if (previousContactIdRef.current && previousContactIdRef.current !== contactId) {
+      draftsRef.current.set(previousContactIdRef.current, currentDraftRef.current);
+    }
+    
+    // Restore draft for new conversation
+    if (contactId) {
+      const savedDraft = draftsRef.current.get(contactId) || '';
+      setCurrentDraft(savedDraft);
+      currentDraftRef.current = savedDraft;
+    } else {
+      setCurrentDraft('');
+      currentDraftRef.current = '';
+    }
+    
+    previousContactIdRef.current = contactId ?? null;
+  }, [contactId]);
+  
+  // Handler to update draft for current conversation
+  const handleDraftChange = (newDraft: string) => {
+    setCurrentDraft(newDraft);
+    currentDraftRef.current = newDraft;
+    if (contactId) {
+      draftsRef.current.set(contactId, newDraft);
+    }
+  };
+  
+  // Handler to clear draft after sending (called from Composer)
+  const handleDraftClear = () => {
+    setCurrentDraft('');
+    currentDraftRef.current = '';
+    if (contactId) {
+      draftsRef.current.set(contactId, '');
+    }
+  };
 
   const displayTitle = contact ? formatContactName({ contacts: contact }) : (descriptor.title || 'Loading...');
 
@@ -122,7 +166,12 @@ export function ChatWindow({ descriptor }: Props) {
       {!descriptor.minimized && contactId && (
         <div className="flex flex-col h-[380px] max-h-[calc(100vh-8rem)]">
           <MessageThread contactId={contactId} />
-          <Composer contactId={contactId} />
+          <Composer 
+            contactId={contactId}
+            draft={currentDraft}
+            onDraftChange={handleDraftChange}
+            onDraftClear={handleDraftClear}
+          />
         </div>
       )}
     </div>

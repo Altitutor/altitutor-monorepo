@@ -10,7 +10,7 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
+import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check, X } from 'lucide-react';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
 import type { Database } from '@altitutor/shared';
@@ -191,12 +191,26 @@ export function SendBookingConfirmationDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] [&>button]:hidden">
         <DialogHeader>
-          <DialogTitle>Send Booking Confirmation Link</DialogTitle>
-          <DialogDescription>
-            Send a booking confirmation link for this session to {student.first_name} {student.last_name}'s parent(s)
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleClose}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle>Send Booking Confirmation Link</DialogTitle>
+                <DialogDescription>
+                  Send a booking confirmation link for this session to {student.first_name} {student.last_name}'s parent(s)
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

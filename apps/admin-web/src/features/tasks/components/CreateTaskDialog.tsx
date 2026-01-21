@@ -14,6 +14,7 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
+import { X } from 'lucide-react';
 import { useCreateTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
 import type { TaskStatus } from '../types';
@@ -137,9 +138,23 @@ export function CreateTaskDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>Create Task</DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleClose}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle>Create Task</DialogTitle>
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden min-h-0">

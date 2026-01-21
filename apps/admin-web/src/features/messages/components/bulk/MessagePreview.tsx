@@ -11,6 +11,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Sender } from '../../api/queries';
+import { generateLinkTokensForStudent, templateContainsLinkVariables } from '../../utils/generateLinkTokens';
 
 interface Recipient {
   id: string;
@@ -143,6 +144,9 @@ export function MessagePreview({
       : null;
 
     const classes = studentClasses[studentId] || [];
+    
+    // Note: Link tokens are not generated in preview to avoid unnecessary API calls
+    // They will be generated when actually sending
     return replaceVariables(message, student, classes, senderName);
   };
 

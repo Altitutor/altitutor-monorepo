@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { StaffSelector } from './StaffSelector';
 import { AdminTrialContactForm } from './AdminTrialContactForm';
@@ -198,18 +198,32 @@ export function BookSessionModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-            <DialogTitle>
-              {originalSessionId 
-                ? `Reschedule ${getSessionTypeLabel(sessionType)}` 
-                : `Book ${getSessionTypeLabel(sessionType)}`}
-            </DialogTitle>
-            <DialogDescription>
-              {originalSessionId 
-                ? `Select a new time for this ${getSessionTypeLabel(sessionType).toLowerCase()}. The original session will be marked as an absence.`
-                : `Create a new ${getSessionTypeLabel(sessionType).toLowerCase()} booking`}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <DialogTitle>
+                    {originalSessionId 
+                      ? `Reschedule ${getSessionTypeLabel(sessionType)}` 
+                      : `Book ${getSessionTypeLabel(sessionType)}`}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {originalSessionId 
+                      ? `Select a new time for this ${getSessionTypeLabel(sessionType).toLowerCase()}. The original session will be marked as an absence.`
+                      : `Create a new ${getSessionTypeLabel(sessionType).toLowerCase()} booking`}
+                  </DialogDescription>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
 
           {/* Step Indicator */}

@@ -140,6 +140,9 @@ export function MessageComposer({
             <p>• {'{last_name}'} - Student's last name</p>
             <p>• {'{classes}'} - Student's enrolled classes (formatted list)</p>
             <p>• {'{sender_name}'} - Name of the currently logged in staff member</p>
+            <p>• {'{registration_link}'} - Registration link (students only)</p>
+            <p>• {'{invite_link}'} - Invite link (students or staff)</p>
+            <p>• {'{forgot_password_link}'} - Password reset link (students or staff)</p>
           </div>
         </div>
 

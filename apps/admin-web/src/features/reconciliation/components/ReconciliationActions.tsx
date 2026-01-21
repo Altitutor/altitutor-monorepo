@@ -139,7 +139,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     },
   });
 
-  const handleSendInvoiceForSession = (sessions_students_id: string) => {
+  const handleSendInvoice = (sessions_students_id: string) => {
     invoiceSessionMutation.mutate(sessions_students_id);
   };
 
@@ -147,7 +147,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     await handleMessageStudent(studentId);
   };
 
-  const handleSendInvoice = async (invoiceId: string) => {
+  const handleSendInvoiceEmail = async (invoiceId: string) => {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/invoices/${invoiceId}/send-invoice`, {
@@ -255,7 +255,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           <Button
             variant="default"
             size="sm"
-            onClick={() => handleSendInvoiceForSession(session.sessions_students_id)}
+            onClick={() => handleSendInvoice(session.sessions_students_id)}
             disabled={isLoading || invoiceSessionMutation.isPending}
           >
             <CreditCard className="h-4 w-4 mr-1" />
@@ -290,7 +290,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
             <Button
               variant="default"
               size="sm"
-              onClick={() => handleSendInvoice(invoice.id)}
+              onClick={() => handleSendInvoiceEmail(invoice.id)}
               disabled={isLoading}
             >
               <CreditCard className="h-4 w-4 mr-1" />

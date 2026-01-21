@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button as UIButton } from '@altitutor/ui';
 import { MessageThread } from './MessageThread';
 import { Composer } from './Composer';
@@ -25,6 +25,12 @@ export function MessagesTabContent({
   relatedType
 }: MessagesTabContentProps) {
   const [contactId, setContactId] = useState<string | null>(null);
+  
+  // Per-conversation draft messages (keyed by contactId)
+  const draftsRef = useRef<Map<string, string>>(new Map());
+  const [currentDraft, setCurrentDraft] = useState<string>('');
+  const currentDraftRef = useRef<string>(''); // Keep latest draft value for saving on switch
+  const previousContactIdRef = useRef<string | null>(null);
 
   // Convert conversationId to contactId if provided (for backward compatibility)
   const { data: contactIdFromConversation } = useContactIdFromConversation(
@@ -41,6 +47,44 @@ export function MessagesTabContent({
       });
     }
   }, [contactIdFromConversation, relatedId, relatedType]);
+  
+  // Manage per-conversation drafts: save current draft when switching conversations
+  useEffect(() => {
+    // Save draft for previous conversation before switching (use ref to get latest value)
+    if (previousContactIdRef.current && previousContactIdRef.current !== contactId) {
+      draftsRef.current.set(previousContactIdRef.current, currentDraftRef.current);
+    }
+    
+    // Restore draft for new conversation
+    if (contactId) {
+      const savedDraft = draftsRef.current.get(contactId) || '';
+      setCurrentDraft(savedDraft);
+      currentDraftRef.current = savedDraft;
+    } else {
+      setCurrentDraft('');
+      currentDraftRef.current = '';
+    }
+    
+    previousContactIdRef.current = contactId;
+  }, [contactId]);
+  
+  // Handler to update draft for current conversation
+  const handleDraftChange = (newDraft: string) => {
+    setCurrentDraft(newDraft);
+    currentDraftRef.current = newDraft;
+    if (contactId) {
+      draftsRef.current.set(contactId, newDraft);
+    }
+  };
+  
+  // Handler to clear draft after sending (called from Composer)
+  const handleDraftClear = () => {
+    setCurrentDraft('');
+    currentDraftRef.current = '';
+    if (contactId) {
+      draftsRef.current.set(contactId, '');
+    }
+  };
 
   const handleFirstMessage = async (_messageBody: string, _selectedSenderId: string) => {
     // ContactId should already be set from useEffect
@@ -79,7 +123,13 @@ export function MessagesTabContent({
           </div>
           {/* Fixed Footer with Composer */}
           <div className="flex-shrink-0 border-t bg-background">
-            <Composer contactId={contactId} onBeforeSend={handleFirstMessage} />
+            <Composer 
+              contactId={contactId} 
+              onBeforeSend={handleFirstMessage}
+              draft={currentDraft}
+              onDraftChange={handleDraftChange}
+              onDraftClear={handleDraftClear}
+            />
           </div>
         </>
       ) : relatedId && relatedType ? (
@@ -89,7 +139,13 @@ export function MessagesTabContent({
           </div>
           {/* Fixed Footer with Composer */}
           <div className="flex-shrink-0 border-t bg-background">
-            <Composer contactId={null} onBeforeSend={handleFirstMessage} />
+            <Composer 
+              contactId={null} 
+              onBeforeSend={handleFirstMessage}
+              draft={currentDraft}
+              onDraftChange={handleDraftChange}
+              onDraftClear={handleDraftClear}
+            />
           </div>
         </>
       ) : (

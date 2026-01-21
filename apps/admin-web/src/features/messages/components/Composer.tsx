@@ -4,21 +4,39 @@ import { useState, useRef, useEffect } from 'react';
 import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
+import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
+import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
+import { Loader2 } from 'lucide-react';
 
 interface Props {
   contactId: string | null;
   onTyping?: () => void;
   onBeforeSend?: (messageBody: string, selectedSenderId: string) => Promise<string | null>;
+  draft?: string;
+  onDraftChange?: (draft: string) => void;
+  onDraftClear?: () => void;
 }
 
-export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
-  const [text, setText] = useState('');
+export function Composer({ 
+  contactId, 
+  onTyping, 
+  onBeforeSend,
+  draft,
+  onDraftChange,
+  onDraftClear
+}: Props) {
+  // Use controlled draft if provided, otherwise fall back to internal state
+  const [internalText, setInternalText] = useState('');
+  const text = draft !== undefined ? draft : internalText;
+  const setText = draft !== undefined && onDraftChange ? onDraftChange : setInternalText;
+  
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
+  const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: currentStaff } = useCurrentStaff();
@@ -51,7 +69,13 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
   const onSend = async () => {
     const body = text.trim();
     if (!body || !contactId || !selectedSenderId) return;
-    setText('');
+    
+    // Clear draft (either via callback or directly)
+    if (onDraftClear) {
+      onDraftClear();
+    } else {
+      setText('');
+    }
     
     try {
       // Call onBeforeSend if provided (for backward compatibility)
@@ -66,6 +90,7 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
       });
     } catch (e) {
       console.error(e);
+      // Restore draft on error
       setText(body);
     }
   };
@@ -77,6 +102,9 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
       ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
       : null;
     
+    // Check if template contains link variables
+    const needsLinks = templateContainsLinkVariables(template.content);
+    
     // Try to replace variables if we have contact data
     if (contactData) {
       const contact = contactData;
@@ -85,13 +113,33 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
       if (contact.contact_type === 'STUDENT' && contact.students) {
         const student = contact.students as Tables<'students'>;
         try {
+          setIsGeneratingTokens(needsLinks);
+          
           // Fetch student classes
           const classes = await getStudentClasses(student.id);
+          
+          // Generate link tokens if template contains link variables
+          let linkTokens = null;
+          if (needsLinks) {
+            try {
+              linkTokens = await generateLinkTokensForStudent(student.id, {
+                includeRegistration: template.content.includes('{registration_link}'),
+                includeInvite: template.content.includes('{invite_link}'),
+                includePasswordReset: template.content.includes('{forgot_password_link}'),
+              });
+            } catch (error) {
+              console.error('Error generating link tokens:', error);
+              // Continue without tokens - variables will be replaced with empty strings
+            }
+          }
+          
           // Replace variables with actual data
-          content = replaceVariables(template.content, student, classes, senderName);
+          content = replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
         } catch (error) {
           console.error('Error fetching student classes for template:', error);
           // Fall back to template with placeholders if we can't fetch classes
+        } finally {
+          setIsGeneratingTokens(false);
         }
       }
       // Check if it's a parent contact - use their first student
@@ -103,15 +151,63 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
           if (firstStudent) {
             const student = firstStudent as Tables<'students'>;
             try {
+              setIsGeneratingTokens(needsLinks);
+              
               // Fetch student classes
               const classes = await getStudentClasses(student.id);
+              
+              // Generate link tokens if template contains link variables
+              let linkTokens = null;
+              if (needsLinks) {
+                try {
+                  linkTokens = await generateLinkTokensForStudent(student.id, {
+                    includeRegistration: template.content.includes('{registration_link}'),
+                    includeInvite: template.content.includes('{invite_link}'),
+                    includePasswordReset: template.content.includes('{forgot_password_link}'),
+                  });
+                } catch (error) {
+                  console.error('Error generating link tokens:', error);
+                  // Continue without tokens - variables will be replaced with empty strings
+                }
+              }
+              
               // Replace variables with actual data
-              content = replaceVariables(template.content, student, classes, senderName);
+              content = replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
             } catch (error) {
               console.error('Error fetching student classes for template:', error);
               // Fall back to template with placeholders if we can't fetch classes
+            } finally {
+              setIsGeneratingTokens(false);
             }
           }
+        }
+      }
+      // Check if it's a staff contact
+      else if (contact.contact_type === 'STAFF' && contact.staff) {
+        const staff = contact.staff as Tables<'staff'>;
+        try {
+          setIsGeneratingTokens(needsLinks);
+          
+          // Generate link tokens if template contains link variables
+          let linkTokens = null;
+          if (needsLinks) {
+            try {
+              linkTokens = await generateLinkTokensForStaff(staff.id, staff.role, {
+                includeInvite: template.content.includes('{invite_link}'),
+                includePasswordReset: template.content.includes('{forgot_password_link}'),
+              });
+            } catch (error) {
+              console.error('Error generating link tokens for staff:', error);
+              // Continue without tokens - variables will be replaced with empty strings
+            }
+          }
+          
+          // Replace variables with actual data (staff don't have classes)
+          content = replaceVariablesForStaff(template.content, staff, senderName, linkTokens || undefined);
+        } catch (error) {
+          console.error('Error processing staff template:', error);
+        } finally {
+          setIsGeneratingTokens(false);
         }
       }
     }
@@ -154,10 +250,17 @@ export function Composer({ contactId, onTyping, onBeforeSend }: Props) {
         </div>
       )}
       <div className="flex items-start gap-2">
-        <MessageTemplatesPicker 
-          onSelect={handleTemplateSelect}
-          disabled={send.isPending || !contactId || !selectedSenderId}
-        />
+        <div className="relative">
+          <MessageTemplatesPicker 
+            onSelect={handleTemplateSelect}
+            disabled={send.isPending || !contactId || !selectedSenderId || isGeneratingTokens}
+          />
+          {isGeneratingTokens && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </div>
         <textarea
           ref={textareaRef}
           className="flex-1 text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px]"

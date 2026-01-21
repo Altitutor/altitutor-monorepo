@@ -143,6 +143,7 @@ async function ensureConversationForContactWithSender(contactId: string, ownedNu
 import { getStudentClasses } from '../api/bulk';
 import { replaceVariables } from '../utils/variableReplacer';
 import { getErrorMessage } from '@/shared/utils';
+import { batchGenerateLinkTokens, templateContainsLinkVariables } from '../utils/generateLinkTokens';
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 200;
@@ -224,6 +225,23 @@ export function useAnnouncements() {
         }
       }
 
+      // 3.5. Generate link tokens if template contains link variables
+      const needsLinks = templateContainsLinkVariables(message);
+      let linkTokensMap: Record<string, import('../utils/generateLinkTokens').LinkTokens> = {};
+      
+      if (needsLinks) {
+        try {
+          linkTokensMap = await batchGenerateLinkTokens(studentIds, {
+            includeRegistration: message.includes('{registration_link}'),
+            includeInvite: message.includes('{invite_link}'),
+            includePasswordReset: message.includes('{forgot_password_link}'),
+          });
+        } catch (error) {
+          console.error('Error batch generating link tokens:', error);
+          // Continue without tokens - variables will be replaced with empty strings
+        }
+      }
+
       // Determine from value based on sender type
       const fromValue = selectedSender.sender_type === 'ALPHANUMERIC'
         ? selectedSender.alphanumeric_sender_id
@@ -247,7 +265,8 @@ export function useAnnouncements() {
         if (!conversationId || !student.phone) continue;
 
         const classes = studentClassesMap[student.id] || [];
-        const personalizedMessage = replaceVariables(message, student, classes, senderName);
+        const linkTokens = linkTokensMap[student.id];
+        const personalizedMessage = replaceVariables(message, student, classes, senderName, linkTokens || undefined);
 
         messages.push({
           conversationId,
@@ -287,7 +306,8 @@ export function useAnnouncements() {
           if (!student) continue;
 
           const classes = studentClassesMap[studentId] || [];
-          const personalizedMessage = replaceVariables(message, student, classes, senderName);
+          const linkTokens = linkTokensMap[studentId];
+          const personalizedMessage = replaceVariables(message, student, classes, senderName, linkTokens || undefined);
 
           messages.push({
             conversationId,

@@ -64,9 +64,17 @@ interface ParentActionsMenuProps extends BaseActionsMenuProps {
 
 interface TopicActionsMenuProps extends BaseActionsMenuProps {
   type: 'topic';
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps;
+interface SubjectActionsMenuProps extends BaseActionsMenuProps {
+  type: 'subject';
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
+
+type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps;
 
 export function ActionsMenu(props: ActionsMenuProps) {
   if (props.type === 'student') {
@@ -100,7 +108,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Book drafting session
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
             <Trash2 className="h-4 w-4 mr-2" />
             Delete student
           </DropdownMenuItem>
@@ -136,7 +144,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Log absence
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
             <Trash2 className="h-4 w-4 mr-2" />
             Delete staff
           </DropdownMenuItem>
@@ -232,7 +240,79 @@ export function ActionsMenu(props: ActionsMenuProps) {
     );
   }
 
-  if (props.type === 'class' || props.type === 'adminShift' || props.type === 'parent' || props.type === 'topic') {
+  if (props.type === 'subject') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {props.onEdit && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onEdit}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit subject
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete subject
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'topic') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {props.onEdit && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onEdit}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit topic
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete topic
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'class' || props.type === 'adminShift' || props.type === 'parent') {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

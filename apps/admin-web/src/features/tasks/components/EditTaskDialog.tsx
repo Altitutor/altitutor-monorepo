@@ -13,6 +13,7 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
+import { X } from 'lucide-react';
 import { useTask } from '../api/queries';
 import { useUpdateTask, useDeleteTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
@@ -178,9 +179,23 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
   if (isLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-            <DialogTitle>Edit Task</DialogTitle>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <DialogTitle>Edit Task</DialogTitle>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
           <div className="p-4">Loading...</div>
         </DialogContent>
@@ -191,9 +206,23 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
   if (!task) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-            <DialogTitle>Edit Task</DialogTitle>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <DialogTitle>Edit Task</DialogTitle>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
           <div className="p-4">Task not found</div>
         </DialogContent>
@@ -203,9 +232,23 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>Edit Task</DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onClose}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle>Edit Task</DialogTitle>
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden min-h-0">

@@ -20,7 +20,7 @@ import type {
   StudentSession,
   RescheduleSession,
 } from '../../types/absence';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
 import type { Tables, Database } from '@altitutor/shared';
@@ -565,10 +565,24 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>{getStepTitle()}</DialogTitle>
-          <DialogDescription>{getStepDescription()}</DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onClose}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle>{getStepTitle()}</DialogTitle>
+                <DialogDescription>{getStepDescription()}</DialogDescription>
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">{renderStepContent()}</div>
