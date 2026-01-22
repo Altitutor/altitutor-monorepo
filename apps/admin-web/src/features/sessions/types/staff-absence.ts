@@ -58,7 +58,7 @@ export interface LogStaffAbsencesResponse {
  */
 export interface GetReplacementStaffParams {
   sessionId: string;
-  subjectId: string;
-  excludeStaffIds: string[]; // Staff IDs to exclude (original staff, already assigned, etc.)
+  subjectId?: string; // Optional, no longer used for filtering but kept for backward compatibility
+  excludeStaffIds: string[]; // Staff IDs to exclude (original staff only - already assigned staff are filtered automatically)
 }
 

@@ -18,15 +18,6 @@ type SessionsStaffWithSessionRow = Tables<'sessions_staff'> & {
   }) | null;
 };
 
-type ClassesStaffWithStaffRow = {
-  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone_number' | 'role' | 'status'> | null;
-};
-
-type StaffSubjectsWithStaffRow = {
-  staff_id: string;
-  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone_number' | 'role' | 'status'> | null;
-};
-
 type StaffSubjectsWithSubjectRow = {
   staff_id: string;
   subject: Tables<'subjects'> | null;
@@ -159,14 +150,14 @@ export const staffAbsencesApi = {
   },
 
   /**
-   * Get available replacement staff who teach the same subject
-   * Queries from both classes_staff → classes → subject_id AND staff_subjects → subject_id
+   * Get available replacement staff
+   * Filters by: ACTIVE status, not already assigned to same session, not original staff member
    */
   getAvailableReplacementStaff: async (
     params: GetReplacementStaffParams
   ): Promise<ReplacementStaff[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { sessionId, subjectId, excludeStaffIds } = params;
+    const { sessionId, excludeStaffIds } = params;
 
     try {
       // Get session to find staff already assigned
@@ -182,98 +173,31 @@ export const staffAbsencesApi = {
         (sessionStaff || []).map((sf) => sf.staff_id)
       );
 
-      // Combine excludeStaffIds with assigned staff IDs
+      // Combine excludeStaffIds (original staff) with assigned staff IDs
       const allExcludedIds = new Set([
         ...excludeStaffIds,
         ...Array.from(assignedStaffIds),
       ]);
 
-      // Query staff from classes_staff → classes → subject_id
-      // Use explicit foreign key relationship to avoid ambiguity
-      // Note: classes_staff doesn't have a status column - use unassigned_at IS NULL for active
-      const { data: staffFromClasses, error: classesError } = await supabase
-        .from('classes_staff')
-        .select(`
-          staff_id,
-          class_id,
-          class:classes!inner(
-            id,
-            subject_id
-          ),
-          staff:staff!class_assignments_staff_id_fkey(
-            id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            role,
-            status
-          )
-        `)
-        .is('unassigned_at', null)
-        .eq('class.subject_id', subjectId)
-        .eq('staff.status', 'ACTIVE');
-
-      if (classesError) throw classesError;
-
-      const typedStaffFromClasses = (staffFromClasses || []) as ClassesStaffWithStaffRow[];
-      const staffIdsFromClasses = new Set(
-        typedStaffFromClasses
-          .map((cs) => cs.staff?.id)
-          .filter((id): id is string => id !== undefined && id !== null)
-      );
-
-      // Query staff from staff_subjects → subject_id
-      const { data: staffFromSubjects, error: subjectsError } = await supabase
-        .from('staff_subjects')
-        .select(`
-          staff_id,
-          staff:staff!inner(
-            id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            role,
-            status
-          )
-        `)
-        .eq('subject_id', subjectId)
-        .in('staff.status', ['ACTIVE']);
-
-      if (subjectsError) throw subjectsError;
-
-      const typedStaffFromSubjects = (staffFromSubjects || []) as StaffSubjectsWithStaffRow[];
-      const staffIdsFromSubjects = new Set(
-        typedStaffFromSubjects
-          .map((ss) => ss.staff?.id)
-          .filter((id): id is string => id !== undefined && id !== null)
-      );
-
-      // Combine both sets of staff IDs
-      const allStaffIds = new Set([
-        ...Array.from(staffIdsFromClasses),
-        ...Array.from(staffIdsFromSubjects),
-      ]);
-
-      // Filter out excluded staff
-      const availableStaffIds = Array.from(allStaffIds).filter(
-        (id) => !allExcludedIds.has(id)
-      );
-
-      if (availableStaffIds.length === 0) {
-        return [];
-      }
-
-      // Get full staff details
+      // Query all ACTIVE staff
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
         .select('*')
-        .in('id', availableStaffIds)
         .eq('status', 'ACTIVE')
         .order('last_name', { ascending: true });
 
       if (staffError) throw staffError;
+
+      // Filter out excluded staff (original staff and already assigned staff)
+      const availableStaff = (staffData || []).filter(
+        (staff) => !allExcludedIds.has(staff.id)
+      );
+
+      if (availableStaff.length === 0) {
+        return [];
+      }
+
+      const availableStaffIds = availableStaff.map((staff) => staff.id);
 
       // Get subjects for each staff member
       const { data: staffSubjectsData, error: staffSubjectsError } = await supabase
@@ -299,7 +223,7 @@ export const staffAbsencesApi = {
       });
 
       // Combine staff with subjects
-      const replacementStaff: ReplacementStaff[] = (staffData || []).map((staff) => ({
+      const replacementStaff: ReplacementStaff[] = availableStaff.map((staff) => ({
         ...staff,
         subjects: subjectsMap.get(staff.id) || [],
       }));

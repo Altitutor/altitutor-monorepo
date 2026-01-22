@@ -13,14 +13,12 @@ interface StaffAbsenceBulkActionSelectorProps {
   sessions: StaffSession[];
   staffId: string;
   onDecisionsChange: (decisions: Array<{ sessionId: string; action: StaffAbsenceAction; replacementStaffId?: string; replacementStaff?: ReplacementStaff }>) => void;
-  excludeStaffIds?: string[]; // Staff IDs already selected for other swaps
 }
 
 export function StaffAbsenceBulkActionSelector({
   sessions,
   staffId,
   onDecisionsChange,
-  excludeStaffIds = [],
 }: StaffAbsenceBulkActionSelectorProps) {
   const {
     handleActionChange,
@@ -136,12 +134,12 @@ export function StaffAbsenceBulkActionSelector({
                 </RadioGroup>
 
                 {/* Replacement Staff Dropdown - Show when swap is selected but no replacement chosen */}
-                {decision?.action === 'swap' && !selectedReplacementStaffId && session.subject?.id && (
+                {decision?.action === 'swap' && !selectedReplacementStaffId && (
                   <div className="pt-2">
                     <ReplacementStaffDropdown
                       sessionId={session.id}
-                      subjectId={session.subject.id}
-                      excludeStaffIds={[staffId, ...excludeStaffIds]}
+                      subjectId={session.subject?.id}
+                      excludeStaffIds={[staffId]}
                       onSelect={(replacementStaffId, replacementStaff) => {
                         handleReplacementStaffSelect(session.id, replacementStaffId, replacementStaff);
                       }}

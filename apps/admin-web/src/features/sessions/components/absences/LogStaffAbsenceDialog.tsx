@@ -366,9 +366,6 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
                 sessions={selectedSessionsArray}
                 staffId={selectedStaff!.id}
                 onDecisionsChange={handleBulkDecisionsChange}
-                excludeStaffIds={decisions
-                  .filter((d) => d.action === 'swap' && d.replacementStaffId)
-                  .map((d) => d.replacementStaffId!)} // Exclude already selected replacement staff
               />
             </div>
           </div>
