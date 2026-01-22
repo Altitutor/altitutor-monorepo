@@ -14,7 +14,7 @@ import {
 
 interface ReplacementStaffDropdownProps {
   sessionId: string;
-  subjectId: string;
+  subjectId?: string; // Optional, no longer used for filtering
   excludeStaffIds: string[];
   onSelect: (staffId: string, staff: ReplacementStaff) => void;
   selectedStaffId?: string;
@@ -32,7 +32,7 @@ export function ReplacementStaffDropdown({
 
   const { data: availableStaff, isLoading } = useAvailableReplacementStaff({
     sessionId,
-    subjectId,
+    subjectId: subjectId || undefined, // Pass undefined if not provided
     excludeStaffIds,
   });
 
@@ -59,67 +59,83 @@ export function ReplacementStaffDropdown({
     setSearchQuery('');
   };
 
+  // Check if there are no available staff (not loading and no staff)
+  const hasNoAvailableStaff = !isLoading && availableStaff && availableStaff.length === 0;
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="w-full p-3 rounded-lg border-2 border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left flex items-center justify-between"
-        >
-          <span className="text-sm text-muted-foreground">
-            {selectedStaff
-              ? `${selectedStaff.first_name} ${selectedStaff.last_name}`
-              : 'Select replacement staff...'}
-          </span>
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
-        <div className="p-3 border-b">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search staff by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+    <div className="w-full">
+      {hasNoAvailableStaff ? (
+        <div className="w-full p-3 rounded-lg border-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
+          <div className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">
+            No available replacement staff
+          </div>
+          <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+            All active staff are already assigned to this session or excluded
           </div>
         </div>
-        <div className="max-h-[400px] overflow-y-auto">
-          {isLoading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Loading staff...
+      ) : (
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="w-full p-3 rounded-lg border-2 border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left flex items-center justify-between"
+            >
+              <span className="text-sm text-muted-foreground">
+                {selectedStaff
+                  ? `${selectedStaff.first_name} ${selectedStaff.last_name}`
+                  : 'Select replacement staff...'}
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[400px] p-0" align="start">
+            <div className="p-3 border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search staff by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-          ) : filteredStaff.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              {searchQuery.trim()
-                ? 'No staff found matching your search'
-                : 'No available replacement staff'}
-            </div>
-          ) : (
-            <div className="p-2 space-y-2">
-              {filteredStaff.map((staff) => (
-                <div
-                  key={staff.id}
-                  onClick={() => handleSelect(staff)}
-                  className="cursor-pointer"
-                >
-                  <StaffCard
-                    staff={staff}
-                    subjects={staff.subjects}
-                    isSelecting={true}
-                    isSelected={selectedStaffId === staff.id}
-                    showActions={false}
-                  />
+            <div className="max-h-[400px] overflow-y-auto">
+              {isLoading ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  Loading staff...
                 </div>
-              ))}
+              ) : filteredStaff.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  {searchQuery.trim()
+                    ? 'No staff found matching your search'
+                    : 'No available replacement staff'}
+                </div>
+              ) : (
+                <div className="p-2 space-y-2">
+                  {filteredStaff.map((staff) => (
+                    <div
+                      key={staff.id}
+                      onClick={() => handleSelect(staff)}
+                      className="cursor-pointer"
+                    >
+                      <StaffCard
+                        staff={staff}
+                        subjects={staff.subjects}
+                        isSelecting={true}
+                        isSelected={selectedStaffId === staff.id}
+                        showActions={false}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
   );
 }
 

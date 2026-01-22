@@ -50,7 +50,7 @@ export function useAvailableReplacementStaff(params: GetReplacementStaffParams |
       if (!params) throw new Error('Parameters are required');
       return staffAbsencesApi.getAvailableReplacementStaff(params);
     },
-    enabled: !!params && !!params.sessionId && !!params.subjectId,
+    enabled: !!params && !!params.sessionId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

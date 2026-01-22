@@ -508,7 +508,40 @@ export function CalendarView({
                   {/* Only render items in the first time slot to avoid duplicates */}
                   {timeIndex === 0 && (
                     <div className="absolute inset-0" style={{ height: `${timeSlots.length * 75}px` }}>
-                      {/* Classes */}
+                      {/* Admin Shifts (if enabled) - Render FIRST (behind) with lower z-index */}
+                      {showAdminShifts && getAdminShiftsForDay(day.value).map((position) => {
+                        const shiftStaff = adminShiftStaff?.[position.adminShift.id] || [];
+                        const cardHeight = Math.max(position.height, 45);
+                        const estimatedColumnWidth = 250;
+                        const cardWidth = (position.width / 100) * estimatedColumnWidth;
+                        
+                        return (
+                          <div
+                            key={position.adminShift.id}
+                            className="absolute"
+                            style={{
+                              top: `${position.top}px`,
+                              height: `${cardHeight}px`,
+                              left: `${position.left}%`,
+                              width: `${position.width}%`,
+                              zIndex: 5,
+                              minHeight: '45px'
+                            }}
+                            onClick={() => onAdminShiftClick?.(position.adminShift)}
+                          >
+                            <AdminShiftCard
+                              adminShift={position.adminShift}
+                              staff={shiftStaff}
+                              onClick={() => {}}
+                              isCalendarView={true}
+                              cardHeight={cardHeight}
+                              cardWidth={cardWidth}
+                            />
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Classes - Render AFTER (on top) with higher z-index */}
                       {getClassesForDay(day.value).map((position) => {
                         const classStudentsList = classStudents?.[position.class.id] || [];
                         const classStaffList = classStaff?.[position.class.id] || [];
@@ -541,39 +574,6 @@ export function CalendarView({
                               subject={classSubject}
                               staff={classStaffList}
                               students={classStudentsList}
-                              onClick={() => {}}
-                              isCalendarView={true}
-                              cardHeight={cardHeight}
-                              cardWidth={cardWidth}
-                            />
-                          </div>
-                        );
-                      })}
-                      
-                      {/* Admin Shifts (if enabled) */}
-                      {showAdminShifts && getAdminShiftsForDay(day.value).map((position) => {
-                        const shiftStaff = adminShiftStaff?.[position.adminShift.id] || [];
-                        const cardHeight = Math.max(position.height, 45);
-                        const estimatedColumnWidth = 250;
-                        const cardWidth = (position.width / 100) * estimatedColumnWidth;
-                        
-                        return (
-                          <div
-                            key={position.adminShift.id}
-                            className="absolute"
-                            style={{
-                              top: `${position.top}px`,
-                              height: `${cardHeight}px`,
-                              left: `${position.left}%`,
-                              width: `${position.width}%`,
-                              zIndex: 10,
-                              minHeight: '45px'
-                            }}
-                            onClick={() => onAdminShiftClick?.(position.adminShift)}
-                          >
-                            <AdminShiftCard
-                              adminShift={position.adminShift}
-                              staff={shiftStaff}
                               onClick={() => {}}
                               isCalendarView={true}
                               cardHeight={cardHeight}
