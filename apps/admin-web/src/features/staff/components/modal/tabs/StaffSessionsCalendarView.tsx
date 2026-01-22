@@ -138,7 +138,7 @@ export function StaffSessionsCalendarView({
                         
                         // Build overlap groups for regular sessions only (exclude ADMIN_SHIFT)
                         // Fix: Check if session overlaps with ANY session in the group, not just the first one
-                        const groups: any[][] = [];
+                        const regularGroups: any[][] = [];
                         const processed = new Set<string>();
                         regularSessions.forEach((s: any) => {
                           if (processed.has(s.id)) return;
@@ -171,15 +171,64 @@ export function StaffSessionsCalendarView({
                             });
                           }
                           
-                          groups.push(group);
+                          regularGroups.push(group);
                         });
                         
-                        // Add ADMIN_SHIFT sessions as individual groups (one session per group)
+                        // Create ADMIN_SHIFT groups (one session per group)
+                        const adminShiftGroups: any[][] = [];
                         adminShiftSessions.forEach((s: any) => {
-                          groups.push([s]);
+                          adminShiftGroups.push([s]);
                         });
+                        
                         const blocks: JSX.Element[] = [];
-                        groups.forEach((group) => {
+                        
+                        // Render ADMIN_SHIFT sessions FIRST (behind) with lower z-index
+                        adminShiftGroups.forEach((group) => {
+                          const total = group.length;
+                          const columnWidth = total > 1 ? 95 / total : 95;
+                          group.forEach((s: any, idx: number) => {
+                            const sStartMinutes = adelaideTimeToMinutes(s.start_at);
+                            const sEndMinutes = adelaideTimeToMinutes(s.end_at);
+                            const top = Math.max(0, (minutesFromStart(s.start_at) / 60) * slotHeight);
+                            const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
+                            const left = (idx * columnWidth) + 2.5;
+                            
+                            const cls: any = (data as any)?.classesById?.[s.class_id];
+                            const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
+                            const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                            const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                            
+                            // Calculate actual pixel dimensions for smart sizing
+                            const cardHeight = Math.max(height, 45);
+                            // Estimate width: assume column is ~150-200px wide, calculate from percentage
+                            const estimatedColumnWidth = 180; // Approximate column width for week view
+                            const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
+                            
+                            blocks.push(
+                              <div
+                                key={s.id}
+                                className="absolute"
+                                style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 5, minHeight: '45px' }}
+                                onClick={() => onOpenSession && onOpenSession(s.id)}
+                              >
+                                <SessionsCard
+                                  session={s}
+                                  classData={cls}
+                                  subject={subj}
+                                  staff={sessionStaff}
+                                  students={sessionStudents}
+                                  onClick={() => {}}
+                                  isCalendarView={true}
+                                  cardHeight={cardHeight}
+                                  cardWidth={cardWidth}
+                                />
+                              </div>
+                            );
+                          });
+                        });
+                        
+                        // Render regular sessions AFTER (on top) with higher z-index
+                        regularGroups.forEach((group) => {
                           const total = group.length;
                           const columnWidth = total > 1 ? 95 / total : 95;
                           group.forEach((s: any, idx: number) => {
