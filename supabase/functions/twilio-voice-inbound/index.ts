@@ -52,7 +52,7 @@ type RoutingDecision = {
   dial?: string; // Phone number to dial (E164 format)
   say?: string; // Text-to-speech message
   play?: string; // Audio file URL
-  callerId?: string; // Caller ID to use when dialing (must be your Twilio number)
+  callerId?: string; // Optional: Caller ID to use when dialing. If omitted, Twilio preserves original caller's number
 };
 
 /**
@@ -70,10 +70,10 @@ function generateTwiML(decision: RoutingDecision): string {
   }
   
   if (decision.dial) {
-    // Use <Dial> to forward call and preserve caller ID
-    // The callerId attribute should be your Twilio number (the one receiving the call)
+    // Use <Dial> to forward call
     // answerOnBridge="true" waits until the forwarded party answers before connecting audio
     // This improves audio quality and prevents crackling/distortion
+    // If callerId is omitted, Twilio preserves the original caller's number
     const dialAttrs: string[] = ['answerOnBridge="true"'];
     if (decision.callerId) {
       dialAttrs.push(`callerId="${escapeXml(decision.callerId)}"`);
@@ -212,7 +212,7 @@ async function determineCallRouting(
         });
         return {
           dial: rule.forward_to_phone,
-          callerId: ownedNumber.phone_e164,
+          // Omit callerId to preserve original caller's number
         };
       }
     } else if (rule.rule_type === 'ON_CALL') {
@@ -231,7 +231,7 @@ async function determineCallRouting(
           });
           return {
             dial: onCallPhone,
-            callerId: ownedNumber.phone_e164,
+            // Omit callerId to preserve original caller's number
           };
         }
       }
