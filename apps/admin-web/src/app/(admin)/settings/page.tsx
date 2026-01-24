@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone } from 'lucide-react';
+import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone, Users } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
 export default function SettingsPage() {
@@ -49,6 +49,12 @@ export default function SettingsPage() {
           description: 'Configure call routing rules and on-call schedules',
           href: '/settings/call-routing',
           icon: Phone,
+        },
+        {
+          title: 'Contacts',
+          description: 'View and export all contacts as VCF for iPhone',
+          href: '/settings/contacts',
+          icon: Users,
         },
         {
           title: 'Automation Rules',
