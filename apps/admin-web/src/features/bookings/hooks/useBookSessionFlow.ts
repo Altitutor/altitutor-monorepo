@@ -440,7 +440,6 @@ export function useBookSessionFlow({
     trialContactData,
     selectedSubjectId,
     originalSessionId,
-    createStudent,
     createBooking,
     onBookingCreated,
     handleClose,
