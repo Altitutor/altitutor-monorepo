@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
     }));
 
     // Ensure notes is an array of non-empty strings
+    // Trim whitespace only when submitting (not during typing)
     const notes: string[] = Array.isArray(body.notes)
       ? body.notes
           .filter((note): note is string => typeof note === 'string' && note.trim().length > 0)
@@ -172,6 +173,8 @@ export async function POST(request: NextRequest) {
       : [];
 
     // Prepare RPC parameters
+    // The RPC function now handles both NULL and empty arrays correctly
+    // Pass empty arrays as [] - the function will handle serialization issues
     const rpcParams = {
       p_session_id: body.sessionId,
       p_created_by: tutorId,
