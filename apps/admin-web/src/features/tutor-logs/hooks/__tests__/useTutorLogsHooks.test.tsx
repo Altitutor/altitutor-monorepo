@@ -65,6 +65,7 @@ describe('Tutor Logs Hooks', () => {
       const mockSession = {
         id: 'session-1',
         class_id: 'class-1',
+        start_at: '2024-01-01T10:00:00Z',
         class: {
           id: 'class-1',
           subject: {
@@ -91,36 +92,67 @@ describe('Tutor Logs Hooks', () => {
       ];
 
       let callCount = 0;
-      (mockSupabase.from as jest.Mock).mockImplementation(() => {
+      (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
         callCount++;
         if (callCount === 1) {
           // Session query
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
+          const sessionQuery = {
+            select: jest.fn(),
+            eq: jest.fn(),
             single: jest.fn().mockResolvedValue({
               data: mockSession,
               error: null,
             }),
           };
+          sessionQuery.select.mockReturnValue(sessionQuery);
+          sessionQuery.eq.mockReturnValue(sessionQuery);
+          return sessionQuery;
         } else if (callCount === 2) {
           // Staff query
-          return {
-            select: jest.fn().mockReturnThis(),
+          const staffQuery = {
+            select: jest.fn(),
             eq: jest.fn().mockResolvedValue({
               data: mockStaffData,
               error: null,
             }),
           };
-        } else {
+          staffQuery.select.mockReturnValue(staffQuery);
+          return staffQuery;
+        } else if (callCount === 3) {
           // Students query
-          return {
-            select: jest.fn().mockReturnThis(),
+          const studentsQuery = {
+            select: jest.fn(),
             eq: jest.fn().mockResolvedValue({
               data: mockStudentsData,
               error: null,
             }),
           };
+          studentsQuery.select.mockReturnValue(studentsQuery);
+          return studentsQuery;
+        } else if (table === 'classes_students') {
+          // Classes students query (for enrollment check)
+          const classesStudentsQuery = {
+            select: jest.fn(),
+            eq: jest.fn(),
+            in: jest.fn().mockResolvedValue({
+              data: [],
+              error: null,
+            }),
+          };
+          classesStudentsQuery.select.mockReturnValue(classesStudentsQuery);
+          classesStudentsQuery.eq.mockReturnValue(classesStudentsQuery);
+          return classesStudentsQuery;
+        } else {
+          // Fallback
+          const fallbackQuery = {
+            select: jest.fn(),
+            eq: jest.fn().mockResolvedValue({
+              data: [],
+              error: null,
+            }),
+          };
+          fallbackQuery.select.mockReturnValue(fallbackQuery);
+          return fallbackQuery;
         }
       });
 
