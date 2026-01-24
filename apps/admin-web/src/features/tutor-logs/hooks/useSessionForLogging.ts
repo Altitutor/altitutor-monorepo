@@ -80,25 +80,58 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
             }))
           : [];
 
-        // Get session students with planned_absence, is_extra, and sessions_students_id
+        // Get session students with planned_absence and sessions_students_id
+        // Note: is_extra is calculated based on class enrollment, not stored in sessions_students table
         const { data: studentsData, error: studentsError } = await supabase
           .from('sessions_students')
           .select(`
             id,
             planned_absence,
-            is_extra,
             student:students(*)
           `)
           .eq('session_id', sessionId);
 
-        const students = !studentsError && studentsData
-          ? studentsData.map((row: any) => ({
+        // Calculate is_extra for each student: student is extra if session has class_id but student is not enrolled
+        let students: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }> = [];
+        
+        if (!studentsError && studentsData && studentsData.length > 0) {
+          const classId = (session as any)?.class_id;
+          
+          // If session has a class_id, check which students are enrolled
+          let enrolledStudentIds = new Set<string>();
+          if (classId) {
+            const studentIds = studentsData.map((row: any) => row.student?.id).filter(Boolean);
+            if (studentIds.length > 0) {
+              const { data: enrollmentsData } = await supabase
+                .from('classes_students')
+                .select('student_id, unenrolled_at')
+                .eq('class_id', classId)
+                .in('student_id', studentIds);
+              
+              if (enrollmentsData) {
+                const sessionStartAt = session?.start_at ? new Date(session.start_at) : null;
+                enrollmentsData.forEach((enrollment: any) => {
+                  // Student is enrolled if not unenrolled, or unenrolled after session start
+                  if (!enrollment.unenrolled_at || (sessionStartAt && new Date(enrollment.unenrolled_at) > sessionStartAt)) {
+                    enrolledStudentIds.add(enrollment.student_id);
+                  }
+                });
+              }
+            }
+          }
+          
+          students = studentsData.map((row: any) => {
+            const studentId = row.student?.id;
+            const isExtra = classId ? !enrolledStudentIds.has(studentId) : false;
+            
+            return {
               ...row.student,
               planned_absence: row.planned_absence,
-              is_extra: row.is_extra,
+              is_extra: isExtra,
               sessions_students_id: row.id,
-            }))
-          : [];
+            };
+          });
+        }
 
         return {
           session: session as Tables<'sessions'>,
