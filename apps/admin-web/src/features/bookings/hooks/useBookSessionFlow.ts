@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import type { UseFormReturn } from 'react-hook-form';
 import type { Tables } from '@altitutor/shared';
 import { subjectsApi } from '@/features/subjects/api/subjects';
+import { studentsApi } from '@/features/students/api/students';
 import { useCreateBooking } from './useCreateBooking';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { useStudentSubjects } from './useStudentSubjects';
@@ -169,7 +170,7 @@ export function useBookSessionFlow({
   // Get selected student data for new session preview
   const selectedStudent = useMemo(() => {
     if (selectedStudentId && studentsData) {
-      return studentsData.find((s) => s.id === selectedStudentId);
+      return studentsData.find((s: Tables<'students'>) => s.id === selectedStudentId);
     }
     if (trialContactData) {
       // Return a mock student object for preview
