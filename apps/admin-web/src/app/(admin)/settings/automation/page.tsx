@@ -5,15 +5,27 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Zap } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { AutomationRulesList } from '@/features/automation/components/AutomationRulesList';
-import { CreateEditAutomationRuleDialog } from '@/features/automation/components/CreateEditAutomationRuleDialog';
+import { CreateAutomationRuleWizard } from '@/features/automation/components/CreateAutomationRuleWizard';
+import { EditAutomationRuleDialog } from '@/features/automation/components/EditAutomationRuleDialog';
 import type { AutomationRuleWithActions } from '@/features/automation/types';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const dynamic = 'force-dynamic';
 
 export default function AutomationSettingsPage() {
   const router = useRouter();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [isCreateWizardOpen, setIsCreateWizardOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AutomationRuleWithActions | null>(null);
+
+  const handleCreateSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
+  };
+
+  const handleEditClose = () => {
+    queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
+    setEditingRule(null);
+  };
 
   return (
     <div className="p-6">
@@ -38,19 +50,20 @@ export default function AutomationSettingsPage() {
       </div>
 
       <AutomationRulesList
-        onCreateRule={() => setIsCreateDialogOpen(true)}
+        onCreateRule={() => setIsCreateWizardOpen(true)}
         onEditRule={(rule) => setEditingRule(rule)}
       />
 
-      <CreateEditAutomationRuleDialog
-        isOpen={isCreateDialogOpen}
-        onClose={() => setIsCreateDialogOpen(false)}
+      <CreateAutomationRuleWizard
+        isOpen={isCreateWizardOpen}
+        onClose={() => setIsCreateWizardOpen(false)}
+        onSuccess={handleCreateSuccess}
       />
 
       {editingRule && (
-        <CreateEditAutomationRuleDialog
+        <EditAutomationRuleDialog
           isOpen={!!editingRule}
-          onClose={() => setEditingRule(null)}
+          onClose={handleEditClose}
           rule={editingRule}
         />
       )}
