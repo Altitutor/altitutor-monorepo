@@ -37,6 +37,9 @@ export async function executeCreateNotification(
   const body = config.body
     ? replaceTemplateVariables(config.body, finalVariables)
     : null;
+  const actionUrl = config.action_url
+    ? replaceTemplateVariables(config.action_url, finalVariables)
+    : null;
 
   // Determine recipients
   let recipients: Array<{ staff_id?: string; student_id?: string }> = [];
@@ -84,7 +87,7 @@ export async function executeCreateNotification(
     notification_type: config.notification_type,
     title,
     body,
-    action_url: config.action_url || null,
+    action_url: actionUrl,
   }));
 
   const { data: createdNotifications, error: notifErr } = await supabase

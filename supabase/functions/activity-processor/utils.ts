@@ -533,12 +533,12 @@ export async function extractTemplateVariables(
     }
   }
   
+  // Extract common entity fields (always available from activity event)
+  variables['entity_type'] = activityEvent.entity_type || '';
+  variables['entity_id'] = activityEvent.entity_id || '';
+  
   // Extract entity data fields (if entityData is provided)
   if (entityData) {
-    // Add common entity fields
-    variables['entity_type'] = activityEvent.entity_type || '';
-    variables['entity_id'] = activityEvent.entity_id || '';
-    
     // Add specific fields based on entity type
     // For classes
     if (activityEvent.entity_type === 'classes' && entityData) {

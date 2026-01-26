@@ -158,6 +158,7 @@ export function CreateEditActionDialog({
   const descriptionTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const notificationTitleInputRef = React.useRef<HTMLInputElement | null>(null);
   const notificationBodyTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const actionUrlInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Helper function to insert variable at cursor position
   const insertVariable = (
@@ -916,11 +917,29 @@ export function CreateEditActionDialog({
                   name="action_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Action URL</FormLabel>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Action URL</FormLabel>
+                        <TemplateVariablesPicker
+                          entityType={entityType}
+                          hasClassId={hasClassId}
+                          hasSessionId={hasSessionId}
+                          onInsert={(variable) => insertVariable(field, actionUrlInputRef, variable)}
+                        />
+                      </div>
                       <FormControl>
-                        <Input placeholder="/tasks/123" {...field} value={field.value || ''} />
+                        <Input 
+                          placeholder="/tasks/{task_id} or /students/{student_id}" 
+                          {...field} 
+                          ref={(e) => {
+                            field.ref(e);
+                            actionUrlInputRef.current = e;
+                          }}
+                          value={field.value || ''} 
+                        />
                       </FormControl>
-                      <FormDescription>URL to navigate to when notification is clicked</FormDescription>
+                      <FormDescription>
+                        URL to navigate to when notification is clicked. You can use variables like {'{task_id}'}, {'{student_id}'}, etc.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
