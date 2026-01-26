@@ -5,6 +5,7 @@ import { Badge } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
 import type { Tables } from '@altitutor/shared';
+import type { AutomationCondition } from '../../types';
 import { ENTITY_TYPES_DISPLAY, EVENT_TYPES_DISPLAY } from '../../constants';
 
 interface Step4ReviewProps {
@@ -114,7 +115,7 @@ export function Step4Review({ formData, ruleId, templates }: Step4ReviewProps) {
             {formData.conditions && (
               <div className="flex items-start gap-2">
                 <span className="text-muted-foreground">And:</span>
-                <span>{formatCondition(formData.conditions)}</span>
+                <span>{formatCondition(formData.conditions as AutomationCondition)}</span>
               </div>
             )}
           </div>

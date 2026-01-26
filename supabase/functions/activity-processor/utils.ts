@@ -206,6 +206,180 @@ export function formatClassName(classData: any, subject: any): string {
   return parts.join(' ');
 }
 
+// Format session date/time as "ddd, dd-mmm hh:mm" (e.g., "Mon, 15-Jan 2:30 PM")
+export function formatSessionDateTime(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return '';
+    
+    // Format in Adelaide timezone
+    const formatter = new Intl.DateTimeFormat('en', {
+      timeZone: 'Australia/Adelaide',
+      weekday: 'short',      // "Mon"
+      day: '2-digit',        // "15"
+      month: 'short',         // "Jan"
+      hour: 'numeric',       // "2"
+      minute: '2-digit',     // "30"
+      hour12: true,          // AM/PM
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const weekday = parts.find((p) => p.type === 'weekday')?.value || '';
+    const day = parts.find((p) => p.type === 'day')?.value || '';
+    const month = parts.find((p) => p.type === 'month')?.value || '';
+    const hour = parts.find((p) => p.type === 'hour')?.value || '';
+    const minute = parts.find((p) => p.type === 'minute')?.value || '';
+    const dayPeriod = parts.find((p) => p.type === 'dayPeriod')?.value || '';
+    
+    return `${weekday}, ${day}-${month} ${hour}:${minute} ${dayPeriod.toUpperCase()}`;
+  } catch {
+    return '';
+  }
+}
+
+// Format entity name based on entity type
+export async function formatEntityName(
+  supabase: any,
+  entityType: string,
+  entityData: any,
+  activityEvent: any
+): Promise<string> {
+  if (!entityData) return '';
+  
+  switch (entityType) {
+    case 'students': {
+      const firstName = entityData.first_name || '';
+      const lastName = entityData.last_name || '';
+      return `${firstName} ${lastName}`.trim() || `Student ${entityData.id?.slice(0, 8) || ''}`;
+    }
+    
+    case 'staff': {
+      const firstName = entityData.first_name || '';
+      const lastName = entityData.last_name || '';
+      return `${firstName} ${lastName}`.trim() || `Staff ${entityData.id?.slice(0, 8) || ''}`;
+    }
+    
+    case 'parents': {
+      const firstName = entityData.first_name || '';
+      const lastName = entityData.last_name || '';
+      return `${firstName} ${lastName}`.trim() || `Parent ${entityData.id?.slice(0, 8) || ''}`;
+    }
+    
+    case 'tasks': {
+      return entityData.title || `Task ${entityData.id?.slice(0, 8) || ''}`;
+    }
+    
+    case 'sessions': {
+      // Format: {sessions.subjects.short_name} {sessions.type} {sessions.start_at (in format ddd, dd-mmm hh:mm)}
+      const parts: string[] = [];
+      
+      // Get subject short_name (check both class_id and direct subject_id)
+      let subjectShortName: string | null = null;
+      
+      if (entityData.class_id) {
+        const { data: classData } = await supabase
+          .from('classes')
+          .select('subject_id')
+          .eq('id', entityData.class_id)
+          .maybeSingle();
+        
+        if (classData?.subject_id) {
+          const { data: subjectData } = await supabase
+            .from('subjects')
+            .select('short_name')
+            .eq('id', classData.subject_id)
+            .maybeSingle();
+          
+          subjectShortName = subjectData?.short_name || null;
+        }
+      } else if (entityData.subject_id) {
+        // Some sessions might have direct subject_id
+        const { data: subjectData } = await supabase
+          .from('subjects')
+          .select('short_name')
+          .eq('id', entityData.subject_id)
+          .maybeSingle();
+        
+        subjectShortName = subjectData?.short_name || null;
+      }
+      
+      if (subjectShortName) {
+        parts.push(subjectShortName);
+      }
+      
+      // Add session type
+      if (entityData.type) {
+        parts.push(entityData.type);
+      }
+      
+      // Add formatted start_at (ddd, dd-mmm hh:mm format)
+      if (entityData.start_at) {
+        const formattedDateTime = formatSessionDateTime(entityData.start_at);
+        if (formattedDateTime) {
+          parts.push(formattedDateTime);
+        }
+      }
+      
+      return parts.join(' ') || `Session ${entityData.id?.slice(0, 8) || ''}`;
+    }
+    
+    case 'classes': {
+      // Format: {classes.subjects.short_name} {classes.day (in ddd format)} {classes.start_time}
+      const parts: string[] = [];
+      
+      // Get subject short_name
+      if (entityData.subject_id) {
+        const { data: subjectData } = await supabase
+          .from('subjects')
+          .select('short_name')
+          .eq('id', entityData.subject_id)
+          .maybeSingle();
+        
+        if (subjectData?.short_name) {
+          parts.push(subjectData.short_name);
+        }
+      }
+      
+      // Add day of week (ddd format)
+      if (entityData.day_of_week != null) {
+        const dayName = formatDayOfWeek(entityData.day_of_week);
+        if (dayName) {
+          parts.push(dayName);
+        }
+      }
+      
+      // Add start_time (formatted as hh:mm AM/PM)
+      if (entityData.start_time) {
+        const formattedTime = formatTime(entityData.start_time);
+        if (formattedTime) {
+          parts.push(formattedTime);
+        }
+      }
+      
+      return parts.join(' ') || `Class ${entityData.id?.slice(0, 8) || ''}`;
+    }
+    
+    case 'tutor_logs': {
+      // Format: the linked session name (format like sessions)
+      if (entityData.session_id) {
+        const { data: sessionData } = await supabase
+          .from('sessions')
+          .select('*, class_id')
+          .eq('id', entityData.session_id)
+          .maybeSingle();
+        
+        if (sessionData) {
+          return await formatEntityName(supabase, 'sessions', sessionData, activityEvent);
+        }
+      }
+      return `Tutor Log ${entityData.id?.slice(0, 8) || ''}`;
+    }
+    
+    default:
+      return `Entity ${entityData.id?.slice(0, 8) || ''}`;
+  }
+}
+
 // Extract template variables from activity event and related entities
 export async function extractTemplateVariables(
   supabase: any,
@@ -246,12 +420,13 @@ export async function extractTemplateVariables(
       // Then get the subject
       const { data: subjectData } = await supabase
         .from('subjects')
-        .select('*')
+        .select('long_name, short_name')
         .eq('id', classData.subject_id)
         .maybeSingle();
       
       // Class fields
       variables['class.subject.long_name'] = subjectData?.long_name || '';
+      variables['class.subject.short_name'] = subjectData?.short_name || '';
       variables['class.day_of_week'] = formatDayOfWeek(classData.day_of_week);
       variables['class.start_time'] = classData.start_time ? formatTime(classData.start_time) : '';
       variables['class.end_time'] = classData.end_time ? formatTime(classData.end_time) : '';
@@ -260,6 +435,7 @@ export async function extractTemplateVariables(
       
       // Also support without "class." prefix for backward compatibility
       variables['classes.subject.long_name'] = subjectData?.long_name || '';
+      variables['classes.subject.short_name'] = subjectData?.short_name || '';
       variables['classes.day_of_week'] = formatDayOfWeek(classData.day_of_week);
       variables['classes.start_time'] = classData.start_time ? formatTime(classData.start_time) : '';
       variables['classes.end_time'] = classData.end_time ? formatTime(classData.end_time) : '';
@@ -299,14 +475,32 @@ export async function extractTemplateVariables(
         if (classData && classData.subject_id) {
           const { data: subjectData } = await supabase
             .from('subjects')
-            .select('long_name')
+            .select('long_name, short_name')
             .eq('id', classData.subject_id)
             .maybeSingle();
           
           if (subjectData) {
             variables['session.subject.long_name'] = subjectData.long_name || '';
+            variables['session.subject.short_name'] = subjectData.short_name || '';
             variables['sessions.subject.long_name'] = subjectData.long_name || '';
+            variables['sessions.subject.short_name'] = subjectData.short_name || '';
           }
+        }
+      }
+      
+      // Also check if session has direct subject_id
+      if (sessionData.subject_id) {
+        const { data: subjectData } = await supabase
+          .from('subjects')
+          .select('long_name, short_name')
+          .eq('id', sessionData.subject_id)
+          .maybeSingle();
+        
+        if (subjectData) {
+          variables['session.subject.long_name'] = subjectData.long_name || '';
+          variables['session.subject.short_name'] = subjectData.short_name || '';
+          variables['sessions.subject.long_name'] = subjectData.long_name || '';
+          variables['sessions.subject.short_name'] = subjectData.short_name || '';
         }
       }
     }
@@ -358,12 +552,13 @@ export async function extractTemplateVariables(
       if (entityData.subject_id) {
         const { data: subjectData } = await supabase
           .from('subjects')
-          .select('long_name')
+          .select('long_name, short_name')
           .eq('id', entityData.subject_id)
           .maybeSingle();
         
         if (subjectData) {
           variables['entity.subject.long_name'] = subjectData.long_name || '';
+          variables['entity.subject.short_name'] = subjectData.short_name || '';
         }
       }
     }
@@ -385,15 +580,30 @@ export async function extractTemplateVariables(
         if (classData && classData.subject_id) {
           const { data: subjectData } = await supabase
             .from('subjects')
-            .select('long_name')
+            .select('long_name, short_name')
             .eq('id', classData.subject_id)
             .maybeSingle();
           
           if (subjectData) {
             variables['entity.subject.long_name'] = subjectData.long_name || '';
+            variables['entity.subject.short_name'] = subjectData.short_name || '';
           }
         }
       }
+    }
+    
+    // Add entity_name variable (formatted display name for the entity)
+    try {
+      const entityName = await formatEntityName(
+        supabase,
+        activityEvent.entity_type || '',
+        entityData,
+        activityEvent
+      );
+      variables['entity_name'] = entityName;
+    } catch (error) {
+      console.warn('[activity-processor] Failed to format entity_name', error);
+      variables['entity_name'] = '';
     }
   }
   

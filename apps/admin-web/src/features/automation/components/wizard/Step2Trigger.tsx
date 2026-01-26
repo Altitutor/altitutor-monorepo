@@ -12,7 +12,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { AutomationConditionsBuilder } from '../AutomationConditionsBuilder';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
-import type { ActivityEventType } from '../../types';
+import type { ActivityEventType, AutomationCondition } from '../../types';
 import { ENTITY_TYPES, EVENT_TYPES } from '../../constants';
 
 interface Step2TriggerProps {
@@ -108,7 +108,7 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
                   </FormDescription>
                   <FormControl>
                     <AutomationConditionsBuilder
-                      conditions={field.value}
+                      conditions={field.value as AutomationCondition | null}
                       eventTypes={selectedEventTypes as ActivityEventType[]}
                       entityType={entityType}
                       onChange={(condition) => {

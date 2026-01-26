@@ -21,7 +21,7 @@ export async function executeCreateNotification(
     recipients?: {
       type: 'class_students' | 'class_staff' | 'class_all' | 
             'session_students' | 'session_staff' | 'session_all' | 
-            'single';
+            'single' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day';
     };
     variables?: Record<string, any>;
   };

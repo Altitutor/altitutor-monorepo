@@ -49,7 +49,10 @@ export type NotificationRecipientType =
   | 'class_all' 
   | 'session_students' 
   | 'session_staff' 
-  | 'session_all';
+  | 'session_all'
+  | 'all_admin_staff'
+  | 'all_staff'
+  | 'admin_staff_on_day';
 
 export type MessageRecipientType = 
   | 'single'
