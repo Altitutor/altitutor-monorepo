@@ -67,34 +67,12 @@ export function ContactsTable({ contacts, onExport, isExporting }: ContactsTable
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-semibold">Contacts</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            All contacts in the system. Export to VCF format for iPhone import.
-          </p>
-        </div>
-        <Button onClick={onExport} disabled={isExporting || contacts.length === 0}>
-          {isExporting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Exporting...
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4 mr-2" />
-              Export VCF
-            </>
-          )}
-        </Button>
-      </div>
-
       {contacts.length === 0 ? (
         <div className="border rounded-lg p-8 text-center text-muted-foreground">
           No contacts found.
         </div>
       ) : (
-        <div className="border rounded-lg">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Zap } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { AutomationRulesList } from '@/features/automation/components/AutomationRulesList';
 import { CreateAutomationRuleWizard } from '@/features/automation/components/CreateAutomationRuleWizard';
@@ -38,14 +38,17 @@ export default function AutomationSettingsPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex items-center gap-3">
-          <Zap className="h-6 w-6" />
+        <div className="flex-1 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Automation Rules</h1>
             <p className="text-muted-foreground">
               Configure automated actions that trigger based on activity events
             </p>
           </div>
+          <Button onClick={() => setIsCreateWizardOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Rule
+          </Button>
         </div>
       </div>
 

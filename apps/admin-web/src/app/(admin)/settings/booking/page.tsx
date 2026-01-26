@@ -38,8 +38,8 @@ export default function BookingSettingsPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-4">
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
         <Button
           variant="ghost"
           size="icon"
@@ -48,8 +48,8 @@ export default function BookingSettingsPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Booking Settings</h1>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold tracking-tight">Booking Settings</h1>
           <p className="text-muted-foreground">
             Manage global booking configuration settings
           </p>

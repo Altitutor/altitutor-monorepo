@@ -59,7 +59,7 @@ export function BookingSettingsTable({ settings, onUpdate }: BookingSettingsTabl
 
   return (
     <>
-      <div className="border rounded-lg">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

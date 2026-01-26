@@ -46,8 +46,8 @@ export default function CallRoutingPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
-      <div className="flex items-center gap-4">
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
         <Button
           variant="ghost"
           size="icon"
@@ -56,8 +56,8 @@ export default function CallRoutingPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Call Routing</h1>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold tracking-tight">Call Routing</h1>
           <p className="text-muted-foreground">
             Configure how incoming calls are routed based on business hours and on-call schedules. All times are in Adelaide timezone.
           </p>

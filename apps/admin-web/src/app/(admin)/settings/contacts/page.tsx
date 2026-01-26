@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ContactsTable } from '@/features/contacts/components';
 import { contactsApi, type ContactWithRelations } from '@/features/contacts/api';
 import { generateVcf, downloadVcf } from '@/features/contacts/utils';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Download } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
@@ -85,8 +85,8 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-4">
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
         <Button
           variant="ghost"
           size="icon"
@@ -95,11 +95,26 @@ export default function ContactsPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Contacts</h1>
-          <p className="text-muted-foreground">
-            View and export all contacts in the system. Export as VCF for iPhone import.
-          </p>
+        <div className="flex-1 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
+            <p className="text-muted-foreground">
+              View and export all contacts in the system. Export as VCF for iPhone import.
+            </p>
+          </div>
+          <Button onClick={handleExport} disabled={isExporting || !contacts || contacts.length === 0}>
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Export VCF
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
