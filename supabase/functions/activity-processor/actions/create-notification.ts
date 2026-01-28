@@ -21,7 +21,7 @@ export async function executeCreateNotification(
     recipients?: {
       type: 'class_students' | 'class_staff' | 'class_all' | 
             'session_students' | 'session_staff' | 'session_all' | 
-            'single';
+            'single' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day';
     };
     variables?: Record<string, any>;
   };
@@ -36,6 +36,9 @@ export async function executeCreateNotification(
   const title = replaceTemplateVariables(config.title, finalVariables);
   const body = config.body
     ? replaceTemplateVariables(config.body, finalVariables)
+    : null;
+  const actionUrl = config.action_url
+    ? replaceTemplateVariables(config.action_url, finalVariables)
     : null;
 
   // Determine recipients
@@ -84,7 +87,7 @@ export async function executeCreateNotification(
     notification_type: config.notification_type,
     title,
     body,
-    action_url: config.action_url || null,
+    action_url: actionUrl,
   }));
 
   const { data: createdNotifications, error: notifErr } = await supabase

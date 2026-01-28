@@ -33,6 +33,7 @@ export function TemplateVariablesPicker({
     title: 'Common',
     variables: [
       { name: 'sender_name', description: 'Staff member who performed the action' },
+      { name: 'entity_name', description: 'Formatted entity name (e.g., "John Doe" for students, "SACE 12 Math Mon 2:00 PM" for classes)' },
       { name: 'entity_type', description: 'Entity type (e.g., "classes", "sessions")' },
       { name: 'entity_id', description: 'Entity ID' },
     ],
@@ -43,13 +44,15 @@ export function TemplateVariablesPicker({
     variableGroups.push({
       title: 'Class',
       variables: [
-        { name: 'class.subject.long_name', description: 'Subject name', example: 'SACE 12 Mathematics' },
+        { name: 'class.subject.long_name', description: 'Subject long name', example: 'SACE Year 12 Mathematics' },
+        { name: 'class.subject.short_name', description: 'Subject short name', example: 'SACE 12 MATH' },
         { name: 'class.day_of_week', description: 'Day of week', example: 'Mon' },
         { name: 'class.start_time', description: 'Start time', example: '2:00 PM' },
         { name: 'class.end_time', description: 'End time', example: '4:00 PM' },
         { name: 'class.room', description: 'Room number' },
         { name: 'class.level', description: 'Class level' },
-        { name: 'classes.subject.long_name', description: 'Subject name (alternative)' },
+        { name: 'classes.subject.long_name', description: 'Subject long name (alternative)' },
+        { name: 'classes.subject.short_name', description: 'Subject short name (alternative)' },
         { name: 'classes.day_of_week', description: 'Day of week (alternative)' },
         { name: 'classes.start_time', description: 'Start time (alternative)' },
         { name: 'classes.end_time', description: 'End time (alternative)' },
@@ -65,11 +68,13 @@ export function TemplateVariablesPicker({
       title: 'Session',
       variables: [
         { name: 'session.type', description: 'Session type' },
-        { name: 'session.subject.long_name', description: 'Subject name (from class)' },
+        { name: 'session.subject.long_name', description: 'Subject long name (from class)' },
+        { name: 'session.subject.short_name', description: 'Subject short name (from class)' },
         { name: 'session.start_at', description: 'Start datetime', example: '2:00 PM' },
         { name: 'session.end_at', description: 'End datetime', example: '4:00 PM' },
         { name: 'sessions.type', description: 'Session type (alternative)' },
-        { name: 'sessions.subject.long_name', description: 'Subject name (alternative)' },
+        { name: 'sessions.subject.long_name', description: 'Subject long name (alternative)' },
+        { name: 'sessions.subject.short_name', description: 'Subject short name (alternative)' },
         { name: 'sessions.start_at', description: 'Start datetime (alternative)' },
         { name: 'sessions.end_at', description: 'End datetime (alternative)' },
       ],
@@ -95,7 +100,8 @@ export function TemplateVariablesPicker({
     variableGroups.push({
       title: 'Entity (Class)',
       variables: [
-        { name: 'entity.subject.long_name', description: 'Subject name' },
+        { name: 'entity.subject.long_name', description: 'Subject long name' },
+        { name: 'entity.subject.short_name', description: 'Subject short name' },
         { name: 'entity.day_of_week', description: 'Day of week' },
         { name: 'entity.start_time', description: 'Start time' },
         { name: 'entity.end_time', description: 'End time' },
@@ -110,7 +116,8 @@ export function TemplateVariablesPicker({
       title: 'Entity (Session)',
       variables: [
         { name: 'entity.type', description: 'Session type' },
-        { name: 'entity.subject.long_name', description: 'Subject name' },
+        { name: 'entity.subject.long_name', description: 'Subject long name' },
+        { name: 'entity.subject.short_name', description: 'Subject short name' },
         { name: 'entity.start_at', description: 'Start datetime' },
         { name: 'entity.end_at', description: 'End datetime' },
       ],

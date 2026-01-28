@@ -77,7 +77,7 @@ const actionFormSchema = z.object({
   notification_body: z.string().optional(),
   action_url: z.string().optional(),
   target_staff_id: z.string().optional(),
-  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all']).optional(),
+  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'admin_staff_on_day']).optional(),
 }).refine((data) => {
   if (data.action_type === 'SEND_MESSAGE') {
     return !!data.template_id && !!data.selected_sender_id;
@@ -158,6 +158,7 @@ export function CreateEditActionDialog({
   const descriptionTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const notificationTitleInputRef = React.useRef<HTMLInputElement | null>(null);
   const notificationBodyTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const actionUrlInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Helper function to insert variable at cursor position
   const insertVariable = (
@@ -196,16 +197,20 @@ export function CreateEditActionDialog({
       const config = action.action_config as any;
       
       // Determine recipient types from config and validate against entity type
-      let notificationRecipientType: 'single' | 'class_students' | 'class_staff' | 'class_all' | 'session_students' | 'session_staff' | 'session_all' = 'single';
+      let notificationRecipientType: 'single' | 'class_students' | 'class_staff' | 'class_all' | 'session_students' | 'session_staff' | 'session_all' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day' = 'single';
       if (action.action_type === 'CREATE_NOTIFICATION' && config.recipients?.type) {
         const recipientType = config.recipients.type as any;
         const isClassType = recipientType.startsWith('class_');
         const isSessionType = recipientType.startsWith('session_');
+        const isGlobalType = ['all_admin_staff', 'all_staff'].includes(recipientType);
+        const isAdminStaffOnDay = recipientType === 'admin_staff_on_day';
         
         // Validate recipient type against entity type
         if (recipientType === 'single' || 
             (isClassType && hasClassId) || 
-            (isSessionType && hasSessionId)) {
+            (isSessionType && hasSessionId) ||
+            isGlobalType ||
+            (isAdminStaffOnDay && (hasClassId || hasSessionId))) {
           notificationRecipientType = recipientType;
         } else {
           // Invalid recipient type, fall back to single
@@ -273,8 +278,15 @@ export function CreateEditActionDialog({
     if (currentNotificationType && currentNotificationType !== 'single') {
       const isClassType = currentNotificationType.startsWith('class_');
       const isSessionType = currentNotificationType.startsWith('session_');
+      const isGlobalType = ['all_admin_staff', 'all_staff'].includes(currentNotificationType);
+      const isAdminStaffOnDay = currentNotificationType === 'admin_staff_on_day';
       
-      if ((isClassType && !hasClassId) || (isSessionType && !hasSessionId)) {
+      // Global types (all_admin_staff, all_staff) are always valid
+      // admin_staff_on_day requires class_id or session_id
+      // Class/session types require corresponding IDs
+      if ((isClassType && !hasClassId) || 
+          (isSessionType && !hasSessionId) ||
+          (isAdminStaffOnDay && !hasClassId && !hasSessionId)) {
         form.setValue('notification_recipient_type', 'single');
       }
     }
@@ -839,6 +851,8 @@ export function CreateEditActionDialog({
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="single">Single Staff Member</SelectItem>
+                          <SelectItem value="all_admin_staff">All Admin Staff</SelectItem>
+                          <SelectItem value="all_staff">All Staff</SelectItem>
                           {hasClassId && (
                             <>
                               <SelectItem value="class_students">All Students in Class</SelectItem>
@@ -853,12 +867,15 @@ export function CreateEditActionDialog({
                               <SelectItem value="session_all">All Students & Staff in Session</SelectItem>
                             </>
                           )}
+                          {(hasClassId || hasSessionId) && (
+                            <SelectItem value="admin_staff_on_day">Admin Staff on Day</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormDescription>
                         {!hasClassId && !hasSessionId
-                          ? 'Only single recipient is available. Bulk options require the rule to trigger on classes, sessions, or related entities.'
-                          : 'Choose who receives this notification. Bulk options are available based on the rule\'s entity type.'}
+                          ? 'Global options (All Admin Staff, All Staff) are always available. Class/session-specific options require the rule to trigger on classes, sessions, or related entities.'
+                          : 'Choose who receives this notification. Global options are always available. Class/session-specific options are available based on the rule\'s entity type.'}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -900,11 +917,29 @@ export function CreateEditActionDialog({
                   name="action_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Action URL</FormLabel>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Action URL</FormLabel>
+                        <TemplateVariablesPicker
+                          entityType={entityType}
+                          hasClassId={hasClassId}
+                          hasSessionId={hasSessionId}
+                          onInsert={(variable) => insertVariable(field, actionUrlInputRef, variable)}
+                        />
+                      </div>
                       <FormControl>
-                        <Input placeholder="/tasks/123" {...field} value={field.value || ''} />
+                        <Input 
+                          placeholder="/tasks/{task_id} or /students/{student_id}" 
+                          {...field} 
+                          ref={(e) => {
+                            field.ref(e);
+                            actionUrlInputRef.current = e;
+                          }}
+                          value={field.value || ''} 
+                        />
                       </FormControl>
-                      <FormDescription>URL to navigate to when notification is clicked</FormDescription>
+                      <FormDescription>
+                        URL to navigate to when notification is clicked. You can use variables like {'{task_id}'}, {'{student_id}'}, etc.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

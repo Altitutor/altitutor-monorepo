@@ -5,6 +5,29 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
 import { sessionsKeys } from '../../sessions/hooks/useSessionsQuery';
 
+// Types for Supabase query results with joins
+type SessionWithClassAndSubject = Tables<'sessions'> & {
+  class: (Tables<'classes'> & {
+    subject: Tables<'subjects'> | null;
+  }) | null;
+};
+
+type SessionsStaffRow = {
+  planned_absence: boolean;
+  staff: Tables<'staff'>;
+};
+
+type SessionsStudentsRow = {
+  id: string;
+  planned_absence: boolean;
+  student: Tables<'students'>;
+};
+
+type ClassesStudentsRow = {
+  student_id: string;
+  unenrolled_at: string | null;
+};
+
 export interface SessionForLogging {
   session: Tables<'sessions'> | null;
   classData: Tables<'classes'> | null;
@@ -60,7 +83,7 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
           throw sessionError;
         }
 
-        const session = sessionData as any;
+        const session = sessionData as SessionWithClassAndSubject;
         const classData = session.class || null;
         const subject = session.class?.subject || null;
 
@@ -74,31 +97,66 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
           .eq('session_id', sessionId);
 
         const staff = !staffError && staffData
-          ? staffData.map((row: any) => ({
+          ? (staffData as SessionsStaffRow[]).map((row) => ({
               ...row.staff,
               planned_absence: row.planned_absence,
             }))
           : [];
 
-        // Get session students with planned_absence, is_extra, and sessions_students_id
+        // Get session students with planned_absence and sessions_students_id
+        // Note: is_extra is calculated based on class enrollment, not stored in sessions_students table
         const { data: studentsData, error: studentsError } = await supabase
           .from('sessions_students')
           .select(`
             id,
             planned_absence,
-            is_extra,
             student:students(*)
           `)
           .eq('session_id', sessionId);
 
-        const students = !studentsError && studentsData
-          ? studentsData.map((row: any) => ({
+        // Calculate is_extra for each student: student is extra if session has class_id but student is not enrolled
+        let students: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }> = [];
+        
+        if (!studentsError && studentsData && studentsData.length > 0) {
+          const classId = session.class_id;
+          
+          // If session has a class_id, check which students are enrolled
+          const enrolledStudentIds = new Set<string>();
+          if (classId) {
+            const typedStudentsData = studentsData as SessionsStudentsRow[];
+            const studentIds = typedStudentsData.map((row) => row.student?.id).filter((id): id is string => Boolean(id));
+            if (studentIds.length > 0) {
+              const { data: enrollmentsData } = await supabase
+                .from('classes_students')
+                .select('student_id, unenrolled_at')
+                .eq('class_id', classId)
+                .in('student_id', studentIds);
+              
+              if (enrollmentsData) {
+                const sessionStartAt = session.start_at ? new Date(session.start_at) : null;
+                (enrollmentsData as ClassesStudentsRow[]).forEach((enrollment) => {
+                  // Student is enrolled if not unenrolled, or unenrolled after session start
+                  if (!enrollment.unenrolled_at || (sessionStartAt && new Date(enrollment.unenrolled_at) > sessionStartAt)) {
+                    enrolledStudentIds.add(enrollment.student_id);
+                  }
+                });
+              }
+            }
+          }
+          
+          const typedStudentsData = studentsData as SessionsStudentsRow[];
+          students = typedStudentsData.map((row) => {
+            const studentId = row.student?.id;
+            const isExtra = classId ? !enrolledStudentIds.has(studentId) : false;
+            
+            return {
               ...row.student,
               planned_absence: row.planned_absence,
-              is_extra: row.is_extra,
+              is_extra: isExtra,
               sessions_students_id: row.id,
-            }))
-          : [];
+            };
+          });
+        }
 
         return {
           session: session as Tables<'sessions'>,

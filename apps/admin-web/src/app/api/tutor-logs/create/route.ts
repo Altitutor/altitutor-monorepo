@@ -66,6 +66,7 @@ export async function POST(request: Request) {
 
     // Ensure notes is an array of non-empty strings
     // Filter out any invalid values and ensure all are strings
+    // Trim whitespace only when submitting (not during typing)
     const notes: string[] = Array.isArray(data.notes)
       ? data.notes
           .filter((note): note is string => typeof note === 'string' && note.trim().length > 0)
@@ -73,6 +74,8 @@ export async function POST(request: Request) {
       : [];
 
     // Prepare RPC parameters
+    // The RPC function now handles both NULL and empty arrays correctly
+    // Pass empty arrays as [] - the function will handle serialization issues
     const rpcParams = {
       p_session_id: data.sessionId,
       p_created_by: createdBy,

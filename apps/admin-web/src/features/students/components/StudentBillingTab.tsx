@@ -6,7 +6,7 @@ import { Button } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AddPaymentMethodModal } from '@/features/billing/components/AddPaymentMethodModal';
-import { Plus, CreditCard } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentMethodCard, type PaymentMethodCardData } from '@altitutor/ui';
@@ -14,6 +14,7 @@ import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
 import { fetchStudentSubsidies } from '../api/subsidies';
 import { StudentSubsidiesTable } from './StudentSubsidiesTable';
 import { AddSubsidyModal } from './AddSubsidyModal';
+import { StudentInvoicesTable } from './StudentInvoicesTable';
 import { getErrorMessage } from '@/shared/utils';
 
 type PaymentMethod = Tables<'student_payment_methods'>;
@@ -147,33 +148,17 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Payment Methods</h3>
-          {paymentMethods.length > 0 && (
-            <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Payment Method
-            </Button>
-          )}
+          <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Payment Method
+          </Button>
         </div>
 
         {loadingPaymentMethods ? (
           <div>Loading…</div>
         ) : paymentMethods.length === 0 ? (
-          <div className="text-center py-8 space-y-4">
-            <div className="flex justify-center">
-              <div className="p-4 bg-muted rounded-full">
-                <CreditCard className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-semibold">No payment method on file</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Add a payment method to enable automatic billing for sessions
-              </p>
-            </div>
-            <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Payment Method
-            </Button>
+          <div className="text-center py-8 text-muted-foreground">
+            No payment methods configured for this student
           </div>
         ) : (
           <div className="flex flex-wrap gap-4">
@@ -236,6 +221,12 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
           onClose={() => setIsSubsidyModalOpen(false)}
           studentId={student.id}
         />
+      </div>
+
+      {/* Invoices Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Invoices</h3>
+        <StudentInvoicesTable studentId={student.id} />
       </div>
     </div>
   );

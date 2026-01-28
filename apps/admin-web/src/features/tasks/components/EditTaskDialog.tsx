@@ -70,6 +70,8 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
   const lastResetTaskIdRef = useRef<string | null>(null);
+  const [formKey, setFormKey] = useState(0); // Force re-render of form fields
+
 
   // Fetch notes for task
   const { data: notesData } = useNotes('tasks', taskId || '', !!taskId && isOpen);
@@ -91,25 +93,11 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
     },
   });
 
-  // Reset form when task data loads
+  // Reset form when task data loads - simplified like other modals
   useEffect(() => {
     if (task && isOpen && !isLoading && task.id !== lastResetTaskIdRef.current) {
-      const resetData = {
-        title: task.title,
-        description: task.description || '',
-        status: task.status as TaskStatus,
-        priority: (task.priority ?? 0) as number,
-        assignedTo: task.assigned_to || null,
-        estimate: task.estimate || null,
-        dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : null,
-      };
-      form.reset(resetData, { keepDefaultValues: false });
-      lastResetTaskIdRef.current = task.id;
-      setIsDeleting(false);
-
-      // Set selected assignee if task has one
+      // Set selected assignee FIRST to prevent TaskAssigneeField useEffect from clearing form
       if (task.assignee) {
-        // Create a minimal staff object with only the fields we need
         setSelectedAssignee({
           id: task.assignee.id,
           first_name: task.assignee.first_name,
@@ -118,8 +106,24 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
       } else {
         setSelectedAssignee(null);
       }
+
+      const resetData: FormData = {
+        title: task.title,
+        description: task.description || '',
+        status: task.status as TaskStatus,
+        priority: task.priority !== null && task.priority !== undefined ? task.priority : 0,
+        assignedTo: task.assigned_to || null,
+        estimate: task.estimate !== null && task.estimate !== undefined ? task.estimate : null,
+        dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : null,
+      };
+      
+      form.reset(resetData, { keepDefaultValues: false });
+      setFormKey(prev => prev + 1); // Force re-render of Select components
+      lastResetTaskIdRef.current = task.id;
+      setIsDeleting(false);
     }
-  }, [task?.id, isOpen, isLoading, form, task]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id, isOpen, isLoading]);
 
   // Reset the lastResetTaskIdRef when modal closes
   useEffect(() => {
@@ -129,15 +133,6 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
     }
   }, [isOpen]);
 
-  // Safeguard: Restore status if it becomes empty unexpectedly
-  useEffect(() => {
-    if (task && isOpen && !isLoading) {
-      const currentStatus = form.getValues('status');
-      if (!currentStatus) {
-        form.setValue('status', task.status as TaskStatus, { shouldDirty: false });
-      }
-    }
-  }, [task?.status, isOpen, isLoading, form, task]);
 
   const onSubmit = async (data: FormData) => {
     if (!taskId) return;

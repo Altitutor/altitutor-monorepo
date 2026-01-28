@@ -12,12 +12,17 @@ type Step8NotesProps = {
 export function Step8Notes({ title, notes, onUpdate }: Step8NotesProps) {
   // Get the first note if it exists, otherwise empty string
   const [noteText, setNoteText] = useState(notes[0] || '');
+  const [isUserTyping, setIsUserTyping] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Update local state when notes prop changes (e.g., when navigating back)
+  // Only sync if user is not actively typing to prevent overwriting their input
   useEffect(() => {
-    setNoteText(notes[0] || '');
-  }, [notes]);
+    if (!isUserTyping) {
+      const newNoteText = notes[0] || '';
+      setNoteText(newNoteText);
+    }
+  }, [notes, isUserTyping]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -29,10 +34,22 @@ export function Step8Notes({ title, notes, onUpdate }: Step8NotesProps) {
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
+    setIsUserTyping(true);
     setNoteText(value);
+    // Store raw value (with spaces) in formData - only trim on submit
     // Update formData immediately - convert to array (single element or empty)
-    onUpdate(value.trim() ? [value.trim()] : []);
+    onUpdate(value ? [value] : []);
   };
+
+  // Reset typing flag when user stops typing (after a delay)
+  useEffect(() => {
+    if (isUserTyping) {
+      const timer = setTimeout(() => {
+        setIsUserTyping(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [noteText, isUserTyping]);
 
   return (
     <div className="space-y-4">

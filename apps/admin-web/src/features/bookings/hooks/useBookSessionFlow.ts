@@ -4,9 +4,8 @@ import { useToast } from '@altitutor/ui';
 import { format } from 'date-fns';
 import type { UseFormReturn } from 'react-hook-form';
 import type { Tables } from '@altitutor/shared';
-import { studentsApi } from '@/features/students/api/students';
 import { subjectsApi } from '@/features/subjects/api/subjects';
-import { useCreateStudent } from '@/features/students/hooks/useStudentsQuery';
+import { studentsApi } from '@/features/students/api/students';
 import { useCreateBooking } from './useCreateBooking';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { useStudentSubjects } from './useStudentSubjects';
@@ -51,7 +50,6 @@ export function useBookSessionFlow({
 }: UseBookSessionFlowProps) {
   const { toast } = useToast();
   const createBooking = useCreateBooking();
-  const createStudent = useCreateStudent();
 
   // State management
   const [currentStep, setCurrentStep] = useState(0);
@@ -172,7 +170,7 @@ export function useBookSessionFlow({
   // Get selected student data for new session preview
   const selectedStudent = useMemo(() => {
     if (selectedStudentId && studentsData) {
-      return studentsData.find((s) => s.id === selectedStudentId);
+      return studentsData.find((s: Tables<'students'>) => s.id === selectedStudentId);
     }
     if (trialContactData) {
       // Return a mock student object for preview
@@ -325,56 +323,69 @@ export function useBookSessionFlow({
       return;
     }
 
-    let finalStudentId = selectedStudentId;
-
-    // For trial sessions, create student if needed
+    // For trial sessions with new student, use database function (handles everything atomically)
     if (sessionType === 'TRIAL_SESSION' && !selectedStudentId && trialContactData) {
-      try {
-        setIsSubmitting(true);
-        // Create student - using explicit type for Supabase insert
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const studentData: any = {
-          id: crypto.randomUUID(),
-          first_name: trialContactData.student_first_name,
-          last_name: trialContactData.student_last_name,
-          email: trialContactData.student_email || null,
-          phone: trialContactData.student_phone,
-          curriculum: trialContactData.curriculum || null,
-          year_level: trialContactData.year_level ? (trialContactData.year_level === 'Reception' ? 0 : parseInt(trialContactData.year_level, 10)) : null,
-          status: 'TRIAL',
-          created_at: null,
-          created_by: null,
-          invite_token: null,
-          updated_at: null,
-          user_id: null,
-          school: null,
-        };
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const createdStudent = await createStudent.mutateAsync(studentData as any);
-
-        // Assign subjects if provided
-        if (trialContactData.subject_ids && trialContactData.subject_ids.length > 0) {
-          await Promise.all(
-            trialContactData.subject_ids.map((subjectId) =>
-              studentsApi.assignSubjectToStudent(createdStudent.id, subjectId)
-            )
-          );
-        }
-
-        finalStudentId = createdStudent.id;
-      } catch (error: unknown) {
+      if (!trialContactData.student_first_name || !trialContactData.student_last_name || !trialContactData.student_phone) {
         toast({
-          title: 'Failed to Create Student',
-          description: error instanceof Error ? error.message : 'Failed to create student. Please try again.',
+          title: 'Missing Information',
+          description: 'Please fill in all required student fields',
           variant: 'destructive',
         });
         setIsSubmitting(false);
         return;
       }
+
+      try {
+        setIsSubmitting(true);
+        
+        const yearLevel = trialContactData.year_level 
+          ? (trialContactData.year_level === 'Reception' ? 0 : parseInt(trialContactData.year_level, 10))
+          : null;
+
+        const sessionId = await createBooking.mutateAsync({
+          session_type: sessionType,
+          start_at: selectedSlot.startAt,
+          end_at: selectedSlot.endAt,
+          staff_id: selectedStaffId,
+          trial_student_data: {
+            student_first_name: trialContactData.student_first_name,
+            student_last_name: trialContactData.student_last_name,
+            student_phone: trialContactData.student_phone,
+            student_email: trialContactData.student_email || undefined,
+            curriculum: trialContactData.curriculum || undefined,
+            year_level: yearLevel || undefined,
+            subject_ids: trialContactData.subject_ids || undefined,
+          },
+          trial_parent_data: {
+            skip_parent_details: trialContactData.skip_parent_details,
+            parent_first_name: trialContactData.parent_first_name || undefined,
+            parent_last_name: trialContactData.parent_last_name || undefined,
+            parent_email: trialContactData.parent_email || undefined,
+            parent_phone: trialContactData.parent_phone || undefined,
+          },
+        });
+
+        toast({
+          title: 'Booking Created',
+          description: `${getSessionTypeLabel(sessionType)} has been booked successfully`,
+        });
+
+        onBookingCreated?.(sessionId);
+        handleClose();
+      } catch (error: unknown) {
+        toast({
+          title: 'Booking Failed',
+          description: error instanceof Error ? error.message : 'Failed to create booking. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
     }
 
-    if (!finalStudentId) {
+    // For existing students or other session types, use regular flow
+    if (!selectedStudentId) {
       toast({
         title: 'Missing Information',
         description: 'Please select a student',
@@ -395,9 +406,10 @@ export function useBookSessionFlow({
     }
 
     try {
+      setIsSubmitting(true);
       const sessionId = await createBooking.mutateAsync({
         session_type: sessionType,
-        student_id: finalStudentId,
+        student_id: selectedStudentId,
         start_at: selectedSlot.startAt,
         end_at: selectedSlot.endAt,
         subject_id: selectedSubjectId || undefined,
@@ -429,7 +441,6 @@ export function useBookSessionFlow({
     trialContactData,
     selectedSubjectId,
     originalSessionId,
-    createStudent,
     createBooking,
     onBookingCreated,
     handleClose,
