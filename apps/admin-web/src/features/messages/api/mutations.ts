@@ -26,36 +26,27 @@ export function useSendMessage() {
         .eq('user_id', user?.id || '')
         .maybeSingle();
 
-      // Get contact phone number or email
+      // Get contact phone number
       const { data: contact } = await supabase
         .from('contacts')
-        .select('phone_e164, email')
+        .select('phone_e164')
         .eq('id', args.contactId)
         .maybeSingle();
 
-      // Get selected sender details (including provider)
+      const toNumber = contact?.phone_e164;
+      if (!toNumber) {
+        throw new Error('Contact phone number not found');
+      }
+
+      // Get selected sender details
       const { data: sender } = await supabase
         .from('owned_numbers')
-        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, provider')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label')
         .eq('id', args.selectedSenderId)
         .maybeSingle();
 
       if (!sender) {
         throw new Error('Selected sender not found');
-      }
-
-      // For iMessage, contact can have email instead of phone
-      // For Twilio, contact must have phone
-      const isIMessage = sender.provider === 'IMESSAGE';
-      const toNumber = isIMessage 
-        ? (contact?.phone_e164 || contact?.email)
-        : contact?.phone_e164;
-
-      if (!toNumber) {
-        throw new Error(isIMessage 
-          ? 'Contact phone number or email not found'
-          : 'Contact phone number not found'
-        );
       }
 
       // Ensure conversation exists with selected sender
@@ -66,7 +57,7 @@ export function useSendMessage() {
         ? sender.alphanumeric_sender_id
         : sender.phone_e164;
       
-      if (!fromValue && sender.provider !== 'IMESSAGE') {
+      if (!fromValue) {
         throw new Error('Sender has no valid from value');
       }
 
@@ -87,11 +78,11 @@ export function useSendMessage() {
         .single();
       if (insertErr) throw insertErr;
 
-      // Route to correct edge function based on provider
-      const functionName = isIMessage ? 'send-imessage' : 'send-sms';
+      // Fire-and-forget the send to avoid blocking UI; failures are handled in the function
+      // which marks the message as FAILED when applicable.
       supabase.functions
-        .invoke(functionName, { body: { messageId: created.id } })
-        .catch((e: any) => console.error(`[${functionName} invoke] error`, e?.message || e));
+        .invoke('send-sms', { body: { messageId: created.id } })
+        .catch((e: any) => console.error('[send-sms invoke] error', e?.message || e));
 
       // Return immediately so UI can refresh and show the queued message
       return { messageId: created.id, conversationId };

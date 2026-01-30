@@ -16,14 +16,13 @@ export function useConversations() {
     queryFn: async () => {
       const supabase = getSupabaseClient() as any;
       
-      // Fetch conversations with nested data (including group chats)
+      // Fetch conversations with nested data
       const { data, error } = await supabase
         .from('conversations')
         .select(`
           id, status, last_message_at, last_message_id,
           assigned_staff_id, contact_id, owned_number_id,
-          is_group_chat, group_chat_id, group_chat_name,
-          contacts(
+          contacts!inner(
             id, phone_e164, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
             parents(id, first_name, last_name),
@@ -76,7 +75,7 @@ export function useMessages(conversationId: string) {
       
       let query = supabase
         .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name)')
+        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
@@ -282,7 +281,7 @@ export function useAvailableSenders() {
       const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
         .from('owned_numbers')
-        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default, provider')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default')
         .order('is_default', { ascending: false })
         .order('label');
       
@@ -303,14 +302,13 @@ export function useConversationsByContact() {
     queryFn: async (): Promise<AggregatedConversation[]> => {
       const supabase = getSupabaseClient() as any;
       
-      // Fetch all conversations with nested data (excluding group chats for aggregated view)
+      // Fetch all conversations with nested data
       const { data: conversations, error } = await supabase
         .from('conversations')
         .select(`
           id, status, last_message_at, last_message_id,
           assigned_staff_id, contact_id, owned_number_id,
-          is_group_chat, group_chat_id, group_chat_name,
-          contacts(
+          contacts!inner(
             id, phone_e164, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
             parents(id, first_name, last_name),
@@ -320,7 +318,6 @@ export function useConversationsByContact() {
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
         .in('status', ['OPEN', 'SNOOZED'])
-        .eq('is_group_chat', false) // Exclude group chats from aggregated view
         .order('last_message_at', { ascending: false });
       
       if (error) throw error;
@@ -442,7 +439,7 @@ export function useMessagesForContact(contactId: string | null) {
       // Fetch messages from all conversations
       let query = supabase
         .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name)')
+        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);

@@ -10,11 +10,8 @@ export type ConversationWithRelations = {
   last_message_at: string | null;
   last_message_id: string | null;
   assigned_staff_id: string | null;
-  contact_id: string | null; // Null for group chats
+  contact_id: string;
   owned_number_id: string;
-  is_group_chat: boolean;
-  group_chat_id: string | null; // iMessage chatId for group chats
-  group_chat_name: string | null; // Display name for group chats
   contacts: {
     id: string;
     phone_e164: string | null;
@@ -32,7 +29,7 @@ export type ConversationWithRelations = {
       }>;
     } | null;
     staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name'> | null;
-  } | null; // Null for group chats
+  };
   owned_numbers: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'label'> | null;
   conversation_reads: Array<Pick<Tables<'conversation_reads'>, 'id' | 'last_read_message_id' | 'last_read_at'>>;
   messages?: { id: string; direction: string } | null;
@@ -48,7 +45,6 @@ export type Sender = {
   sender_type: 'PHONE' | 'ALPHANUMERIC';
   label: string | null;
   is_default: boolean;
-  provider: 'TWILIO' | 'IMESSAGE';
 };
 
 /**

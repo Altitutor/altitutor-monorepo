@@ -8,8 +8,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
-import { X } from 'lucide-react';
+import { X, File, Image as ImageIcon } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
+import Image from 'next/image';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -304,15 +305,89 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                           </Badge>
                         </div>
                       )}
-                      <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
-                        m.direction === 'OUTBOUND' 
-                          ? (m.sender?.sender_type === 'ALPHANUMERIC' 
-                              ? 'bg-brand-mediumBlue text-white' 
-                              : 'bg-brand-lightBlue text-brand-dark-bg')
-                          : 'bg-muted'
-                      }`}>
-                        {isSearching && searchTerm ? highlightText(m.body, searchTerm) : m.body}
-                      </div>
+                      {/* Attachments */}
+                      {m.message_attachments && m.message_attachments.length > 0 && (
+                        <div className={`mb-2 flex flex-wrap gap-2 ${m.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
+                          {m.message_attachments.map((attachment: any) => {
+                            const isImage = attachment.mime_type?.startsWith('image/');
+                            const isPdf = attachment.mime_type === 'application/pdf' || attachment.filename?.toLowerCase().endsWith('.pdf');
+                            
+                            // Handle storage URL - could be full URL, path, or invalid (local://)
+                            let attachmentUrl: string | null = attachment.storage_url;
+                            
+                            // Skip invalid local:// URLs
+                            if (attachmentUrl?.startsWith('local://')) {
+                              return (
+                                <div key={attachment.id} className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed">
+                                  <File className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">
+                                    {attachment.filename || 'Attachment'} (not available)
+                                  </span>
+                                </div>
+                              );
+                            }
+                            
+                            // If it's not a full URL, construct it from the path
+                            if (attachmentUrl && !attachmentUrl.startsWith('http')) {
+                              const supabase = getSupabaseClient();
+                              const { data } = supabase.storage.from('messages-media').getPublicUrl(attachmentUrl);
+                              attachmentUrl = data.publicUrl;
+                            }
+                            
+                            if (!attachmentUrl) {
+                              return null;
+                            }
+                            
+                            return (
+                              <div key={attachment.id} className="relative">
+                                {isImage ? (
+                                  <div className="relative w-48 h-48 rounded-lg overflow-hidden border">
+                                    <Image
+                                      src={attachmentUrl}
+                                      alt={attachment.filename || 'Attachment'}
+                                      fill
+                                      className="object-cover"
+                                      unoptimized
+                                      onError={(e) => {
+                                        // Fallback if image fails to load
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <a
+                                    href={attachmentUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                                  >
+                                    {isPdf ? (
+                                      <File className="h-4 w-4" />
+                                    ) : (
+                                      <ImageIcon className="h-4 w-4" />
+                                    )}
+                                    <span className="text-xs truncate max-w-[150px]">
+                                      {attachment.filename || 'Attachment'}
+                                    </span>
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Message body */}
+                      {m.body && (
+                        <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
+                          m.direction === 'OUTBOUND' 
+                            ? (m.sender?.sender_type === 'ALPHANUMERIC' 
+                                ? 'bg-brand-mediumBlue text-white' 
+                                : 'bg-brand-lightBlue text-brand-dark-bg')
+                            : 'bg-muted'
+                        }`}>
+                          {isSearching && searchTerm ? highlightText(m.body, searchTerm) : m.body}
+                        </div>
+                      )}
                       <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${m.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
                         <span>{formatMessageDate(m.created_at)}</span>
                         {m.direction === 'OUTBOUND' && m.status && (
