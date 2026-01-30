@@ -102,7 +102,10 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
   // Trigger add dialog when onCreateTrigger changes
   useEffect(() => {
     if (onCreateTrigger && onCreateTrigger > 0) {
-      setIsAddDialogOpen(true);
+      // Use setTimeout to avoid state update during render
+      setTimeout(() => {
+        setIsAddDialogOpen(true);
+      }, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onCreateTrigger]);
@@ -161,26 +164,27 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingBlockout} onOpenChange={(open) => !open && handleCloseEdit()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Blockout</DialogTitle>
-            <DialogDescription>
-              Update blockout date range
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-staff">Staff</Label>
-              <Input
-                id="edit-staff"
-                value={selectedStaff 
-                  ? `${selectedStaff.first_name} ${selectedStaff.last_name}` 
-                  : getStaffNameFromBlockout(editingBlockout!, editingBlockout!.staff_id)}
-                disabled
-                className="bg-muted"
-              />
-            </div>
+      {editingBlockout && (
+        <Dialog open={!!editingBlockout} onOpenChange={(open) => !open && handleCloseEdit()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Blockout</DialogTitle>
+              <DialogDescription>
+                Update blockout date range
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-staff">Staff</Label>
+                <Input
+                  id="edit-staff"
+                  value={selectedStaff 
+                    ? `${selectedStaff.first_name} ${selectedStaff.last_name}` 
+                    : getStaffNameFromBlockout(editingBlockout, editingBlockout.staff_id)}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -225,6 +229,7 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={(open) => !open && handleCloseAdd()}>
