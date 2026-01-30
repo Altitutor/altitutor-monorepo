@@ -16,13 +16,14 @@ export function useConversations() {
     queryFn: async () => {
       const supabase = getSupabaseClient() as any;
       
-      // Fetch conversations with nested data
+      // Fetch conversations with nested data (including group chats)
       const { data, error } = await supabase
         .from('conversations')
         .select(`
           id, status, last_message_at, last_message_id,
           assigned_staff_id, contact_id, owned_number_id,
-          contacts!inner(
+          is_group_chat, group_chat_id, group_chat_name,
+          contacts(
             id, phone_e164, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
             parents(id, first_name, last_name),
@@ -281,7 +282,7 @@ export function useAvailableSenders() {
       const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
         .from('owned_numbers')
-        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default, provider')
         .order('is_default', { ascending: false })
         .order('label');
       
@@ -302,13 +303,14 @@ export function useConversationsByContact() {
     queryFn: async (): Promise<AggregatedConversation[]> => {
       const supabase = getSupabaseClient() as any;
       
-      // Fetch all conversations with nested data
+      // Fetch all conversations with nested data (excluding group chats for aggregated view)
       const { data: conversations, error } = await supabase
         .from('conversations')
         .select(`
           id, status, last_message_at, last_message_id,
           assigned_staff_id, contact_id, owned_number_id,
-          contacts!inner(
+          is_group_chat, group_chat_id, group_chat_name,
+          contacts(
             id, phone_e164, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
             parents(id, first_name, last_name),
@@ -318,6 +320,7 @@ export function useConversationsByContact() {
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
         .in('status', ['OPEN', 'SNOOZED'])
+        .eq('is_group_chat', false) // Exclude group chats from aggregated view
         .order('last_message_at', { ascending: false });
       
       if (error) throw error;

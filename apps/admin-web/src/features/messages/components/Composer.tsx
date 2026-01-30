@@ -221,10 +221,11 @@ export function Composer({
 
   const getSenderDisplayForSelect = (sender: Sender | undefined): string => {
     if (!sender) return 'Select sender';
-    if (sender.sender_type === 'ALPHANUMERIC') {
-      return `From: ${sender.alphanumeric_sender_id || sender.label || 'Unknown'}`;
-    }
-    return `From: ${sender.phone_e164 || sender.label || 'Unknown'}`;
+    const providerBadge = sender.provider === 'IMESSAGE' ? '📱' : '📞';
+    const name = sender.sender_type === 'ALPHANUMERIC'
+      ? (sender.alphanumeric_sender_id || sender.label || 'Unknown')
+      : (sender.phone_e164 || sender.label || 'Unknown');
+    return `${providerBadge} ${name}`;
   };
 
   return (

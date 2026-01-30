@@ -87,10 +87,11 @@ export function MessageComposer({
   };
 
   const getSenderDisplayName = (sender: Sender): string => {
-    if (sender.sender_type === 'ALPHANUMERIC') {
-      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
-    }
-    return sender.label || sender.phone_e164 || 'Unknown';
+    const providerBadge = sender.provider === 'IMESSAGE' ? '📱' : '📞';
+    const name = sender.sender_type === 'ALPHANUMERIC'
+      ? (sender.alphanumeric_sender_id || sender.label || 'Unknown')
+      : (sender.label || sender.phone_e164 || 'Unknown');
+    return `${providerBadge} ${name}`;
   };
 
   return (
