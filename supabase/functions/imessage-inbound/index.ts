@@ -47,6 +47,7 @@ Deno.serve(async (req: Request) => {
     const isGroupChat = body.IsGroupChat === true;
     const chatId = body.ChatId as string; // iMessage chatId
     const senderName = body.SenderName as string | null;
+    const isFromMe = body.IsFromMe === true;
     const isReaction = body.IsReaction === true;
     const reactionType = body.ReactionType as string | null;
     const isReactionRemoval = body.IsReactionRemoval === true;
@@ -58,6 +59,12 @@ Deno.serve(async (req: Request) => {
       size: number;
     }>;
     const date = body.Date as string; // ISO 8601 timestamp
+
+    // Skip messages sent by us - these are handled by send-message function
+    if (isFromMe) {
+      console.log('[imessage-inbound] Skipping message sent by us', { messageGuid });
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'sent_by_us' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
 
     if (!from || !to) {
       return new Response(JSON.stringify({ error: 'missing from/to' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -128,13 +135,41 @@ Deno.serve(async (req: Request) => {
     // Check if message already exists (by imessage_guid to avoid duplicates)
     const { data: existingMessage } = await supabase
       .from('messages')
-      .select('id')
+      .select('id, direction, imessage_guid')
       .eq('imessage_guid', messageGuid)
       .maybeSingle();
 
     if (existingMessage?.id) {
       console.log('[imessage-inbound] Message already exists', { messageGuid });
       return new Response(JSON.stringify({ ok: true, duplicate: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Also check for OUTBOUND messages in the same conversation that might not have GUID set yet
+    // This handles race condition where webhook arrives before GUID is set on OUTBOUND message
+    const { data: recentOutbound } = await supabase
+      .from('messages')
+      .select('id, direction, imessage_guid, body, created_at')
+      .eq('conversation_id', conversationId)
+      .eq('direction', 'OUTBOUND')
+      .is('imessage_guid', null)
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .maybeSingle();
+
+    if (recentOutbound?.id) {
+      // Check if this might be the same message (same body, recent timestamp)
+      const recentTime = new Date(recentOutbound.created_at).getTime();
+      const webhookTime = date ? new Date(date).getTime() : Date.now();
+      const timeDiff = Math.abs(webhookTime - recentTime);
+      
+      // If messages are within 10 seconds and have same body (or both have attachments), likely duplicate
+      if (timeDiff < 10000 && (
+        (text && recentOutbound.body === text) ||
+        (attachments.length > 0 && !text && !recentOutbound.body)
+      )) {
+        console.log('[imessage-inbound] Duplicate OUTBOUND message detected (race condition)', { messageGuid });
+        return new Response(JSON.stringify({ ok: true, duplicate: true, reason: 'outbound_race' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
     }
 
     // Prepare attachments

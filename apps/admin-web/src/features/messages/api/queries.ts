@@ -281,7 +281,7 @@ export function useAvailableSenders() {
       const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
         .from('owned_numbers')
-        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default, provider')
         .order('is_default', { ascending: false })
         .order('label');
       

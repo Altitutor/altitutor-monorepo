@@ -48,6 +48,7 @@ export type Sender = {
   sender_type: 'PHONE' | 'ALPHANUMERIC';
   label: string | null;
   is_default: boolean;
+  provider: 'TWILIO' | 'IMESSAGE' | null;
 };
 
 /**
