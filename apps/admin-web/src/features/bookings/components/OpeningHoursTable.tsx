@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -25,6 +25,7 @@ import { openingHoursApi, type OpeningHoursRow } from '../api/opening-hours';
 interface OpeningHoursTableProps {
   openingHours: OpeningHoursRow[];
   onUpdate: () => void;
+  onCreateTrigger?: number;
 }
 
 const DAY_NAMES = [
@@ -37,7 +38,7 @@ const DAY_NAMES = [
   { value: 6, label: 'Saturday' },
 ];
 
-export function OpeningHoursTable({ openingHours, onUpdate }: OpeningHoursTableProps) {
+export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: OpeningHoursTableProps) {
   const [editingHours, setEditingHours] = useState<OpeningHoursRow | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [startTime, setStartTime] = useState<string>('09:00');
@@ -110,17 +111,17 @@ export function OpeningHoursTable({ openingHours, onUpdate }: OpeningHoursTableP
     return openingHours.find(h => h.day_of_week === dayOfWeek);
   };
 
+  // Trigger add dialog when onCreateTrigger changes
+  useEffect(() => {
+    if (onCreateTrigger && onCreateTrigger > 0) {
+      setIsAddDialogOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCreateTrigger]);
+
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Opening Hours</h2>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Opening Hours
-        </Button>
-      </div>
-
-      <div className="border rounded-lg">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

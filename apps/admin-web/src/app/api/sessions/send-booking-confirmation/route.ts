@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          const sendSmsResponse = await fetch(`${supabaseUrl}/functions/v1/send-sms`, {
+          const sendSmsResponse = await fetch(`${supabaseUrl}/functions/v1/send-message`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

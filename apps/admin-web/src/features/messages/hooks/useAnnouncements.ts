@@ -348,10 +348,10 @@ export function useAnnouncements() {
 
               // Fire-and-forget the send to avoid blocking UI
               supabase.functions
-                .invoke('send-sms', { body: { messageId: created.id } })
+                .invoke('send-message', { body: { messageId: created.id } })
                 .catch((e: unknown) => {
                   const errMsg = getErrorMessage(e);
-                  console.error('[send-sms invoke] error', errMsg);
+                  console.error('[send-message invoke] error', errMsg);
                 });
 
               result.sent++;

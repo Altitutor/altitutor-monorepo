@@ -17,6 +17,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -45,6 +48,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -69,6 +75,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -95,6 +104,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -124,6 +136,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -161,6 +176,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -187,6 +205,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -215,6 +236,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -241,6 +265,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -265,6 +292,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {
@@ -283,9 +313,21 @@ describe('formatContactName', () => {
 
   describe('edge cases', () => {
     it('should handle empty contact object', () => {
-      const conversation = {
+      const conversation: ConversationWithRelations = {
+        id: 'conv-1',
+        status: 'ACTIVE',
+        contact_id: null,
+        owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
+        last_message_at: null,
+        last_message_id: null,
+        assigned_staff_id: null,
         contacts: null,
-      } as any;
+        owned_numbers: null,
+        conversation_reads: [],
+      };
 
       expect(formatContactName(conversation)).toBe('Unknown');
     });
@@ -318,6 +360,9 @@ describe('formatContactName', () => {
         last_message_id: null,
         assigned_staff_id: null,
         owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
         owned_numbers: null,
         conversation_reads: [],
         contacts: {

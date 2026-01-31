@@ -2,24 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookingSettingsTable } from '@/features/bookings/components/BookingSettingsTable';
-import { bookingSettingsApi, type BookingSettingsRow } from '@/features/bookings/api/settings';
+import { PhoneNumbersTable } from '@/features/phone-numbers';
+import { phoneNumbersApi, type OwnedNumber } from '@/features/phone-numbers';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 
-export default function BookingSettingsPage() {
+export default function PhoneNumbersPage() {
   const router = useRouter();
-  const [settings, setSettings] = useState<BookingSettingsRow[]>([]);
+  const [numbers, setNumbers] = useState<OwnedNumber[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await bookingSettingsApi.getBookingSettings();
-      setSettings(data);
+      const numbersData = await phoneNumbersApi.getOwnedNumbers();
+      setNumbers(numbersData);
     } catch (error) {
-      console.error('Failed to load booking settings:', error);
-      alert('Failed to load booking settings: ' + (error as Error).message);
+      console.error('Failed to load phone numbers:', error);
+      alert('Failed to load phone numbers: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -49,13 +49,14 @@ export default function BookingSettingsPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Booking Settings</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Phone Numbers</h1>
           <p className="text-muted-foreground">
-            Manage global booking configuration settings
+            Manage phone numbers and set the default number for sending messages.
           </p>
         </div>
       </div>
-      <BookingSettingsTable settings={settings} onUpdate={loadData} />
+
+      <PhoneNumbersTable numbers={numbers} onUpdate={loadData} />
     </div>
   );
 }

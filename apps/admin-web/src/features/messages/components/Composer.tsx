@@ -8,10 +8,12 @@ import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Paperclip, Phone, Check } from 'lucide-react';
+import { useMessageAttachments } from '../hooks/useMessageAttachments';
+import { AttachmentPreviewList } from './AttachmentPreview';
 
 interface Props {
   contactId: string | null;
@@ -37,10 +39,21 @@ export function Composer({
   
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: currentStaff } = useCurrentStaff();
   const { data: availableSenders } = useAvailableSenders();
+  const {
+    attachments,
+    addFiles,
+    removeAttachment,
+    clearAll,
+    getSuccessfulAttachments,
+    hasAttachments,
+    canAddMore,
+  } = useMessageAttachments();
   
   // Set default sender when senders load
   useEffect(() => {
@@ -49,6 +62,52 @@ export function Composer({
       setSelectedSenderId(defaultSender.id);
     }
   }, [availableSenders, selectedSenderId]);
+
+  // Check if selected sender is iMessage
+  const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
+  const isIMessageSender = selectedSender?.provider === 'IMESSAGE';
+
+  // Handle file selection
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !isIMessageSender) return;
+    
+    try {
+      await addFiles(files);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to add files');
+    }
+  };
+
+  // Handle drag and drop
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!isIMessageSender) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!isIMessageSender) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    if (!isIMessageSender) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      try {
+        await addFiles(files);
+      } catch (error: any) {
+        alert(error?.message || 'Failed to add files');
+      }
+    }
+  };
 
   // Fetch contact data to get student/parent info for variable replacement
   const { data: contactData } = useContactForTemplate(contactId);
@@ -68,7 +127,26 @@ export function Composer({
 
   const onSend = async () => {
     const body = text.trim();
-    if (!body || !contactId || !selectedSenderId) return;
+    // Allow sending if there's text OR attachments (for iMessage, can send attachments without text)
+    const hasContent = body || (isIMessageSender && hasAttachments);
+    if (!hasContent || !contactId || !selectedSenderId) return;
+
+    // Get successful attachments
+    const successfulAttachments = getSuccessfulAttachments();
+    
+    // Don't send if there are failed uploads
+    const hasFailedUploads = attachments.some(att => att.status === 'error');
+    if (hasFailedUploads) {
+      alert('Please remove failed uploads before sending');
+      return;
+    }
+
+    // Don't send if there are still uploading files
+    const hasUploadingFiles = attachments.some(att => att.status === 'uploading');
+    if (hasUploadingFiles) {
+      alert('Please wait for all files to finish uploading');
+      return;
+    }
     
     // Clear draft (either via callback or directly)
     if (onDraftClear) {
@@ -85,9 +163,18 @@ export function Composer({
       
       await send.mutateAsync({ 
         contactId, 
-        body,
-        selectedSenderId 
+        body: body || '', // Allow empty body if attachments exist
+        selectedSenderId,
+        attachments: successfulAttachments.map(att => ({
+          storageUrl: att.storageUrl!,
+          filename: att.file.name,
+          mimeType: att.file.type,
+          sizeBytes: att.file.size,
+        })),
       });
+      
+      // Clear attachments after successful send
+      clearAll();
     } catch (e) {
       console.error(e);
       // Restore draft on error
@@ -219,52 +306,109 @@ export function Composer({
   };
 
 
-  const getSenderDisplayForSelect = (sender: Sender | undefined): string => {
+  const getSenderDisplayName = (sender: Sender | undefined): string => {
     if (!sender) return 'Select sender';
     if (sender.sender_type === 'ALPHANUMERIC') {
-      return `From: ${sender.alphanumeric_sender_id || sender.label || 'Unknown'}`;
+      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
     }
-    return `From: ${sender.phone_e164 || sender.label || 'Unknown'}`;
+    return sender.phone_e164 || sender.label || 'Unknown';
   };
 
   return (
-    <div className="border-t p-2 dark:border-brand-dark-border flex-shrink-0">
-      {/* Sender selector */}
-      {contactId && availableSenders && availableSenders.length > 0 && (
-        <div className="mb-2">
-          <Select value={selectedSenderId || ''} onValueChange={setSelectedSenderId}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Select sender">
-                {selectedSenderId && getSenderDisplayForSelect(availableSenders.find(s => s.id === selectedSenderId))}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {availableSenders.map((sender) => (
-                <SelectItem key={sender.id} value={sender.id}>
-                  {getSenderDisplayForSelect(sender)}
-                  {sender.is_default && ' (Default)'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="border-t dark:border-brand-dark-border flex-shrink-0">
+      {/* Attachment previews */}
+      {hasAttachments && (
+        <AttachmentPreviewList attachments={attachments} onRemove={removeAttachment} />
       )}
-      <div className="flex items-start gap-2">
-        <div className="relative">
-          <MessageTemplatesPicker 
-            onSelect={handleTemplateSelect}
-            disabled={send.isPending || !contactId || !selectedSenderId || isGeneratingTokens}
-          />
-          {isGeneratingTokens && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
+      
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFileSelect(e.target.files)}
+        accept="*/*"
+      />
+      
+      <div 
+        className={`flex items-start gap-2 p-2 ${isDragging && isIMessageSender ? 'bg-muted/50' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div className="flex items-start gap-2 flex-shrink-0">
+          <div className="relative">
+            <MessageTemplatesPicker 
+              onSelect={handleTemplateSelect}
+              disabled={send.isPending || !contactId || !selectedSenderId || isGeneratingTokens}
+            />
+            {isGeneratingTokens && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          
+          {/* Upload button - only show for iMessage senders */}
+          {isIMessageSender && canAddMore && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={send.isPending || !contactId || !selectedSenderId}
+              aria-label="Attach files"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          )}
+          
+          {/* Sender selector - moved next to attachment button */}
+          {contactId && availableSenders && availableSenders.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={send.isPending || !contactId}
+                  type="button"
+                  aria-label="Select sender"
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {availableSenders.map((sender) => (
+                  <DropdownMenuItem
+                    key={sender.id}
+                    onClick={() => setSelectedSenderId(sender.id)}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">
+                        {getSenderDisplayName(sender)}
+                      </span>
+                      {sender.is_default && (
+                        <span className="text-xs text-muted-foreground">Default</span>
+                      )}
+                    </div>
+                    {selectedSenderId === sender.id && (
+                      <Check className="h-4 w-4 ml-2" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
+        
         <textarea
           ref={textareaRef}
-          className="flex-1 text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px]"
-          placeholder="Message"
+          className={`flex-1 text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
+            isDragging && isIMessageSender ? 'border-primary border-2' : ''
+          }`}
+          placeholder={isIMessageSender ? "Message (or drag files here)" : "Message"}
           value={text}
           onChange={(e) => handleTextChange(e.target.value)}
           onKeyDown={(e) => {
@@ -279,7 +423,12 @@ export function Composer({
         <button
           className="px-3 py-2 text-sm rounded-md bg-brand-lightBlue text-brand-dark-bg hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onSend}
-          disabled={send.isPending || !contactId || !selectedSenderId || !text.trim()}
+          disabled={
+            send.isPending || 
+            !contactId || 
+            !selectedSenderId || 
+            (!text.trim() && !(isIMessageSender && hasAttachments))
+          }
         >
           Send
         </button>

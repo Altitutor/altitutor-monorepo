@@ -1083,6 +1083,7 @@ export type Database = {
         Row: {
           contact_type: string
           created_at: string | null
+          email: string | null
           id: string
           is_opted_out: boolean
           opted_out_at: string | null
@@ -1095,6 +1096,7 @@ export type Database = {
         Insert: {
           contact_type: string
           created_at?: string | null
+          email?: string | null
           id?: string
           is_opted_out?: boolean
           opted_out_at?: string | null
@@ -1107,6 +1109,7 @@ export type Database = {
         Update: {
           contact_type?: string
           created_at?: string | null
+          email?: string | null
           id?: string
           is_opted_out?: boolean
           opted_out_at?: string | null
@@ -1265,10 +1268,13 @@ export type Database = {
       conversations: {
         Row: {
           assigned_staff_id: string | null
-          contact_id: string
+          contact_id: string | null
           created_at: string | null
           created_by_staff_id: string | null
+          group_chat_id: string | null
+          group_chat_name: string | null
           id: string
+          is_group_chat: boolean
           is_pinned: boolean
           last_message_at: string | null
           last_message_id: string | null
@@ -1278,10 +1284,13 @@ export type Database = {
         }
         Insert: {
           assigned_staff_id?: string | null
-          contact_id: string
+          contact_id?: string | null
           created_at?: string | null
           created_by_staff_id?: string | null
+          group_chat_id?: string | null
+          group_chat_name?: string | null
           id?: string
+          is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
           last_message_id?: string | null
@@ -1291,10 +1300,13 @@ export type Database = {
         }
         Update: {
           assigned_staff_id?: string | null
-          contact_id?: string
+          contact_id?: string | null
           created_at?: string | null
           created_by_staff_id?: string | null
+          group_chat_id?: string | null
+          group_chat_name?: string | null
           id?: string
+          is_group_chat?: boolean
           is_pinned?: boolean
           last_message_at?: string | null
           last_message_id?: string | null
@@ -1771,6 +1783,49 @@ export type Database = {
           },
         ]
       }
+      group_chat_participants: {
+        Row: {
+          contact_id: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          contact_id: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          contact_id?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_chat_participants_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["conversation_id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           amount_cents: number
@@ -2103,6 +2158,58 @@ export type Database = {
           },
         ]
       }
+      message_attachments: {
+        Row: {
+          created_at: string | null
+          filename: string | null
+          id: string
+          message_id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          filename?: string | null
+          id?: string
+          message_id: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_url: string
+        }
+        Update: {
+          created_at?: string | null
+          filename?: string | null
+          id?: string
+          message_id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_failed_delivery_messages"
+            referencedColumns: ["message_id"]
+          },
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           content: string
@@ -2154,6 +2261,7 @@ export type Database = {
       messages: {
         Row: {
           account_sid: string | null
+          associated_message_guid: string | null
           body: string
           conversation_id: string
           created_at: string | null
@@ -2164,9 +2272,12 @@ export type Database = {
           error_message: string | null
           from_number_e164: string | null
           id: string
+          imessage_guid: string | null
           is_announcement: boolean
+          is_reaction: boolean
           message_sid: string | null
           messaging_service_sid: string | null
+          reaction_type: string | null
           received_at: string | null
           sent_at: string | null
           status: string
@@ -2176,6 +2287,7 @@ export type Database = {
         }
         Insert: {
           account_sid?: string | null
+          associated_message_guid?: string | null
           body: string
           conversation_id: string
           created_at?: string | null
@@ -2186,9 +2298,12 @@ export type Database = {
           error_message?: string | null
           from_number_e164?: string | null
           id?: string
+          imessage_guid?: string | null
           is_announcement?: boolean
+          is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          reaction_type?: string | null
           received_at?: string | null
           sent_at?: string | null
           status: string
@@ -2198,6 +2313,7 @@ export type Database = {
         }
         Update: {
           account_sid?: string | null
+          associated_message_guid?: string | null
           body?: string
           conversation_id?: string
           created_at?: string | null
@@ -2208,9 +2324,12 @@ export type Database = {
           error_message?: string | null
           from_number_e164?: string | null
           id?: string
+          imessage_guid?: string | null
           is_announcement?: boolean
+          is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          reaction_type?: string | null
           received_at?: string | null
           sent_at?: string | null
           status?: string
@@ -2480,10 +2599,13 @@ export type Database = {
           alphanumeric_sender_id: string | null
           created_at: string | null
           id: string
+          imessage_api_key: string | null
+          imessage_chat_id: string | null
           is_default: boolean
           label: string | null
           messaging_service_sid: string | null
           phone_e164: string | null
+          provider: string | null
           sender_type: string | null
           twilio_phone_sid: string | null
           updated_at: string | null
@@ -2492,10 +2614,13 @@ export type Database = {
           alphanumeric_sender_id?: string | null
           created_at?: string | null
           id?: string
+          imessage_api_key?: string | null
+          imessage_chat_id?: string | null
           is_default?: boolean
           label?: string | null
           messaging_service_sid?: string | null
           phone_e164?: string | null
+          provider?: string | null
           sender_type?: string | null
           twilio_phone_sid?: string | null
           updated_at?: string | null
@@ -2504,10 +2629,13 @@ export type Database = {
           alphanumeric_sender_id?: string | null
           created_at?: string | null
           id?: string
+          imessage_api_key?: string | null
+          imessage_chat_id?: string | null
           is_default?: boolean
           label?: string | null
           messaging_service_sid?: string | null
           phone_e164?: string | null
+          provider?: string | null
           sender_type?: string | null
           twilio_phone_sid?: string | null
           updated_at?: string | null

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -40,11 +40,12 @@ import { cn, getErrorMessage } from '@/shared/utils';
 
 interface TemplatesTableProps {
   onRefresh?: number;
+  onCreateTrigger?: number;
 }
 
 type SortField = 'name' | 'created_at';
 
-export function TemplatesTable({ onRefresh: _onRefresh }: TemplatesTableProps) {
+export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: TemplatesTableProps) {
   const { data: templates, isLoading, refetch } = useMessageTemplates();
   const deleteMutation = useDeleteTemplate();
   const createMutation = useCreateTemplate();
@@ -166,6 +167,15 @@ export function TemplatesTable({ onRefresh: _onRefresh }: TemplatesTableProps) {
     setIsEditDialogOpen(true);
   };
 
+  // Trigger create dialog when onCreateTrigger changes
+  useEffect(() => {
+    if (onCreateTrigger && onCreateTrigger > 0) {
+      setSelectedTemplate(null);
+      setIsEditDialogOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCreateTrigger]);
+
   // Highlight variables in preview text
   const renderPreview = (text: string) => {
     const truncated = truncatePreview(text, 80);
@@ -219,9 +229,6 @@ export function TemplatesTable({ onRefresh: _onRefresh }: TemplatesTableProps) {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button onClick={handleNewTemplate}>
-          New Template
-        </Button>
       </div>
 
       <div className="rounded-md border overflow-x-auto">

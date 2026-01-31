@@ -16,6 +16,12 @@ export function useSendMessage() {
       contactId: string; 
       body: string; 
       selectedSenderId: string;
+      attachments?: Array<{
+        storageUrl: string;
+        filename: string;
+        mimeType: string;
+        sizeBytes: number;
+      }>;
     }) => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
@@ -78,11 +84,31 @@ export function useSendMessage() {
         .single();
       if (insertErr) throw insertErr;
 
+      // Create message_attachments records if attachments provided
+      if (args.attachments && args.attachments.length > 0) {
+        const attachmentInserts = args.attachments.map(att => ({
+          message_id: created.id,
+          storage_url: att.storageUrl,
+          filename: att.filename,
+          mime_type: att.mimeType,
+          size_bytes: att.sizeBytes,
+        }));
+
+        const { error: attErr } = await supabase
+          .from('message_attachments')
+          .insert(attachmentInserts);
+
+        if (attErr) {
+          console.error('[useSendMessage] Failed to insert attachments', attErr);
+          // Don't throw - message was created successfully, attachments are optional
+        }
+      }
+
       // Fire-and-forget the send to avoid blocking UI; failures are handled in the function
       // which marks the message as FAILED when applicable.
       supabase.functions
-        .invoke('send-sms', { body: { messageId: created.id } })
-        .catch((e: any) => console.error('[send-sms invoke] error', e?.message || e));
+        .invoke('send-message', { body: { messageId: created.id } })
+        .catch((e: any) => console.error('[send-message invoke] error', e?.message || e));
 
       // Return immediately so UI can refresh and show the queued message
       return { messageId: created.id, conversationId };

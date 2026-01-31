@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -29,9 +29,10 @@ import { StaffSelectorPopover } from './StaffSelectorPopover';
 interface BlockoutDatesTableProps {
   blockouts: BlockoutRow[];
   onUpdate: () => void;
+  onCreateTrigger?: number;
 }
 
-export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTableProps) {
+export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: BlockoutDatesTableProps) {
   const [editingBlockout, setEditingBlockout] = useState<BlockoutRow | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
@@ -98,17 +99,20 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
     resetForm();
   };
 
+  // Trigger add dialog when onCreateTrigger changes
+  useEffect(() => {
+    if (onCreateTrigger && onCreateTrigger > 0) {
+      // Use setTimeout to avoid state update during render
+      setTimeout(() => {
+        setIsAddDialogOpen(true);
+      }, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCreateTrigger]);
+
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Blockout Dates</h2>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Blockout
-        </Button>
-      </div>
-
-      <div className="border rounded-lg">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -160,26 +164,27 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingBlockout} onOpenChange={(open) => !open && handleCloseEdit()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Blockout</DialogTitle>
-            <DialogDescription>
-              Update blockout date range
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-staff">Staff</Label>
-              <Input
-                id="edit-staff"
-                value={selectedStaff 
-                  ? `${selectedStaff.first_name} ${selectedStaff.last_name}` 
-                  : getStaffNameFromBlockout(editingBlockout!, editingBlockout!.staff_id)}
-                disabled
-                className="bg-muted"
-              />
-            </div>
+      {editingBlockout && (
+        <Dialog open={!!editingBlockout} onOpenChange={(open) => !open && handleCloseEdit()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Blockout</DialogTitle>
+              <DialogDescription>
+                Update blockout date range
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-staff">Staff</Label>
+                <Input
+                  id="edit-staff"
+                  value={selectedStaff 
+                    ? `${selectedStaff.first_name} ${selectedStaff.last_name}` 
+                    : getStaffNameFromBlockout(editingBlockout, editingBlockout.staff_id)}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -224,6 +229,7 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={(open) => !open && handleCloseAdd()}>

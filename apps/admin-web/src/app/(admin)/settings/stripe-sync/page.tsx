@@ -35,8 +35,8 @@ export default function StripeSyncPage() {
   const isFetching = fetchingStudents;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
         <Button
           variant="ghost"
           size="icon"
@@ -45,9 +45,9 @@ export default function StripeSyncPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Stripe Sync</h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground">
             Sync Stripe customers to students and manage payment methods
           </p>
         </div>

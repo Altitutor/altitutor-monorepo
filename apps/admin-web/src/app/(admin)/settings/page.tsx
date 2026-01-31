@@ -51,6 +51,12 @@ export default function SettingsPage() {
           icon: Phone,
         },
         {
+          title: 'Phone Numbers',
+          description: 'Manage phone numbers and set the default number for sending messages',
+          href: '/settings/phone-numbers',
+          icon: Phone,
+        },
+        {
           title: 'Contacts',
           description: 'View and export all contacts as VCF for iPhone',
           href: '/settings/contacts',

@@ -75,7 +75,7 @@ export function useMessages(conversationId: string) {
       
       let query = supabase
         .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name)')
+        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
@@ -281,7 +281,7 @@ export function useAvailableSenders() {
       const supabase = getSupabaseClient() as any;
       const { data, error } = await supabase
         .from('owned_numbers')
-        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default, provider')
         .order('is_default', { ascending: false })
         .order('label');
       
@@ -314,7 +314,7 @@ export function useConversationsByContact() {
             parents(id, first_name, last_name),
             staff(id, first_name, last_name)
           ),
-          owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label),
+          owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider),
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
         .in('status', ['OPEN', 'SNOOZED'])
@@ -410,7 +410,7 @@ export function useMessagesForContact(contactId: string | null) {
       // Get all conversation IDs for this contact
       const { data: conversations, error: convError } = await supabase
         .from('conversations')
-        .select('id, owned_number_id, owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label)')
+        .select('id, owned_number_id, owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider)')
         .eq('contact_id', contactId)
         .in('status', ['OPEN', 'SNOOZED']);
       
@@ -439,7 +439,7 @@ export function useMessagesForContact(contactId: string | null) {
       // Fetch messages from all conversations
       let query = supabase
         .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name)')
+        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
