@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { useMessagesForContact } from '../api/queries';
 import { useMarkRead } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
-import { X, File, Image as ImageIcon } from 'lucide-react';
+import { X, File, Image as ImageIcon, Download } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
 import Image from 'next/image';
 import { messagesKeys } from '../api/queryKeys';
@@ -21,6 +21,135 @@ interface Props {
   searchTerm?: string;
   onSearchTermChange?: (term: string) => void;
   onExitSearch?: () => void;
+}
+
+interface AttachmentProps {
+  attachment: any;
+  direction: 'INBOUND' | 'OUTBOUND';
+}
+
+function MessageAttachment({ attachment, direction }: AttachmentProps) {
+  const [imageError, setImageError] = useState(false);
+  
+  // Check if it's an image (but exclude HEIC/HEIF which browsers can't display)
+  // Note: mime_type may be incomplete (e.g., "image" instead of "image/jpeg"), so we check filename extensions too
+  const filenameLower = attachment.filename?.toLowerCase() || '';
+  const isHeic = attachment.mime_type === 'image/heic' || 
+                attachment.mime_type === 'image/heif' ||
+                filenameLower.endsWith('.heic') ||
+                filenameLower.endsWith('.heif');
+  const isImageByMime = attachment.mime_type?.startsWith('image/') && attachment.mime_type !== 'image' && !isHeic;
+  const isImageByExtension = !isHeic && (
+    filenameLower.endsWith('.jpg') ||
+    filenameLower.endsWith('.jpeg') ||
+    filenameLower.endsWith('.png') ||
+    filenameLower.endsWith('.gif') ||
+    filenameLower.endsWith('.webp') ||
+    filenameLower.endsWith('.svg')
+  );
+  const isImage = (isImageByMime || isImageByExtension) && !imageError;
+  const isPdf = attachment.mime_type === 'application/pdf' || filenameLower.endsWith('.pdf');
+  
+  // Handle storage URL - could be full URL, path, or invalid (local://)
+  let attachmentUrl: string | null = attachment.storage_url;
+  
+  // Skip invalid local:// URLs
+  if (attachmentUrl?.startsWith('local://')) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed">
+        <File className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">
+          {attachment.filename || 'Attachment'} (not available)
+        </span>
+      </div>
+    );
+  }
+  
+  // If it's not a full URL, construct it from the path
+  if (attachmentUrl && !attachmentUrl.startsWith('http')) {
+    const supabase = getSupabaseClient();
+    const { data } = supabase.storage.from('messages-media').getPublicUrl(attachmentUrl);
+    attachmentUrl = data.publicUrl;
+  }
+  
+  if (!attachmentUrl) {
+    return null;
+  }
+
+  // Download handler
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const response = await fetch(attachmentUrl!);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.filename || 'attachment';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to download attachment:', error);
+      // Fallback: open in new tab
+      window.open(attachmentUrl!, '_blank');
+    }
+  };
+  
+  // For images: show as main content (like iMessage)
+  if (isImage) {
+    return (
+      <div className="relative group">
+        <div className="relative rounded-2xl overflow-hidden border shadow-sm" style={{ maxWidth: '400px', maxHeight: '500px' }}>
+          <img
+            src={attachmentUrl}
+            alt={attachment.filename || 'Image'}
+            className="max-h-[500px] max-w-full h-auto w-auto object-contain"
+            style={{ display: 'block' }}
+            onError={() => setImageError(true)}
+          />
+          {/* Download button overlay */}
+          <button
+            onClick={handleDownload}
+            className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            aria-label="Download image"
+          >
+            <Download className="h-4 w-4 text-white" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // For files (including HEIC and failed images): show file card
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg hover:bg-secondary/70 transition-colors group">
+      <a
+        href={attachmentUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 flex-1 min-w-0"
+      >
+        {isPdf ? (
+          <File className="h-4 w-4 shrink-0" />
+        ) : (
+          <File className="h-4 w-4 shrink-0" />
+        )}
+        <span className="text-xs truncate">
+          {attachment.filename || 'Attachment'}
+        </span>
+      </a>
+      <button
+        onClick={handleDownload}
+        className="p-1 hover:bg-muted-foreground/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Download file"
+      >
+        <Download className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
 }
 
 export function MessageThread({ contactId, isSearching = false, searchTerm = '', onSearchTermChange, onExitSearch }: Props) {
@@ -307,87 +436,38 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       )}
                       {/* Attachments */}
                       {m.message_attachments && m.message_attachments.length > 0 && (
-                        <div className={`mb-2 flex flex-wrap gap-2 ${m.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
-                          {m.message_attachments.map((attachment: any) => {
-                            const isImage = attachment.mime_type?.startsWith('image/');
-                            const isPdf = attachment.mime_type === 'application/pdf' || attachment.filename?.toLowerCase().endsWith('.pdf');
-                            
-                            // Handle storage URL - could be full URL, path, or invalid (local://)
-                            let attachmentUrl: string | null = attachment.storage_url;
-                            
-                            // Skip invalid local:// URLs
-                            if (attachmentUrl?.startsWith('local://')) {
-                              return (
-                                <div key={attachment.id} className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed">
-                                  <File className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">
-                                    {attachment.filename || 'Attachment'} (not available)
-                                  </span>
-                                </div>
-                              );
-                            }
-                            
-                            // If it's not a full URL, construct it from the path
-                            if (attachmentUrl && !attachmentUrl.startsWith('http')) {
-                              const supabase = getSupabaseClient();
-                              const { data } = supabase.storage.from('messages-media').getPublicUrl(attachmentUrl);
-                              attachmentUrl = data.publicUrl;
-                            }
-                            
-                            if (!attachmentUrl) {
-                              return null;
-                            }
-                            
-                            return (
-                              <div key={attachment.id} className="relative">
-                                {isImage ? (
-                                  <div className="relative w-48 h-48 rounded-lg overflow-hidden border">
-                                    <Image
-                                      src={attachmentUrl}
-                                      alt={attachment.filename || 'Attachment'}
-                                      fill
-                                      className="object-cover"
-                                      unoptimized
-                                      onError={(e) => {
-                                        // Fallback if image fails to load
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                      }}
-                                    />
-                                  </div>
-                                ) : (
-                                  <a
-                                    href={attachmentUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                                  >
-                                    {isPdf ? (
-                                      <File className="h-4 w-4" />
-                                    ) : (
-                                      <ImageIcon className="h-4 w-4" />
-                                    )}
-                                    <span className="text-xs truncate max-w-[150px]">
-                                      {attachment.filename || 'Attachment'}
-                                    </span>
-                                  </a>
-                                )}
-                              </div>
-                            );
-                          })}
+                        <div className={`mb-2 flex flex-col gap-2 ${m.direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
+                          {m.message_attachments.map((attachment: any) => (
+                            <MessageAttachment 
+                              key={attachment.id} 
+                              attachment={attachment} 
+                              direction={m.direction}
+                            />
+                          ))}
                         </div>
                       )}
                       {/* Message body */}
-                      {m.body && (
-                        <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
-                          m.direction === 'OUTBOUND' 
-                            ? (m.sender?.provider === 'TWILIO' 
-                                ? 'bg-brand-mediumBlue text-white' 
-                                : 'bg-brand-lightBlue text-brand-dark-bg')
-                            : 'bg-muted'
-                        }`}>
-                          {isSearching && searchTerm ? highlightText(m.body, searchTerm) : m.body}
-                        </div>
-                      )}
+                      {(() => {
+                        // Filter out Unicode object replacement character (U+FFFC) and "OBJ" text that appears when attachments are present
+                        // The iMessage bridge sends U+FFFC (￼) as a placeholder for attachments
+                        const cleanedBody = m.body
+                          ?.replace(/\uFFFC/g, '') // Remove Unicode object replacement character
+                          .replace(/OBJ/gi, '') // Remove "OBJ" text as fallback
+                          .trim() || '';
+                        // Only render message body if it has content after cleaning
+                        if (!cleanedBody) return null;
+                        return (
+                          <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
+                            m.direction === 'OUTBOUND' 
+                              ? (m.sender?.provider === 'TWILIO' 
+                                  ? 'bg-brand-mediumBlue text-white' 
+                                  : 'bg-brand-lightBlue text-brand-dark-bg')
+                              : 'bg-muted'
+                          }`}>
+                            {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
+                          </div>
+                        );
+                      })()}
                       <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${m.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
                         <span>{formatMessageDate(m.created_at)}</span>
                         {m.direction === 'OUTBOUND' && m.status && (
