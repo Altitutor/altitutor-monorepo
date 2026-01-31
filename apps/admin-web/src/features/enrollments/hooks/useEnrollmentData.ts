@@ -8,6 +8,7 @@ interface UseEnrollmentDataProps {
   context: EnrollmentContext;
   onFetchStudents?: () => Promise<StudentWithEnrollmentInfo[]>;
   onFetchClasses?: () => Promise<ClassWithExpandedSubject[]>;
+  subjectId?: string;
 }
 
 export function useEnrollmentData({
@@ -16,6 +17,7 @@ export function useEnrollmentData({
   context,
   onFetchStudents,
   onFetchClasses,
+  subjectId,
 }: UseEnrollmentDataProps) {
   // Fetch students when enrolling a student to a class
   const shouldFetchStudents = isOpen && step === 1 && context === 'class' && !!onFetchStudents;
@@ -33,7 +35,7 @@ export function useEnrollmentData({
   // Fetch classes when enrolling a class to a student
   const shouldFetchClasses = isOpen && step === 1 && context === 'student' && !!onFetchClasses;
   const classesQuery = useQuery({
-    queryKey: ['enrollment-data', 'classes', context, step],
+    queryKey: ['enrollment-data', 'classes', context, step, subjectId],
     queryFn: async () => {
       if (!onFetchClasses) return [];
       return onFetchClasses();

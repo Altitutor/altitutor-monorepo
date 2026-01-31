@@ -59,6 +59,7 @@ export function EnrollStudentModal({
     context,
     onFetchStudents,
     onFetchClasses,
+    subjectId,
   });
 
   // Get selected data for display
@@ -167,7 +168,7 @@ export function EnrollStudentModal({
     onClose,
   });
 
-  // Reset state when modal opens/closes
+  // Reset state when modal opens/closes or subjectId changes
   useEffect(() => {
     if (!isOpen) return;
     
@@ -177,7 +178,7 @@ export function EnrollStudentModal({
     setEnrollmentDate(new Date().toISOString().split('T')[0]);
     resetFilters(defaultSubjectFilters);
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
-  }, [isOpen, resetFilters, defaultSubjectFilters]);
+  }, [isOpen, resetFilters, defaultSubjectFilters, subjectId]);
 
   const handleNext = () => {
     if (step === 1 && (selectedStudentId || selectedClassId)) {
