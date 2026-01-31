@@ -380,7 +380,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       {m.body && (
                         <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
                           m.direction === 'OUTBOUND' 
-                            ? (m.sender?.sender_type === 'ALPHANUMERIC' 
+                            ? (m.sender?.provider === 'TWILIO' 
                                 ? 'bg-brand-mediumBlue text-white' 
                                 : 'bg-brand-lightBlue text-brand-dark-bg')
                             : 'bg-muted'

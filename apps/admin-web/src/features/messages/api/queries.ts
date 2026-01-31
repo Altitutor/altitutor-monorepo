@@ -314,7 +314,7 @@ export function useConversationsByContact() {
             parents(id, first_name, last_name),
             staff(id, first_name, last_name)
           ),
-          owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label),
+          owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider),
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
         .in('status', ['OPEN', 'SNOOZED'])
@@ -410,7 +410,7 @@ export function useMessagesForContact(contactId: string | null) {
       // Get all conversation IDs for this contact
       const { data: conversations, error: convError } = await supabase
         .from('conversations')
-        .select('id, owned_number_id, owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label)')
+        .select('id, owned_number_id, owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider)')
         .eq('contact_id', contactId)
         .in('status', ['OPEN', 'SNOOZED']);
       
