@@ -45,7 +45,7 @@ export function ReconciliationTable<T>({
   renderRow,
   columns,
 }: ReconciliationTableProps<T>) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(items.length > 0);
 
   return (
     <div className="space-y-4">
