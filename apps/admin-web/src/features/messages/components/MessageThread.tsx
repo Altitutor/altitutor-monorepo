@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
-import { X, File, Image as ImageIcon, Download } from 'lucide-react';
+import { X, File, Image as ImageIcon, Download, Music, Play, Pause } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
 import Image from 'next/image';
 import { messagesKeys } from '../api/queryKeys';
@@ -30,6 +30,12 @@ interface AttachmentProps {
 
 function MessageAttachment({ attachment, direction }: AttachmentProps) {
   const [imageError, setImageError] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [urlError, setUrlError] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   
   // Check if it's an image (but exclude HEIC/HEIF which browsers can't display)
   // Note: mime_type may be incomplete (e.g., "image" instead of "image/jpeg"), so we check filename extensions too
@@ -49,12 +55,142 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   );
   const isImage = (isImageByMime || isImageByExtension) && !imageError;
   const isPdf = attachment.mime_type === 'application/pdf' || filenameLower.endsWith('.pdf');
+  const isAudioByMime = attachment.mime_type?.startsWith('audio/');
+  const isAudioByExtension = filenameLower.endsWith('.mp3') ||
+                             filenameLower.endsWith('.wav') ||
+                             filenameLower.endsWith('.m4a') ||
+                             filenameLower.endsWith('.aac') ||
+                             filenameLower.endsWith('.aiff') ||
+                             filenameLower.endsWith('.caf') ||
+                             filenameLower.endsWith('.ogg') ||
+                             filenameLower.endsWith('.flac');
+  const isAudio = isAudioByMime || isAudioByExtension;
   
-  // Handle storage URL - could be full URL, path, or invalid (local://)
-  let attachmentUrl: string | null = attachment.storage_url;
+  // Format time helper for audio player
+  const formatTime = (seconds: number): string => {
+    if (isNaN(seconds) || !isFinite(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
   
-  // Skip invalid local:// URLs
-  if (attachmentUrl?.startsWith('local://')) {
+  // Handle audio time updates
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+  
+  // Handle audio metadata load
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+  
+  // Handle seekbar change
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+  
+  // Handle play/pause
+  const handlePlayPause = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+    }
+  };
+  
+  // Handle audio ended
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
+  
+  // Generate signed URL for private bucket
+  useEffect(() => {
+    const storageUrl = attachment.storage_url;
+    
+    // Skip invalid local:// URLs
+    if (storageUrl?.startsWith('local://')) {
+      setUrlError(true);
+      return;
+    }
+    
+    // If it's already a full URL, we still need to check if it's a signed URL or old public URL
+    if (storageUrl?.startsWith('http')) {
+      // If it's a signed URL, use it directly. Otherwise, extract path and regenerate
+      if (storageUrl.includes('/sign/')) {
+        setSignedUrl(storageUrl);
+        return;
+      }
+      // Old public URL - extract path and regenerate as signed URL
+      const supabaseUrlMatch = storageUrl.match(/\/storage\/v1\/object\/[^/]+\/messages-media\/(.+)$/);
+      if (supabaseUrlMatch) {
+        const filePath = supabaseUrlMatch[1];
+        const supabase = getSupabaseClient();
+        supabase.storage
+          .from('messages-media')
+          .createSignedUrl(filePath, 3600)
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('Failed to create signed URL:', error);
+              setUrlError(true);
+            } else {
+              setSignedUrl(data.signedUrl);
+            }
+          })
+          .catch((err) => {
+            console.error('Error creating signed URL:', err);
+            setUrlError(true);
+          });
+        return;
+      }
+    }
+    
+    // Extract path from storage_url (could be full URL or just path)
+    let filePath = storageUrl;
+    if (!filePath) {
+      setUrlError(true);
+      return;
+    }
+    
+    // If it's a full Supabase URL, extract the path
+    const supabaseUrlMatch = filePath.match(/\/storage\/v1\/object\/[^/]+\/messages-media\/(.+)$/);
+    if (supabaseUrlMatch) {
+      filePath = supabaseUrlMatch[1];
+    }
+    
+    // Generate signed URL (valid for 1 hour)
+    const supabase = getSupabaseClient();
+    supabase.storage
+      .from('messages-media')
+      .createSignedUrl(filePath, 3600)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Failed to create signed URL:', error);
+          setUrlError(true);
+        } else {
+          setSignedUrl(data.signedUrl);
+        }
+      })
+      .catch((err) => {
+        console.error('Error creating signed URL:', err);
+        setUrlError(true);
+      });
+  }, [attachment.storage_url]);
+  
+  // Show error state if URL generation failed
+  if (urlError) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed">
         <File className="h-4 w-4 text-muted-foreground" />
@@ -65,16 +201,17 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
     );
   }
   
-  // If it's not a full URL, construct it from the path
-  if (attachmentUrl && !attachmentUrl.startsWith('http')) {
-    const supabase = getSupabaseClient();
-    const { data } = supabase.storage.from('messages-media').getPublicUrl(attachmentUrl);
-    attachmentUrl = data.publicUrl;
+  // Show loading state while generating signed URL
+  if (!signedUrl) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+        <File className="h-4 w-4 text-muted-foreground animate-pulse" />
+        <span className="text-xs text-muted-foreground">Loading...</span>
+      </div>
+    );
   }
   
-  if (!attachmentUrl) {
-    return null;
-  }
+  const attachmentUrl = signedUrl;
 
   // Download handler
   const handleDownload = async (e: React.MouseEvent) => {
@@ -82,6 +219,9 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
     e.stopPropagation();
     try {
       const response = await fetch(attachmentUrl!);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -91,7 +231,7 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to download attachment:', error);
       // Fallback: open in new tab
       window.open(attachmentUrl!, '_blank');
@@ -118,6 +258,74 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
           >
             <Download className="h-4 w-4 text-white" />
           </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // For audio files: show inline audio player
+  if (isAudio) {
+    return (
+      <div className="flex flex-col gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <Music className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="text-xs truncate flex-1 min-w-0">
+            {attachment.filename || 'Audio'}
+          </span>
+          <button
+            onClick={handleDownload}
+            className="p-1 hover:bg-muted-foreground/20 rounded transition-colors"
+            aria-label="Download audio"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <audio
+          ref={audioRef}
+          src={attachmentUrl}
+          className="hidden"
+          preload="metadata"
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={handleEnded}
+        >
+          Your browser does not support the audio element.
+        </audio>
+        <div className="flex items-center gap-2">
+          {/* Play/Pause button */}
+          <button
+            onClick={handlePlayPause}
+            className="p-1.5 hover:bg-muted-foreground/20 rounded transition-colors shrink-0"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+          </button>
+          {/* Seekbar and timestamps */}
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+            {/* Seekbar */}
+            <input
+              type="range"
+              min="0"
+              max={duration || 0}
+              value={currentTime}
+              onChange={handleSeek}
+              className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+              style={{
+                background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${duration ? (currentTime / duration) * 100 : 0}%, hsl(var(--muted)) ${duration ? (currentTime / duration) * 100 : 0}%, hsl(var(--muted)) 100%)`
+              }}
+            />
+            {/* Timestamps */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
         </div>
       </div>
     );
