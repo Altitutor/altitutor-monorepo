@@ -226,10 +226,10 @@ export async function executeSendMessage(
 
       messageIds.push(message.id);
 
-      // Invoke send-sms function (fire-and-forget)
+      // Invoke send-message function (fire-and-forget)
       supabase.functions
-        .invoke('send-sms', { body: { messageId: message.id } })
-        .catch((e: any) => console.error('[activity-processor] Failed to invoke send-sms:', e));
+        .invoke('send-message', { body: { messageId: message.id } })
+        .catch((e: any) => console.error('[activity-processor] Failed to invoke send-message:', e));
     } catch (contactErr: any) {
       errors.push({ contactId, error: contactErr?.message || 'Unknown error' });
       // Continue with next contact

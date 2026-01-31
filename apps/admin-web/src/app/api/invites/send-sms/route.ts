@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     
-    const sendSmsResponse = await fetch(`${supabaseUrl}/functions/v1/send-sms`, {
+    const sendSmsResponse = await fetch(`${supabaseUrl}/functions/v1/send-message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

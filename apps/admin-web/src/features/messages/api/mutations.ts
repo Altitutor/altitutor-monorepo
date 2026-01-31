@@ -81,8 +81,8 @@ export function useSendMessage() {
       // Fire-and-forget the send to avoid blocking UI; failures are handled in the function
       // which marks the message as FAILED when applicable.
       supabase.functions
-        .invoke('send-sms', { body: { messageId: created.id } })
-        .catch((e: any) => console.error('[send-sms invoke] error', e?.message || e));
+        .invoke('send-message', { body: { messageId: created.id } })
+        .catch((e: any) => console.error('[send-message invoke] error', e?.message || e));
 
       // Return immediately so UI can refresh and show the queued message
       return { messageId: created.id, conversationId };
