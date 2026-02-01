@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { uploadMessageAttachment } from '../utils/uploadAttachment';
+import { isHeicFile } from '../utils/heicConverter';
 
 export interface AttachmentFile {
   id: string;
@@ -94,7 +95,9 @@ export function useMessageAttachments() {
     const newAttachments: AttachmentFile[] = fileArray.map((file) => {
       const id = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       const isImage = file.type.startsWith('image/');
-      const preview = isImage ? URL.createObjectURL(file) : undefined;
+      // For HEIC files, we'll convert them in the preview component, so don't create preview URL here
+      const isHeic = isHeicFile(file);
+      const preview = (isImage && !isHeic) ? URL.createObjectURL(file) : undefined;
 
       return {
         id,
