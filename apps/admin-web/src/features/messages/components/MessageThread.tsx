@@ -29,7 +29,7 @@ interface AttachmentProps {
   direction: 'INBOUND' | 'OUTBOUND';
 }
 
-function MessageAttachment({ attachment, direction }: AttachmentProps) {
+export function MessageAttachment({ attachment, direction }: AttachmentProps) {
   const [imageError, setImageError] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [urlError, setUrlError] = useState(false);

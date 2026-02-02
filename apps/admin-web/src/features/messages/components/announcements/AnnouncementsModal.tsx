@@ -11,7 +11,7 @@ import { MessageComposer } from '../bulk/MessageComposer';
 import { MessagePreview } from '../bulk/MessagePreview';
 import { useAnnouncements } from '@/features/messages/hooks/useAnnouncements';
 import { useAvailableSenders } from '@/features/messages/api/queries';
-import type { AttachmentFile } from '../hooks/useMessageAttachments';
+import type { AttachmentFile } from '../../hooks/useMessageAttachments';
 
 type Step = 'select' | 'compose' | 'preview' | 'success';
 

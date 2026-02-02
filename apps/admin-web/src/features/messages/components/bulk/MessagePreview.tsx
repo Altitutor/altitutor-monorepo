@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Smartphone } from 'lucide-react';
-import { ScrollArea, Card, CardContent } from '@altitutor/ui';
+import { Loader2 } from 'lucide-react';
+import { ScrollArea, Badge } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -12,6 +12,8 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Sender } from '../../api/queries';
 import { generateLinkTokensForStudent, templateContainsLinkVariables } from '../../utils/generateLinkTokens';
+import type { AttachmentFile } from '../../hooks/useMessageAttachments';
+import { MessageAttachment } from '../MessageThread';
 
 interface Recipient {
   id: string;
@@ -26,6 +28,7 @@ interface MessagePreviewProps {
   message: string;
   sendToParents: boolean;
   selectedSender: Sender | null;
+  attachments?: AttachmentFile[];
   onSend: () => void;
   onBack: () => void;
   isSending?: boolean;
@@ -36,6 +39,7 @@ export function MessagePreview({
   message,
   sendToParents,
   selectedSender,
+  attachments = [],
   onSend: _onSend,
   onBack: _onBack,
   isSending: _isSending = false,
@@ -147,7 +151,15 @@ export function MessagePreview({
     
     // Note: Link tokens are not generated in preview to avoid unnecessary API calls
     // They will be generated when actually sending
-    return replaceVariables(message, student, classes, senderName);
+    // Replace variables (link variables will be empty strings)
+    let previewText = replaceVariables(message, student, classes, senderName);
+    
+    // Add placeholder text for link variables in preview
+    previewText = previewText.replace(/\{registration_link\}/gi, '[Registration Link]');
+    previewText = previewText.replace(/\{invite_link\}/gi, '[Invite Link]');
+    previewText = previewText.replace(/\{forgot_password_link\}/gi, '[Forgot Password Link]');
+    
+    return previewText;
   };
 
   const getSenderDisplayName = (sender: Sender | null): string => {
@@ -159,20 +171,7 @@ export function MessagePreview({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Sender Display Card */}
-      {selectedSender && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Smartphone className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Sending from:</span>
-              <span className="text-sm font-semibold">{getSenderDisplayName(selectedSender)}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
+    <div className="h-full flex flex-col">
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -181,53 +180,89 @@ export function MessagePreview({
           </div>
         </div>
       ) : (
-        <>
-          <div className="flex-1 p-6 grid grid-cols-2 gap-6 overflow-hidden">
-            {/* Recipients List */}
-            <div className="flex flex-col">
-              <h3 className="font-semibold text-sm mb-3">Recipients ({recipientsWithPhone.length} / {recipients.length})</h3>
-              <ScrollArea className="flex-1 border rounded-lg">
-                <div className="p-2">
-                  {recipients.map((recipient) => (
-                    <button
-                      key={recipient.id}
-                      onClick={() => setSelectedRecipientId(recipient.id)}
-                      className={`w-full text-left p-3 rounded-md transition-colors ${
-                        selectedRecipientId === recipient.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-muted'
-                      } ${!recipient.phone ? 'opacity-50' : ''}`}
-                      disabled={!recipient.phone}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{recipient.name}</div>
-                          <div className="text-xs mt-0.5">
-                            {recipient.type === 'parent' ? 'Parent' : 'Student'}
-                            {!recipient.phone && ' • No phone'}
-                          </div>
+        <div className="flex-1 grid grid-cols-2 gap-6 overflow-hidden min-h-0">
+          {/* Recipients List */}
+          <div className="flex flex-col min-h-0">
+            <h3 className="font-semibold text-sm mb-3">Recipients ({recipientsWithPhone.length} / {recipients.length})</h3>
+            <ScrollArea className="flex-1 border rounded-lg">
+              <div className="p-2">
+                {recipients.map((recipient) => (
+                  <button
+                    key={recipient.id}
+                    onClick={() => setSelectedRecipientId(recipient.id)}
+                    className={`w-full text-left p-3 rounded-md transition-colors ${
+                      selectedRecipientId === recipient.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted'
+                    } ${!recipient.phone ? 'opacity-50' : ''}`}
+                    disabled={!recipient.phone}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{recipient.name}</div>
+                        <div className="text-xs mt-0.5">
+                          {recipient.type === 'parent' ? 'Parent' : 'Student'}
+                          {!recipient.phone && ' • No phone'}
                         </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
-
-            {/* Message Preview */}
-            <div className="flex flex-col">
-              <h3 className="font-semibold text-sm mb-3">Message Preview</h3>
-              {selectedRecipient ? (
-                <div className="flex flex-col flex-1 overflow-hidden border rounded-lg bg-muted/30">
-                  <div className="p-3 border-b bg-background">
-                    <div className="font-medium text-sm">{selectedRecipient.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {selectedRecipient.phone || 'No phone number'}
                     </div>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Message Preview */}
+          <div className="flex flex-col min-h-0">
+            {selectedRecipient ? (
+              <>
+                <div className="mb-3">
+                  <h3 className="font-semibold text-sm">{selectedRecipient.name}</h3>
+                  <div className="text-xs text-muted-foreground">
+                    {selectedRecipient.phone || 'No phone number'}
                   </div>
+                </div>
+                <div className="flex flex-col flex-1 overflow-hidden border rounded-lg bg-muted/30 min-h-0">
                   <ScrollArea className="flex-1 p-4">
-                    <div className="flex justify-end">
-                      <div className="max-w-[80%] bg-brand-lightBlue text-brand-dark-bg rounded-lg px-4 py-2">
+                    <div className="flex flex-col items-end gap-2">
+                      {/* Sender badge */}
+                      {selectedSender && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                          From: {selectedSender.sender_type === 'ALPHANUMERIC' 
+                            ? (selectedSender.alphanumeric_sender_id || selectedSender.label || 'Unknown')
+                            : (selectedSender.phone_e164 || selectedSender.label || 'Unknown')}
+                        </Badge>
+                      )}
+                      {/* Attachments */}
+                      {attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 max-w-[80%]">
+                          {attachments.map((attachment) => {
+                            // Convert AttachmentFile to message attachment format
+                            const messageAttachment = {
+                              id: attachment.id,
+                              filename: attachment.file.name,
+                              mime_type: attachment.file.type,
+                              size_bytes: attachment.file.size,
+                              storage_url: attachment.storageUrl || attachment.preview || '',
+                            };
+                            return (
+                              <MessageAttachment
+                                key={attachment.id}
+                                attachment={messageAttachment}
+                                direction="OUTBOUND"
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Message bubble */}
+                      <div className={`max-w-[80%] rounded-lg px-4 py-2 text-white ${
+                        selectedSender?.provider === 'TWILIO'
+                          ? 'bg-[#30D158] dark:bg-[#1E8E3E]'
+                          : selectedSender?.provider === 'IMESSAGE'
+                          ? 'bg-[#007AFF] dark:bg-[#0A84FF]'
+                          : 'bg-brand-lightBlue text-brand-dark-bg'
+                      }`}>
                         <p className="text-sm whitespace-pre-wrap break-words">
                           {getPreviewMessage()}
                         </p>
@@ -235,14 +270,14 @@ export function MessagePreview({
                     </div>
                   </ScrollArea>
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                  Select a recipient to preview their message
-                </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                Select a recipient to preview their message
+              </div>
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
