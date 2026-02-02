@@ -8,12 +8,13 @@ import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
 import { Loader2, Paperclip, Phone, Check } from 'lucide-react';
 import { useMessageAttachments } from '../hooks/useMessageAttachments';
 import { AttachmentPreviewList } from './AttachmentPreview';
+import { calculateSMSSegments } from '../utils/smsSegments';
 
 interface Props {
   contactId: string | null;
@@ -66,6 +67,10 @@ export function Composer({
   // Check if selected sender is iMessage
   const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
   const isIMessageSender = selectedSender?.provider === 'IMESSAGE';
+  const isSMSSender = selectedSender?.provider === 'TWILIO';
+  
+  // Calculate SMS segments for SMS senders
+  const smsSegments = isSMSSender ? calculateSMSSegments(text) : null;
 
   // Handle file selection
   const handleFileSelect = async (files: FileList | null) => {
@@ -375,63 +380,142 @@ export function Composer({
                   type="button"
                   aria-label="Select sender"
                 >
-                  <Phone className="h-4 w-4" />
+                  <Phone 
+                    className={`h-4 w-4 ${
+                      selectedSender?.provider === 'IMESSAGE' 
+                        ? 'text-[#007AFF] dark:text-[#0A84FF]' 
+                        : selectedSender?.provider === 'TWILIO'
+                        ? 'text-[#30D158] dark:text-[#1E8E3E]'
+                        : ''
+                    }`}
+                  />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {availableSenders.map((sender) => (
-                  <DropdownMenuItem
-                    key={sender.id}
-                    onClick={() => setSelectedSenderId(sender.id)}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">
-                        {getSenderDisplayName(sender)}
-                      </span>
-                      {sender.is_default && (
-                        <span className="text-xs text-muted-foreground">Default</span>
+                {(() => {
+                  // Group senders by provider
+                  const imessageSenders = availableSenders.filter(s => s.provider === 'IMESSAGE');
+                  const twilioSenders = availableSenders.filter(s => s.provider === 'TWILIO');
+                  
+                  return (
+                    <>
+                      {imessageSenders.length > 0 && (
+                        <>
+                          <DropdownMenuLabel>iMessage</DropdownMenuLabel>
+                          {imessageSenders.map((sender) => (
+                            <DropdownMenuItem
+                              key={sender.id}
+                              onClick={() => setSelectedSenderId(sender.id)}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {getSenderDisplayName(sender)}
+                                </span>
+                                {sender.is_default && (
+                                  <span className="text-xs text-muted-foreground">Default</span>
+                                )}
+                              </div>
+                              {selectedSenderId === sender.id && (
+                                <Check className="h-4 w-4 ml-2" />
+                              )}
+                            </DropdownMenuItem>
+                          ))}
+                        </>
                       )}
-                    </div>
-                    {selectedSenderId === sender.id && (
-                      <Check className="h-4 w-4 ml-2" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
+                      {imessageSenders.length > 0 && twilioSenders.length > 0 && (
+                        <DropdownMenuSeparator />
+                      )}
+                      {twilioSenders.length > 0 && (
+                        <>
+                          <DropdownMenuLabel>SMS</DropdownMenuLabel>
+                          {twilioSenders.map((sender) => (
+                            <DropdownMenuItem
+                              key={sender.id}
+                              onClick={() => setSelectedSenderId(sender.id)}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {getSenderDisplayName(sender)}
+                                </span>
+                                {sender.is_default && (
+                                  <span className="text-xs text-muted-foreground">Default</span>
+                                )}
+                              </div>
+                              {selectedSenderId === sender.id && (
+                                <Check className="h-4 w-4 ml-2" />
+                              )}
+                            </DropdownMenuItem>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
         
-        <textarea
-          ref={textareaRef}
-          className={`flex-1 text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
-            isDragging && isIMessageSender ? 'border-primary border-2' : ''
-          }`}
-          placeholder={isIMessageSender ? "Message (or drag files here)" : "Message"}
-          value={text}
-          onChange={(e) => handleTextChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-          rows={1}
-          disabled={!contactId || !selectedSenderId}
-        />
-        <button
-          className="px-3 py-2 text-sm rounded-md bg-brand-lightBlue text-brand-dark-bg hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={onSend}
-          disabled={
-            send.isPending || 
-            !contactId || 
-            !selectedSenderId || 
-            (!text.trim() && !(isIMessageSender && hasAttachments))
-          }
-        >
-          Send
-        </button>
+        {/* Textarea container with send button inside */}
+        <div className="relative flex-1">
+          <textarea
+            ref={textareaRef}
+            className={`w-full text-sm px-3 py-2 ${
+              isSMSSender && smsSegments ? 'pr-32' : 'pr-20'
+            } border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
+              isDragging && isIMessageSender ? 'border-primary border-2' : ''
+            }`}
+            placeholder={isIMessageSender ? "Message (or drag files here)" : "Message"}
+            value={text}
+            onChange={(e) => handleTextChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                onSend();
+              }
+              // For SMS, prevent line breaks (Shift+Enter does nothing)
+              if (e.key === 'Enter' && e.shiftKey && !isIMessageSender) {
+                e.preventDefault();
+              }
+            }}
+            rows={1}
+            disabled={!contactId || !selectedSenderId}
+          />
+          {/* SMS segment counter (right side) */}
+          {isSMSSender && smsSegments && (
+            <div className="absolute bottom-2 right-12 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{smsSegments.characters} chars</span>
+              <span>•</span>
+              <span>{smsSegments.segments} {smsSegments.segments === 1 ? 'segment' : 'segments'}</span>
+            </div>
+          )}
+          {/* Send button - bottom right */}
+          <div className="absolute bottom-2 right-2 flex items-center gap-2">
+            {send.isPending && (
+              <span className="text-xs text-muted-foreground">Sending...</span>
+            )}
+            <button
+              className={`px-3 py-2 text-sm rounded-md text-white hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                isIMessageSender
+                  ? 'bg-[#007AFF] dark:bg-[#0A84FF]'
+                  : isSMSSender
+                  ? 'bg-[#30D158] dark:bg-[#1E8E3E]'
+                  : 'bg-brand-lightBlue text-brand-dark-bg'
+              }`}
+              onClick={onSend}
+              disabled={
+                send.isPending || 
+                !contactId || 
+                !selectedSenderId || 
+                (!text.trim() && !(isIMessageSender && hasAttachments))
+              }
+            >
+              Send
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

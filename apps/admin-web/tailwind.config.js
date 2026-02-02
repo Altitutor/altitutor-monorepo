@@ -59,6 +59,10 @@ module.exports = {
           darkBlue: "#0a2941",
           mediumBlue: "#144e72",
           lightBlue: "#92b9c6",
+          iosGreen: "#30D158", // iOS Messages SMS green (light mode)
+          iosGreenDark: "#1E8E3E", // iOS Messages SMS green (dark mode)
+          iosBlue: "#007AFF", // iOS Messages iMessage blue (light mode)
+          iosBlueDark: "#0A84FF", // iOS Messages iMessage blue (dark mode)
           white: "#ffffff",
           dark: {
             bg: "#171717",

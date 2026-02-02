@@ -58,6 +58,25 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     return aggregated.latestMessage?.direction === 'INBOUND';
   };
 
+  // Normalize Australian phone numbers for search comparison
+  // Converts +61478778288 and 0478778288 to the same format for matching
+  const normalizePhoneForSearch = (phone: string): string => {
+    if (!phone) return '';
+    // Remove all non-digit characters
+    const digits = phone.replace(/\D/g, '');
+    // Convert +61 or 61 prefix to 0 prefix (Australian format)
+    if (digits.startsWith('61') && digits.length >= 10) {
+      // +61478778288 (11 digits) -> 0478778288
+      // Also handle partial matches like 6147877 (7 digits starting with 61)
+      return '0' + digits.substring(2);
+    }
+    // If it's 9 digits without leading 0, assume it's missing the 0
+    if (digits.length === 9 && !digits.startsWith('0')) {
+      return '0' + digits;
+    }
+    return digits;
+  };
+
   // Filter conversations by contact name/phone or filter pills
   const filteredItems = useMemo(() => {
     let filtered = items;
@@ -65,10 +84,28 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     // Apply search filter
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
+      const normalizedSearch = normalizePhoneForSearch(searchTerm);
       filtered = filtered.filter((c: any) => {
-        const contactName = formatContactName(c);
-        const phoneNumber = c.contacts?.phone_e164 || '';
-        return contactName.toLowerCase().includes(search) || phoneNumber.toLowerCase().includes(search);
+        const contactName = formatContactName({ contacts: c.contact });
+        const phoneNumber = c.contact?.phone_e164 || '';
+        const normalizedPhone = normalizePhoneForSearch(phoneNumber);
+        
+        // Match by name (case-insensitive)
+        if (contactName.toLowerCase().includes(search)) {
+          return true;
+        }
+        
+        // Match by phone number (original format)
+        if (phoneNumber.toLowerCase().includes(search)) {
+          return true;
+        }
+        
+        // Match by normalized phone number (handles +61 vs 0 format differences)
+        if (normalizedSearch && normalizedPhone && normalizedPhone.includes(normalizedSearch)) {
+          return true;
+        }
+        
+        return false;
       });
     } else {
       // Only apply filter pills when not searching

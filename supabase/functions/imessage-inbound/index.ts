@@ -60,16 +60,6 @@ Deno.serve(async (req: Request) => {
     }>;
     const date = body.Date as string; // ISO 8601 timestamp
 
-    // Skip messages sent by us - these are handled by send-message function
-    if (isFromMe) {
-      console.log('[imessage-inbound] Skipping message sent by us', { messageGuid });
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'sent_by_us' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    }
-
-    if (!from || !to) {
-      return new Response(JSON.stringify({ error: 'missing from/to' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-    }
-
     if (!messageGuid) {
       return new Response(JSON.stringify({ error: 'missing MessageGuid' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
@@ -77,8 +67,6 @@ Deno.serve(async (req: Request) => {
     const supabase = createSupabaseClient();
 
     // Find owned number (iMessage number +61483849842)
-    // For group chats, 'to' is the chatId, so we need to find by provider
-    // For individual chats, 'to' might be the phone number or we need to find iMessage number
     const { data: owned, error: ownErr } = await supabase
       .from('owned_numbers')
       .select('id, phone_e164')
@@ -90,46 +78,90 @@ Deno.serve(async (req: Request) => {
       throw ownErr || new Error('iMessage owned number not configured');
     }
 
+    // Determine direction: OUTBOUND if sent by us, INBOUND otherwise
+    const direction: 'INBOUND' | 'OUTBOUND' = isFromMe ? 'OUTBOUND' : 'INBOUND';
+    console.log('[imessage-inbound] Processing message', { 
+      messageGuid, 
+      direction, 
+      isFromMe, 
+      isGroupChat,
+      hasAttachments: attachments.length > 0 
+    });
+
     let conversationId: string;
-    let senderContactId: string;
+    let recipientContactId: string | null = null;
 
     if (isGroupChat) {
       // Handle group chat
-      // Find or create contact for sender
-      const isEmail = from.includes('@');
-      senderContactId = await findOrCreateContact(
-        supabase,
-        isEmail ? undefined : from,
-        isEmail ? from : undefined
-      );
-
-      // Ensure group chat conversation exists
-      // Use chatId from payload (or 'to' if chatId not provided)
       const groupChatId = chatId || to;
       const groupChatName = senderName || 'Group Chat';
       
-      conversationId = await ensureGroupChatConversation(
-        supabase,
-        groupChatId,
-        groupChatName,
-        owned.id,
-        [senderContactId] // Start with sender, others will be added as they message
-      );
+      if (isFromMe) {
+        // OUTBOUND group chat: we sent it, so find/create contact for recipient
+        // For group chats, we need to find participants from the group
+        // Since we're sending TO the group, the conversation should already exist
+        // But we need to ensure it exists with the group chat ID
+        conversationId = await ensureGroupChatConversation(
+          supabase,
+          groupChatId,
+          groupChatName,
+          owned.id,
+          [] // Participants will be added as they message
+        );
+      } else {
+        // INBOUND group chat: find/create contact for sender
+        const isEmail = from.includes('@');
+        recipientContactId = await findOrCreateContact(
+          supabase,
+          isEmail ? undefined : from,
+          isEmail ? from : undefined
+        );
 
-      // Ensure sender is a participant
-      await addGroupChatParticipant(supabase, conversationId, senderContactId);
+        conversationId = await ensureGroupChatConversation(
+          supabase,
+          groupChatId,
+          groupChatName,
+          owned.id,
+          [recipientContactId] // Start with sender, others will be added as they message
+        );
+
+        // Ensure sender is a participant
+        await addGroupChatParticipant(supabase, conversationId, recipientContactId);
+      }
     } else {
       // Handle individual chat
-      // Find or create contact for sender
-      const isEmail = from.includes('@');
-      senderContactId = await findOrCreateContact(
-        supabase,
-        isEmail ? undefined : from,
-        isEmail ? from : undefined
-      );
+      if (isFromMe) {
+        // OUTBOUND individual chat: we sent it TO the recipient
+        // 'to' field contains the recipient's phone/email
+        if (!to) {
+          return new Response(JSON.stringify({ error: 'missing recipient (to) for OUTBOUND message' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+        
+        const isEmail = to.includes('@');
+        recipientContactId = await findOrCreateContact(
+          supabase,
+          isEmail ? undefined : to,
+          isEmail ? to : undefined
+        );
 
-      // Ensure conversation exists
-      conversationId = await ensureConversation(supabase, senderContactId, owned.id);
+        // Ensure conversation exists
+        conversationId = await ensureConversation(supabase, recipientContactId, owned.id);
+      } else {
+        // INBOUND individual chat: find/create contact for sender
+        if (!from) {
+          return new Response(JSON.stringify({ error: 'missing sender (from) for INBOUND message' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+        
+        const isEmail = from.includes('@');
+        recipientContactId = await findOrCreateContact(
+          supabase,
+          isEmail ? undefined : from,
+          isEmail ? from : undefined
+        );
+
+        // Ensure conversation exists
+        conversationId = await ensureConversation(supabase, recipientContactId, owned.id);
+      }
     }
 
     // Check if message already exists (by imessage_guid to avoid duplicates)
@@ -146,29 +178,32 @@ Deno.serve(async (req: Request) => {
 
     // Also check for OUTBOUND messages in the same conversation that might not have GUID set yet
     // This handles race condition where webhook arrives before GUID is set on OUTBOUND message
-    const { data: recentOutbound } = await supabase
-      .from('messages')
-      .select('id, direction, imessage_guid, body, created_at')
-      .eq('conversation_id', conversationId)
-      .eq('direction', 'OUTBOUND')
-      .is('imessage_guid', null)
-      .order('created_at', { ascending: false })
-      .limit(5)
-      .maybeSingle();
+    // Only check this for OUTBOUND messages (when isFromMe is true)
+    if (isFromMe) {
+      const { data: recentOutbound } = await supabase
+        .from('messages')
+        .select('id, direction, imessage_guid, body, created_at')
+        .eq('conversation_id', conversationId)
+        .eq('direction', 'OUTBOUND')
+        .is('imessage_guid', null)
+        .order('created_at', { ascending: false })
+        .limit(5)
+        .maybeSingle();
 
-    if (recentOutbound?.id) {
-      // Check if this might be the same message (same body, recent timestamp)
-      const recentTime = new Date(recentOutbound.created_at).getTime();
-      const webhookTime = date ? new Date(date).getTime() : Date.now();
-      const timeDiff = Math.abs(webhookTime - recentTime);
-      
-      // If messages are within 10 seconds and have same body (or both have attachments), likely duplicate
-      if (timeDiff < 10000 && (
-        (text && recentOutbound.body === text) ||
-        (attachments.length > 0 && !text && !recentOutbound.body)
-      )) {
-        console.log('[imessage-inbound] Duplicate OUTBOUND message detected (race condition)', { messageGuid });
-        return new Response(JSON.stringify({ ok: true, duplicate: true, reason: 'outbound_race' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (recentOutbound?.id) {
+        // Check if this might be the same message (same body, recent timestamp)
+        const recentTime = new Date(recentOutbound.created_at).getTime();
+        const webhookTime = date ? new Date(date).getTime() : Date.now();
+        const timeDiff = Math.abs(webhookTime - recentTime);
+        
+        // If messages are within 10 seconds and have same body (or both have attachments), likely duplicate
+        if (timeDiff < 10000 && (
+          (text && recentOutbound.body === text) ||
+          (attachments.length > 0 && !text && !recentOutbound.body)
+        )) {
+          console.log('[imessage-inbound] Duplicate OUTBOUND message detected (race condition)', { messageGuid });
+          return new Response(JSON.stringify({ ok: true, duplicate: true, reason: 'outbound_race' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
       }
     }
 
@@ -180,27 +215,50 @@ Deno.serve(async (req: Request) => {
       size_bytes: att.size || null,
     }));
 
-    // Determine from/to numbers for message
-    // For group chats, from is sender, to is the owned number
-    // For individual chats, from is sender, to is owned number
-    const toNumber = isGroupChat ? owned.phone_e164 : (owned.phone_e164 || to);
-    const fromNumber = from.includes('@') ? null : from; // NULL for email senders
+    // Determine from/to numbers for message based on direction
+    let fromNumber: string | null;
+    let toNumber: string;
 
-    // Insert message
-    await insertMessage(supabase, {
+    if (isFromMe) {
+      // OUTBOUND: from is owned number, to is recipient
+      fromNumber = owned.phone_e164;
+      if (isGroupChat) {
+        // For group chats, store the chatId or owned number as 'to'
+        toNumber = chatId || to || owned.phone_e164;
+      } else {
+        // For individual chats, 'to' is the recipient's phone/email
+        toNumber = to || owned.phone_e164;
+      }
+    } else {
+      // INBOUND: from is sender, to is owned number
+      fromNumber = from.includes('@') ? null : from; // NULL for email senders
+      toNumber = isGroupChat ? owned.phone_e164 : (owned.phone_e164 || to);
+    }
+
+    // Insert message with appropriate direction and status
+    const messageData: any = {
       conversation_id: conversationId,
-      direction: 'INBOUND',
+      direction: direction,
       body: text || '',
       from_number_e164: fromNumber,
       to_number_e164: toNumber,
-      status: 'RECEIVED',
-      received_at: date || new Date().toISOString(),
+      status: isFromMe ? 'SENT' : 'RECEIVED',
       message_sid: messageId || null,
       imessage_guid: messageGuid,
       is_reaction: isReaction || false,
       reaction_type: reactionType || null,
       associated_message_guid: associatedMessageGuid || null,
-    }, attachmentInserts);
+    };
+
+    // Set appropriate timestamp based on direction
+    const timestamp = date || new Date().toISOString();
+    if (isFromMe) {
+      messageData.sent_at = timestamp;
+    } else {
+      messageData.received_at = timestamp;
+    }
+
+    await insertMessage(supabase, messageData, attachmentInserts);
 
     // Update conversation last_message_at
     await supabase

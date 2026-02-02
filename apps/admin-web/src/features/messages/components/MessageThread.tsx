@@ -8,12 +8,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
-import { X, File, Image as ImageIcon, Download, Music, Play, Pause } from 'lucide-react';
+import { X, File, Image as ImageIcon, Download, Music, Play, Pause, Loader2 } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
 import Image from 'next/image';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isHeicFile, convertHeicUrlToPreview } from '../utils/heicConverter';
 
 interface Props {
   contactId: string;
@@ -32,26 +33,29 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   const [imageError, setImageError] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [urlError, setUrlError] = useState(false);
+  const [heicPreviewUrl, setHeicPreviewUrl] = useState<string | null>(null);
+  const [heicConverting, setHeicConverting] = useState(false);
+  const [heicError, setHeicError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // Check if it's an image (but exclude HEIC/HEIF which browsers can't display)
-  // Note: mime_type may be incomplete (e.g., "image" instead of "image/jpeg"), so we check filename extensions too
+  // Check if it's HEIC/HEIF
   const filenameLower = attachment.filename?.toLowerCase() || '';
-  const isHeic = attachment.mime_type === 'image/heic' || 
-                attachment.mime_type === 'image/heif' ||
-                filenameLower.endsWith('.heic') ||
-                filenameLower.endsWith('.heif');
-  const isImageByMime = attachment.mime_type?.startsWith('image/') && attachment.mime_type !== 'image' && !isHeic;
-  const isImageByExtension = !isHeic && (
+  const isHeic = isHeicFile({ mimeType: attachment.mime_type, filename: attachment.filename });
+  
+  // Check if it's an image (including HEIC)
+  const isImageByMime = attachment.mime_type?.startsWith('image/') && attachment.mime_type !== 'image';
+  const isImageByExtension = (
     filenameLower.endsWith('.jpg') ||
     filenameLower.endsWith('.jpeg') ||
     filenameLower.endsWith('.png') ||
     filenameLower.endsWith('.gif') ||
     filenameLower.endsWith('.webp') ||
-    filenameLower.endsWith('.svg')
+    filenameLower.endsWith('.svg') ||
+    filenameLower.endsWith('.heic') ||
+    filenameLower.endsWith('.heif')
   );
   const isImage = (isImageByMime || isImageByExtension) && !imageError;
   const isPdf = attachment.mime_type === 'application/pdf' || filenameLower.endsWith('.pdf');
@@ -114,6 +118,20 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   const handleEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+  };
+
+  // Get file extension for display
+  const getFileExtension = (filename: string | null | undefined): string => {
+    if (!filename) return '';
+    const parts = filename.split('.');
+    return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : '';
+  };
+
+  const formatFileSize = (bytes: number | null | undefined): string => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
   
   // Generate signed URL for private bucket
@@ -188,13 +206,37 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
         setUrlError(true);
       });
   }, [attachment.storage_url]);
+
+  // Convert HEIC to JPEG for preview if needed (must be before early returns)
+  useEffect(() => {
+    if (isHeic && signedUrl && !heicPreviewUrl && !heicConverting && !heicError) {
+      setHeicConverting(true);
+      convertHeicUrlToPreview(signedUrl)
+        .then((url) => {
+          setHeicPreviewUrl(url);
+          setHeicConverting(false);
+        })
+        .catch((error) => {
+          console.error('Failed to convert HEIC:', error);
+          setHeicError(true);
+          setHeicConverting(false);
+        });
+    }
+
+    // Cleanup blob URL on unmount
+    return () => {
+      if (heicPreviewUrl) {
+        URL.revokeObjectURL(heicPreviewUrl);
+      }
+    };
+  }, [isHeic, signedUrl, heicPreviewUrl, heicConverting, heicError]);
   
   // Show error state if URL generation failed
   if (urlError) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed">
-        <File className="h-4 w-4 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed max-w-[400px]">
+        <File className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="text-xs text-muted-foreground truncate" title={attachment.filename || 'Attachment'}>
           {attachment.filename || 'Attachment'} (not available)
         </span>
       </div>
@@ -204,14 +246,15 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   // Show loading state while generating signed URL
   if (!signedUrl) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-        <File className="h-4 w-4 text-muted-foreground animate-pulse" />
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg max-w-[400px]">
+        <File className="h-4 w-4 text-muted-foreground animate-pulse shrink-0" />
         <span className="text-xs text-muted-foreground">Loading...</span>
       </div>
     );
   }
-  
-  const attachmentUrl = signedUrl;
+
+  // Use converted HEIC preview if available, otherwise use signed URL
+  const attachmentUrl = (isHeic && heicPreviewUrl) ? heicPreviewUrl : signedUrl;
 
   // Download handler
   const handleDownload = async (e: React.MouseEvent) => {
@@ -240,11 +283,44 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   
   // For images: show as main content (like iMessage)
   if (isImage) {
+    // Show loading state while converting HEIC
+    if (isHeic && heicConverting) {
+      return (
+        <div className="relative group">
+          <div className="relative rounded-2xl overflow-hidden border shadow-sm flex items-center justify-center" style={{ maxWidth: '400px', maxHeight: '500px', minHeight: '200px' }}>
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="text-sm">Converting HEIC...</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Show error state if HEIC conversion failed
+    if (isHeic && heicError) {
+      return (
+        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed max-w-[400px]">
+          <File className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0" title={attachment.filename || 'HEIC Image'}>
+            {attachment.filename || 'HEIC Image'} (preview unavailable)
+          </span>
+          <button
+            onClick={handleDownload}
+            className="ml-auto p-1 hover:bg-muted-foreground/20 rounded shrink-0"
+            aria-label="Download file"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="relative group">
         <div className="relative rounded-2xl overflow-hidden border shadow-sm" style={{ maxWidth: '400px', maxHeight: '500px' }}>
           <img
-            src={attachmentUrl}
+            src={attachmentUrl || undefined}
             alt={attachment.filename || 'Image'}
             className="max-h-[500px] max-w-full h-auto w-auto object-contain"
             style={{ display: 'block' }}
@@ -266,7 +342,7 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   // For audio files: show inline audio player
   if (isAudio) {
     return (
-      <div className="flex flex-col gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg">
+      <div className="flex flex-col gap-2 px-3 py-2 bg-muted border border-border/50 rounded-lg">
         <div className="flex items-center gap-2">
           <Music className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="text-xs truncate flex-1 min-w-0">
@@ -332,30 +408,43 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   }
   
   // For files (including HEIC and failed images): show file card
+  const fileExtension = getFileExtension(attachment.filename);
+  const fileSize = formatFileSize(attachment.size_bytes);
+  const hasFileInfo = fileExtension || fileSize;
+
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg hover:bg-secondary/70 transition-colors group">
-      <a
-        href={attachmentUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 flex-1 min-w-0"
-      >
-        {isPdf ? (
-          <File className="h-4 w-4 shrink-0" />
-        ) : (
-          <File className="h-4 w-4 shrink-0" />
-        )}
-        <span className="text-xs truncate">
-          {attachment.filename || 'Attachment'}
-        </span>
-      </a>
-      <button
-        onClick={handleDownload}
-        className="p-1 hover:bg-muted-foreground/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-        aria-label="Download file"
-      >
-        <Download className="h-3.5 w-3.5" />
-      </button>
+    <div className="flex flex-col gap-1 px-3 py-2 bg-muted border border-border/50 rounded-lg hover:bg-muted/80 transition-colors group max-w-[400px]">
+      <div className="flex items-center gap-2">
+        <a
+          href={attachmentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 flex-1 min-w-0"
+        >
+          {isPdf ? (
+            <File className="h-4 w-4 shrink-0" />
+          ) : (
+            <File className="h-4 w-4 shrink-0" />
+          )}
+          <span className="text-xs font-medium truncate" title={attachment.filename || 'Attachment'}>
+            {attachment.filename || 'Attachment'}
+          </span>
+        </a>
+        <button
+          onClick={handleDownload}
+          className="p-1 hover:bg-muted-foreground/20 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          aria-label="Download file"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {hasFileInfo && (
+        <div className="text-[10px] text-muted-foreground">
+          {fileExtension && <span className="font-medium">{fileExtension}</span>}
+          {fileExtension && fileSize && ' • '}
+          {fileSize}
+        </div>
+      )}
     </div>
   );
 }
@@ -668,8 +757,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                           <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
                             m.direction === 'OUTBOUND' 
                               ? (m.sender?.provider === 'TWILIO' 
-                                  ? 'bg-brand-mediumBlue text-white' 
-                                  : 'bg-brand-lightBlue text-brand-dark-bg')
+                                  ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white' 
+                                  : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
                               : 'bg-muted'
                           }`}>
                             {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
