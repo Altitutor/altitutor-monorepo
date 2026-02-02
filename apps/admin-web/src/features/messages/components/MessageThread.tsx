@@ -757,8 +757,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                           <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
                             m.direction === 'OUTBOUND' 
                               ? (m.sender?.provider === 'TWILIO' 
-                                  ? 'bg-brand-mediumBlue text-white' 
-                                  : 'bg-brand-lightBlue text-brand-dark-bg')
+                                  ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white' 
+                                  : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
                               : 'bg-muted'
                           }`}>
                             {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
