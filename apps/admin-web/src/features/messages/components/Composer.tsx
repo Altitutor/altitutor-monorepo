@@ -8,7 +8,7 @@ import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
 import { Loader2, Paperclip, Phone, Check } from 'lucide-react';
@@ -375,29 +375,79 @@ export function Composer({
                   type="button"
                   aria-label="Select sender"
                 >
-                  <Phone className="h-4 w-4" />
+                  <Phone 
+                    className={`h-4 w-4 ${
+                      selectedSender?.provider === 'IMESSAGE' 
+                        ? 'text-[#007AFF] dark:text-[#0A84FF]' 
+                        : selectedSender?.provider === 'TWILIO'
+                        ? 'text-[#30D158] dark:text-[#1E8E3E]'
+                        : ''
+                    }`}
+                  />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {availableSenders.map((sender) => (
-                  <DropdownMenuItem
-                    key={sender.id}
-                    onClick={() => setSelectedSenderId(sender.id)}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">
-                        {getSenderDisplayName(sender)}
-                      </span>
-                      {sender.is_default && (
-                        <span className="text-xs text-muted-foreground">Default</span>
+                {(() => {
+                  // Group senders by provider
+                  const imessageSenders = availableSenders.filter(s => s.provider === 'IMESSAGE');
+                  const twilioSenders = availableSenders.filter(s => s.provider === 'TWILIO');
+                  
+                  return (
+                    <>
+                      {imessageSenders.length > 0 && (
+                        <>
+                          <DropdownMenuLabel>iMessage</DropdownMenuLabel>
+                          {imessageSenders.map((sender) => (
+                            <DropdownMenuItem
+                              key={sender.id}
+                              onClick={() => setSelectedSenderId(sender.id)}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {getSenderDisplayName(sender)}
+                                </span>
+                                {sender.is_default && (
+                                  <span className="text-xs text-muted-foreground">Default</span>
+                                )}
+                              </div>
+                              {selectedSenderId === sender.id && (
+                                <Check className="h-4 w-4 ml-2" />
+                              )}
+                            </DropdownMenuItem>
+                          ))}
+                        </>
                       )}
-                    </div>
-                    {selectedSenderId === sender.id && (
-                      <Check className="h-4 w-4 ml-2" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
+                      {imessageSenders.length > 0 && twilioSenders.length > 0 && (
+                        <DropdownMenuSeparator />
+                      )}
+                      {twilioSenders.length > 0 && (
+                        <>
+                          <DropdownMenuLabel>SMS</DropdownMenuLabel>
+                          {twilioSenders.map((sender) => (
+                            <DropdownMenuItem
+                              key={sender.id}
+                              onClick={() => setSelectedSenderId(sender.id)}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {getSenderDisplayName(sender)}
+                                </span>
+                                {sender.is_default && (
+                                  <span className="text-xs text-muted-foreground">Default</span>
+                                )}
+                              </div>
+                              {selectedSenderId === sender.id && (
+                                <Check className="h-4 w-4 ml-2" />
+                              )}
+                            </DropdownMenuItem>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -415,6 +465,10 @@ export function Composer({
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               onSend();
+            }
+            // For SMS, prevent line breaks (Shift+Enter does nothing)
+            if (e.key === 'Enter' && e.shiftKey && !isIMessageSender) {
+              e.preventDefault();
             }
           }}
           rows={1}

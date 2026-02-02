@@ -342,7 +342,7 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   // For audio files: show inline audio player
   if (isAudio) {
     return (
-      <div className="flex flex-col gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg">
+      <div className="flex flex-col gap-2 px-3 py-2 bg-muted border border-border/50 rounded-lg">
         <div className="flex items-center gap-2">
           <Music className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="text-xs truncate flex-1 min-w-0">
@@ -413,7 +413,7 @@ function MessageAttachment({ attachment, direction }: AttachmentProps) {
   const hasFileInfo = fileExtension || fileSize;
 
   return (
-    <div className="flex flex-col gap-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg hover:bg-secondary/70 transition-colors group max-w-[400px]">
+    <div className="flex flex-col gap-1 px-3 py-2 bg-muted border border-border/50 rounded-lg hover:bg-muted/80 transition-colors group max-w-[400px]">
       <div className="flex items-center gap-2">
         <a
           href={attachmentUrl}
