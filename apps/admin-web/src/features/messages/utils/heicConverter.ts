@@ -1,5 +1,3 @@
-import heic2any from 'heic2any';
-
 /**
  * Check if a file is HEIC/HEIF format
  */
@@ -26,11 +24,34 @@ export function isHeicFile(file: File | { mimeType?: string; filename?: string }
 }
 
 /**
+ * Dynamically import heic2any only on the client side
+ * This prevents SSR errors since heic2any is a browser-only library
+ */
+async function getHeic2Any() {
+  // Only import on client side
+  if (typeof window === 'undefined') {
+    throw new Error('heic2any can only be used in the browser');
+  }
+  
+  // Dynamic import to prevent SSR bundling
+  const heic2any = (await import('heic2any')).default;
+  return heic2any;
+}
+
+/**
  * Convert HEIC file to JPEG blob URL for browser preview
  * Returns a blob URL that can be used as image src
+ * Only works in the browser (client-side)
  */
 export async function convertHeicToPreview(file: File): Promise<string> {
+  // Guard against SSR
+  if (typeof window === 'undefined') {
+    throw new Error('HEIC conversion is only available in the browser');
+  }
+
   try {
+    const heic2any = await getHeic2Any();
+    
     const convertedBlob = await heic2any({
       blob: file,
       toType: 'image/jpeg',
@@ -56,8 +77,14 @@ export async function convertHeicToPreview(file: File): Promise<string> {
 /**
  * Convert HEIC file from URL to JPEG blob URL
  * Fetches the file first, then converts it
+ * Only works in the browser (client-side)
  */
 export async function convertHeicUrlToPreview(url: string): Promise<string> {
+  // Guard against SSR
+  if (typeof window === 'undefined') {
+    throw new Error('HEIC conversion is only available in the browser');
+  }
+
   try {
     const response = await fetch(url);
     if (!response.ok) {
