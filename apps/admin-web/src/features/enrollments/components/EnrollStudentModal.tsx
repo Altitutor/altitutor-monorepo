@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { formatSubjectDisplay } from '@/shared/utils';
 import { StudentCard } from '@/shared/components/StudentCard';
@@ -221,29 +221,65 @@ export function EnrollStudentModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b space-y-3">
-            <DialogTitle>
-              {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
-            </DialogTitle>
-            <DialogDescription>
-              {context === 'class' 
-                ? 'Select a student to enroll in this class.'
-                : 'Select a class to enroll this student in.'}
-            </DialogDescription>
-            {shouldShowStudentCardInHeader && (
-              <div>
-                <StudentCard
-                  student={(context === 'student' ? student : selectedStudent) as Tables<'students'>}
-                  subjects={displaySubject}
-                  showSubjects={true}
-                  showActions={false}
-                />
+        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+          {/* Header */}
+          <div className="flex-shrink-0 border-b bg-background">
+            <DialogHeader className="px-6 pt-6 pb-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={onClose}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle>
+                      {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Step {step} of 3: {step === 1 ? 'Select Student or Class' : step === 2 ? 'Select Enrollment Date' : 'Summary & Confirm'}
+                    </DialogDescription>
+                  </div>
+                  {shouldShowStudentCardInHeader && (
+                    <div className="flex-shrink-0 h-[60px]">
+                      <StudentCard
+                        student={(context === 'student' ? student : selectedStudent) as Tables<'students'>}
+                        subjects={displaySubject}
+                        showSubjects={true}
+                        showActions={false}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </DialogHeader>
+            </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
+            {/* Progress Indicator */}
+            <div className="px-6 pb-4">
+              <div className="flex items-center gap-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className={`flex-1 h-2 rounded-full transition-colors ${
+                      index < step - 1
+                        ? 'bg-primary'
+                        : index === step - 1
+                        ? 'bg-primary/50'
+                        : 'bg-muted'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-hidden min-h-0">
+            <div className="h-full overflow-y-auto">
+              <div className="p-6">
             {/* Step 1: Select Student or Class */}
             {step === 1 && (
               <Step1SelectStudentOrClass
@@ -295,8 +331,11 @@ export function EnrollStudentModal({
                 conflicts={conflicts}
               />
             )}
+              </div>
+            </div>
           </div>
 
+          {/* Footer */}
           <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
             <div className="flex gap-2">
               {step > 1 && (

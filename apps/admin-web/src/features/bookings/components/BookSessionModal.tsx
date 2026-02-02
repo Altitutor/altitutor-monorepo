@@ -199,66 +199,58 @@ export function BookSessionModal({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1">
-                  <DialogTitle>
-                    {originalSessionId 
-                      ? `Reschedule ${getSessionTypeLabel(sessionType)}` 
-                      : `Book ${getSessionTypeLabel(sessionType)}`}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {originalSessionId 
-                      ? `Select a new time for this ${getSessionTypeLabel(sessionType).toLowerCase()}. The original session will be marked as an absence.`
-                      : `Create a new ${getSessionTypeLabel(sessionType).toLowerCase()} booking`}
-                  </DialogDescription>
+          {/* Header */}
+          <div className="flex-shrink-0 border-b bg-background">
+            <DialogHeader className="px-6 pt-6 pb-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleClose}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1">
+                    <DialogTitle>
+                      {originalSessionId 
+                        ? `Reschedule ${getSessionTypeLabel(sessionType)}` 
+                        : `Book ${getSessionTypeLabel(sessionType)}`}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Step {currentStep + 1} of {steps.length}: {currentStepData?.title}
+                    </DialogDescription>
+                  </div>
                 </div>
               </div>
-            </div>
-          </DialogHeader>
+            </DialogHeader>
 
-          {/* Step Indicator */}
-          <div className="flex-shrink-0 flex items-center justify-center space-x-2 px-6 py-4 border-b overflow-x-auto">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center flex-shrink-0">
-                <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                    index === currentStep
-                      ? 'bg-primary text-primary-foreground'
-                      : index < currentStep
-                      ? 'bg-primary/20 text-primary'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {index + 1}
-                </div>
-                {index < steps.length - 1 && (
+            {/* Progress Indicator */}
+            <div className="px-6 pb-4">
+              <div className="flex items-center gap-2">
+                {Array.from({ length: steps.length }).map((_, index) => (
                   <div
-                    className={`w-12 h-0.5 mx-2 ${
-                      index < currentStep ? 'bg-primary' : 'bg-muted'
+                    key={index}
+                    className={`flex-1 h-2 rounded-full transition-colors ${
+                      index < currentStep
+                        ? 'bg-primary'
+                        : index === currentStep
+                        ? 'bg-primary/50'
+                        : 'bg-muted'
                     }`}
                   />
-                )}
+                ))}
               </div>
-            ))}
+            </div>
           </div>
 
           {/* Current Step Content */}
-          <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+          <div className="flex-1 overflow-hidden min-h-0">
             <div className="h-full overflow-y-auto">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold">{currentStepData?.title}</h3>
+              <div className="p-6">
+                {renderStepContent()}
               </div>
-              {renderStepContent()}
             </div>
           </div>
 
