@@ -1,3 +1,3 @@
-export const navHoverStyles = "hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white";
+export const navHoverStyles = "hover:bg-muted text-brand-darkBlue dark:text-white dark:hover:bg-muted/50 dark:hover:text-white";
 
 

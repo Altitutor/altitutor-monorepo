@@ -225,7 +225,7 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDelete(note.id)}
-                            className="text-red-600 focus:text-red-600"
+                            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
