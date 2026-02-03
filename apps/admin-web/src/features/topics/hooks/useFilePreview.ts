@@ -18,6 +18,7 @@ export interface UseFilePreviewParams {
   isOpen: boolean;
   fileId?: string | null;
   topicFileId?: string | null;
+  getSignedUrlFn?: (path: string) => Promise<string>;
 }
 
 /**
@@ -28,6 +29,7 @@ export function useFilePreview({
   isOpen,
   fileId,
   topicFileId,
+  getSignedUrlFn,
 }: UseFilePreviewParams): FilePreviewData {
   const [file, setFile] = useState<Tables<'files'> | null>(null);
   const [topicFile, setTopicFile] = useState<
@@ -61,22 +63,35 @@ export function useFilePreview({
       try {
         if (topicFileId) {
           // Get topic file with file and topic details
-          const tf = await topicsFilesApi.getTopicFile(topicFileId);
-          if (tf) {
-            const fileData = await filesApi.getFile(tf.file_id);
-            if (!fileData) {
-              throw new Error('File not found');
-            }
+          try {
+            const tf = await topicsFilesApi.getTopicFile(topicFileId);
+            if (tf) {
+              const fileData = await filesApi.getFile(tf.file_id);
+              if (!fileData) {
+                throw new Error('File not found');
+              }
 
-            const topicData = await topicsApi.getTopic(tf.topic_id);
-            if (!topicData) {
-              throw new Error('Topic not found');
-            }
+              const topicData = await topicsApi.getTopic(tf.topic_id);
+              if (!topicData) {
+                throw new Error('Topic not found');
+              }
 
-            setFile(fileData);
-            setTopicFile({ ...tf, topic: topicData });
+              setFile(fileData);
+              setTopicFile({ ...tf, topic: topicData });
+              return; // Successfully loaded via topicFileId, exit early
+            }
+          } catch (topicFileError) {
+            // Topic file fetch failed (e.g., topicFileId is actually a staff_files ID)
+            // Fall back to fileId if provided
+            if (fileId) {
+              // Continue to fileId branch below
+            } else {
+              throw topicFileError; // Re-throw if no fileId to fall back to
+            }
           }
-        } else if (fileId) {
+        }
+        
+        if (fileId) {
           // Get file and try to find topic file
           const fileData = await filesApi.getFile(fileId);
           if (!fileData) {
@@ -116,7 +131,8 @@ export function useFilePreview({
 
       try {
         setIsLoadingPreview(true);
-        const signedUrl = await getSignedUrl(file.storage_path);
+        const getUrlFn = getSignedUrlFn || getSignedUrl;
+        const signedUrl = await getUrlFn(file.storage_path);
         setPreviewUrl(signedUrl);
       } catch (err) {
         console.error('Failed to generate signed URL:', err);
@@ -127,7 +143,7 @@ export function useFilePreview({
     };
 
     loadPreview();
-  }, [isOpen, file, previewUrl, isLoadingPreview]);
+  }, [isOpen, file, previewUrl, isLoadingPreview, getSignedUrlFn]);
 
   return {
     file,

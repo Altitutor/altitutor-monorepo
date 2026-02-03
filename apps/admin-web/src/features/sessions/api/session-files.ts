@@ -144,6 +144,27 @@ export const sessionFilesApi = {
   },
 
   /**
+   * Rename a session file (updates display_name)
+   */
+  renameSessionFile: async (sessionFileId: string, displayName: string): Promise<Tables<'sessions_files'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const { data, error } = await supabase
+      .from('sessions_files')
+      .update({ display_name: displayName.trim() || null })
+      .eq('id', sessionFileId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Failed to rename session file:', error);
+      throw error;
+    }
+    
+    return data as Tables<'sessions_files'>;
+  },
+
+  /**
    * Delete a session file (removes from storage and database)
    */
   deleteSessionFile: async (sessionFileId: string): Promise<void> => {

@@ -144,6 +144,27 @@ export const staffFilesApi = {
   },
 
   /**
+   * Rename a staff file (updates display_name)
+   */
+  renameStaffFile: async (staffFileId: string, displayName: string): Promise<Tables<'staff_files'>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const { data, error } = await supabase
+      .from('staff_files')
+      .update({ display_name: displayName.trim() || null })
+      .eq('id', staffFileId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Failed to rename staff file:', error);
+      throw error;
+    }
+    
+    return data as Tables<'staff_files'>;
+  },
+
+  /**
    * Delete a staff file (removes from storage and database)
    */
   deleteStaffFile: async (staffFileId: string): Promise<void> => {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
-import { Download, Loader2, Edit, MoreVertical, Trash2 } from 'lucide-react';
+import { Download, Loader2, Edit, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -12,11 +12,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Input,
+  Label,
 } from '@altitutor/ui';
 import { getFileTypeIcon, getFileTypeLabel } from '../utils/file-type-icons';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
@@ -24,9 +32,10 @@ import { FilePreviewModal } from './FilePreviewModal';
 import type { Enums } from '@altitutor/shared';
 
 export interface FileCardProps {
-  fileCode: string;
-  fileType: Enums<'resource_type'>;
+  fileCode?: string;
+  fileType?: Enums<'resource_type'>;
   filename: string;
+  displayName?: string | null;
   storagePath: string;
   mimeType?: string;
   topicFileId?: string;
@@ -37,6 +46,7 @@ export interface FileCardProps {
   onDownload?: () => void;
   onEdit?: (topicFileId: string) => void;
   onDelete?: (topicFileId: string) => void;
+  onRename?: (topicFileId: string, newName: string) => Promise<void>;
   getSignedUrlFn?: (path: string) => Promise<string>;
 }
 
@@ -44,6 +54,7 @@ export function FileCard({
   fileCode,
   fileType,
   filename,
+  displayName,
   storagePath,
   mimeType: _mimeType,
   topicFileId,
@@ -54,14 +65,18 @@ export function FileCard({
   onDownload,
   onEdit,
   onDelete,
+  onRename,
   getSignedUrlFn,
 }: FileCardProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [downloadingFile, setDownloadingFile] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
-  const Icon = getFileTypeIcon(fileType);
-  const typeLabel = getFileTypeLabel(fileType);
+  const Icon = getFileTypeIcon(fileType || 'NOTES');
+  const typeLabel = fileType ? getFileTypeLabel(fileType) : null;
 
   const handleCardClick = () => {
     setIsPreviewOpen(true);
@@ -106,6 +121,29 @@ export function FileCard({
     setShowDeleteDialog(false);
   };
 
+  const handleRenameClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    setRenameValue(displayName || filename);
+    setShowRenameDialog(true);
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!onRename || !topicFileId) return;
+    
+    try {
+      setIsRenaming(true);
+      await onRename(topicFileId, renameValue.trim());
+      setShowRenameDialog(false);
+      setRenameValue('');
+    } catch (error) {
+      console.error('Failed to rename file:', error);
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const displayFileName = displayName || filename;
+
   return (
     <>
       <div
@@ -115,16 +153,20 @@ export function FileCard({
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-sm font-medium truncate">{fileCode}</span>
-              <span className="text-sm text-muted-foreground flex-shrink-0">{typeLabel}</span>
-            </div>
-            <p className="text-xs text-muted-foreground truncate" title={filename}>
-              {filename}
+            {fileCode && (
+              <div className="flex items-center gap-2 min-w-0 mb-1">
+                <span className="font-mono text-sm font-medium truncate">{fileCode}</span>
+                {typeLabel && (
+                  <span className="text-sm text-muted-foreground flex-shrink-0">{typeLabel}</span>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground truncate" title={displayFileName}>
+              {displayFileName}
             </p>
           </div>
         </div>
-        {(onDownload || onDelete || onEdit) && (
+        {(onDownload || onDelete || onEdit || onRename) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -151,6 +193,14 @@ export function FileCard({
                 )}
                 Download
               </DropdownMenuItem>
+              {onRename && topicFileId && (
+                <DropdownMenuItem
+                  onClick={handleRenameClick}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Rename
+                </DropdownMenuItem>
+              )}
               {onEdit && topicFileId && (
                 <DropdownMenuItem
                   onClick={(e) => {
@@ -167,7 +217,7 @@ export function FileCard({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleDeleteClick}
-                    className="text-destructive focus:text-destructive"
+                    className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
@@ -204,6 +254,63 @@ export function FileCard({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Rename Dialog */}
+      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename File</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rename-input">File Name</Label>
+              <Input
+                id="rename-input"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                placeholder={filename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isRenaming) {
+                    handleRenameConfirm();
+                  }
+                  if (e.key === 'Escape') {
+                    setShowRenameDialog(false);
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRenameDialog(false);
+                setRenameValue('');
+              }}
+              disabled={isRenaming}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameConfirm}
+              disabled={isRenaming || !renameValue.trim()}
+            >
+              {isRenaming ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Renaming...
+                </>
+              ) : (
+                'Rename'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* File Preview Modal */}
       <FilePreviewModal
         isOpen={isPreviewOpen}
@@ -212,6 +319,7 @@ export function FileCard({
         topicFileId={topicFileId || undefined}
         topicName={topicName}
         fileCode={fileCode}
+        getSignedUrlFn={getSignedUrlFn}
         onEdit={onEdit && topicFileId ? (id) => {
           onEdit(id);
           setIsPreviewOpen(false);

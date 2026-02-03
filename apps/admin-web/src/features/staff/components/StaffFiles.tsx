@@ -119,7 +119,16 @@ export function StaffFiles({ staffId }: StaffFilesProps) {
       const signedUrl = await getStaffFileSignedUrl(file.file.storage_path);
       const link = document.createElement('a');
       link.href = signedUrl;
-      link.download = file.file.filename;
+      
+      // Use display_name if available, otherwise use filename
+      // If display_name doesn't have extension, preserve it from filename
+      let downloadName = file.display_name || file.file.filename;
+      if (file.display_name && !file.display_name.includes('.')) {
+        const extension = file.file.filename.substring(file.file.filename.lastIndexOf('.'));
+        downloadName = file.display_name + extension;
+      }
+      
+      link.download = downloadName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -133,12 +142,23 @@ export function StaffFiles({ staffId }: StaffFilesProps) {
     }
   };
 
-  // Derive file code from filename (simple approach for staff files)
-  const getFileCode = (filename: string, index: number) => {
-    // Extract extension and create a simple code
-    const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
-    const sanitized = nameWithoutExt.substring(0, 8).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    return `STF${String(index + 1).padStart(2, '0')}-${sanitized || 'FILE'}`;
+  const handleRename = async (staffFileId: string, newName: string) => {
+    try {
+      await staffFilesApi.renameStaffFile(staffFileId, newName);
+      toast({
+        title: 'Success',
+        description: 'File renamed successfully',
+      });
+      await loadFiles();
+    } catch (error) {
+      console.error('Failed to rename file:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to rename file',
+        variant: 'destructive',
+      });
+      throw error; // Re-throw so FileCard can handle it
+    }
   };
 
   return (
@@ -158,18 +178,19 @@ export function StaffFiles({ staffId }: StaffFilesProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {files.map((staffFile, index) => (
+          {files.map((staffFile) => (
             <FileCard
               key={staffFile.id}
-              fileCode={getFileCode(staffFile.file.filename, index)}
-              fileType="NOTES" // Default type for staff files
               filename={staffFile.file.filename}
+              displayName={staffFile.display_name}
               storagePath={staffFile.file.storage_path}
               mimeType={staffFile.file.mimetype || undefined}
-              topicFileId={staffFile.id} // Using staffFile.id as identifier for delete
+              fileId={staffFile.file.id} // File record ID for preview
+              topicFileId={staffFile.id} // Staff file ID for delete/rename (useFilePreview will fall back to fileId)
               getSignedUrlFn={getStaffFileSignedUrl} // Use staff-files bucket
               onDownload={() => handleDownload(staffFile)}
               onDelete={(id) => handleDelete(id)}
+              onRename={(id, newName) => handleRename(id, newName)}
             />
           ))}
         </div>

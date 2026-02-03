@@ -25,6 +25,7 @@ export interface FilePreviewModalProps {
   fileCode?: string | null;
   onClose: () => void;
   onEdit?: (topicFileId: string) => void;
+  getSignedUrlFn?: (path: string) => Promise<string>;
 }
 
 export function FilePreviewModal({ 
@@ -35,6 +36,7 @@ export function FilePreviewModal({
   fileCode: providedFileCode,
   onClose,
   onEdit,
+  getSignedUrlFn,
 }: FilePreviewModalProps) {
   const [downloadingFile, setDownloadingFile] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -51,6 +53,7 @@ export function FilePreviewModal({
     isOpen,
     fileId,
     topicFileId,
+    getSignedUrlFn,
   });
 
   // Handle print action
@@ -65,11 +68,11 @@ export function FilePreviewModal({
     if (!file) return;
     
     try {
-      await downloadFile(file, setDownloadingFile);
+      await downloadFile(file, setDownloadingFile, getSignedUrlFn);
     } catch (error) {
       console.error('Failed to download file:', error);
     }
-  }, [file]);
+  }, [file, getSignedUrlFn]);
 
   // Setup keyboard shortcut for printing PDFs
   useEffect(() => {
