@@ -2882,6 +2882,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          display_name: string | null
           display_order: number
           file_id: string
           id: string
@@ -2891,6 +2892,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           display_order?: number
           file_id: string
           id?: string
@@ -2900,6 +2902,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           display_order?: number
           file_id?: string
           id?: string
@@ -3526,6 +3529,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          display_name: string | null
           display_order: number
           file_id: string
           id: string
@@ -3535,6 +3539,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           display_order?: number
           file_id: string
           id?: string
@@ -3544,6 +3549,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           display_order?: number
           file_id?: string
           id?: string
