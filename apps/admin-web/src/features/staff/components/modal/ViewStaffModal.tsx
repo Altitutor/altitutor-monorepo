@@ -16,6 +16,7 @@ import { ClassesTab } from './tabs/ClassesTab';
 import { StaffSessionsTab } from './tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
+import { StaffFiles } from '../StaffFiles';
 import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
@@ -276,11 +277,12 @@ export function ViewStaffModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-5">
+                  <TabsList className="grid w-full grid-cols-6">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
+                    <TabsTrigger value="files">Files</TabsTrigger>
                     <TabsTrigger value="activity">Activity</TabsTrigger>
                   </TabsList>
                 </div>
@@ -342,6 +344,12 @@ export function ViewStaffModal({
                     {staffMember && (
                       <StaffSessionsTab staff={staffMember} />
                     )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="files" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    {staffId && <StaffFiles staffId={staffId} />}
                   </div>
                 </TabsContent>
 

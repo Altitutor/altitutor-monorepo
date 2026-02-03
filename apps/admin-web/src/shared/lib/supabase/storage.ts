@@ -202,3 +202,82 @@ export async function deleteSessionFile(path: string): Promise<void> {
   }
 }
 
+/**
+ * Staff Files Storage Functions
+ */
+
+export interface UploadStaffFileOptions {
+  staffId: string;
+  file: File;
+}
+
+/**
+ * Upload a file to the staff-files bucket
+ * Path format: {staffId}/{timestamp}_{filename}
+ */
+export async function uploadStaffFile({ staffId, file }: UploadStaffFileOptions): Promise<UploadFileResult> {
+  const supabase = getSupabaseClient();
+  
+  // Generate a unique filename to avoid collisions
+  const timestamp = Date.now();
+  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${staffId}/${timestamp}_${sanitizedFilename}`;
+  
+  // Upload file to storage
+  const { data, error } = await supabase.storage
+    .from('staff-files')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+  
+  if (error) {
+    console.error('Storage upload error:', error);
+    throw new Error(`Failed to upload file: ${error.message}`);
+  }
+  
+  // Get public URL (will require authentication to access due to bucket policies)
+  const { data: urlData } = supabase.storage
+    .from('staff-files')
+    .getPublicUrl(path);
+  
+  return {
+    path: data.path,
+    url: urlData.publicUrl,
+  };
+}
+
+/**
+ * Get a signed URL for a staff file (valid for specified duration, default 1 hour)
+ */
+export async function getStaffFileSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase.storage
+    .from('staff-files')
+    .createSignedUrl(path, expiresIn);
+  
+  if (error) {
+    console.error('Failed to create signed URL:', error);
+    throw new Error(`Failed to create signed URL: ${error.message}`);
+  }
+  
+  return data.signedUrl;
+}
+
+/**
+ * Delete a staff file from storage
+ */
+export async function deleteStaffFile(path: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  
+  const { error } = await supabase.storage
+    .from('staff-files')
+    .remove([path]);
+  
+  if (error) {
+    console.error('Failed to delete file:', error);
+    throw new Error(`Failed to delete file: ${error.message}`);
+  }
+}
+
