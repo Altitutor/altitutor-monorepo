@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
 import type {
   UninvoicedSession,
   UnloggedSession,
@@ -13,6 +13,22 @@ import type {
   TrialStudentNotSignedUp,
 } from '../types';
 
+// Helper type for querying views
+type ViewQueryResult<T> = {
+  data: T[] | null;
+  error: Error | null;
+};
+
+type ViewQueryBuilder = {
+  select: (columns: string) => {
+    order: (column: string, options: { ascending: boolean }) => Promise<ViewQueryResult<unknown>>;
+  };
+};
+
+type SupabaseWithViews = SupabaseClient<Database> & {
+  from: (table: string) => ViewQueryBuilder;
+};
+
 /**
  * Reconciliation API client for querying reconciliation views
  */
@@ -22,7 +38,7 @@ export const reconciliationApi = {
    */
   getUninvoicedSessions: async (): Promise<UninvoicedSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_uninvoiced_sessions')
       .select('*')
       .order('session_start_at', { ascending: false });
@@ -61,9 +77,33 @@ export const reconciliationApi = {
     if (error) throw error;
     
     // Transform the data to match UnpaidInvoice type
-    return (data ?? []).map((invoice: any) => {
+    type InvoiceQueryResult = {
+      id: string;
+      student_id: string;
+      invoice_date: string;
+      status: string;
+      amount_due_cents: number;
+      currency: string;
+      stripe_invoice_id: string | null;
+      collection_method: string | null;
+      metadata: unknown;
+      student: {
+        first_name: string | null;
+        last_name: string | null;
+        email: string | null;
+      } | null;
+    };
+    
+    return (data ?? []).map((invoice: InvoiceQueryResult) => {
       const student = invoice.student;
-      const metadata = invoice.metadata as any;
+      type InvoiceMetadata = {
+        last_payment_error?: {
+          code: string;
+          message: string;
+          type: string;
+        } | null;
+      };
+      const metadata = (invoice.metadata as InvoiceMetadata | null) ?? null;
       const lastPaymentError = metadata?.last_payment_error || null;
       
       return {
@@ -90,7 +130,7 @@ export const reconciliationApi = {
    */
   getUnloggedSessions: async (): Promise<UnloggedSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_unlogged_sessions')
       .select('*')
       .order('start_at', { ascending: false });
@@ -103,7 +143,7 @@ export const reconciliationApi = {
    */
   getUnassignedClasses: async (): Promise<UnassignedClass[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_unassigned_classes')
       .select('*')
       .order('day_of_week', { ascending: true })
@@ -117,7 +157,7 @@ export const reconciliationApi = {
    */
   getUnrepliedMessages: async (): Promise<UnrepliedMessage[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_unreplied_messages')
       .select('*')
       .order('last_message_at', { ascending: false });
@@ -130,7 +170,7 @@ export const reconciliationApi = {
    */
   getFailedDeliveryMessages: async (): Promise<FailedDeliveryMessage[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_failed_delivery_messages')
       .select('*')
       .order('status_updated_at', { ascending: false });
@@ -143,7 +183,7 @@ export const reconciliationApi = {
    */
   getStudentsWithoutClasses: async (): Promise<StudentWithoutClasses[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_students_without_classes')
       .select('*')
       .order('last_name', { ascending: true })
@@ -157,7 +197,7 @@ export const reconciliationApi = {
    */
   getStudentsWithoutPaymentMethod: async (): Promise<StudentWithoutPaymentMethod[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_students_without_payment_method')
       .select('*')
       .order('last_name', { ascending: true })
@@ -171,7 +211,7 @@ export const reconciliationApi = {
    */
   getTrialStudentsNotSignedUp: async (): Promise<TrialStudentNotSignedUp[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
       .from('vadmin_reconciliation_trial_students_not_signed_up')
       .select('*')
       .order('last_name', { ascending: true })

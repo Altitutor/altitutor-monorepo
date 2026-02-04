@@ -20,28 +20,31 @@ export type ProcessedStaffSessionData = {
  * Process session data for a specific student
  * This extracts the student's attendance and invoice info from session data
  */
-export function processStudentSessionData(
-  session: Tables<'sessions'>,
-  sessionStudentData: Array<{
-    id: string;
-    planned_absence?: boolean;
-    actual_attended?: boolean | null;
-    invoice_status?: string | null;
-    sessions_students_id?: string;
-    is_extra?: boolean;
-    was_trial?: boolean;
-    is_rescheduled?: boolean;
-    is_credited?: boolean;
-    rescheduled_session?: {
-      session?: {
-        id: string;
-        start_at?: string;
-        class?: {
-          start_time?: string;
-        };
+type SessionStudentDataItem = {
+  id: string;
+  planned_absence?: boolean;
+  actual_attended?: boolean | null;
+  invoice_status?: string | null;
+  sessions_students_id?: string;
+  is_extra?: boolean;
+  was_trial?: boolean;
+  was_trial_actual?: boolean;
+  is_rescheduled?: boolean;
+  is_credited?: boolean;
+  rescheduled_session?: {
+    session?: {
+      id: string;
+      start_at?: string;
+      class?: {
+        start_time?: string;
       };
     };
-  }>,
+  };
+};
+
+export function processStudentSessionData(
+  session: Tables<'sessions'>,
+  sessionStudentData: Array<SessionStudentDataItem>,
   studentId: string,
   hasTutorLog: boolean
 ): ProcessedStudentSessionData | null {
@@ -49,7 +52,7 @@ export function processStudentSessionData(
   const studentData = sessionStudentData.find((s) => s.id === studentId);
   if (!studentData) return null;
 
-  const wasTrialPlanned = (studentData as any).was_trial ?? false;
+  const wasTrialPlanned = studentData.was_trial ?? false;
   let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
   let rescheduledDate = '';
 
@@ -58,13 +61,13 @@ export function processStudentSessionData(
   if (studentData.planned_absence && !isUnplanned) {
     plannedStatus = 'absent';
     // Check for rescheduled/credited status if available
-    if ((studentData as any).is_rescheduled && (studentData as any).rescheduled_session?.session) {
+    if (studentData.is_rescheduled && studentData.rescheduled_session?.session) {
       plannedStatus = 'rescheduled';
-      const resSession = (studentData as any).rescheduled_session.session;
+      const resSession = studentData.rescheduled_session.session;
       rescheduledDate = resSession.start_at
         ? `${format(new Date(resSession.start_at), 'EEE dd/MM')} ${resSession.class?.start_time || ''}`
         : '';
-    } else if ((studentData as any).is_credited) {
+    } else if (studentData.is_credited) {
       plannedStatus = 'credited';
     }
   } else if (isUnplanned) {
@@ -77,8 +80,8 @@ export function processStudentSessionData(
 
   // Compute actual status
   const actualAttended = studentData.actual_attended;
-  const wasTrialActual = (studentData as any).was_trial_actual ?? wasTrialPlanned; // Infer from planned if actual not available
-  let actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend' = !hasTutorLog
+  const wasTrialActual = studentData.was_trial_actual ?? wasTrialPlanned; // Infer from planned if actual not available
+  const actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend' = !hasTutorLog
     ? 'not-logged'
     : actualAttended === true
     ? (wasTrialActual ? 'attended-trial' : 'attended')

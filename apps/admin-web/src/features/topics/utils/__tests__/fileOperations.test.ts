@@ -4,7 +4,7 @@ import {
   downloadFile,
   printPdf,
   setupPrintKeyboardHandler,
-} from '../fileOperations';
+} from '@/shared/utils/fileOperations';
 import type { Tables } from '@altitutor/shared';
 
 // Mock the storage module
