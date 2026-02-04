@@ -51,8 +51,6 @@ export function SessionsView({ onOpenSession, onOpenStudent, onOpenStaff }: Sess
       ) : (
         <SessionsTable 
           onOpenSession={onOpenSession}
-          onOpenStudent={onOpenStudent}
-          onOpenStaff={onOpenStaff}
         />
       )}
     </div>
