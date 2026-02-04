@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -22,24 +21,18 @@ import {
 } from 'lucide-react';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSessions } from '../hooks/useSessionsQuery';
-import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 
 type SessionsTableProps = {
-  studentId?: string;
-  staffId?: string;
   classId?: string;
   limit?: number;
   rangeStart?: string; // YYYY-MM-DD
   rangeEnd?: string;   // YYYY-MM-DD
   onOpenSession?: (id: string) => void;
-  onOpenStudent?: (id: string) => void;
-  onOpenStaff?: (id: string) => void;
 };
 
-export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, rangeEnd, onOpenSession, onOpenStudent, onOpenStaff }: SessionsTableProps) {
-  const router = useRouter();
+export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSession }: SessionsTableProps) {
   
   // React Query hook for data fetching - uses vtutor_sessions view
   const { 
@@ -55,7 +48,7 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [typeFilter, setTypeFilter] = useState<string | 'ALL'>('ALL');
+  const [typeFilter] = useState<string | 'ALL'>('ALL');
   type SortField = 'start_at' | 'type';
   const [sortField, setSortField] = useState<SortField>('start_at');
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
@@ -63,10 +56,6 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
   // Class modal state
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
-
-  const getClassSubject = (session: any) => {
-    return session.subject_name || '-';
-  };
 
   const getClassDisplay = (session: any) => {
     const parts: string[] = [];
@@ -198,11 +187,6 @@ export function SessionsTable({ studentId, staffId, classId, limit, rangeStart, 
     } catch (e) {
       return dateString;
     }
-  };
-  
-  // Staff/name display - vtutor_sessions doesn't include staff array
-  const getStaffName = (session: any) => {
-    return '-'; // Would need to fetch vtutor_session_detail for staff list
   };
   
   // helpers defined once (avoid redefinition)

@@ -5,7 +5,6 @@ import { TableCell, TableRow, Button } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
 import { StaffRoleBadge, StaffStatusBadge } from '@altitutor/ui';
 import { formatClassName, formatClassShortName } from '@/shared/utils';
-import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 
 interface StaffTableRowProps {
   staff: Tables<'staff'>;

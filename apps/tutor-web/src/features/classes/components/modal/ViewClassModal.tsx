@@ -23,7 +23,7 @@ export function ViewClassModal({
   isOpen, 
   classId, 
   onClose, 
-  onClassUpdated 
+  onClassUpdated: _onClassUpdated 
 }: ViewClassModalProps) {
   const [activeTab, setActiveTab] = useState('info');
 

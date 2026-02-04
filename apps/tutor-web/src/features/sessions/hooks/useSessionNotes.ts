@@ -7,10 +7,6 @@ export const sessionNotesKeys = {
   forSession: (sessionId: string) => [...sessionNotesKeys.all, 'session', sessionId] as const,
 };
 
-type NoteWithStaff = Tables<'notes'> & {
-  staff?: Tables<'staff'> | null;
-};
-
 /**
  * Get notes for a session
  */

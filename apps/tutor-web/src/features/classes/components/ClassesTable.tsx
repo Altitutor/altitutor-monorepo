@@ -150,29 +150,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   // Note: Students and staff are not available in list view
   // They're only available when viewing individual class details via vtutor_class_detail
-  const getClassStudents = (classId: string): any[] => {
-    return classStudents[classId] || [];
-  };
-
-  const getClassStaff = (classId: string): any[] => {
-    return classStaff[classId] || [];
-  };
   
   const handleClassClick = (cls: any) => {
     setSelectedClass(cls);
     setIsDetailModalOpen(true);
-  };
-
-  const handleStaffClick = (staffId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent class modal from opening
-    setSelectedStaffId(staffId);
-    setIsStaffModalOpen(true);
-  };
-
-  const handleStudentClick = (studentId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent class modal from opening
-    setSelectedStudentId(studentId);
-    setIsStudentModalOpen(true);
   };
 
   const handleClassUpdated = () => {

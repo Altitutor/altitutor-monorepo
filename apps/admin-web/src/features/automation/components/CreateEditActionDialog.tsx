@@ -28,7 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { useCreateAutomationAction, useUpdateAutomationAction } from '../api/mutations';
 import { useAvailableSenders, type Sender } from '@/features/messages/api/queries';
-import type { ActionConfig, SendMessageActionConfig, CreateTaskActionConfig, CreateNotificationActionConfig, NotificationRecipientType, MessageRecipientType } from '../types';
+import type { ActionConfig, SendMessageActionConfig, CreateTaskActionConfig, CreateNotificationActionConfig } from '../types';
 import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType, ActivityEntityType } from '../types';
 import { TemplateVariablesPicker } from './TemplateVariablesPicker';
