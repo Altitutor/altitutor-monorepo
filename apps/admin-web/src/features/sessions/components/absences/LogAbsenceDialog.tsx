@@ -74,6 +74,70 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     4 // weeks back when allowing past sessions
   );
 
+  // Fetch the specific session if it's not in futureSessions but initialSessionId is provided
+  const [missingSession, setMissingSession] = useState<StudentSession | null>(null);
+  useEffect(() => {
+    const fetchMissingSession = async () => {
+      if (!isOpen || !initialSessionId || !initialStudentId || !futureSessions) return;
+      
+      const sessionExists = futureSessions.some(s => s.id === initialSessionId);
+      if (sessionExists) {
+        setMissingSession(null);
+        return;
+      }
+
+      // Session is missing, fetch it directly
+      try {
+        const supabase = getSupabaseClient() as SupabaseClient<Database>;
+        const { data, error } = await supabase
+          .from('sessions_students')
+          .select(`
+            id,
+            session_id,
+            planned_absence,
+            session:sessions!inner(
+              *,
+              class:classes(
+                *,
+                subject:subjects(*)
+              )
+            )
+          `)
+          .eq('student_id', initialStudentId)
+          .eq('session_id', initialSessionId)
+          .maybeSingle();
+
+        if (!error && data && data.session) {
+          const session: StudentSession = {
+            ...data.session,
+            class: data.session.class || null,
+            subject: data.session.class?.subject || null,
+            sessionsStudentsId: data.id,
+          };
+          setMissingSession(session);
+        } else {
+          setMissingSession(null);
+        }
+      } catch (error) {
+        console.error('Error fetching missing session:', error);
+        setMissingSession(null);
+      }
+    };
+
+    fetchMissingSession();
+  }, [isOpen, initialSessionId, initialStudentId, futureSessions]);
+
+  // Combine futureSessions with missingSession
+  const allSessions = useMemo(() => {
+    if (!futureSessions) return missingSession ? [missingSession] : [];
+    if (!missingSession) return futureSessions;
+    // Check if missingSession is already in futureSessions
+    if (futureSessions.some(s => s.id === missingSession.id)) {
+      return futureSessions;
+    }
+    return [...futureSessions, missingSession];
+  }, [futureSessions, missingSession]);
+
   // Log absences mutation
   const logAbsencesMutation = useLogAbsences();
 
@@ -130,13 +194,16 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
+      setMissingSession(null);
     }
   }, [isOpen]);
 
   const selectedSessionsArray = useMemo(() => {
-    if (!futureSessions) return [];
-    return futureSessions.filter((s) => selectedSessionIds.has(s.id));
-  }, [futureSessions, selectedSessionIds]);
+    if (!allSessions || allSessions.length === 0) {
+      return [];
+    }
+    return allSessions.filter((s) => selectedSessionIds.has(s.id));
+  }, [allSessions, selectedSessionIds]);
 
   const handleStudentSelect = (student: Tables<'students'>) => {
     setSelectedStudent(student);
@@ -334,10 +401,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto space-y-4">
               <AbsenceSessionSelector
-                sessions={futureSessions || []}
+                sessions={allSessions || []}
                 selectedSessionIds={selectedSessionIds}
                 onToggleSession={handleToggleSession}
-                isLoading={loadingSessions}
+                isLoading={loadingSessions && !missingSession}
               />
             </div>
           </div>

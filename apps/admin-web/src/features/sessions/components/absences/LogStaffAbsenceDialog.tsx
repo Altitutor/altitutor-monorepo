@@ -24,7 +24,9 @@ import { Search, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useStaffSearchForAbsence } from '@/features/staff/hooks';
 import { staffApi } from '@/features/staff/api/staff';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type WizardStep = 'select-staff' | 'select-sessions' | 'process-sessions' | 'confirm' | 'success' | 'error';
 
@@ -71,6 +73,70 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
     allowPastSessions,
     4 // weeks back when allowing past sessions
   );
+
+  // Fetch the specific session if it's not in futureSessions but initialSessionId is provided
+  const [missingSession, setMissingSession] = useState<StaffSession | null>(null);
+  useEffect(() => {
+    const fetchMissingSession = async () => {
+      if (!isOpen || !initialSessionId || !initialStaffId || !futureSessions) return;
+      
+      const sessionExists = futureSessions.some(s => s.id === initialSessionId);
+      if (sessionExists) {
+        setMissingSession(null);
+        return;
+      }
+
+      // Session is missing, fetch it directly
+      try {
+        const supabase = getSupabaseClient() as SupabaseClient<Database>;
+        const { data, error } = await supabase
+          .from('sessions_staff')
+          .select(`
+            id,
+            session_id,
+            planned_absence,
+            session:sessions!inner(
+              *,
+              class:classes(
+                *,
+                subject:subjects(*)
+              )
+            )
+          `)
+          .eq('staff_id', initialStaffId)
+          .eq('session_id', initialSessionId)
+          .maybeSingle();
+
+        if (!error && data && data.session) {
+          const session: StaffSession = {
+            ...data.session,
+            class: data.session.class || null,
+            subject: data.session.class?.subject || null,
+            sessionsStaffId: data.id,
+          };
+          setMissingSession(session);
+        } else {
+          setMissingSession(null);
+        }
+      } catch (error) {
+        console.error('Error fetching missing session:', error);
+        setMissingSession(null);
+      }
+    };
+
+    fetchMissingSession();
+  }, [isOpen, initialSessionId, initialStaffId, futureSessions]);
+
+  // Combine futureSessions with missingSession
+  const allSessions = useMemo(() => {
+    if (!futureSessions) return missingSession ? [missingSession] : [];
+    if (!missingSession) return futureSessions;
+    // Check if missingSession is already in futureSessions
+    if (futureSessions.some(s => s.id === missingSession.id)) {
+      return futureSessions;
+    }
+    return [...futureSessions, missingSession];
+  }, [futureSessions, missingSession]);
 
   // Log absences mutation
   const logStaffAbsencesMutation = useLogStaffAbsences();
@@ -126,13 +192,16 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
+      setMissingSession(null);
     }
   }, [isOpen]);
 
   const selectedSessionsArray = useMemo(() => {
-    if (!futureSessions) return [];
-    return futureSessions.filter((s) => selectedSessionIds.has(s.id));
-  }, [futureSessions, selectedSessionIds]);
+    if (!allSessions || allSessions.length === 0) {
+      return [];
+    }
+    return allSessions.filter((s) => selectedSessionIds.has(s.id));
+  }, [allSessions, selectedSessionIds]);
 
   const handleStaffSelect = (staff: Tables<'staff'>) => {
     setSelectedStaff(staff);
@@ -334,10 +403,10 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto space-y-4">
               <StaffAbsenceSessionSelector
-                sessions={futureSessions || []}
+                sessions={allSessions || []}
                 selectedSessionIds={selectedSessionIds}
                 onToggleSession={handleToggleSession}
-                isLoading={loadingSessions}
+                isLoading={loadingSessions && !missingSession}
               />
             </div>
           </div>

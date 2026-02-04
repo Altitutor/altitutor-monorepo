@@ -1,10 +1,11 @@
 'use client';
 
 import { Badge, Separator, Button } from '@altitutor/ui';
-import { MoreVertical, Check } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
+import { TutorLogAvatar } from './TutorLogAvatar';
 import { formatSubjectDisplay, getSubjectColorStyle, formatClassName } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import {
@@ -27,8 +28,8 @@ type SessionDetailsTabProps = {
   session: any;
   studentsData: Array<{
     student: Tables<'students'>;
-    plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned';
-    actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
+    plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned';
+    actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     rescheduledDate: string;
     rescheduledSessionId?: string;
     invoiceStatus: string | null;
@@ -340,8 +341,13 @@ export function SessionDetailsTab({
                       <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
                     </TableCell>
                     <TableCell>
-                      {data.submittedTutorLog && (
-                        <Check className="h-4 w-4 text-green-600" />
+                      {tutorLog && tutorLog.created_by_staff && tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
+                        <TutorLogAvatar
+                          firstName={tutorLog.created_by_staff.first_name}
+                          lastName={tutorLog.created_by_staff.last_name}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
                     <TableCell>

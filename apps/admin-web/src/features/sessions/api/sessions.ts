@@ -702,7 +702,7 @@ export const sessionsApi = {
       // Get tutor log to check for unplanned students who attended
       const { data: tutorLogDataForUnplanned, error: tlErrorForUnplanned } = await supabase
         .from('tutor_logs')
-        .select('id')
+        .select('id, created_by')
         .eq('session_id', sessionId)
         .maybeSingle();
       
@@ -798,7 +798,7 @@ export const sessionsApi = {
       // 4. Get tutor log if it exists
       const { data: tutorLogData, error: tlError } = await supabase
         .from('tutor_logs')
-        .select('*')
+        .select('*, created_by_staff:staff!created_by(id, first_name, last_name)')
         .eq('session_id', sessionId)
         .maybeSingle();
       
