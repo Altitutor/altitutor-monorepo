@@ -2,12 +2,44 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { Button } from '@altitutor/ui';
-import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
+import { addDays, startOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessions } from '../hooks/useSessionsQuery';
 import { sessionsApi } from '../api/sessions';
 import { cn } from '@/shared/utils/index';
 import { SessionCard } from './SessionCard';
+import type { SessionStaff, SessionStudent } from '../utils/session-helpers';
+import type { Database } from '@altitutor/shared';
+
+type TutorSessionRow = Database['public']['Views']['vtutor_sessions']['Row'];
+
+interface TutorSession {
+  session_id: string;
+  session_type: string;
+  class_id: string | null;
+  subject_id: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  class_day_of_week: number | null;
+  class_start_time: string | null;
+  class_end_time: string | null;
+  class_room: string | null;
+  class_level: string | null;
+  class_status: string | null;
+  subject_name: string | null;
+  subject_curriculum: string | null;
+  subject_discipline: string | null;
+  subject_level: string | null;
+  subject_color: string | null;
+  subject_year_level: number | null;
+}
+
+interface StudentMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  year_level?: number;
+}
 
 type Props = { onOpenSession?: (id: string) => void };
 
@@ -15,7 +47,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const [anchor, setAnchor] = useState<Date>(new Date());
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const { data: sessions = [] } = useSessions();
-  const [sessionDetailsMap, setSessionDetailsMap] = useState<Record<string, { staff: any[]; students: any[] }>>({});
+  const [sessionDetailsMap, setSessionDetailsMap] = useState<Record<string, { staff: SessionStaff[]; students: SessionStudent[] }>>({});
 
   // Fetch session details (staff and students) for all sessions
   useEffect(() => {
@@ -23,7 +55,12 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
       if (sessions.length === 0) return;
       
       const sessionIds = sessions
-        .map((s: any) => s.session_id || s.id)
+        .map((s) => {
+          if ('session_id' in s && typeof s.session_id === 'string') {
+            return s.session_id;
+          }
+          return null;
+        })
         .filter((id): id is string => id != null);
       
       if (sessionIds.length === 0) return;
@@ -43,9 +80,17 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
   const slotHeight = 60; // px per hour
 
-  const getDaySessions = (d: Date): any[] => {
-    return (sessions as any[])
-      .filter((s: any) => s.start_at && isSameDay(new Date(s.start_at), d));
+  const getDaySessions = (d: Date): TutorSessionRow[] => {
+    return sessions.filter((s): s is TutorSessionRow => {
+      if ('start_at' in s && typeof s.start_at === 'string' && s.start_at) {
+        try {
+          return isSameDay(new Date(s.start_at), d);
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    });
   };
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -118,22 +163,28 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                           </div>
                         )}
                         {(() => {
-                        const daySessions = getDaySessions(d).sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+                        const daySessions = getDaySessions(d).sort((a, b) => {
+                          const aTime = a.start_at ? new Date(a.start_at).getTime() : 0;
+                          const bTime = b.start_at ? new Date(b.start_at).getTime() : 0;
+                          return aTime - bTime;
+                        });
                         // Build overlap groups
-                        const groups: any[][] = [];
+                        const groups: TutorSessionRow[][] = [];
                         const processed = new Set<string>();
                         const toMinutes = (dt: Date) => dt.getHours() * 60 + dt.getMinutes();
-                        daySessions.forEach((s: any) => {
+                        daySessions.forEach((s) => {
                           // Use session_id from vtutor_sessions view
-                          const sessionId = s.session_id || s.id;
-                          if (processed.has(sessionId)) return;
+                          const sessionId = s.session_id;
+                          if (!sessionId || processed.has(sessionId)) return;
+                          if (!s.start_at || !s.end_at) return;
                           const sStart = toMinutes(new Date(s.start_at));
                           const sEnd = toMinutes(new Date(s.end_at));
                           const group = [s];
                           processed.add(sessionId);
-                          daySessions.forEach((o: any) => {
-                            const otherSessionId = o.session_id || o.id;
-                            if (processed.has(otherSessionId)) return;
+                          daySessions.forEach((o) => {
+                            const otherSessionId = o.session_id;
+                            if (!otherSessionId || processed.has(otherSessionId)) return;
+                            if (!o.start_at || !o.end_at) return;
                             const oStart = toMinutes(new Date(o.start_at));
                             const oEnd = toMinutes(new Date(o.end_at));
                             if (sStart < oEnd && sEnd > oStart) {
@@ -147,7 +198,8 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                         groups.forEach((group) => {
                           const total = group.length;
                           const columnWidth = total > 1 ? 95 / total : 95;
-                          group.forEach((s: any, idx: number) => {
+                          group.forEach((s, idx: number) => {
+                            if (!s.start_at || !s.end_at) return;
                             const sStart = new Date(s.start_at);
                             const sEnd = new Date(s.end_at);
                             const top = Math.max(0, (minutesFromStart(sStart) / 60) * slotHeight);
@@ -160,12 +212,43 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
                             
                             // Use session_id from vtutor_sessions view
-                            const sessionId = s.session_id || s.id;
+                            const sessionId = s.session_id;
+                            if (!sessionId) return;
                             const details = sessionDetailsMap[sessionId] || { staff: [], students: [] };
                             
                             // Check if session has any students attending (planned attendance)
                             // Note: tutor-web views don't include planned_absence, so we check if students array is empty
                             const hasAttendingStudents = (details.students || []).length > 0;
+                            
+                            // Transform session to match TutorSession type expected by SessionCard
+                            const sessionForCard: TutorSession = {
+                              session_id: sessionId,
+                              session_type: s.session_type || '',
+                              class_id: s.class_id,
+                              subject_id: s.subject_id,
+                              start_at: s.start_at,
+                              end_at: s.end_at,
+                              class_day_of_week: s.class_day_of_week,
+                              class_start_time: s.class_start_time,
+                              class_end_time: s.class_end_time,
+                              class_room: s.class_room,
+                              class_level: s.class_level,
+                              class_status: s.class_status,
+                              subject_name: s.subject_name,
+                              subject_curriculum: s.subject_curriculum,
+                              subject_discipline: s.subject_discipline,
+                              subject_level: s.subject_level,
+                              subject_color: s.subject_color,
+                              subject_year_level: s.subject_year_level,
+                            };
+                            
+                            // Transform students to match StudentMember type (year_level: number | undefined)
+                            const transformedStudents: StudentMember[] = (details.students || []).map(student => ({
+                              id: student.id,
+                              first_name: student.first_name,
+                              last_name: student.last_name,
+                              year_level: student.year_level !== null ? student.year_level : undefined,
+                            }));
                             
                             blocks.push(
                               <div
@@ -174,9 +257,9 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                               >
                                 <SessionCard
-                                  session={s}
+                                  session={sessionForCard}
                                   staff={details.staff}
-                                  students={details.students}
+                                  students={transformedStudents}
                                   onClick={() => onOpenSession && onOpenSession(sessionId)}
                                   isCalendarView={true}
                                   cardHeight={cardHeight}

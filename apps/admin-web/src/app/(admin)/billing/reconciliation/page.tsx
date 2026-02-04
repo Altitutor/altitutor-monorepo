@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { billingApi, type MissingPaymentObligation, type FailedPaymentAttempt, type StuckPaymentAttempt } from '@/features/billing';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Button, Badge, useToast, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { getErrorMessage } from '@/shared/utils';
@@ -13,7 +13,7 @@ export default function ReconciliationPage() {
   const [loading, setLoading] = useState(false);
   const [reconciling] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       // Note: Reconciliation views are deprecated - Stripe handles reconciliation automatically for invoices
@@ -43,7 +43,7 @@ export default function ReconciliationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   const handleReconcile = async () => {
     // Stripe handles reconciliation automatically for invoices
@@ -55,7 +55,7 @@ export default function ReconciliationPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const formatDate = (date: string | null) => {
     if (!date) return '-';

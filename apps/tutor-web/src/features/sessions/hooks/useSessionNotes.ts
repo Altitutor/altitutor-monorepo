@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notesApi } from '@/shared/api/notes';
-import type { Tables } from '@altitutor/shared';
 
 export const sessionNotesKeys = {
   all: ['session-notes'] as const,

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import type { Database } from '@altitutor/shared';
 
 /**
  * GET /api/blockouts
@@ -10,7 +9,7 @@ import type { Database } from '@altitutor/shared';
  * Authorization:
  * - User must be an active tutor (checked via is_tutor())
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const userClient = createClient();
     

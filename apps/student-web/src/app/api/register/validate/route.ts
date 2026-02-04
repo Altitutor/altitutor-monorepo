@@ -66,24 +66,34 @@ export async function GET(request: NextRequest) {
     const skipPassword = hasAccount; // Skip password if they already have an account
 
     // Fetch parents linked to this student
-    const { data: parentsData, error: parentsError } = await supabaseAdmin
+    const { data: parentsData } = await supabaseAdmin
       .from('parents_students')
       .select('parent_id, parents(id, first_name, last_name, email, phone)')
       .eq('student_id', student.id);
 
     const parents = parentsData
-      ?.map((ps: any) => ps.parents)
-      .filter((p: any) => p !== null) || [];
+      ?.map((ps: unknown) => {
+        if (typeof ps === 'object' && ps !== null && 'parents' in ps) {
+          return ps.parents;
+        }
+        return null;
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null) || [];
 
     // Fetch subjects for this student
-    const { data: subjectsData, error: subjectsError } = await supabaseAdmin
+    const { data: subjectsData } = await supabaseAdmin
       .from('students_subjects')
       .select('subject_id, subjects(id, name, year_level, curriculum, color, short_name, long_name)')
       .eq('student_id', student.id);
 
     const subjects = subjectsData
-      ?.map((item: any) => item.subjects)
-      .filter((s: any) => s !== null) || [];
+      ?.map((item: unknown) => {
+        if (typeof item === 'object' && item !== null && 'subjects' in item) {
+          return item.subjects;
+        }
+        return null;
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null) || [];
 
     return NextResponse.json({
       valid: true,
@@ -100,20 +110,30 @@ export async function GET(request: NextRequest) {
         curriculum: student.curriculum || '',
         year_level: student.year_level || null,
       },
-      parents: parents.map((p: any) => ({
-        id: p.id,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        email: p.email || '',
-        phone: p.phone || '',
-      })),
-      subjects: subjects.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        year_level: s.year_level,
-        curriculum: s.curriculum,
-        color: s.color,
-      })),
+      parents: parents.map((p: unknown) => {
+        if (typeof p === 'object' && p !== null && 'id' in p && 'first_name' in p && 'last_name' in p) {
+          return {
+            id: String(p.id),
+            first_name: String(p.first_name),
+            last_name: String(p.last_name),
+            email: 'email' in p ? String(p.email || '') : '',
+            phone: 'phone' in p ? String(p.phone || '') : '',
+          };
+        }
+        return { id: '', first_name: '', last_name: '', email: '', phone: '' };
+      }),
+      subjects: subjects.map((s: unknown) => {
+        if (typeof s === 'object' && s !== null && 'id' in s && 'name' in s) {
+          return {
+            id: String(s.id),
+            name: String(s.name),
+            year_level: 'year_level' in s && typeof s.year_level === 'number' ? s.year_level : null,
+            curriculum: 'curriculum' in s ? String(s.curriculum || '') : '',
+            color: 'color' in s ? String(s.color || '') : '',
+          };
+        }
+        return { id: '', name: '', year_level: null, curriculum: '', color: '' };
+      }),
     }, { status: 200 });
   } catch (error) {
     return NextResponse.json(

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { ResetPasswordForm } from '@/features/auth/components/ResetPasswordForm';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';

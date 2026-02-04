@@ -59,12 +59,11 @@ export async function GET(request: NextRequest) {
         
         // Check if user is in staff table (both ADMINSTAFF and TUTOR allowed)
         try {
-          const { data: staff } = await (supabase as any)
+          const { data: staff } = await supabase
             .from('staff')
             .select('role')
             .eq('user_id', session.user.id)
-            .maybeSingle();
-          const role = staff?.role as 'ADMINSTAFF' | 'TUTOR' | undefined;
+            .maybeSingle<{ role: string }>();
           
           // Block students - if not in staff table, redirect to login
           if (!staff) {

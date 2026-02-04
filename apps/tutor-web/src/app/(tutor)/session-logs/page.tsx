@@ -1,23 +1,29 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useSessions } from '@/features/sessions/hooks/useSessionsQuery';
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
+import type { Database } from '@altitutor/shared';
+
+type TutorSession = Database['public']['Views']['vtutor_sessions']['Row'];
+
+interface SessionRow {
+  id: string;
+  date: string;
+  subject_name: string | null;
+}
 
 export default function TutorSessionLogsPage() {
-  const { data: staff } = useCurrentStaff();
   const { data: sessionsData = [], isLoading } = useSessions();
 
   // Filter sessions for current tutor (sessions come from vtutor_sessions which is already filtered)
   const rows = useMemo(() => {
     if (!sessionsData) return [];
-    return sessionsData.map((s: any) => ({
-      id: s.id,
-      date: s.start_at ? s.start_at.split('T')[0] : (s.created_at ? s.created_at.split('T')[0] : ''),
-      // Type might not be in vtutor_sessions - check the view structure
-      type: s.type || 'SESSION',
+    return sessionsData.map((s: TutorSession): SessionRow => ({
+      id: s.session_id || '',
+      date: s.start_at ? s.start_at.split('T')[0] : (s.session_created_at ? s.session_created_at.split('T')[0] : ''),
+      subject_name: s.subject_name || null,
     }));
   }, [sessionsData]);
 
@@ -47,7 +53,7 @@ export default function TutorSessionLogsPage() {
                     <TableCell colSpan={2} className="text-center h-24">No sessions assigned</TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((r: any) => (
+                  rows.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>{r.date}</TableCell>
                       <TableCell>{r.subject_name || '-'}</TableCell>

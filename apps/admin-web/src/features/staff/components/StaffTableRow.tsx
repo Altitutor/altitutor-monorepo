@@ -46,8 +46,6 @@ export const StaffTableRow = memo(function StaffTableRow({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   const handleClick = useCallback(() => {
     onStaffClick(staff.id);
@@ -64,22 +62,19 @@ export const StaffTableRow = memo(function StaffTableRow({
     }
 
     try {
-      setLoadingPasswordReset(true);
       // TODO: Implement password reset API call
-      setHasPasswordResetLinkSent(true);
       toast({
         title: "Success",
         description: "Password reset link sent successfully.",
       });
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Failed to send password reset:', error);
       toast({
         title: "Error",
         description: "Failed to send password reset link. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setLoadingPasswordReset(false);
     }
   }, [staff.email, toast]);
 
@@ -128,10 +123,10 @@ export const StaffTableRow = memo(function StaffTableRow({
         onClick={handleClick}
       >
       <TableCell>
-        <StaffStatusBadge value={staff.status as any} />
+        <StaffStatusBadge value={(staff.status === 'ACTIVE' || staff.status === 'INACTIVE' || staff.status === 'TRIAL') ? staff.status : null} />
       </TableCell>
       <TableCell>
-        <StaffRoleBadge value={staff.role as any} />
+        <StaffRoleBadge value={(staff.role === 'ADMIN' || staff.role === 'TUTOR' || staff.role === 'ADMINSTAFF') ? staff.role : null} />
       </TableCell>
       <TableCell className="font-medium">
         {staff.first_name || '-'}

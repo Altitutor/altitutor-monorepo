@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { BillingPricingTable } from '@/features/billing/components/BillingPricingTable';
 import { SubjectPricingOverridesTable } from '@/features/billing/components/SubjectPricingOverridesTable';
@@ -48,18 +48,18 @@ export default function BillingSettingsPage() {
     }
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       await Promise.all([loadPricing(), loadOverrides(), loadSettings()]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   if (loading) {
     return (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Dispatch, SetStateAction, useMemo, useRef } from 'react';
+import React, { useState, Dispatch, SetStateAction, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -16,12 +16,13 @@ import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { 
   Search, 
-  Grid3X3,
-  RefreshCw
+  Grid3X3
 } from 'lucide-react';
 import { useClasses } from '../hooks/useClassesQuery';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
+
+type TutorClass = Database['public']['Views']['vtutor_classes']['Row'];
 import { filterClassesBySearch, filterClassesByDay, sortClassesByDayAndTime } from '@/shared/utils/tableSorting';
 // import { AddClassModal } from './AddClassModal'; // TODO: Tutors can't create classes - removed
 // import { EditClassModal } from './EditClassModal'; // TODO: Tutors can't edit classes - removed
@@ -51,12 +52,45 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   } = useClasses();
 
   // vtutor_classes returns classes with flattened subject fields
-  const classes = (classesData || []) as any[];
+  const tutorClasses = (classesData || []) as TutorClass[];
+  
+  // Convert TutorClass to Tables<'classes'> format for compatibility with helper functions
+  // Filter out classes missing required fields (start_time, end_time, status are required in Tables<'classes'>)
+  const classes: Tables<'classes'>[] = tutorClasses
+    .filter((cls): cls is TutorClass & { 
+      id: string; 
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+      status: string;
+    } => 
+      cls.id !== null && 
+      cls.day_of_week !== null &&
+      cls.start_time !== null &&
+      cls.end_time !== null &&
+      cls.status !== null
+    )
+    .map((cls) => ({
+      id: cls.id!,
+      day_of_week: cls.day_of_week!,
+      start_time: cls.start_time!,
+      end_time: cls.end_time!,
+      level: cls.level,
+      room: cls.room,
+      status: cls.status!,
+      subject_id: cls.subject_id,
+      created_at: cls.created_at,
+      updated_at: cls.updated_at,
+      created_by: null, // Not available in vtutor_classes view
+      session_start_date: null, // Not available in vtutor_classes view
+      session_end_date: null, // Not available in vtutor_classes view
+    }));
   
   // Build subject objects from flattened fields for compatibility
-  const classSubjects: Record<string, any> = {};
-  classes.forEach((cls: any) => {
-    if (cls.subject_id) {
+  const classSubjects: Record<string, Tables<'subjects'>> = {};
+  tutorClasses.forEach((cls) => {
+    // Only create subject if we have required fields (id and name are required)
+    if (cls.subject_id && cls.id && cls.subject_name) {
       classSubjects[cls.id] = {
         id: cls.subject_id,
         name: cls.subject_name,
@@ -65,14 +99,18 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         level: cls.subject_level,
         color: cls.subject_color,
         year_level: cls.subject_year_level,
+        short_name: null,
+        long_name: null,
+        created_at: null,
+        updated_at: null,
       };
     }
   });
   
   // Students and staff are not in vtutor_classes - they're in vtutor_class_detail
   // These will be fetched when viewing individual class details
-  const classStudents: Record<string, any[]> = {};
-  const classStaff: Record<string, any[]> = {};
+  const classStudents: Record<string, Tables<'students'>[]> = {};
+  const classStaff: Record<string, Tables<'staff'>[]> = {};
   
   // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
@@ -81,13 +119,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   
   // Modal states - tutors can only view, not edit
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<any | null>(null);
-
-  // Cross-feature modal states
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<Tables<'classes'> | null>(null);
 
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
@@ -380,7 +412,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleClassClick(cls)}
                     >
-                      <TableCell>{getDayOfWeek(cls.day_of_week)}</TableCell>
+                      <TableCell>{cls.day_of_week !== null ? getDayOfWeek(cls.day_of_week) : '-'}</TableCell>
                       <TableCell>
                         {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
                       </TableCell>
@@ -398,7 +430,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                         >
                           {/* Default to short names, only show full on 2xl+ screens */}
                           <span className="2xl:hidden">{(() => {
-                            const subject = classSubjects[cls.id];
+                            const subject = cls.id ? classSubjects[cls.id] : undefined;
                             return subject ? formatSubjectShortName(subject) : '-';
                           })()}</span>
                           <span className="hidden 2xl:inline">{getSubjectDisplay(cls)}</span>
@@ -406,8 +438,8 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       </TableCell>
                       <TableCell>{cls.room || '-'}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusBadgeColor(cls.status)}>
-                          {cls.status}
+                        <Badge className={cls.status ? getStatusBadgeColor(cls.status) : 'bg-gray-100 text-gray-800'}>
+                          {cls.status || '-'}
                         </Badge>
                       </TableCell>
                     </TableRow>

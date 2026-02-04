@@ -15,7 +15,6 @@ export default function MyAccountPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { data: staffRecord, isLoading: staffLoading } = useCurrentStaff();
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!staffRecord && user) {
@@ -119,10 +118,6 @@ export default function MyAccountPage() {
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
                 <p className="text-sm text-gray-600 mt-2">Loading staff information...</p>
-              </div>
-            ) : error ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-red-600">{error}</p>
               </div>
             ) : staffRecord ? (
               <>

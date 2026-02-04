@@ -4,13 +4,10 @@ import type { Database } from '@altitutor/shared';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[TUTOR INVITE VALIDATE] Route hit!');
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
-    console.log('[TUTOR INVITE VALIDATE] Token:', token);
 
     if (!token) {
-      console.log('[TUTOR INVITE VALIDATE] No token provided');
       return NextResponse.json(
         { error: 'Missing token parameter' },
         { status: 400 }
@@ -28,19 +25,16 @@ export async function GET(request: NextRequest) {
         }
       }
     );
-    console.log('[TUTOR INVITE VALIDATE] Supabase admin client created');
 
     // Check if token exists in staff table
-    console.log('[TUTOR INVITE VALIDATE] Querying staff table...');
     const { data: staffMember, error: staffError } = await supabaseAdmin
       .from('staff')
       .select('id, first_name, last_name, email, role, invite_token')
       .eq('invite_token', token)
       .maybeSingle();
 
-    console.log('[TUTOR INVITE VALIDATE] Query result:', { staffMember, staffError });
-
     if (staffError) {
+      // eslint-disable-next-line no-console
       console.error('[TUTOR INVITE VALIDATE] Error validating staff invite token:', staffError);
       return NextResponse.json(
         { error: 'Failed to validate token' },
@@ -49,7 +43,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (staffMember) {
-      console.log('[TUTOR INVITE VALIDATE] Staff member found! Returning success');
       return NextResponse.json({
         valid: true,
         type: 'staff',
@@ -64,12 +57,12 @@ export async function GET(request: NextRequest) {
     }
 
     // If not found in staff, token is invalid for this endpoint
-    console.log('[TUTOR INVITE VALIDATE] No staff member found with this token');
     return NextResponse.json(
       { valid: false, error: 'Invalid or expired token' },
       { status: 404 }
     );
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Unexpected error validating invite token:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

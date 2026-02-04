@@ -412,12 +412,14 @@ export function MessageComposer({
               <div className="flex flex-wrap gap-2 p-2 border-b border-border bg-muted/30">
                 {attachments.map((attachment) => {
                   // Convert AttachmentFile to message attachment format
-                  const messageAttachment = {
+                  const messageAttachment: Tables<'message_attachments'> = {
                     id: attachment.id,
                     filename: attachment.file.name,
                     mime_type: attachment.file.type,
                     size_bytes: attachment.file.size,
                     storage_url: attachment.storageUrl || attachment.preview || '',
+                    created_at: null,
+                    message_id: '', // Will be set when message is sent
                   };
                   return (
                     <MessageAttachment
@@ -519,12 +521,14 @@ export function MessageComposer({
                       <div className="flex flex-wrap gap-2 max-w-[80%]">
                         {attachments.map((attachment) => {
                           // Convert AttachmentFile to message attachment format
-                          const messageAttachment = {
+                          const messageAttachment: Tables<'message_attachments'> = {
                             id: attachment.id,
                             filename: attachment.file.name,
                             mime_type: attachment.file.type,
                             size_bytes: attachment.file.size,
                             storage_url: attachment.storageUrl || attachment.preview || '',
+                            created_at: null,
+                            message_id: '',
                           };
                           return (
                             <MessageAttachment

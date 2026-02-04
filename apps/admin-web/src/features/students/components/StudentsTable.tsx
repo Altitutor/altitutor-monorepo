@@ -627,7 +627,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             ) : (
               filteredStudents.map((student, index) => {
                 // Classes are now nested in the student object from minimal query
-                const classes = (student as any).classes || [];
+                const studentWithClasses = student as Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }> };
+                const classes = studentWithClasses.classes || [];
                 return (
                   <TableRow
                     key={student.id}
@@ -667,12 +668,20 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                       {classes.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {classes
-                            .sort((a: { day_of_week: number; start_time: string }, b: { day_of_week: number; start_time: string }) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
-                            .map((cls: { id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }) => {
+                            .sort((a, b) => {
+                              const aDay = a.day_of_week ?? 0;
+                              const bDay = b.day_of_week ?? 0;
+                              if (aDay !== bDay) return aDay - bDay;
+                              const aTime = a.start_time ?? '';
+                              const bTime = b.start_time ?? '';
+                              return aTime.localeCompare(bTime);
+                            })
+                            .map((cls) => {
                               // Use utility to format the class short name (includes subject short name)
-                              const shortName = formatClassShortName(cls as any, cls.subject || null);
+                              const clsTable = cls as unknown as Tables<'classes'>;
+                              const shortName = formatClassShortName(clsTable, cls.subject || null);
                               // Use utility for full name (hover tooltip)
-                              const longName = formatClassName(cls as any, cls.subject || null);
+                              const longName = formatClassName(clsTable, cls.subject || null);
                               
                               return (
                                 <Button

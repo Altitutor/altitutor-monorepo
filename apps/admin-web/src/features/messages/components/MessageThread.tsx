@@ -11,7 +11,7 @@ import { Input } from '@altitutor/ui';
 import { X, File, Download, Music, Play, Pause, Loader2 } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
-import type { Database } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isHeicFile, convertHeicUrlToPreview } from '../utils/heicConverter';
 
@@ -24,7 +24,7 @@ interface Props {
 }
 
 interface AttachmentProps {
-  attachment: any;
+  attachment: Tables<'message_attachments'>;
   direction: 'INBOUND' | 'OUTBOUND';
 }
 
@@ -42,7 +42,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   
   // Check if it's HEIC/HEIF
   const filenameLower = attachment.filename?.toLowerCase() || '';
-  const isHeic = isHeicFile({ mimeType: attachment.mime_type, filename: attachment.filename });
+  const isHeic = isHeicFile({ mimeType: attachment.mime_type ?? undefined, filename: attachment.filename ?? undefined });
   
   // Check if it's an image (including HEIC)
   const isImageByMime = attachment.mime_type?.startsWith('image/') && attachment.mime_type !== 'image';
@@ -273,7 +273,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to download attachment:', error);
       // Fallback: open in new tab
       window.open(attachmentUrl!, '_blank');
@@ -487,7 +487,10 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
       .then(({ data: conversations }) => {
         if (!conversations || conversations.length === 0) return;
         
-        const conversationIds = conversations.map((c: any) => c.id);
+        const conversationIds = conversations.map((c) => {
+          if (!c || typeof c !== 'object' || !('id' in c)) return '';
+          return String(c.id);
+        }).filter((id): id is string => id !== '');
         
         // Subscribe to messages from all conversations for this contact
         const channel = supabase
@@ -587,7 +590,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     
     const search = searchTerm.toLowerCase();
     const reversedItems = items.slice().reverse();
-    const filtered: any[] = [];
+    type MessageItem = typeof items[number];
+    type FilteredItem = MessageItem & { type?: 'message'; searchTerm?: string } | { type: 'separator'; count: number; id: string };
+    const filtered: FilteredItem[] = [];
     let hiddenCount = 0;
     
     reversedItems.forEach((m, index) => {
@@ -733,7 +738,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       {/* Attachments */}
                       {m.message_attachments && m.message_attachments.length > 0 && (
                         <div className={`mb-2 flex flex-col gap-2 ${m.direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
-                          {m.message_attachments.map((attachment: any) => (
+                          {m.message_attachments.map((attachment: Tables<'message_attachments'>) => (
                             <MessageAttachment 
                               key={attachment.id} 
                               attachment={attachment} 

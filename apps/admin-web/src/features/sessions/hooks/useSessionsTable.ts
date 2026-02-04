@@ -126,11 +126,10 @@ export function useSessionsTable({
     ['ACTIVE', 'TRIAL']
   );
 
-  const allStudents = studentSearchData?.students || [];
-
   // Filter students based on search query (client-side filtering of search results)
   // Note: RPC already handles search, but we do additional client-side filtering for better UX
   const filteredStudents = useMemo(() => {
+    const allStudents = studentSearchData?.students || [];
     if (!studentSearchQuery.trim()) return allStudents;
     const query = studentSearchQuery.toLowerCase().trim();
     return allStudents.filter((student) => {
@@ -138,7 +137,7 @@ export function useSessionsTable({
       const school = student.school?.toLowerCase() || '';
       return fullName.includes(query) || school.includes(query);
     });
-  }, [allStudents, studentSearchQuery]);
+  }, [studentSearchData?.students, studentSearchQuery]);
 
   // Toggle student filter
   const toggleStudentFilter = useCallback(
@@ -199,19 +198,12 @@ export function useSessionsTable({
   });
 
   // Extract data from response
-  const allSessions: Tables<'sessions'>[] = (data?.sessions as Tables<'sessions'>[]) || [];
-  const classesById: Record<string, Tables<'classes'>> =
-    (data as any)?.classesById || {};
-  const subjectsById: Record<string, Tables<'subjects'>> =
-    (data as any)?.subjectsById || {};
-  const sessionStudents: Record<string, Tables<'students'>[]> =
-    (data as any)?.sessionStudents || {};
-  const sessionStaff: Record<string, Tables<'staff'>[]> =
-    (data as any)?.sessionStaff || {};
-  const tutorLogs: Record<
-    string,
-    { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }
-  > = (data as any)?.tutorLogs || {};
+  const allSessions = useMemo(() => data?.sessions || [], [data?.sessions]);
+  const classesById = useMemo(() => data?.classesById || {}, [data?.classesById]);
+  const subjectsById = useMemo(() => data?.subjectsById || {}, [data?.subjectsById]);
+  const sessionStudents = useMemo(() => data?.sessionStudents || {}, [data?.sessionStudents]);
+  const sessionStaff = useMemo(() => data?.sessionStaff || {}, [data?.sessionStaff]);
+  const tutorLogs = useMemo(() => data?.tutorLogs || {}, [data?.tutorLogs]);
 
   // Client-side filtering
   const filteredSessions = useMemo(() => {
@@ -307,13 +299,13 @@ export function useSessionsTable({
 
   const canReschedule = useCallback((session: Tables<'sessions'>) => {
     const hasTutorLog = !!tutorLogs[session.id];
-    const rescheduleInfo = getFirstStudentIdForReschedule(session.id, sessionStudents as any);
+    const rescheduleInfo = getFirstStudentIdForReschedule(session.id, sessionStudents);
     return canRescheduleSession(session, hasTutorLog, rescheduleInfo.hasPaidInvoice);
   }, [tutorLogs, sessionStudents]);
 
   const getRescheduleStudentId = useCallback(
     (sessionId: string) => {
-      const rescheduleInfo = getFirstStudentIdForReschedule(sessionId, sessionStudents as any);
+      const rescheduleInfo = getFirstStudentIdForReschedule(sessionId, sessionStudents);
       return rescheduleInfo.studentId;
     },
     [sessionStudents]

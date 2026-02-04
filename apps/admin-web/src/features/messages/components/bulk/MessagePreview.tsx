@@ -236,6 +236,8 @@ export function MessagePreview({
                               mime_type: attachment.file.type,
                               size_bytes: attachment.file.size,
                               storage_url: attachment.storageUrl || attachment.preview || '',
+                              created_at: null,
+                              message_id: '', // Will be set when message is sent
                             };
                             return (
                               <MessageAttachment

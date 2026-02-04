@@ -97,8 +97,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       return `${formatTime(startTime)} - ${formatTime(endTime)}`;
                     }
                     // Check for flattened structure (from vtutor_session_detail)
-                    if ((session as any).start_time && (session as any).end_time) {
-                      return `${formatTime((session as any).start_time)} - ${formatTime((session as any).end_time)}`;
+                    if ('start_time' in session && 'end_time' in session && session.start_time && session.end_time) {
+                      return `${formatTime(session.start_time)} - ${formatTime(session.end_time)}`;
                     }
                     return '—';
                   })()}

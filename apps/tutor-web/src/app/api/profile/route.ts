@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import type { Database } from '@altitutor/shared';
 
 // Whitelist of fields that tutors are allowed to update
 const ALLOWED_UPDATE_FIELDS = [
@@ -63,10 +64,22 @@ export async function PATCH(request: NextRequest) {
     }
     
     // Filter body to only include whitelisted fields
-    const updates: Partial<Record<AllowedField, any>> = {};
+    type StaffUpdate = Database['public']['Tables']['staff']['Update'];
+    const updates: Partial<StaffUpdate> = {};
     for (const field of ALLOWED_UPDATE_FIELDS) {
       if (field in body) {
-        updates[field] = body[field];
+        const value = body[field];
+        // Type guard to ensure value is correct type
+        if (field === 'phone_number') {
+          if (typeof value === 'string' || value === null) {
+            updates[field] = value;
+          }
+        } else {
+          // All other fields are boolean | null
+          if (typeof value === 'boolean' || value === null) {
+            updates[field] = value;
+          }
+        }
       }
     }
     
@@ -133,7 +146,7 @@ export async function PATCH(request: NextRequest) {
  * GET /api/profile
  * Get tutor's own profile (alternative to using vtutor_profile view directly)
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Get the authenticated user's supabase client
     const userClient = createClient();

@@ -8,7 +8,7 @@ import { useProfile } from '@/features/profile';
 export const dynamic = 'force-dynamic';
 
 export default function DashboardPage() {
-  const { data: profile, isLoading, error } = useProfile();
+  const { data: profile, isLoading } = useProfile();
 
   if (isLoading) {
     return (

@@ -23,6 +23,9 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSessions } from '../hooks/useSessionsQuery';
 import { cn } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
+import type { Database } from '@altitutor/shared';
+
+type TutorSession = Database['public']['Views']['vtutor_sessions']['Row'];
 
 type SessionsTableProps = {
   classId?: string;
@@ -44,7 +47,7 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
   } = useSessions();
   
   // vtutor_sessions returns sessions with flattened subject fields
-  const allSessions: any[] = sessions as any[];
+  const allSessions: TutorSession[] = sessions as TutorSession[];
   
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -57,7 +60,7 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  const getClassDisplay = (session: any) => {
+  const getClassDisplay = (session: TutorSession) => {
     const parts: string[] = [];
     if (session.subject_curriculum) parts.push(String(session.subject_curriculum));
     if (session.subject_year_level != null) parts.push(String(session.subject_year_level));
@@ -66,7 +69,7 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
     return parts.join(' ');
   };
 
-  const getClassShortDisplay = (session: any) => {
+  const getClassShortDisplay = (session: TutorSession) => {
     const parts: string[] = [];
     if (session.subject_curriculum) parts.push(String(session.subject_curriculum));
     const yearLevel = session.subject_year_level != null ? String(session.subject_year_level) : '';
@@ -121,19 +124,19 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
     
     // Apply type filter
     if (typeFilter !== 'ALL') {
-      result = result.filter(session => session.type === typeFilter);
+      result = result.filter(session => session.session_type === typeFilter);
     }
     
     // Apply sorting
     result.sort((a, b) => {
       if (sortField === 'start_at') {
-        const tsA = (a as any).start_at ? new Date((a as any).start_at).getTime() : 0;
-        const tsB = (b as any).start_at ? new Date((b as any).start_at).getTime() : 0;
+        const tsA = a.start_at ? new Date(a.start_at).getTime() : 0;
+        const tsB = b.start_at ? new Date(b.start_at).getTime() : 0;
         return sortDirection === 'asc' ? tsA - tsB : tsB - tsA;
       }
       // sortField === 'type'
-      const va = (a.type || '').toString();
-      const vb = (b.type || '').toString();
+      const va = (a.session_type || '').toString();
+      const vb = (b.session_type || '').toString();
       return sortDirection === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });
     
@@ -143,7 +146,7 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
     }
     
     return result;
-  }, [allSessions, searchTerm, typeFilter, sortField, sortDirection, classId, limit]);
+  }, [allSessions, searchTerm, typeFilter, sortField, sortDirection, classId, limit, rangeStart, rangeEnd]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -192,7 +195,7 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
   // helpers defined once (avoid redefinition)
   // (removed duplicate helper definitions)
 
-  const getTimeRange = (session: any) => {
+  const getTimeRange = (session: TutorSession) => {
     const s = session.start_at ? new Date(session.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const e = session.end_at ? new Date(session.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     return s && e ? `${s}–${e}` : s || e || '-';
@@ -321,9 +324,9 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
             ) : (
               filteredSessions.map((session) => (
                 <TableRow 
-                  key={session.id} 
+                  key={session.session_id || ''} 
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleSessionClick(session.id)}
+                  onClick={() => handleSessionClick(session.session_id || '')}
                 >
                   <TableCell>
                     <div className="flex items-center">
@@ -333,8 +336,8 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
                   </TableCell>
                   <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
                   <TableCell>
-                    <Badge className={getSessionTypeBadgeColor(session.type)}>
-                      {session.type === 'CLASS' ? 'CLASS' : 'MEETING'}
+                    <Badge className={getSessionTypeBadgeColor(session.session_type || '')}>
+                      {session.session_type === 'CLASS' ? 'CLASS' : 'MEETING'}
                     </Badge>
                   </TableCell>
                   {!classId && (

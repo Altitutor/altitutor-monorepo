@@ -15,7 +15,7 @@ type SessionsViewProps = {
   onOpenStaff?: (id: string) => void;
 };
 
-export function SessionsView({ onOpenSession, onOpenStudent, onOpenStaff }: SessionsViewProps) {
+export function SessionsView({ onOpenSession }: SessionsViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
 
   return (

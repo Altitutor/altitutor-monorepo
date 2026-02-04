@@ -38,9 +38,31 @@ export type FlattenedSessionDetail = {
   subject_short_name: string | null;
   subject_long_name: string | null;
   // Related data
-  students?: any[];
-  staff?: any[];
+  students?: SessionStudent[];
+  staff?: SessionStaff[];
 };
+
+/**
+ * Student data from vtutor_session_detail view
+ */
+export interface SessionStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  year_level: number | null;
+}
+
+/**
+ * Staff data from vtutor_session_detail view
+ */
+export interface SessionStaff {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  type?: string;
+  subjects?: Array<{ id: string; name: string }>;
+}
 
 /**
  * Generates a session title in the format:
