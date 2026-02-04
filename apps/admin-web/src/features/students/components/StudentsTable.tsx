@@ -154,8 +154,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [isDeleting, setIsDeleting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
-  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   // Server provides filtered/sorted page; apply compound sorting for status field
   const filteredStudents = useMemo(() => {

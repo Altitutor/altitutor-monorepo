@@ -43,8 +43,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
-  const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
-  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<
+  const [, setCurrentSessionIndex] = useState(0);
+  const [, setRescheduledSessionsMap] = useState<
     Map<string, RescheduleSession>
   >(new Map());
   const [errorMessage, setErrorMessage] = useState<string>('');

@@ -36,13 +36,13 @@ export default function MessagesPage() {
   // Convert conversationId to contactId if provided (backward compatibility)
   useEffect(() => {
     if (conversationParam && !contactParam) {
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       supabase
         .from('conversations')
         .select('contact_id')
         .eq('id', conversationParam)
-        .maybeSingle()
-        .then(({ data }: any) => {
+        .maybeSingle<{ contact_id: string }>()
+        .then(({ data }) => {
           if (data?.contact_id) {
             setActiveContactId(data.contact_id);
             // Update URL to use contact instead of conversation
@@ -60,7 +60,7 @@ export default function MessagesPage() {
     queryKey: ['contact', activeContactId],
     queryFn: async () => {
       if (!activeContactId) return null;
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('contacts')
         .select(`
@@ -88,13 +88,13 @@ export default function MessagesPage() {
       // Auto-select most recent contact when no URL param
       (async () => {
         // This will be handled by the hook, but we can select the first one
-        const supabase = getSupabaseClient() as any;
+        const supabase = getSupabaseClient();
         const { data } = await supabase
           .from('conversations')
           .select('contact_id')
           .order('last_message_at', { ascending: false })
           .limit(1)
-          .maybeSingle();
+          .maybeSingle<{ contact_id: string }>();
         if (data?.contact_id) {
           setActiveContactId(data.contact_id);
           const params = new URLSearchParams(searchParams.toString());

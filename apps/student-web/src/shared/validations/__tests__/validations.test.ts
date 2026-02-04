@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { baseSchemas, studentSchema, tutorSchema, classSchema, paymentSchema } from '../index';
 
 describe('baseSchemas', () => {
@@ -116,15 +115,15 @@ describe('studentSchema', () => {
   });
 
   it('should reject missing required fields', () => {
-    const { firstName, ...missingFirstName } = validStudentData;
+    const { firstName: _firstName, ...missingFirstName } = validStudentData;
     expect(() => studentSchema.parse(missingFirstName)).toThrow();
 
-    const { email, ...missingEmail } = validStudentData;
+    const { email: _email, ...missingEmail } = validStudentData;
     expect(() => studentSchema.parse(missingEmail)).toThrow();
   });
 
   it('should allow optional phone field', () => {
-    const { phone, ...withoutPhone } = validStudentData;
+    const { phone: _phone, ...withoutPhone } = validStudentData;
     expect(() => studentSchema.parse(withoutPhone)).not.toThrow();
   });
 
@@ -176,7 +175,7 @@ describe('tutorSchema', () => {
   });
 
   it('should reject missing required fields', () => {
-    const { firstName, ...missingFirstName } = validTutorData;
+    const { firstName: _firstName, ...missingFirstName } = validTutorData;
     expect(() => tutorSchema.parse(missingFirstName)).toThrow();
   });
 
@@ -252,7 +251,7 @@ describe('paymentSchema', () => {
   });
 
   it('should allow optional invoice number', () => {
-    const { invoiceNumber, ...withoutInvoice } = validPaymentData;
+    const { invoiceNumber: _invoiceNumber, ...withoutInvoice } = validPaymentData;
     expect(() => paymentSchema.parse(withoutInvoice)).not.toThrow();
   });
 

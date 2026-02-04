@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Database } from '@altitutor/shared';
-import { formatTime } from '@/shared/utils/datetime';
 import { getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 

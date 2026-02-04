@@ -64,7 +64,7 @@ export function canProceedToNextLogStep(
   adminMode: boolean,
   formData: Partial<TutorLogFormData>,
   selectedStaffId: string,
-  selectedSession: Tables<'sessions'> | null
+  _selectedSession: Tables<'sessions'> | null
 ): boolean {
   // Step 0: Staff selector (admin mode only)
   if (adminMode && stepIndex === 0) {

@@ -5,7 +5,7 @@ import { Badge } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
 import type { Tables } from '@altitutor/shared';
-import type { AutomationCondition } from '../../types';
+import type { AutomationCondition, AutomationAction, ActionConfig } from '../../types';
 import { ENTITY_TYPES_DISPLAY, EVENT_TYPES_DISPLAY } from '../../constants';
 
 interface Step4ReviewProps {
@@ -17,7 +17,7 @@ interface Step4ReviewProps {
 export function Step4Review({ formData, ruleId, templates }: Step4ReviewProps) {
   const { data: rule, isLoading } = useAutomationRule(ruleId || '', !!ruleId);
 
-  const formatCondition = (condition: any): string => {
+  const formatCondition = (condition: AutomationCondition | null | undefined): string => {
     if (!condition) return '';
     
     if (condition.operator === 'field_changed') {
@@ -45,9 +45,9 @@ export function Step4Review({ formData, ruleId, templates }: Step4ReviewProps) {
     return `${condition.field} ${operatorLabels[condition.operator] || condition.operator} ${condition.value}`;
   };
 
-  const getActionSummary = (action: any): string => {
+  const getActionSummary = (action: AutomationAction): string => {
     try {
-      const config = action.action_config as any;
+      const config = action.action_config as ActionConfig;
       switch (action.action_type) {
         case 'CREATE_TASK':
           return config.title_template || 'Create Task (no title template)';

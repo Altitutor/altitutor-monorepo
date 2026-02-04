@@ -5,7 +5,7 @@ import { getSignedUrl } from '@/shared/lib/supabase/storage';
 
 export interface FilePreviewData {
   file: Tables<'files'> | null;
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
   previewUrl: string | null;
   isLoading: boolean;
   isLoadingPreview: boolean;
@@ -32,7 +32,7 @@ export interface UseFilePreviewParams {
    */
   getMetadataFn?: (junctionTableId: string) => Promise<{
     file: Tables<'files'>;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }>;
 }
 
@@ -51,7 +51,7 @@ export function useFilePreview({
   getMetadataFn,
 }: UseFilePreviewParams): FilePreviewData {
   const [file, setFile] = useState<Tables<'files'> | null>(null);
-  const [metadata, setMetadata] = useState<Record<string, any> | null>(null);
+  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);

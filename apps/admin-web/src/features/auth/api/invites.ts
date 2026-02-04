@@ -46,8 +46,8 @@ export interface AcceptInviteRequest {
 export interface AcceptInviteResponse {
   success: boolean;
   message: string;
-  data?: any;
-  session?: any;
+  data?: unknown;
+  session?: unknown;
 }
 
 export const invitesApi = {

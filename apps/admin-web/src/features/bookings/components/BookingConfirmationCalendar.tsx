@@ -108,11 +108,11 @@ export function BookingConfirmationCalendar({
                       const left = idx * columnWidth + 2.5;
 
                       const isNewSession = s.id === 'new-session-preview';
-                      const cls = (s as any).class_id ? classesById[(s as any).class_id] : undefined;
+                      const cls = s.class_id ? classesById[s.class_id] : undefined;
                       const subj = cls?.subject_id 
                         ? subjectsById[cls.subject_id] 
-                        : (s as any).subject_id 
-                        ? subjectsById[(s as any).subject_id] 
+                        : s.subject_id 
+                        ? subjectsById[s.subject_id] 
                         : undefined;
                       const sessionStaffList = sessionStaff[s.id] || [];
                       const sessionStudentsList = sessionStudents[s.id] || [];

@@ -197,11 +197,16 @@ export async function POST(request: NextRequest) {
 
     // Create message record
     // Note: Need to get from/to numbers from conversation
+    type ConversationData = {
+      owned_number: { phone_e164: string } | null;
+      contact: { phone_e164: string } | null;
+    };
+    
     const { data: convData, error: convDataError } = await supabase
       .from('conversations')
       .select('owned_number:owned_numbers(phone_e164), contact:contacts(phone_e164)')
       .eq('id', conversationId)
-      .single();
+      .single<ConversationData>();
 
     if (convDataError || !convData) {
       console.error('Failed to fetch conversation data:', convDataError);
@@ -211,8 +216,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fromNumber = (convData as any).owned_number?.phone_e164;
-    const toNumber = (convData as any).contact?.phone_e164;
+    const fromNumber = convData.owned_number?.phone_e164;
+    const toNumber = convData.contact?.phone_e164;
 
     if (!fromNumber || !toNumber) {
       return NextResponse.json(

@@ -20,11 +20,11 @@ interface SubjectsTabProps {
 }
 
 export function SubjectsTab({
-  staffMember,
+  staffMember: _staffMember,
   staffSubjects,
   allSubjects,
   loadingSubjects,
-  onViewSubject,
+  onViewSubject: _onViewSubject,
   onAssignSubject,
   onRemoveSubject
 }: SubjectsTabProps) {
@@ -32,10 +32,6 @@ export function SubjectsTab({
   const [removingSubjects, setRemovingSubjects] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Modal state for subject viewing
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
 
   const handleAssignSubject = async (subjectId: string) => {
     setAssigningSubjects(prev => new Set(prev).add(subjectId));
@@ -66,9 +62,8 @@ export function SubjectsTab({
     }
   };
 
-  const handleViewSubject = (subjectId: string) => {
-    setSelectedSubjectId(subjectId);
-    setIsSubjectModalOpen(true);
+  const handleViewSubject = (_subjectId: string) => {
+    // Subject viewing modal removed for tutors
   };
 
   const availableSubjects = allSubjects.filter(subject => 

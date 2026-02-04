@@ -16,7 +16,7 @@ import { useAutomationRule } from '../api/queries';
 import { useDeleteAutomationAction } from '../api/mutations';
 import { CreateEditActionDialog } from './CreateEditActionDialog';
 import type { Tables } from '@altitutor/shared';
-import type { AutomationAction, ActivityEntityType } from '../types';
+import type { AutomationAction, ActivityEntityType, ActionConfig } from '../types';
 
 interface AutomationActionsListProps {
   ruleId: string;
@@ -44,7 +44,7 @@ export function AutomationActionsList({
 
   const getActionConfigSummary = (action: AutomationAction): string => {
     try {
-      const config = action.action_config as any;
+      const config = action.action_config as ActionConfig;
       switch (action.action_type) {
         case 'CREATE_TASK':
           return config.title_template || 'No title template';

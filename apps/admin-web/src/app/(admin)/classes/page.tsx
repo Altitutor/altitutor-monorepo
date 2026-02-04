@@ -62,7 +62,7 @@ export default function ClassesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as any)}>
+          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
             <TabsList>
               <TabsTrigger value="table">Table</TabsTrigger>
               <TabsTrigger value="calendar">Calendar</TabsTrigger>

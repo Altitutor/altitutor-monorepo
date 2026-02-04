@@ -84,9 +84,10 @@ export async function POST(request: NextRequest) {
     const recipients: Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }> = [];
     
     if (!parentsError && parentsData) {
-      const parentList = parentsData
-        .map((ps: any) => ps.parents)
-        .filter((p: any) => p !== null);
+      type ParentStudentRow = { parent_id: string; parents: { id: string; first_name: string; last_name: string; email: string | null; phone: string | null } | null };
+      const parentList = (parentsData as ParentStudentRow[])
+        .map((ps) => ps.parents)
+        .filter((p): p is NonNullable<typeof p> => p !== null);
       recipients.push(...parentList);
     }
 

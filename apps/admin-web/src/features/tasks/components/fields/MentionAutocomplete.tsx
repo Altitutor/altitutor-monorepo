@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Loader2, GraduationCap, UserRound, Users, Calendar, Beaker, Newspaper, File, ClipboardList } from 'lucide-react';
 import { useEntitySearch, type EntitySearchResult } from '@/shared/hooks/useEntitySearch';
 import { cn } from '@/shared/utils';
 import { getDayShortName } from '@/shared/utils/datetime';
 import type { LucideIcon } from 'lucide-react';
-import type { TagEntityType } from '../../utils/tagParsing';
 
 interface MentionAutocompleteProps {
   searchQuery: string;
@@ -267,7 +266,7 @@ export function MentionAutocomplete({
                   {Icon && <Icon className="h-3 w-3" />}
                   {label}
                 </div>
-                {items.map((result, itemIndex) => {
+                {items.map((result) => {
                   const globalIndex = allResults.findIndex(
                     (r) => r.id === result.id && r.type === result.type
                   );

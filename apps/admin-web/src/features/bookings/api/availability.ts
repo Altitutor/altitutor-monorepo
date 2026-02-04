@@ -19,14 +19,14 @@ export interface GetAvailableSlotsParams {
 
 export const availabilityApi = {
   async getAvailableSlots(params: GetAvailableSlotsParams): Promise<AvailableSlot[]> {
-    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .rpc('get_available_slots', {
-        p_start_date: params.start_date,
-        p_end_date: params.end_date,
-        p_session_type: params.session_type,
-        p_subject_id: params.subject_id ?? null,
-        p_duration_minutes: params.duration_minutes ?? null,
-      } as any);
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.rpc('get_available_slots', {
+      p_start_date: params.start_date,
+      p_end_date: params.end_date,
+      p_session_type: params.session_type,
+      p_subject_id: params.subject_id ?? null,
+      p_duration_minutes: params.duration_minutes ?? null,
+    });
     
     if (error) throw error;
     return (data ?? []) as AvailableSlot[];

@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
     }
     
     // Filter body to only include whitelisted fields
-    const updates: Partial<Record<AllowedField, any>> = {};
+    const updates: Partial<Record<AllowedField, unknown>> = {};
     for (const field of ALLOWED_UPDATE_FIELDS) {
       if (field in body) {
         updates[field] = body[field];
@@ -102,6 +102,7 @@ export async function PATCH(request: NextRequest) {
     // Use admin client to update the staff record
     const { data, error } = await supabaseAdmin
       .from('staff')
+      // @ts-expect-error - TypeScript inference issue with Supabase client and Partial<Record>
       .update(updates)
       .eq('id', staffRecord.id)
       .select()

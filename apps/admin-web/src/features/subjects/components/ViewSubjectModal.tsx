@@ -15,7 +15,6 @@ import { Button } from "@altitutor/ui";
 import { 
   AlertTriangle,
   Loader2,
-  Pencil,
   Plus,
   Trash2
 } from 'lucide-react';
@@ -48,7 +47,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@altitutor/ui";
 import { SubjectCurriculumBadge, SubjectDisciplineBadge } from "@altitutor/ui";
 import { useForm } from "react-hook-form";

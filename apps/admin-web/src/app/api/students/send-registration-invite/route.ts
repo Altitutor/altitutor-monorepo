@@ -148,15 +148,19 @@ export async function POST(request: NextRequest) {
         .select('parent_id, parents(id, first_name, last_name, email, phone)')
         .eq('student_id', studentId);
 
+      type ParentStudentRow = { parent_id: string; parents: { id: string; first_name: string; last_name: string; email: string | null; phone: string | null } | null };
       const parents = parentsData
-        ?.map((ps: any) => ps.parents)
-        .filter((p: any) => p !== null) || [];
+        ? (parentsData as ParentStudentRow[])
+            .map((ps) => ps.parents)
+            .filter((p): p is NonNullable<typeof p> => p !== null)
+        : [];
 
-      const recipients = parents.length > 0 ? parents : (student.email || student.phone ? [student] : []);
+      type Recipient = { first_name: string; last_name: string; email: string | null; phone: string | null };
+      const recipients: Recipient[] = parents.length > 0 ? parents : (student.email || student.phone ? [student] : []);
       
       // For legacy behavior, send to all recipients
       if (shouldSendEmail) {
-        const emailRecipients = recipients.filter((r: any) => r.email);
+        const emailRecipients = recipients.filter((r): r is Recipient & { email: string } => !!r.email);
         
         if (emailRecipients.length === 0) {
           return NextResponse.json(
@@ -169,7 +173,7 @@ export async function POST(request: NextRequest) {
         let emailFailureCount = 0;
         const emailErrors: string[] = [];
 
-        const emailPromises = emailRecipients.map(async (r: any) => {
+        const emailPromises = emailRecipients.map(async (r) => {
           try {
             const html = getInviteEmailTemplate({
               firstName: r.first_name,
@@ -208,7 +212,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (shouldSendSms) {
-        const smsRecipients = recipients.filter((r: any) => r.phone);
+        const smsRecipients = recipients.filter((r): r is Recipient & { phone: string } => !!r.phone);
         
         if (smsRecipients.length === 0) {
           return NextResponse.json(

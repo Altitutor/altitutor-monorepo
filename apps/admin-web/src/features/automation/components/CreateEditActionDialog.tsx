@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { useCreateAutomationAction, useUpdateAutomationAction } from '../api/mutations';
 import { useAvailableSenders, type Sender } from '@/features/messages/api/queries';
+import type { ActionConfig, SendMessageActionConfig, CreateTaskActionConfig, CreateNotificationActionConfig, NotificationRecipientType, MessageRecipientType } from '../types';
 import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType, ActivityEntityType } from '../types';
 import { TemplateVariablesPicker } from './TemplateVariablesPicker';
@@ -163,7 +164,7 @@ export function CreateEditActionDialog({
 
   // Helper function to insert variable at cursor position
   const insertVariable = (
-    field: any,
+    field: { value: string; onChange: (value: string) => void },
     ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
     variable: string
   ) => {
@@ -195,12 +196,12 @@ export function CreateEditActionDialog({
   // Initialize form when editing
   useEffect(() => {
     if (isOpen && isEditing && action) {
-      const config = action.action_config as any;
+      const config = action.action_config as unknown as ActionConfig;
       
       // Determine recipient types from config and validate against entity type
       let notificationRecipientType: 'single' | 'class_students' | 'class_staff' | 'class_all' | 'session_students' | 'session_staff' | 'session_all' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day' = 'single';
-      if (action.action_type === 'CREATE_NOTIFICATION' && config.recipients?.type) {
-        const recipientType = config.recipients.type as any;
+      if (action.action_type === 'CREATE_NOTIFICATION' && 'recipients' in config && config.recipients?.type) {
+        const recipientType = config.recipients.type;
         const isClassType = recipientType.startsWith('class_');
         const isSessionType = recipientType.startsWith('session_');
         const isGlobalType = ['all_admin_staff', 'all_staff'].includes(recipientType);
@@ -220,8 +221,8 @@ export function CreateEditActionDialog({
       }
       
       let messageRecipientType: 'single' | 'class_students' | 'class_students_and_parents' | 'session_students' | 'session_students_and_parents' = 'single';
-      if (action.action_type === 'SEND_MESSAGE' && config.recipients?.type) {
-        const recipientType = config.recipients.type as any;
+      if (action.action_type === 'SEND_MESSAGE' && 'recipients' in config && config.recipients?.type) {
+        const recipientType = config.recipients.type;
         const isClassType = recipientType.startsWith('class_');
         const isSessionType = recipientType.startsWith('session_');
         
@@ -239,13 +240,13 @@ export function CreateEditActionDialog({
       form.reset({
         action_type: action.action_type as ActionType,
         order_index: action.order_index || 0,
-        template_id: config.template_id,
-        target_contact_id: config.target_contact_id || config.contact_id,
+        template_id: action.action_type === 'SEND_MESSAGE' && 'template_id' in config ? config.template_id : undefined,
+        target_contact_id: action.action_type === 'SEND_MESSAGE' && ('target_contact_id' in config || 'contact_id' in config) ? (config.target_contact_id || ('contact_id' in config ? config.contact_id : undefined)) : undefined,
         // Handle both old field name (selected_sender_id) and new field name (owned_number_id) for backward compatibility
-        selected_sender_id: config.owned_number_id || config.selected_sender_id,
+        selected_sender_id: action.action_type === 'SEND_MESSAGE' && ('owned_number_id' in config || 'selected_sender_id' in config) ? (config.owned_number_id || ('selected_sender_id' in config ? config.selected_sender_id : undefined)) : undefined,
         message_recipient_type: messageRecipientType,
-        title_template: config.title_template,
-        description_template: config.description_template,
+        title_template: action.action_type === 'CREATE_TASK' && 'title_template' in config ? config.title_template : undefined,
+        description_template: action.action_type === 'CREATE_TASK' && 'description_template' in config ? config.description_template : undefined,
         assigned_to: config.assigned_to,
         priority: config.priority,
         due_date_offset_days: config.due_date_offset_days,
@@ -305,55 +306,42 @@ export function CreateEditActionDialog({
 
   const onSubmit = async (data: z.infer<typeof actionFormSchema>) => {
     try {
-      let actionConfig: any = {};
+      let actionConfig: ActionConfig;
 
       if (data.action_type === 'SEND_MESSAGE') {
         const recipientType = data.message_recipient_type || 'single';
-        actionConfig = {
+        const sendMessageConfig: SendMessageActionConfig = {
           template_id: data.template_id,
           owned_number_id: data.selected_sender_id,
+          ...(recipientType === 'single' && data.target_contact_id && data.target_contact_id.trim()
+            ? { contact_id: data.target_contact_id }
+            : {}),
+          ...(recipientType !== 'single' ? { recipients: { type: recipientType } } : {}),
         };
-        
-        if (recipientType === 'single') {
-          // Backward compatible: use contact_id if provided
-          if (data.target_contact_id && data.target_contact_id.trim()) {
-            actionConfig.contact_id = data.target_contact_id;
-          }
-          // Otherwise, leave it undefined to use activity event context
-        } else {
-          // New: use recipients object for bulk operations
-          actionConfig.recipients = { type: recipientType };
-        }
+        actionConfig = sendMessageConfig as ActionConfig;
       } else if (data.action_type === 'CREATE_TASK') {
-        actionConfig = {
+        const createTaskConfig: CreateTaskActionConfig = {
           title_template: data.title_template,
           description_template: data.description_template,
-          assigned_to: data.assigned_to || null,
+          assigned_to: data.assigned_to || undefined,
           priority: data.priority ?? 0,
-          due_date_offset_days: data.due_date_offset_days || null,
-          estimate: data.estimate || null,
-          status: data.status || 'todo',
+          due_date_offset_days: data.due_date_offset_days || undefined,
+          estimate: data.estimate || undefined,
         };
+        actionConfig = createTaskConfig as ActionConfig;
       } else if (data.action_type === 'CREATE_NOTIFICATION') {
         const recipientType = data.notification_recipient_type || 'single';
-        actionConfig = {
+        const createNotificationConfig: CreateNotificationActionConfig = {
           notification_type: data.notification_type || 'GENERIC',
           title: data.notification_title,
-          body: data.notification_body || null,
-          action_url: data.action_url || null,
+          body: data.notification_body || undefined,
+          action_url: data.action_url || undefined,
+          ...(recipientType === 'single' && data.target_staff_id ? { staff_id: data.target_staff_id } : {}),
+          ...(recipientType !== 'single' ? { recipients: { type: recipientType } } : {}),
         };
-        
-        if (recipientType === 'single') {
-          // Backward compatible: use staff_id
-          // If target_staff_id is provided, use it; otherwise, leave undefined to use activityEvent.staff_id fallback
-          if (data.target_staff_id) {
-            actionConfig.staff_id = data.target_staff_id;
-          }
-          // If target_staff_id is empty, don't set staff_id - backend will use activityEvent.staff_id (assigned_to for tasks)
-        } else {
-          // New: use recipients object for bulk operations
-          actionConfig.recipients = { type: recipientType };
-        }
+        actionConfig = createNotificationConfig as ActionConfig;
+      } else {
+        throw new Error(`Unknown action type: ${data.action_type}`);
       }
 
       if (isEditing && action) {

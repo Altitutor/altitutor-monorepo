@@ -6,7 +6,7 @@ import {
   FormItem,
   FormMessage,
 } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@altitutor/ui';
 import { Gauge } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';

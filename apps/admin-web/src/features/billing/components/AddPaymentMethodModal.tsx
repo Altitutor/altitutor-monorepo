@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Button, Label } from '@altitutor/ui';
-import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
+import { loadStripe, StripeElementsOptions, type Stripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, CreditCard } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
@@ -10,7 +10,7 @@ import { paymentMethodsApi } from '../api/payment-methods';
 import { getErrorMessage } from '@/shared/utils';
 
 // Use pre-loaded Stripe instance
-let stripePromise: Promise<any> | null = null;
+let stripePromise: Promise<Stripe | null> | null = null;
 function getStripePromise() {
   if (!stripePromise) {
     stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');

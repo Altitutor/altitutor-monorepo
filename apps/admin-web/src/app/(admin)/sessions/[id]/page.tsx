@@ -257,7 +257,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
           initialStudentId={modals.selectedStudentForReschedule}
           originalSessionId={id}
-          originalSubjectId={helpers.subject?.id || (session as any)?.subject_id || null}
+          originalSubjectId={helpers.subject?.id || null}
           onBookingCreated={(_newSessionId) => {
             modals.closeRescheduleModal();
           }}

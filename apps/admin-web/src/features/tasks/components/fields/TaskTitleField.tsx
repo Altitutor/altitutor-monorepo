@@ -62,7 +62,7 @@ export function TaskTitleField({ form, value, onTagClick, onEnter, titleRef }: T
     <FormField
       control={form.control}
       name="title"
-      render={({ field }) => (
+      render={() => (
         <FormItem>
           <FormControl>
             <div className="relative">

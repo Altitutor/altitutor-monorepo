@@ -61,7 +61,6 @@ export function MessageComposer({
   const {
     attachments: internalAttachments,
     addFiles,
-    removeAttachment: internalRemoveAttachment,
     hasAttachments,
     canAddMore,
   } = useMessageAttachments();

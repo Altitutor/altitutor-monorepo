@@ -65,7 +65,14 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
   
   // Extract last payment error from metadata
-  const metadata = invoice?.metadata as any;
+  type InvoiceMetadata = {
+    last_payment_error?: {
+      code?: string;
+      message?: string;
+      type?: string;
+    } | null;
+  };
+  const metadata = (invoice?.metadata as InvoiceMetadata | null) ?? null;
   const lastPaymentError = metadata?.last_payment_error || null;
   const collectionMethod = invoice?.collection_method;
 

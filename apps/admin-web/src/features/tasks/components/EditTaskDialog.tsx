@@ -70,7 +70,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
   const lastResetTaskIdRef = useRef<string | null>(null);
-  const [formKey, setFormKey] = useState(0); // Force re-render of form fields
+  const [, setFormKey] = useState(0); // Force re-render of form fields - setFormKey is used
 
 
   // Fetch notes for task
