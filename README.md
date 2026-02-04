@@ -1,151 +1,127 @@
-# AltiTutor Admin App
+# Altitutor Monorepo
 
-A comprehensive CRM system for Altitutor's administrative staff.
+A pnpm-based Turborepo monorepo containing three Next.js applications for Altitutor's platform.
 
-## Tech Stack
+## Project Structure
 
-- Next.js 14+ (App Router)
-- TypeScript
-- Tailwind CSS
-- Shadcn/ui
-- Supabase
-- React Query
-- Zustand
+This monorepo contains:
+- **`apps/admin-web`**: Admin CRM system (port 3000)
+- **`apps/student-web`**: Student-facing portal (port 3001)
+- **`apps/tutor-web`**: Tutor-facing portal (port 3002)
+- **`packages/shared`**: Shared types and utilities
+- **`packages/ui`**: Shared UI components
 
 ## Getting Started
 
 1. Clone the repository
 2. Install dependencies:
    ```bash
-   npm install
+   pnpm install
    ```
 3. Set up environment variables:
-   - Copy `.env.example` to `.env.local`
+   - Copy `.env.example` to `.env.local` in each app directory
    - Fill in the required environment variables
 
-4. Run the development server:
+4. Run all development servers:
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+   Or run a specific app:
+   ```bash
+   pnpm --filter admin-web dev
+   pnpm --filter student-web dev
+   pnpm --filter tutor-web dev
+   ```
+
+5. Open the apps in your browser:
+   - Admin: [http://localhost:3000](http://localhost:3000)
+   - Student: [http://localhost:3001](http://localhost:3001)
+   - Tutor: [http://localhost:3002](http://localhost:3002)
 
 ## Available Scripts
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run test` - Run Jest tests
-- `npm run storybook` - Start Storybook
+### Root Level (Runs across all apps)
+- `pnpm dev` - Start all development servers
+- `pnpm build` - Build all apps for production
+- `pnpm lint` - Run ESLint across all apps
+- `pnpm lint:fix` - Fix linting errors across all apps
+- `pnpm test` - Run tests across all apps
+- `pnpm test:coverage` - Run tests with coverage
+- `pnpm typecheck` - Type check all apps
+- `pnpm checkall` - Run lint, typecheck, test, and build
+- `pnpm db:types` - Generate TypeScript types from local Supabase schema
+- `pnpm db:types:remote` - Generate TypeScript types from remote Supabase schema
+
+### App-Specific Scripts
+Each app has its own scripts (run with `pnpm --filter <app-name> <script>`):
+- `dev` / `dev:local` / `dev:remote` - Start development server
+- `build` - Build for production
+- `start` - Start production server
+- `lint` / `lint:fix` - Run ESLint
+- `test` / `test:watch` / `test:coverage` / `test:e2e` - Run tests
+- `typecheck` - Type check
+- `storybook` - Start Storybook
 
 ## Documentation
 
 - UI components are built using shadcn/ui - see [components.json](components.json) for configuration
 
-## Custom Claims-Based RLS
+## Row Level Security (RLS)
 
-This project uses Supabase custom claims (user_role) for row-level security policies instead of checking the staff table. 
+This project uses Supabase Row Level Security policies based on roles stored in the `staff` table.
 
 ### User Roles
 
 The system has three user roles:
-- `ADMINSTAFF`: Admin users with full access to all data
-- `TUTOR`: Tutors with read access to most data and limited write access
-- `STUDENT`: Students with access only to their own data
+- **`ADMINSTAFF`**: Admin users with full read/write access to all base tables
+- **`TUTOR`**: Tutors with read-only access through `vtutor_*` views and write access only through API endpoints
+- **`STUDENT`**: Students with read-only access through `vstudent_*` views and write access only through API endpoints
 
-### Setting User Roles
+### Access Control
 
-User roles are stored in user metadata as a custom claim. The claim is required for all new users.
+- **ADMINSTAFF**: Direct access to all base tables with full permissions
+- **TUTOR**: Must use `vtutor_*` views for reads and API endpoints for writes (no direct table access)
+- **STUDENT**: Must use `vstudent_*` views for reads and API endpoints for writes (no direct table access)
 
-To set a user's role:
-1. Use the helper function in `src/lib/auth/roles.ts`: 
-```typescript
-import { setUserRole } from '@/lib/auth/roles';
+### Database Helper Functions
 
-// Set a user's role to TUTOR
-await setUserRole(userId, 'TUTOR');
-```
+RLS policies use database functions to check roles:
+- `public.is_adminstaff()` - Checks if current user is ADMINSTAFF
+- `public.is_tutor()` - Checks if current user is TUTOR
+- `public.is_staff()` - Checks if current user is ADMINSTAFF or TUTOR
+- `public.current_staff_id()` - Returns the staff ID for the current user
+- `public.current_student_id()` - Returns the student ID for the current user
 
-2. Or use the Supabase Edge Function directly:
-```typescript
-const { error } = await supabase.functions.invoke('set-user-role', {
-  body: { user_id: userId, role: 'TUTOR' },
-});
-```
+These functions query the `staff` table based on `auth.uid()`.
 
-### Checking User Roles
+## Database Management
 
-Helper functions are available in `src/lib/auth/roles.ts`:
-```typescript
-import { isAdminStaff, isTutor, isStudent, isStaff } from '@/lib/auth/roles';
+### Local Development
 
-// Get the current user
-const { data: { user } } = await supabase.auth.getUser();
+1. Start local Supabase:
+   ```bash
+   supabase start
+   ```
 
-// Check user roles
-if (isAdminStaff(user)) {
-  // User is an admin
-}
+2. Apply migrations:
+   ```bash
+   supabase db reset
+   ```
 
-if (isStaff(user)) {
-  // User is either admin or tutor
-}
-```
+3. Generate TypeScript types:
+   ```bash
+   pnpm db:types
+   ```
 
-## Migration Deployment
+### Remote Deployment
 
-To deploy the migrations (both locally and remotely):
+Migrations are deployed through the CI/CD pipeline. Never apply migrations manually to dev/prod environments.
 
-1. Make the deployment script executable:
+For generating types from remote database:
 ```bash
-chmod +x deploy-migrations.sh
+pnpm db:types:remote
 ```
 
-2. Run the script:
-```bash
-./deploy-migrations.sh
-```
-
-3. The script will:
-   - Apply migrations to your local development database
-   - Ask if you want to deploy to the remote environment
-   - If yes, authenticate with Supabase if needed and push the changes
+Note: Requires `SUPABASE_PROJECT_ID` environment variable to be set.
  
-
-
-┌─────────────────────────────────────────────────┐
-│                 Frontend (React)                │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │   Hooks     │ │ Components  │ │   Stores    ││
-│  │ useStudents │ │ StudentsPage│ │ useAuthStore││
-│  └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────┬───────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────┐
-│              API Layer (Business Logic)         │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │ studentsApi │ │  staffApi   │ │ subjectsApi ││
-│  │ - create    │ │ - create    │ │ - create    ││
-│  │ - update    │ │ - invite    │ │ - search    ││
-│  │ - search    │ │ - subjects  │ │ - topics    ││
-│  └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────┬───────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────┐
-│            Repository Layer (Data Access)       │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │Repository<T>│ │ Transform   │ │ Validation  ││
-│  │ - getAll()  │ │ camelCase   │ │ Auth Check  ││
-│  │ - create()  │ │ snake_case  │ │ Error Handle││
-│  │ - update()  │ │ Type Safety │ │ Permissions ││
-│  └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────┬───────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────┐
-│               Database (Supabase)               │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │   students  │ │    staff    │ │  subjects   ││
-│  │   topics    │ │   classes   │ │  sessions   ││
-│  └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────────────────────────────────┘
