@@ -8,9 +8,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
-import { X, File, Image as ImageIcon, Download, Music, Play, Pause, Loader2 } from 'lucide-react';
+import { X, File, Download, Music, Play, Pause, Loader2 } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
-import Image from 'next/image';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -29,7 +28,7 @@ interface AttachmentProps {
   direction: 'INBOUND' | 'OUTBOUND';
 }
 
-function MessageAttachment({ attachment, direction }: AttachmentProps) {
+export function MessageAttachment({ attachment }: AttachmentProps) {
   const [imageError, setImageError] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [urlError, setUrlError] = useState(false);

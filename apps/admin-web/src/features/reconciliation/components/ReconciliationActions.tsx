@@ -17,7 +17,6 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnrepliedMessage,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -66,7 +65,6 @@ interface ReconciliationActionsProps {
     | UnpaidInvoice
     | UnloggedSession
     | UnassignedClass
-    | UnrepliedMessage
     | FailedDeliveryMessage
     | StudentWithoutClasses
     | StudentWithoutPaymentMethod
@@ -360,23 +358,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           >
             <User className="h-4 w-4 mr-1" />
             Assign Staff
-          </Button>
-        </div>
-      );
-    }
-
-    case 'unreplied_messages': {
-      const message = item as UnrepliedMessage;
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenConversation(message.conversation_id)}
-            disabled={isLoading}
-          >
-            <MessageCircle className="h-4 w-4 mr-1" />
-            Open Message
           </Button>
         </div>
       );

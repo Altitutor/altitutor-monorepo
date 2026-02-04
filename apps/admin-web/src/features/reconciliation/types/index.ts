@@ -10,6 +10,7 @@ export interface UninvoicedSession {
   planned_absence: boolean;
   is_rescheduled: boolean;
   is_credited: boolean;
+  was_trial: boolean | null;
   session_start_at: string;
   session_end_at: string | null;
   session_type: string;
@@ -21,6 +22,7 @@ export interface UninvoicedSession {
   is_extra: boolean;
   has_tutor_log: boolean;
   actual_attended: boolean | null;
+  actual_was_trial: boolean | null;
   student_first_name: string | null;
   student_last_name: string | null;
   student_email: string | null;
@@ -79,29 +81,6 @@ export interface UnassignedClass {
   room: string | null;
   level: string | null;
   student_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-// Unreplied Messages
-export interface UnrepliedMessage {
-  conversation_id: string;
-  contact_id: string;
-  conversation_status: string;
-  last_message_id: string | null;
-  last_message_at: string | null;
-  assigned_staff_id: string | null;
-  contact_name: string | null;
-  contact_phone: string;
-  contact_type: string;
-  student_id: string | null;
-  parent_id: string | null;
-  staff_id: string | null;
-  last_message_id_detail: string | null;
-  last_message_direction: string | null;
-  last_message_preview: string | null;
-  last_message_created_at: string | null;
-  hours_since_last_message: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -190,7 +169,6 @@ export type ReconciliationItemType =
   | 'unpaid_invoices'
   | 'unlogged_sessions'
   | 'unassigned_classes'
-  | 'unreplied_messages'
   | 'failed_delivery_messages'
   | 'students_without_classes'
   | 'students_without_payment_method'
@@ -203,7 +181,6 @@ export interface ReconciliationCategoryData {
     unpaid_invoices?: UnpaidInvoice[];
     unlogged_sessions?: UnloggedSession[];
     unassigned_classes?: UnassignedClass[];
-    unreplied_messages?: UnrepliedMessage[];
     failed_delivery_messages?: FailedDeliveryMessage[];
     students_without_classes?: StudentWithoutClasses[];
     students_without_payment_method?: StudentWithoutPaymentMethod[];
@@ -214,7 +191,6 @@ export interface ReconciliationCategoryData {
     unpaid_invoices: number;
     unlogged_sessions: number;
     unassigned_classes: number;
-    unreplied_messages: number;
     failed_delivery_messages: number;
     students_without_classes: number;
     students_without_payment_method: number;

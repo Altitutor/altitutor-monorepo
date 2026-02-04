@@ -51,7 +51,7 @@ import { TopicNode } from './TopicsHierarchy';
 import { DraggableTopicsList } from './DraggableTopicsList';
 import { DraggableFilesList, type TopicFileWithFile } from './DraggableFilesList';
 import { FileCard } from './FileCard';
-import { getFileTypeLabel } from '../utils/file-type-icons';
+import { getFileTypeLabel } from '@/shared/utils/file-type-icons';
 import { groupFilesByType, getNonSolutionFiles, findLinkedSolution } from '../utils/fileDisplay';
 import type { Enums } from '@altitutor/shared';
 import { AddTopicModal } from './AddTopicModal';

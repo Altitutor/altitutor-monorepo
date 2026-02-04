@@ -230,26 +230,29 @@ export function LogSessionModal({
   return (
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={submissionState === 'success' ? handleClose : onClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>Log Session</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Tutor log form step {currentStep + 1} of {totalSteps}
-                </DialogDescription>
+        {/* Header */}
+        <div className="flex-shrink-0 border-b bg-background">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={submissionState === 'success' ? handleClose : onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1 min-w-0">
+                  <DialogTitle>Tutor log</DialogTitle>
+                  <DialogDescription>
+                    Step {currentStep + 1} of {totalSteps}: {getStepTitle()}
+                  </DialogDescription>
+                </div>
                 {(selectedStaff || selectedSession) && (
-                  <div className="mt-3 flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap flex-shrink-0">
                     {selectedStaff && (
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 h-[60px]">
                         <StaffCard
                           staff={selectedStaff}
                           showSubjects={false}
@@ -258,7 +261,7 @@ export function LogSessionModal({
                       </div>
                     )}
                     {selectedSession && (
-                      <div className="flex-shrink-0 w-fit max-w-md">
+                      <div className="flex-shrink-0 w-fit max-w-md h-[60px]">
                         <SessionsCard
                           session={selectedSession}
                           classData={sessionClassData || undefined}
@@ -273,12 +276,35 @@ export function LogSessionModal({
                 )}
               </div>
             </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+          {/* Progress Indicator */}
+          {submissionState !== 'success' && submissionState !== 'error' && (
+            <div className="px-6 pb-4">
+              <div className="flex items-center gap-2">
+                {Array.from({ length: totalSteps }).map((_, index) => (
+                  <div
+                    key={index}
+                    className={`flex-1 h-2 rounded-full transition-colors ${
+                      index < currentStep
+                        ? 'bg-primary'
+                        : index === currentStep
+                        ? 'bg-primary/50'
+                        : 'bg-muted'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full overflow-y-auto">
-            {renderStep()}
+            <div className="p-6">
+              {renderStep()}
+            </div>
           </div>
         </div>
 

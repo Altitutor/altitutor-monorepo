@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -34,6 +34,7 @@ import { MessagesTabContent } from '@/features/messages/components/MessagesTabCo
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { ParentSearchPopover } from '@/features/students/components/ParentSearchPopover';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
@@ -86,6 +87,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -138,6 +140,20 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const handleStudentUpdated = () => {
     queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(id) });
   };
+
+  // Listen for session modal events
+  useEffect(() => {
+    const onOpenSession = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id: string };
+      if (detail?.id) setActiveSessionId(detail.id);
+    };
+    
+    window.addEventListener('open-session-modal', onOpenSession as EventListener);
+    
+    return () => {
+      window.removeEventListener('open-session-modal', onOpenSession as EventListener);
+    };
+  }, []);
 
   if (loadingStudent) {
     return (
@@ -384,6 +400,13 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Session Modal */}
+      <SessionModal
+        isOpen={!!activeSessionId}
+        sessionId={activeSessionId}
+        onClose={() => setActiveSessionId(null)}
+      />
     </div>
   );
 }

@@ -23,7 +23,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { Tables, Enums } from '@altitutor/shared';
-import { getFileTypeIcon, getFileTypeLabel } from '../utils/file-type-icons';
+import { getFileTypeIcon, getFileTypeLabel } from '@/shared/utils/file-type-icons';
 
 export type TopicFileWithFile = Tables<'topics_files'> & { file: Tables<'files'> };
 

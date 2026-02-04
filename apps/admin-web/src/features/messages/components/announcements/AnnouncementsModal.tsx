@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
@@ -11,6 +11,7 @@ import { MessageComposer } from '../bulk/MessageComposer';
 import { MessagePreview } from '../bulk/MessagePreview';
 import { useAnnouncements } from '@/features/messages/hooks/useAnnouncements';
 import { useAvailableSenders } from '@/features/messages/api/queries';
+import type { AttachmentFile } from '../../hooks/useMessageAttachments';
 
 type Step = 'select' | 'compose' | 'preview' | 'success';
 
@@ -29,6 +30,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
   const [message, setMessage] = useState('');
   const [sendToParents, setSendToParents] = useState(false);
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [sendResult, setSendResult] = useState<{
     sent: number;
     failed: number;
@@ -79,6 +81,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     setMessage('');
     setSendToParents(false);
     setSelectedSenderId(null);
+    setAttachments([]);
     setSendResult(null);
     onClose();
   };
@@ -89,45 +92,8 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     setMessage('');
     setSendToParents(false);
     setSelectedSenderId(null);
+    setAttachments([]);
     setSendResult(null);
-  };
-
-  const renderStepIndicator = () => {
-    const steps = [
-      { key: 'select', label: 'Select Students' },
-      { key: 'compose', label: 'Compose' },
-      { key: 'preview', label: 'Preview' },
-    ];
-
-    const currentIndex = steps.findIndex(s => s.key === step);
-
-    return (
-      <div className="flex items-center justify-center gap-2 px-6 py-4 border-b">
-        {steps.map((s, index) => (
-          <div key={s.key} className="flex items-center">
-            <div
-              className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                index <= currentIndex
-                  ? 'bg-brand-lightBlue text-brand-dark-bg'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {index + 1}
-            </div>
-            <span
-              className={`ml-2 text-sm ${
-                index <= currentIndex ? 'text-foreground font-medium' : 'text-muted-foreground'
-              }`}
-            >
-              {s.label}
-            </span>
-            {index < steps.length - 1 && (
-              <div className="w-12 h-0.5 bg-border mx-2" />
-            )}
-          </div>
-        ))}
-      </div>
-    );
   };
 
   const getStepTitle = () => {
@@ -140,35 +106,71 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     return titles[step] || 'Make Announcement';
   };
 
+  const getStepNumber = (): number => {
+    if (step === 'select') return 1;
+    if (step === 'compose') return 2;
+    if (step === 'preview') return 3;
+    return 1;
+  };
+
+  const TOTAL_STEPS = 3;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>{getStepTitle()}</DialogTitle>
+        {/* Header */}
+        <div className="flex-shrink-0 border-b bg-background">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <DialogTitle>Send announcement</DialogTitle>
+                  {step !== 'success' && (
+                    <DialogDescription>
+                      Step {getStepNumber()} of {TOTAL_STEPS}: {getStepTitle()}
+                    </DialogDescription>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </DialogHeader>
-        
-        {step !== 'success' && (
-          <div className="flex-shrink-0">
-            {renderStepIndicator()}
-          </div>
-        )}
+          </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+          {/* Progress Indicator */}
+          {step !== 'success' && (
+            <div className="px-6 pb-4">
+              <div className="flex items-center gap-2">
+                {Array.from({ length: TOTAL_STEPS }).map((_, index) => {
+                  const stepIndex = step === 'select' ? 0 : step === 'compose' ? 1 : step === 'preview' ? 2 : 0;
+                  return (
+                    <div
+                      key={index}
+                      className={`flex-1 h-2 rounded-full transition-colors ${
+                        index < stepIndex
+                          ? 'bg-primary'
+                          : index === stepIndex
+                          ? 'bg-primary/50'
+                          : 'bg-muted'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full overflow-y-auto">
+            <div className="p-6">
             {step === 'select' && (
             <StudentSelector
               selectedStudents={selectedStudents}
@@ -188,6 +190,8 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
               selectedSenderId={selectedSenderId}
               onSenderChange={setSelectedSenderId}
               isLoadingSenders={isLoadingSenders}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
               onNext={() => setStep('preview')}
               onBack={() => setStep('select')}
             />
@@ -199,6 +203,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
               message={message}
               sendToParents={sendToParents}
               selectedSender={availableSenders?.find(s => s.id === selectedSenderId) || null}
+              attachments={attachments}
               onSend={handleSend}
               onBack={() => setStep('compose')}
               isSending={isSending}
@@ -246,6 +251,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
               </div>
             </div>
           )}
+            </div>
           </div>
         </div>
 

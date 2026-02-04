@@ -23,7 +23,6 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnrepliedMessage,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -123,8 +122,9 @@ export function UninvoicedSessionsTable({
       isLoading={isLoading}
       columns={['Date', 'Student', 'Session', 'Planned Attendance', 'Actual Attendance']}
       renderRow={(item, index) => {
+        const wasTrialPlanned = item.was_trial ?? false;
         // Calculate planned attendance status
-        let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
+        let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
         
         if (item.planned_absence) {
           if (item.is_rescheduled) {
@@ -135,14 +135,17 @@ export function UninvoicedSessionsTable({
             plannedStatus = 'absent';
           }
         } else if (item.is_extra) {
-          plannedStatus = 'attending-extra';
+          plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
+        } else {
+          plannedStatus = wasTrialPlanned ? 'attending-trial' : 'attending';
         }
         
         // Calculate actual attendance status
-        let actualStatus: 'attended' | 'did-not-attend' | 'not-logged' = 'not-logged';
+        const wasTrialActual = item.actual_was_trial ?? false;
+        let actualStatus: 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged' = 'not-logged';
         if (item.has_tutor_log) {
           if (item.actual_attended === true) {
-            actualStatus = 'attended';
+            actualStatus = wasTrialActual ? 'attended-trial' : 'attended';
           } else if (item.actual_attended === false) {
             actualStatus = 'did-not-attend';
           }
@@ -344,45 +347,6 @@ export function UnassignedClassesTable({
             <TableCell>{item.student_count}</TableCell>
             <TableCell>
               <ReconciliationActions type="unassigned_classes" item={item} />
-            </TableCell>
-          </TableRow>
-        );
-      }}
-    />
-  );
-}
-
-export function UnrepliedMessagesTable({
-  items,
-  isLoading,
-}: {
-  items: UnrepliedMessage[];
-  isLoading?: boolean;
-}) {
-  return (
-    <ReconciliationTable
-      title="Unreplied Messages"
-      items={items}
-      isLoading={isLoading}
-      columns={['Last Message', 'Contact', 'Preview']}
-      renderRow={(item, _index) => {
-        const hoursAgo = item.hours_since_last_message
-          ? Math.floor(item.hours_since_last_message)
-          : null;
-
-        return (
-          <TableRow key={item.conversation_id}>
-            <TableCell>
-              {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
-            </TableCell>
-            <TableCell className="font-medium">
-              {item.contact_name || item.contact_phone}
-            </TableCell>
-            <TableCell className="max-w-md truncate">
-              {item.last_message_preview || '—'}
-            </TableCell>
-            <TableCell>
-              <ReconciliationActions type="unreplied_messages" item={item} />
             </TableCell>
           </TableRow>
         );

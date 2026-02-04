@@ -1,6 +1,8 @@
 // Utility hooks
 export { useDebounce } from './useDebounce';
 export { useCopyToClipboard } from './useCopyToClipboard';
+export { useFilePreview } from './useFilePreview';
+export type { FilePreviewData, UseFilePreviewParams } from './useFilePreview';
 // export { useLocalStorage } from './useLocalStorage';
 // export { useMediaQuery } from './useMediaQuery';
 // Repository hook removed under Option A

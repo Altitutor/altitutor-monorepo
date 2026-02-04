@@ -108,7 +108,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Book drafting session
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
+          <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
             <Trash2 className="h-4 w-4 mr-2" />
             Delete student
           </DropdownMenuItem>
@@ -144,7 +144,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Log absence
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
+          <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
             <Trash2 className="h-4 w-4 mr-2" />
             Delete staff
           </DropdownMenuItem>
@@ -265,7 +265,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {props.onDelete && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete subject
               </DropdownMenuItem>
@@ -301,7 +301,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {props.onDelete && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onDelete} className="text-destructive focus:text-destructive hover:text-destructive dark:text-destructive dark:hover:text-destructive dark:focus:text-destructive">
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete topic
               </DropdownMenuItem>

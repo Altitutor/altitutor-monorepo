@@ -56,4 +56,3 @@ export function getFileTypeLabel(type: Enums<'resource_type'>): string {
       return 'File';
   }
 }
-

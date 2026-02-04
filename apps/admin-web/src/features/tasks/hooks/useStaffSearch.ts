@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { staffApi } from '@/features/staff/api/staff';
-import type { Tables } from '@altitutor/shared';
 
 /**
  * Hook for searching staff for task assignment

@@ -1,7 +1,7 @@
 'use client';
 
 import { Checkbox } from '@altitutor/ui';
-import { FileCard } from '@/features/topics/components/FileCard';
+import { FileCard } from '@/shared/components/files/FileCard';
 import { useTopicsByIds, useTopicFilesByTopicIds } from '../../hooks';
 
 type TopicItem = {

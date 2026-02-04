@@ -13,7 +13,7 @@ interface Step3ActionsProps {
 
 export function Step3Actions({
   ruleId,
-  entityType,
+  entityType: _entityType,
   templates,
   staffList,
 }: Step3ActionsProps) {

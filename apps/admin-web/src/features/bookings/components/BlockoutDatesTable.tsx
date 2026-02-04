@@ -18,7 +18,7 @@ import {
   DialogFooter,
   Label,
 } from '@altitutor/ui';
-import { Edit2, Plus, Trash2 } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
 import type { BlockoutRow } from '../api/blockouts';
 import { useBlockoutForm } from '../hooks/useBlockoutForm';
 import { formatDateRange } from '../utils/dateTimeHelpers';

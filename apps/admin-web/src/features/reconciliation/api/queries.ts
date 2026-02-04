@@ -51,18 +51,6 @@ export function useUnassignedClasses() {
 }
 
 /**
- * Get unreplied messages
- */
-export function useUnrepliedMessages() {
-  return useQuery({
-    queryKey: reconciliationKeys.unrepliedMessages(),
-    queryFn: () => reconciliationApi.getUnrepliedMessages(),
-    staleTime: 1000 * 60 * 1, // 1 minute (messages change frequently)
-    gcTime: 1000 * 60 * 3, // 3 minutes
-  });
-}
-
-/**
  * Get failed delivery messages
  */
 export function useFailedDeliveryMessages() {

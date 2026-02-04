@@ -5,7 +5,7 @@ import { Button } from '@altitutor/ui';
 import { Upload, Loader2, X } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useToast } from '@altitutor/ui';
-import { FileCard } from '@/features/topics/components/FileCard';
+import { FileCard } from '@/shared/components/files/FileCard';
 import { sessionFilesApi, type SessionFileWithUrl } from '../api/session-files';
 import { getSessionFileSignedUrl } from '@/shared/lib/supabase/storage';
 
@@ -119,7 +119,16 @@ export function SessionFiles({ sessionId }: SessionFilesProps) {
       const signedUrl = await getSessionFileSignedUrl(file.file.storage_path);
       const link = document.createElement('a');
       link.href = signedUrl;
-      link.download = file.file.filename;
+      
+      // Use display_name if available, otherwise use filename
+      // If display_name doesn't have extension, preserve it from filename
+      let downloadName = file.display_name || file.file.filename;
+      if (file.display_name && !file.display_name.includes('.')) {
+        const extension = file.file.filename.substring(file.file.filename.lastIndexOf('.'));
+        downloadName = file.display_name + extension;
+      }
+      
+      link.download = downloadName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -133,12 +142,23 @@ export function SessionFiles({ sessionId }: SessionFilesProps) {
     }
   };
 
-  // Derive file code from filename (simple approach for session files)
-  const getFileCode = (filename: string, index: number) => {
-    // Extract extension and create a simple code
-    const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
-    const sanitized = nameWithoutExt.substring(0, 8).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    return `SF${String(index + 1).padStart(2, '0')}-${sanitized || 'FILE'}`;
+  const handleRename = async (sessionFileId: string, newName: string) => {
+    try {
+      await sessionFilesApi.renameSessionFile(sessionFileId, newName);
+      toast({
+        title: 'Success',
+        description: 'File renamed successfully',
+      });
+      await loadFiles();
+    } catch (error) {
+      console.error('Failed to rename file:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to rename file',
+        variant: 'destructive',
+      });
+      throw error; // Re-throw so FileCard can handle it
+    }
   };
 
   return (
@@ -158,18 +178,19 @@ export function SessionFiles({ sessionId }: SessionFilesProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {files.map((sessionFile, index) => (
+          {files.map((sessionFile) => (
             <FileCard
               key={sessionFile.id}
-              fileCode={getFileCode(sessionFile.file.filename, index)}
-              fileType="NOTES" // Default type for session files
               filename={sessionFile.file.filename}
+              displayName={sessionFile.display_name}
               storagePath={sessionFile.file.storage_path}
               mimeType={sessionFile.file.mimetype || undefined}
-              topicFileId={sessionFile.id} // Using sessionFile.id as identifier for delete
+              fileId={sessionFile.file.id} // File record ID for preview
+              junctionTableId={sessionFile.id} // Using sessionFile.id as identifier for delete/rename
               getSignedUrlFn={getSessionFileSignedUrl} // Use session-files bucket
               onDownload={() => handleDownload(sessionFile)}
               onDelete={(id) => handleDelete(id)}
+              onRename={(id, newName) => handleRename(id, newName)}
             />
           ))}
         </div>

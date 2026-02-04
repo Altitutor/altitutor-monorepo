@@ -12,7 +12,7 @@ import { format } from 'date-fns';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
-import { FileCard } from '@/features/topics/components/FileCard';
+import { FileCard } from '@/shared/components/files/FileCard';
 import { TopicCard } from '../TopicCard';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';

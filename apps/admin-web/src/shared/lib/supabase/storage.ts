@@ -6,6 +6,8 @@ import { getSupabaseClient } from './client';
  * Folder structure: /subject_id/topic_id/filename
  */
 
+export type StorageBucket = 'resources' | 'session-files' | 'staff-files' | 'student-files';
+
 export interface UploadFileOptions {
   subjectId: string;
   topicId: string;
@@ -18,19 +20,21 @@ export interface UploadFileResult {
 }
 
 /**
- * Upload a file to the resources bucket
+ * Generic bucket-based storage functions
  */
-export async function uploadFile({ subjectId, topicId, file }: UploadFileOptions): Promise<UploadFileResult> {
+
+/**
+ * Upload a file to a specific bucket
+ */
+export async function uploadToBucket(
+  bucket: StorageBucket,
+  path: string,
+  file: File
+): Promise<UploadFileResult> {
   const supabase = getSupabaseClient();
   
-  // Generate a unique filename to avoid collisions
-  const timestamp = Date.now();
-  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const path = `${subjectId}/${topicId}/${timestamp}_${sanitizedFilename}`;
-  
-  // Upload file to storage
   const { data, error } = await supabase.storage
-    .from('resources')
+    .from(bucket)
     .upload(path, file, {
       cacheControl: '3600',
       upsert: false,
@@ -43,7 +47,7 @@ export async function uploadFile({ subjectId, topicId, file }: UploadFileOptions
   
   // Get public URL (will require authentication to access due to bucket policies)
   const { data: urlData } = supabase.storage
-    .from('resources')
+    .from(bucket)
     .getPublicUrl(path);
   
   return {
@@ -53,13 +57,17 @@ export async function uploadFile({ subjectId, topicId, file }: UploadFileOptions
 }
 
 /**
- * Get a signed URL for a file (valid for 1 hour)
+ * Get a signed URL for a file from a specific bucket
  */
-export async function getSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
+export async function getSignedUrlFromBucket(
+  bucket: StorageBucket,
+  path: string,
+  expiresIn: number = 3600
+): Promise<string> {
   const supabase = getSupabaseClient();
   
   const { data, error } = await supabase.storage
-    .from('resources')
+    .from(bucket)
     .createSignedUrl(path, expiresIn);
   
   if (error) {
@@ -71,20 +79,51 @@ export async function getSignedUrl(path: string, expiresIn: number = 3600): Prom
 }
 
 /**
- * Delete a file from storage (typically used when soft-deleting from database)
- * Note: We generally don't delete files immediately; use soft delete instead
+ * Delete a file from a specific bucket
  */
-export async function deleteFile(path: string): Promise<void> {
+export async function deleteFromBucket(
+  bucket: StorageBucket,
+  path: string
+): Promise<void> {
   const supabase = getSupabaseClient();
   
   const { error } = await supabase.storage
-    .from('resources')
+    .from(bucket)
     .remove([path]);
   
   if (error) {
     console.error('Failed to delete file:', error);
     throw new Error(`Failed to delete file: ${error.message}`);
   }
+}
+
+/**
+ * Upload a file to the resources bucket
+ * Convenience wrapper for backward compatibility
+ */
+export async function uploadFile({ subjectId, topicId, file }: UploadFileOptions): Promise<UploadFileResult> {
+  const timestamp = Date.now();
+  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${subjectId}/${topicId}/${timestamp}_${sanitizedFilename}`;
+  
+  return uploadToBucket('resources', path, file);
+}
+
+/**
+ * Get a signed URL for a file from the resources bucket (valid for 1 hour)
+ * Convenience wrapper for backward compatibility
+ */
+export async function getSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
+  return getSignedUrlFromBucket('resources', path, expiresIn);
+}
+
+/**
+ * Delete a file from the resources bucket
+ * Note: We generally don't delete files immediately; use soft delete instead
+ * Convenience wrapper for backward compatibility
+ */
+export async function deleteFile(path: string): Promise<void> {
+  return deleteFromBucket('resources', path);
 }
 
 /**
@@ -135,70 +174,67 @@ export interface UploadSessionFileOptions {
 /**
  * Upload a file to the session-files bucket
  * Path format: {sessionId}/{timestamp}_{filename}
+ * Convenience wrapper for backward compatibility
  */
 export async function uploadSessionFile({ sessionId, file }: UploadSessionFileOptions): Promise<UploadFileResult> {
-  const supabase = getSupabaseClient();
-  
-  // Generate a unique filename to avoid collisions
   const timestamp = Date.now();
   const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
   const path = `${sessionId}/${timestamp}_${sanitizedFilename}`;
   
-  // Upload file to storage
-  const { data, error } = await supabase.storage
-    .from('session-files')
-    .upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-  
-  if (error) {
-    console.error('Storage upload error:', error);
-    throw new Error(`Failed to upload file: ${error.message}`);
-  }
-  
-  // Get public URL (will require authentication to access due to bucket policies)
-  const { data: urlData } = supabase.storage
-    .from('session-files')
-    .getPublicUrl(path);
-  
-  return {
-    path: data.path,
-    url: urlData.publicUrl,
-  };
+  return uploadToBucket('session-files', path, file);
 }
 
 /**
  * Get a signed URL for a session file (valid for specified duration, default 1 hour)
+ * Convenience wrapper for backward compatibility
  */
 export async function getSessionFileSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
-  const supabase = getSupabaseClient();
-  
-  const { data, error } = await supabase.storage
-    .from('session-files')
-    .createSignedUrl(path, expiresIn);
-  
-  if (error) {
-    console.error('Failed to create signed URL:', error);
-    throw new Error(`Failed to create signed URL: ${error.message}`);
-  }
-  
-  return data.signedUrl;
+  return getSignedUrlFromBucket('session-files', path, expiresIn);
 }
 
 /**
  * Delete a session file from storage
+ * Convenience wrapper for backward compatibility
  */
 export async function deleteSessionFile(path: string): Promise<void> {
-  const supabase = getSupabaseClient();
+  return deleteFromBucket('session-files', path);
+}
+
+/**
+ * Staff Files Storage Functions
+ */
+
+export interface UploadStaffFileOptions {
+  staffId: string;
+  file: File;
+}
+
+/**
+ * Upload a file to the staff-files bucket
+ * Path format: {staffId}/{timestamp}_{filename}
+ * Convenience wrapper for backward compatibility
+ */
+export async function uploadStaffFile({ staffId, file }: UploadStaffFileOptions): Promise<UploadFileResult> {
+  const timestamp = Date.now();
+  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${staffId}/${timestamp}_${sanitizedFilename}`;
   
-  const { error } = await supabase.storage
-    .from('session-files')
-    .remove([path]);
-  
-  if (error) {
-    console.error('Failed to delete file:', error);
-    throw new Error(`Failed to delete file: ${error.message}`);
-  }
+  return uploadToBucket('staff-files', path, file);
+}
+
+/**
+ * Get a signed URL for a staff file (valid for specified duration, default 1 hour)
+ * Convenience wrapper for backward compatibility
+ */
+export async function getStaffFileSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
+  return getSignedUrlFromBucket('staff-files', path, expiresIn);
+}
+
+/**
+ * Delete a staff file from storage
+ * Convenience wrapper for backward compatibility
+ */
+export async function deleteStaffFile(path: string): Promise<void> {
+  return deleteFromBucket('staff-files', path);
 }
 

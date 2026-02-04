@@ -3,7 +3,7 @@
 import { cn } from '@/shared/utils/index';
 
 type AttendanceCellProps = {
-  status: 'attending' | 'absent' | 'rescheduled' | 'credited' | 'swapped' | 'attended' | 'did-not-attend' | 'not-logged';
+  status: 'attending' | 'attending-trial' | 'absent' | 'rescheduled' | 'credited' | 'swapped' | 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged';
   linkTo?: {
     type: 'session' | 'staff';
     id: string;
@@ -19,6 +19,11 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
       case 'attending':
         return {
           text: 'Attending',
+          className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+        };
+      case 'attending-trial':
+        return {
+          text: 'Attending (TRIAL)',
           className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
         };
       case 'absent':
@@ -45,6 +50,11 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
         const typeText = staffType ? ` (${staffType})` : '';
         return {
           text: `Attended${typeText}`,
+          className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+        };
+      case 'attended-trial':
+        return {
+          text: 'Attended (TRIAL)',
           className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
         };
       case 'did-not-attend':

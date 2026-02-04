@@ -25,6 +25,7 @@ export function Toaster({ toasts, onDismiss }: ToasterProps) {
 
   return (
     <div
+      data-toast-container
       className="fixed top-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:flex-col-reverse md:max-w-[420px]"
       aria-live="polite"
       aria-atomic="true"

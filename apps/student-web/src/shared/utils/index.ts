@@ -49,7 +49,7 @@ export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
 /**
  * Navigation hover styles for consistent UI
  */
-export const navHoverStyles = "hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white" 
+export const navHoverStyles = "hover:bg-muted text-brand-darkBlue dark:text-white dark:hover:bg-muted/50 dark:hover:text-white" 
 
 /**
  * Calculate luminance from RGB values using WCAG formula

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { FileCard } from '@/features/topics/components/FileCard';
+import { FileCard } from '@/shared/components/files/FileCard';
 import { StudentCard } from '@/shared/components/StudentCard';
 import type { Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';

@@ -80,10 +80,9 @@ export function canProceedToNextLogStep(
     case 1: // Staff Attendance
       return (formData.staffAttendance || []).length > 0;
     case 2: // Student Attendance
-      // Allow proceeding if there are students OR if session type is ADMIN_SHIFT
-      const hasStudents = (formData.studentAttendance || []).length > 0;
-      const isAdminShift = selectedSession?.type === 'ADMIN_SHIFT';
-      return hasStudents || isAdminShift;
+      // Admin-web: always allow proceeding even if there are no students
+      // (tutor-web has its own validation logic that requires students)
+      return true;
     case 3: // Topics
       return true; // Allow proceeding with no topics selected
     case 4: // Topic Students

@@ -162,10 +162,13 @@ export function useSessionModalData({
 
   // Build student attendance map from tutor log
   const actualStudentAttendance = useMemo(() => {
-    const attendance: Record<string, { attended: boolean }> = {};
+    const attendance: Record<string, { attended: boolean; was_trial?: boolean }> = {};
     if (tutorLog?.student_attendance) {
       tutorLog.student_attendance.forEach((att: any) => {
-        attendance[att.student_id] = { attended: att.attended };
+        attendance[att.student_id] = { 
+          attended: att.attended,
+          was_trial: att.was_trial ?? false
+        };
       });
     }
     return attendance;
@@ -187,12 +190,18 @@ export function useSessionModalData({
   // Process students with attendance status
   const studentsData = useMemo(() => {
     return sessionsStudents.map((ss: any) => {
-      const plannedStatus: 'attending' | 'absent' = ss.planned_absence ? 'absent' : 'attending';
+      const wasTrialPlanned = ss.was_trial ?? false;
+      const plannedStatus: 'attending' | 'attending-trial' | 'absent' = ss.planned_absence 
+        ? 'absent' 
+        : wasTrialPlanned 
+        ? 'attending-trial' 
+        : 'attending';
       const actualAttendance = actualStudentAttendance[ss.student_id || ss.student?.id];
+      const wasTrialActual = actualAttendance?.was_trial ?? false;
       const actualStatus = !hasTutorLog
         ? 'not-logged' as const
         : actualAttendance?.attended
-        ? 'attended' as const
+        ? (wasTrialActual ? 'attended-trial' as const : 'attended' as const)
         : 'did-not-attend' as const;
       
       return {

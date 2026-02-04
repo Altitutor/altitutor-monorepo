@@ -78,13 +78,6 @@ export type Database = {
             foreignKeyName: "activity_events_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "activity_events_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -129,13 +122,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_events_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "activity_events_session_id_fkey"
@@ -192,27 +178,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_events_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "activity_events_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "activity_events_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "activity_events_student_id_fkey"
@@ -522,13 +487,6 @@ export type Database = {
             foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "billing_pricing_overrides_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_subjects"
             referencedColumns: ["id"]
           },
@@ -770,13 +728,6 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_subjects"
             referencedColumns: ["id"]
           },
@@ -833,13 +784,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "classes"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "class_assignments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
           },
           {
             foreignKeyName: "class_assignments_class_id_fkey"
@@ -969,13 +913,6 @@ export type Database = {
             foreignKeyName: "class_enrollments_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -999,27 +936,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "class_enrollments_student_id_fkey"
@@ -1152,27 +1068,6 @@ export type Database = {
             foreignKeyName: "contacts_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -1222,32 +1117,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "conversation_reads_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unreplied_messages"
-            referencedColumns: ["conversation_id"]
-          },
-          {
             foreignKeyName: "conversation_reads_last_read_message_id_fkey"
             columns: ["last_read_message_id"]
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversation_reads_last_read_message_id_fkey"
-            columns: ["last_read_message_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_failed_delivery_messages"
-            referencedColumns: ["message_id"]
-          },
-          {
-            foreignKeyName: "conversation_reads_last_read_message_id_fkey"
-            columns: ["last_read_message_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unreplied_messages"
-            referencedColumns: ["last_message_id_detail"]
           },
           {
             foreignKeyName: "conversation_reads_staff_id_fkey"
@@ -1581,13 +1455,6 @@ export type Database = {
             foreignKeyName: "draft_classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "draft_classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_subjects"
             referencedColumns: ["id"]
           },
@@ -1685,27 +1552,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "draft_classes_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "draft_classes_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "draft_classes_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "draft_classes_students_student_id_fkey"
@@ -1817,13 +1663,6 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "group_chat_participants_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unreplied_messages"
-            referencedColumns: ["conversation_id"]
-          },
         ]
       }
       invoice_items: {
@@ -1884,13 +1723,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_items_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "invoice_items_session_id_fkey"
@@ -1975,27 +1807,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_items_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoice_items_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoice_items_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "invoice_items_student_id_fkey"
@@ -2125,27 +1936,6 @@ export type Database = {
             foreignKeyName: "invoices_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoices_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoices_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoices_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -2193,20 +1983,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "message_attachments_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_failed_delivery_messages"
-            referencedColumns: ["message_id"]
-          },
-          {
-            foreignKeyName: "message_attachments_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unreplied_messages"
-            referencedColumns: ["last_message_id_detail"]
           },
         ]
       }
@@ -2346,13 +2122,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unreplied_messages"
-            referencedColumns: ["conversation_id"]
-          },
-          {
             foreignKeyName: "messages_created_by_staff_id_fkey"
             columns: ["created_by_staff_id"]
             isOneToOne: false
@@ -2478,27 +2247,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notifications_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "notifications_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "notifications_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "notifications_student_id_fkey"
@@ -2737,27 +2485,6 @@ export type Database = {
             foreignKeyName: "parents_students_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "parents_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "parents_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "parents_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -2829,13 +2556,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -2864,13 +2584,6 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_subjects"
             referencedColumns: ["id"]
           },
@@ -2887,6 +2600,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          display_name: string | null
           display_order: number
           file_id: string
           id: string
@@ -2896,6 +2610,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           display_order?: number
           file_id: string
           id?: string
@@ -2905,6 +2620,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           display_order?: number
           file_id?: string
           id?: string
@@ -2939,13 +2655,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_files_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "sessions_files_session_id_fkey"
@@ -3070,13 +2779,6 @@ export type Database = {
             foreignKeyName: "sessions_staff_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_staff_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_id"]
           },
@@ -3148,6 +2850,7 @@ export type Database = {
           session_id: string
           student_id: string
           updated_at: string
+          was_trial: boolean
         }
         Insert: {
           created_at?: string
@@ -3165,6 +2868,7 @@ export type Database = {
           session_id: string
           student_id: string
           updated_at?: string
+          was_trial?: boolean
         }
         Update: {
           created_at?: string
@@ -3182,6 +2886,7 @@ export type Database = {
           session_id?: string
           student_id?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Relationships: [
           {
@@ -3279,13 +2984,6 @@ export type Database = {
             foreignKeyName: "sessions_students_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_id"]
           },
@@ -3323,27 +3021,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "sessions_students_student_id_fkey"
@@ -3416,13 +3093,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "slot_reservations_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "slot_reservations_subject_id_fkey"
@@ -3527,6 +3197,75 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_files: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          display_order: number
+          file_id: string
+          id: string
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          display_order?: number
+          file_id: string
+          id?: string
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          display_order?: number
+          file_id?: string
+          id?: string
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_files_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_files_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_notepad: {
         Row: {
           content: string | null
@@ -3603,13 +3342,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_subjects_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "staff_subjects_subject_id_fkey"
@@ -3712,27 +3444,6 @@ export type Database = {
             foreignKeyName: "student_payment_methods_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "student_payment_methods_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "student_payment_methods_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "student_payment_methods_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -3811,27 +3522,6 @@ export type Database = {
             foreignKeyName: "student_subsidies_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "student_subsidies_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "student_subsidies_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "student_subsidies_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -3848,13 +3538,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_subsidies_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "student_subsidies_subject_id_fkey"
@@ -3996,27 +3679,6 @@ export type Database = {
             foreignKeyName: "students_billing_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_billing_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_billing_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_billing_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: true
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -4080,27 +3742,6 @@ export type Database = {
             foreignKeyName: "students_subjects_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_subjects_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_subjects_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_subjects_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -4117,13 +3758,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "students_subjects_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "students_subjects_subject_id_fkey"
@@ -4355,13 +3989,6 @@ export type Database = {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_subjects"
             referencedColumns: ["id"]
           },
@@ -4531,13 +4158,6 @@ export type Database = {
             foreignKeyName: "tutor_logs_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: true
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_id"]
           },
@@ -4646,6 +4266,7 @@ export type Database = {
           student_id: string
           tutor_log_id: string
           updated_at: string
+          was_trial: boolean
         }
         Insert: {
           attended?: boolean
@@ -4655,6 +4276,7 @@ export type Database = {
           student_id: string
           tutor_log_id: string
           updated_at?: string
+          was_trial?: boolean
         }
         Update: {
           attended?: boolean
@@ -4664,6 +4286,7 @@ export type Database = {
           student_id?: string
           tutor_log_id?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Relationships: [
           {
@@ -4686,27 +4309,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_student_attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_student_attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_student_attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "tutor_logs_student_attendance_student_id_fkey"
@@ -4971,27 +4573,6 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_files_students_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_files_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_files_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_files_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -5055,27 +4636,6 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_students_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_topics_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -5097,243 +4657,10 @@ export type Database = {
       }
     }
     Views: {
-      vadmin_reconciliation_failed_delivery_messages: {
-        Row: {
-          assigned_staff_id: string | null
-          body: string | null
-          contact_name: string | null
-          contact_phone: string | null
-          contact_type: string | null
-          conversation_id: string | null
-          conversation_last_message_at: string | null
-          conversation_status: string | null
-          created_at: string | null
-          direction: string | null
-          error_code: number | null
-          error_message: string | null
-          from_number_e164: string | null
-          hours_since_failure: number | null
-          message_id: string | null
-          message_sid: string | null
-          parent_id: string | null
-          staff_id: string | null
-          status: string | null
-          status_updated_at: string | null
-          student_id: string | null
-          to_number_e164: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contacts_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "parents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_assigned_staff_id_fkey"
-            columns: ["assigned_staff_id"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_assigned_staff_id_fkey"
-            columns: ["assigned_staff_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unreplied_messages"
-            referencedColumns: ["conversation_id"]
-          },
-        ]
-      }
-      vadmin_reconciliation_students_without_classes: {
-        Row: {
-          created_at: string | null
-          first_name: string | null
-          last_name: string | null
-          student_id: string | null
-          student_status: string | null
-          subject_curriculum:
-            | Database["public"]["Enums"]["subject_curriculum"]
-            | null
-          subject_id: string | null
-          subject_name: string | null
-          subject_year_level: number | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      vadmin_reconciliation_students_without_payment_method: {
-        Row: {
-          billing_created_at: string | null
-          created_at: string | null
-          email: string | null
-          first_name: string | null
-          last_name: string | null
-          phone: string | null
-          stripe_customer_id: string | null
-          student_id: string | null
-          student_status: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      vadmin_reconciliation_trial_students_not_signed_up: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          first_name: string | null
-          last_name: string | null
-          phone: string | null
-          student_id: string | null
-          student_status: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
-          last_name?: string | null
-          phone?: string | null
-          student_id?: string | null
-          student_status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
-          last_name?: string | null
-          phone?: string | null
-          student_id?: string | null
-          student_status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      vadmin_reconciliation_unassigned_classes: {
-        Row: {
-          class_id: string | null
-          class_status: string | null
-          created_at: string | null
-          day_of_week: number | null
-          end_time: string | null
-          level: string | null
-          room: string | null
-          start_time: string | null
-          student_count: number | null
-          subject_id: string | null
-          subject_name: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       vadmin_reconciliation_uninvoiced_sessions: {
         Row: {
           actual_attended: boolean | null
+          actual_was_trial: boolean | null
           billing_type: Database["public"]["Enums"]["billing_type"] | null
           created_at: string | null
           has_tutor_log: boolean | null
@@ -5356,6 +4683,7 @@ export type Database = {
           subject_long_name: string | null
           subject_name: string | null
           updated_at: string | null
+          was_trial: boolean | null
         }
         Relationships: [
           {
@@ -5364,13 +4692,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "sessions_students_session_id_fkey"
@@ -5418,27 +4739,6 @@ export type Database = {
             foreignKeyName: "sessions_students_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -5460,13 +4760,6 @@ export type Database = {
             foreignKeyName: "sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_subjects"
             referencedColumns: ["id"]
           },
@@ -5475,198 +4768,6 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vadmin_reconciliation_unlogged_sessions: {
-        Row: {
-          assigned_tutors: Json | null
-          class_end_time: string | null
-          class_id: string | null
-          class_start_time: string | null
-          created_at: string | null
-          day_of_week: number | null
-          end_at: string | null
-          session_id: string | null
-          session_type: Database["public"]["Enums"]["session_type"] | null
-          start_at: string | null
-          student_count: number | null
-          subject_id: string | null
-          subject_name: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_class_detail"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_class_detail"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subjects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subjects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vadmin_reconciliation_unreplied_messages: {
-        Row: {
-          assigned_staff_id: string | null
-          contact_id: string | null
-          contact_name: string | null
-          contact_phone: string | null
-          contact_type: string | null
-          conversation_id: string | null
-          conversation_status: string | null
-          created_at: string | null
-          hours_since_last_message: number | null
-          last_message_at: string | null
-          last_message_created_at: string | null
-          last_message_direction: string | null
-          last_message_id: string | null
-          last_message_id_detail: string | null
-          last_message_preview: string | null
-          parent_id: string | null
-          staff_id: string | null
-          student_id: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contacts_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "parents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contacts_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_assigned_staff_id_fkey"
-            columns: ["assigned_staff_id"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_assigned_staff_id_fkey"
-            columns: ["assigned_staff_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -5703,27 +4804,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "students_billing_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_billing_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "students_billing_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "students_billing_student_id_fkey"
@@ -5770,13 +4850,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "classes_subject_id_fkey"
@@ -5836,13 +4909,6 @@ export type Database = {
             foreignKeyName: "class_enrollments_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -5866,27 +4932,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "class_enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "class_enrollments_student_id_fkey"
@@ -5936,13 +4981,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "classes_subject_id_fkey"
@@ -6000,13 +5038,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_items_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "invoice_items_session_id_fkey"
@@ -6096,27 +5127,6 @@ export type Database = {
             foreignKeyName: "invoice_items_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoice_items_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoice_items_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoice_items_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -6157,27 +5167,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoices_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "invoices_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "invoices_student_id_fkey"
@@ -6243,27 +5232,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notifications_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "notifications_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "notifications_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "notifications_student_id_fkey"
@@ -6403,13 +5371,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -6433,13 +5394,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "sessions_subject_id_fkey"
@@ -6507,13 +5461,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -6537,13 +5484,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "sessions_subject_id_fkey"
@@ -6608,13 +5548,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -6638,13 +5571,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "sessions_subject_id_fkey"
@@ -6767,13 +5693,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "topics_subject_id_fkey"
@@ -6904,13 +5823,6 @@ export type Database = {
             foreignKeyName: "tutor_logs_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: true
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_id"]
           },
@@ -7030,13 +5942,6 @@ export type Database = {
             foreignKeyName: "classes_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_subjects"
             referencedColumns: ["id"]
           },
@@ -7079,13 +5984,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "classes_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "classes_subject_id_fkey"
@@ -7315,13 +6213,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -7345,13 +6236,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "sessions_subject_id_fkey"
@@ -7408,13 +6292,6 @@ export type Database = {
             foreignKeyName: "sessions_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_class_detail"
             referencedColumns: ["class_id"]
           },
@@ -7438,13 +6315,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "sessions_subject_id_fkey"
@@ -7491,13 +6361,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "classes"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unassigned_classes"
-            referencedColumns: ["class_id"]
           },
           {
             foreignKeyName: "sessions_class_id_fkey"
@@ -7587,13 +6450,6 @@ export type Database = {
             foreignKeyName: "sessions_students_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_session_base"
             referencedColumns: ["session_id"]
           },
@@ -7636,27 +6492,6 @@ export type Database = {
             foreignKeyName: "sessions_students_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_trial_students_not_signed_up"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "sessions_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
             referencedRelation: "vstudent_profile"
             referencedColumns: ["id"]
           },
@@ -7673,13 +6508,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "sessions_subject_id_fkey"
@@ -7812,13 +6640,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subjects"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "vadmin_reconciliation_students_without_classes"
-            referencedColumns: ["subject_id"]
           },
           {
             foreignKeyName: "topics_subject_id_fkey"
@@ -7982,13 +6803,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "sessions"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tutor_logs_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: true
-            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
-            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "tutor_logs_session_id_fkey"
@@ -8305,6 +7119,10 @@ export type Database = {
       }
       get_service_role_key: { Args: never; Returns: string }
       get_session_id_from_storage_path: {
+        Args: { file_path: string }
+        Returns: string
+      }
+      get_staff_id_from_storage_path: {
         Args: { file_path: string }
         Returns: string
       }

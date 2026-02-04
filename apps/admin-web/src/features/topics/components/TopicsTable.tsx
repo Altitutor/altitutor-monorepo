@@ -38,7 +38,7 @@ import { getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
-import { getFileTypeLabel } from '../utils/file-type-icons';
+import { getFileTypeLabel } from '@/shared/utils/file-type-icons';
 import { FilePreviewModal } from './FilePreviewModal';
 import { useSubjectSearch } from '@/features/subjects/hooks';
 

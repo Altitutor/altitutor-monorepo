@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, File, Image as ImageIcon, AlertCircle, Loader2 } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { X, File, AlertCircle, Loader2 } from 'lucide-react';
 import type { AttachmentFile } from '../hooks/useMessageAttachments';
 import { isHeicFile, convertHeicToPreview } from '../utils/heicConverter';
 

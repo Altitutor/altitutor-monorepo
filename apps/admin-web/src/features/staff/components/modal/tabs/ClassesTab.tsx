@@ -68,7 +68,7 @@ export function ClassesTab({
   const classes = useMemo(() => sortClasses(classesData), [classesData]);
   const staffSubjects = useMemo(() => (staffWithSubjects?.subjects || []) as Tables<'subjects'>[], [staffWithSubjects?.subjects]);
   
-  const [assigningClasses, setAssigningClasses] = useState<Set<string>>(new Set());
+  const [assigningClasses] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   
   // Subjects editing state

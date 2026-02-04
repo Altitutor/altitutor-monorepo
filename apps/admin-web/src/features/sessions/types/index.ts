@@ -26,6 +26,7 @@ export type StudentWithAttendance = Tables<'students'> & {
   actual_attended?: boolean | null;
   invoice_status?: string | null;
   sessions_students_id?: string;
+  was_trial?: boolean;
 };
 
 export type StaffWithAttendance = Tables<'staff'> & {

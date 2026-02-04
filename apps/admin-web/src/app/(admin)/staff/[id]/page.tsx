@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -25,11 +25,12 @@ import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
 import { StaffDetailsTab, StaffDetailsFormData } from '@/features/staff/components/modal/tabs/StaffDetailsTab';
 import { ClassesTab } from '@/features/staff/components/modal/tabs/ClassesTab';
-import { StudentsTab } from '@/features/staff/components/modal/tabs/StudentsTab';
 import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { StaffFiles } from '@/features/staff/components/StaffFiles';
 import {
   useStaffEditFlow,
   useStaffPasswordReset,
@@ -77,6 +78,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: StaffDetailsFormData) => {
@@ -144,6 +146,20 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const handleStaffUpdated = () => {
     queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(id) });
   };
+
+  // Listen for session modal events
+  useEffect(() => {
+    const onOpenSession = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id: string };
+      if (detail?.id) setActiveSessionId(detail.id);
+    };
+    
+    window.addEventListener('open-session-modal', onOpenSession as EventListener);
+    
+    return () => {
+      window.removeEventListener('open-session-modal', onOpenSession as EventListener);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -219,8 +235,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="classes">Classes</TabsTrigger>
-          <TabsTrigger value="students">Students</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          <TabsTrigger value="files">Files</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
@@ -282,17 +298,14 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           />
         </TabsContent>
 
-        <TabsContent value="students" className="space-y-6">
-          <StudentsTab
-            staffId={id}
-            isOpen={true}
-          />
-        </TabsContent>
-
         <TabsContent value="sessions" className="space-y-6">
           {staffMember && (
             <StaffSessionsTab staff={staffMember} />
           )}
+        </TabsContent>
+
+        <TabsContent value="files" className="space-y-6">
+          <StaffFiles staffId={id} />
         </TabsContent>
 
         <TabsContent value="messages" className="space-y-6">
@@ -373,6 +386,13 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Session Modal */}
+      <SessionModal
+        isOpen={!!activeSessionId}
+        sessionId={activeSessionId}
+        onClose={() => setActiveSessionId(null)}
+      />
     </div>
   );
 }

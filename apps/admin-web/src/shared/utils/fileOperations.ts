@@ -30,11 +30,13 @@ export function isImageFile(file: Tables<'files'> | null): boolean {
  */
 export async function downloadFile(
   file: Tables<'files'>,
-  onProgress?: (isDownloading: boolean) => void
+  onProgress?: (isDownloading: boolean) => void,
+  getSignedUrlFn?: (path: string) => Promise<string>
 ): Promise<void> {
   try {
     onProgress?.(true);
-    const signedUrl = await getSignedUrl(file.storage_path);
+    const getUrlFn = getSignedUrlFn || getSignedUrl;
+    const signedUrl = await getUrlFn(file.storage_path);
     const link = document.createElement('a');
     link.href = signedUrl;
     link.download = file.filename;

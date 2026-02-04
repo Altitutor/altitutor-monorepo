@@ -1,0 +1,262 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { Button } from '@altitutor/ui';
+import { Upload, Loader2, X } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { useToast } from '@altitutor/ui';
+import { FileCard } from '@/shared/components/files/FileCard';
+import { staffFilesApi, type StaffFileWithUrl } from '../api/staff-files';
+import { getStaffFileSignedUrl } from '@/shared/lib/supabase/storage';
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB (matching bucket limit)
+
+interface StaffFilesProps {
+  staffId: string;
+}
+
+export function StaffFiles({ staffId }: StaffFilesProps) {
+  const { toast } = useToast();
+  const [files, setFiles] = useState<StaffFileWithUrl[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  const loadFiles = useCallback(async () => {
+    if (!staffId) return;
+    
+    try {
+      setIsLoading(true);
+      const staffFiles = await staffFilesApi.getStaffFiles(staffId);
+      setFiles(staffFiles);
+    } catch (error) {
+      console.error('Failed to load staff files:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load staff files',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [staffId, toast]);
+
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      const file = acceptedFiles[0];
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          title: 'Error',
+          description: 'File size exceeds 50MB limit',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setUploadedFile(file);
+    }
+  }, [toast]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    maxFiles: 1,
+    maxSize: MAX_FILE_SIZE,
+  });
+
+  const handleUpload = async () => {
+    if (!uploadedFile || !staffId) return;
+
+    try {
+      setIsUploading(true);
+      await staffFilesApi.uploadStaffFile({
+        staffId,
+        file: uploadedFile,
+        displayOrder: files.length,
+      });
+      
+      toast({
+        title: 'Success',
+        description: 'File uploaded successfully',
+      });
+      
+      setUploadedFile(null);
+      await loadFiles();
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to upload file',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDelete = async (staffFileId: string) => {
+    try {
+      await staffFilesApi.deleteStaffFile(staffFileId);
+      toast({
+        title: 'Success',
+        description: 'File deleted successfully',
+      });
+      await loadFiles();
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete file',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDownload = async (file: StaffFileWithUrl) => {
+    try {
+      const signedUrl = await getStaffFileSignedUrl(file.file.storage_path);
+      const link = document.createElement('a');
+      link.href = signedUrl;
+      
+      // Use display_name if available, otherwise use filename
+      // If display_name doesn't have extension, preserve it from filename
+      let downloadName = file.display_name || file.file.filename;
+      if (file.display_name && !file.display_name.includes('.')) {
+        const extension = file.file.filename.substring(file.file.filename.lastIndexOf('.'));
+        downloadName = file.display_name + extension;
+      }
+      
+      link.download = downloadName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to download file:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download file',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRename = async (staffFileId: string, newName: string) => {
+    try {
+      await staffFilesApi.renameStaffFile(staffFileId, newName);
+      toast({
+        title: 'Success',
+        description: 'File renamed successfully',
+      });
+      await loadFiles();
+    } catch (error) {
+      console.error('Failed to rename file:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to rename file',
+        variant: 'destructive',
+      });
+      throw error; // Re-throw so FileCard can handle it
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Files ({files.length})</h3>
+      </div>
+
+      {/* Files List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : files.length === 0 ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          No files uploaded yet
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {files.map((staffFile) => (
+            <FileCard
+              key={staffFile.id}
+              filename={staffFile.file.filename}
+              displayName={staffFile.display_name}
+              storagePath={staffFile.file.storage_path}
+              mimeType={staffFile.file.mimetype || undefined}
+              fileId={staffFile.file.id} // File record ID for preview
+              junctionTableId={staffFile.id} // Staff file ID for delete/rename (useFilePreview will fall back to fileId)
+              getSignedUrlFn={getStaffFileSignedUrl} // Use staff-files bucket
+              onDownload={() => handleDownload(staffFile)}
+              onDelete={(id) => handleDelete(id)}
+              onRename={(id, newName) => handleRename(id, newName)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Upload Area */}
+      <div className="space-y-2">
+        {!uploadedFile ? (
+          <div
+            {...getRootProps()}
+            className={`
+              border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+              transition-colors
+              ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}
+            `}
+          >
+            <input {...getInputProps()} />
+            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+            {isDragActive ? (
+              <p className="text-sm">Drop the file here...</p>
+            ) : (
+              <>
+                <p className="text-sm mb-1">Drag and drop a file here, or click to select</p>
+                <p className="text-xs text-muted-foreground">Maximum file size: 50MB</p>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="border rounded-lg p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm font-medium">{uploadedFile.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleUpload}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  'Upload'
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setUploadedFile(null)}
+                disabled={isUploading}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
