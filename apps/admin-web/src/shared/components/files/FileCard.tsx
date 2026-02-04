@@ -342,6 +342,7 @@ export function FileCard({
         junctionTableId={effectiveJunctionTableId || undefined}
         topicName={topicName}
         fileCode={fileCode}
+        displayName={displayName}
         getSignedUrlFn={getSignedUrlFn}
         getMetadataFn={getMetadataFn}
         onEdit={onEdit && effectiveJunctionTableId ? (id) => {

@@ -186,7 +186,7 @@ export function SessionFiles({ sessionId }: SessionFilesProps) {
               storagePath={sessionFile.file.storage_path}
               mimeType={sessionFile.file.mimetype || undefined}
               fileId={sessionFile.file.id} // File record ID for preview
-              topicFileId={sessionFile.id} // Using sessionFile.id as identifier for delete/rename
+              junctionTableId={sessionFile.id} // Using sessionFile.id as identifier for delete/rename
               getSignedUrlFn={getSessionFileSignedUrl} // Use session-files bucket
               onDownload={() => handleDownload(sessionFile)}
               onDelete={(id) => handleDelete(id)}

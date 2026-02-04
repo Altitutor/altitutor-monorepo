@@ -186,7 +186,7 @@ export function StaffFiles({ staffId }: StaffFilesProps) {
               storagePath={staffFile.file.storage_path}
               mimeType={staffFile.file.mimetype || undefined}
               fileId={staffFile.file.id} // File record ID for preview
-              topicFileId={staffFile.id} // Staff file ID for delete/rename (useFilePreview will fall back to fileId)
+              junctionTableId={staffFile.id} // Staff file ID for delete/rename (useFilePreview will fall back to fileId)
               getSignedUrlFn={getStaffFileSignedUrl} // Use staff-files bucket
               onDownload={() => handleDownload(staffFile)}
               onDelete={(id) => handleDelete(id)}

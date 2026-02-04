@@ -31,6 +31,11 @@ export interface FilePreviewModalProps {
   junctionTableId?: string | null;
   topicName?: string | null;
   fileCode?: string | null;
+  /**
+   * Display name for the file (e.g., display_name from staff_files or sessions_files)
+   * Falls back to filename if not provided
+   */
+  displayName?: string | null;
   onClose: () => void;
   onEdit?: (junctionTableId: string) => void;
   getSignedUrlFn?: (path: string) => Promise<string>;
@@ -51,6 +56,7 @@ export function FilePreviewModal({
   junctionTableId,
   topicName: providedTopicName,
   fileCode: providedFileCode,
+  displayName: providedDisplayName,
   onClose,
   onEdit,
   getSignedUrlFn,
@@ -113,6 +119,10 @@ export function FilePreviewModal({
   const fileCode = providedFileCode || topicFile?.code || '';
   const topicName = providedTopicName || topicFile?.topic?.name || '';
   const filename = file?.filename || '';
+  // Use displayName if provided, otherwise fall back to filename
+  // Also check metadata for display_name (e.g., from staff_files or sessions_files)
+  const displayName = providedDisplayName || metadata?.display_name || null;
+  const displayTitle = displayName || filename;
   const fileType = topicFile?.type || 'NOTES';
   const Icon = getFileTypeIcon(fileType as Enums<'resource_type'>);
   const isPdf = isPdfFile(file);
@@ -135,7 +145,7 @@ export function FilePreviewModal({
               </Button>
               <div className="flex-1">
                 <DialogTitle>
-                  {fileCode && topicName ? `${fileCode} ${topicName}` : filename}
+                  {fileCode && topicName ? `${fileCode} ${topicName}` : displayTitle}
                 </DialogTitle>
                 <DialogDescription className="text-base">
                   {filename}
