@@ -88,7 +88,8 @@ const actionFormSchema = z.object({
   if (data.action_type === 'CREATE_NOTIFICATION') {
     const recipientType = data.notification_recipient_type || 'single';
     if (recipientType === 'single') {
-      return !!data.notification_title && !!data.target_staff_id;
+      // target_staff_id is optional - if not provided, will use activityEvent.staff_id (assigned_to for tasks)
+      return !!data.notification_title;
     } else {
       return !!data.notification_title; // Bulk recipients don't need target_staff_id
     }
@@ -254,7 +255,8 @@ export function CreateEditActionDialog({
         notification_title: config.title,
         notification_body: config.body,
         action_url: config.action_url,
-        target_staff_id: config.staff_id || config.target_staff_id, // Support both field names
+        // If staff_id is not set, use empty string to trigger auto-detect (will display as "__AUTO__")
+        target_staff_id: config.staff_id || config.target_staff_id || '', // Support both field names
         notification_recipient_type: notificationRecipientType,
       });
     } else if (isOpen && !isEditing) {
@@ -344,7 +346,11 @@ export function CreateEditActionDialog({
         
         if (recipientType === 'single') {
           // Backward compatible: use staff_id
-          actionConfig.staff_id = data.target_staff_id;
+          // If target_staff_id is provided, use it; otherwise, leave undefined to use activityEvent.staff_id fallback
+          if (data.target_staff_id) {
+            actionConfig.staff_id = data.target_staff_id;
+          }
+          // If target_staff_id is empty, don't set staff_id - backend will use activityEvent.staff_id (assigned_to for tasks)
         } else {
           // New: use recipients object for bulk operations
           actionConfig.recipients = { type: recipientType };
@@ -888,10 +894,10 @@ export function CreateEditActionDialog({
                     name="target_staff_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Target Staff *</FormLabel>
+                        <FormLabel>Target Staff</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          value={field.value || undefined}
+                          onValueChange={(value) => field.onChange(value === '__AUTO__' ? '' : value)}
+                          value={field.value || '__AUTO__'}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -899,6 +905,11 @@ export function CreateEditActionDialog({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value="__AUTO__">
+                              {entityType === 'tasks' 
+                                ? 'Use Assigned Staff Member (from task)'
+                                : 'Use Activity Event Staff (auto-detect)'}
+                            </SelectItem>
                             {staffList.map((staff) => (
                               <SelectItem key={staff.id} value={staff.id}>
                                 {staff.first_name} {staff.last_name}
@@ -906,6 +917,11 @@ export function CreateEditActionDialog({
                             ))}
                           </SelectContent>
                         </Select>
+                        <FormDescription>
+                          {entityType === 'tasks' 
+                            ? 'Select a specific staff member, or choose "Use Assigned Staff Member" to automatically notify whoever the task is assigned to.'
+                            : 'Select a specific staff member, or choose "Use Activity Event Staff" to automatically use the staff member from the activity event context.'}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
