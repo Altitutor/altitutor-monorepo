@@ -233,7 +233,7 @@ export function SessionDetailsTab({
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             className="h-8 w-8"
                             onClick={(e) => e.stopPropagation()}
@@ -354,7 +354,7 @@ export function SessionDetailsTab({
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             className="h-8 w-8"
                             onClick={(e) => e.stopPropagation()}
