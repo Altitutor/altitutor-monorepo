@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-import { PencilIcon, TrashIcon, Loader2, AlertTriangle, X } from 'lucide-react';
+import { TrashIcon, Loader2, AlertTriangle, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

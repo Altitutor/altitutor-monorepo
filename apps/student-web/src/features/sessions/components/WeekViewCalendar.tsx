@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDate } from '@/shared/utils/datetime';
-import type { StudentSession, RescheduleSession } from '../types/absence';
 import { StudentSessionsCard } from './StudentSessionsCard';
 
 // Base session type that both StudentSession and RescheduleSession share

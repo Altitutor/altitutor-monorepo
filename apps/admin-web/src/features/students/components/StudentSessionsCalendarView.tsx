@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
+import { addDays, startOfWeek, endOfWeek, format, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';

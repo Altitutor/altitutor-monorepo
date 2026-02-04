@@ -1,6 +1,6 @@
 "use client";
 
-import { format, differenceInMinutes, isSameDay } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils';

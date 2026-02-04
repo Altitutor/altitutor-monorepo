@@ -5,7 +5,7 @@ import type {
   RescheduleSession,
   StudentSession,
 } from '../types/absence';
-import type { Tables, Database } from '@altitutor/shared';
+import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 

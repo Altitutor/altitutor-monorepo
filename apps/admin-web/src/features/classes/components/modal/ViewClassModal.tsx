@@ -83,7 +83,7 @@ export function ViewClassModal({
     
     try {
       const updateData: TablesUpdate<'classes'> = {
-        level: data.level,
+        level: data.level || null,
         day_of_week: data.dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,

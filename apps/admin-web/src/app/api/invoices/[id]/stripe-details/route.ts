@@ -54,7 +54,10 @@ export async function GET(
     // Fetch invoice details from Stripe
     const stripeInvoice = await stripe.invoices.retrieve(invoice.stripe_invoice_id);
 
-    const lastPaymentError = (stripeInvoice as any).last_payment_error;
+    // last_payment_error is not in the standard Stripe Invoice type but may be present
+    const lastPaymentError = 'last_payment_error' in stripeInvoice 
+      ? (stripeInvoice as Stripe.Invoice & { last_payment_error?: { code?: string; message?: string; type?: string } }).last_payment_error
+      : undefined;
 
     return NextResponse.json({
       next_payment_attempt: stripeInvoice.next_payment_attempt,

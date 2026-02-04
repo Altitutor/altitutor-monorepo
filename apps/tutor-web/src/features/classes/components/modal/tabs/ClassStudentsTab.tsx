@@ -4,26 +4,22 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
-import { Loader2, Users, Plus, X, Search, Check } from "lucide-react";
+import { Loader2, Users, Plus, X, Search } from "lucide-react";
 import { cn } from "@/shared/utils";
 // import { ViewStudentModal } from '@/features/students'; // TODO: Tutor-web doesn't have students feature
 
 interface ClassStudentsTabProps {
-  classData: Tables<'classes'>;
   classStudents: Tables<'students'>[];
   allStudents: Tables<'students'>[];
   loadingStudents: boolean;
-  onViewStudent?: (studentId: string) => void;
   onEnrollStudent: (studentId: string) => void;
   onRemoveStudent: (studentId: string) => void;
 }
 
 export function ClassStudentsTab({
-  classData,
   classStudents,
   allStudents,
   loadingStudents,
-  onViewStudent,
   onEnrollStudent,
   onRemoveStudent
 }: ClassStudentsTabProps) {
@@ -31,14 +27,9 @@ export function ClassStudentsTab({
   const [removingStudents, setRemovingStudents] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Modal state for student viewing
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
-  const handleViewStudent = (studentId: string) => {
-    setSelectedStudentId(studentId);
-    setIsStudentModalOpen(true);
+  const handleViewStudent = (_studentId: string) => {
+    // View student functionality removed for tutors
   };
 
   const handleEnrollStudent = async (studentId: string) => {

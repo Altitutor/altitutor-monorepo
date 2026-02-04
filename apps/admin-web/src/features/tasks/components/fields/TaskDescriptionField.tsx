@@ -60,7 +60,7 @@ export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }
     <FormField
       control={form.control}
       name="description"
-      render={({ field }) => (
+      render={() => (
         <FormItem>
           <FormControl>
             <div className="relative">

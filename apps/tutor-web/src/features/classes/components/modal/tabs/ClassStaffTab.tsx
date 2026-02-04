@@ -10,21 +10,17 @@ import { cn } from "@/shared/utils";
 // import { ViewStaffModal } from '@/features/staff'; // Tutors can't view other staff - removed
 
 interface ClassStaffTabProps {
-  classData: Tables<'classes'>;
   classStaff: Tables<'staff'>[];
   allStaff: Tables<'staff'>[];
   loadingStaff: boolean;
-  onViewStaff?: (staffId: string) => void;
   onAssignStaff: (staffId: string) => void;
   onRemoveStaff: (staffId: string) => void;
 }
 
 export function ClassStaffTab({
-  classData,
   classStaff,
   allStaff,
   loadingStaff,
-  onViewStaff,
   onAssignStaff,
   onRemoveStaff
 }: ClassStaffTabProps) {
@@ -32,14 +28,9 @@ export function ClassStaffTab({
   const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Modal state for staff viewing
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
-  const handleViewStaff = (staffId: string) => {
-    setSelectedStaffId(staffId);
-    setIsStaffModalOpen(true);
+  const handleViewStaff = (_staffId: string) => {
+    // View staff functionality removed for tutors
   };
 
   const handleAssignStaff = async (staffId: string) => {

@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     };
 
     // Call the RPC function
-    const { data: result, error } = await supabase.rpc('create_tutor_log' as any, rpcParams);
+    const { data: result, error } = await supabase.rpc('create_tutor_log', rpcParams);
 
     if (error) {
       return NextResponse.json(
@@ -97,9 +97,11 @@ export async function POST(request: Request) {
     }
 
     // Check if the RPC function returned an error in the result
-    if (result && typeof result === 'object' && 'success' in result && !result.success) {
+    type RpcResult = { success: boolean; error?: string } | unknown;
+    if (result && typeof result === 'object' && 'success' in result && !(result as RpcResult & { success: boolean }).success) {
+      const errorResult = result as RpcResult & { success: boolean; error?: string };
       return NextResponse.json(
-        { error: (result as any).error || 'Failed to create tutor log' },
+        { error: errorResult.error || 'Failed to create tutor log' },
         { status: 400 }
       );
     }

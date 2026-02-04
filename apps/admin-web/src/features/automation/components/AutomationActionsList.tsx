@@ -16,7 +16,7 @@ import { useAutomationRule } from '../api/queries';
 import { useDeleteAutomationAction } from '../api/mutations';
 import { CreateEditActionDialog } from './CreateEditActionDialog';
 import type { Tables } from '@altitutor/shared';
-import type { AutomationAction, ActivityEntityType } from '../types';
+import type { AutomationAction, ActivityEntityType, ActionConfig } from '../types';
 
 interface AutomationActionsListProps {
   ruleId: string;
@@ -44,15 +44,27 @@ export function AutomationActionsList({
 
   const getActionConfigSummary = (action: AutomationAction): string => {
     try {
-      const config = action.action_config as any;
+      if (!action.action_config || typeof action.action_config !== 'object' || Array.isArray(action.action_config)) {
+        return 'Invalid config';
+      }
+      const config = action.action_config as unknown as ActionConfig;
       switch (action.action_type) {
         case 'CREATE_TASK':
-          return config.title_template || 'No title template';
+          if ('title_template' in config) {
+            return config.title_template || 'No title template';
+          }
+          return 'No title template';
         case 'SEND_MESSAGE':
-          const template = templates.find((t) => t.id === config.template_id);
-          return template ? `Template: ${template.name}` : 'No template selected';
+          if ('template_id' in config) {
+            const template = templates.find((t) => t.id === config.template_id);
+            return template ? `Template: ${template.name}` : 'No template selected';
+          }
+          return 'No template selected';
         case 'CREATE_NOTIFICATION':
-          return config.title || 'No title';
+          if ('title' in config) {
+            return config.title || 'No title';
+          }
+          return 'No title';
         default:
           return 'Unknown action';
       }

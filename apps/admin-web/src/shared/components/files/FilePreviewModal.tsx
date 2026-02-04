@@ -115,19 +115,19 @@ export function FilePreviewModal({
 
   // Derived values for display
   // Support topic-specific metadata structure for backward compatibility
-  const topicFile = metadata?.topicFile;
-  const fileCode = providedFileCode || topicFile?.code || '';
-  const topicName = providedTopicName || topicFile?.topic?.name || '';
+  const topicFile = metadata && typeof metadata === 'object' && 'topicFile' in metadata ? metadata.topicFile as { code?: string; type?: string; id?: string; topic?: { name?: string } } | undefined : undefined;
+  const fileCode = providedFileCode || (topicFile && 'code' in topicFile && typeof topicFile.code === 'string' ? topicFile.code : '') || '';
+  const topicName = providedTopicName || (topicFile && 'topic' in topicFile && topicFile.topic && typeof topicFile.topic === 'object' && 'name' in topicFile.topic && typeof topicFile.topic.name === 'string' ? topicFile.topic.name : '') || '';
   const filename = file?.filename || '';
   // Use displayName if provided, otherwise fall back to filename
   // Also check metadata for display_name (e.g., from staff_files or sessions_files)
-  const displayName = providedDisplayName || metadata?.display_name || null;
+  const displayName = providedDisplayName || (metadata && typeof metadata === 'object' && 'display_name' in metadata && typeof metadata.display_name === 'string' ? metadata.display_name : null);
   const displayTitle = displayName || filename;
-  const fileType = topicFile?.type || 'NOTES';
-  const Icon = getFileTypeIcon(fileType as Enums<'resource_type'>);
+  const fileType = (topicFile && 'type' in topicFile && typeof topicFile.type === 'string' ? topicFile.type : 'NOTES') as Enums<'resource_type'>;
+  const Icon = getFileTypeIcon(fileType);
   const isPdf = isPdfFile(file);
   const isImage = isImageFile(file);
-  const editId = effectiveJunctionTableId || topicFile?.id;
+  const editId = effectiveJunctionTableId || (topicFile && 'id' in topicFile && typeof topicFile.id === 'string' ? topicFile.id : undefined);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -145,7 +145,7 @@ export function FilePreviewModal({
               </Button>
               <div className="flex-1">
                 <DialogTitle>
-                  {fileCode && topicName ? `${fileCode} ${topicName}` : displayTitle}
+                  {fileCode && topicName ? `${fileCode} ${topicName}` : (displayTitle || 'File Preview')}
                 </DialogTitle>
                 <DialogDescription className="text-base">
                   {filename}

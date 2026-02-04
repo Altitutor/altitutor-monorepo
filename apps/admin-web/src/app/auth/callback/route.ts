@@ -65,11 +65,11 @@ export async function GET(request: NextRequest) {
         
         // Determine role home based on staff.role
         try {
-          const { data: staff } = await (supabase as any)
+          const { data: staff } = await supabase
             .from('staff')
             .select('role')
             .eq('user_id', session.user.id)
-            .maybeSingle();
+            .maybeSingle<{ role: string }>();
           const role = staff?.role as 'ADMINSTAFF' | 'TUTOR' | undefined;
           
           // Redirect TUTOR to tutor app

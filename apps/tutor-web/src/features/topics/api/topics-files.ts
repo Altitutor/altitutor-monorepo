@@ -1,7 +1,3 @@
-import type { Database } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 /**
  * Topics Files API for tutor-web
  * 
@@ -16,7 +12,7 @@ export const topicsFilesApi = {
    * Reads from vtutor_subject_resources view (files are nested in the JSON structure)
    * For direct access, tutors can query topics_files through the view context
    */
-  getTopicFilesByTopic: async (topicId: string) => {
+  getTopicFilesByTopic: async (_topicId: string) => {
     // Note: Topic files are included in vtutor_subject_resources view
     // This is a helper that would need to parse the view structure
     // For now, return empty array - components should use vtutor_subject_resources directly

@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Badge } from "@altitutor/ui";
-import { StaffRoleBadge, StaffStatusBadge, BooleanBadge } from "@altitutor/ui";
+import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";

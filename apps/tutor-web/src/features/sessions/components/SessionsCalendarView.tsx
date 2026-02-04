@@ -14,7 +14,6 @@ type Props = { onOpenSession?: (id: string) => void };
 export function SessionsCalendarView({ onOpenSession }: Props) {
   const [anchor, setAnchor] = useState<Date>(new Date());
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
-  const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const { data: sessions = [] } = useSessions();
   const [sessionDetailsMap, setSessionDetailsMap] = useState<Record<string, { staff: any[]; students: any[] }>>({});
 
@@ -97,7 +96,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
               <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[60px] flex items-center justify-center">
                 {format(new Date(2000, 0, 1, hour, 0), 'h a')}
               </div>
-              {days.map((d, dayIdx) => {
+              {days.map((d, _dayIdx) => {
                 const isToday = isSameDay(d, now);
                 return (
                   <div key={`${d.toISOString()}-${hour}`} className={cn(

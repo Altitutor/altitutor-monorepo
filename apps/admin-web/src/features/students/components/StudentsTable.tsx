@@ -331,6 +331,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
     try {
       setLoadingPasswordReset(true);
+      // TODO: Implement password reset API call
       setHasPasswordResetLinkSent(true);
       toast({
         title: "Success",

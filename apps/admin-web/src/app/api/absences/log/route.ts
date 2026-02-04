@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import type { Json } from '@altitutor/shared/supabase/generated';
 
 export async function POST(request: Request) {
   try {
@@ -42,8 +43,9 @@ export async function POST(request: Request) {
     });
 
     // Call the RPC function
+    // operations is JSONB array, validate it's an array and cast to Json
     const { data, error } = await supabase.rpc('log_student_absences', {
-      operations: operations as any,
+      operations: operations as Json,
       logged_by_staff_id: staffId,
     });
 
@@ -56,9 +58,11 @@ export async function POST(request: Request) {
     }
 
     // Check if the RPC function returned an error in the result
-    if (data && typeof data === 'object' && 'success' in data && !data.success) {
+    type RpcResult = { success: boolean; error?: string } | unknown;
+    if (data && typeof data === 'object' && 'success' in data && !(data as RpcResult & { success: boolean }).success) {
+      const errorResult = data as RpcResult & { success: boolean; error?: string };
       return NextResponse.json(
-        { error: (data as any).error || 'Failed to log absences' },
+        { error: errorResult.error || 'Failed to log absences' },
         { status: 400 }
       );
     }

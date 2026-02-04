@@ -135,10 +135,6 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
     
     try {
       // Basic validation
-      if (!level) {
-        throw new Error('Class name/code is required');
-      }
-      
       if (dayOfWeek === '') {
         throw new Error('Day of week is required');
       }
@@ -158,7 +154,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       
       // Save the changes to the database
       const payload: TablesUpdate<'classes'> = {
-        level: level,
+        level: level || null,
         day_of_week: finalDayOfWeek,
         start_time: startTime,
         end_time: endTime,
@@ -186,7 +182,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full md:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <SheetHeader>
-          <SheetTitle>Edit Class: {classData.level}</SheetTitle>
+          <SheetTitle>Edit Class{classData.level ? `: ${classData.level}` : ''}</SheetTitle>
         </SheetHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -198,13 +194,12 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="level">Class Name/Code *</Label>
+              <Label htmlFor="level">Class Name/Code</Label>
               <Input
                 id="level"
                 value={level || ''}
                 onChange={(e) => setLevel(e.target.value)}
-                placeholder="A/B/C/D"
-                required
+                placeholder="A/B/C/D (optional)"
               />
             </div>
             

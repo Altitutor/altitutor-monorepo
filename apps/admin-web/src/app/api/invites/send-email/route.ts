@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     
     if (type === 'staff') {
       // For staff, check their role to determine which app to send them to
-      const staffRole = (record as any).role;
+      const staffRole = 'role' in record ? record.role : undefined;
       if (staffRole === 'TUTOR') {
         const baseUrl = isDev ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
         inviteUrl = `${baseUrl}/invite/${token}`;

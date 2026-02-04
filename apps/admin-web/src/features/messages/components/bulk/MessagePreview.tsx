@@ -161,13 +161,6 @@ export function MessagePreview({
     return previewText;
   };
 
-  const _getSenderDisplayName = (sender: Sender | null): string => {
-    if (!sender) return 'Unknown';
-    if (sender.sender_type === 'ALPHANUMERIC') {
-      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
-    }
-    return sender.label || sender.phone_e164 || 'Unknown';
-  };
 
   return (
     <div className="h-full flex flex-col">

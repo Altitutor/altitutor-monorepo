@@ -21,7 +21,7 @@ const sortableFields: Array<{ key: keyof Tables<'staff'>; label: string }> = [
 
 export const StaffTableHeader = memo(function StaffTableHeader({
   sortField,
-  sortDirection,
+  sortDirection: _sortDirection,
   onSort,
 }: StaffTableHeaderProps) {
   const handleSort = useCallback((field: keyof Tables<'staff'>) => {

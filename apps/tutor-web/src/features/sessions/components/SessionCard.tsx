@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime } from '@/shared/utils/datetime';
-import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
+import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Session data from vtutor_sessions view

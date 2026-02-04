@@ -23,7 +23,7 @@ export function ViewClassModal({
   isOpen, 
   classId, 
   onClose, 
-  onClassUpdated 
+  onClassUpdated: _onClassUpdated 
 }: ViewClassModalProps) {
   const [activeTab, setActiveTab] = useState('info');
 
@@ -90,7 +90,6 @@ export function ViewClassModal({
             
             <TabsContent value="students" className="mt-4">
               <ClassStudentsTab
-                classData={classData}
                 classStudents={students}
                 allStudents={students} // Students come from view only
                 loadingStudents={isLoading}
@@ -101,7 +100,6 @@ export function ViewClassModal({
             
             <TabsContent value="staff" className="mt-4">
               <ClassStaffTab
-                classData={classData}
                 classStaff={staff}
                 allStaff={[]} // Not needed for view-only
                 loadingStaff={isLoading}

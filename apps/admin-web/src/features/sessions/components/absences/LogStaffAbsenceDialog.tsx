@@ -44,7 +44,7 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<StaffAbsenceDecision[]>([]);
-  const [replacementStaffMap, setReplacementStaffMap] = useState<
+  const [, setReplacementStaffMap] = useState<
     Map<string, ReplacementStaff>
   >(new Map());
   const [errorMessage, setErrorMessage] = useState<string>('');

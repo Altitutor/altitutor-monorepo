@@ -5,7 +5,7 @@ import { Badge } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
 import type { Tables } from '@altitutor/shared';
-import type { AutomationCondition } from '../../types';
+import type { AutomationCondition, AutomationAction, ActionConfig } from '../../types';
 import { ENTITY_TYPES_DISPLAY, EVENT_TYPES_DISPLAY } from '../../constants';
 
 interface Step4ReviewProps {
@@ -17,7 +17,7 @@ interface Step4ReviewProps {
 export function Step4Review({ formData, ruleId, templates }: Step4ReviewProps) {
   const { data: rule, isLoading } = useAutomationRule(ruleId || '', !!ruleId);
 
-  const formatCondition = (condition: any): string => {
+  const formatCondition = (condition: AutomationCondition | null | undefined): string => {
     if (!condition) return '';
     
     if (condition.operator === 'field_changed') {
@@ -45,17 +45,29 @@ export function Step4Review({ formData, ruleId, templates }: Step4ReviewProps) {
     return `${condition.field} ${operatorLabels[condition.operator] || condition.operator} ${condition.value}`;
   };
 
-  const getActionSummary = (action: any): string => {
+  const getActionSummary = (action: AutomationAction): string => {
     try {
-      const config = action.action_config as any;
+      if (!action.action_config || typeof action.action_config !== 'object' || Array.isArray(action.action_config)) {
+        return 'Invalid action';
+      }
+      const config = action.action_config as unknown as ActionConfig;
       switch (action.action_type) {
         case 'CREATE_TASK':
-          return config.title_template || 'Create Task (no title template)';
+          if ('title_template' in config) {
+            return config.title_template || 'Create Task (no title template)';
+          }
+          return 'Create Task (no title template)';
         case 'SEND_MESSAGE':
-          const template = templates.find((t) => t.id === config.template_id);
-          return template ? `Send Message: ${template.name}` : 'Send Message (no template)';
+          if ('template_id' in config) {
+            const template = templates.find((t) => t.id === config.template_id);
+            return template ? `Send Message: ${template.name}` : 'Send Message (no template)';
+          }
+          return 'Send Message (no template)';
         case 'CREATE_NOTIFICATION':
-          return config.title || 'Create Notification (no title)';
+          if ('title' in config) {
+            return config.title || 'Create Notification (no title)';
+          }
+          return 'Create Notification (no title)';
         default:
           return `Unknown action: ${action.action_type}`;
       }

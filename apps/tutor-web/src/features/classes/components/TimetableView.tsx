@@ -35,7 +35,7 @@ export function TimetableView({
   classes, 
   classSubjects, 
   classStudents, 
-  classStaff, 
+  classStaff: _classStaff, 
   onClassClick 
 }: TimetableViewProps) {
   const days = [
@@ -250,7 +250,7 @@ export function TimetableView({
               </div>
               
               {/* Day columns */}
-              {activeDays.map((day, dayIndex) => (
+              {activeDays.map((day, _dayIndex) => (
                 <div 
                   key={`${day.value}-${timeSlot.value}`} 
                   className="relative border-b border-r bg-background h-[60px]"

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ContactsTable } from '@/features/contacts/components';
-import { contactsApi, type ContactWithRelations } from '@/features/contacts/api';
+import { contactsApi } from '@/features/contacts/api';
 import { generateVcf, downloadVcf } from '@/features/contacts/utils';
 import { Loader2, ArrowLeft, Download } from 'lucide-react';
 import { Button } from '@altitutor/ui';
@@ -15,7 +15,7 @@ export default function ContactsPage() {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: contacts, isLoading, error, refetch } = useQuery({
+  const { data: contacts, isLoading, error } = useQuery({
     queryKey: ['contacts', 'all'],
     queryFn: () => contactsApi.getAllContacts(),
     staleTime: 1000 * 60 * 5, // 5 minutes

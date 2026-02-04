@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
+import { addDays, startOfWeek, endOfWeek, format, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { adelaideTimeToMinutes, getAdelaideTimeComponents } from '@/shared/utils/datetime';
+import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
 import { Button, Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
 

@@ -13,7 +13,7 @@ import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { SkeletonTable } from '@altitutor/ui';
 import { ArrowUpDown } from 'lucide-react';
-import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
+import { formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
