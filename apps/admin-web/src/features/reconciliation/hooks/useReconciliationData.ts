@@ -3,7 +3,6 @@ import {
   useUnpaidInvoices,
   useUnloggedSessions,
   useUnassignedClasses,
-  useUnrepliedMessages,
   useFailedDeliveryMessages,
   useStudentsWithoutClasses,
   useStudentsWithoutPaymentMethod,
@@ -18,7 +17,6 @@ export function useReconciliationData() {
   const unpaidInvoices = useUnpaidInvoices();
   const unloggedSessions = useUnloggedSessions();
   const unassignedClasses = useUnassignedClasses();
-  const unrepliedMessages = useUnrepliedMessages();
   const failedDeliveryMessages = useFailedDeliveryMessages();
   const studentsWithoutClasses = useStudentsWithoutClasses();
   const studentsWithoutPaymentMethod = useStudentsWithoutPaymentMethod();
@@ -29,7 +27,6 @@ export function useReconciliationData() {
     unpaidInvoices.isLoading ||
     unloggedSessions.isLoading ||
     unassignedClasses.isLoading ||
-    unrepliedMessages.isLoading ||
     failedDeliveryMessages.isLoading ||
     studentsWithoutClasses.isLoading ||
     studentsWithoutPaymentMethod.isLoading ||
@@ -40,7 +37,6 @@ export function useReconciliationData() {
     unpaidInvoices.isError ||
     unloggedSessions.isError ||
     unassignedClasses.isError ||
-    unrepliedMessages.isError ||
     failedDeliveryMessages.isError ||
     studentsWithoutClasses.isError ||
     studentsWithoutPaymentMethod.isError ||
@@ -51,7 +47,6 @@ export function useReconciliationData() {
     unpaidInvoices,
     unloggedSessions,
     unassignedClasses,
-    unrepliedMessages,
     failedDeliveryMessages,
     studentsWithoutClasses,
     studentsWithoutPaymentMethod,

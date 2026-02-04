@@ -8,7 +8,6 @@ export const reconciliationKeys = {
   unpaidInvoices: () => [...reconciliationKeys.lists(), 'unpaid_invoices'] as const,
   unloggedSessions: () => [...reconciliationKeys.lists(), 'unlogged_sessions'] as const,
   unassignedClasses: () => [...reconciliationKeys.lists(), 'unassigned_classes'] as const,
-  unrepliedMessages: () => [...reconciliationKeys.lists(), 'unreplied_messages'] as const,
   failedDeliveryMessages: () => [...reconciliationKeys.lists(), 'failed_delivery_messages'] as const,
   studentsWithoutClasses: () => [...reconciliationKeys.lists(), 'students_without_classes'] as const,
   studentsWithoutPaymentMethod: () => [...reconciliationKeys.lists(), 'students_without_payment_method'] as const,

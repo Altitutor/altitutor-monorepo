@@ -6,7 +6,6 @@ import {
   UnpaidInvoicesTable,
   UnloggedSessionsTable,
   UnassignedClassesTable,
-  UnrepliedMessagesTable,
   FailedDeliveryMessagesTable,
   StudentsWithoutClassesTable,
   StudentsWithoutPaymentMethodTable,
@@ -170,10 +169,6 @@ export function ReconciliationDashboard() {
         {/* Communication Reconciliation */}
         <div className="space-y-6">
           <h2 className="text-xl font-semibold">Communication</h2>
-          <UnrepliedMessagesTable
-            items={reconciliationData.unrepliedMessages.data ?? []}
-            isLoading={reconciliationData.unrepliedMessages.isLoading}
-          />
           <FailedDeliveryMessagesTable
             items={reconciliationData.failedDeliveryMessages.data ?? []}
             isLoading={reconciliationData.failedDeliveryMessages.isLoading}

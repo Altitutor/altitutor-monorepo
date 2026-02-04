@@ -23,7 +23,6 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnrepliedMessage,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -348,45 +347,6 @@ export function UnassignedClassesTable({
             <TableCell>{item.student_count}</TableCell>
             <TableCell>
               <ReconciliationActions type="unassigned_classes" item={item} />
-            </TableCell>
-          </TableRow>
-        );
-      }}
-    />
-  );
-}
-
-export function UnrepliedMessagesTable({
-  items,
-  isLoading,
-}: {
-  items: UnrepliedMessage[];
-  isLoading?: boolean;
-}) {
-  return (
-    <ReconciliationTable
-      title="Unreplied Messages"
-      items={items}
-      isLoading={isLoading}
-      columns={['Last Message', 'Contact', 'Preview']}
-      renderRow={(item, _index) => {
-        const hoursAgo = item.hours_since_last_message
-          ? Math.floor(item.hours_since_last_message)
-          : null;
-
-        return (
-          <TableRow key={item.conversation_id}>
-            <TableCell>
-              {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
-            </TableCell>
-            <TableCell className="font-medium">
-              {item.contact_name || item.contact_phone}
-            </TableCell>
-            <TableCell className="max-w-md truncate">
-              {item.last_message_preview || '—'}
-            </TableCell>
-            <TableCell>
-              <ReconciliationActions type="unreplied_messages" item={item} />
             </TableCell>
           </TableRow>
         );

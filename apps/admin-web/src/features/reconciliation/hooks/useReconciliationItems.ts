@@ -4,7 +4,6 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnrepliedMessage,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -16,7 +15,6 @@ interface ReconciliationQueries {
   unpaidInvoices: { data?: UnpaidInvoice[] };
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
-  unrepliedMessages: { data?: UnrepliedMessage[] };
   failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
@@ -41,7 +39,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     ];
 
     const communicationItems = [
-      ...(queries.unrepliedMessages.data ?? []),
       ...(queries.failedDeliveryMessages.data ?? []),
     ];
 
@@ -61,7 +58,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     queries.unpaidInvoices.data,
     queries.unloggedSessions.data,
     queries.unassignedClasses.data,
-    queries.unrepliedMessages.data,
     queries.failedDeliveryMessages.data,
     queries.studentsWithoutClasses.data,
     queries.studentsWithoutPaymentMethod.data,
