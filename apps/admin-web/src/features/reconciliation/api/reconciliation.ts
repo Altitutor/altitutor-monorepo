@@ -54,6 +54,7 @@ export const reconciliationApi = {
         )
       `)
       .neq('status', 'paid')
+      .neq('status', 'void')
       .gt('amount_due_cents', 0)
       .order('invoice_date', { ascending: true });
     
