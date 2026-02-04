@@ -1,6 +1,5 @@
 'use client';
 
-import type { Tables } from '@altitutor/shared';
 import { invitesApi } from '@/features/auth/api/invites';
 
 export interface LinkTokens {

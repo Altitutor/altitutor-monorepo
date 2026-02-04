@@ -12,7 +12,7 @@ import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { SkeletonTable } from '@altitutor/ui';
 import { Switch } from '@altitutor/ui';
-import { Plus, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { Edit, Trash2, MoreVertical } from 'lucide-react';
 import { useAutomationRules } from '../api/queries';
 import { useUpdateAutomationRule, useDeleteAutomationRule } from '../api/mutations';
 import type { AutomationRuleWithActions } from '../types';

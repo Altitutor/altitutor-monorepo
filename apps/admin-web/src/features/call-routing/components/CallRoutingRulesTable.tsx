@@ -159,10 +159,6 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
     }
   };
 
-  const getOwnedNumberLabel = (id: string) => {
-    const number = ownedNumbers.find(n => n.id === id);
-    return number ? (number.label || number.phone_e164) : id;
-  };
 
   const rulesByNumber = ownedNumbers.map(number => ({
     number,

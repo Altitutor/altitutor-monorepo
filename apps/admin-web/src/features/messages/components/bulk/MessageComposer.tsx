@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Paperclip, Phone, Check, Loader2, Code } from 'lucide-react';
-import { Button, Textarea, ScrollArea, Label, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@altitutor/ui';
+import { ChevronLeft, ChevronRight, Paperclip, Phone, Check, Code } from 'lucide-react';
+import { Button, Textarea, ScrollArea, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@altitutor/ui';
 import { MessageTemplatesPicker } from '../MessageTemplatesPicker';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { getStudentClasses } from '../../api/bulk';
@@ -62,7 +62,6 @@ export function MessageComposer({
     attachments: internalAttachments,
     addFiles,
     removeAttachment: internalRemoveAttachment,
-    clearAll,
     hasAttachments,
     canAddMore,
   } = useMessageAttachments();
@@ -118,18 +117,6 @@ export function MessageComposer({
     }
   }, [internalAttachments]); // Only depend on internalAttachments to avoid loop
 
-  // Handle remove - remove from both external (via callback) and internal (via hook)
-  const handleRemoveAttachment = (id: string) => {
-    // Remove from internal if it exists there
-    if (internalAttachments.some(att => att.id === id)) {
-      internalRemoveAttachment(id);
-    }
-    // Remove from external via callback
-    if (externalAttachments && onAttachmentsChange) {
-      const updated = externalAttachments.filter(att => att.id !== id);
-      onAttachmentsChange(updated);
-    }
-  };
 
   // Calculate SMS segments
   const smsSegments = isSMSSender ? calculateSMSSegments(message) : null;

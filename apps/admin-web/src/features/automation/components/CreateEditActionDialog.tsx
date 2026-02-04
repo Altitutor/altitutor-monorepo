@@ -280,7 +280,6 @@ export function CreateEditActionDialog({
     if (currentNotificationType && currentNotificationType !== 'single') {
       const isClassType = currentNotificationType.startsWith('class_');
       const isSessionType = currentNotificationType.startsWith('session_');
-      const isGlobalType = ['all_admin_staff', 'all_staff'].includes(currentNotificationType);
       const isAdminStaffOnDay = currentNotificationType === 'admin_staff_on_day';
       
       // Global types (all_admin_staff, all_staff) are always valid

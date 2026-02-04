@@ -1,6 +1,5 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import {
   Table,
   TableBody,
@@ -8,17 +7,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Button,
 } from '@altitutor/ui';
-import { Download, Loader2 } from 'lucide-react';
-import { contactsApi, type ContactWithRelations } from '../api/contacts';
-import { generateVcf, downloadVcf } from '../utils/vcf-export';
-import { useToast } from '@altitutor/ui';
+import type { ContactWithRelations } from '../api/contacts';
 
 interface ContactsTableProps {
   contacts: ContactWithRelations[];
-  onExport: () => void;
-  isExporting: boolean;
+  onExport?: () => void;
+  isExporting?: boolean;
 }
 
 function getContactDisplayName(contact: ContactWithRelations): string {
@@ -53,7 +48,7 @@ function getContactEmail(contact: ContactWithRelations): string | null {
   return null;
 }
 
-export function ContactsTable({ contacts, onExport, isExporting }: ContactsTableProps) {
+export function ContactsTable({ contacts }: ContactsTableProps) {
   const getContactTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
       STUDENT: 'bg-blue-100 text-blue-800',

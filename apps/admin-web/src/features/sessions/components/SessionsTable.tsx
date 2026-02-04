@@ -124,7 +124,6 @@ export function SessionsTable({
     setShowLogged,
     showUnlogged,
     setShowUnlogged,
-    sortDirection,
     toggleSort,
 
     // Student search

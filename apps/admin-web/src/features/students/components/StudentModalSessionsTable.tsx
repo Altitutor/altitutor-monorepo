@@ -13,7 +13,6 @@ import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { SkeletonTable } from '@altitutor/ui';
 import { ArrowUpDown } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
 import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
@@ -59,8 +58,6 @@ export function StudentModalSessionsTable({
 
   const {
     searchTerm,
-    setSearchTerm,
-    sortDirection,
     toggleSort,
     page,
     setPage,

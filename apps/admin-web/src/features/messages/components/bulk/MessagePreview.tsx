@@ -11,7 +11,6 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Sender } from '../../api/queries';
-import { generateLinkTokensForStudent, templateContainsLinkVariables } from '../../utils/generateLinkTokens';
 import type { AttachmentFile } from '../../hooks/useMessageAttachments';
 import { MessageAttachment } from '../MessageThread';
 
@@ -162,7 +161,7 @@ export function MessagePreview({
     return previewText;
   };
 
-  const getSenderDisplayName = (sender: Sender | null): string => {
+  const _getSenderDisplayName = (sender: Sender | null): string => {
     if (!sender) return 'Unknown';
     if (sender.sender_type === 'ALPHANUMERIC') {
       return sender.alphanumeric_sender_id || sender.label || 'Unknown';
