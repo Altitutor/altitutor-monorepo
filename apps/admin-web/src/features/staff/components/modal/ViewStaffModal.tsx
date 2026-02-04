@@ -342,7 +342,12 @@ export function ViewStaffModal({
                 <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
                   <div className="h-full p-6">
                     {staffMember && (
-                      <StaffSessionsTab staff={staffMember} />
+                      <StaffSessionsTab 
+                        staff={staffMember} 
+                        onOpenSession={(sessionId) => {
+                          window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+                        }}
+                      />
                     )}
                   </div>
                 </TabsContent>

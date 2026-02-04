@@ -8,9 +8,10 @@ import { StudentModalSessionsTable } from './StudentModalSessionsTable';
 
 interface StudentSessionsTabProps {
   student: Tables<'students'>;
+  onOpenSession?: (sessionId: string) => void;
 }
 
-export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
+export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTabProps) {
   // View mode state
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
@@ -29,8 +30,13 @@ export function StudentSessionsTab({ student }: StudentSessionsTabProps) {
   }, []);
 
   const handleOpenSession = useCallback((sessionId: string) => {
-    window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-  }, []);
+    if (onOpenSession) {
+      onOpenSession(sessionId);
+    } else {
+      // Default behavior: dispatch event to open session modal
+      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+    }
+  }, [onOpenSession]);
 
   return (
     <div className="h-full flex flex-col space-y-4">

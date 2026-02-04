@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -30,6 +30,7 @@ import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSe
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
 import {
   useStaffEditFlow,
   useStaffPasswordReset,
@@ -77,6 +78,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: StaffDetailsFormData) => {
@@ -144,6 +146,20 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const handleStaffUpdated = () => {
     queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(id) });
   };
+
+  // Listen for session modal events
+  useEffect(() => {
+    const onOpenSession = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id: string };
+      if (detail?.id) setActiveSessionId(detail.id);
+    };
+    
+    window.addEventListener('open-session-modal', onOpenSession as EventListener);
+    
+    return () => {
+      window.removeEventListener('open-session-modal', onOpenSession as EventListener);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -373,6 +389,13 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Session Modal */}
+      <SessionModal
+        isOpen={!!activeSessionId}
+        sessionId={activeSessionId}
+        onClose={() => setActiveSessionId(null)}
+      />
     </div>
   );
 }

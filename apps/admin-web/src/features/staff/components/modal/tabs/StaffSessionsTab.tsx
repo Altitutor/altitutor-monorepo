@@ -8,9 +8,10 @@ import { StaffSessionsCalendarView } from './StaffSessionsCalendarView';
 
 interface StaffSessionsTabProps {
   staff: Tables<'staff'>;
+  onOpenSession?: (sessionId: string) => void;
 }
 
-export function StaffSessionsTab({ staff }: StaffSessionsTabProps) {
+export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps) {
   // View mode state
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
@@ -29,8 +30,13 @@ export function StaffSessionsTab({ staff }: StaffSessionsTabProps) {
   }, []);
 
   const handleOpenSession = useCallback((sessionId: string) => {
-    window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-  }, []);
+    if (onOpenSession) {
+      onOpenSession(sessionId);
+    } else {
+      // Default behavior: dispatch event to open session modal
+      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+    }
+  }, [onOpenSession]);
 
   return (
     <div className="h-full flex flex-col space-y-4">
