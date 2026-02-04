@@ -28,12 +28,12 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
         };
       case 'attending-trial':
         return {
-          text: 'ATTENDING (TRIAL)',
+          text: 'Attending (TRIAL)',
           className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
         };
       case 'attending-extra-trial':
         return {
-          text: 'ATTENDING (TRIAL)',
+          text: 'Attending (TRIAL)',
           className: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400',
         };
       case 'absent':
@@ -64,7 +64,7 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
         };
       case 'attended-trial':
         return {
-          text: 'ATTENDED (TRIAL)',
+          text: 'Attended (TRIAL)',
           className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
         };
       case 'did-not-attend':
