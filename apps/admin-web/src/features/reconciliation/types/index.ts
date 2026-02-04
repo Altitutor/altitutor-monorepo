@@ -10,6 +10,7 @@ export interface UninvoicedSession {
   planned_absence: boolean;
   is_rescheduled: boolean;
   is_credited: boolean;
+  was_trial: boolean | null;
   session_start_at: string;
   session_end_at: string | null;
   session_type: string;
@@ -21,6 +22,7 @@ export interface UninvoicedSession {
   is_extra: boolean;
   has_tutor_log: boolean;
   actual_attended: boolean | null;
+  actual_was_trial: boolean | null;
   student_first_name: string | null;
   student_last_name: string | null;
   student_email: string | null;

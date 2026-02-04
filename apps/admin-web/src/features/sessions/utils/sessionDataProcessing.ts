@@ -3,8 +3,8 @@ import type { Tables } from '@altitutor/shared';
 
 export type ProcessedStudentData = {
   student: Tables<'students'>;
-  plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned';
-  actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
+  plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' | 'attending-trial' | 'attending-extra-trial';
+  actualStatus: 'not-logged' | 'attended' | 'did-not-attend' | 'attended-trial';
   rescheduledDate: string;
   rescheduledSessionId?: string;
   invoiceStatus: string | null;
@@ -26,11 +26,14 @@ export type ProcessedStaffData = {
 /**
  * Build student attendance map from tutor log
  */
-export function buildStudentAttendanceMap(tutorLog: any): Record<string, { attended: boolean }> {
-  const attendance: Record<string, { attended: boolean }> = {};
+export function buildStudentAttendanceMap(tutorLog: any): Record<string, { attended: boolean; was_trial?: boolean }> {
+  const attendance: Record<string, { attended: boolean; was_trial?: boolean }> = {};
   if (tutorLog?.studentAttendance) {
     tutorLog.studentAttendance.forEach((att: any) => {
-      attendance[att.student_id] = { attended: att.attended };
+      attendance[att.student_id] = { 
+        attended: att.attended,
+        was_trial: att.was_trial ?? false
+      };
     });
   }
   return attendance;
@@ -54,7 +57,7 @@ export function buildStaffAttendanceMap(tutorLog: any): Record<string, { attende
  */
 export function processSessionStudents(
   sessionsStudents: any[],
-  actualStudentAttendance: Record<string, { attended: boolean }>,
+  actualStudentAttendance: Record<string, { attended: boolean; was_trial?: boolean }>,
   hasTutorLog: boolean
 ): ProcessedStudentData[] {
   // Build set of student IDs that are in sessions_students (planned students)
@@ -65,7 +68,8 @@ export function processSessionStudents(
   );
 
   return sessionsStudents.map((ss: any) => {
-    let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
+    const wasTrialPlanned = ss.was_trial ?? false;
+    let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' | 'attending-trial' | 'attending-extra-trial' = 'attending';
     let rescheduledDate = '';
 
     const isUnplanned = (ss.sessions_students_id === null || ss.sessions_students_id === undefined) && ss.is_extra;
@@ -84,14 +88,17 @@ export function processSessionStudents(
     } else if (isUnplanned) {
       plannedStatus = 'unplanned';
     } else if (ss.is_extra && plannedStudentIds.has(ss.student_id)) {
-      plannedStatus = 'attending-extra';
+      plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
+    } else {
+      plannedStatus = wasTrialPlanned ? 'attending-trial' : 'attending';
     }
 
     const actualAttendance = actualStudentAttendance[ss.student_id];
-    const actualStatus = !hasTutorLog
+    const wasTrialActual = actualAttendance?.was_trial ?? false;
+    let actualStatus: 'not-logged' | 'attended' | 'did-not-attend' | 'attended-trial' = !hasTutorLog
       ? 'not-logged'
       : actualAttendance?.attended
-      ? 'attended'
+      ? (wasTrialActual ? 'attended-trial' : 'attended')
       : 'did-not-attend';
 
     return {
