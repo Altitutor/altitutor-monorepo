@@ -2,7 +2,13 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMessageRecipients } from '../recipients.ts';
-import { replaceTemplateVariables, extractTemplateVariables } from '../utils.ts';
+import { 
+  replaceTemplateVariables, 
+  extractTemplateVariables,
+  getOrGenerateStudentInviteToken,
+  getOrGenerateStudentRegistrationToken,
+  buildStudentInviteUrl
+} from '../utils.ts';
 
 export async function executeSendMessage(
   supabase: SupabaseClient<any>,
@@ -130,13 +136,14 @@ export async function executeSendMessage(
   const variables = await extractTemplateVariables(supabase, activityEvent, entityData);
   
   // Merge with any provided variables (config.variables takes precedence)
-  const finalVariables = { ...variables, ...(config.variables || {}) };
+  const baseVariables = { ...variables, ...(config.variables || {}) };
 
-  // Replace variables (same message body for all recipients)
-  const messageBody = replaceTemplateVariables(
-    template.content,
-    finalVariables
-  );
+  // Check if template contains per-student link variables
+  const hasLinkVariables = /\{(student_invite_link|student_registration_link|student\.invite_link|student\.registration_link)\}/gi.test(template.content);
+  
+  // For bulk recipients with link variables, we need per-contact message bodies
+  // Otherwise, use shared message body
+  const usePerContactMessages = hasLinkVariables && config.recipients && config.recipients.type !== 'single';
 
   // Process each contact
   const messageIds: string[] = [];
@@ -144,16 +151,74 @@ export async function executeSendMessage(
 
   for (const contactId of contactIds) {
     try {
-      // Get contact phone number
+      // Get contact phone number and student_id
       const { data: contact } = await supabase
         .from('contacts')
-        .select('phone_e164, student_id')
+        .select('phone_e164, student_id, parent_id')
         .eq('id', contactId)
         .maybeSingle();
 
       if (!contact?.phone_e164) {
         errors.push({ contactId, error: 'Contact has no phone number' });
         continue;
+      }
+
+      // Generate per-contact message body if needed (for link variables with bulk recipients)
+      let messageBody: string;
+      if (usePerContactMessages) {
+        // Generate per-contact link variables
+        const contactVariables = { ...baseVariables };
+        
+        // Determine student_id for this contact
+        let studentIdForLinks: string | null = contact.student_id || null;
+        
+        // If contact is a parent, try to get student_id from parents_students
+        if (!studentIdForLinks && contact.parent_id) {
+          const { data: parentStudent } = await supabase
+            .from('parents_students')
+            .select('student_id')
+            .eq('parent_id', contact.parent_id)
+            .limit(1)
+            .maybeSingle();
+          
+          if (parentStudent?.student_id) {
+            studentIdForLinks = parentStudent.student_id;
+          }
+        }
+        
+        // Generate student links if we have a student_id
+        if (studentIdForLinks) {
+          // Generate invite link
+          const inviteToken = await getOrGenerateStudentInviteToken(supabase, studentIdForLinks);
+          if (inviteToken) {
+            contactVariables['student_invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
+            contactVariables['student.invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
+          } else {
+            contactVariables['student_invite_link'] = '';
+            contactVariables['student.invite_link'] = '';
+          }
+          
+          // Generate registration link
+          const registrationToken = await getOrGenerateStudentRegistrationToken(supabase, studentIdForLinks);
+          if (registrationToken) {
+            contactVariables['student_registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
+            contactVariables['student.registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
+          } else {
+            contactVariables['student_registration_link'] = '';
+            contactVariables['student.registration_link'] = '';
+          }
+        } else {
+          // No student_id available, set links to empty
+          contactVariables['student_invite_link'] = '';
+          contactVariables['student.invite_link'] = '';
+          contactVariables['student_registration_link'] = '';
+          contactVariables['student.registration_link'] = '';
+        }
+        
+        messageBody = replaceTemplateVariables(template.content, contactVariables);
+      } else {
+        // Use shared message body (no per-contact customization needed)
+        messageBody = replaceTemplateVariables(template.content, baseVariables);
       }
 
       // Ensure conversation exists

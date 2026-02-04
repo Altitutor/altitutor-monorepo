@@ -380,6 +380,186 @@ export async function formatEntityName(
   }
 }
 
+// Helper function to generate a UUID v4 token
+export function generateUUID(): string {
+  // Generate UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+  const hex = '0123456789abcdef';
+  let uuid = '';
+  
+  for (let i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) {
+      uuid += '-';
+    } else if (i === 14) {
+      uuid += '4'; // Version 4
+    } else if (i === 19) {
+      uuid += hex[(Math.random() * 4 | 0 + 8)]; // Variant bits
+    } else {
+      uuid += hex[Math.random() * 16 | 0];
+    }
+  }
+  
+  return uuid;
+}
+
+// Helper function to build student invite URL
+export function buildStudentInviteUrl(token: string, path: 'invite' | 'register' = 'invite'): string {
+  const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development' || 
+                        Deno.env.get('NODE_ENV') === 'development';
+  const baseUrl = isDevelopment 
+    ? 'http://localhost:3001'
+    : (Deno.env.get('NEXT_PUBLIC_STUDENT_URL') || 'https://student.altitutor.com');
+  return `${baseUrl}/${path}/${token}`;
+}
+
+// Helper function to build staff invite URL
+export function buildStaffInviteUrl(token: string, role: string): string {
+  const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development' || 
+                        Deno.env.get('NODE_ENV') === 'development';
+  
+  if (role === 'TUTOR') {
+    const baseUrl = isDevelopment 
+      ? 'http://localhost:3002'
+      : (Deno.env.get('NEXT_PUBLIC_TUTOR_URL') || 'https://tutor.altitutor.com');
+    return `${baseUrl}/invite/${token}`;
+  } else {
+    const baseUrl = isDevelopment
+      ? 'http://localhost:3000'
+      : (Deno.env.get('NEXT_PUBLIC_ADMIN_URL') || 'https://admin.altitutor.com');
+    return `${baseUrl}/invite/${token}`;
+  }
+}
+
+// Helper function to generate or retrieve student invite token
+export async function getOrGenerateStudentInviteToken(
+  supabase: any,
+  studentId: string
+): Promise<string | null> {
+  // Check if student exists and get invite_token
+  const { data: student, error } = await supabase
+    .from('students')
+    .select('id, user_id, invite_token')
+    .eq('id', studentId)
+    .maybeSingle();
+  
+  if (error || !student) {
+    console.warn('[activity-processor] Failed to fetch student for invite token', { studentId, error });
+    return null;
+  }
+  
+  // Don't generate invite if they already have an account
+  if (student.user_id) {
+    return null;
+  }
+  
+  // Reuse existing token if available
+  if (student.invite_token) {
+    return student.invite_token;
+  }
+  
+  // Generate new token
+  const token = generateUUID();
+  
+  // Update student with invite token
+  const { error: updateError } = await supabase
+    .from('students')
+    .update({ invite_token: token })
+    .eq('id', studentId);
+  
+  if (updateError) {
+    console.warn('[activity-processor] Failed to update student invite token', { studentId, error: updateError });
+    return null;
+  }
+  
+  return token;
+}
+
+// Helper function to generate or retrieve student registration token
+export async function getOrGenerateStudentRegistrationToken(
+  supabase: any,
+  studentId: string
+): Promise<string | null> {
+  // Check if student exists and get invite_token (used for registration)
+  const { data: student, error } = await supabase
+    .from('students')
+    .select('id, user_id, invite_token')
+    .eq('id', studentId)
+    .maybeSingle();
+  
+  if (error || !student) {
+    console.warn('[activity-processor] Failed to fetch student for registration token', { studentId, error });
+    return null;
+  }
+  
+  // Registration link can be sent even if student has account but hasn't registered (status != ACTIVE)
+  // But if they're fully registered (user_id exists AND status is ACTIVE), skip
+  // For now, we'll allow registration link if they don't have user_id or if they have invite_token
+  
+  // Reuse existing token if available
+  if (student.invite_token) {
+    return student.invite_token;
+  }
+  
+  // Generate new token
+  const token = generateUUID();
+  
+  // Update student with invite token
+  const { error: updateError } = await supabase
+    .from('students')
+    .update({ invite_token: token })
+    .eq('id', studentId);
+  
+  if (updateError) {
+    console.warn('[activity-processor] Failed to update student registration token', { studentId, error: updateError });
+    return null;
+  }
+  
+  return token;
+}
+
+// Helper function to generate or retrieve staff invite token
+export async function getOrGenerateStaffInviteToken(
+  supabase: any,
+  staffId: string
+): Promise<string | null> {
+  // Check if staff exists and get invite_token and role
+  const { data: staff, error } = await supabase
+    .from('staff')
+    .select('id, user_id, invite_token, role')
+    .eq('id', staffId)
+    .maybeSingle();
+  
+  if (error || !staff) {
+    console.warn('[activity-processor] Failed to fetch staff for invite token', { staffId, error });
+    return null;
+  }
+  
+  // Don't generate invite if they already have an account
+  if (staff.user_id) {
+    return null;
+  }
+  
+  // Reuse existing token if available
+  if (staff.invite_token) {
+    return staff.invite_token;
+  }
+  
+  // Generate new token
+  const token = generateUUID();
+  
+  // Update staff with invite token
+  const { error: updateError } = await supabase
+    .from('staff')
+    .update({ invite_token: token })
+    .eq('id', staffId);
+  
+  if (updateError) {
+    console.warn('[activity-processor] Failed to update staff invite token', { staffId, error: updateError });
+    return null;
+  }
+  
+  return token;
+}
+
 // Extract template variables from activity event and related entities
 export async function extractTemplateVariables(
   supabase: any,
@@ -405,6 +585,85 @@ export async function extractTemplateVariables(
   } else {
     // If no performed_by, default to "System"
     variables.sender_name = 'System';
+  }
+  
+  // Generate invite/registration links for students if student_id is available
+  if (activityEvent.student_id) {
+    // Student invite link
+    const inviteToken = await getOrGenerateStudentInviteToken(supabase, activityEvent.student_id);
+    if (inviteToken) {
+      variables['student_invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
+      variables['student.invite_link'] = buildStudentInviteUrl(inviteToken, 'invite'); // Also support dot notation
+    } else {
+      variables['student_invite_link'] = '';
+      variables['student.invite_link'] = '';
+    }
+    
+    // Student registration link
+    const registrationToken = await getOrGenerateStudentRegistrationToken(supabase, activityEvent.student_id);
+    if (registrationToken) {
+      variables['student_registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
+      variables['student.registration_link'] = buildStudentInviteUrl(registrationToken, 'register'); // Also support dot notation
+    } else {
+      variables['student_registration_link'] = '';
+      variables['student.registration_link'] = '';
+    }
+  }
+  
+  // Generate invite link for staff if staff_id is available
+  if (activityEvent.staff_id) {
+    // Get staff role first
+    const { data: staff } = await supabase
+      .from('staff')
+      .select('id, role')
+      .eq('id', activityEvent.staff_id)
+      .maybeSingle();
+    
+    if (staff) {
+      const inviteToken = await getOrGenerateStaffInviteToken(supabase, activityEvent.staff_id);
+      if (inviteToken) {
+        variables['staff_invite_link'] = buildStaffInviteUrl(inviteToken, staff.role);
+        variables['staff.invite_link'] = buildStaffInviteUrl(inviteToken, staff.role); // Also support dot notation
+      } else {
+        variables['staff_invite_link'] = '';
+        variables['staff.invite_link'] = '';
+      }
+    }
+  }
+  
+  // Also check entityData for student_id/staff_id (for cases where activity event doesn't have them directly)
+  if (entityData) {
+    // Check for student_id in entityData (e.g., tutor_logs_student_attendance)
+    if (entityData.student_id && !activityEvent.student_id) {
+      const inviteToken = await getOrGenerateStudentInviteToken(supabase, entityData.student_id);
+      if (inviteToken) {
+        variables['student_invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
+        variables['student.invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
+      }
+      
+      const registrationToken = await getOrGenerateStudentRegistrationToken(supabase, entityData.student_id);
+      if (registrationToken) {
+        variables['student_registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
+        variables['student.registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
+      }
+    }
+    
+    // Check for staff_id in entityData
+    if (entityData.staff_id && !activityEvent.staff_id) {
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('id, role')
+        .eq('id', entityData.staff_id)
+        .maybeSingle();
+      
+      if (staff) {
+        const inviteToken = await getOrGenerateStaffInviteToken(supabase, entityData.staff_id);
+        if (inviteToken) {
+          variables['staff_invite_link'] = buildStaffInviteUrl(inviteToken, staff.role);
+          variables['staff.invite_link'] = buildStaffInviteUrl(inviteToken, staff.role);
+        }
+      }
+    }
   }
   
   // Load class data if class_id is available
