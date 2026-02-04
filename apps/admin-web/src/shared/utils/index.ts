@@ -301,4 +301,6 @@ export * from '@altitutor/ui';
 export * from './subject-icons';
 export * from './tableSorting';
 export * from './filtering';
+export * from './file-type-icons';
+export * from './fileOperations';
  

@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import type { Tables } from '@altitutor/shared';
+import { useFilePreview as useGenericFilePreview } from '@/shared/hooks/useFilePreview';
 import { topicsFilesApi } from '../api/topics-files';
 import { filesApi } from '../api/files';
 import { topicsApi } from '../api/topics';
-import { getSignedUrl } from '@/shared/lib/supabase/storage';
+import type { Tables } from '@altitutor/shared';
 
-export interface FilePreviewData {
+/**
+ * Topics-specific wrapper for useFilePreview hook
+ * Provides backward compatibility with topic-specific metadata structure
+ */
+export interface TopicFilePreviewData {
   file: Tables<'files'> | null;
   topicFile: (Tables<'topics_files'> & { topic: Tables<'topics'> }) | null;
   previewUrl: string | null;
@@ -14,7 +18,7 @@ export interface FilePreviewData {
   error: Error | null;
 }
 
-export interface UseFilePreviewParams {
+export interface UseTopicFilePreviewParams {
   isOpen: boolean;
   fileId?: string | null;
   topicFileId?: string | null;
@@ -22,135 +26,88 @@ export interface UseFilePreviewParams {
 }
 
 /**
- * Custom hook for fetching file preview data
- * Handles all data fetching logic separated from UI component
+ * Wrapper hook that provides topic-specific metadata structure
+ * Uses the generic useFilePreview hook internally
  */
 export function useFilePreview({
   isOpen,
   fileId,
   topicFileId,
   getSignedUrlFn,
-}: UseFilePreviewParams): FilePreviewData {
-  const [file, setFile] = useState<Tables<'files'> | null>(null);
-  const [topicFile, setTopicFile] = useState<
+}: UseTopicFilePreviewParams): TopicFilePreviewData {
+  const [topicFileByFileId, setTopicFileByFileId] = useState<
     (Tables<'topics_files'> & { topic: Tables<'topics'> }) | null
   >(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
 
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setFile(null);
-      setTopicFile(null);
-      setPreviewUrl(null);
-      setError(null);
-    }
-  }, [isOpen]);
-
-  // Load file data
-  useEffect(() => {
-    const loadFile = async () => {
-      if (!isOpen) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        if (topicFileId) {
-          // Get topic file with file and topic details
-          try {
-            const tf = await topicsFilesApi.getTopicFile(topicFileId);
-            if (tf) {
-              const fileData = await filesApi.getFile(tf.file_id);
-              if (!fileData) {
-                throw new Error('File not found');
-              }
-
-              const topicData = await topicsApi.getTopic(tf.topic_id);
-              if (!topicData) {
-                throw new Error('Topic not found');
-              }
-
-              setFile(fileData);
-              setTopicFile({ ...tf, topic: topicData });
-              return; // Successfully loaded via topicFileId, exit early
-            }
-          } catch (topicFileError) {
-            // Topic file fetch failed (e.g., topicFileId is actually a staff_files ID)
-            // Fall back to fileId if provided
-            if (fileId) {
-              // Continue to fileId branch below
-            } else {
-              throw topicFileError; // Re-throw if no fileId to fall back to
-            }
+  const result = useGenericFilePreview({
+    isOpen,
+    fileId,
+    junctionTableId: topicFileId,
+    getSignedUrlFn,
+    getMetadataFn: topicFileId
+      ? async (id: string) => {
+          // Fetch topic file with file and topic details
+          const tf = await topicsFilesApi.getTopicFile(id);
+          if (!tf) {
+            throw new Error('Topic file not found');
           }
-        }
-        
-        if (fileId) {
-          // Get file and try to find topic file
-          const fileData = await filesApi.getFile(fileId);
+
+          const fileData = await filesApi.getFile(tf.file_id);
           if (!fileData) {
             throw new Error('File not found');
           }
-          setFile(fileData);
 
-          // Try to get topic file info (optional - don't fail if not found)
-          try {
-            const tf = await topicsFilesApi.getTopicFileByFileId(fileId);
-            if (tf) {
-              setTopicFile(tf);
-            }
-          } catch (topicFileError) {
-            // Topic file not found, that's okay - file can exist without topic file
-            // File may exist without a topic file entry
+          const topicData = await topicsApi.getTopic(tf.topic_id);
+          if (!topicData) {
+            throw new Error('Topic not found');
           }
+
+          return {
+            file: fileData,
+            metadata: {
+              topicFile: { ...tf, topic: topicData },
+            },
+          };
         }
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error('Failed to load file');
-        setError(error);
-        console.error('Error loading file:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      : undefined,
+  });
 
-    loadFile();
-  }, [isOpen, fileId, topicFileId]);
-
-  // Load preview URL when file is available
+  // If fileId was provided but no topicFileId, try to find topic file by fileId
   useEffect(() => {
-    const loadPreview = async () => {
-      if (!isOpen || !file || previewUrl || isLoadingPreview) {
+    const loadTopicFileByFileId = async () => {
+      if (!isOpen || !fileId || topicFileId || result.file?.id !== fileId) {
         return;
       }
 
       try {
-        setIsLoadingPreview(true);
-        const getUrlFn = getSignedUrlFn || getSignedUrl;
-        const signedUrl = await getUrlFn(file.storage_path);
-        setPreviewUrl(signedUrl);
-      } catch (err) {
-        console.error('Failed to generate signed URL:', err);
-        // Don't set error state - preview URL failure is not critical
-      } finally {
-        setIsLoadingPreview(false);
+        const tf = await topicsFilesApi.getTopicFileByFileId(fileId);
+        if (tf) {
+          setTopicFileByFileId(tf);
+        }
+      } catch (error) {
+        // Topic file not found, that's okay - file can exist without topic file
       }
     };
 
-    loadPreview();
-  }, [isOpen, file, previewUrl, isLoadingPreview, getSignedUrlFn]);
+    loadTopicFileByFileId();
+  }, [isOpen, fileId, topicFileId, result.file]);
+
+  // Reset when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setTopicFileByFileId(null);
+    }
+  }, [isOpen]);
+
+  // Transform generic metadata to topic-specific structure
+  const topicFile = result.metadata?.topicFile || topicFileByFileId;
 
   return {
-    file,
-    topicFile,
-    previewUrl,
-    isLoading,
-    isLoadingPreview,
-    error,
+    file: result.file,
+    topicFile: topicFile as (Tables<'topics_files'> & { topic: Tables<'topics'> }) | null,
+    previewUrl: result.previewUrl,
+    isLoading: result.isLoading,
+    isLoadingPreview: result.isLoadingPreview,
+    error: result.error,
   };
 }

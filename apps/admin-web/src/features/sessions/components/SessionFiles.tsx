@@ -5,7 +5,7 @@ import { Button } from '@altitutor/ui';
 import { Upload, Loader2, X } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useToast } from '@altitutor/ui';
-import { FileCard } from '@/features/topics/components/FileCard';
+import { FileCard } from '@/shared/components/files/FileCard';
 import { sessionFilesApi, type SessionFileWithUrl } from '../api/session-files';
 import { getSessionFileSignedUrl } from '@/shared/lib/supabase/storage';
 
