@@ -217,14 +217,17 @@ describe('BookSessionModal', () => {
           { id: 'time', title: 'Select Time' },
         ],
         currentStep: 0,
+        currentStepData: { id: 'student', title: 'Select Student' },
       }));
 
       renderWithProviders(<BookSessionModal {...defaultProps} />);
 
-      // Step numbers should be visible
-      expect(screen.getByText('1')).toBeInTheDocument();
-      expect(screen.getByText('2')).toBeInTheDocument();
-      expect(screen.getByText('3')).toBeInTheDocument();
+      // Step description should show current step and total steps
+      expect(screen.getByText(/Step 1 of 3/i)).toBeInTheDocument();
+      
+      // Progress bars should be rendered (one for each step)
+      const progressBars = screen.getByRole('dialog').querySelectorAll('.flex-1.h-2.rounded-full');
+      expect(progressBars).toHaveLength(3);
     });
 
     it('should highlight current step', () => {
@@ -234,13 +237,17 @@ describe('BookSessionModal', () => {
           { id: 'student', title: 'Select Student' },
           { id: 'subject', title: 'Select Subject' },
         ],
+        currentStepData: { id: 'subject', title: 'Select Subject' },
       }));
 
       renderWithProviders(<BookSessionModal {...defaultProps} />);
 
-      // Current step should have primary styling (we can't easily test classes, but we can verify structure)
-      const step2 = screen.getByText('2').closest('div');
-      expect(step2).toBeInTheDocument();
+      // Step description should show current step
+      expect(screen.getByText(/Step 2 of 2/i)).toBeInTheDocument();
+      
+      // Progress bars should be rendered (one for each step)
+      const progressBars = screen.getByRole('dialog').querySelectorAll('.flex-1.h-2.rounded-full');
+      expect(progressBars).toHaveLength(2);
     });
   });
 
