@@ -164,7 +164,7 @@ export function CreateEditActionDialog({
 
   // Helper function to insert variable at cursor position
   const insertVariable = (
-    field: { value: string; onChange: (value: string) => void },
+    field: { value: string | undefined; onChange: (value: string) => void },
     ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
     variable: string
   ) => {
@@ -196,6 +196,9 @@ export function CreateEditActionDialog({
   // Initialize form when editing
   useEffect(() => {
     if (isOpen && isEditing && action) {
+      if (!action.action_config || typeof action.action_config !== 'object' || Array.isArray(action.action_config)) {
+        return;
+      }
       const config = action.action_config as unknown as ActionConfig;
       
       // Determine recipient types from config and validate against entity type
@@ -207,16 +210,15 @@ export function CreateEditActionDialog({
         const isGlobalType = ['all_admin_staff', 'all_staff'].includes(recipientType);
         const isAdminStaffOnDay = recipientType === 'admin_staff_on_day';
         
-        // Validate recipient type against entity type
+        // Validate recipient type against entity type - only assign if valid
         if (recipientType === 'single' || 
             (isClassType && hasClassId) || 
             (isSessionType && hasSessionId) ||
             isGlobalType ||
             (isAdminStaffOnDay && (hasClassId || hasSessionId))) {
-          notificationRecipientType = recipientType;
-        } else {
-          // Invalid recipient type, fall back to single
-          notificationRecipientType = 'single';
+          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_staff' || recipientType === 'class_all' || recipientType === 'session_students' || recipientType === 'session_staff' || recipientType === 'session_all' || recipientType === 'all_admin_staff' || recipientType === 'all_staff' || recipientType === 'admin_staff_on_day') {
+            notificationRecipientType = recipientType;
+          }
         }
       }
       
@@ -226,14 +228,13 @@ export function CreateEditActionDialog({
         const isClassType = recipientType.startsWith('class_');
         const isSessionType = recipientType.startsWith('session_');
         
-        // Validate recipient type against entity type
+        // Validate recipient type against entity type - only assign if valid
         if (recipientType === 'single' || 
             (isClassType && hasClassId) || 
             (isSessionType && hasSessionId)) {
-          messageRecipientType = recipientType;
-        } else {
-          // Invalid recipient type, fall back to single
-          messageRecipientType = 'single';
+          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_students_and_parents' || recipientType === 'session_students' || recipientType === 'session_students_and_parents') {
+            messageRecipientType = recipientType;
+          }
         }
       }
       
@@ -241,23 +242,23 @@ export function CreateEditActionDialog({
         action_type: action.action_type as ActionType,
         order_index: action.order_index || 0,
         template_id: action.action_type === 'SEND_MESSAGE' && 'template_id' in config ? config.template_id : undefined,
-        target_contact_id: action.action_type === 'SEND_MESSAGE' && ('target_contact_id' in config || 'contact_id' in config) ? (config.target_contact_id || ('contact_id' in config ? config.contact_id : undefined)) : undefined,
+        target_contact_id: action.action_type === 'SEND_MESSAGE' && ('target_contact_id' in config || 'contact_id' in config) ? ('target_contact_id' in config && typeof config.target_contact_id === 'string' ? config.target_contact_id : ('contact_id' in config && typeof config.contact_id === 'string' ? config.contact_id : undefined)) : undefined,
         // Handle both old field name (selected_sender_id) and new field name (owned_number_id) for backward compatibility
-        selected_sender_id: action.action_type === 'SEND_MESSAGE' && ('owned_number_id' in config || 'selected_sender_id' in config) ? (config.owned_number_id || ('selected_sender_id' in config ? config.selected_sender_id : undefined)) : undefined,
+        selected_sender_id: action.action_type === 'SEND_MESSAGE' && ('owned_number_id' in config || 'selected_sender_id' in config) ? ('owned_number_id' in config && typeof config.owned_number_id === 'string' ? config.owned_number_id : ('selected_sender_id' in config && typeof config.selected_sender_id === 'string' ? config.selected_sender_id : undefined)) : undefined,
         message_recipient_type: messageRecipientType,
         title_template: action.action_type === 'CREATE_TASK' && 'title_template' in config ? config.title_template : undefined,
         description_template: action.action_type === 'CREATE_TASK' && 'description_template' in config ? config.description_template : undefined,
-        assigned_to: config.assigned_to,
-        priority: config.priority,
-        due_date_offset_days: config.due_date_offset_days,
-        estimate: config.estimate,
-        status: config.status,
-        notification_type: config.notification_type,
-        notification_title: config.title,
-        notification_body: config.body,
-        action_url: config.action_url,
+        assigned_to: action.action_type === 'CREATE_TASK' && 'assigned_to' in config ? config.assigned_to : undefined,
+        priority: action.action_type === 'CREATE_TASK' && 'priority' in config ? config.priority : undefined,
+        due_date_offset_days: action.action_type === 'CREATE_TASK' && 'due_date_offset_days' in config ? config.due_date_offset_days : undefined,
+        estimate: action.action_type === 'CREATE_TASK' && 'estimate' in config ? config.estimate : undefined,
+        status: action.action_type === 'CREATE_TASK' && 'status' in config && typeof config.status === 'string' && ['backlog', 'todo', 'in_progress', 'in_review', 'done'].includes(config.status) ? config.status as 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' : undefined,
+        notification_type: action.action_type === 'CREATE_NOTIFICATION' && 'notification_type' in config ? config.notification_type : undefined,
+        notification_title: action.action_type === 'CREATE_NOTIFICATION' && 'title' in config ? config.title : undefined,
+        notification_body: action.action_type === 'CREATE_NOTIFICATION' && 'body' in config ? config.body : undefined,
+        action_url: action.action_type === 'CREATE_NOTIFICATION' && 'action_url' in config ? config.action_url : undefined,
         // If staff_id is not set, use empty string to trigger auto-detect (will display as "__AUTO__")
-        target_staff_id: config.staff_id || config.target_staff_id || '', // Support both field names
+        target_staff_id: action.action_type === 'CREATE_NOTIFICATION' && ('staff_id' in config || 'target_staff_id' in config) ? ('staff_id' in config && typeof config.staff_id === 'string' ? config.staff_id : ('target_staff_id' in config && typeof config.target_staff_id === 'string' ? config.target_staff_id : '')) : '',
         notification_recipient_type: notificationRecipientType,
       });
     } else if (isOpen && !isEditing) {
@@ -309,6 +310,9 @@ export function CreateEditActionDialog({
       let actionConfig: ActionConfig;
 
       if (data.action_type === 'SEND_MESSAGE') {
+        if (!data.template_id) {
+          throw new Error('Template ID is required for SEND_MESSAGE action');
+        }
         const recipientType = data.message_recipient_type || 'single';
         const sendMessageConfig: SendMessageActionConfig = {
           template_id: data.template_id,
@@ -318,18 +322,24 @@ export function CreateEditActionDialog({
             : {}),
           ...(recipientType !== 'single' ? { recipients: { type: recipientType } } : {}),
         };
-        actionConfig = sendMessageConfig as ActionConfig;
+        actionConfig = sendMessageConfig;
       } else if (data.action_type === 'CREATE_TASK') {
+        if (!data.title_template) {
+          throw new Error('Title template is required for CREATE_TASK action');
+        }
         const createTaskConfig: CreateTaskActionConfig = {
           title_template: data.title_template,
-          description_template: data.description_template,
+          description_template: data.description_template || undefined,
           assigned_to: data.assigned_to || undefined,
           priority: data.priority ?? 0,
           due_date_offset_days: data.due_date_offset_days || undefined,
           estimate: data.estimate || undefined,
         };
-        actionConfig = createTaskConfig as ActionConfig;
+        actionConfig = createTaskConfig;
       } else if (data.action_type === 'CREATE_NOTIFICATION') {
+        if (!data.notification_title) {
+          throw new Error('Title is required for CREATE_NOTIFICATION action');
+        }
         const recipientType = data.notification_recipient_type || 'single';
         const createNotificationConfig: CreateNotificationActionConfig = {
           notification_type: data.notification_type || 'GENERIC',
@@ -339,17 +349,21 @@ export function CreateEditActionDialog({
           ...(recipientType === 'single' && data.target_staff_id ? { staff_id: data.target_staff_id } : {}),
           ...(recipientType !== 'single' ? { recipients: { type: recipientType } } : {}),
         };
-        actionConfig = createNotificationConfig as ActionConfig;
+        actionConfig = createNotificationConfig;
       } else {
         throw new Error(`Unknown action type: ${data.action_type}`);
       }
 
+      // Convert ActionConfig to Json type for database storage
+      type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+      const actionConfigJson = JSON.parse(JSON.stringify(actionConfig)) as Json;
+      
       if (isEditing && action) {
         await updateMutation.mutateAsync({
           id: action.id,
           updates: {
             action_type: data.action_type,
-            action_config: actionConfig,
+            action_config: actionConfigJson,
             order_index: data.order_index,
           },
         });
@@ -357,7 +371,7 @@ export function CreateEditActionDialog({
         await createMutation.mutateAsync({
           rule_id: ruleId,
           action_type: data.action_type,
-          action_config: actionConfig,
+          action_config: actionConfigJson,
           order_index: data.order_index,
         });
       }
@@ -445,7 +459,7 @@ export function CreateEditActionDialog({
                           entityType={entityType}
                           hasClassId={hasClassId}
                           hasSessionId={hasSessionId}
-                          onInsert={(variable) => insertVariable(field, titleInputRef, variable)}
+                          onInsert={(variable) => insertVariable({ value: field.value || '', onChange: field.onChange }, titleInputRef, variable)}
                         />
                       </div>
                       <FormControl>
@@ -476,7 +490,7 @@ export function CreateEditActionDialog({
                           entityType={entityType}
                           hasClassId={hasClassId}
                           hasSessionId={hasSessionId}
-                          onInsert={(variable) => insertVariable(field, descriptionTextareaRef, variable)}
+                          onInsert={(variable) => insertVariable({ value: field.value || '', onChange: field.onChange }, descriptionTextareaRef, variable)}
                         />
                       </div>
                       <FormControl>
@@ -780,7 +794,7 @@ export function CreateEditActionDialog({
                           entityType={entityType}
                           hasClassId={hasClassId}
                           hasSessionId={hasSessionId}
-                          onInsert={(variable) => insertVariable(field, notificationTitleInputRef, variable)}
+                          onInsert={(variable) => insertVariable({ value: field.value || '', onChange: field.onChange }, notificationTitleInputRef, variable)}
                         />
                       </div>
                       <FormControl>
@@ -810,7 +824,7 @@ export function CreateEditActionDialog({
                           entityType={entityType}
                           hasClassId={hasClassId}
                           hasSessionId={hasSessionId}
-                          onInsert={(variable) => insertVariable(field, notificationBodyTextareaRef, variable)}
+                          onInsert={(variable) => insertVariable({ value: field.value || '', onChange: field.onChange }, notificationBodyTextareaRef, variable)}
                         />
                       </div>
                       <FormControl>
@@ -926,7 +940,7 @@ export function CreateEditActionDialog({
                           entityType={entityType}
                           hasClassId={hasClassId}
                           hasSessionId={hasSessionId}
-                          onInsert={(variable) => insertVariable(field, actionUrlInputRef, variable)}
+                          onInsert={(variable) => insertVariable({ value: field.value || '', onChange: field.onChange }, actionUrlInputRef, variable)}
                         />
                       </div>
                       <FormControl>

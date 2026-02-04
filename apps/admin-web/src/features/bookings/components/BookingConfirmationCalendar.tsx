@@ -108,11 +108,13 @@ export function BookingConfirmationCalendar({
                       const left = idx * columnWidth + 2.5;
 
                       const isNewSession = s.id === 'new-session-preview';
-                      const cls = s.class_id ? classesById[s.class_id] : undefined;
+                      // Find the full session data from allSessions
+                      const fullSession = allSessions.find(sess => sess.id === s.id);
+                      const cls = fullSession && 'class_id' in fullSession && fullSession.class_id ? classesById[fullSession.class_id] : undefined;
                       const subj = cls?.subject_id 
                         ? subjectsById[cls.subject_id] 
-                        : s.subject_id 
-                        ? subjectsById[s.subject_id] 
+                        : fullSession && 'subject_id' in fullSession && fullSession.subject_id 
+                        ? subjectsById[fullSession.subject_id] 
                         : undefined;
                       const sessionStaffList = sessionStaff[s.id] || [];
                       const sessionStudentsList = sessionStudents[s.id] || [];

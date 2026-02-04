@@ -46,6 +46,8 @@ export const StaffTableRow = memo(function StaffTableRow({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   const handleClick = useCallback(() => {
     onStaffClick(staff.id);
