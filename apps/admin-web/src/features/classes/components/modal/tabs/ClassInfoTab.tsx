@@ -33,7 +33,7 @@ import { format } from 'date-fns';
 
 // Form schema for class details
 const classInfoSchema = z.object({
-  level: z.string().min(1, 'Level is required'),
+  level: z.string().optional().nullable(),
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
@@ -85,7 +85,7 @@ export function ClassInfoTab({
   const form = useForm<FormData>({
     resolver: zodResolver(classInfoSchema),
     defaultValues: {
-      level: '',
+      level: null,
       dayOfWeek: 1,
       startTime: '',
       endTime: '',
@@ -124,7 +124,7 @@ export function ClassInfoTab({
     if (isEditing && !hasResetRef.current && classData) {
       const dayValue = classData.day_of_week != null ? classData.day_of_week : 1;
       form.reset({
-        level: classData.level || '',
+        level: classData.level || null,
         dayOfWeek: dayValue,
         startTime: classData.start_time || '',
         endTime: classData.end_time || '',
@@ -209,7 +209,7 @@ export function ClassInfoTab({
         >
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="level">Level *</Label>
+                  <Label htmlFor="level">Level</Label>
                   <Controller
                     control={form.control}
                     name="level"
@@ -217,9 +217,10 @@ export function ClassInfoTab({
                       <Input 
                         id="level" 
                         {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
                         disabled={isLoading} 
-                        placeholder="e.g., "
-                        required
+                        placeholder="e.g., A/B/C/D"
                       />
                     )}
                   />
@@ -505,17 +506,21 @@ export function ClassInfoTab({
                           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                           <AlertDialogDescription>
                             This action cannot be undone. This will permanently delete the class
-                            "{classData.level}" and all associated data from the database.
+                            {classData.level ? ` "${classData.level}"` : ''} and all associated data from the database.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <div className="py-4">
                           <div className="space-y-2">
                             <Label>
-                              Type <strong>{classData.level}</strong> to confirm deletion
+                              {classData.level ? (
+                                <>Type <strong>{classData.level}</strong> to confirm deletion</>
+                              ) : (
+                                <>Type <strong>DELETE</strong> to confirm deletion</>
+                              )}
                             </Label>
                             <Input
                               type="text"
-                              placeholder={classData.level || undefined}
+                              placeholder={classData.level || 'DELETE'}
                               value={deleteConfirmText}
                               onChange={(e) => setDeleteConfirmText(e.target.value)}
                               className="mt-2"
@@ -532,7 +537,7 @@ export function ClassInfoTab({
                                 setDeleteConfirmText('');
                               }
                             }}
-                            disabled={isDeleting || deleteConfirmText !== classData.level}
+                            disabled={isDeleting || (classData.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isDeleting ? (

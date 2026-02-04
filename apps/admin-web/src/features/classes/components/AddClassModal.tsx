@@ -44,12 +44,6 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setError(null);
     
     // Validate required fields
-    if (!level.trim()) {
-      setError('Class level is required');
-      setLoading(false);
-      return;
-    }
-    
     if (!dayOfWeek) {
       setError('Day of week is required');
       setLoading(false);
@@ -85,7 +79,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     try {
       const payload: TablesInsert<'classes'> = {
         id: crypto.randomUUID(),
-        level: level.trim(),
+        level: level.trim() || null,
         day_of_week: dayOfWeekNum,
         start_time: startTime.trim(),
         end_time: endTime.trim(),
@@ -151,13 +145,12 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="level">Class Level *</Label>
+              <Label htmlFor="level">Class Level</Label>
               <Input
                 id="level"
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
-                placeholder="A/B/C/D"
-                required
+                placeholder="A/B/C/D (optional)"
               />
             </div>
             
