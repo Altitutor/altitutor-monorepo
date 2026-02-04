@@ -25,12 +25,12 @@ import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
 import { StaffDetailsTab, StaffDetailsFormData } from '@/features/staff/components/modal/tabs/StaffDetailsTab';
 import { ClassesTab } from '@/features/staff/components/modal/tabs/ClassesTab';
-import { StudentsTab } from '@/features/staff/components/modal/tabs/StudentsTab';
 import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSessionsTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { StaffFiles } from '@/features/staff/components/StaffFiles';
 import {
   useStaffEditFlow,
   useStaffPasswordReset,
@@ -235,8 +235,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="classes">Classes</TabsTrigger>
-          <TabsTrigger value="students">Students</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          <TabsTrigger value="files">Files</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
@@ -298,17 +298,14 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           />
         </TabsContent>
 
-        <TabsContent value="students" className="space-y-6">
-          <StudentsTab
-            staffId={id}
-            isOpen={true}
-          />
-        </TabsContent>
-
         <TabsContent value="sessions" className="space-y-6">
           {staffMember && (
             <StaffSessionsTab staff={staffMember} />
           )}
+        </TabsContent>
+
+        <TabsContent value="files" className="space-y-6">
+          <StaffFiles staffId={id} />
         </TabsContent>
 
         <TabsContent value="messages" className="space-y-6">

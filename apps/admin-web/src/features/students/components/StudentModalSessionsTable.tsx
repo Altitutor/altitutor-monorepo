@@ -165,7 +165,6 @@ export function StudentModalSessionsTable({
                 <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-100" />
               </TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>Type</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Planned Attendance</TableHead>
               <TableHead>Actual Attendance</TableHead>
@@ -176,7 +175,7 @@ export function StudentModalSessionsTable({
           <TableBody>
             {processedSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center h-24">
+                <TableCell colSpan={7} className="text-center h-24">
                   {searchTerm ? 'No sessions match your search' : 'No sessions found'}
                 </TableCell>
               </TableRow>
@@ -201,33 +200,31 @@ export function StudentModalSessionsTable({
                     </TableCell>
                     <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
                     <TableCell>
-                      <Badge className={getSessionTypeBadgeColor(session.type)}>
-                        {formatSessionType(session.type)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {session.class_id ? (() => {
-                        const cls = classesById[session.class_id];
-                        const shortDisplay = getClassShortDisplayName(session);
-                        const fullDisplay = getClassDisplayName(session);
-                        if (cls) {
-                          return (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
-                              onClick={(e) => handleClassClick(session.class_id!, e)}
-                              title={fullDisplay || 'Class'}
-                            >
-                              <span className="2xl:hidden">{shortDisplay || 'Class'}</span>
-                              <span className="hidden 2xl:inline">{fullDisplay || 'Class'}</span>
-                            </Button>
-                          );
-                        }
-                        return <span className="text-muted-foreground text-sm">-</span>;
-                      })() : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Badge className={getSessionTypeBadgeColor(session.type)}>
+                          {formatSessionType(session.type)}
+                        </Badge>
+                        {session.class_id ? (() => {
+                          const cls = classesById[session.class_id];
+                          const shortDisplay = getClassShortDisplayName(session);
+                          const fullDisplay = getClassDisplayName(session);
+                          if (cls) {
+                            return (
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
+                                onClick={(e) => handleClassClick(session.class_id!, e)}
+                                title={fullDisplay || 'Class'}
+                              >
+                                <span className="2xl:hidden">{shortDisplay || 'Class'}</span>
+                                <span className="hidden 2xl:inline">{fullDisplay || 'Class'}</span>
+                              </Button>
+                            );
+                          }
+                          return null;
+                        })() : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <AttendanceCell

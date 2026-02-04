@@ -405,12 +405,7 @@ export function SessionsTable({
                 <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-100" />
               </TableHead>
               <TableHead>Time</TableHead>
-              {!hideTypeColumn && (
-                <TableHead>
-                  Type
-                </TableHead>
-              )}
-              {!classId && !hideClassColumn && (
+              {!classId && !hideClassColumn && !hideTypeColumn && (
                 <TableHead>Class</TableHead>
               )}
               <TableHead>Staff</TableHead>
@@ -426,9 +421,9 @@ export function SessionsTable({
               <TableRow>
                 <TableCell colSpan={
                   5 + 
-                  (!hideTypeColumn ? 1 : 0) + 
-                  (!classId && !hideClassColumn ? 1 : 0) + 
-                  (!hideStudentsColumn ? 1 : 0)
+                  (!classId && !hideClassColumn && !hideTypeColumn ? 1 : 0) + 
+                  (!hideStudentsColumn ? 1 : 0) +
+                  1 // Actions column
                 } className="text-center h-24">
                   {searchTerm || studentFilters.length > 0 || typeFilters.length > 0
                     ? "No sessions match your filters"
@@ -453,16 +448,13 @@ export function SessionsTable({
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
-                  {!hideTypeColumn && (
-                    <TableCell>
+                  {!classId && !hideClassColumn && !hideTypeColumn && (
+                  <TableCell>
+                    <div className="flex items-center gap-2">
                       <Badge className={getSessionTypeBadgeColor(session.type)}>
                         {formatSessionType(session.type)}
                       </Badge>
-                    </TableCell>
-                  )}
-                  {!classId && !hideClassColumn && (
-                  <TableCell>
-                    {session.class_id ? (() => {
+                      {session.class_id ? (() => {
                         const cls = classesById[session.class_id];
                         const shortDisplay = getClassShortDisplayName(session);
                         const fullDisplay = getClassDisplayName(session);
@@ -482,11 +474,10 @@ export function SessionsTable({
                             </Button>
                           );
                         }
-                        return <span className="text-muted-foreground text-sm">-</span>;
-                      })() : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
+                        return null;
+                      })() : null}
+                    </div>
+                  </TableCell>
                   )}
                   <TableCell>
                     {(() => {
