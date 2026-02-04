@@ -5,7 +5,6 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
-  UnrepliedMessage,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -17,7 +16,6 @@ type ReconciliationQueries = {
   unpaidInvoices: { data?: UnpaidInvoice[] };
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
-  unrepliedMessages: { data?: UnrepliedMessage[] };
   failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
@@ -29,7 +27,6 @@ const createMockQueries = (overrides?: Partial<ReconciliationQueries>): Reconcil
   unpaidInvoices: { data: [] as UnpaidInvoice[] },
   unloggedSessions: { data: [] as UnloggedSession[] },
   unassignedClasses: { data: [] as UnassignedClass[] },
-  unrepliedMessages: { data: [] as UnrepliedMessage[] },
   failedDeliveryMessages: { data: [] as FailedDeliveryMessage[] },
   studentsWithoutClasses: { data: [] as StudentWithoutClasses[] },
   studentsWithoutPaymentMethod: { data: [] as StudentWithoutPaymentMethod[] },
@@ -66,13 +63,12 @@ describe('useReconciliationItems', () => {
 
   it('should aggregate communication items correctly', () => {
     const queries = createMockQueries({
-      unrepliedMessages: { data: [{ conversation_id: '1' } as UnrepliedMessage] },
       failedDeliveryMessages: { data: [{ message_id: '1' } as FailedDeliveryMessage] },
     });
 
     const { result } = renderHook(() => useReconciliationItems(queries));
 
-    expect(result.current.communicationItems).toHaveLength(2);
+    expect(result.current.communicationItems).toHaveLength(1);
     expect(result.current.hasAnyItems).toBe(true);
   });
 
@@ -100,19 +96,18 @@ describe('useReconciliationItems', () => {
   });
 
   it('should handle undefined data arrays', () => {
-    const queries = {
-      uninvoicedSessions: {},
-      unpaidInvoices: {},
-      unloggedSessions: {},
-      unassignedClasses: {},
-      unrepliedMessages: {},
-      failedDeliveryMessages: {},
-      studentsWithoutClasses: {},
-      studentsWithoutPaymentMethod: {},
-      trialStudentsNotSignedUp: {},
+    const queries: ReconciliationQueries = {
+      uninvoicedSessions: { data: undefined },
+      unpaidInvoices: { data: undefined },
+      unloggedSessions: { data: undefined },
+      unassignedClasses: { data: undefined },
+      failedDeliveryMessages: { data: undefined },
+      studentsWithoutClasses: { data: undefined },
+      studentsWithoutPaymentMethod: { data: undefined },
+      trialStudentsNotSignedUp: { data: undefined },
     };
 
-    const { result } = renderHook(() => useReconciliationItems(queries as any));
+    const { result } = renderHook(() => useReconciliationItems(queries));
 
     expect(result.current.financialItems).toHaveLength(0);
     expect(result.current.schedulingItems).toHaveLength(0);
