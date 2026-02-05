@@ -65,8 +65,8 @@ export function MessageTemplatesPicker({ onSelect, disabled }: MessageTemplatesP
             </Button>
           </div>
         ) : (
-          <ScrollArea className="max-h-[300px]">
-            <div className="p-2">
+          <ScrollArea className="h-[300px]">
+            <div className="space-y-1 pr-4 p-2">
               {templates.map((template) => (
                 <button
                   key={template.id}
