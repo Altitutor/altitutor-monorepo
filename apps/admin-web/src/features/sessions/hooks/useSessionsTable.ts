@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { useSessionsWithDetails } from './useSessionsQuery';
 import { useStudentSearchForFilter } from './useStudentSearchForFilter';
@@ -234,9 +234,43 @@ export function useSessionsTable({
     return paginateSessions(filteredSessions, page, pageSize, limit);
   }, [filteredSessions, page, pageSize, limit]);
 
-  // Reset page when filters change
+  // Reset page when filters change (but not when page itself changes)
+  // Use refs to track previous values and only reset if filters actually changed
+  const prevFiltersRef = useRef({
+    studentFilters: initialStudentFilters,
+    typeFilters: [],
+    debouncedSearchTerm: '',
+    rangeStart,
+    rangeEnd,
+    showLogged: true,
+    showUnlogged: true,
+  });
+
   useEffect(() => {
-    setPage(1);
+    const currentFilters = {
+      studentFilters: hideStudentFilter ? initialStudentFilters : studentFilters,
+      typeFilters,
+      debouncedSearchTerm,
+      rangeStart,
+      rangeEnd,
+      showLogged,
+      showUnlogged,
+    };
+
+    // Check if any filter actually changed
+    const filtersChanged =
+      JSON.stringify(prevFiltersRef.current.studentFilters) !== JSON.stringify(currentFilters.studentFilters) ||
+      JSON.stringify(prevFiltersRef.current.typeFilters) !== JSON.stringify(currentFilters.typeFilters) ||
+      prevFiltersRef.current.debouncedSearchTerm !== currentFilters.debouncedSearchTerm ||
+      prevFiltersRef.current.rangeStart !== currentFilters.rangeStart ||
+      prevFiltersRef.current.rangeEnd !== currentFilters.rangeEnd ||
+      prevFiltersRef.current.showLogged !== currentFilters.showLogged ||
+      prevFiltersRef.current.showUnlogged !== currentFilters.showUnlogged;
+
+    if (filtersChanged) {
+      setPage(1);
+      prevFiltersRef.current = currentFilters;
+    }
   }, [
     studentFilters,
     initialStudentFilters,
@@ -246,6 +280,7 @@ export function useSessionsTable({
     rangeEnd,
     showLogged,
     showUnlogged,
+    hideStudentFilter,
   ]);
 
   // Check if filters are in default state
