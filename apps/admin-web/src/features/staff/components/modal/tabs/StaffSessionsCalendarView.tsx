@@ -73,7 +73,7 @@ export function StaffSessionsCalendarView({
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
   // For current time indicator, use local time (user's current time)
   const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (9 * 60);
-  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 75);
+  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
 
   return (
     <div className="flex flex-col gap-3 h-full">

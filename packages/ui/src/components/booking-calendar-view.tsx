@@ -158,7 +158,7 @@ export function BookingCalendarView({
   const now = new Date();
   const todayDayIndex = days.findIndex((d) => isSameDay(d, now));
   const currentMinutesFromStart = minutesFromStart(now);
-  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 75);
+  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
 
   return (
     <div className="flex flex-col gap-3">
