@@ -42,6 +42,7 @@ export function EnrollStudentModal({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedClassData, setSelectedClassData] = useState<ClassWithExpandedSubject | undefined>(undefined);
   const [enrollmentDate, setEnrollmentDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
@@ -67,6 +68,16 @@ export function EnrollStudentModal({
     ? student 
     : students.find(s => s.id === selectedStudentId);
   
+  // Update selectedClassData when classes are available and selectedClassId is set
+  useEffect(() => {
+    if (context === 'student' && selectedClassId && classes.length > 0) {
+      const found = classes.find(c => c.id === selectedClassId);
+      if (found) {
+        setSelectedClassData(found);
+      }
+    }
+  }, [context, selectedClassId, classes]);
+  
   const selectedClass: ClassWithExpandedSubject | undefined = useMemo(() => {
     if (context === 'class') {
       return classData ? {
@@ -77,9 +88,10 @@ export function EnrollStudentModal({
       } as ClassWithExpandedSubject
       : undefined;
     } else {
-      return classes.find(c => c.id === selectedClassId);
+      // Use stored selectedClassData if available, otherwise try to find from classes array
+      return selectedClassData || classes.find(c => c.id === selectedClassId);
     }
-  }, [context, classData, classSubject, classStaff, classes, selectedClassId]);
+  }, [context, classData, classSubject, classStaff, classes, selectedClassId, selectedClassData]);
 
   // Get the subject to display in the student card (only the selected subject)
   const displaySubject = useMemo(() => {
@@ -175,6 +187,7 @@ export function EnrollStudentModal({
     setStep(1);
     setSelectedStudentId(null);
     setSelectedClassId(null);
+    setSelectedClassData(undefined);
     setEnrollmentDate(new Date().toISOString().split('T')[0]);
     resetFilters(defaultSubjectFilters);
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
@@ -313,6 +326,7 @@ export function EnrollStudentModal({
                 context={context}
                 enrollmentDate={enrollmentDate}
                 onDateChange={setEnrollmentDate}
+                studentId={selectedStudent?.id || null}
                 classData={classData}
                 classSubject={classSubject}
                 classStaff={classStaff}

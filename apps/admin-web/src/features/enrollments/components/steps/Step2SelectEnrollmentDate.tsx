@@ -6,11 +6,13 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { ClassCard } from '@/shared/components/ClassCard';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext } from '../../types/enrollment';
+import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
 
 interface Step2SelectEnrollmentDateProps {
   context: EnrollmentContext;
   enrollmentDate: string;
   onDateChange: (date: string) => void;
+  studentId: string | null;
   
   // Class context props
   classData?: Tables<'classes'>;
@@ -25,11 +27,15 @@ export function Step2SelectEnrollmentDate({
   context,
   enrollmentDate,
   onDateChange,
+  studentId,
   classData,
   classSubject,
   classStaff,
   selectedClass,
 }: Step2SelectEnrollmentDateProps) {
+  // Determine which class to show in calendar - use classData for 'class' context, selectedClass for 'student' context
+  const classForCalendar = context === 'class' ? classData : selectedClass;
+  
   return (
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
       {/* Show class card for student context */}
@@ -72,6 +78,19 @@ export function Step2SelectEnrollmentDate({
           Student will be added to all sessions on or after this date
         </p>
       </div>
+
+      {/* Week Calendar View */}
+      {studentId && (
+        <div className="mt-4">
+          <EnrollmentWeekCalendar
+            studentId={studentId}
+            enrollmentDate={enrollmentDate}
+            selectedClass={context === 'student' ? selectedClass : undefined}
+            classData={context === 'class' ? classData : undefined}
+            onEnrollmentDateChange={onDateChange}
+          />
+        </div>
+      )}
     </div>
   );
 }
