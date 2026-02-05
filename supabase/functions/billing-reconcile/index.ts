@@ -102,6 +102,12 @@ Deno.serve(async (req: Request) => {
             limit: 100,
           });
           
+          // Calculate amount paid from customer balance
+          const subtotalCents = invoice.subtotal || 0;
+          const totalCents = invoice.total || 0;
+          const amountDueCents = invoice.amount_due || 0;
+          const amountPaidFromBalanceCents = Math.max(0, totalCents - amountDueCents);
+
           // Create DB record
           const { data: dbInvoice, error: insertErr } = await supabase
             .from('invoices')
@@ -110,8 +116,11 @@ Deno.serve(async (req: Request) => {
               stripe_invoice_id: invoice.id,
               stripe_invoice_number: invoice.number,
               invoice_date: invoiceDate,
-              amount_due_cents: invoice.amount_due,
+              subtotal_cents: subtotalCents || null,
+              total_cents: totalCents || null,
+              amount_due_cents: amountDueCents,
               amount_paid_cents: invoice.amount_paid || 0,
+              amount_paid_from_balance_cents: amountPaidFromBalanceCents,
               currency: invoice.currency,
               status: invoice.status,
               collection_method: invoice.collection_method,
@@ -142,7 +151,7 @@ Deno.serve(async (req: Request) => {
             throw insertErr;
           }
           
-          // Insert invoice items
+          // Insert invoice items using upsert to handle duplicates
           const itemInserts = invoiceItems.data
             .filter(item => item.invoice === invoice.id)
             .map((item) => ({
@@ -159,11 +168,14 @@ Deno.serve(async (req: Request) => {
           if (itemInserts.length > 0) {
             const { error: itemsErr } = await supabase
               .from('invoice_items')
-              .insert(itemInserts);
+              .upsert(itemInserts, {
+                onConflict: 'stripe_invoice_item_id',
+                ignoreDuplicates: false,
+              });
             
             if (itemsErr) {
-              console.error(`[reconcile] Failed to insert items for invoice ${invoice.id}:`, itemsErr);
-              errors.push(`Invoice ${invoice.id}: Failed to insert items`);
+              console.error(`[reconcile] Failed to upsert items for invoice ${invoice.id}:`, itemsErr);
+              errors.push(`Invoice ${invoice.id}: Failed to upsert items`);
             }
           }
           

@@ -205,6 +205,13 @@ export async function saveInvoiceToDatabase(
     return existingInvoice;
   }
 
+  // Calculate amount paid from customer balance
+  // If total > amount_due, the difference was paid from customer balance
+  const subtotalCents = finalizedInvoice.subtotal || 0;
+  const totalCents = finalizedInvoice.total || 0;
+  const amountDueCents = finalizedInvoice.amount_due || 0;
+  const amountPaidFromBalanceCents = Math.max(0, totalCents - amountDueCents);
+
   // Insert new invoice
   const { data: insertedInvoice, error: dbErr } = await supabase
     .from('invoices')
@@ -213,8 +220,11 @@ export async function saveInvoiceToDatabase(
       stripe_invoice_id: finalizedInvoice.id,
       stripe_invoice_number: finalizedInvoice.number,
       invoice_date: invoiceDate,
-      amount_due_cents: finalizedInvoice.amount_due,
+      subtotal_cents: subtotalCents,
+      total_cents: totalCents,
+      amount_due_cents: amountDueCents,
       amount_paid_cents: finalizedInvoice.amount_paid || 0,
+      amount_paid_from_balance_cents: amountPaidFromBalanceCents,
       currency: finalizedInvoice.currency,
       status: finalizedInvoice.status,
       collection_method: finalizedInvoice.collection_method,
@@ -246,26 +256,43 @@ export async function saveInvoiceToDatabase(
 }
 
 /**
- * Save invoice items to database
+ * Save invoice items to database using upsert to handle race conditions
+ * Uses stripe_invoice_item_id as unique key to prevent duplicates
  */
 export async function saveInvoiceItemsToDatabase(
   supabase: any,
   invoiceId: string,
   stripeInvoiceItems: any[]
 ): Promise<void> {
+  if (!stripeInvoiceItems || stripeInvoiceItems.length === 0) {
+    return; // Nothing to save
+  }
+
   const itemInserts = stripeInvoiceItems.map((item) => ({
     invoice_id: invoiceId,
     sessions_students_id: item.sessions_students_id,
     stripe_invoice_item_id: item.stripe_invoice_item_id,
     amount_cents: item.amount_cents,
     description: item.description,
-    is_subsidy: item.is_subsidy,
+    is_subsidy: item.is_subsidy || false,
     session_id: item.session_id,
     student_id: item.student_id,
   }));
 
-  const { error: itemsErr } = await supabase.from('invoice_items').insert(itemInserts);
-  if (itemsErr) throw itemsErr;
+  // Use upsert with conflict resolution on stripe_invoice_item_id
+  // This ensures items are saved even if invoice already exists (race condition)
+  // and prevents duplicates if called multiple times
+  const { error: itemsErr } = await supabase
+    .from('invoice_items')
+    .upsert(itemInserts, {
+      onConflict: 'stripe_invoice_item_id',
+      ignoreDuplicates: false, // Update if exists (shouldn't happen, but safe)
+    });
+
+  if (itemsErr) {
+    console.error('[invoice-creation] Failed to save invoice items:', itemsErr);
+    throw itemsErr;
+  }
 }
 
 /**
@@ -276,12 +303,19 @@ export async function updateInvoicePaymentStatus(
   invoiceId: string,
   paidInvoice: Stripe.Invoice
 ): Promise<void> {
+  const totalCents = paidInvoice.total || 0;
+  const amountDueCents = paidInvoice.amount_due || 0;
+  const amountPaidFromBalanceCents = Math.max(0, totalCents - amountDueCents);
+
   await supabase
     .from('invoices')
     .update({
       status: paidInvoice.status,
+      subtotal_cents: paidInvoice.subtotal || null,
+      total_cents: totalCents || null,
       amount_paid_cents: paidInvoice.amount_paid || 0,
-      amount_due_cents: paidInvoice.amount_due,
+      amount_due_cents: amountDueCents,
+      amount_paid_from_balance_cents: amountPaidFromBalanceCents,
       paid_at:
         paidInvoice.status === 'paid'
           ? new Date(paidInvoice.status_transitions?.paid_at * 1000).toISOString()

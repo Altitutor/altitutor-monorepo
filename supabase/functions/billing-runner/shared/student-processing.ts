@@ -322,25 +322,16 @@ export async function processStudentInvoicing(
           throw new Error('Failed to save invoice to database');
         }
 
-        // Check if invoice was just created (not existing)
-        const { data: checkInvoice } = await supabase
-          .from('invoices')
-          .select('id')
-          .eq('stripe_invoice_id', finalizedInvoice.id)
-          .maybeSingle();
-
-        // Store invoice items (only if we just created the invoice)
-        if (checkInvoice && checkInvoice.id === dbInvoice.id) {
-          // Double-check: verify items don't already exist
-          const { data: existingItems } = await supabase
-            .from('invoice_items')
-            .select('id')
-            .eq('invoice_id', dbInvoice.id)
-            .limit(1);
-
-          if (!existingItems || existingItems.length === 0) {
-            await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
-          }
+        // Always attempt to save invoice items (upsert handles duplicates)
+        // This fixes the issue where items weren't saved if invoice already existed
+        try {
+          await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
+        } catch (itemsErr: any) {
+          console.error(
+            `[runner] Failed to save invoice items for invoice ${dbInvoice.id}:`,
+            itemsErr?.message || itemsErr
+          );
+          // Don't throw - invoice is saved, items can be reconciled later
         }
 
         return { invoiceId: dbInvoice.id, error: null };
@@ -419,25 +410,16 @@ export async function processStudentInvoicing(
           return { invoiceId: dbInvoice.id, error: null };
         }
 
-        // Check if invoice was just created (not existing)
-        const { data: checkInvoice } = await supabase
-          .from('invoices')
-          .select('id')
-          .eq('stripe_invoice_id', finalizedInvoice.id)
-          .maybeSingle();
-
-        // Store invoice items (only if we just created the invoice)
-        if (checkInvoice && checkInvoice.id === dbInvoice.id) {
-          // Double-check: verify items don't already exist
-          const { data: existingItems } = await supabase
-            .from('invoice_items')
-            .select('id')
-            .eq('invoice_id', dbInvoice.id)
-            .limit(1);
-
-          if (!existingItems || existingItems.length === 0) {
-            await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
-          }
+        // Always attempt to save invoice items (upsert handles duplicates)
+        // This fixes the issue where items weren't saved if invoice already existed
+        try {
+          await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
+        } catch (itemsErr: any) {
+          console.error(
+            `[runner] Failed to save invoice items for invoice ${dbInvoice.id}:`,
+            itemsErr?.message || itemsErr
+          );
+          // Don't throw - invoice is saved, items can be reconciled later
         }
 
         // Attempt payment (after DB insert succeeds)
