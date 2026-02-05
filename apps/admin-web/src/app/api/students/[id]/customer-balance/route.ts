@@ -74,14 +74,16 @@ export async function GET(
     const stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-12-15.clover' });
 
     // Fetch current balance from Stripe
-    const customer = await stripe.customers.retrieve(billing.stripe_customer_id);
-    if (customer.deleted) {
+    const customerResponse = await stripe.customers.retrieve(billing.stripe_customer_id);
+    if (customerResponse.deleted) {
       return NextResponse.json(
         { error: 'Stripe customer has been deleted' },
         { status: 400 }
       );
     }
 
+    // Type guard: after checking deleted, we know it's a Customer
+    const customer: Stripe.Customer = customerResponse as Stripe.Customer;
     const stripeBalance = customer.balance || 0;
     const currency = customer.currency || 'aud';
 
@@ -193,7 +195,16 @@ export async function POST(
     );
 
     // Fetch updated customer to get new balance
-    const customer = await stripe.customers.retrieve(billing.stripe_customer_id);
+    const customerResponse = await stripe.customers.retrieve(billing.stripe_customer_id);
+    if (customerResponse.deleted) {
+      return NextResponse.json(
+        { error: 'Stripe customer has been deleted' },
+        { status: 400 }
+      );
+    }
+
+    // Type guard: after checking deleted, we know it's a Customer
+    const customer: Stripe.Customer = customerResponse as Stripe.Customer;
     const newBalance = customer.balance || 0;
 
     // Update database
