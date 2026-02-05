@@ -10,13 +10,29 @@ const corsHeaders = {
 };
 
 function json(resp: any, status = 200) {
-  return new Response(JSON.stringify(resp), { 
-    status, 
-    headers: { 
-      'Content-Type': 'application/json',
-      ...corsHeaders 
-    } 
-  });
+  try {
+    const body = JSON.stringify(resp);
+    return new Response(body, { 
+      status, 
+      headers: { 
+        'Content-Type': 'application/json',
+        ...corsHeaders 
+      } 
+    });
+  } catch (e: any) {
+    console.error('[reconcile-items] Failed to serialize response:', e?.message || e);
+    return new Response(JSON.stringify({ 
+      error: 'serialization_error', 
+      message: 'Failed to serialize response',
+      original_status: status 
+    }), { 
+      status: 500, 
+      headers: { 
+        'Content-Type': 'application/json',
+        ...corsHeaders 
+      } 
+    });
+  }
 }
 
 /**
@@ -103,16 +119,6 @@ Deno.serve(async (req: Request) => {
       });
     }
     
-    if (!invoices || invoices.length === 0) {
-      return json({
-        ok: true,
-        reconciled: 0,
-        errors: 0,
-        skipped: 0,
-        message: 'No invoices found to reconcile',
-      });
-    }
-    
     // Check which invoices need item reconciliation
     for (const invoice of invoices) {
       try {
@@ -123,7 +129,13 @@ Deno.serve(async (req: Request) => {
           .eq('invoice_id', invoice.id)
           .limit(1);
         
-        const hasItems = !itemsError && items && items.length > 0;
+        if (itemsError) {
+          console.error(`[reconcile-items] Error checking items for invoice ${invoice.stripe_invoice_id}:`, itemsError);
+          errors.push(`Invoice ${invoice.stripe_invoice_id}: Error checking items`);
+          continue;
+        }
+        
+        const hasItems = items && items.length > 0;
         const needsItems = onlyMissingItems && !hasItems && invoice.amount_due_cents > 0;
         const needsTotals = onlyMissingTotals && (!invoice.total_cents || !invoice.subtotal_cents);
         
@@ -133,16 +145,28 @@ Deno.serve(async (req: Request) => {
         }
         
         // Fetch invoice from Stripe
-        const stripeInvoice = await stripe.invoices.retrieve(invoice.stripe_invoice_id, {
-          expand: ['lines.data.price.product'],
-        });
+        let stripeInvoice;
+        try {
+          stripeInvoice = await stripe.invoices.retrieve(invoice.stripe_invoice_id, {
+            expand: ['lines.data.price.product'],
+          });
+        } catch (stripeErr: any) {
+          console.error(`[reconcile-items] Failed to retrieve Stripe invoice ${invoice.stripe_invoice_id}:`, stripeErr?.message || stripeErr);
+          errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to retrieve from Stripe - ${stripeErr?.message || 'Unknown error'}`);
+          continue;
+        }
+        
+        if (!stripeInvoice) {
+          errors.push(`Invoice ${invoice.stripe_invoice_id}: Stripe invoice not found`);
+          continue;
+        }
         
         // Update subtotal/total if missing
         if (needsTotals) {
-          const subtotalCents = stripeInvoice.subtotal || null;
-          const totalCents = stripeInvoice.total || null;
-          const amountDueCents = stripeInvoice.amount_due || 0;
-          const amountPaidFromBalanceCents = totalCents ? Math.max(0, totalCents - amountDueCents) : null;
+          const subtotalCents = stripeInvoice.subtotal ?? null;
+          const totalCents = stripeInvoice.total ?? null;
+          const amountDueCents = stripeInvoice.amount_due ?? 0;
+          const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
           
           const { error: updateErr } = await supabase
             .from('invoices')
@@ -163,30 +187,34 @@ Deno.serve(async (req: Request) => {
         
         // Backfill invoice items if missing
         if (needsItems) {
-          // Fetch invoice items from Stripe
-          const invoiceItems = await stripe.invoiceItems.list({
-            invoice: invoice.stripe_invoice_id,
-            limit: 100,
-          });
+          // Use invoice lines data (already fetched above)
+          const invoiceLines = stripeInvoice.lines?.data || [];
           
-          if (invoiceItems.data.length === 0) {
-            skipped.push(`Invoice ${invoice.stripe_invoice_id}: No items in Stripe`);
+          if (invoiceLines.length === 0) {
+            skipped.push(`Invoice ${invoice.stripe_invoice_id}: No line items in Stripe invoice`);
             continue;
           }
           
-          // Map Stripe items to our format
-          const itemInserts = invoiceItems.data
-            .filter(item => item.invoice === invoice.stripe_invoice_id)
-            .map((item) => ({
-              invoice_id: invoice.id,
-              sessions_students_id: item.metadata?.sessions_students_id || '',
-              stripe_invoice_item_id: item.id,
-              amount_cents: item.amount,
-              description: item.description || '',
-              is_subsidy: item.metadata?.is_subsidy === 'true',
-              session_id: item.metadata?.session_id || '',
-              student_id: invoice.student_id,
-            }));
+          // Map Stripe invoice line items to our format
+          const itemInserts = invoiceLines
+            .map((line) => {
+              // Handle both InvoiceLineItem and InvoiceItem types
+              const lineItem = line as any;
+              const invoiceItemId = lineItem.invoice_item || lineItem.id;
+              const metadata = lineItem.metadata || {};
+              
+              return {
+                invoice_id: invoice.id,
+                sessions_students_id: metadata.sessions_students_id || '',
+                stripe_invoice_item_id: invoiceItemId,
+                amount_cents: lineItem.amount || 0,
+                description: lineItem.description || '',
+                is_subsidy: metadata.is_subsidy === 'true' || metadata.is_subsidy === true,
+                session_id: metadata.session_id || '',
+                student_id: invoice.student_id,
+              };
+            })
+            .filter(item => item.stripe_invoice_item_id); // Only include items with valid IDs
           
           if (itemInserts.length > 0) {
             const { error: itemsErr } = await supabase
@@ -198,9 +226,11 @@ Deno.serve(async (req: Request) => {
             
             if (itemsErr) {
               console.error(`[reconcile-items] Failed to upsert items for invoice ${invoice.stripe_invoice_id}:`, itemsErr);
-              errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to upsert items`);
+              errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to upsert items - ${itemsErr.message || 'Unknown error'}`);
               continue;
             }
+          } else {
+            skipped.push(`Invoice ${invoice.stripe_invoice_id}: No valid line items to insert`);
           }
         }
         
@@ -226,12 +256,16 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (e: any) {
-    console.error('[reconcile-items] error', e?.message || e);
-    const errorMessage = e?.message || (typeof e === 'string' ? e : 'Unknown error');
+    console.error('[reconcile-items] Top-level error:', e);
+    const errorMessage = e?.message || (typeof e === 'string' ? e : String(e) || 'Unknown error');
+    const errorType = e?.name || (e?.constructor?.name) || 'Error';
+    const errorStack = e?.stack ? String(e.stack).substring(0, 500) : undefined;
+    
     return json({ 
       error: 'reconcile_error', 
       message: errorMessage,
-      type: e?.name || 'Error'
+      type: errorType,
+      stack: errorStack
     }, 500);
   }
 });
