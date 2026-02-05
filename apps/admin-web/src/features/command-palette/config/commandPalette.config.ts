@@ -10,7 +10,7 @@
  * For settings pages or other pages not in navItems, add them to the `additionalPages` array below.
  * 
  * ## Adding New Commands
- * 1. Add the command to the `commands` array below
+ * 1. Add the command to `QUICK_ACTIONS` in `apps/admin-web/src/shared/constants/quickActions.ts`
  * 2. The action will be wired up automatically via `useCommandPaletteCommandActions` hook
  * 3. If the command needs custom handling, update `useCommandPaletteCommandActions` hook
  * 
@@ -36,9 +36,9 @@ import {
   Link2,
   Zap,
   File,
-  CheckSquare,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
 
 export type CommandAction = () => void;
 
@@ -70,65 +70,18 @@ export interface EntityTypeConfig {
 /**
  * Commands that can be executed from the Command Palette
  * These trigger actions rather than navigation
+ * 
+ * Commands are derived from QUICK_ACTIONS to ensure consistency across
+ * dashboard, floating menu, and command palette
  */
-export const commands: CommandPaletteCommand[] = [
-  {
-    id: 'trial-session',
-    title: 'Trial session',
-    description: 'Book a new trial session',
-    icon: Calendar,
-    keywords: ['trial', 'book', 'session'],
-    action: () => {}, // Will be set by CommandPalette component
-  },
-  {
-    id: 'subsidy-interview',
-    title: 'Subsidy interview',
-    description: 'Book a subsidy interview',
-    icon: Calendar,
-    keywords: ['subsidy', 'interview', 'book'],
-    action: () => {},
-  },
-  {
-    id: 'drafting',
-    title: 'Drafting',
-    description: 'Book a drafting session',
-    icon: Calendar,
-    keywords: ['drafting', 'draft', 'book'],
-    action: () => {},
-  },
-  {
-    id: 'tutor-log',
-    title: 'Tutor log',
-    description: 'Create a new tutor log entry',
-    icon: FileText,
-    keywords: ['log', 'tutor', 'entry'],
-    action: () => {},
-  },
-  {
-    id: 'log-student-absence',
-    title: 'Log student absence',
-    description: 'Record a student absence',
-    icon: AlertTriangle,
-    keywords: ['absence', 'student', 'log', 'record'],
-    action: () => {},
-  },
-  {
-    id: 'log-staff-absence',
-    title: 'Log staff absence',
-    description: 'Record a staff absence',
-    icon: AlertTriangle,
-    keywords: ['absence', 'staff', 'log', 'record'],
-    action: () => {},
-  },
-  {
-    id: 'add-task',
-    title: 'Add task',
-    description: 'Create a new task',
-    icon: CheckSquare,
-    keywords: ['task', 'create', 'new', 'todo'],
-    action: () => {},
-  },
-];
+export const commands: CommandPaletteCommand[] = QUICK_ACTIONS.map((action) => ({
+  id: action.id,
+  title: action.title,
+  description: action.description,
+  icon: action.icon,
+  keywords: action.keywords,
+  action: () => {}, // Will be set by CommandPalette component via useCommandPaletteCommands
+}));
 
 /**
  * Pages that can be navigated to from the Command Palette

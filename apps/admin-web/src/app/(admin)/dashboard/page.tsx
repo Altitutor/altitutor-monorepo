@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Calendar, FileText, Megaphone, Plus, Loader2, CheckSquare } from 'lucide-react';
+import { Calendar, Loader2 } from 'lucide-react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog, TodaySessionsView } from '@/features/sessions';
@@ -13,6 +13,7 @@ import { SimpleTaskCard, EditTaskDialog } from '@/features/tasks';
 import { useTasks } from '@/features/tasks/api/queries';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { BookSessionModal } from '@/features/bookings/components';
+import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
 
 type ViewMode = 'calendar' | 'table';
 
@@ -140,62 +141,35 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() => openBookingModal('TRIAL_SESSION')}
-                variant="outline"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Trial session
-              </Button>
-              <Button
-                onClick={() => openBookingModal('SUBSIDY_INTERVIEW')}
-                variant="outline"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Subsidy interview
-              </Button>
-              <Button
-                onClick={() => openBookingModal('DRAFTING')}
-                variant="outline"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Drafting
-              </Button>
-              <Button
-                onClick={openCreateTaskDialog}
-                variant="outline"
-              >
-                <CheckSquare className="h-4 w-4 mr-2" />
-                Add Task
-              </Button>
-              <Button
-                onClick={openAnnouncementsModal}
-                variant="outline"
-              >
-                <Megaphone className="h-4 w-4 mr-2" />
-                Make Announcement
-              </Button>
-              <Button
-                onClick={openTutorLogModal}
-                variant="outline"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Tutor Log
-              </Button>
-              <Button
-                onClick={openLogAbsenceDialog}
-                variant="outline"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Log Student Absence
-              </Button>
-              <Button
-                onClick={openLogStaffAbsenceDialog}
-                variant="outline"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Log Staff Absence
-              </Button>
+              {QUICK_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                const handleClick = () => {
+                  if (action.bookingSessionType) {
+                    openBookingModal(action.bookingSessionType);
+                  } else if (action.actionType === 'create-task') {
+                    openCreateTaskDialog();
+                  } else if (action.actionType === 'announcement') {
+                    openAnnouncementsModal();
+                  } else if (action.actionType === 'tutor-log') {
+                    openTutorLogModal();
+                  } else if (action.actionType === 'log-student-absence') {
+                    openLogAbsenceDialog();
+                  } else if (action.actionType === 'log-staff-absence') {
+                    openLogStaffAbsenceDialog();
+                  }
+                };
+
+                return (
+                  <Button
+                    key={action.id}
+                    onClick={handleClick}
+                    variant="outline"
+                  >
+                    <Icon className="h-4 w-4 mr-2" />
+                    {action.title}
+                  </Button>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
