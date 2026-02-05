@@ -51,7 +51,17 @@ Deno.serve(async (req: Request) => {
   
   try {
     // Parse request body for filters
-    const body = await req.json().catch(() => ({}));
+    let body: any = {};
+    try {
+      const bodyText = await req.text();
+      if (bodyText) {
+        body = JSON.parse(bodyText);
+      }
+    } catch (parseErr) {
+      // Body parsing failed, use defaults
+      console.warn('[reconcile-items] Failed to parse request body, using defaults');
+    }
+    
     const daysBack = body.days_back || 30;
     const onlyMissingItems = body.only_missing_items !== false; // Default true
     const onlyMissingTotals = body.only_missing_totals !== false; // Default true
@@ -64,16 +74,33 @@ Deno.serve(async (req: Request) => {
     const skipped: string[] = [];
     
     // Find invoices that need reconciliation
-    let query = supabase
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    const { data: invoices, error: invoicesError } = await supabase
       .from('invoices')
       .select('id, stripe_invoice_id, student_id, invoice_date, amount_due_cents, total_cents, subtotal_cents')
-      .gte('invoice_date', startDate.toISOString().split('T')[0])
+      .gte('invoice_date', startDateStr)
       .order('invoice_date', { ascending: false });
     
-    const { data: invoices, error: invoicesError } = await query;
-    
     if (invoicesError) {
-      throw invoicesError;
+      console.error('[reconcile-items] Error fetching invoices:', invoicesError);
+      const errorMsg = invoicesError?.message || (typeof invoicesError === 'string' ? invoicesError : 'Unknown query error');
+      const errorCode = invoicesError?.code || 'unknown';
+      return json({ 
+        error: 'query_error', 
+        message: errorMsg,
+        code: errorCode
+      }, 500);
+    }
+    
+    if (!invoices || invoices.length === 0) {
+      return json({
+        ok: true,
+        reconciled: 0,
+        errors: 0,
+        skipped: 0,
+        message: 'No invoices found to reconcile',
+      });
     }
     
     if (!invoices || invoices.length === 0) {
@@ -200,6 +227,11 @@ Deno.serve(async (req: Request) => {
     });
   } catch (e: any) {
     console.error('[reconcile-items] error', e?.message || e);
-    return json({ error: 'reconcile_error', message: e?.message || String(e) }, 500);
+    const errorMessage = e?.message || (typeof e === 'string' ? e : 'Unknown error');
+    return json({ 
+      error: 'reconcile_error', 
+      message: errorMessage,
+      type: e?.name || 'Error'
+    }, 500);
   }
 });
