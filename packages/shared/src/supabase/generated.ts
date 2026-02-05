@@ -1828,6 +1828,7 @@ export type Database = {
         Row: {
           amount_due_cents: number
           amount_paid_cents: number
+          amount_paid_from_balance_cents: number | null
           auto_advance: boolean | null
           collection_method: string | null
           created_at: string
@@ -1856,11 +1857,14 @@ export type Database = {
           stripe_invoice_number: string | null
           stripe_payment_intent_id: string | null
           student_id: string
+          subtotal_cents: number | null
+          total_cents: number | null
           updated_at: string
         }
         Insert: {
           amount_due_cents: number
           amount_paid_cents?: number
+          amount_paid_from_balance_cents?: number | null
           auto_advance?: boolean | null
           collection_method?: string | null
           created_at?: string
@@ -1889,11 +1893,14 @@ export type Database = {
           stripe_invoice_number?: string | null
           stripe_payment_intent_id?: string | null
           student_id: string
+          subtotal_cents?: number | null
+          total_cents?: number | null
           updated_at?: string
         }
         Update: {
           amount_due_cents?: number
           amount_paid_cents?: number
+          amount_paid_from_balance_cents?: number | null
           auto_advance?: boolean | null
           collection_method?: string | null
           created_at?: string
@@ -1922,6 +1929,8 @@ export type Database = {
           stripe_invoice_number?: string | null
           stripe_payment_intent_id?: string | null
           student_id?: string
+          subtotal_cents?: number | null
+          total_cents?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -3651,18 +3660,27 @@ export type Database = {
       students_billing: {
         Row: {
           created_at: string
+          customer_balance_cents: number | null
+          customer_balance_currency: string | null
+          customer_balance_updated_at: string | null
           stripe_customer_id: string
           student_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          customer_balance_cents?: number | null
+          customer_balance_currency?: string | null
+          customer_balance_updated_at?: string | null
           stripe_customer_id: string
           student_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          customer_balance_cents?: number | null
+          customer_balance_currency?: string | null
+          customer_balance_updated_at?: string | null
           stripe_customer_id?: string
           student_id?: string
           updated_at?: string
