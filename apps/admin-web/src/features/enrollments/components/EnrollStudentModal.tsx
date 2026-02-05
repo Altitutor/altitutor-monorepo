@@ -43,6 +43,7 @@ export function EnrollStudentModal({
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedClassData, setSelectedClassData] = useState<ClassWithExpandedSubject | undefined>(undefined);
+  const [selectedStudentData, setSelectedStudentData] = useState<Tables<'students'> | undefined>(undefined);
   const [enrollmentDate, setEnrollmentDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
@@ -66,7 +67,7 @@ export function EnrollStudentModal({
   // Get selected data for display
   const selectedStudent = context === 'student' 
     ? student 
-    : students.find(s => s.id === selectedStudentId);
+    : (selectedStudentData || students.find(s => s.id === selectedStudentId));
   
   // Update selectedClassData when classes are available and selectedClassId is set
   useEffect(() => {
@@ -77,6 +78,23 @@ export function EnrollStudentModal({
       }
     }
   }, [context, selectedClassId, classes]);
+  
+  // Update selectedStudentData when students are available and selectedStudentId is set (class context)
+  useEffect(() => {
+    if (context === 'class' && selectedStudentId && students.length > 0) {
+      const found = students.find(s => s.id === selectedStudentId);
+      if (found) {
+        setSelectedStudentData(found);
+      }
+    }
+  }, [context, selectedStudentId, students]);
+  
+  // Reset selectedStudentData when modal closes or context changes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedStudentData(undefined);
+    }
+  }, [isOpen]);
   
   const selectedClass: ClassWithExpandedSubject | undefined = useMemo(() => {
     if (context === 'class') {
@@ -327,6 +345,7 @@ export function EnrollStudentModal({
                 enrollmentDate={enrollmentDate}
                 onDateChange={setEnrollmentDate}
                 studentId={selectedStudent?.id || null}
+                selectedStudent={selectedStudent}
                 classData={classData}
                 classSubject={classSubject}
                 classStaff={classStaff}

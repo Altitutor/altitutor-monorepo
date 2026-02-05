@@ -32,6 +32,9 @@ interface SessionsCardProps {
   // Smart sizing props
   cardHeight?: number; // Height in pixels
   cardWidth?: number; // Width in pixels
+  // Opacity control for enrollment calendar
+  dimmedStudentIds?: Set<string>; // Student IDs that should have reduced opacity
+  dimmedStaffIds?: Set<string>; // Staff IDs that should have reduced opacity
 }
 
 export function SessionsCard({
@@ -46,7 +49,9 @@ export function SessionsCard({
   compact: forceCompact = false,
   isCalendarView = false,
   cardHeight,
-  cardWidth
+  cardWidth,
+  dimmedStudentIds,
+  dimmedStaffIds,
 }: SessionsCardProps) {
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
@@ -200,6 +205,7 @@ export function SessionsCard({
                     ? 'Swapped In' 
                     : 'Attending';
                   
+                  const isDimmed = dimmedStaffIds?.has(staffMember.id);
                   const badge = (
                     <span
                       key={staffMember.id}
@@ -208,6 +214,7 @@ export function SessionsCard({
                         shouldUseCompact 
                           ? 'text-[10px] px-1 py-0.5' 
                           : 'text-xs px-2 py-0.5',
+                        isDimmed && 'opacity-50',
                         staffMember.planned_absence
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                           : staffMember.is_swapped_in
@@ -261,6 +268,7 @@ export function SessionsCard({
                     ? 'Attending (extra)' 
                     : 'Attending';
                   
+                  const isDimmed = dimmedStudentIds?.has(student.id);
                   const badge = (
                     <span
                       key={student.id}
@@ -269,6 +277,7 @@ export function SessionsCard({
                         shouldUseCompact 
                           ? 'text-[10px] px-1 py-0.5' 
                           : 'text-xs px-2 py-0.5',
+                        isDimmed && 'opacity-50',
                         // Show red for unplanned students and planned absences
                         (isUnplanned || isUnplannedFromRPC) || (student.planned_absence && !student.is_extra)
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
