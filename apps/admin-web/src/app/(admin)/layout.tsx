@@ -59,6 +59,11 @@ const navItems: NavItem[] = [
     icon: AlertTriangle,
   },
   {
+    title: 'Messages',
+    href: '/messages',
+    icon: MessageCircle,
+  },
+  {
     type: 'heading',
     title: 'SCHEDULING',
   },
@@ -91,15 +96,6 @@ const navItems: NavItem[] = [
     title: 'Sessions',
     href: '/sessions',
     icon: ClipboardList,
-  },
-  {
-    type: 'heading',
-    title: 'MESSAGING',
-  },
-  {
-    title: 'Messages',
-    href: '/messages',
-    icon: MessageCircle,
   },
   {
     type: 'heading',
