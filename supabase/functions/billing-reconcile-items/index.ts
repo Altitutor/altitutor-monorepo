@@ -161,6 +161,8 @@ Deno.serve(async (req: Request) => {
           continue;
         }
         
+        let reconciledThisInvoice = false;
+        
         // Update subtotal/total if missing
         if (needsTotals) {
           const subtotalCents = stripeInvoice.subtotal ?? null;
@@ -183,6 +185,7 @@ Deno.serve(async (req: Request) => {
             errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to update totals`);
             continue;
           }
+          reconciledThisInvoice = true;
         }
         
         // Backfill invoice items if missing
@@ -195,26 +198,98 @@ Deno.serve(async (req: Request) => {
             continue;
           }
           
-          // Map Stripe invoice line items to our format
-          const itemInserts = invoiceLines
-            .map((line) => {
-              // Handle both InvoiceLineItem and InvoiceItem types
-              const lineItem = line as any;
-              const invoiceItemId = lineItem.invoice_item || lineItem.id;
-              const metadata = lineItem.metadata || {};
+          // Map Stripe invoice line items to our format and validate foreign keys
+          const itemInserts: any[] = [];
+          const invalidItems: string[] = [];
+          
+          for (const line of invoiceLines) {
+            const lineItem = line as any;
+            const invoiceItemId = lineItem.invoice_item || lineItem.id;
+            const metadata = lineItem.metadata || {};
+            
+            let sessionsStudentsId = metadata.sessions_students_id;
+            const sessionId = metadata.session_id;
+            
+            // Validate sessions_students_id exists if provided
+            if (sessionsStudentsId) {
+              const { data: ssCheck, error: ssCheckErr } = await supabase
+                .from('sessions_students')
+                .select('id')
+                .eq('id', sessionsStudentsId)
+                .maybeSingle();
               
-              return {
-                invoice_id: invoice.id,
-                sessions_students_id: metadata.sessions_students_id || '',
-                stripe_invoice_item_id: invoiceItemId,
-                amount_cents: lineItem.amount || 0,
-                description: lineItem.description || '',
-                is_subsidy: metadata.is_subsidy === 'true' || metadata.is_subsidy === true,
-                session_id: metadata.session_id || '',
-                student_id: invoice.student_id,
-              };
-            })
-            .filter(item => item.stripe_invoice_item_id); // Only include items with valid IDs
+              if (ssCheckErr || !ssCheck) {
+                // Try to find sessions_students_id by session_id and student_id
+                if (sessionId && invoice.student_id) {
+                  const { data: ssLookup } = await supabase
+                    .from('sessions_students')
+                    .select('id')
+                    .eq('session_id', sessionId)
+                    .eq('student_id', invoice.student_id)
+                    .maybeSingle();
+                  
+                  if (ssLookup) {
+                    sessionsStudentsId = ssLookup.id;
+                    console.log(`[reconcile-items] Found sessions_students_id via lookup for invoice ${invoice.stripe_invoice_id}, item ${invoiceItemId}`);
+                  } else {
+                    invalidItems.push(`Item ${invoiceItemId}: sessions_students_id ${sessionsStudentsId} not found and cannot be looked up`);
+                    continue; // Skip this item
+                  }
+                } else {
+                  invalidItems.push(`Item ${invoiceItemId}: sessions_students_id ${sessionsStudentsId} not found and missing session_id for lookup`);
+                  continue; // Skip this item
+                }
+              }
+            } else if (sessionId && invoice.student_id) {
+              // Try to find sessions_students_id by session_id and student_id
+              const { data: ssLookup } = await supabase
+                .from('sessions_students')
+                .select('id')
+                .eq('session_id', sessionId)
+                .eq('student_id', invoice.student_id)
+                .maybeSingle();
+              
+              if (ssLookup) {
+                sessionsStudentsId = ssLookup.id;
+                console.log(`[reconcile-items] Found sessions_students_id via lookup for invoice ${invoice.stripe_invoice_id}, item ${invoiceItemId}`);
+              } else {
+                invalidItems.push(`Item ${invoiceItemId}: No sessions_students_id in metadata and lookup failed`);
+                continue; // Skip this item
+              }
+            } else {
+              invalidItems.push(`Item ${invoiceItemId}: Missing sessions_students_id and cannot lookup (missing session_id or student_id)`);
+              continue; // Skip this item
+            }
+            
+            // Validate session_id exists if provided
+            if (sessionId) {
+              const { data: sessionCheck } = await supabase
+                .from('sessions')
+                .select('id')
+                .eq('id', sessionId)
+                .maybeSingle();
+              
+              if (!sessionCheck) {
+                invalidItems.push(`Item ${invoiceItemId}: session_id ${sessionId} not found`);
+                continue; // Skip this item
+              }
+            }
+            
+            itemInserts.push({
+              invoice_id: invoice.id,
+              sessions_students_id: sessionsStudentsId,
+              stripe_invoice_item_id: invoiceItemId,
+              amount_cents: lineItem.amount || 0,
+              description: lineItem.description || '',
+              is_subsidy: metadata.is_subsidy === 'true' || metadata.is_subsidy === true,
+              session_id: sessionId || null,
+              student_id: invoice.student_id,
+            });
+          }
+          
+          if (invalidItems.length > 0) {
+            console.warn(`[reconcile-items] Invoice ${invoice.stripe_invoice_id} has ${invalidItems.length} invalid items:`, invalidItems);
+          }
           
           if (itemInserts.length > 0) {
             const { error: itemsErr } = await supabase
@@ -229,13 +304,22 @@ Deno.serve(async (req: Request) => {
               errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to upsert items - ${itemsErr.message || 'Unknown error'}`);
               continue;
             }
+            
+            reconciledThisInvoice = true;
+            if (invalidItems.length > 0) {
+              console.log(`[reconcile-items] Reconciled invoice ${invoice.stripe_invoice_id} with ${itemInserts.length} items (${invalidItems.length} skipped)`);
+            } else {
+              console.log(`[reconcile-items] Reconciled invoice ${invoice.stripe_invoice_id}`);
+            }
           } else {
-            skipped.push(`Invoice ${invoice.stripe_invoice_id}: No valid line items to insert`);
+            skipped.push(`Invoice ${invoice.stripe_invoice_id}: No valid line items to insert (${invalidItems.length} invalid)`);
           }
         }
         
-        reconciled.push(invoice.stripe_invoice_id);
-        console.log(`[reconcile-items] Reconciled invoice ${invoice.stripe_invoice_id}`);
+        // Only add to reconciled if we actually did something
+        if (reconciledThisInvoice) {
+          reconciled.push(invoice.stripe_invoice_id);
+        }
       } catch (err: any) {
         console.error(`[reconcile-items] Failed to reconcile invoice ${invoice.stripe_invoice_id}:`, err?.message || err);
         errors.push(`Invoice ${invoice.stripe_invoice_id}: ${err?.message || 'Reconciliation failed'}`);
