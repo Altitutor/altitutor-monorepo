@@ -7,7 +7,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { StudentCard } from '@/shared/components/StudentCard';
 import {
   useEnrollmentFilters,
   useEnrollmentConflicts,
@@ -128,14 +127,6 @@ export function EnrollStudentModal({
     }
   }, [context, classSubject, selectedClass, subjectId, studentSubjects]);
 
-  // Determine if student card should be shown in header
-  const shouldShowStudentCardInHeader = useMemo(() => {
-    if (context === 'student') {
-      return !!student;
-    } else {
-      return !!selectedStudent;
-    }
-  }, [context, student, selectedStudent]);
 
   // Filters
   const defaultSubjectFilters = useMemo(() => {
@@ -274,16 +265,6 @@ export function EnrollStudentModal({
                       Step {step} of 3: {step === 1 ? 'Select Student or Class' : step === 2 ? 'Select Enrollment Date' : 'Summary & Confirm'}
                     </DialogDescription>
                   </div>
-                  {shouldShowStudentCardInHeader && (
-                    <div className="flex-shrink-0 h-[60px]">
-                      <StudentCard
-                        student={(context === 'student' ? student : selectedStudent) as Tables<'students'>}
-                        subjects={displaySubject}
-                        showSubjects={true}
-                        showActions={false}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             </DialogHeader>
