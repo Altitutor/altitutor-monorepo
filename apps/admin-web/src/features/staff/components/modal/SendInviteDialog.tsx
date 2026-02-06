@@ -31,6 +31,7 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { calculateSMSSegments } from '@/features/messages/utils/smsSegments';
 import { templateContainsLinkVariables } from '@/features/messages/utils/generateLinkTokens';
 import { generateLinkTokensForStaff } from '@/features/messages/utils/generateLinkTokens';
+import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
@@ -62,8 +63,11 @@ export function SendInviteDialog({
   const [contactId, setContactId] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emailComposerRef = useRef<HTMLDivElement>(null);
+  const buttonRowRef = useRef<HTMLDivElement>(null);
   const { data: availableSenders } = useAvailableSenders();
   const { data: currentStaff } = useCurrentStaff();
+  const canExpand = useResponsiveButtons(buttonRowRef);
 
   const hasEmail = !!staffMember.email;
   const hasPhone = !!staffMember.phone_number;
@@ -586,152 +590,186 @@ export function SendInviteDialog({
                   )}
                 </div>
               ) : selectedRecipient && selectedRecipient.method === 'email' ? (
-                <div className="space-y-2 px-4">
-                  {/* Message Templates Button and Send From Button */}
-                  <div className="flex items-center gap-2">
-                    <MessageTemplatesPicker 
-                      onSelect={handleTemplateSelect}
-                      disabled={isGeneratingTokens}
-                    />
-                    {isGeneratingTokens && (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    )}
-                    {availableSenders && availableSenders.length > 0 && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            disabled={!selectedSenderId}
-                            type="button"
-                          >
-                            <Phone 
-                              className={`h-4 w-4 ${
-                                selectedSender?.provider === 'IMESSAGE' 
-                                  ? 'text-[#007AFF] dark:text-[#0A84FF]' 
-                                  : selectedSender?.provider === 'TWILIO'
-                                  ? 'text-[#30D158] dark:text-[#1E8E3E]'
-                                  : ''
-                              }`}
-                            />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          {(() => {
-                            const imessageSenders = availableSenders.filter(s => s.provider === 'IMESSAGE');
-                            const twilioSenders = availableSenders.filter(s => s.provider === 'TWILIO');
-                            
-                            return (
-                              <>
-                                {imessageSenders.length > 0 && (
-                                  <>
-                                    <DropdownMenuLabel>iMessage</DropdownMenuLabel>
-                                    {imessageSenders.map((sender) => (
-                                      <DropdownMenuItem
-                                        key={sender.id}
-                                        onClick={() => setSelectedSenderId(sender.id)}
-                                        className="flex items-center justify-between"
-                                      >
-                                        <div className="flex flex-col">
-                                          <span className="text-sm font-medium">
-                                            {getSenderDisplayName(sender.id)}
-                                          </span>
-                                          {sender.is_default && (
-                                            <span className="text-xs text-muted-foreground">Default</span>
-                                          )}
-                                        </div>
-                                        {selectedSenderId === sender.id && (
-                                          <Check className="h-4 w-4 ml-2" />
-                                        )}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </>
-                                )}
-                                {imessageSenders.length > 0 && twilioSenders.length > 0 && (
-                                  <DropdownMenuSeparator />
-                                )}
-                                {twilioSenders.length > 0 && (
-                                  <>
-                                    <DropdownMenuLabel>SMS</DropdownMenuLabel>
-                                    {twilioSenders.map((sender) => (
-                                      <DropdownMenuItem
-                                        key={sender.id}
-                                        onClick={() => setSelectedSenderId(sender.id)}
-                                        className="flex items-center justify-between"
-                                      >
-                                        <div className="flex flex-col">
-                                          <span className="text-sm font-medium">
-                                            {getSenderDisplayName(sender.id)}
-                                          </span>
-                                          {sender.is_default && (
-                                            <span className="text-xs text-muted-foreground">Default</span>
-                                          )}
-                                        </div>
-                                        {selectedSenderId === sender.id && (
-                                          <Check className="h-4 w-4 ml-2" />
-                                        )}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-
+                <div ref={emailComposerRef} className="space-y-2 px-4">
                   {/* Message Composer */}
-                  <div className="relative">
-                    <textarea
-                      ref={textareaRef}
-                      value={customMessage}
-                      onChange={(e) => setCustomMessage(e.target.value)}
-                      className={`w-full text-sm px-3 py-2 ${
-                        isSMSSender && smsSegments ? 'pr-20' : 'pr-3'
-                      } border rounded-md bg-background resize-none min-h-[100px] max-h-[200px]`}
-                      placeholder="Enter your message..."
-                      rows={4}
-                      disabled={!selectedRecipient || !selectedSenderId}
-                    />
-                    {/* SMS segment counter */}
-                    {isSMSSender && smsSegments && (
-                      <div className="absolute bottom-2 right-2 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{smsSegments.characters} chars</span>
-                        <span>•</span>
-                        <span>{smsSegments.segments} {smsSegments.segments === 1 ? 'segment' : 'segments'}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Send Button */}
-                  <div className="flex justify-end">
-                    <Button
-                      className={`px-4 py-2 text-sm rounded-md text-white hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-10 ${
-                        isIMessageSender
-                          ? 'bg-[#007AFF] dark:bg-[#0A84FF]'
-                          : isSMSSender
-                          ? 'bg-[#30D158] dark:bg-[#1E8E3E]'
-                          : 'bg-brand-lightBlue text-brand-dark-bg'
-                      }`}
-                      onClick={handleSend}
-                      disabled={
-                        isSending || 
-                        !selectedRecipient || 
-                        !selectedSenderId || 
-                        !customMessage.trim()
-                      }
-                    >
-                      {isSending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        'Send'
+                  <div className="flex flex-col gap-2">
+                    {/* Textarea row */}
+                    <div className="relative">
+                      <textarea
+                        ref={textareaRef}
+                        value={customMessage}
+                        onChange={(e) => setCustomMessage(e.target.value)}
+                        className="w-full text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[100px] max-h-[200px]"
+                        placeholder="Enter your message..."
+                        rows={4}
+                        disabled={!selectedRecipient || !selectedSenderId}
+                      />
+                      {/* SMS segment counter */}
+                      {isSMSSender && smsSegments && (
+                        <div className="absolute bottom-2 right-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{smsSegments.characters} chars</span>
+                          <span>•</span>
+                          <span>{smsSegments.segments} {smsSegments.segments === 1 ? 'segment' : 'segments'}</span>
+                        </div>
                       )}
-                    </Button>
+                    </div>
+
+                    {/* Button row: template/phone on left, send on right */}
+                    <div ref={buttonRowRef} className="flex items-center justify-between gap-2 min-w-0">
+                      {/* Left side: Template, Phone buttons */}
+                      <div className="flex items-center gap-2 flex-shrink min-w-0">
+                        {/* Template button */}
+                        <div className="relative">
+                          <MessageTemplatesPicker 
+                            onSelect={handleTemplateSelect}
+                            disabled={isGeneratingTokens}
+                            expanded={canExpand}
+                          />
+                          {isGeneratingTokens && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md pointer-events-none">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Phone button - only for email mode, this is for sender selection */}
+                        {availableSenders && availableSenders.length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              {canExpand ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!selectedSenderId}
+                                  type="button"
+                                  className="h-10"
+                                >
+                                  <Phone 
+                                    className={`h-4 w-4 mr-2 ${
+                                      selectedSender?.provider === 'IMESSAGE' 
+                                        ? 'text-[#007AFF] dark:text-[#0A84FF]' 
+                                        : selectedSender?.provider === 'TWILIO'
+                                        ? 'text-[#30D158] dark:text-[#1E8E3E]'
+                                        : ''
+                                    }`}
+                                  />
+                                  {selectedSender ? getSenderDisplayName(selectedSender.id) : 'Phone'}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  disabled={!selectedSenderId}
+                                  type="button"
+                                  className="h-10"
+                                >
+                                  <Phone 
+                                    className={`h-4 w-4 ${
+                                      selectedSender?.provider === 'IMESSAGE' 
+                                        ? 'text-[#007AFF] dark:text-[#0A84FF]' 
+                                        : selectedSender?.provider === 'TWILIO'
+                                        ? 'text-[#30D158] dark:text-[#1E8E3E]'
+                                        : ''
+                                    }`}
+                                  />
+                                </Button>
+                              )}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              {(() => {
+                                const imessageSenders = availableSenders.filter(s => s.provider === 'IMESSAGE');
+                                const twilioSenders = availableSenders.filter(s => s.provider === 'TWILIO');
+                                
+                                return (
+                                  <>
+                                    {imessageSenders.length > 0 && (
+                                      <>
+                                        <DropdownMenuLabel>iMessage</DropdownMenuLabel>
+                                        {imessageSenders.map((sender) => (
+                                          <DropdownMenuItem
+                                            key={sender.id}
+                                            onClick={() => setSelectedSenderId(sender.id)}
+                                            className="flex items-center justify-between"
+                                          >
+                                            <div className="flex flex-col">
+                                              <span className="text-sm font-medium">
+                                                {getSenderDisplayName(sender.id)}
+                                              </span>
+                                              {sender.is_default && (
+                                                <span className="text-xs text-muted-foreground">Default</span>
+                                              )}
+                                            </div>
+                                            {selectedSenderId === sender.id && (
+                                              <Check className="h-4 w-4 ml-2" />
+                                            )}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </>
+                                    )}
+                                    {imessageSenders.length > 0 && twilioSenders.length > 0 && (
+                                      <DropdownMenuSeparator />
+                                    )}
+                                    {twilioSenders.length > 0 && (
+                                      <>
+                                        <DropdownMenuLabel>SMS</DropdownMenuLabel>
+                                        {twilioSenders.map((sender) => (
+                                          <DropdownMenuItem
+                                            key={sender.id}
+                                            onClick={() => setSelectedSenderId(sender.id)}
+                                            className="flex items-center justify-between"
+                                          >
+                                            <div className="flex flex-col">
+                                              <span className="text-sm font-medium">
+                                                {getSenderDisplayName(sender.id)}
+                                              </span>
+                                              {sender.is_default && (
+                                                <span className="text-xs text-muted-foreground">Default</span>
+                                              )}
+                                            </div>
+                                            {selectedSenderId === sender.id && (
+                                              <Check className="h-4 w-4 ml-2" />
+                                            )}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+
+                      {/* Right side: Send Button */}
+                      <div className="flex-shrink-0 ml-auto">
+                      <Button
+                        className={`px-4 py-2 text-sm rounded-md text-white hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-10 ${
+                          isIMessageSender
+                            ? 'bg-[#007AFF] dark:bg-[#0A84FF]'
+                            : isSMSSender
+                            ? 'bg-[#30D158] dark:bg-[#1E8E3E]'
+                            : 'bg-brand-lightBlue text-brand-dark-bg'
+                        }`}
+                        onClick={handleSend}
+                        disabled={
+                          isSending || 
+                          !selectedRecipient || 
+                          !selectedSenderId || 
+                          !customMessage.trim()
+                        }
+                      >
+                        {isSending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          'Send'
+                        )}
+                      </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : null}

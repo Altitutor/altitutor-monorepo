@@ -13,6 +13,7 @@ import { useMessageAttachments } from '../../hooks/useMessageAttachments';
 import { calculateSMSSegments } from '../../utils/smsSegments';
 import type { AttachmentFile } from '../../hooks/useMessageAttachments';
 import { MessageAttachment } from '../MessageThread';
+import { useResponsiveButtons } from '../../hooks/useResponsiveButtons';
 
 interface MessageComposerProps {
   students: Tables<'students'>[];
@@ -49,8 +50,11 @@ export function MessageComposer({
   const { data: currentStaff } = useCurrentStaff();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const buttonRowRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
+  const canExpand = useResponsiveButtons(buttonRowRef);
 
   // Get selected sender info
   const selectedSender = availableSenders.find(s => s.id === selectedSenderId);
@@ -249,26 +253,113 @@ export function MessageComposer({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-6 overflow-hidden">
         {/* Message Input */}
-        <div className="flex flex-col min-h-0">
-          {/* Sender Selection - Dropdown next to template button */}
-          <div className="flex items-center gap-2 mb-3">
-            <MessageTemplatesPicker onSelect={handleTemplateSelect} />
+        <div ref={composerRef} className="flex flex-col min-h-0">
+          <div 
+            className={`relative border rounded-lg flex flex-col mb-3 ${
+              isDragging && isIMessageSender ? 'border-primary border-2' : ''
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {/* Attachment previews inside textarea area (iOS style) */}
+            {hasAttachments && (
+              <div className="flex flex-wrap gap-2 p-2 border-b border-border bg-muted/30">
+                {attachments.map((attachment) => {
+                  // Convert AttachmentFile to message attachment format
+                  const messageAttachment: Tables<'message_attachments'> = {
+                    id: attachment.id,
+                    filename: attachment.file.name,
+                    mime_type: attachment.file.type,
+                    size_bytes: attachment.file.size,
+                    storage_url: attachment.storageUrl || attachment.preview || '',
+                    created_at: null,
+                    message_id: '', // Will be set when message is sent
+                  };
+                  return (
+                    <MessageAttachment
+                      key={attachment.id}
+                      attachment={messageAttachment}
+                      direction="OUTBOUND"
+                    />
+                  );
+                })}
+              </div>
+            )}
+            <Textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => {
+                onMessageChange(e.target.value);
+                // For SMS, prevent line breaks
+                if (isSMSSender && e.target.value.includes('\n')) {
+                  onMessageChange(e.target.value.replace(/\n/g, ''));
+                }
+                // Auto-resize textarea
+                if (textareaRef.current) {
+                  textareaRef.current.style.height = 'auto';
+                  textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+                }
+              }}
+              placeholder={isIMessageSender ? "Type your message here... (or drag files)" : "Type your message here..."}
+              className="resize-none font-mono text-sm border-0 min-h-[80px]"
+              rows={1}
+              onKeyDown={(e) => {
+                // For SMS, prevent line breaks (Shift+Enter does nothing)
+                if (e.key === 'Enter' && e.shiftKey && isSMSSender) {
+                  e.preventDefault();
+                }
+              }}
+            />
+            {/* SMS segment counter */}
+            {isSMSSender && smsSegments && (
+              <div className="absolute bottom-2 right-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{smsSegments.characters} chars</span>
+                <span>•</span>
+                <span>{smsSegments.segments} {smsSegments.segments === 1 ? 'segment' : 'segments'}</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Button row: template/variables/attachments/phone */}
+          <div ref={buttonRowRef} className="flex items-center gap-2">
+            <MessageTemplatesPicker 
+              onSelect={handleTemplateSelect} 
+              expanded={canExpand}
+            />
             
             {/* Variables button */}
             <DropdownMenu open={variablesMenuOpen} onOpenChange={setVariablesMenuOpen}>
               <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onMouseDown={(e) => {
-                    // Prevent losing focus on textarea when clicking button
-                    e.preventDefault();
-                  }}
-                  aria-label="Insert variable"
-                >
-                  <Code className="h-4 w-4" />
-                </Button>
+                {canExpand ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onMouseDown={(e) => {
+                      // Prevent losing focus on textarea when clicking button
+                      e.preventDefault();
+                    }}
+                    className="h-10"
+                  >
+                    <Code className="h-4 w-4 mr-2" />
+                    Variables
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onMouseDown={(e) => {
+                      // Prevent losing focus on textarea when clicking button
+                      e.preventDefault();
+                    }}
+                    className="h-10"
+                    aria-label="Insert variable"
+                  >
+                    <Code className="h-4 w-4" />
+                  </Button>
+                )}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {variables.map((variable) => (
@@ -298,16 +389,31 @@ export function MessageComposer({
                   onChange={(e) => handleFileSelect(e.target.files)}
                   accept="*/*"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoadingSenders || !selectedSenderId}
-                  aria-label="Attach files"
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
+                {canExpand ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoadingSenders || !selectedSenderId}
+                    className="h-10"
+                  >
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    Attach
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoadingSenders || !selectedSenderId}
+                    className="h-10"
+                    aria-label="Attach files"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                )}
               </>
             )}
             
@@ -315,23 +421,45 @@ export function MessageComposer({
             {selectedSenderId && availableSenders && availableSenders.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={isLoadingSenders}
-                    type="button"
-                    aria-label="Select sender"
-                  >
-                    <Phone 
-                      className={`h-4 w-4 ${
-                        selectedSender?.provider === 'IMESSAGE' 
-                          ? 'text-[#007AFF] dark:text-[#0A84FF]' 
-                          : selectedSender?.provider === 'TWILIO'
-                          ? 'text-[#30D158] dark:text-[#1E8E3E]'
-                          : ''
-                      }`}
-                    />
-                  </Button>
+                  {canExpand ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isLoadingSenders}
+                      type="button"
+                      className="h-10"
+                    >
+                      <Phone 
+                        className={`h-4 w-4 mr-2 ${
+                          selectedSender?.provider === 'IMESSAGE' 
+                            ? 'text-[#007AFF] dark:text-[#0A84FF]' 
+                            : selectedSender?.provider === 'TWILIO'
+                            ? 'text-[#30D158] dark:text-[#1E8E3E]'
+                            : ''
+                        }`}
+                      />
+                      {selectedSender ? getSenderDisplayName(selectedSender) : 'Phone'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isLoadingSenders}
+                      type="button"
+                      className="h-10"
+                      aria-label="Select sender"
+                    >
+                      <Phone 
+                        className={`h-4 w-4 ${
+                          selectedSender?.provider === 'IMESSAGE' 
+                            ? 'text-[#007AFF] dark:text-[#0A84FF]' 
+                            : selectedSender?.provider === 'TWILIO'
+                            ? 'text-[#30D158] dark:text-[#1E8E3E]'
+                            : ''
+                        }`}
+                      />
+                    </Button>
+                  )}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {(() => {
@@ -396,73 +524,6 @@ export function MessageComposer({
                   })()}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-          </div>
-          
-          <div 
-            className={`relative border rounded-lg flex flex-col ${
-              isDragging && isIMessageSender ? 'border-primary border-2' : ''
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            {/* Attachment previews inside textarea area (iOS style) */}
-            {hasAttachments && (
-              <div className="flex flex-wrap gap-2 p-2 border-b border-border bg-muted/30">
-                {attachments.map((attachment) => {
-                  // Convert AttachmentFile to message attachment format
-                  const messageAttachment: Tables<'message_attachments'> = {
-                    id: attachment.id,
-                    filename: attachment.file.name,
-                    mime_type: attachment.file.type,
-                    size_bytes: attachment.file.size,
-                    storage_url: attachment.storageUrl || attachment.preview || '',
-                    created_at: null,
-                    message_id: '', // Will be set when message is sent
-                  };
-                  return (
-                    <MessageAttachment
-                      key={attachment.id}
-                      attachment={messageAttachment}
-                      direction="OUTBOUND"
-                    />
-                  );
-                })}
-              </div>
-            )}
-            <Textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => {
-                onMessageChange(e.target.value);
-                // For SMS, prevent line breaks
-                if (isSMSSender && e.target.value.includes('\n')) {
-                  onMessageChange(e.target.value.replace(/\n/g, ''));
-                }
-                // Auto-resize textarea
-                if (textareaRef.current) {
-                  textareaRef.current.style.height = 'auto';
-                  textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-                }
-              }}
-              placeholder={isIMessageSender ? "Type your message here... (or drag files)" : "Type your message here..."}
-              className="resize-none font-mono text-sm border-0 min-h-[80px]"
-              rows={1}
-              onKeyDown={(e) => {
-                // For SMS, prevent line breaks (Shift+Enter does nothing)
-                if (e.key === 'Enter' && e.shiftKey && isSMSSender) {
-                  e.preventDefault();
-                }
-              }}
-            />
-            {/* SMS segment counter */}
-            {isSMSSender && smsSegments && (
-              <div className="absolute bottom-2 right-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{smsSegments.characters} chars</span>
-                <span>•</span>
-                <span>{smsSegments.segments} {smsSegments.segments === 1 ? 'segment' : 'segments'}</span>
-              </div>
             )}
           </div>
         </div>

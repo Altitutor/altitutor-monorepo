@@ -10,9 +10,10 @@ import type { Tables } from '@altitutor/shared';
 interface MessageTemplatesPickerProps {
   onSelect: (template: Tables<'message_templates'>) => void;
   disabled?: boolean;
+  expanded?: boolean;
 }
 
-export function MessageTemplatesPicker({ onSelect, disabled }: MessageTemplatesPickerProps) {
+export function MessageTemplatesPicker({ onSelect, disabled, expanded = false }: MessageTemplatesPickerProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const { data: templates = [], isLoading } = useMessageTemplates();
@@ -25,15 +26,28 @@ export function MessageTemplatesPicker({ onSelect, disabled }: MessageTemplatesP
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="flex-shrink-0"
-          disabled={disabled}
-          type="button"
-        >
-          <FileText className="h-4 w-4" />
-        </Button>
+        {expanded ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0 h-10"
+            disabled={disabled}
+            type="button"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Template
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="icon"
+            className="flex-shrink-0"
+            disabled={disabled}
+            type="button"
+          >
+            <FileText className="h-4 w-4" />
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
         <div className="p-3 border-b">

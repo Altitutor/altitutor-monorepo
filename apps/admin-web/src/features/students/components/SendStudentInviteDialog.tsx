@@ -16,7 +16,7 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Mail, MessageSquare, Copy, Check, X, Phone, ChevronDown } from 'lucide-react';
+import { Loader2, Mail, MessageSquare, Copy, Check, X, Phone, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
@@ -31,6 +31,7 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { calculateSMSSegments } from '@/features/messages/utils/smsSegments';
 import { templateContainsLinkVariables } from '@/features/messages/utils/generateLinkTokens';
 import { generateLinkTokensForStudent } from '@/features/messages/utils/generateLinkTokens';
+import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
@@ -62,12 +63,16 @@ export function SendStudentInviteDialog({
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [selectedRecipient, setSelectedRecipient] = useState<{ type: 'student' | 'parent'; id?: string; method: 'phone' | 'email'; label: string; value: string } | null>(null);
   const [studentClasses, setStudentClasses] = useState<Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>>([]);
+  const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emailComposerRef = useRef<HTMLDivElement>(null);
+  const buttonRowRef = useRef<HTMLDivElement>(null);
   const { data: availableSenders } = useAvailableSenders();
   const { data: currentStaff } = useCurrentStaff();
+  const canExpand = useResponsiveButtons(buttonRowRef);
 
   // Helper to get sender display name
   const getSenderDisplayName = (senderId: string | null): string => {
@@ -202,12 +207,10 @@ export function SendStudentInviteDialog({
 
   // Get contactId when phone recipient is selected
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SendStudentInviteDialog.tsx:203',message:'ContactId effect triggered',data:{selectedRecipient:selectedRecipient?.method,currentContactId:contactId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     if (!selectedRecipient || selectedRecipient.method !== 'phone') {
       setContactId(null);
       setComposerDraft(''); // Reset draft when switching away from phone
+      setEmailAttachments([]); // Clear attachments when switching away from email
       return;
     }
 
@@ -218,15 +221,9 @@ export function SendStudentInviteDialog({
         
         if (selectedRecipient.type === 'student') {
           const cid = await getContactIdByRelatedId(student.id, 'student');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SendStudentInviteDialog.tsx:213',message:'ContactId fetched for student',data:{contactId:cid,studentId:student.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
           setContactId(cid);
         } else if (selectedRecipient.type === 'parent' && selectedRecipient.id) {
           const cid = await getContactIdByRelatedId(selectedRecipient.id, 'parent');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SendStudentInviteDialog.tsx:217',message:'ContactId fetched for parent',data:{contactId:cid,parentId:selectedRecipient.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
           setContactId(cid);
         }
       } catch (error) {
@@ -436,20 +433,26 @@ export function SendStudentInviteDialog({
 
   // Handle send
   const handleSend = async () => {
-    if (!token || !selectedRecipient || !selectedSenderId) {
+    if (!token || !selectedRecipient) {
       if (!selectedRecipient) {
         toast({
           title: 'Error',
           description: 'Please select a recipient',
           variant: 'destructive',
         });
-      } else if (!selectedSenderId) {
-        toast({
-          title: 'Error',
-          description: 'Please select a phone number to send from',
-          variant: 'destructive',
-        });
       }
+      return;
+    }
+
+    const isEmail = selectedRecipient.method === 'email';
+    
+    // For phone, require sender ID
+    if (!isEmail && !selectedSenderId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a phone number to send from',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -463,22 +466,26 @@ export function SendStudentInviteDialog({
     }
 
     const key = selectedRecipient.type === 'student' ? 'student' : `parent-${selectedRecipient.id}`;
-    const isEmail = selectedRecipient.method === 'email';
     
     try {
       if (isEmail) {
         setSendingEmail(prev => ({ ...prev, [key]: true }));
         
         if (linkType === 'invite') {
+          const formData = new FormData();
+          formData.append('type', 'student');
+          formData.append('id', student.id);
+          formData.append('token', token);
+          formData.append('customMessage', customMessage.trim());
+          
+          // Add attachments
+          emailAttachments.forEach((file, index) => {
+            formData.append(`attachment-${index}`, file);
+          });
+          
           const result = await fetch('/api/invites/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'student',
-              id: student.id,
-              token,
-              customMessage: customMessage.trim(),
-            }),
+            body: formData,
           });
 
           if (!result.ok) {
@@ -487,23 +494,31 @@ export function SendStudentInviteDialog({
           }
 
           setEmailSent(prev => ({ ...prev, [key]: true }));
+          setEmailAttachments([]); // Clear attachments after sending
           toast({
             title: 'Invite email sent',
             description: `An invite has been sent to ${selectedRecipient.value}`,
           });
         } else {
+          const formData = new FormData();
+          formData.append('studentId', student.id);
+          formData.append('token', token);
+          formData.append('sendEmail', 'true');
+          formData.append('recipientType', selectedRecipient.type);
+          if (selectedRecipient.id) {
+            formData.append('recipientId', selectedRecipient.id);
+          }
+          formData.append('contactMethod', 'email');
+          formData.append('customMessage', customMessage.trim());
+          
+          // Add attachments
+          emailAttachments.forEach((file, index) => {
+            formData.append(`attachment-${index}`, file);
+          });
+          
           const response = await fetch('/api/students/send-registration-invite', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              studentId: student.id,
-              token,
-              sendEmail: true,
-              recipientType: selectedRecipient.type,
-              recipientId: selectedRecipient.id,
-              contactMethod: 'email',
-              customMessage: customMessage.trim(),
-            }),
+            body: formData,
           });
 
           if (!response.ok) {
@@ -512,6 +527,7 @@ export function SendStudentInviteDialog({
           }
 
           setEmailSent(prev => ({ ...prev, [key]: true }));
+          setEmailAttachments([]); // Clear attachments after sending
           toast({
             title: 'Registration email sent',
             description: `The registration link has been sent via email to ${selectedRecipient.value}`,
@@ -601,6 +617,7 @@ export function SendStudentInviteDialog({
     setStudentClasses([]);
     setContactId(null);
     setComposerDraft('');
+    setEmailAttachments([]);
     onClose();
   };
 
@@ -723,10 +740,10 @@ export function SendStudentInviteDialog({
                 </div>
               </div>
 
-              {/* Chat Window for Phone or Composer for Email */}
-              {selectedRecipient && selectedRecipient.method === 'phone' ? (
+              {/* Message Section - Always show when recipient is selected */}
+              {selectedRecipient ? (
                 <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden mx-4">
-                  {/* Fixed Header with Message label and dropdown */}
+                  {/* Fixed Header with Message label and recipient dropdown */}
                   <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0 bg-background">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">Message</span>
@@ -737,22 +754,15 @@ export function SendStudentInviteDialog({
                               variant="outline"
                               size="sm"
                               className="h-7"
-                              disabled={!selectedRecipient}
                             >
-                              {selectedRecipient ? (
-                                <>
-                                  {selectedRecipient.method === 'phone' ? (
-                                    <MessageSquare className="h-3 w-3 mr-1" />
-                                  ) : (
-                                    <Mail className="h-3 w-3 mr-1" />
-                                  )}
-                                  <span className="text-xs">{selectedRecipient.label}</span>
-                                  {selectedRecipient.method === 'phone' && (
-                                    <span className="text-xs text-muted-foreground ml-1">• {selectedRecipient.value}</span>
-                                  )}
-                                </>
+                              {selectedRecipient.method === 'phone' ? (
+                                <MessageSquare className="h-3 w-3 mr-1" />
                               ) : (
-                                'Select recipient'
+                                <Mail className="h-3 w-3 mr-1" />
+                              )}
+                              <span className="text-xs">{selectedRecipient.label}</span>
+                              {selectedRecipient.method === 'phone' && (
+                                <span className="text-xs text-muted-foreground ml-1">• {selectedRecipient.value}</span>
                               )}
                               <ChevronDown className="h-3 w-3 ml-1" />
                             </Button>
@@ -788,183 +798,163 @@ export function SendStudentInviteDialog({
                     </div>
                   </div>
                   
-                  {/* Scrollable Message Thread */}
-                  {contactId ? (
+                  {/* Content: Chat Thread for Phone, Composer for Email */}
+                  {selectedRecipient.method === 'phone' ? (
                     <>
-                      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                        <MessageThread contactId={contactId} />
-                      </div>
-                      <div className="flex-shrink-0 border-t">
-                        <Composer 
-                          contactId={contactId}
-                          draft={composerDraft}
-                          onDraftChange={setComposerDraft}
-                          onDraftClear={() => setComposerDraft('')}
-                          onBeforeSend={async (messageBody, selectedSenderId) => {
-                            // Allow sending through Composer - it handles the message sending
-                            return null;
-                          }}
-                        />
-                      </div>
+                      {/* Scrollable Message Thread */}
+                      {contactId ? (
+                        <>
+                          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                            <MessageThread contactId={contactId} />
+                          </div>
+                          <div className="flex-shrink-0 border-t">
+                            <Composer 
+                              contactId={contactId}
+                              draft={composerDraft}
+                              onDraftChange={setComposerDraft}
+                              onDraftClear={() => setComposerDraft('')}
+                              onBeforeSend={async (messageBody, selectedSenderId) => {
+                                // Allow sending through Composer - it handles the message sending
+                                return null;
+                              }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="flex flex-col gap-2 w-full px-4">
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
+                          </div>
+                        </div>
+                      )}
                     </>
                   ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="flex flex-col gap-2 w-full px-4">
-                        <Skeleton className="h-16 w-full" />
-                        <Skeleton className="h-16 w-full" />
-                        <Skeleton className="h-16 w-full" />
+                    /* Email Composer */
+                    <div ref={emailComposerRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                      {/* Attachment previews */}
+                      {emailAttachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 p-2 border-b flex-shrink-0">
+                          {emailAttachments.map((file, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs"
+                            >
+                              <span className="truncate max-w-[150px]">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEmailAttachments(prev => prev.filter((_, i) => i !== index));
+                                }}
+                                className="ml-1 hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Hidden file input */}
+                      <input
+                        type="file"
+                        id="email-attachment"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setEmailAttachments(prev => [...prev, ...files]);
+                        }}
+                        disabled={!selectedRecipient}
+                      />
+                      
+                      <div className="flex flex-col gap-2 p-2 flex-shrink-0">
+                        {/* Textarea row */}
+                        <div className="relative">
+                          <textarea
+                            ref={textareaRef}
+                            value={customMessage}
+                            onChange={(e) => setCustomMessage(e.target.value)}
+                            className="w-full text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[60px] max-h-[200px]"
+                            placeholder="Enter your message..."
+                            disabled={!selectedRecipient}
+                            rows={1}
+                          />
+                        </div>
+                        
+                        {/* Button row: template/attachments on left, send on right */}
+                        <div ref={buttonRowRef} className="flex items-center justify-between gap-2 min-w-0">
+                          {/* Left side: Template, Attachments buttons */}
+                          <div className="flex items-center gap-2 flex-shrink min-w-0">
+                            {/* Template button */}
+                            <div className="relative">
+                              <MessageTemplatesPicker 
+                                onSelect={handleTemplateSelect}
+                                disabled={isGeneratingTokens || !selectedRecipient}
+                                expanded={canExpand}
+                              />
+                              {isGeneratingTokens && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md pointer-events-none">
+                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Attachment button */}
+                            {canExpand ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => document.getElementById('email-attachment')?.click()}
+                                disabled={!selectedRecipient}
+                                className="h-10"
+                              >
+                                <Paperclip className="h-4 w-4 mr-2" />
+                                Attach
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => document.getElementById('email-attachment')?.click()}
+                                disabled={!selectedRecipient}
+                                className="h-10"
+                                aria-label="Attach files"
+                              >
+                                <Paperclip className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          
+                          {/* Right side: Send Button */}
+                          <div className="flex-shrink-0 ml-auto">
+                          <Button
+                            className="px-4 py-2 text-sm rounded-md text-white hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-10 bg-brand-lightBlue text-brand-dark-bg"
+                            onClick={handleSend}
+                            disabled={
+                              isSending || 
+                              !selectedRecipient || 
+                              !customMessage.trim() ||
+                              (selectedRecipient.method === 'phone' && !selectedSenderId)
+                            }
+                          >
+                            {isSending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              'Send'
+                            )}
+                          </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
-                </div>
-              ) : selectedRecipient && selectedRecipient.method === 'email' ? (
-                <div className="space-y-2 px-4">
-                  {/* Message Templates Button and Send From Button */}
-                  <div className="flex items-center gap-2">
-                    <MessageTemplatesPicker 
-                      onSelect={handleTemplateSelect}
-                      disabled={isGeneratingTokens}
-                    />
-                    {isGeneratingTokens && (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    )}
-                    {availableSenders && availableSenders.length > 0 && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            disabled={!selectedSenderId}
-                            type="button"
-                          >
-                            <Phone 
-                              className={`h-4 w-4 ${
-                                selectedSender?.provider === 'IMESSAGE' 
-                                  ? 'text-[#007AFF] dark:text-[#0A84FF]' 
-                                  : selectedSender?.provider === 'TWILIO'
-                                  ? 'text-[#30D158] dark:text-[#1E8E3E]'
-                                  : ''
-                              }`}
-                            />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          {(() => {
-                            const imessageSenders = availableSenders.filter(s => s.provider === 'IMESSAGE');
-                            const twilioSenders = availableSenders.filter(s => s.provider === 'TWILIO');
-                            
-                            return (
-                              <>
-                                {imessageSenders.length > 0 && (
-                                  <>
-                                    <DropdownMenuLabel>iMessage</DropdownMenuLabel>
-                                    {imessageSenders.map((sender) => (
-                                      <DropdownMenuItem
-                                        key={sender.id}
-                                        onClick={() => setSelectedSenderId(sender.id)}
-                                        className="flex items-center justify-between"
-                                      >
-                                        <div className="flex flex-col">
-                                          <span className="text-sm font-medium">
-                                            {getSenderDisplayName(sender.id)}
-                                          </span>
-                                          {sender.is_default && (
-                                            <span className="text-xs text-muted-foreground">Default</span>
-                                          )}
-                                        </div>
-                                        {selectedSenderId === sender.id && (
-                                          <Check className="h-4 w-4 ml-2" />
-                                        )}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </>
-                                )}
-                                {imessageSenders.length > 0 && twilioSenders.length > 0 && (
-                                  <DropdownMenuSeparator />
-                                )}
-                                {twilioSenders.length > 0 && (
-                                  <>
-                                    <DropdownMenuLabel>SMS</DropdownMenuLabel>
-                                    {twilioSenders.map((sender) => (
-                                      <DropdownMenuItem
-                                        key={sender.id}
-                                        onClick={() => setSelectedSenderId(sender.id)}
-                                        className="flex items-center justify-between"
-                                      >
-                                        <div className="flex flex-col">
-                                          <span className="text-sm font-medium">
-                                            {getSenderDisplayName(sender.id)}
-                                          </span>
-                                          {sender.is_default && (
-                                            <span className="text-xs text-muted-foreground">Default</span>
-                                          )}
-                                        </div>
-                                        {selectedSenderId === sender.id && (
-                                          <Check className="h-4 w-4 ml-2" />
-                                        )}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-
-                  {/* Message Composer */}
-                  <div className="relative">
-                    <textarea
-                      ref={textareaRef}
-                      value={customMessage}
-                      onChange={(e) => setCustomMessage(e.target.value)}
-                      className={`w-full text-sm px-3 py-2 ${
-                        isSMSSender && smsSegments ? 'pr-20' : 'pr-3'
-                      } border rounded-md bg-background resize-none min-h-[100px] max-h-[200px]`}
-                      placeholder="Enter your message..."
-                      rows={4}
-                      disabled={!selectedRecipient || !selectedSenderId}
-                    />
-                    {/* SMS segment counter */}
-                    {isSMSSender && smsSegments && (
-                      <div className="absolute bottom-2 right-2 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{smsSegments.characters} chars</span>
-                        <span>•</span>
-                        <span>{smsSegments.segments} {smsSegments.segments === 1 ? 'segment' : 'segments'}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Send Button */}
-                  <div className="flex justify-end">
-                    <Button
-                      className={`px-4 py-2 text-sm rounded-md text-white hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-10 ${
-                        isIMessageSender
-                          ? 'bg-[#007AFF] dark:bg-[#0A84FF]'
-                          : isSMSSender
-                          ? 'bg-[#30D158] dark:bg-[#1E8E3E]'
-                          : 'bg-brand-lightBlue text-brand-dark-bg'
-                      }`}
-                      onClick={handleSend}
-                      disabled={
-                        isSending || 
-                        !selectedRecipient || 
-                        !selectedSenderId || 
-                        !customMessage.trim()
-                      }
-                    >
-                      {isSending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        'Send'
-                      )}
-                    </Button>
-                  </div>
                 </div>
               ) : null}
 
