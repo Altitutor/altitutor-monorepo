@@ -453,6 +453,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   const markRead = useMarkRead();
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const isInitialLoad = useRef(true);
   const prevContactId = useRef(contactId);
   const lastMarkedMessageId = useRef<string | null>(null);
@@ -460,6 +462,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   
   // Reset initial load flag when contact changes
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MessageThread.tsx:462',message:'Contact change effect',data:{contactId,prevContactId:prevContactId.current,isChanging:prevContactId.current!==contactId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     if (prevContactId.current !== contactId) {
       isInitialLoad.current = true;
       prevContactId.current = contactId;
@@ -469,6 +474,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         clearTimeout(markReadTimeoutRef.current);
         markReadTimeoutRef.current = null;
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MessageThread.tsx:470',message:'Contact changed, reset initial load',data:{contactId,isInitialLoad:isInitialLoad.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
     }
   }, [contactId]);
 
@@ -563,21 +571,64 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     };
   }, [data, contactId, markRead]);
 
-  // Auto-scroll to bottom on initial load and when new messages arrive
+  // Use IntersectionObserver on sentinel element - simple and reliable (like WhatsApp/Messages)
+  // This automatically handles: initial load, new messages, images loading, etc.
   useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      const shouldScroll = isInitialLoad.current || (el.scrollHeight - el.scrollTop - el.clientHeight) < 150;
-      if (shouldScroll) {
-        // Use setTimeout to ensure DOM has updated
-        setTimeout(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!sentinelRef.current || !scrollRef.current) return;
+    
+    const sentinel = sentinelRef.current;
+    const scrollContainer = scrollRef.current;
+    
+    // Track if user has manually scrolled away from bottom
+    let userScrolledAway = false;
+    let lastScrollTop = scrollContainer.scrollTop;
+    
+    const handleScroll = () => {
+      if (!scrollRef.current) return;
+      const currentScrollTop = scrollRef.current.scrollTop;
+      const distanceFromBottom = scrollRef.current.scrollHeight - currentScrollTop - scrollRef.current.clientHeight;
+      
+      // User scrolled away if they're more than 100px from bottom
+      userScrolledAway = distanceFromBottom > 100;
+      lastScrollTop = currentScrollTop;
+    };
+    
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // When sentinel becomes invisible (images push it down), scroll it back into view
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        // If sentinel is not visible and user hasn't scrolled away, scroll it back into view
+        if (!entry.isIntersecting && (!userScrolledAway || isInitialLoad.current)) {
+          sentinel.scrollIntoView({ behavior: 'instant', block: 'end' });
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '0px',
+        threshold: 0,
+      }
+    );
+    
+    observer.observe(sentinel);
+    
+    // Initial scroll to bottom
+    if (isInitialLoad.current) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (sentinelRef.current) {
+            sentinelRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
             isInitialLoad.current = false;
           }
-        }, 0);
-      }
+        });
+      });
     }
+    
+    return () => {
+      observer.disconnect();
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
   }, [data]);
 
   const items = data?.pages?.flatMap(p => p.items) || [];
@@ -685,7 +736,10 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         </div>
       )}
       
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0">
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0"
+      >
         {hasNextPage && (
           <button className="text-xs text-blue-600 hover:underline mb-2" onClick={() => fetchNextPage()}>Load older messages</button>
         )}
@@ -706,9 +760,10 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
               
               const m = item;
               const showDateSeparator = !isSearching && (index === 0 || (arr[index - 1]?.type === 'message' && isDifferentDay(m.created_at, arr[index - 1].created_at)));
+              const isLastMessage = index === arr.length - 1;
               
               return (
-                <div key={m.id}>
+                <div key={m.id} ref={isLastMessage ? lastMessageRef : undefined}>
                   {showDateSeparator && (
                     <div className="text-center text-xs text-muted-foreground my-3">
                       {formatDaySeparator(m.created_at)}
@@ -781,6 +836,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
               );
             })
         )}
+        {/* Sentinel element at bottom - IntersectionObserver watches this */}
+        <div ref={sentinelRef} className="h-1" />
       </div>
     </div>
   );
