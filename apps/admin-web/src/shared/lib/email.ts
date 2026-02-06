@@ -5,6 +5,11 @@ export interface SendEmailOptions {
   subject: string;
   html: string;
   from?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
 }
 
 export async function sendEmail({
@@ -12,6 +17,7 @@ export async function sendEmail({
   subject,
   html,
   from = 'Altitutor <noreply@altitutor.com>',
+  attachments,
 }: SendEmailOptions) {
   const apiKey = process.env.RESEND_API_KEY;
   
@@ -27,6 +33,11 @@ export async function sendEmail({
     to: Array.isArray(to) ? to : [to],
     subject,
     html,
+    attachments: attachments?.map(att => ({
+      filename: att.filename,
+      content: att.content,
+      contentType: att.contentType,
+    })),
   });
 
   if (error) {

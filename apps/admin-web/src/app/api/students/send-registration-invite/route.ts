@@ -37,16 +37,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { 
-      studentId, 
-      token: existingToken, 
-      sendEmail: shouldSendEmail, 
-      sendSms: shouldSendSms,
-      recipientType, // 'student' | 'parent'
-      recipientId, // parent ID if recipientType is 'parent'
-      contactMethod, // 'email' | 'sms'
-    } = body;
+    // Handle FormData or JSON
+    let studentId: string;
+    let existingToken: string | undefined;
+    let shouldSendEmail: boolean | undefined;
+    let shouldSendSms: boolean | undefined;
+    let recipientType: 'student' | 'parent' | undefined;
+    let recipientId: string | undefined;
+    let contactMethod: 'email' | 'sms' | undefined;
+    let customMessage: string | undefined;
+    let ownedNumberId: string | undefined;
+    let attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
+    
+    const contentType = request.headers.get('content-type') || '';
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      studentId = formData.get('studentId') as string;
+      existingToken = formData.get('token') as string | undefined;
+      shouldSendEmail = formData.get('sendEmail') === 'true';
+      shouldSendSms = formData.get('sendSms') === 'true';
+      recipientType = formData.get('recipientType') as 'student' | 'parent' | undefined;
+      recipientId = formData.get('recipientId') as string | undefined;
+      contactMethod = formData.get('contactMethod') as 'email' | 'sms' | undefined;
+      customMessage = formData.get('customMessage') as string | undefined;
+      ownedNumberId = formData.get('ownedNumberId') as string | undefined;
+      
+      // Extract attachments
+      const attachmentEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith('attachment-'));
+      for (const [_, file] of attachmentEntries) {
+        if (file instanceof File) {
+          const buffer = Buffer.from(await file.arrayBuffer());
+          attachments.push({
+            filename: file.name,
+            content: buffer,
+            contentType: file.type || undefined,
+          });
+        }
+      }
+    } else {
+      const body = await request.json();
+      studentId = body.studentId;
+      existingToken = body.token;
+      shouldSendEmail = body.sendEmail;
+      shouldSendSms = body.sendSms;
+      recipientType = body.recipientType;
+      recipientId = body.recipientId;
+      contactMethod = body.contactMethod;
+      customMessage = body.customMessage;
+      ownedNumberId = body.ownedNumberId;
+    }
 
     if (!studentId) {
       return NextResponse.json(
@@ -187,6 +226,7 @@ export async function POST(request: NextRequest) {
               to: r.email,
               subject: `Complete Registration for ${student.first_name} ${student.last_name} - Altitutor`,
               html,
+              attachments: attachments.length > 0 ? attachments : undefined,
             });
 
             emailSuccessCount++;
@@ -405,18 +445,34 @@ export async function POST(request: NextRequest) {
     // Send email if requested
     if (shouldSendEmail && contactMethod === 'email' && recipient) {
       try {
-        const html = getInviteEmailTemplate({
-          firstName: recipient.first_name,
-          lastName: recipient.last_name,
-          inviteUrl: registrationUrl,
-          linkType: 'registration',
-          studentName: `${student.first_name} ${student.last_name}`,
-        });
+        // Use custom message if provided, otherwise use template
+        let html: string;
+        if (customMessage && customMessage.trim()) {
+          // For custom messages, create a simple HTML email with the message
+          html = `
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+              <p>${customMessage.replace(/\n/g, '<br>')}</p>
+              <p><a href="${registrationUrl}">${registrationUrl}</a></p>
+            </body>
+            </html>
+          `;
+        } else {
+          html = getInviteEmailTemplate({
+            firstName: recipient.first_name,
+            lastName: recipient.last_name,
+            inviteUrl: registrationUrl,
+            linkType: 'registration',
+            studentName: `${student.first_name} ${student.last_name}`,
+          });
+        }
 
         await sendEmail({
           to: recipient.email!,
           subject: `Complete Registration for ${student.first_name} ${student.last_name} - Altitutor`,
           html,
+          attachments: attachments.length > 0 ? attachments : undefined,
         });
       } catch (error) {
         const errorMsg = `Failed to send email to ${recipient.email}: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -465,20 +521,43 @@ export async function POST(request: NextRequest) {
           contactId = newContact.id;
         }
 
-        // Get an owned number for sending
-        const { data: ownedNumber, error: ownedError } = await supabaseAdmin
-          .from('owned_numbers')
-          .select('id, phone_e164')
-          .limit(1)
-          .single<{ id: string; phone_e164: string }>();
+        // Get owned number for sending (use provided one or default)
+        let ownedNumber: { id: string; phone_e164: string } | null = null;
+        
+        if (ownedNumberId) {
+          const { data, error } = await supabaseAdmin
+            .from('owned_numbers')
+            .select('id, phone_e164')
+            .eq('id', ownedNumberId)
+            .single<{ id: string; phone_e164: string }>();
+          
+          if (error || !data) {
+            const errorMsg = `Owned number not found: ${error?.message || 'Unknown error'}`;
+            console.error('Owned number not found:', error);
+            return NextResponse.json(
+              { error: errorMsg },
+              { status: 400 }
+            );
+          }
+          ownedNumber = data;
+        } else {
+          // Get default owned number
+          const { data, error: ownedError } = await supabaseAdmin
+            .from('owned_numbers')
+            .select('id, phone_e164')
+            .order('is_default', { ascending: false })
+            .limit(1)
+            .single<{ id: string; phone_e164: string }>();
 
-        if (ownedError || !ownedNumber) {
-          const errorMsg = `No owned number found: ${ownedError?.message || 'Unknown error'}`;
-          console.error('No owned number found:', ownedError);
-          return NextResponse.json(
-            { error: errorMsg },
-            { status: 500 }
-          );
+          if (ownedError || !data) {
+            const errorMsg = `No owned number found: ${ownedError?.message || 'Unknown error'}`;
+            console.error('No owned number found:', ownedError);
+            return NextResponse.json(
+              { error: errorMsg },
+              { status: 500 }
+            );
+          }
+          ownedNumber = data;
         }
 
         // Get or create conversation
@@ -514,13 +593,15 @@ export async function POST(request: NextRequest) {
           conversationId = newConvo.id;
         }
 
-        // Create message body using template
-        const messageBody = getInviteSmsTemplate({
-          firstName: recipient.first_name || 'there',
-          inviteUrl: registrationUrl,
-          linkType: 'registration',
-          studentName: `${student.first_name} ${student.last_name}`,
-        });
+        // Create message body - use custom message if provided, otherwise use template
+        const messageBody = customMessage && customMessage.trim() 
+          ? customMessage.trim()
+          : getInviteSmsTemplate({
+              firstName: recipient.first_name || 'there',
+              inviteUrl: registrationUrl,
+              linkType: 'registration',
+              studentName: `${student.first_name} ${student.last_name}`,
+            });
 
         // Create message record
         const { data: message, error: messageError } = await supabaseAdmin
