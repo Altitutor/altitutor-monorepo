@@ -322,8 +322,9 @@ export async function processStudentInvoicing(
           throw new Error('Failed to save invoice to database');
         }
 
-        // Always attempt to save invoice items (upsert handles duplicates)
-        // This fixes the issue where items weren't saved if invoice already existed
+        // Save invoice items IMMEDIATELY after invoice record creation (before webhook can fire)
+        // This prevents race condition where invoice.paid webhook fires before items are saved
+        // Upsert handles duplicates and race conditions
         try {
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
         } catch (itemsErr: any) {
@@ -405,13 +406,9 @@ export async function processStudentInvoicing(
           throw new Error('Failed to save invoice to database');
         }
 
-        // If invoice is already paid (via webhook), skip payment
-        if (dbInvoice.status === 'paid') {
-          return { invoiceId: dbInvoice.id, error: null };
-        }
-
-        // Always attempt to save invoice items (upsert handles duplicates)
-        // This fixes the issue where items weren't saved if invoice already existed
+        // Save invoice items IMMEDIATELY after invoice record creation (before webhook can fire)
+        // This prevents race condition where invoice.paid webhook fires before items are saved
+        // Upsert handles duplicates and race conditions
         try {
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
         } catch (itemsErr: any) {
@@ -420,6 +417,11 @@ export async function processStudentInvoicing(
             itemsErr?.message || itemsErr
           );
           // Don't throw - invoice is saved, items can be reconciled later
+        }
+
+        // If invoice is already paid (via webhook), skip payment
+        if (dbInvoice.status === 'paid') {
+          return { invoiceId: dbInvoice.id, error: null };
         }
 
         // Attempt payment (after DB insert succeeds)
