@@ -5,11 +5,17 @@ import { Button } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { Loader2, Search, Filter, X } from 'lucide-react';
+import { ScrollArea } from '@altitutor/ui';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import type { ClassWithExpandedSubject } from '@altitutor/shared';
+import { formatClassName, formatSubjectDisplay, cn } from '@/shared/utils';
+import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 
 interface ChangeClassStep1SelectClassProps {
+  student: Tables<'students'>;
+  oldClass: Tables<'classes'>;
+  oldClassSubject?: Tables<'subjects'>;
+  selectedNewClass?: ClassWithExpandedSubject;
   isFetching: boolean;
   filteredClasses: ClassWithExpandedSubject[];
   selectedNewClassId: string | null;
@@ -23,6 +29,10 @@ interface ChangeClassStep1SelectClassProps {
 }
 
 export function ChangeClassStep1SelectClass({
+  student,
+  oldClass,
+  oldClassSubject,
+  selectedNewClass,
   isFetching,
   filteredClasses,
   selectedNewClassId,
@@ -34,8 +44,70 @@ export function ChangeClassStep1SelectClass({
   onClearFilters,
   onSelectClass,
 }: ChangeClassStep1SelectClassProps) {
+  // Get student name
+  const studentName = `${student.first_name} ${student.last_name}`;
+
+  // Get subject name
+  const subjectName = oldClassSubject
+    ? formatSubjectDisplay(oldClassSubject)
+    : 'choose subject';
+
+  // Get old class name
+  const oldClassName = oldClass && oldClassSubject
+    ? formatClassName(oldClass, oldClassSubject)
+    : 'choose class';
+
+  // Get new class name
+  const newClassName = selectedNewClass
+    ? formatClassName(selectedNewClass, selectedNewClass.subject)
+    : 'choose class';
+
+  const isSubjectChosen = subjectName !== 'choose subject';
+  const isOldClassChosen = oldClassName !== 'choose class';
+  const isNewClassChosen = newClassName !== 'choose class';
+
   return (
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
+      {/* Info Card */}
+      <div className="mb-4 p-4 bg-muted rounded-lg">
+        <p className="text-sm font-medium">
+          Change{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {studentName}
+          </span>
+          {'\'s '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isSubjectChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {subjectName}
+          </span>
+          {' class from '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isOldClassChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {oldClassName}
+          </span>
+          {' to '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isNewClassChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {newClassName}
+          </span>
+        </p>
+      </div>
+
       <div className="relative flex-shrink-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -92,7 +164,7 @@ export function ChangeClassStep1SelectClass({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <ScrollArea className="flex-1 min-h-0">
         {isFetching ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -102,7 +174,7 @@ export function ChangeClassStep1SelectClass({
             No alternative classes found for this subject
           </p>
         ) : (
-          <div className="space-y-2 pr-4">
+          <div className="space-y-2">
             {filteredClasses.map((c) => (
               <ClassCard
                 key={c.id}
@@ -117,7 +189,7 @@ export function ChangeClassStep1SelectClass({
             ))}
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -29,9 +29,7 @@ export function ChangeClassModal({
 }: ChangeClassModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedNewClassId, setSelectedNewClassId] = useState<string | null>(null);
-  const [changeoverDate, setChangeoverDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [changeoverDate, setChangeoverDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [dayFilters, setDayFilters] = useState<number[]>([]);
   const [timeOverlapWarning, setTimeOverlapWarning] = useState<string | null>(null);
@@ -80,7 +78,7 @@ export function ChangeClassModal({
     if (isOpen) {
       setStep(1);
       setSelectedNewClassId(null);
-      setChangeoverDate(new Date().toISOString().split('T')[0]);
+      setChangeoverDate('');
       setSearchQuery('');
       setDayFilters([]);
       setTimeOverlapWarning(null);
@@ -112,7 +110,7 @@ export function ChangeClassModal({
   const handleNext = () => {
     if (step === 1 && selectedNewClassId) {
       setStep(2);
-    } else if (step === 2) {
+    } else if (step === 2 && changeoverDate && changeoverDate.trim() !== '') {
       setStep(3);
     }
   };
@@ -185,38 +183,13 @@ export function ChangeClassModal({
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full overflow-y-auto">
             <div className="p-6">
-              {/* Always show student and class cards inline */}
-              <div className="flex gap-4 mb-4 flex-shrink-0 items-stretch">
-                <div className="flex-1 min-w-0">
-                  <StudentCard
-                    student={student}
-                    subjects={studentSubjects}
-                    showSubjects={false}
-                  />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <ClassCard
-                    class={oldClass}
-                    subject={oldClassSubject}
-                    staff={oldClassStaff}
-                  />
-                </div>
-                
-                {selectedNewClass && (
-                  <div className="flex-1 min-w-0">
-                    <ClassCard
-                      class={selectedNewClass}
-                      subject={selectedNewClass.subject}
-                      staff={selectedNewClass.staff || []}
-                    />
-                  </div>
-                )}
-              </div>
-
               {/* Step 1: Select New Class */}
               {step === 1 && (
                 <ChangeClassStep1SelectClass
+                  student={student}
+                  oldClass={oldClass}
+                  oldClassSubject={oldClassSubject}
+                  selectedNewClass={selectedNewClass}
                   isFetching={isFetching}
                   filteredClasses={filteredClasses}
                   selectedNewClassId={selectedNewClassId}
@@ -248,6 +221,7 @@ export function ChangeClassModal({
               {step === 3 && (
                 <ChangeClassStep3Summary
                   studentId={student.id}
+                  student={student}
                   oldClass={oldClass}
                   oldClassSubject={oldClassSubject}
                   oldClassStaff={oldClassStaff}
@@ -275,7 +249,10 @@ export function ChangeClassModal({
             {step < 3 ? (
               <Button 
                 onClick={handleNext}
-                disabled={step === 1 && !selectedNewClassId}
+                disabled={
+                  (step === 1 && !selectedNewClassId) ||
+                  (step === 2 && (!changeoverDate || changeoverDate.trim() === ''))
+                }
               >
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />

@@ -2,14 +2,12 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Label } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
-import { AlertTriangle, ArrowRight } from 'lucide-react';
-import { ClassCard } from '@/shared/components/ClassCard';
+import { AlertTriangle } from 'lucide-react';
 import { calculateFirstSessionDate, calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
+import { formatClassName, formatSubjectDisplay, formatDate, cn } from '@/shared/utils';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays } from 'date-fns';
-import { formatDate } from '@/shared/utils/datetime';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
@@ -25,6 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface ChangeClassStep3SummaryProps {
   studentId: string;
+  student: Tables<'students'>;
   oldClass: Tables<'classes'>;
   oldClassSubject?: Tables<'subjects'>;
   oldClassStaff?: Tables<'staff'>[];
@@ -35,6 +34,7 @@ interface ChangeClassStep3SummaryProps {
 
 export function ChangeClassStep3Summary({
   studentId,
+  student,
   oldClass,
   oldClassSubject,
   oldClassStaff,
@@ -186,31 +186,70 @@ export function ChangeClassStep3Summary({
     return result;
   }, [firstSessionNewClass, selectedNewClass, billingPricing, pricingOverrides, subsidies, studentId]);
 
+  // Get student name
+  const studentName = `${student.first_name} ${student.last_name}`;
+
+  // Get subject name
+  const subjectName = oldClassSubject
+    ? formatSubjectDisplay(oldClassSubject)
+    : 'choose subject';
+
+  // Get old class name
+  const oldClassName = oldClass && oldClassSubject
+    ? formatClassName(oldClass, oldClassSubject)
+    : 'choose class';
+
+  // Get new class name
+  const newClassName = selectedNewClass
+    ? formatClassName(selectedNewClass, selectedNewClass.subject)
+    : 'choose class';
+
+  // Format changeover date for display
+  const changeoverDateDisplay = changeoverDate
+    ? formatDate(new Date(changeoverDate))
+    : 'choose date';
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Label className="text-xs text-muted-foreground">From</Label>
-          <ClassCard
-            class={oldClass}
-            subject={oldClassSubject}
-            staff={oldClassStaff || []}
-          />
-        </div>
-        
-        <ArrowRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        
-        <div className="flex-1">
-          <Label className="text-xs text-muted-foreground">To</Label>
-          {selectedNewClass && (
-            <ClassCard
-              class={selectedNewClass}
-              subject={selectedNewClass.subject}
-              staff={selectedNewClass.staff || []}
-              students={selectedNewClass.students}
-            />
-          )}
-        </div>
+      {/* Info Card */}
+      <div className="p-4 bg-muted rounded-lg">
+        <p className="text-sm font-medium">
+          Change{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {studentName}
+          </span>
+          {'\'s '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {subjectName}
+          </span>
+          {' class from '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {oldClassName}
+          </span>
+          {' to '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {newClassName}
+          </span>
+          {' starting on '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {changeoverDateDisplay}
+          </span>
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
