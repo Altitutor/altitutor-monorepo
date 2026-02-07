@@ -634,16 +634,18 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   const items = data?.pages?.flatMap(p => p.items) || [];
 
   // Filter and process messages for search
-  const processedMessages = useMemo(() => {
+  type MessageItem = typeof items[number];
+  type ProcessedMessageItem = (MessageItem & { type: 'message'; searchTerm?: string }) | { type: 'separator'; count: number; id: string };
+  
+  const processedMessages = useMemo((): ProcessedMessageItem[] => {
     if (!isSearching || !searchTerm.trim()) {
-      return items.slice().reverse();
+      // When not searching, return items with type 'message'
+      return items.slice().reverse().map((m) => ({ ...m, type: 'message' as const }));
     }
     
     const search = searchTerm.toLowerCase();
     const reversedItems = items.slice().reverse();
-    type MessageItem = typeof items[number];
-    type FilteredItem = MessageItem & { type?: 'message'; searchTerm?: string } | { type: 'separator'; count: number; id: string };
-    const filtered: FilteredItem[] = [];
+    const filtered: ProcessedMessageItem[] = [];
     let hiddenCount = 0;
     
     reversedItems.forEach((m, index) => {
@@ -758,9 +760,17 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                 );
               }
               
-              const m = item;
-              const showDateSeparator = !isSearching && (index === 0 || (arr[index - 1]?.type === 'message' && isDifferentDay(m.created_at, arr[index - 1].created_at)));
+              // TypeScript now knows item.type === 'message'
+              const m = item as Extract<typeof item, { type: 'message' }>;
+              if (!m.created_at) return null; // Skip messages without created_at
+              
+              const prevItem = arr[index - 1];
+              const prevIsMessage = prevItem && 'type' in prevItem && prevItem.type === 'message';
+              const prevCreatedAt = prevIsMessage && (prevItem as Extract<typeof prevItem, { type: 'message' }>).created_at;
+              const showDateSeparator = !isSearching && (index === 0 || (prevIsMessage && prevCreatedAt && isDifferentDay(m.created_at, prevCreatedAt)));
               const isLastMessage = index === arr.length - 1;
+              
+              const direction = m.direction as 'INBOUND' | 'OUTBOUND';
               
               return (
                 <div key={m.id} ref={isLastMessage ? lastMessageRef : undefined}>
@@ -769,9 +779,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       {formatDaySeparator(m.created_at)}
                     </div>
                   )}
-                  <div className={`flex gap-2 items-end ${m.direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Staff avatar for outbound messages */}
-                    {m.direction === 'OUTBOUND' && m.staff && (
+                    {direction === 'OUTBOUND' && m.staff && (
                       <StaffAvatar
                         staffId={m.staff.id}
                         firstName={m.staff.first_name}
@@ -779,10 +789,10 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       />
                     )}
                     
-                    <div className={`max-w-[80%] ${m.direction === 'OUTBOUND' ? 'text-right' : ''}`}>
+                    <div className={`max-w-[80%] ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
                       {/* Sender badge for outbound messages */}
-                      {m.direction === 'OUTBOUND' && m.sender && (
-                        <div className={`mb-1 ${m.direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
+                      {direction === 'OUTBOUND' && m.sender && (
+                        <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                             From: {m.sender.sender_type === 'ALPHANUMERIC' 
                               ? (m.sender.alphanumeric_sender_id || m.sender.label || 'Unknown')
@@ -792,12 +802,12 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       )}
                       {/* Attachments */}
                       {m.message_attachments && m.message_attachments.length > 0 && (
-                        <div className={`mb-2 flex flex-col gap-2 ${m.direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
-                          {m.message_attachments.map((attachment: Tables<'message_attachments'>) => (
+                        <div className={`mb-2 flex flex-col gap-2 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
+                          {m.message_attachments.map((attachment) => (
                             <MessageAttachment 
                               key={attachment.id} 
-                              attachment={attachment} 
-                              direction={m.direction}
+                              attachment={attachment as Tables<'message_attachments'>} 
+                              direction={direction}
                             />
                           ))}
                         </div>
@@ -814,7 +824,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                         if (!cleanedBody) return null;
                         return (
                           <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
-                            m.direction === 'OUTBOUND' 
+                            direction === 'OUTBOUND' 
                               ? (m.sender?.provider === 'TWILIO' 
                                   ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white' 
                                   : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
@@ -824,9 +834,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                           </div>
                         );
                       })()}
-                      <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${m.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
                         <span>{formatMessageDate(m.created_at)}</span>
-                        {m.direction === 'OUTBOUND' && m.status && (
+                        {direction === 'OUTBOUND' && m.status && (
                           <span className="text-[9px]">• {formatMessageStatus(m.status)}</span>
                         )}
                       </div>

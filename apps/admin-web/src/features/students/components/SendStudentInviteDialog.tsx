@@ -937,8 +937,7 @@ export function SendStudentInviteDialog({
                             disabled={
                               isSending || 
                               !selectedRecipient || 
-                              !customMessage.trim() ||
-                              (selectedRecipient.method === 'phone' && !selectedSenderId)
+                              !customMessage.trim()
                             }
                           >
                             {isSending ? (

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     let contactMethod: 'email' | 'sms' | undefined;
     let customMessage: string | undefined;
     let ownedNumberId: string | undefined;
-    let attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
+    const attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
     
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {

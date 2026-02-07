@@ -6,7 +6,7 @@ import { studentsApi } from '@/features/students/api';
 import type { EnrollmentContext, EnrollmentConflicts } from '../types/enrollment';
 
 interface UseEnrollmentConflictsProps {
-  step: 1 | 2 | 3;
+  step: 1 | 2 | 3 | 4;
   context: EnrollmentContext;
   selectedStudentId: string | null;
   selectedClassId: string | null;

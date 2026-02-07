@@ -4,17 +4,49 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { messagesKeys } from './queryKeys';
 import type { Sender, AggregatedConversation } from '../types';
+import type { Tables } from '@altitutor/shared';
 
 // Re-export types for backward compatibility
 export type { Sender, AggregatedConversation } from '../types';
 
 const PAGE_SIZE = 30;
 
+type ConversationRow = {
+  id: string;
+  status: string;
+  last_message_at: string | null;
+  last_message_id: string | null;
+  assigned_staff_id: string | null;
+  contact_id: string | null;
+  owned_number_id: string;
+  is_group_chat: boolean;
+  group_chat_id: string | null;
+  group_chat_name: string | null;
+  contacts: {
+    id: string;
+    phone_e164: string | null;
+    contact_type: string;
+    student_id: string | null;
+    parent_id: string | null;
+    staff_id: string | null;
+    students: Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name'> | null;
+    parents: Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name'> | null;
+    staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name'> | null;
+  };
+  owned_numbers: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'label'> | null;
+  conversation_reads: Array<Pick<Tables<'conversation_reads'>, 'id' | 'last_read_message_id' | 'last_read_at'>>;
+};
+
+type MessageRow = {
+  id: string;
+  direction: string;
+};
+
 export function useConversations() {
   return useQuery({
     queryKey: messagesKeys.conversations(),
     queryFn: async () => {
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       
       // Fetch conversations with nested data
       const { data, error } = await supabase
@@ -22,6 +54,7 @@ export function useConversations() {
         .select(`
           id, status, last_message_at, last_message_id,
           assigned_staff_id, contact_id, owned_number_id,
+          is_group_chat, group_chat_id, group_chat_name,
           contacts!inner(
             id, phone_e164, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
@@ -38,10 +71,10 @@ export function useConversations() {
       
       // Batch fetch last messages
       const messageIds = (data || [])
-        .map((conv: any) => conv.last_message_id)
-        .filter(Boolean);
+        .map((conv: ConversationRow) => conv.last_message_id)
+        .filter((id): id is string => Boolean(id));
       
-      let messageMap = new Map();
+      let messageMap = new Map<string, MessageRow>();
       if (messageIds.length > 0) {
         const { data: messages } = await supabase
           .from('messages')
@@ -49,12 +82,12 @@ export function useConversations() {
           .in('id', messageIds);
         
         if (messages) {
-          messageMap = new Map(messages.map((m: any) => [m.id, m]));
+          messageMap = new Map(messages.map((m: MessageRow) => [m.id, m]));
         }
       }
       
       // Attach last message to each conversation
-      return (data || []).map((conv: any) => ({
+      return (data || []).map((conv: ConversationRow) => ({
         ...conv,
         messages: conv.last_message_id ? messageMap.get(conv.last_message_id) || null : null
       }));
@@ -66,12 +99,17 @@ export function useConversations() {
 
 // Removed unused Page type
 
+type MessageWithRelations = Tables<'messages'> & {
+  staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name'> | null;
+  message_attachments: Array<Pick<Tables<'message_attachments'>, 'id' | 'storage_url' | 'filename' | 'mime_type' | 'size_bytes'>>;
+};
+
 export function useMessages(conversationId: string) {
   return useInfiniteQuery({
     queryKey: messagesKeys.messages(conversationId),
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       
       let query = supabase
         .from('messages')
@@ -87,11 +125,12 @@ export function useMessages(conversationId: string) {
       const { data, error } = await query;
       if (error) throw error;
       
-      const nextCursor = data && data.length === PAGE_SIZE 
-        ? (data[data.length - 1] as any).created_at 
+      const messages = (data || []) as MessageWithRelations[];
+      const nextCursor = messages.length === PAGE_SIZE 
+        ? messages[messages.length - 1].created_at 
         : undefined;
       
-      return { items: data || [], nextCursor };
+      return { items: messages, nextCursor };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!conversationId,
@@ -107,7 +146,7 @@ export function useConversationDetails(conversationId: string | null) {
     queryFn: async () => {
       if (!conversationId) return null;
       
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -131,7 +170,7 @@ export function useConversationDetails(conversationId: string | null) {
 }
 
 export async function ensureConversationForContact(contactId: string, ownedNumberId?: string): Promise<string> {
-  const supabase = (getSupabaseClient() as any);
+  const supabase = getSupabaseClient();
   
   // If ownedNumberId is provided, use it; otherwise find default
   if (ownedNumberId) {
@@ -160,7 +199,7 @@ export async function ensureConversationForContact(contactId: string, ownedNumbe
 
 // Helper to get contact ID from student/staff/parent ID
 export async function getContactIdByRelatedId(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
-  const supabase = (getSupabaseClient() as any);
+  const supabase = getSupabaseClient();
   const field = type === 'student' ? 'student_id' : type === 'staff' ? 'staff_id' : 'parent_id';
   const { data, error } = await supabase
     .from('contacts')
@@ -181,7 +220,7 @@ export async function getExistingConversationForRelated(relatedId: string, type:
     return null;
   }
   
-  const supabase = (getSupabaseClient() as any);
+  const supabase = getSupabaseClient();
   
   // Get default owned number
   const { data: owned } = await supabase
@@ -237,7 +276,7 @@ export async function ensureConversationForRelated(relatedId: string, type: 'stu
 }
 
 async function ensureConversation(contactId: string, ownedNumberId: string): Promise<string> {
-  const supabase = (getSupabaseClient() as any);
+  const supabase = getSupabaseClient();
   // Try find active
   const { data: existing, error: findErr } = await supabase
     .from('conversations')
@@ -278,7 +317,7 @@ export function useAvailableSenders() {
   return useQuery({
     queryKey: ['owned_numbers', 'senders'],
     queryFn: async (): Promise<Sender[]> => {
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('owned_numbers')
         .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, is_default, provider')
@@ -296,11 +335,17 @@ export function useAvailableSenders() {
  * Aggregates conversations by contact - shows one "conversation" per contact
  * combining all conversations from different senders
  */
+type ConversationWithLastMessage = ConversationRow;
+
+type MessageWithCreatedAt = MessageRow & {
+  created_at: string;
+};
+
 export function useConversationsByContact() {
   return useQuery({
     queryKey: messagesKeys.conversationsByContact(),
     queryFn: async (): Promise<AggregatedConversation[]> => {
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       
       // Fetch all conversations with nested data
       const { data: conversations, error } = await supabase
@@ -308,6 +353,7 @@ export function useConversationsByContact() {
         .select(`
           id, status, last_message_at, last_message_id,
           assigned_staff_id, contact_id, owned_number_id,
+          is_group_chat, group_chat_id, group_chat_name,
           contacts!inner(
             id, phone_e164, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
@@ -323,11 +369,12 @@ export function useConversationsByContact() {
       if (error) throw error;
       
       // Batch fetch last messages
-      const messageIds = (conversations || [])
-        .map((conv: any) => conv.last_message_id)
-        .filter(Boolean);
+      const typedConversations = (conversations || []) as ConversationWithLastMessage[];
+      const messageIds = typedConversations
+        .map((conv) => conv.last_message_id)
+        .filter((id): id is string => Boolean(id));
       
-      let messageMap = new Map();
+      let messageMap = new Map<string, MessageWithCreatedAt>();
       if (messageIds.length > 0) {
         const { data: messages } = await supabase
           .from('messages')
@@ -335,15 +382,18 @@ export function useConversationsByContact() {
           .in('id', messageIds);
         
         if (messages) {
-          messageMap = new Map(messages.map((m: any) => [m.id, m]));
+          messageMap = new Map((messages as MessageWithCreatedAt[]).map((m) => [m.id, m]));
         }
       }
       
       // Group conversations by contact_id
       const byContact = new Map<string, AggregatedConversation>();
       
-      for (const conv of conversations || []) {
+      for (const conv of typedConversations) {
         const contactId = conv.contact_id;
+        
+        // Skip conversations without contact_id
+        if (!contactId) continue;
         
         if (!byContact.has(contactId)) {
           byContact.set(contactId, {
@@ -365,14 +415,14 @@ export function useConversationsByContact() {
           owned_number: conv.owned_numbers,
           last_message_at: conv.last_message_at,
           last_message_id: conv.last_message_id,
-          last_message: lastMessage,
+          last_message: lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null,
           status: conv.status,
         });
         
         // Track latest message across all conversations
         if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
           aggregated.latestMessageAt = conv.last_message_at;
-          aggregated.latestMessage = lastMessage;
+          aggregated.latestMessage = lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null;
         }
         
         // Count unread (no conversation_reads entry means unread)
@@ -398,6 +448,17 @@ export function useConversationsByContact() {
  * Fetches messages from all conversations for a given contact
  * Merges and sorts chronologically
  */
+type ConversationForContact = {
+  id: string;
+  owned_number_id: string;
+  owned_numbers: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'> | null;
+};
+
+type SenderInfo = {
+  owned_number_id: string;
+  sender: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'> | null;
+};
+
 export function useMessagesForContact(contactId: string | null) {
   return useInfiniteQuery({
     queryKey: messagesKeys.messagesForContact(contactId || ''),
@@ -405,7 +466,7 @@ export function useMessagesForContact(contactId: string | null) {
     queryFn: async ({ pageParam }) => {
       if (!contactId) return { items: [], nextCursor: undefined };
       
-      const supabase = getSupabaseClient() as any;
+      const supabase = getSupabaseClient();
       
       // Get all conversation IDs for this contact
       const { data: conversations, error: convError } = await supabase
@@ -416,18 +477,15 @@ export function useMessagesForContact(contactId: string | null) {
       
       if (convError) throw convError;
       
-      const conversationIds = (conversations || []).map((c: any) => c.id);
+      const typedConversations = (conversations || []) as ConversationForContact[];
+      const conversationIds = typedConversations.map((c) => c.id);
       if (conversationIds.length === 0) {
         return { items: [], nextCursor: undefined };
       }
       
       // Create a map of conversation_id -> sender info
-      type SenderInfo = {
-        owned_number_id: string;
-        sender: any;
-      };
       const senderMap = new Map<string, SenderInfo>(
-        (conversations || []).map((c: any) => [
+        typedConversations.map((c) => [
           c.id,
           {
             owned_number_id: c.owned_number_id,
@@ -452,7 +510,8 @@ export function useMessagesForContact(contactId: string | null) {
       if (error) throw error;
       
       // Attach sender info to each message
-      const enrichedMessages = (messages || []).map((msg: any) => {
+      const typedMessages = (messages || []) as MessageWithRelations[];
+      const enrichedMessages = typedMessages.map((msg) => {
         const senderInfo = senderMap.get(msg.conversation_id);
         return {
           ...msg,
@@ -479,7 +538,7 @@ export function useMessagesForContact(contactId: string | null) {
  * Get contact ID from conversation ID
  */
 export async function getContactIdFromConversation(conversationId: string): Promise<string | null> {
-  const supabase = getSupabaseClient() as any;
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('conversations')
     .select('contact_id')
@@ -493,7 +552,7 @@ export async function getContactIdFromConversation(conversationId: string): Prom
  * Get contact details for header display
  */
 export async function getContactHeader(contactId: string) {
-  const supabase = getSupabaseClient() as any;
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('contacts')
     .select(`
@@ -537,7 +596,7 @@ export function useContactHeader(contactId: string | null) {
  * Includes student and parent relationships
  */
 export async function getContactForTemplate(contactId: string) {
-  const supabase = getSupabaseClient() as any;
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('contacts')
     .select(`
@@ -576,7 +635,7 @@ export function useContactForTemplate(contactId: string | null) {
  * Returns the first OPEN or SNOOZED conversation for the contact
  */
 export async function getConversationIdForContact(contactId: string): Promise<string | null> {
-  const supabase = getSupabaseClient() as any;
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('conversations')
     .select('id')

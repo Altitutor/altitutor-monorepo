@@ -18,6 +18,11 @@ interface EnrollmentWeekCalendarProps {
   classData?: Tables<'classes'>;
   classStaff?: Tables<'staff'>[];
   onEnrollmentDateChange?: (date: string) => void;
+  // Change class mode props
+  oldClass?: Tables<'classes'>;
+  oldClassSubject?: Tables<'subjects'>;
+  oldClassStaff?: Tables<'staff'>[];
+  isChangeClassMode?: boolean;
 }
 
 interface GeneratedSession {
@@ -27,6 +32,7 @@ interface GeneratedSession {
   class_id: string | null;
   type: string;
   isPotential: boolean; // true for potential new class sessions
+  isOldClass?: boolean; // true for old class sessions in change class mode
 }
 
 /**
@@ -81,6 +87,10 @@ export function EnrollmentWeekCalendar({
   classData,
   classStaff = [],
   onEnrollmentDateChange,
+  oldClass,
+  oldClassSubject,
+  oldClassStaff = [],
+  isChangeClassMode = false,
 }: EnrollmentWeekCalendarProps) {
   // Determine context: if classData exists, we're in class context
   const isClassContext = !!classData;
@@ -135,22 +145,93 @@ export function EnrollmentWeekCalendar({
     );
   }, [selectedClass, classData, weekStart, weekEnd, enrollmentDateObj]);
 
+  // Generate potential old class sessions (for change class mode)
+  // Only show sessions BEFORE the changeover date
+  const potentialOldClassSessions = useMemo(() => {
+    if (!isChangeClassMode || !oldClass || oldClass.day_of_week === undefined || !oldClass.start_time || !oldClass.end_time) {
+      return [];
+    }
+    
+    // Generate sessions for the old class, but only up to (but not including) the changeover date
+    const changeoverDateOnly = new Date(enrollmentDateObj.getFullYear(), enrollmentDateObj.getMonth(), enrollmentDateObj.getDate());
+    
+    // Generate sessions from weekStart to changeoverDate (exclusive)
+    const sessions: GeneratedSession[] = [];
+    const currentDate = new Date(weekStart);
+    
+    while (currentDate < changeoverDateOnly && currentDate <= weekEnd) {
+      const dayOfWeek = currentDate.getDay();
+      const dateStr = format(currentDate, 'yyyy-MM-dd');
+      
+      // Check if this day matches the old class day_of_week
+      if (dayOfWeek === oldClass.day_of_week) {
+        const dateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+        
+        // Only include sessions before changeover date
+        if (dateOnly < changeoverDateOnly) {
+          const startAt = `${dateStr}T${oldClass.start_time}:00`;
+          const endAt = `${dateStr}T${oldClass.end_time}:00`;
+          
+          sessions.push({
+            id: `old-class-${dateStr}-${oldClass.start_time}`,
+            start_at: startAt,
+            end_at: endAt,
+            class_id: oldClass.id,
+            type: 'CLASS',
+            isPotential: true,
+            isOldClass: true, // Mark as old class session
+          });
+        }
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return sessions;
+  }, [isChangeClassMode, oldClass, weekStart, weekEnd, enrollmentDateObj]);
+
   // Combine sessions with potential sessions
   // In class context: show all class sessions (no potential sessions needed, they're already there)
   // In student context: show student sessions + potential class sessions
+  // In change class mode: filter out old class sessions on or after changeover date
   const allSessions = useMemo(() => {
     const existingSessions = ((data?.sessions as Tables<'sessions'>[]) || []).map(s => ({
       ...s,
       isPotential: false,
     }));
     
-    // Only add potential sessions in student context
-    if (!isClassContext) {
-      return [...existingSessions, ...potentialSessions];
+    let filteredSessions = existingSessions;
+    
+    // In change class mode, filter out old class sessions on or after changeover date
+    if (isChangeClassMode && oldClass) {
+      const changeoverDateOnly = new Date(enrollmentDateObj.getFullYear(), enrollmentDateObj.getMonth(), enrollmentDateObj.getDate());
+      
+      filteredSessions = existingSessions.filter((s) => {
+        // If session belongs to old class, only show if it's before changeover date
+        if (s.class_id === oldClass.id) {
+          const sessionDate = s.start_at ? new Date(s.start_at) : null;
+          if (sessionDate) {
+            const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
+            return sessionDateOnly < changeoverDateOnly;
+          }
+          return false; // No start_at, filter out
+        }
+        // Keep all other sessions (other classes)
+        return true;
+      });
     }
     
-    return existingSessions;
-  }, [data?.sessions, potentialSessions, isClassContext]);
+    // Only add potential sessions in student context
+    if (!isClassContext) {
+      // In change class mode, also add old class potential sessions
+      if (isChangeClassMode) {
+        return [...filteredSessions, ...potentialSessions, ...potentialOldClassSessions];
+      }
+      return [...filteredSessions, ...potentialSessions];
+    }
+    
+    return filteredSessions;
+  }, [data?.sessions, potentialSessions, potentialOldClassSessions, isClassContext, isChangeClassMode, oldClass, enrollmentDateObj]);
 
   // Calculate dynamic time range based on sessions
   const { startHour, endHour, slots } = useMemo(() => {
@@ -162,7 +243,7 @@ export function EnrollmentWeekCalendar({
     let earliestStart = Infinity;
     let latestEnd = -Infinity;
 
-    allSessions.forEach((s: any) => {
+    allSessions.forEach((s) => {
       if (s.start_at) {
         const startMinutes = adelaideTimeToMinutes(s.start_at);
         earliestStart = Math.min(earliestStart, startMinutes);
@@ -189,7 +270,7 @@ export function EnrollmentWeekCalendar({
   const headerHeight = 40; // px for header row
 
   const getDaySessions = (d: Date): Array<Tables<'sessions'> | GeneratedSession> => {
-    return allSessions.filter((s: any) => {
+    return allSessions.filter((s) => {
       if (!s.start_at) return false;
       return isSameDay(new Date(s.start_at), d);
     });
@@ -293,28 +374,33 @@ export function EnrollmentWeekCalendar({
                           </div>
                         )}
                         {(() => {
-                          const daySessions = getDaySessions(d).sort((a: any, b: any) => 
+                          type SessionForDay = Tables<'sessions'> | GeneratedSession;
+                          const daySessions = getDaySessions(d).filter((s): s is SessionForDay & { start_at: string; end_at: string } => 
+                            s.start_at !== null && s.end_at !== null
+                          ).sort((a, b) => 
                             new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
                           );
                           
                           // Build overlap groups for ALL sessions (including potential)
-                          const allGroups: any[][] = [];
+                          const allGroups: SessionForDay[][] = [];
                           const processed = new Set<string>();
                           
-                          daySessions.forEach((s: any) => {
+                          daySessions.forEach((s) => {
                             if (processed.has(s.id)) return;
-                            const group = [s];
+                            const group: SessionForDay[] = [s];
                             processed.add(s.id);
                             
                             let foundNewOverlap = true;
                             while (foundNewOverlap) {
                               foundNewOverlap = false;
-                              daySessions.forEach((o: any) => {
+                              daySessions.forEach((o) => {
                                 if (processed.has(o.id)) return;
+                                if (!o.start_at || !o.end_at) return;
                                 const oStart = adelaideTimeToMinutes(o.start_at);
                                 const oEnd = adelaideTimeToMinutes(o.end_at);
                                 
-                                const overlapsWithGroup = group.some((groupSession: any) => {
+                                const overlapsWithGroup = group.some((groupSession) => {
+                                  if (!groupSession.start_at || !groupSession.end_at) return false;
                                   const gStart = adelaideTimeToMinutes(groupSession.start_at);
                                   const gEnd = adelaideTimeToMinutes(groupSession.end_at);
                                   return gStart < oEnd && gEnd > oStart;
@@ -337,23 +423,29 @@ export function EnrollmentWeekCalendar({
                           allGroups.forEach((group) => {
                             const total = group.length;
                             const columnWidth = total > 1 ? 95 / total : 95;
-                            group.forEach((s: any, idx: number) => {
-                              const sStartMinutes = adelaideTimeToMinutes(s.start_at);
-                              const sEndMinutes = adelaideTimeToMinutes(s.end_at);
-                              const top = Math.max(0, (minutesFromStart(s.start_at) / 60) * slotHeight);
+                            group.forEach((s, idx: number) => {
+                              const sStartMinutes = adelaideTimeToMinutes(s.start_at!);
+                              const sEndMinutes = adelaideTimeToMinutes(s.end_at!);
+                              const top = Math.max(0, (minutesFromStart(s.start_at!) / 60) * slotHeight);
                               const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                               const left = (idx * columnWidth) + 2.5;
                               
-                              const isPotential = s.isPotential;
+                              const isPotential = 'isPotential' in s && s.isPotential;
                               
                               // For potential sessions, use selectedClass/classData
+                              // For old class potential sessions, use oldClass
                               // For regular sessions, use data from query
-                              const cls: any = isPotential 
-                                ? (selectedClass || classData)
-                                : ((data as any)?.classesById?.[s.class_id]);
-                              const subj: any = isPotential
-                                ? (selectedClass?.subject || (classData ? (data as any)?.subjectsById?.[classData.subject_id] : undefined))
-                                : (cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined);
+                              const isOldClassSession = 'isOldClass' in s && s.isOldClass === true;
+                              const cls: Tables<'classes'> | ClassWithExpandedSubject | undefined = isOldClassSession
+                                ? oldClass
+                                : isPotential 
+                                  ? (selectedClass || classData)
+                                  : (data?.classesById?.[s.class_id || '']);
+                              const subj: Tables<'subjects'> | undefined = isOldClassSession
+                                ? (oldClassSubject || (oldClass && oldClass.subject_id ? data?.subjectsById?.[oldClass.subject_id] : undefined))
+                                : isPotential
+                                  ? (selectedClass?.subject || (classData && classData.subject_id ? data?.subjectsById?.[classData.subject_id] : undefined))
+                                  : (cls && 'subject_id' in cls && cls.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined);
                               
                               // Get session date to check if student should be included
                               const sessionDate = s.start_at ? new Date(s.start_at) : null;
@@ -366,9 +458,28 @@ export function EnrollmentWeekCalendar({
                               let sessionStudents: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }> = [];
                               let sessionStaff: Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }> = [];
                               
-                              if (isPotential) {
+                              if (isPotential || isOldClassSession) {
                                 // Potential sessions: get staff/students from class data
-                                if (isClassContext) {
+                                if (isOldClassSession) {
+                                  // Old class sessions: get staff/students from oldClassStaff prop or oldClass
+                                  if (oldClassStaff && oldClassStaff.length > 0) {
+                                    sessionStaff = oldClassStaff.map(staff => ({
+                                      ...staff,
+                                      planned_absence: false,
+                                      is_swapped_in: false,
+                                    }));
+                                  } else if (oldClassStaff && oldClassStaff.length > 0) {
+                                    sessionStaff = oldClassStaff.map((staff) => ({
+                                      ...staff,
+                                      planned_absence: false,
+                                      is_swapped_in: false,
+                                    }));
+                                  }
+                                  // For old class, we need to get students from the query if available
+                                  // But since these are potential sessions, we'll show empty students or get from query
+                                  const existingStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                                  sessionStudents = existingStudents;
+                                } else if (isClassContext) {
                                   // Class context: get existing students/staff from query, add potential student if after enrollment date
                                   const existingStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                                   const existingStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
@@ -445,9 +556,12 @@ export function EnrollmentWeekCalendar({
                               
                               // Determine opacity: in class context, reduce opacity for other students/staff
                               // In student context, reduce opacity for regular sessions
+                              // In change class mode, reduce opacity for old class sessions (before changeover date)
                               const shouldReduceOpacity = isClassContext 
                                 ? false // Don't reduce card opacity in class context, we'll handle student/staff opacity individually
-                                : !isPotential; // In student context, reduce opacity for regular sessions
+                                : isOldClassSession || (isChangeClassMode && !isPotential && s.class_id === oldClass?.id)
+                                  ? true // In change class mode, reduce opacity for old class sessions
+                                  : !isPotential; // In student context, reduce opacity for regular sessions
                               
                               blocks.push(
                                 <div
@@ -481,9 +595,15 @@ export function EnrollmentWeekCalendar({
                                       ? new Set(sessionStaff.map(st => st.id))
                                       : undefined;
                                     
+                                    // Only render SessionsCard for actual sessions, not generated ones
+                                    if ('isPotential' in s && s.isPotential) {
+                                      // Skip rendering generated sessions - they're handled differently
+                                      return null;
+                                    }
+                                    
                                     return (
                                       <SessionsCard
-                                        session={s}
+                                        session={s as Tables<'sessions'>}
                                         classData={cls}
                                         subject={subj}
                                         staff={sessionStaff}

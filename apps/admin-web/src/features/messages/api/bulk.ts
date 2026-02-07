@@ -8,8 +8,20 @@ import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetim
  * Search active students by name and classes
  * Returns students with phone and email fields
  */
+type ClassEnrollmentRow = {
+  student_id: string;
+  class: {
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    subject_details: Pick<Tables<'subjects'>, 'curriculum' | 'year_level' | 'discipline' | 'name' | 'short_name'> | null;
+  } | null;
+};
+
+type StudentSearchRow = Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'school'>;
+
 export async function searchStudents(searchQuery: string, limit: number = 50): Promise<Tables<'students'>[]> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   const trimmed = searchQuery.trim();
   
   if (trimmed.length === 0) {
@@ -35,7 +47,7 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
           year_level,
           discipline,
           name,
-          name_abbreviation
+          short_name
         )
       )
     `)
@@ -43,15 +55,20 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
   
   if (!classSearchError && classEnrollmentsData) {
     const matchingStudentIds = new Set<string>();
+    const typedEnrollments = classEnrollmentsData as ClassEnrollmentRow[];
     
-    classEnrollmentsData.forEach((enrollment: any) => {
+    typedEnrollments.forEach((enrollment) => {
       const cls = enrollment.class;
       const subject = cls?.subject_details;
       
       if (cls && subject) {
         // Use utility functions to format class names consistently with UI
-        const shortName = formatClassShortName(cls, subject).toLowerCase();
-        const fullName = formatClassName(cls, subject).toLowerCase();
+        // Cast cls to Tables<'classes'> for the utility functions
+        const classForFormatting = cls as unknown as Tables<'classes'>;
+        // Cast subject to Tables<'subjects'> for the utility functions
+        const subjectForFormatting = subject as unknown as Tables<'subjects'>;
+        const shortName = formatClassShortName(classForFormatting, subjectForFormatting).toLowerCase();
+        const fullName = formatClassName(classForFormatting, subjectForFormatting).toLowerCase();
         
         // Check if search term matches short name or full name
         if (shortName.includes(searchLower) || fullName.includes(searchLower)) {
@@ -73,8 +90,9 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
   if (nameSearchError) throw nameSearchError;
   
   // Filter for concatenated name matches and school matches
-  const studentIdsFromNames = (nameSearchData || [])
-    .filter((s: any) => {
+  const typedNameSearchData = (nameSearchData || []) as StudentSearchRow[];
+  const studentIdsFromNames = typedNameSearchData
+    .filter((s) => {
       const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim().toLowerCase();
       const schoolMatch = (s.school || '').toLowerCase().includes(searchLower);
       return fullName.includes(searchLower) || 
@@ -82,7 +100,7 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
              (s.last_name || '').toLowerCase().includes(searchLower) ||
              schoolMatch;
     })
-    .map((s: any) => s.id);
+    .map((s) => s.id);
   
   // Combine student IDs from both searches
   const allMatchingStudentIds = Array.from(new Set([...studentIdsFromNames, ...studentIdsFromClasses]));
@@ -106,11 +124,15 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
   return (students || []) as Tables<'students'>[];
 }
 
+type StudentSubjectRow = {
+  student: Tables<'students'>;
+};
+
 /**
  * Get students by subject ID (active only, with phone and email)
  */
 export async function getStudentsBySubject(subjectId: string): Promise<Tables<'students'>[]> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   const { data, error } = await supabase
     .from('students_subjects')
@@ -120,16 +142,21 @@ export async function getStudentsBySubject(subjectId: string): Promise<Tables<'s
   if (error) throw error;
   
   // Filter to active students only and ensure phone/email are included
-  return ((data || []) as any[])
-    .map((item: any) => item.student)
-    .filter((student: any) => student && student.status === 'ACTIVE') as Tables<'students'>[];
+  const typedData = (data || []) as StudentSubjectRow[];
+  return typedData
+    .map((item) => item.student)
+    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE');
 }
+
+type ClassStudentRow = {
+  student: Tables<'students'>;
+};
 
 /**
  * Get students by class ID (active only, with phone and email)
  */
 export async function getStudentsByClass(classId: string): Promise<Tables<'students'>[]> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   const { data, error } = await supabase
     .from('classes_students')
@@ -140,16 +167,17 @@ export async function getStudentsByClass(classId: string): Promise<Tables<'stude
   if (error) throw error;
   
   // Filter to active students only
-  return ((data || []) as any[])
-    .map((item: any) => item.student)
-    .filter((student: any) => student && student.status === 'ACTIVE') as Tables<'students'>[];
+  const typedData = (data || []) as ClassStudentRow[];
+  return typedData
+    .map((item) => item.student)
+    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE');
 }
 
 /**
  * Get students by year level (active only, with phone and email)
  */
 export async function getStudentsByYearLevel(yearLevel: number): Promise<Tables<'students'>[]> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   const { data, error } = await supabase
     .from('students')
@@ -162,11 +190,15 @@ export async function getStudentsByYearLevel(yearLevel: number): Promise<Tables<
   return (data || []) as Tables<'students'>[];
 }
 
+type SessionStudentRow = {
+  student: Tables<'students'>;
+};
+
 /**
  * Get students by session date (active only, with phone and email)
  */
 export async function getStudentsBySessionDate(date: string): Promise<Tables<'students'>[]> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   // Query sessions on this date (interpret date as local timezone and convert to UTC)
   const startIso = dateStringToUtcStart(date);
@@ -196,10 +228,17 @@ export async function getStudentsBySessionDate(date: string): Promise<Tables<'st
   if (ssError) throw ssError;
   
   // Filter to active students only
-  return ((sessionStudents || []) as any[])
-    .map((item: any) => item.student)
-    .filter((student: any) => student && student.status === 'ACTIVE') as Tables<'students'>[];
+  const typedSessionStudents = (sessionStudents || []) as SessionStudentRow[];
+  return typedSessionStudents
+    .map((item) => item.student)
+    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE');
 }
+
+type ClassWithSubjectRow = {
+  class: Tables<'classes'> & {
+    subject: Tables<'subjects'> | null;
+  } | null;
+};
 
 /**
  * Get student's enrolled classes with subject details
@@ -208,7 +247,7 @@ export async function getStudentClasses(studentId: string): Promise<Array<{
   class: Tables<'classes'>;
   subject: Tables<'subjects'> | null;
 }>> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   const { data, error } = await supabase
     .from('classes_students')
@@ -223,16 +262,22 @@ export async function getStudentClasses(studentId: string): Promise<Array<{
   
   if (error) throw error;
   
-  return ((data || []) as any[])
-    .map((item: any) => ({
+  const typedData = (data || []) as ClassWithSubjectRow[];
+  return typedData
+    .filter((item): item is { class: NonNullable<ClassWithSubjectRow['class']> } => item.class !== null)
+    .map((item) => ({
       class: item.class,
-      subject: item.class?.subject || null,
-    }))
-    .filter((item) => item.class) as Array<{
-      class: Tables<'classes'>;
-      subject: Tables<'subjects'> | null;
-    }>;
+      subject: item.class.subject || null,
+    }));
 }
+
+type EnrollmentWithClassRow = {
+  student_id: string;
+  unenrolled_at: string | null;
+  class: (Tables<'classes'> & {
+    subject_details: Tables<'subjects'> | null;
+  }) | null;
+};
 
 /**
  * Get classes for multiple students (for table display)
@@ -247,7 +292,7 @@ export async function getStudentsClasses(studentIds: string[]): Promise<Record<s
 }>>> {
   if (studentIds.length === 0) return {};
   
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   // Get all student-class enrollments with class details AND subject information
   const { data: enrollmentsData, error: enrollmentsError } = await supabase
@@ -262,7 +307,8 @@ export async function getStudentsClasses(studentIds: string[]): Promise<Record<s
   if (enrollmentsError) throw enrollmentsError;
   
   // Filter to current/future enrollments only
-  const activeEnrollments = (enrollmentsData ?? []).filter((e: any) => 
+  const typedEnrollments = (enrollmentsData ?? []) as EnrollmentWithClassRow[];
+  const activeEnrollments = typedEnrollments.filter((e) => 
     !e.unenrolled_at || new Date(e.unenrolled_at) > new Date()
   );
   
@@ -272,7 +318,7 @@ export async function getStudentsClasses(studentIds: string[]): Promise<Record<s
     studentClassesMap[id] = [];
   });
   
-  activeEnrollments.forEach((enrollment: any) => {
+  activeEnrollments.forEach((enrollment) => {
     const classWithSubject = enrollment.class;
     if (classWithSubject && enrollment.student_id) {
       studentClassesMap[enrollment.student_id].push({
@@ -292,7 +338,7 @@ export async function getStudentsClasses(studentIds: string[]): Promise<Record<s
  * Get all subjects (for filter dropdown)
  */
 export async function getAllSubjects(): Promise<Tables<'subjects'>[]> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   const { data, error } = await supabase
     .from('subjects')
@@ -306,6 +352,10 @@ export async function getAllSubjects(): Promise<Tables<'subjects'>[]> {
   return (data || []) as Tables<'subjects'>[];
 }
 
+type ClassWithSubject = Tables<'classes'> & {
+  subject: Tables<'subjects'> | null;
+};
+
 /**
  * Get all classes (for filter dropdown)
  */
@@ -313,7 +363,7 @@ export async function getAllClasses(): Promise<Array<{
   class: Tables<'classes'>;
   subject: Tables<'subjects'> | null;
 }>> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const supabase = getSupabaseClient();
   
   const { data, error } = await supabase
     .from('classes')
@@ -327,13 +377,11 @@ export async function getAllClasses(): Promise<Array<{
   
   if (error) throw error;
   
-  return ((data || []) as any[]).map((cls: any) => ({
+  const typedData = (data || []) as ClassWithSubject[];
+  return typedData.map((cls) => ({
     class: cls,
     subject: cls.subject || null,
-  })) as Array<{
-    class: Tables<'classes'>;
-    subject: Tables<'subjects'> | null;
-  }>;
+  }));
 }
 
 
