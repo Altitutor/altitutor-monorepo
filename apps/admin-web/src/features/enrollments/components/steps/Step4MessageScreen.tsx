@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { StudentCard } from '@/shared/components/StudentCard';
-import { ClassCard } from '@/shared/components/ClassCard';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel } from '@altitutor/ui';
@@ -204,31 +202,6 @@ export function Step4MessageScreen({
         </div>
       )}
 
-      {/* Student and Class Cards */}
-      <div className="flex gap-3 mb-4 flex-shrink-0 items-stretch">
-        {selectedStudent && (
-          <div className="w-1/2 flex">
-            <StudentCard
-              student={selectedStudent as Tables<'students'>}
-              subjects={selectedClass?.subject ? [selectedClass.subject] : []}
-              showSubjects={true}
-              showActions={false}
-            />
-          </div>
-        )}
-
-        {selectedClass && (
-          <div className="w-1/2 flex">
-            <ClassCard
-              class={selectedClass}
-              subject={selectedClass.subject}
-              staff={selectedClass.staff || []}
-              students={selectedClass.students || []}
-              hideActions={true}
-            />
-          </div>
-        )}
-      </div>
 
       {/* Message Section */}
       {selectedRecipient && recipientOptions.length > 0 ? (

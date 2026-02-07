@@ -4,8 +4,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
-import { StudentCard } from '@/shared/components/StudentCard';
-import { ClassCard } from '@/shared/components/ClassCard';
+import { formatClassName, cn } from '@/shared/utils';
 import { calculateFirstSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays, isBefore, startOfDay } from 'date-fns';
@@ -126,38 +125,61 @@ export function Step3SummaryAndConfirm({
     return result;
   }, [firstSessionDate, selectedClass, billingPricing, pricingOverrides, subsidies, studentId]);
 
+  // Get student name for info card
+  const studentName = selectedStudent
+    ? `${selectedStudent.first_name} ${selectedStudent.last_name}`
+    : 'choose student';
+
+  // Get class name for info card
+  const className = selectedClass
+    ? formatClassName(selectedClass, selectedClass.subject)
+    : 'choose class';
+
+  // Format enrollment date for display
+  const enrollmentDateDisplay = enrollmentDate
+    ? formatDate(new Date(enrollmentDate))
+    : 'choose date';
+
+  const isStudentChosen = studentName !== 'choose student';
+  const isClassChosen = className !== 'choose class';
+  const isDateChosen = enrollmentDate && enrollmentDate !== 'choose date';
+
   return (
     <div className="space-y-4">
+      {/* Info Card */}
+      <div className="p-4 bg-muted rounded-lg">
+        <p className="text-sm font-medium">
+          Enroll{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isStudentChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {studentName}
+          </span>{' '}
+          in{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isClassChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {className}
+          </span>{' '}
+          starting on{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isDateChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {enrollmentDateDisplay}
+          </span>
+        </p>
+      </div>
+
       <div className="space-y-3">
-        {selectedStudent && (
-          <div>
-            <StudentCard
-              student={selectedStudent as Tables<'students'>}
-              subjects={('subjects' in selectedStudent ? (selectedStudent as any).subjects : studentSubjects) || []}
-              showSubjects={true}
-            />
-          </div>
-        )}
-
-        {selectedClass && (
-          <div>
-            <ClassCard
-              class={selectedClass}
-              subject={selectedClass.subject}
-              staff={selectedClass.staff || []}
-              students={selectedClass.students || []}
-            />
-          </div>
-        )}
-
-        {firstSessionDate && (
-          <div className="p-3 bg-muted rounded-lg">
-            <p className="text-sm font-medium">First Session</p>
-            <p className="text-sm text-muted-foreground">
-              {formatSessionDateTime(firstSessionDate)}
-            </p>
-          </div>
-        )}
 
         {firstBillingDate && (
           <div className={`p-3 rounded-lg ${isBillingDateInPast ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800' : 'bg-muted'}`}>

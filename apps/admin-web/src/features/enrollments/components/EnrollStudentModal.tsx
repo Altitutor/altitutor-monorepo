@@ -44,9 +44,7 @@ export function EnrollStudentModal({
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedClassData, setSelectedClassData] = useState<ClassWithExpandedSubject | undefined>(undefined);
   const [selectedStudentData, setSelectedStudentData] = useState<Tables<'students'> | undefined>(undefined);
-  const [enrollmentDate, setEnrollmentDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [enrollmentDate, setEnrollmentDate] = useState<string>('');
   
   // Warning state for greyed out student selection
   const [warningState, setWarningState] = useState<EnrollmentWarningState>({
@@ -205,7 +203,7 @@ export function EnrollStudentModal({
     setSelectedStudentId(null);
     setSelectedClassId(null);
     setSelectedClassData(undefined);
-    setEnrollmentDate(new Date().toISOString().split('T')[0]);
+    setEnrollmentDate('');
     resetFilters(defaultSubjectFilters);
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
   }, [isOpen, resetFilters, defaultSubjectFilters, subjectId]);
@@ -213,7 +211,7 @@ export function EnrollStudentModal({
   const handleNext = () => {
     if (step === 1 && (selectedStudentId || selectedClassId)) {
       setStep(2);
-    } else if (step === 2) {
+    } else if (step === 2 && enrollmentDate && enrollmentDate.trim() !== '') {
       setStep(3);
     }
   };
@@ -389,7 +387,10 @@ export function EnrollStudentModal({
                   {step < 3 ? (
                     <Button 
                       onClick={handleNext}
-                      disabled={step === 1 && !selectedStudentId && !selectedClassId}
+                      disabled={
+                        (step === 1 && !selectedStudentId && !selectedClassId) ||
+                        (step === 2 && (!enrollmentDate || enrollmentDate.trim() === ''))
+                      }
                     >
                       Next
                       <ChevronRight className="h-4 w-4 ml-2" />

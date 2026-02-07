@@ -75,31 +75,52 @@ export function Step1SelectStudentOrClass({
   onStudentClick,
   classConflicts,
 }: Step1SelectStudentOrClassProps) {
+  // Get student name for info card
+  const studentName = context === 'class' 
+    ? (selectedStudentId && filteredStudents.find(s => s.id === selectedStudentId)
+        ? `${filteredStudents.find(s => s.id === selectedStudentId)!.first_name} ${filteredStudents.find(s => s.id === selectedStudentId)!.last_name}`
+        : 'choose student')
+    : (student 
+        ? `${student.first_name} ${student.last_name}`
+        : 'choose student');
+
+  // Get class name for info card
+  const className = context === 'student'
+    ? (selectedClassId && filteredClasses.find(c => c.id === selectedClassId)
+        ? formatClassName(filteredClasses.find(c => c.id === selectedClassId)!, filteredClasses.find(c => c.id === selectedClassId)!.subject)
+        : 'choose class')
+    : (classData && classSubject
+        ? formatClassName(classData, classSubject)
+        : 'choose class');
+
+  const isStudentChosen = studentName !== 'choose student';
+  const isClassChosen = className !== 'choose class';
+
   return (
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
-      {/* Show class card at top for class context */}
-      {context === 'class' && classData && classSubject && (
-        <div className="mb-4">
-          <ClassCard
-            class={classData}
-            subject={classSubject}
-            staff={classStaff || []}
-            students={[]}
-          />
-        </div>
-      )}
-      
-      {/* Show student card at top for student context */}
-      {context === 'student' && student && (
-        <div className="mb-4">
-          <StudentCard
-            student={student}
-            subjects={studentSubjects || []}
-            showSubjects={true}
-            showActions={false}
-          />
-        </div>
-      )}
+      {/* Info Card */}
+      <div className="mb-4 p-4 bg-muted rounded-lg">
+        <p className="text-sm font-medium">
+          Enroll{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isStudentChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {studentName}
+          </span>{' '}
+          in{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            isClassChosen
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+          )}>
+            {className}
+          </span>
+        </p>
+      </div>
       
       <div className="flex items-center gap-2">
         <div className="relative flex-1">

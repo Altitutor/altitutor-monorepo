@@ -310,7 +310,10 @@ export function EnrollmentWeekCalendar({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">
+          {isClassContext ? 'Class calendar' : 'Student calendar'}
+        </h3>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handlePrevWeek}>
             <ChevronLeft className="h-4 w-4" />
