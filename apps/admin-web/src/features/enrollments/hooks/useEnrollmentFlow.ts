@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import type { EnrollmentContext } from '../types/enrollment';
@@ -23,7 +23,7 @@ interface UseEnrollmentFlowProps {
 }
 
 export function useEnrollmentFlow({
-  isOpen: _isOpen,
+  isOpen,
   context,
   classSubject: _classSubject,
   onEnroll,
@@ -33,9 +33,17 @@ export function useEnrollmentFlow({
   selectedStudentId,
   selectedClassId,
   enrollmentDate,
-  onClose,
+  onClose: _onClose,
 }: UseEnrollmentFlowProps) {
   const [isEnrolling, setIsEnrolling] = useState(false);
+  const [enrollmentSuccess, setEnrollmentSuccess] = useState(false);
+
+  // Reset enrollment success when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setEnrollmentSuccess(false);
+    }
+  }, [isOpen]);
 
   const handleConfirm = useCallback(async () => {
     const finalStudentId = context === 'student' ? student!.id : selectedStudentId;
@@ -51,9 +59,10 @@ export function useEnrollmentFlow({
         enrolledAt: getMidnightAdelaide(new Date(enrollmentDate)),
         staffId: currentStaffId,
       });
-      onClose();
+      setEnrollmentSuccess(true);
     } catch (error) {
       console.error('Error enrolling student:', error);
+      setEnrollmentSuccess(false);
     } finally {
       setIsEnrolling(false);
     }
@@ -66,12 +75,12 @@ export function useEnrollmentFlow({
     enrollmentDate,
     onEnroll,
     currentStaffId,
-    onClose,
   ]);
 
   return {
     isEnrolling,
     handleConfirm,
+    enrollmentSuccess,
   };
 }
 

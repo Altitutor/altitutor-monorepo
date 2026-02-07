@@ -14,6 +14,7 @@ import { NewConversationDialog } from './NewConversationDialog';
 import { useMarkUnread } from '../api/mutations';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { AggregatedConversation } from '../types';
 
 interface Props {
   activeContactId?: string | null;
@@ -46,15 +47,15 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     };
   }, [qc]);
 
-  const items = data || [];
+  const items: AggregatedConversation[] = data || [];
   
   // Check if aggregated conversation is unread (has unreadCount > 0)
-  const isUnread = (aggregated: any) => {
+  const isUnread = (aggregated: AggregatedConversation) => {
     return aggregated.unreadCount > 0;
   };
   
   // Check if aggregated conversation is unreplied (last message is inbound)
-  const isUnreplied = (aggregated: any) => {
+  const isUnreplied = (aggregated: AggregatedConversation) => {
     return aggregated.latestMessage?.direction === 'INBOUND';
   };
 
@@ -85,7 +86,7 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
       const normalizedSearch = normalizePhoneForSearch(searchTerm);
-      filtered = filtered.filter((c: any) => {
+      filtered = filtered.filter((c) => {
         const contactName = formatContactName({ contacts: c.contact });
         const phoneNumber = c.contact?.phone_e164 || '';
         const normalizedPhone = normalizePhoneForSearch(phoneNumber);
@@ -110,9 +111,9 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     } else {
       // Only apply filter pills when not searching
       if (activeFilter === 'unread') {
-        filtered = filtered.filter((c: any) => isUnread(c));
+        filtered = filtered.filter((c) => isUnread(c));
       } else if (activeFilter === 'unreplied') {
-        filtered = filtered.filter((c: any) => isUnreplied(c));
+        filtered = filtered.filter((c) => isUnreplied(c));
       }
     }
     
@@ -191,7 +192,7 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
             {searchTerm ? 'No conversations found.' : 'No conversations yet.'}
           </div>
         ) : (
-          filteredItems.map((aggregated: any) => {
+          filteredItems.map((aggregated) => {
             const title = formatContactName({ contacts: aggregated.contact });
             const phoneNumber = aggregated.contact?.phone_e164;
             const isActive = aggregated.contactId === activeContactId;
@@ -204,7 +205,7 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
             const handleMarkUnread = (e: React.MouseEvent) => {
               e.stopPropagation();
               // Mark all conversations for this contact as unread
-              aggregated.conversations.forEach((conv: any) => {
+              aggregated.conversations.forEach((conv) => {
                 markUnreadMutation.mutate(conv.id);
               });
             };

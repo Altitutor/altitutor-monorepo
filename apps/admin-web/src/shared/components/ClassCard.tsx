@@ -192,7 +192,7 @@ export function ClassCard({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
-                    variant="ghost" 
+                    variant="outline" 
                     size="icon" 
                     className="h-8 w-8 flex-shrink-0"
                     onClick={(e) => e.stopPropagation()}

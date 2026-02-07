@@ -8,7 +8,7 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 export const dynamic = 'force-dynamic';
 
 export default function DashboardPage() {
-  const { data: profile, isLoading, error } = useCurrentStaff();
+  const { data: profile, isLoading } = useCurrentStaff();
 
   if (isLoading) {
     return (

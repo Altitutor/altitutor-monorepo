@@ -9,7 +9,7 @@ export default function HomePage() {
   const router = useRouter();
   const { user, loading } = useAuthStore();
   // Only fetch staff data when user is authenticated
-  const { data: staff } = useCurrentStaff(!!user);
+  useCurrentStaff(!!user);
 
   useEffect(() => {
     if (!loading && user) {

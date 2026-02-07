@@ -1,6 +1,7 @@
 'use client';
 
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { SkeletonTable } from '@altitutor/ui';
 import {
   UninvoicedSessionsTable,
   UnpaidInvoicesTable,
@@ -87,9 +88,39 @@ export function ReconciliationDashboard() {
 
   if (reconciliationData.isLoading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="p-6 space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Identify and resolve data inconsistencies across scheduling, communication, and financial domains
+          </p>
+        </div>
+
+        {/* Financial Reconciliation */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold">Financial</h2>
+          <SkeletonTable rows={3} columns={6} />
+          <SkeletonTable rows={3} columns={5} />
+          <SkeletonTable rows={3} columns={4} />
+        </div>
+
+        {/* Scheduling Reconciliation */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold">Scheduling</h2>
+          <SkeletonTable rows={3} columns={6} />
+          <SkeletonTable rows={3} columns={5} />
+          <SkeletonTable rows={3} columns={4} />
+          <SkeletonTable rows={3} columns={4} />
+        </div>
+
+        {/* Communication Reconciliation */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold">Communication</h2>
+          <SkeletonTable rows={3} columns={5} />
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          Loading reconciliation data...
         </div>
       </div>
     );

@@ -11,7 +11,7 @@ import { Input } from '@altitutor/ui';
 import { X, File, Download, Music, Play, Pause, Loader2 } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
-import type { Database } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isHeicFile, convertHeicUrlToPreview } from '../utils/heicConverter';
 
@@ -24,7 +24,7 @@ interface Props {
 }
 
 interface AttachmentProps {
-  attachment: any;
+  attachment: Tables<'message_attachments'>;
   direction: 'INBOUND' | 'OUTBOUND';
 }
 
@@ -42,7 +42,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   
   // Check if it's HEIC/HEIF
   const filenameLower = attachment.filename?.toLowerCase() || '';
-  const isHeic = isHeicFile({ mimeType: attachment.mime_type, filename: attachment.filename });
+  const isHeic = isHeicFile({ mimeType: attachment.mime_type ?? undefined, filename: attachment.filename ?? undefined });
   
   // Check if it's an image (including HEIC)
   const isImageByMime = attachment.mime_type?.startsWith('image/') && attachment.mime_type !== 'image';
@@ -273,7 +273,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to download attachment:', error);
       // Fallback: open in new tab
       window.open(attachmentUrl!, '_blank');
@@ -453,6 +453,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   const markRead = useMarkRead();
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const isInitialLoad = useRef(true);
   const prevContactId = useRef(contactId);
   const lastMarkedMessageId = useRef<string | null>(null);
@@ -460,6 +462,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   
   // Reset initial load flag when contact changes
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MessageThread.tsx:462',message:'Contact change effect',data:{contactId,prevContactId:prevContactId.current,isChanging:prevContactId.current!==contactId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     if (prevContactId.current !== contactId) {
       isInitialLoad.current = true;
       prevContactId.current = contactId;
@@ -469,6 +474,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         clearTimeout(markReadTimeoutRef.current);
         markReadTimeoutRef.current = null;
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MessageThread.tsx:470',message:'Contact changed, reset initial load',data:{contactId,isInitialLoad:isInitialLoad.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
     }
   }, [contactId]);
 
@@ -487,7 +495,10 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
       .then(({ data: conversations }) => {
         if (!conversations || conversations.length === 0) return;
         
-        const conversationIds = conversations.map((c: any) => c.id);
+        const conversationIds = conversations.map((c) => {
+          if (!c || typeof c !== 'object' || !('id' in c)) return '';
+          return String(c.id);
+        }).filter((id): id is string => id !== '');
         
         // Subscribe to messages from all conversations for this contact
         const channel = supabase
@@ -560,34 +571,81 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     };
   }, [data, contactId, markRead]);
 
-  // Auto-scroll to bottom on initial load and when new messages arrive
+  // Use IntersectionObserver on sentinel element - simple and reliable (like WhatsApp/Messages)
+  // This automatically handles: initial load, new messages, images loading, etc.
   useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      const shouldScroll = isInitialLoad.current || (el.scrollHeight - el.scrollTop - el.clientHeight) < 150;
-      if (shouldScroll) {
-        // Use setTimeout to ensure DOM has updated
-        setTimeout(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!sentinelRef.current || !scrollRef.current) return;
+    
+    const sentinel = sentinelRef.current;
+    const scrollContainer = scrollRef.current;
+    
+    // Track if user has manually scrolled away from bottom
+    let userScrolledAway = false;
+    let lastScrollTop = scrollContainer.scrollTop;
+    
+    const handleScroll = () => {
+      if (!scrollRef.current) return;
+      const currentScrollTop = scrollRef.current.scrollTop;
+      const distanceFromBottom = scrollRef.current.scrollHeight - currentScrollTop - scrollRef.current.clientHeight;
+      
+      // User scrolled away if they're more than 100px from bottom
+      userScrolledAway = distanceFromBottom > 100;
+      lastScrollTop = currentScrollTop;
+    };
+    
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // When sentinel becomes invisible (images push it down), scroll it back into view
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        // If sentinel is not visible and user hasn't scrolled away, scroll it back into view
+        if (!entry.isIntersecting && (!userScrolledAway || isInitialLoad.current)) {
+          sentinel.scrollIntoView({ behavior: 'instant', block: 'end' });
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '0px',
+        threshold: 0,
+      }
+    );
+    
+    observer.observe(sentinel);
+    
+    // Initial scroll to bottom
+    if (isInitialLoad.current) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (sentinelRef.current) {
+            sentinelRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
             isInitialLoad.current = false;
           }
-        }, 0);
-      }
+        });
+      });
     }
+    
+    return () => {
+      observer.disconnect();
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
   }, [data]);
 
   const items = data?.pages?.flatMap(p => p.items) || [];
 
   // Filter and process messages for search
-  const processedMessages = useMemo(() => {
+  type MessageItem = typeof items[number];
+  type ProcessedMessageItem = (MessageItem & { type: 'message'; searchTerm?: string }) | { type: 'separator'; count: number; id: string };
+  
+  const processedMessages = useMemo((): ProcessedMessageItem[] => {
     if (!isSearching || !searchTerm.trim()) {
-      return items.slice().reverse();
+      // When not searching, return items with type 'message'
+      return items.slice().reverse().map((m) => ({ ...m, type: 'message' as const }));
     }
     
     const search = searchTerm.toLowerCase();
     const reversedItems = items.slice().reverse();
-    const filtered: any[] = [];
+    const filtered: ProcessedMessageItem[] = [];
     let hiddenCount = 0;
     
     reversedItems.forEach((m, index) => {
@@ -680,7 +738,10 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         </div>
       )}
       
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0">
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0"
+      >
         {hasNextPage && (
           <button className="text-xs text-blue-600 hover:underline mb-2" onClick={() => fetchNextPage()}>Load older messages</button>
         )}
@@ -699,19 +760,28 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                 );
               }
               
-              const m = item;
-              const showDateSeparator = !isSearching && (index === 0 || (arr[index - 1]?.type === 'message' && isDifferentDay(m.created_at, arr[index - 1].created_at)));
+              // TypeScript now knows item.type === 'message'
+              const m = item as Extract<typeof item, { type: 'message' }>;
+              if (!m.created_at) return null; // Skip messages without created_at
+              
+              const prevItem = arr[index - 1];
+              const prevIsMessage = prevItem && 'type' in prevItem && prevItem.type === 'message';
+              const prevCreatedAt = prevIsMessage && (prevItem as Extract<typeof prevItem, { type: 'message' }>).created_at;
+              const showDateSeparator = !isSearching && (index === 0 || (prevIsMessage && prevCreatedAt && isDifferentDay(m.created_at, prevCreatedAt)));
+              const isLastMessage = index === arr.length - 1;
+              
+              const direction = m.direction as 'INBOUND' | 'OUTBOUND';
               
               return (
-                <div key={m.id}>
+                <div key={m.id} ref={isLastMessage ? lastMessageRef : undefined}>
                   {showDateSeparator && (
                     <div className="text-center text-xs text-muted-foreground my-3">
                       {formatDaySeparator(m.created_at)}
                     </div>
                   )}
-                  <div className={`flex gap-2 items-end ${m.direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Staff avatar for outbound messages */}
-                    {m.direction === 'OUTBOUND' && m.staff && (
+                    {direction === 'OUTBOUND' && m.staff && (
                       <StaffAvatar
                         staffId={m.staff.id}
                         firstName={m.staff.first_name}
@@ -719,10 +789,10 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       />
                     )}
                     
-                    <div className={`max-w-[80%] ${m.direction === 'OUTBOUND' ? 'text-right' : ''}`}>
+                    <div className={`max-w-[80%] ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
                       {/* Sender badge for outbound messages */}
-                      {m.direction === 'OUTBOUND' && m.sender && (
-                        <div className={`mb-1 ${m.direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
+                      {direction === 'OUTBOUND' && m.sender && (
+                        <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                             From: {m.sender.sender_type === 'ALPHANUMERIC' 
                               ? (m.sender.alphanumeric_sender_id || m.sender.label || 'Unknown')
@@ -732,12 +802,12 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       )}
                       {/* Attachments */}
                       {m.message_attachments && m.message_attachments.length > 0 && (
-                        <div className={`mb-2 flex flex-col gap-2 ${m.direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
-                          {m.message_attachments.map((attachment: any) => (
+                        <div className={`mb-2 flex flex-col gap-2 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
+                          {m.message_attachments.map((attachment) => (
                             <MessageAttachment 
                               key={attachment.id} 
-                              attachment={attachment} 
-                              direction={m.direction}
+                              attachment={attachment as Tables<'message_attachments'>} 
+                              direction={direction}
                             />
                           ))}
                         </div>
@@ -754,7 +824,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                         if (!cleanedBody) return null;
                         return (
                           <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
-                            m.direction === 'OUTBOUND' 
+                            direction === 'OUTBOUND' 
                               ? (m.sender?.provider === 'TWILIO' 
                                   ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white' 
                                   : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
@@ -764,9 +834,9 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                           </div>
                         );
                       })()}
-                      <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${m.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
                         <span>{formatMessageDate(m.created_at)}</span>
-                        {m.direction === 'OUTBOUND' && m.status && (
+                        {direction === 'OUTBOUND' && m.status && (
                           <span className="text-[9px]">• {formatMessageStatus(m.status)}</span>
                         )}
                       </div>
@@ -776,6 +846,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
               );
             })
         )}
+        {/* Sentinel element at bottom - IntersectionObserver watches this */}
+        <div ref={sentinelRef} className="h-1" />
       </div>
     </div>
   );

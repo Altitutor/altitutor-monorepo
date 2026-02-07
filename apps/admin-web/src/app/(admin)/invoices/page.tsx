@@ -125,8 +125,6 @@ export default function InvoicesPage() {
     ['ACTIVE', 'TRIAL']
   );
 
-  const allStudents = studentSearchData?.students || [];
-
   // Fetch invoices with pagination
   // Use debounced and validated dates to prevent API calls with partial/invalid dates
   const { 
@@ -207,6 +205,7 @@ export default function InvoicesPage() {
   // Note: The API already filters by search query, but we do additional client-side
   // filtering for fields like email that might not be in the search results
   const filteredStudents = useMemo(() => {
+    const allStudents = studentSearchData?.students || [];
     if (!debouncedStudentSearch) return allStudents;
     const query = debouncedStudentSearch.toLowerCase();
     return allStudents.filter((student) => {
@@ -223,7 +222,7 @@ export default function InvoicesPage() {
         `${firstName} ${lastName}`.includes(query)
       );
     });
-  }, [allStudents, debouncedStudentSearch]);
+  }, [studentSearchData?.students, debouncedStudentSearch]);
 
   return (
     <div className="p-6 space-y-4">

@@ -1,6 +1,12 @@
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SessionStaff, SessionStudent } from '../utils/session-helpers';
+
+interface SessionDetailsMap {
+  staff: SessionStaff[];
+  students: SessionStudent[];
+}
 
 /**
  * Sessions API client for tutor-web
@@ -71,7 +77,7 @@ export const sessionsApi = {
    * Uses vtutor_session_detail view
    * Returns a map of session_id -> { staff, students }
    */
-  getSessionsWithDetails: async (sessionIds: string[]) => {
+  getSessionsWithDetails: async (sessionIds: string[]): Promise<Record<string, SessionDetailsMap>> => {
     if (sessionIds.length === 0) return {};
     
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -84,26 +90,56 @@ export const sessionsApi = {
     if (error) throw error;
     
     // Create a map of session_id -> { staff, students }
-    const detailsMap: Record<string, { staff: any[]; students: any[] }> = {};
+    const detailsMap: Record<string, SessionDetailsMap> = {};
     
-    (data || []).forEach((detail: any) => {
-      const staff = Array.isArray(detail.staff) ? detail.staff : [];
-      const students = Array.isArray(detail.students) ? detail.students : [];
+    (data || []).forEach((detail) => {
+      const staffJson = detail.staff;
+      const studentsJson = detail.students;
       
-      detailsMap[detail.session_id] = {
-        staff: staff.map((s: any) => ({
-          id: s.id,
-          first_name: s.first_name,
-          last_name: s.last_name,
-          role: s.role,
-        })),
-        students: students.map((s: any) => ({
-          id: s.id,
-          first_name: s.first_name,
-          last_name: s.last_name,
-          year_level: s.year_level,
-        })),
-      };
+      // Parse JSON arrays if they're strings, otherwise use as-is
+      const staff: SessionStaff[] = Array.isArray(staffJson) 
+        ? staffJson.map((s: unknown) => {
+            if (typeof s === 'object' && s !== null && 'id' in s && 'first_name' in s && 'last_name' in s && 'role' in s) {
+              return {
+                id: String(s.id),
+                first_name: String(s.first_name),
+                last_name: String(s.last_name),
+                role: String(s.role),
+                type: 'type' in s ? String(s.type) : undefined,
+                subjects: 'subjects' in s && Array.isArray(s.subjects) 
+                  ? s.subjects.map((subj: unknown) => {
+                      if (typeof subj === 'object' && subj !== null && 'id' in subj && 'name' in subj) {
+                        return { id: String(subj.id), name: String(subj.name) };
+                      }
+                      return { id: '', name: '' };
+                    })
+                  : undefined,
+              };
+            }
+            return { id: '', first_name: '', last_name: '', role: '' };
+          })
+        : [];
+      
+      const students: SessionStudent[] = Array.isArray(studentsJson)
+        ? studentsJson.map((s: unknown) => {
+            if (typeof s === 'object' && s !== null && 'id' in s && 'first_name' in s && 'last_name' in s) {
+              return {
+                id: String(s.id),
+                first_name: String(s.first_name),
+                last_name: String(s.last_name),
+                year_level: 'year_level' in s && typeof s.year_level === 'number' ? s.year_level : null,
+              };
+            }
+            return { id: '', first_name: '', last_name: '', year_level: null };
+          })
+        : [];
+      
+      if (detail.session_id) {
+        detailsMap[detail.session_id] = {
+          staff,
+          students,
+        };
+      }
     });
     
     return detailsMap;

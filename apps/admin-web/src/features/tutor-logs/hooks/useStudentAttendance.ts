@@ -72,7 +72,7 @@ export function useStudentAttendance({
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const allStudents = allStudentsData || [];
+  const allStudents = useMemo(() => allStudentsData || [], [allStudentsData]);
   const isLoading = isLoadingSession || isLoadingStudents;
 
   // Transform session students data

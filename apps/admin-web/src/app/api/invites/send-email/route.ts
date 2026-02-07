@@ -34,8 +34,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { type, id, token } = body;
+    // Handle FormData or JSON
+    let type: string;
+    let id: string;
+    let token: string;
+    let customMessage: string | undefined;
+    const attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
+    
+    const contentType = request.headers.get('content-type') || '';
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      type = formData.get('type') as string;
+      id = formData.get('id') as string;
+      token = formData.get('token') as string;
+      customMessage = formData.get('customMessage') as string | undefined;
+      
+      // Extract attachments
+      const attachmentEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith('attachment-'));
+      for (const [_, file] of attachmentEntries) {
+        if (file instanceof File) {
+          const buffer = Buffer.from(await file.arrayBuffer());
+          attachments.push({
+            filename: file.name,
+            content: buffer,
+            contentType: file.type || undefined,
+          });
+        }
+      }
+    } else {
+      const body = await request.json();
+      type = body.type;
+      id = body.id;
+      token = body.token;
+      customMessage = body.customMessage;
+    }
 
     // Validate required fields
     if (!type || !id || !token) {
@@ -116,17 +148,33 @@ export async function POST(request: NextRequest) {
 
     // Send email using Resend
     try {
-      const html = getInviteEmailTemplate({
-        firstName: record.first_name,
-        lastName: record.last_name,
-        inviteUrl,
-        linkType: 'invite',
-      });
+      // Use custom message if provided, otherwise use template
+      let html: string;
+      if (customMessage && customMessage.trim()) {
+        // For custom messages, create a simple HTML email with the message
+        html = `
+          <!DOCTYPE html>
+          <html>
+          <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <p>${customMessage.replace(/\n/g, '<br>')}</p>
+            <p><a href="${inviteUrl}">${inviteUrl}</a></p>
+          </body>
+          </html>
+        `;
+      } else {
+        html = getInviteEmailTemplate({
+          firstName: record.first_name,
+          lastName: record.last_name,
+          inviteUrl,
+          linkType: 'invite',
+        });
+      }
 
       await sendEmail({
         to: record.email,
         subject: `You've Been Invited to Altitutor`,
         html,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
 
       return NextResponse.json({ 

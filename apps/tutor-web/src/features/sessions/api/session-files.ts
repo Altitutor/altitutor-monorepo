@@ -122,8 +122,14 @@ export const sessionFilesApi = {
     
     // Get signed URLs for each file
     const filesWithUrls = await Promise.all(
-      (data || []).map(async (sessionFile: any) => {
+      (data || []).map(async (sessionFile) => {
+        if (!sessionFile || typeof sessionFile !== 'object' || !('file' in sessionFile)) {
+          throw new Error('Invalid session file data');
+        }
         const file = sessionFile.file as Tables<'files'>;
+        if (!file || !file.storage_path) {
+          throw new Error('Invalid file data');
+        }
         const signedUrl = await getSessionFileSignedUrl(file.storage_path);
         
         return {
@@ -155,7 +161,13 @@ export const sessionFilesApi = {
       throw sessionFileError;
     }
     
-    const file = (sessionFile as any).file as { storage_path: string };
+    if (!sessionFile || typeof sessionFile !== 'object' || !('file' in sessionFile)) {
+      throw new Error('Invalid session file data');
+    }
+    const file = sessionFile.file as { storage_path: string };
+    if (!file || !file.storage_path) {
+      throw new Error('Invalid file data');
+    }
     
     // Delete from storage first
     try {

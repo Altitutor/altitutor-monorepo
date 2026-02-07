@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables } from '@altitutor/shared';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
@@ -22,7 +22,7 @@ interface UseUnenrollFlowProps {
 }
 
 export function useUnenrollFlow({
-  isOpen: _isOpen,
+  isOpen,
   student,
   classData,
   unenrollmentDate,
@@ -32,7 +32,15 @@ export function useUnenrollFlow({
   onClose,
 }: UseUnenrollFlowProps) {
   const [isUnenrolling, setIsUnenrolling] = useState(false);
+  const [unenrollmentSuccess, setUnenrollmentSuccess] = useState(false);
   const queryClient = useQueryClient();
+
+  // Reset unenrollment success when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setUnenrollmentSuccess(false);
+    }
+  }, [isOpen]);
 
   const handleConfirm = useCallback(async () => {
     setIsUnenrolling(true);
@@ -53,17 +61,19 @@ export function useUnenrollFlow({
       await queryClient.invalidateQueries({ queryKey: sessionsKeys.forStudent(student.id) });
       await queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
       
-      onClose();
+      setUnenrollmentSuccess(true);
     } catch (error) {
       console.error('Error unenrolling student:', error);
+      setUnenrollmentSuccess(false);
     } finally {
       setIsUnenrolling(false);
     }
-  }, [student, classData, unenrollmentDate, reason, onUnenroll, currentStaffId, onClose, queryClient]);
+  }, [student, classData, unenrollmentDate, reason, onUnenroll, currentStaffId, queryClient]);
 
   return {
     isUnenrolling,
     handleConfirm,
+    unenrollmentSuccess,
   };
 }
 

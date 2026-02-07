@@ -449,7 +449,7 @@ export function StudentsWithoutClassesTable({
       title="Students Without Classes"
       items={items}
       isLoading={isLoading}
-      columns={['Student', 'Subject']}
+      columns={['Date', 'Student', 'Subject']}
       renderRow={(item, _index) => {
         const subject = subjectMap.get(item.subject_id) || {
           id: item.subject_id,
@@ -462,6 +462,11 @@ export function StudentsWithoutClassesTable({
         
         return (
           <TableRow key={`${item.student_id}-${item.subject_id}`}>
+            <TableCell>
+              {item.subject_added_at 
+                ? format(new Date(item.subject_added_at), 'MMM d, yyyy')
+                : '—'}
+            </TableCell>
             <TableCell className="font-medium">
               {item.first_name} {item.last_name}
             </TableCell>
@@ -495,14 +500,16 @@ export function TrialStudentsNotSignedUpTable({
       title="Trial Students Who Haven't Signed Up"
       items={items}
       isLoading={isLoading}
-      columns={['Student', 'Email']}
+      columns={['Date', 'Student']}
       renderRow={(item, _index) => (
         <TableRow key={item.student_id}>
+          <TableCell>
+            {item.first_trial_session_date 
+              ? format(new Date(item.first_trial_session_date), 'MMM d, yyyy')
+              : '—'}
+          </TableCell>
           <TableCell className="font-medium">
             {item.first_name} {item.last_name}
-          </TableCell>
-          <TableCell>
-            {item.email || '—'}
           </TableCell>
           <TableCell>
             <ReconciliationActions type="trial_students_not_signed_up" item={item} />

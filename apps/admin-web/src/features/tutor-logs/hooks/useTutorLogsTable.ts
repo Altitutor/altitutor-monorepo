@@ -7,9 +7,38 @@ import {
   filterTutorLogsByStaff,
   paginateTutorLogs,
 } from '../utils/tutorLogsTableHelpers';
+import type { Tables } from '@altitutor/shared';
 
 type SortField = 'session_start_at';
 type SortDirection = 'asc' | 'desc';
+
+type StaffAttendanceItem = {
+  staff_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  attended: boolean;
+  type: string | null;
+};
+
+type StudentAttendanceItem = {
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  attended: boolean;
+};
+
+type TopicItem = {
+  topic_id: string;
+  code: string;
+  name: string;
+};
+
+type TopicFileItem = {
+  file_id: string;
+  code: string;
+  file_type: string;
+};
 
 export interface UseTutorLogsTableParams {
   rangeStart?: string;
@@ -26,15 +55,15 @@ export interface UseTutorLogsTableReturn {
     created_at: string;
     updated_at: string | null;
   }>;
-  sessions: Record<string, any>;
-  classesById: Record<string, any>;
-  subjectsById: Record<string, any>;
-  sessionStudents: Record<string, any[]>;
-  sessionStaff: Record<string, any[]>;
-  staffAttendance: Record<string, any[]>;
-  studentAttendance: Record<string, any[]>;
-  topics: Record<string, any[]>;
-  topicFiles: Record<string, any[]>;
+  sessions: Record<string, Tables<'sessions'>>;
+  classesById: Record<string, Tables<'classes'>>;
+  subjectsById: Record<string, Tables<'subjects'>>;
+  sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>;
+  sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>;
+  staffAttendance: Record<string, StaffAttendanceItem[]>;
+  studentAttendance: Record<string, StudentAttendanceItem[]>;
+  topics: Record<string, TopicItem[]>;
+  topicFiles: Record<string, TopicFileItem[]>;
   createdByStaffMap: Record<string, { first_name: string; last_name: string }>;
   
   // Filter state
@@ -45,7 +74,7 @@ export interface UseTutorLogsTableReturn {
   toggleStaffFilter: (staffId: string) => void;
   staffSearchQuery: string;
   setStaffSearchQuery: (query: string) => void;
-  filteredStaff: any[];
+  filteredStaff: Tables<'staff'>[];
   
   // Pagination state
   page: number;
@@ -96,7 +125,15 @@ export function useTutorLogsTable({
 
   // Staff search hook
   const { data: staffSearchResults } = useStaffSearch(staffSearchQuery);
-  const filteredStaff = staffSearchResults?.staff || [];
+  // Convert StaffListItem[] to Tables<'staff'>[] by mapping to full staff records
+  // Note: StaffListItem is a subset of Tables<'staff'>, so we cast it
+  const filteredStaff = useMemo(() => {
+    const staffList = staffSearchResults?.staff || [];
+    // StaffListItem has id, first_name, last_name, role, status, phone_number, email
+    // Tables<'staff'> has all these plus more fields, but we can safely cast since
+    // we're only using the fields that exist in StaffListItem
+    return staffList as unknown as Tables<'staff'>[];
+  }, [staffSearchResults?.staff]);
 
   const toggleStaffFilter = useCallback((staffId: string) => {
     setStaffFilters((prev) =>
@@ -139,22 +176,22 @@ export function useTutorLogsTable({
     [data?.tutorLogs]
   );
   const sessions = useMemo(
-    () => (data?.sessions || {}) as Record<string, any>,
+    () => (data?.sessions || {}) as Record<string, Tables<'sessions'>>,
     [data?.sessions]
   );
   const classesById = useMemo(
-    () => (data?.classesById || {}) as Record<string, any>,
+    () => (data?.classesById || {}) as Record<string, Tables<'classes'>>,
     [data?.classesById]
   );
   const subjectsById = useMemo(
-    () => (data?.subjectsById || {}) as Record<string, any>,
+    () => (data?.subjectsById || {}) as Record<string, Tables<'subjects'>>,
     [data?.subjectsById]
   );
   const sessionStudents = useMemo(
     () =>
       (data?.sessionStudents || {}) as Record<
         string,
-        Array<any & { planned_absence?: boolean; is_extra?: boolean }>
+        Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>
       >,
     [data?.sessionStudents]
   );
@@ -162,24 +199,24 @@ export function useTutorLogsTable({
     () =>
       (data?.sessionStaff || {}) as Record<
         string,
-        Array<any & { planned_absence?: boolean }>
+        Array<Tables<'staff'> & { planned_absence?: boolean }>
       >,
     [data?.sessionStaff]
   );
   const staffAttendance = useMemo(
-    () => (data?.staffAttendance || {}) as Record<string, any[]>,
+    () => (data?.staffAttendance || {}) as Record<string, StaffAttendanceItem[]>,
     [data?.staffAttendance]
   );
   const studentAttendance = useMemo(
-    () => (data?.studentAttendance || {}) as Record<string, any[]>,
+    () => (data?.studentAttendance || {}) as Record<string, StudentAttendanceItem[]>,
     [data?.studentAttendance]
   );
   const topics = useMemo(
-    () => (data?.topics || {}) as Record<string, any[]>,
+    () => (data?.topics || {}) as Record<string, TopicItem[]>,
     [data?.topics]
   );
   const topicFiles = useMemo(
-    () => (data?.topicFiles || {}) as Record<string, any[]>,
+    () => (data?.topicFiles || {}) as Record<string, TopicFileItem[]>,
     [data?.topicFiles]
   );
 

@@ -11,11 +11,15 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@altitutor/ui';
-import { Calendar, FileText, Zap, Megaphone, Plus, CheckSquare } from 'lucide-react';
+import { Zap, Plus } from 'lucide-react';
+import { QUICK_ACTIONS, getBookingActions, getNonBookingActions } from '@/shared/constants/quickActions';
 
 export function QuickActionsMenu() {
   const minimized = useChatStore(s => s.minimized);
   const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog } = useQuickActions();
+  
+  const bookingActions = getBookingActions();
+  const nonBookingActions = getNonBookingActions();
 
   // Hide when messages are expanded (not minimized)
   if (!minimized) {
@@ -35,43 +39,51 @@ export function QuickActionsMenu() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="w-48">
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Plus className="h-4 w-4 mr-2" />
-              Add meeting
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem onClick={() => openBookingModal('TRIAL_SESSION')}>
-                Trial session
+          {bookingActions.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Plus className="h-4 w-4 mr-2" />
+                Add meeting
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {bookingActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={action.id}
+                      onClick={() => action.bookingSessionType && openBookingModal(action.bookingSessionType)}
+                    >
+                      <Icon className="h-4 w-4 mr-2" />
+                      {action.title}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          {nonBookingActions.map((action) => {
+            const Icon = action.icon;
+            const handleClick = () => {
+              if (action.actionType === 'create-task') {
+                openCreateTaskDialog();
+              } else if (action.actionType === 'announcement') {
+                openAnnouncementsModal();
+              } else if (action.actionType === 'tutor-log') {
+                openTutorLogModal();
+              } else if (action.actionType === 'log-student-absence') {
+                openLogAbsenceDialog();
+              } else if (action.actionType === 'log-staff-absence') {
+                openLogStaffAbsenceDialog();
+              }
+            };
+
+            return (
+              <DropdownMenuItem key={action.id} onClick={handleClick}>
+                <Icon className="h-4 w-4 mr-2" />
+                {action.title}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openBookingModal('SUBSIDY_INTERVIEW')}>
-                Subsidy interview
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openBookingModal('DRAFTING')}>
-                Drafting
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-          <DropdownMenuItem onClick={openCreateTaskDialog}>
-            <CheckSquare className="h-4 w-4 mr-2" />
-            Add Task
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={openAnnouncementsModal}>
-            <Megaphone className="h-4 w-4 mr-2" />
-            Make Announcement
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={openTutorLogModal}>
-            <FileText className="h-4 w-4 mr-2" />
-            Tutor Log
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={openLogAbsenceDialog}>
-            <Calendar className="h-4 w-4 mr-2" />
-            Log Student Absence
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={openLogStaffAbsenceDialog}>
-            <Calendar className="h-4 w-4 mr-2" />
-            Log Staff Absence
-          </DropdownMenuItem>
+            );
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

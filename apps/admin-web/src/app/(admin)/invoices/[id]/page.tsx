@@ -34,6 +34,10 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   const totalAmount = invoice?.amount_due_cents || 0;
   const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
+  const subtotalCents = invoice?.subtotal_cents;
+  const totalCents = invoice?.total_cents;
+  const amountPaidFromBalanceCents = invoice?.amount_paid_from_balance_cents || 0;
+  const hasCreditBalance = amountPaidFromBalanceCents > 0;
 
   if (isLoading) {
     return (
@@ -122,14 +126,46 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
             <div className="text-sm font-medium text-muted-foreground">Status:</div>
             <div className="text-sm">{getInvoiceStatusBadge(invoice.status)}</div>
             
+            {subtotalCents !== null && subtotalCents !== undefined && (
+              <>
+                <div className="text-sm font-medium text-muted-foreground">Subtotal:</div>
+                <div className="text-sm">
+                  {formatInvoiceAmount(subtotalCents, invoice.currency || 'AUD')}
+                </div>
+              </>
+            )}
+            
+            {totalCents !== null && totalCents !== undefined && (
+              <>
+                <div className="text-sm font-medium text-muted-foreground">Total:</div>
+                <div className="text-sm">
+                  {formatInvoiceAmount(totalCents, invoice.currency || 'AUD')}
+                </div>
+              </>
+            )}
+            
+            {hasCreditBalance && (
+              <>
+                <div className="text-sm font-medium text-muted-foreground">Paid from Credit Balance:</div>
+                <div className="text-sm text-green-600 dark:text-green-400">
+                  {formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
+                </div>
+              </>
+            )}
+            
             <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
-            <div className="text-sm">
+            <div className="text-sm font-semibold">
               {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
             </div>
             
             <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
             <div className="text-sm">
               {formatInvoiceAmount(invoice.amount_paid_cents, invoice.currency || 'AUD')}
+              {hasCreditBalance && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  ({formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')} from credit)
+                </span>
+              )}
             </div>
           </div>
         </div>

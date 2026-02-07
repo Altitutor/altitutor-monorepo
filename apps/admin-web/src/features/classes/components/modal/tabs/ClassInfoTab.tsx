@@ -117,18 +117,18 @@ export function ClassInfoTab({
     staleTime: 1000 * 60 * 2,
   });
 
-  const futureSessions = futureSessionsData || [];
-
   // Reset form values when entering edit mode - only once per edit session
   useEffect(() => {
     if (isEditing && !hasResetRef.current && classData) {
       const dayValue = classData.day_of_week != null ? classData.day_of_week : 1;
+      // Map ARCHIVED status to INACTIVE for form (form schema doesn't support ARCHIVED)
+      const formStatus = classData.status === 'ARCHIVED' ? 'INACTIVE' : (classData.status === 'ACTIVE' || classData.status === 'INACTIVE' || classData.status === 'FULL' ? classData.status : 'ACTIVE');
       form.reset({
         level: classData.level || null,
         dayOfWeek: dayValue,
         startTime: classData.start_time || '',
         endTime: classData.end_time || '',
-        status: (classData.status as any) || 'ACTIVE',
+        status: formStatus as 'ACTIVE' | 'INACTIVE' | 'FULL',
         subjectId: classData.subject_id ?? undefined,
         room: classData.room || '',
         sessionStartDate: classData.session_start_date || null,
@@ -184,7 +184,7 @@ export function ClassInfoTab({
       newDayOfWeek,
       newStartTime,
       newEndTime,
-      existingFutureSessions: futureSessions,
+      existingFutureSessions: futureSessionsData || [],
     });
     // form is stable from react-hook-form, watched values are already in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,11 +192,12 @@ export function ClassInfoTab({
     isEditing,
     classData,
     sessionStartDate,
+    futureSessionsData,
     sessionEndDate,
     dayOfWeek,
     startTime,
     endTime,
-    futureSessions,
+    futureSessionsData,
   ]);
 
   return isEditing ? (
@@ -583,7 +584,7 @@ export function ClassInfoTab({
         
         <div className="text-sm font-medium">Status:</div>
         <div>
-          <ClassStatusBadge value={classData.status as any} />
+          <ClassStatusBadge value={classData.status === 'ARCHIVED' ? 'INACTIVE' : (classData.status === 'ACTIVE' || classData.status === 'INACTIVE' || classData.status === 'FULL' ? classData.status : null)} />
         </div>
         
         <div className="text-sm font-medium">Subject:</div>

@@ -68,7 +68,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
   // For current time indicator, use local time (user's current time)
   const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (9 * 60);
-  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 75);
+  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
 
   // Calculate navigation step based on view mode
   const navigationStep = viewMode === 'day' ? 1 : 7;

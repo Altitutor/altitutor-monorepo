@@ -5,7 +5,7 @@ import type { Database, Tables, ClassWithExpandedSubject } from '@altitutor/shar
 
 interface UseChangeClassDataProps {
   isOpen: boolean;
-  step: 1 | 2 | 3;
+  step: 1 | 2 | 3 | 4;
   oldClassSubjectId: string | null | undefined;
   searchQuery: string;
 }

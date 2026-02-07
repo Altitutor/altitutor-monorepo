@@ -7,7 +7,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { StudentCard } from '@/shared/components/StudentCard';
 import {
   useEnrollmentFilters,
   useEnrollmentConflicts,
@@ -19,6 +18,7 @@ import {
   Step1SelectStudentOrClass,
   Step2SelectEnrollmentDate,
   Step3SummaryAndConfirm,
+  Step4MessageScreen,
 } from './steps';
 import type { EnrollStudentModalProps, EnrollmentWarningState, StudentWithEnrollmentInfo } from '../types/enrollment';
 
@@ -39,12 +39,12 @@ export function EnrollStudentModal({
   onEnroll,
   currentStaffId,
 }: EnrollStudentModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [enrollmentDate, setEnrollmentDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [selectedClassData, setSelectedClassData] = useState<ClassWithExpandedSubject | undefined>(undefined);
+  const [selectedStudentData, setSelectedStudentData] = useState<Tables<'students'> | undefined>(undefined);
+  const [enrollmentDate, setEnrollmentDate] = useState<string>('');
   
   // Warning state for greyed out student selection
   const [warningState, setWarningState] = useState<EnrollmentWarningState>({
@@ -65,7 +65,34 @@ export function EnrollStudentModal({
   // Get selected data for display
   const selectedStudent = context === 'student' 
     ? student 
-    : students.find(s => s.id === selectedStudentId);
+    : (selectedStudentData || students.find(s => s.id === selectedStudentId));
+  
+  // Update selectedClassData when classes are available and selectedClassId is set
+  useEffect(() => {
+    if (context === 'student' && selectedClassId && classes.length > 0) {
+      const found = classes.find(c => c.id === selectedClassId);
+      if (found) {
+        setSelectedClassData(found);
+      }
+    }
+  }, [context, selectedClassId, classes]);
+  
+  // Update selectedStudentData when students are available and selectedStudentId is set (class context)
+  useEffect(() => {
+    if (context === 'class' && selectedStudentId && students.length > 0) {
+      const found = students.find(s => s.id === selectedStudentId);
+      if (found) {
+        setSelectedStudentData(found);
+      }
+    }
+  }, [context, selectedStudentId, students]);
+  
+  // Reset selectedStudentData when modal closes or context changes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedStudentData(undefined);
+    }
+  }, [isOpen]);
   
   const selectedClass: ClassWithExpandedSubject | undefined = useMemo(() => {
     if (context === 'class') {
@@ -77,9 +104,10 @@ export function EnrollStudentModal({
       } as ClassWithExpandedSubject
       : undefined;
     } else {
-      return classes.find(c => c.id === selectedClassId);
+      // Use stored selectedClassData if available, otherwise try to find from classes array
+      return selectedClassData || classes.find(c => c.id === selectedClassId);
     }
-  }, [context, classData, classSubject, classStaff, classes, selectedClassId]);
+  }, [context, classData, classSubject, classStaff, classes, selectedClassId, selectedClassData]);
 
   // Get the subject to display in the student card (only the selected subject)
   const displaySubject = useMemo(() => {
@@ -98,14 +126,6 @@ export function EnrollStudentModal({
     }
   }, [context, classSubject, selectedClass, subjectId, studentSubjects]);
 
-  // Determine if student card should be shown in header
-  const shouldShowStudentCardInHeader = useMemo(() => {
-    if (context === 'student') {
-      return !!student;
-    } else {
-      return !!selectedStudent;
-    }
-  }, [context, student, selectedStudent]);
 
   // Filters
   const defaultSubjectFilters = useMemo(() => {
@@ -154,7 +174,7 @@ export function EnrollStudentModal({
   });
 
   // Flow management
-  const { isEnrolling, handleConfirm } = useEnrollmentFlow({
+  const { isEnrolling, handleConfirm, enrollmentSuccess } = useEnrollmentFlow({
     isOpen,
     context,
     classSubject,
@@ -168,6 +188,13 @@ export function EnrollStudentModal({
     onClose,
   });
 
+  // Move to step 4 when enrollment succeeds
+  useEffect(() => {
+    if (enrollmentSuccess && step === 3) {
+      setStep(4);
+    }
+  }, [enrollmentSuccess, step]);
+
   // Reset state when modal opens/closes or subjectId changes
   useEffect(() => {
     if (!isOpen) return;
@@ -175,7 +202,8 @@ export function EnrollStudentModal({
     setStep(1);
     setSelectedStudentId(null);
     setSelectedClassId(null);
-    setEnrollmentDate(new Date().toISOString().split('T')[0]);
+    setSelectedClassData(undefined);
+    setEnrollmentDate('');
     resetFilters(defaultSubjectFilters);
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
   }, [isOpen, resetFilters, defaultSubjectFilters, subjectId]);
@@ -183,7 +211,7 @@ export function EnrollStudentModal({
   const handleNext = () => {
     if (step === 1 && (selectedStudentId || selectedClassId)) {
       setStep(2);
-    } else if (step === 2) {
+    } else if (step === 2 && enrollmentDate && enrollmentDate.trim() !== '') {
       setStep(3);
     }
   };
@@ -240,19 +268,9 @@ export function EnrollStudentModal({
                       {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
                     </DialogTitle>
                     <DialogDescription>
-                      Step {step} of 3: {step === 1 ? 'Select Student or Class' : step === 2 ? 'Select Enrollment Date' : 'Summary & Confirm'}
+                      Step {step} of 4: {step === 1 ? 'Select Student or Class' : step === 2 ? 'Select Enrollment Date' : step === 3 ? 'Summary & Confirm' : 'Send Message'}
                     </DialogDescription>
                   </div>
-                  {shouldShowStudentCardInHeader && (
-                    <div className="flex-shrink-0 h-[60px]">
-                      <StudentCard
-                        student={(context === 'student' ? student : selectedStudent) as Tables<'students'>}
-                        subjects={displaySubject}
-                        showSubjects={true}
-                        showActions={false}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             </DialogHeader>
@@ -260,7 +278,7 @@ export function EnrollStudentModal({
             {/* Progress Indicator */}
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: 3 }).map((_, index) => (
+                {Array.from({ length: 4 }).map((_, index) => (
                   <div
                     key={index}
                     className={`flex-1 h-2 rounded-full transition-colors ${
@@ -313,6 +331,8 @@ export function EnrollStudentModal({
                 context={context}
                 enrollmentDate={enrollmentDate}
                 onDateChange={setEnrollmentDate}
+                studentId={selectedStudent?.id || null}
+                selectedStudent={selectedStudent}
                 classData={classData}
                 classSubject={classSubject}
                 classStaff={classStaff}
@@ -331,43 +351,65 @@ export function EnrollStudentModal({
                 conflicts={conflicts}
               />
             )}
+
+            {/* Step 4: Message Screen */}
+            {step === 4 && (
+              <Step4MessageScreen
+                selectedStudent={selectedStudent}
+                selectedClass={selectedClass}
+                enrollmentDate={enrollmentDate}
+              />
+            )}
               </div>
             </div>
           </div>
 
           {/* Footer */}
           <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-            <div className="flex gap-2">
-              {step > 1 && (
-                <Button variant="outline" onClick={handleBack} disabled={isEnrolling}>
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Back
+            {step === 4 ? (
+              <div className="flex gap-2 ml-auto">
+                <Button onClick={onClose}>
+                  Done
                 </Button>
-              )}
-            </div>
-            
-            <div className="flex gap-2">
-              {step < 3 ? (
-                <Button 
-                  onClick={handleNext}
-                  disabled={step === 1 && !selectedStudentId && !selectedClassId}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              ) : (
-                <Button onClick={handleConfirm} disabled={isEnrolling}>
-                  {isEnrolling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Enrolling...
-                    </>
-                  ) : (
-                    'Confirm Enrollment'
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  {step > 1 && (
+                    <Button variant="outline" onClick={handleBack} disabled={isEnrolling}>
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Back
+                    </Button>
                   )}
-                </Button>
-              )}
-            </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  {step < 3 ? (
+                    <Button 
+                      onClick={handleNext}
+                      disabled={
+                        (step === 1 && !selectedStudentId && !selectedClassId) ||
+                        (step === 2 && (!enrollmentDate || enrollmentDate.trim() === ''))
+                      }
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button onClick={handleConfirm} disabled={isEnrolling}>
+                      {isEnrolling ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Enrolling...
+                        </>
+                      ) : (
+                        'Confirm Enrollment'
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

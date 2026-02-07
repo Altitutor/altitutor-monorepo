@@ -16,12 +16,15 @@ export interface SendInviteEmailRequest {
   type: 'staff' | 'student';
   id: string;
   token: string;
+  customMessage?: string;
 }
 
 export interface SendInviteSmsRequest {
   type: 'staff' | 'student';
   id: string;
   token: string;
+  customMessage?: string;
+  ownedNumberId?: string;
 }
 
 export interface ValidateInviteResponse {

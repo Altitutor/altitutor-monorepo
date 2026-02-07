@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import type { Database } from '@altitutor/shared';
 
 /**
  * PATCH /api/blockouts/[id]
@@ -85,7 +84,11 @@ export async function PATCH(
     }
     
     // Build update object
-    const updates: Record<string, any> = {};
+    const updates: {
+      start_at?: string;
+      end_at?: string;
+      reason?: string | null;
+    } = {};
     if (body.start_at !== undefined) updates.start_at = body.start_at;
     if (body.end_at !== undefined) updates.end_at = body.end_at;
     if (body.reason !== undefined) updates.reason = body.reason || null;

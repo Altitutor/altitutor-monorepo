@@ -62,7 +62,7 @@ export async function PATCH(
       .from('notes')
       .select('id, created_by')
       .eq('id', params.noteId)
-      .maybeSingle();
+      .maybeSingle<{ id: string; created_by: string | null }>();
     
     if (noteError) {
       console.error('Error checking note:', noteError);
@@ -79,7 +79,7 @@ export async function PATCH(
       );
     }
     
-    const noteCreatedBy = (existingNote as any).created_by;
+    const noteCreatedBy = existingNote.created_by;
     if (!noteCreatedBy || noteCreatedBy !== tutorId) {
       return NextResponse.json(
         { error: 'Unauthorized: You can only edit your own notes' },
@@ -166,7 +166,7 @@ export async function DELETE(
       .from('notes')
       .select('id, created_by')
       .eq('id', params.noteId)
-      .maybeSingle();
+      .maybeSingle<{ id: string; created_by: string | null }>();
     
     if (noteError) {
       console.error('Error checking note:', noteError);
@@ -183,7 +183,7 @@ export async function DELETE(
       );
     }
     
-    const noteCreatedBy = (existingNote as any).created_by;
+    const noteCreatedBy = existingNote.created_by;
     if (!noteCreatedBy || noteCreatedBy !== tutorId) {
       return NextResponse.json(
         { error: 'Unauthorized: You can only delete your own notes' },

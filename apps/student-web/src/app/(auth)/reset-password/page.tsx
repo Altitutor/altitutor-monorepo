@@ -22,14 +22,9 @@ function ResetPasswordContent() {
 
         // Check if we have a valid session (PKCE flow)
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        console.log('Reset password session check:', {
-          hasSession: !!session,
-          sessionError: sessionError?.message,
-          userEmail: session?.user?.email
-        });
 
         if (sessionError) {
+          // eslint-disable-next-line no-console
           console.error('Session error during password reset validation:', sessionError);
           setError('Invalid or expired reset session. Please request a new password reset.');
           setIsValidSession(false);
@@ -46,6 +41,7 @@ function ResetPasswordContent() {
         setIsValidSession(true);
         
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error('Session validation error:', err);
         setError('Failed to validate reset session. Please try again.');
         setIsValidSession(false);

@@ -85,7 +85,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Update staff record - link to auth user, update email if changed, clear invite token
-    const updateData: any = {
+    const updateData: {
+      user_id: string;
+      invite_token: null;
+      email?: string;
+    } = {
       user_id: authData.user.id,
       invite_token: null, // Clear the token after successful use
     };

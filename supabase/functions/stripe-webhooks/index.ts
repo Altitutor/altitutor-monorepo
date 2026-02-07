@@ -220,14 +220,8 @@ Deno.serve(async (req: Request) => {
         const customer = event.data.object as any;
         const customerId = customer.id;
         const defaultPmId = customer.invoice_settings?.default_payment_method as string | undefined;
-        
-        if (!defaultPmId) {
-          await supabase
-            .from('stripe_webhook_events')
-            .update({ processed: true, processed_at: new Date().toISOString() })
-            .eq('stripe_event_id', event.id);
-          return json({ received: true });
-        }
+        const customerBalance = customer.balance || 0; // Negative = credit balance, positive = amount owed
+        const currency = customer.currency || 'aud';
         
         // Find student by stripe_customer_id
         const { data: billing } = await supabase
@@ -245,21 +239,38 @@ Deno.serve(async (req: Request) => {
         }
         
         try {
-          // Unset all defaults for this student
-          await supabase
-            .from('student_payment_methods')
-            .update({ is_default: false })
+          // Update customer balance
+          const { error: balanceError } = await supabase
+            .from('students_billing')
+            .update({
+              customer_balance_cents: customerBalance,
+              customer_balance_currency: currency.toLowerCase(),
+              customer_balance_updated_at: new Date().toISOString(),
+            })
             .eq('student_id', billing.student_id);
           
-          // Set the Stripe default as default in DB
-          const { error: updateError } = await supabase
-            .from('student_payment_methods')
-            .update({ is_default: true })
-            .eq('student_id', billing.student_id)
-            .eq('stripe_payment_method_id', defaultPmId);
+          if (balanceError) {
+            console.error('[webhook] Failed to update customer balance:', balanceError);
+          }
           
-          if (updateError) {
-            console.error('[webhook] Failed to sync default payment method:', updateError);
+          // Update default payment method if provided
+          if (defaultPmId) {
+            // Unset all defaults for this student
+            await supabase
+              .from('student_payment_methods')
+              .update({ is_default: false })
+              .eq('student_id', billing.student_id);
+            
+            // Set the Stripe default as default in DB
+            const { error: updateError } = await supabase
+              .from('student_payment_methods')
+              .update({ is_default: true })
+              .eq('student_id', billing.student_id)
+              .eq('stripe_payment_method_id', defaultPmId);
+            
+            if (updateError) {
+              console.error('[webhook] Failed to sync default payment method:', updateError);
+            }
           }
         } catch (e: any) {
           console.error('[webhook] customer.updated handler error:', e?.message || e);
@@ -420,6 +431,12 @@ Deno.serve(async (req: Request) => {
           // Continue with update even if fetch fails - we'll just have null charge/payment_intent IDs
         }
         
+        // Calculate amount paid from customer balance
+        const subtotalCents = invoice.subtotal || null;
+        const totalCents = invoice.total || null;
+        const amountDueCents = invoice.amount_due || 0;
+        const amountPaidFromBalanceCents = totalCents ? Math.max(0, totalCents - amountDueCents) : null;
+
         // Update invoice status to 'paid'
         const { error: payErr } = await supabase
           .from('invoices')
@@ -427,7 +444,11 @@ Deno.serve(async (req: Request) => {
             status: 'paid',
             stripe_charge_id: chargeId, // CRITICAL: For disputes
             stripe_payment_intent_id: payment_intent_id,
+            subtotal_cents: subtotalCents,
+            total_cents: totalCents,
             amount_paid_cents: invoice.amount_paid || invoice.amount_due,
+            amount_due_cents: amountDueCents,
+            amount_paid_from_balance_cents: amountPaidFromBalanceCents,
             fee_cents,
             net_cents,
             receipt_url,
@@ -491,9 +512,18 @@ Deno.serve(async (req: Request) => {
           .eq('stripe_invoice_id', invoice.id)
           .maybeSingle();
         
+        // Calculate amount paid from customer balance
+        const subtotalCents = invoice.subtotal || null;
+        const totalCents = invoice.total || null;
+        const amountDueCents = invoice.amount_due || 0;
+        const amountPaidFromBalanceCents = totalCents ? Math.max(0, totalCents - amountDueCents) : null;
+
         const updateData: any = {
-          amount_due_cents: invoice.amount_due,
+          subtotal_cents: subtotalCents,
+          total_cents: totalCents,
+          amount_due_cents: amountDueCents,
           amount_paid_cents: invoice.amount_paid || 0,
+          amount_paid_from_balance_cents: amountPaidFromBalanceCents,
           hosted_invoice_url: invoice.hosted_invoice_url || null,
           invoice_pdf: invoice.invoice_pdf || null,
         };

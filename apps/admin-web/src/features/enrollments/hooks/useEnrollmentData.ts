@@ -4,7 +4,7 @@ import type { EnrollmentContext, StudentWithEnrollmentInfo } from '../types/enro
 
 interface UseEnrollmentDataProps {
   isOpen: boolean;
-  step: 1 | 2 | 3;
+  step: 1 | 2 | 3 | 4;
   context: EnrollmentContext;
   onFetchStudents?: () => Promise<StudentWithEnrollmentInfo[]>;
   onFetchClasses?: () => Promise<ClassWithExpandedSubject[]>;

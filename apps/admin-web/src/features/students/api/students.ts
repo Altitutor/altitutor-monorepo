@@ -146,8 +146,22 @@ export const studentsApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { students: [], total: 0 };
 
-    const rpcData = rpcResult as { students: any[]; total: number };
-    let students = (rpcData.students || []) as any[];
+    interface RpcStudent {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      status: string;
+      curriculum: string | null;
+      year_level: number | null;
+      school: string | null;
+      email?: string | null;
+      phone?: string | null;
+      classes?: Array<{ subject?: { id: string } }>;
+      [key: string]: unknown;
+    }
+
+    const rpcData = rpcResult as { students: RpcStudent[]; total: number };
+    let students = rpcData.students || [];
 
     // Apply additional filters that RPC doesn't support (curriculums, yearLevels, subjectIds)
     if (curriculums.length > 0) {
@@ -160,12 +174,12 @@ export const studentsApi = {
       // Filter by subject IDs - check if student has any of the requested subjects in their classes
       students = students.filter((s) => {
         const studentClasses = s.classes || [];
-        return studentClasses.some((cls: any) => cls.subject && subjectIds.includes(cls.subject.id));
+        return studentClasses.some((cls) => cls.subject && subjectIds.includes(cls.subject.id));
       });
     }
 
     // Transform RPC response to match expected format
-    const transformedStudents = students.map((s: any) => ({
+    const transformedStudents = students.map((s) => ({
       id: s.id,
       first_name: s.first_name,
       last_name: s.last_name,
@@ -177,13 +191,18 @@ export const studentsApi = {
       phone: s.phone || null,
       created_at: s.created_at || null,
       updated_at: s.updated_at || null,
-      classes: (s.classes || []).map((cls: any) => ({
-        id: cls.id,
-        day_of_week: cls.day_of_week,
-        start_time: cls.start_time,
-        level: cls.level,
-        subject: cls.subject || null,
-      })),
+      classes: (s.classes || []).map((cls) => {
+        if (!cls || typeof cls !== 'object' || !('id' in cls)) {
+          return null;
+        }
+        return {
+          id: String(cls.id),
+          day_of_week: 'day_of_week' in cls && typeof cls.day_of_week === 'number' ? cls.day_of_week : null,
+          start_time: 'start_time' in cls && typeof cls.start_time === 'string' ? cls.start_time : null,
+          level: 'level' in cls && typeof cls.level === 'string' ? cls.level : null,
+          subject: 'subject' in cls && cls.subject ? cls.subject as Tables<'subjects'> : null,
+        };
+      }).filter((cls): cls is NonNullable<typeof cls> => cls !== null),
     }));
 
     // Use RPC total for pagination (client-side filters reduce visible items but don't affect total count for pagination)
@@ -229,8 +248,38 @@ export const studentsApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { students: [], total: 0 };
 
-    const rpcData = rpcResult as { students: any[]; total: number };
-    const students = (rpcData.students || []).map((s: any) => ({
+    interface RpcStudentSimple {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      status: string;
+      curriculum: string | null;
+      year_level: number | null;
+      school: string | null;
+      email?: string | null;
+      phone?: string | null;
+      created_at?: string | null;
+      updated_at?: string | null;
+    }
+
+    // Type guard for RPC result
+    const isRpcResult = (result: unknown): result is { students: RpcStudentSimple[]; total: number } => {
+      return (
+        typeof result === 'object' &&
+        result !== null &&
+        'students' in result &&
+        'total' in result &&
+        Array.isArray((result as { students: unknown }).students) &&
+        typeof (result as { total: unknown }).total === 'number'
+      );
+    };
+    
+    if (!isRpcResult(rpcResult)) {
+      return { students: [], total: 0 };
+    }
+    
+    const rpcData = rpcResult;
+    const students = (rpcData.students || []).map((s) => ({
       id: s.id,
       first_name: s.first_name,
       last_name: s.last_name,
@@ -331,34 +380,51 @@ export const studentsApi = {
 
       // Transform subjects
       const subjects = (subjectsResult.data ?? [])
-        .map((row: any) => row.subject_details)
-        .filter(Boolean) as Tables<'subjects'>[];
+        .map((row) => {
+          if (!row || typeof row !== 'object' || !('subject_details' in row)) return null;
+          return row.subject_details;
+        })
+        .filter((s): s is Tables<'subjects'> => s !== null && typeof s === 'object');
 
       // Transform classes
       const classes: ClassWithExpandedSubject[] = (classesResult.data ?? [])
-        .map((row: any) => {
+        .map((row) => {
+          if (!row || typeof row !== 'object' || !('class' in row)) return null;
           const cls = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
           if (!cls) return null;
           const classWithSubject: ClassWithExpandedSubject = {
             ...cls,
             subject: cls.subject_details,
           };
-          delete (classWithSubject as any).subject_details;
+          delete (classWithSubject as Record<string, unknown>).subject_details;
           return classWithSubject;
         })
         .filter(Boolean) as ClassWithExpandedSubject[];
 
       // Transform parents
       const parents = (parentsResult.data ?? [])
-        .map((row: any) => row.parent_details)
-        .filter(Boolean) as Tables<'parents'>[];
+        .map((row) => {
+          if (!row || typeof row !== 'object' || !('parent_details' in row)) return null;
+          return row.parent_details;
+        })
+        .filter((p): p is Tables<'parents'> => p !== null && typeof p === 'object');
 
       // Sessions - transform from sessions_students join, filter and sort client-side
       const upcomingSessions = (sessionsResult.data ?? [])
-        .map((row: any) => row.sessions)
-        .filter((s: any) => s && s.start_at && new Date(s.start_at) >= new Date())
-        .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-        .slice(0, 5) as Tables<'sessions'>[];
+        .map((row) => {
+          if (!row || typeof row !== 'object' || !('sessions' in row)) return null;
+          return row.sessions;
+        })
+        .filter((s): s is Tables<'sessions'> => {
+          return s !== null && typeof s === 'object' && 'start_at' in s && 
+                 s.start_at !== null && new Date(s.start_at) >= new Date();
+        })
+        .sort((a, b) => {
+          const aTime = a.start_at ? new Date(a.start_at).getTime() : 0;
+          const bTime = b.start_at ? new Date(b.start_at).getTime() : 0;
+          return aTime - bTime;
+        })
+        .slice(0, 5);
 
       // Billing status - simplified for now (can be enhanced later)
       const billingStatus = {
@@ -426,9 +492,11 @@ export const studentsApi = {
       
       // Transform subjects data
       const subjects = subjectsData
-        ?.map((row: any) => row.subject_details)
-        .filter(Boolean)
-        .map((subject: any) => subject as Tables<'subjects'>) || [];
+        ?.map((row) => {
+          if (!row || typeof row !== 'object' || !('subject_details' in row)) return null;
+          return row.subject_details;
+        })
+        .filter((s): s is Tables<'subjects'> => s !== null && typeof s === 'object') || [];
       
       return { student, subjects };
       
@@ -483,9 +551,39 @@ export const studentsApi = {
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
 
-      const rpcData = rpcResult as { students: any[]; total: number };
+      interface SearchRpcStudent {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        status: string;
+        curriculum: string | null;
+        year_level: number | null;
+        school: string | null;
+        email?: string | null;
+        phone?: string | null;
+        created_at?: string | null;
+        updated_at?: string | null;
+      }
+
+      // Type guard for RPC result
+      const isRpcResult = (result: unknown): result is { students: SearchRpcStudent[]; total: number } => {
+        return (
+          typeof result === 'object' &&
+          result !== null &&
+          'students' in result &&
+          'total' in result &&
+          Array.isArray((result as { students: unknown }).students) &&
+          typeof (result as { total: unknown }).total === 'number'
+        );
+      };
+      
+      if (!isRpcResult(rpcResult)) {
+        return [];
+      }
+      
+      const rpcData = rpcResult;
       // Transform RPC response to match Tables<'students'> format
-      return (rpcData.students || []).map((s: any) => ({
+      return (rpcData.students || []).map((s) => ({
         id: s.id,
         first_name: s.first_name,
         last_name: s.last_name,
@@ -656,8 +754,29 @@ export const studentsApi = {
       if (rpcError) throw rpcError;
       if (!rpcResult) return { students: [], studentSubjects: {}, studentClasses: {}, total: 0 };
       
-      const rpcData = rpcResult as { students: any[]; total: number };
-      const rpcStudents = (rpcData.students || []) as any[];
+      interface BulkRpcStudent {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        status: string;
+        curriculum: string | null;
+        year_level: number | null;
+        school: string | null;
+        email?: string | null;
+        phone?: string | null;
+        classes?: Array<{
+          id: string;
+          day_of_week: number | null;
+          start_time: string | null;
+          level: string | null;
+          subject?: { id: string; name: string; [key: string]: unknown };
+          [key: string]: unknown;
+        }>;
+        [key: string]: unknown;
+      }
+
+      const rpcData = rpcResult as { students: BulkRpcStudent[]; total: number };
+      const rpcStudents = rpcData.students || [];
       
       // Transform RPC response to match expected format
       const students: Tables<'students'>[] = [];
@@ -665,7 +784,7 @@ export const studentsApi = {
       const studentClasses: Record<string, Tables<'classes'>[]> = {};
       
       // Initialize arrays for all students
-      rpcStudents.forEach((s: any) => {
+      rpcStudents.forEach((s) => {
         students.push({
           id: s.id,
           first_name: s.first_name,
@@ -686,7 +805,8 @@ export const studentsApi = {
         
         // Extract classes from RPC response
         if (s.classes && Array.isArray(s.classes)) {
-          s.classes.forEach((cls: any) => {
+          s.classes.forEach((cls) => {
+            if (!cls || typeof cls !== 'object' || !('id' in cls)) return;
             // Extract class data (without subject nested structure)
             const classData: Tables<'classes'> = {
               id: cls.id,
@@ -720,7 +840,8 @@ export const studentsApi = {
         
         if (studentSubjectsError) throw studentSubjectsError;
         
-        studentSubjectsData?.forEach((row: any) => {
+        studentSubjectsData?.forEach((row) => {
+          if (!row || typeof row !== 'object' || !('subject_details' in row) || !('student_id' in row)) return;
           if (row.subject_details && row.student_id) {
             const subject = row.subject_details as Tables<'subjects'>;
             if (studentSubjects[row.student_id]) {
@@ -774,7 +895,8 @@ export const studentsApi = {
       .select('student_id, subject_details:subjects(*)')
       .in('student_id', studentIds);
     if (ssError) throw ssError;
-    ssData?.forEach((row: any) => {
+    ssData?.forEach((row) => {
+      if (!row || typeof row !== 'object' || !('student_id' in row)) return;
       const sid = row.student_id as string;
       const subj = row.subject_details as Tables<'subjects'> | null;
       if (sid && subj) studentSubjects[sid].push(subj);
@@ -787,7 +909,8 @@ export const studentsApi = {
       .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`)
       .in('student_id', studentIds);
     if (csError) throw csError;
-    csData?.forEach((row: any) => {
+    csData?.forEach((row) => {
+      if (!row || typeof row !== 'object' || !('student_id' in row) || !('class' in row)) return;
       const sid = row.student_id as string;
       const classWithSubject = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
       if (sid && classWithSubject) {
@@ -858,7 +981,8 @@ export const studentsApi = {
 
     // Group students by parent_id
     const grouped: Record<string, Tables<'students'>[]> = {};
-    data?.forEach((item: any) => {
+    data?.forEach((item) => {
+      if (!item || typeof item !== 'object' || !('parent_id' in item) || !('students' in item)) return;
       if (item.students) {
         if (!grouped[item.parent_id]) {
           grouped[item.parent_id] = [];

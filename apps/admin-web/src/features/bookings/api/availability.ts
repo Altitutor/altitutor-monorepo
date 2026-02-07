@@ -1,6 +1,4 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface AvailableSlot {
   start_at: string;
