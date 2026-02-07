@@ -8,7 +8,7 @@ import { StudentCard } from '@/shared/components/StudentCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { calculateFirstSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
-import { subDays } from 'date-fns';
+import { subDays, isBefore, startOfDay } from 'date-fns';
 import { formatDate } from '@/shared/utils/datetime';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
 import { pricingApi } from '@/features/billing/api/pricing';
@@ -44,6 +44,9 @@ export function Step3SummaryAndConfirm({
   
   // Calculate first billing date (day before first session)
   const firstBillingDate = firstSessionDate ? subDays(firstSessionDate, 1) : null;
+  
+  // Check if first billing date is in the past
+  const isBillingDateInPast = firstBillingDate ? isBefore(startOfDay(firstBillingDate), startOfDay(new Date())) : false;
 
   // Fetch pricing data for billing amount calculation
   const { data: billingPricing = [] } = useQuery({
@@ -157,7 +160,7 @@ export function Step3SummaryAndConfirm({
         )}
 
         {firstBillingDate && (
-          <div className="p-3 bg-muted rounded-lg">
+          <div className={`p-3 rounded-lg ${isBillingDateInPast ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800' : 'bg-muted'}`}>
             <p className="text-sm font-medium">First Billing Date</p>
             <p className="text-sm text-muted-foreground">
               {formatDate(firstBillingDate)}
@@ -166,6 +169,14 @@ export function Step3SummaryAndConfirm({
               <p className="text-sm font-medium mt-1">
                 {formatCurrency(billingAmount.amount_cents, billingAmount.currency)}
               </p>
+            )}
+            {isBillingDateInPast && (
+              <div className="mt-2 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-orange-800 dark:text-orange-200">
+                  This session will need to be invoiced manually as the billing date is in the past.
+                </p>
+              </div>
             )}
           </div>
         )}

@@ -9,7 +9,7 @@ import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { MessageSquare, ChevronDown, Check } from 'lucide-react';
+import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
 import { getEnrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
 import { formatClassName } from '@/shared/utils';
 import { formatDate } from '@/shared/utils/datetime';
@@ -187,6 +187,23 @@ export function Step4MessageScreen({
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {/* Success Indicator */}
+      {selectedStudent && selectedClass && (
+        <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2 flex-shrink-0">
+          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+          <p className="text-sm text-green-800 dark:text-green-200">
+            Successfully enrolled{' '}
+            <span className="font-semibold">
+              {selectedStudent.first_name} {selectedStudent.last_name}
+            </span>
+            {' '}in{' '}
+            <span className="font-semibold">
+              {selectedClass.subject ? formatClassName(selectedClass, selectedClass.subject) : 'class'}
+            </span>
+          </p>
+        </div>
+      )}
+
       {/* Student and Class Cards */}
       <div className="flex gap-3 mb-4 flex-shrink-0 items-stretch">
         {selectedStudent && (
