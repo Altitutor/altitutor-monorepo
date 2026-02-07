@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { useChangeClassData, useChangeClassFlow } from '../hooks';
@@ -123,74 +123,144 @@ export function ChangeClassModal({
     }
   };
 
+  const getStepTitle = (step: 1 | 2 | 3): string => {
+    switch (step) {
+      case 1:
+        return 'Select New Class';
+      case 2:
+        return 'Select Changeover Date';
+      case 3:
+        return 'Summary & Confirm';
+      default:
+        return '';
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>Change Class</DialogTitle>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4 flex flex-col">
-          {/* Always show student and old class at top */}
-          <div className="space-y-2 mb-4 flex-shrink-0">
-            <div className="mb-2">
-              <StudentCard
-                student={student}
-                subjects={studentSubjects}
-                showSubjects={true}
-              />
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+        {/* Header */}
+        <div className="flex-shrink-0 border-b bg-background">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1 min-w-0">
+                  <DialogTitle>Change Class</DialogTitle>
+                  <DialogDescription>
+                    Step {step} of 3: {getStepTitle(step)}
+                  </DialogDescription>
+                </div>
+              </div>
             </div>
-            
-            <div className="mb-2">
-              <ClassCard
-                class={oldClass}
-                subject={oldClassSubject}
-                staff={oldClassStaff}
-              />
+          </DialogHeader>
+
+          {/* Progress Indicator */}
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={`flex-1 h-2 rounded-full transition-colors ${
+                    index < step - 1
+                      ? 'bg-primary'
+                      : index === step - 1
+                      ? 'bg-primary/50'
+                      : 'bg-muted'
+                  }`}
+                />
+              ))}
             </div>
           </div>
-
-          {/* Step 1: Select New Class */}
-          {step === 1 && (
-            <ChangeClassStep1SelectClass
-              isFetching={isFetching}
-              filteredClasses={filteredClasses}
-              selectedNewClassId={selectedNewClassId}
-              searchQuery={searchQuery}
-              dayFilters={dayFilters}
-              availableDays={availableDays}
-              onSearchChange={setSearchQuery}
-              onToggleDay={toggleDay}
-              onClearFilters={clearFilters}
-              onSelectClass={setSelectedNewClassId}
-            />
-          )}
-
-          {/* Step 2: Select Changeover Date */}
-          {step === 2 && (
-            <div className="flex-1 overflow-y-auto">
-              <ChangeClassStep2SelectDate
-                changeoverDate={changeoverDate}
-                onDateChange={setChangeoverDate}
-              />
-            </div>
-          )}
-
-          {/* Step 3: Summary & Confirm */}
-          {step === 3 && (
-            <div className="flex-1 overflow-y-auto">
-              <ChangeClassStep3Summary
-                oldClass={oldClass}
-                oldClassSubject={oldClassSubject}
-                oldClassStaff={oldClassStaff}
-                selectedNewClass={selectedNewClass}
-                changeoverDate={changeoverDate}
-                timeOverlapWarning={timeOverlapWarning}
-              />
-            </div>
-          )}
         </div>
 
+        {/* Content */}
+        <div className="flex-1 overflow-hidden min-h-0">
+          <div className="h-full overflow-y-auto">
+            <div className="p-6">
+              {/* Always show student and class cards inline */}
+              <div className="flex gap-4 mb-4 flex-shrink-0 items-stretch">
+                <div className="flex-1 min-w-0">
+                  <StudentCard
+                    student={student}
+                    subjects={studentSubjects}
+                    showSubjects={false}
+                  />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <ClassCard
+                    class={oldClass}
+                    subject={oldClassSubject}
+                    staff={oldClassStaff}
+                  />
+                </div>
+                
+                {selectedNewClass && (
+                  <div className="flex-1 min-w-0">
+                    <ClassCard
+                      class={selectedNewClass}
+                      subject={selectedNewClass.subject}
+                      staff={selectedNewClass.staff || []}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Step 1: Select New Class */}
+              {step === 1 && (
+                <ChangeClassStep1SelectClass
+                  isFetching={isFetching}
+                  filteredClasses={filteredClasses}
+                  selectedNewClassId={selectedNewClassId}
+                  searchQuery={searchQuery}
+                  dayFilters={dayFilters}
+                  availableDays={availableDays}
+                  onSearchChange={setSearchQuery}
+                  onToggleDay={toggleDay}
+                  onClearFilters={clearFilters}
+                  onSelectClass={setSelectedNewClassId}
+                />
+              )}
+
+              {/* Step 2: Select Changeover Date */}
+              {step === 2 && (
+                <ChangeClassStep2SelectDate
+                  changeoverDate={changeoverDate}
+                  onDateChange={setChangeoverDate}
+                  studentId={student.id}
+                  selectedStudent={student}
+                  selectedNewClass={selectedNewClass}
+                  oldClass={oldClass}
+                  oldClassSubject={oldClassSubject}
+                  oldClassStaff={oldClassStaff}
+                />
+              )}
+
+              {/* Step 3: Summary & Confirm */}
+              {step === 3 && (
+                <ChangeClassStep3Summary
+                  studentId={student.id}
+                  oldClass={oldClass}
+                  oldClassSubject={oldClassSubject}
+                  oldClassStaff={oldClassStaff}
+                  selectedNewClass={selectedNewClass}
+                  changeoverDate={changeoverDate}
+                  timeOverlapWarning={timeOverlapWarning}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
         <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
           <div className="flex gap-2">
             {step > 1 && (
@@ -202,10 +272,6 @@ export function ChangeClassModal({
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={isChanging}>
-              Cancel
-            </Button>
-            
             {step < 3 ? (
               <Button 
                 onClick={handleNext}
