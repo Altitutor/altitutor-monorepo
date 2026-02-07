@@ -103,10 +103,11 @@ Deno.serve(async (req: Request) => {
           });
           
           // Calculate amount paid from customer balance
-          const subtotalCents = invoice.subtotal || 0;
-          const totalCents = invoice.total || 0;
-          const amountDueCents = invoice.amount_due || 0;
-          const amountPaidFromBalanceCents = Math.max(0, totalCents - amountDueCents);
+          // Use null coalescing to properly handle null values (important for customer balance payments)
+          const subtotalCents = invoice.subtotal ?? null;
+          const totalCents = invoice.total ?? null;
+          const amountDueCents = invoice.amount_due ?? 0;
+          const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
           // Create DB record
           const { data: dbInvoice, error: insertErr } = await supabase
@@ -116,10 +117,10 @@ Deno.serve(async (req: Request) => {
               stripe_invoice_id: invoice.id,
               stripe_invoice_number: invoice.number,
               invoice_date: invoiceDate,
-              subtotal_cents: subtotalCents || null,
-              total_cents: totalCents || null,
+              subtotal_cents: subtotalCents,
+              total_cents: totalCents,
               amount_due_cents: amountDueCents,
-              amount_paid_cents: invoice.amount_paid || 0,
+              amount_paid_cents: invoice.amount_paid ?? 0,
               amount_paid_from_balance_cents: amountPaidFromBalanceCents,
               currency: invoice.currency,
               status: invoice.status,

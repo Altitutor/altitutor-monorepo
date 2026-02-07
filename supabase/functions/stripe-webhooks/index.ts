@@ -383,9 +383,11 @@ Deno.serve(async (req: Request) => {
         let receipt_url: string | null = null;
         
         // Fetch invoice from Stripe with expanded fields to get charge/payment_intent IDs
-        // Webhook payloads are minimal and don't include expanded fields
+        // Webhook payloads are minimal and don't include expanded fields or reliable subtotal/total
+        // CRITICAL: Use fullInvoice for subtotal/total to correctly handle customer balance payments
+        let fullInvoice: any = null;
         try {
-          const fullInvoice = await stripe.invoices.retrieve(invoice.id, {
+          fullInvoice = await stripe.invoices.retrieve(invoice.id, {
             expand: ['latest_charge', 'payment_intent']
           });
           
@@ -432,10 +434,13 @@ Deno.serve(async (req: Request) => {
         }
         
         // Calculate amount paid from customer balance
-        const subtotalCents = invoice.subtotal || null;
-        const totalCents = invoice.total || null;
-        const amountDueCents = invoice.amount_due || 0;
-        const amountPaidFromBalanceCents = totalCents ? Math.max(0, totalCents - amountDueCents) : null;
+        // Use fullInvoice if available (has reliable subtotal/total), otherwise fall back to webhook payload
+        // When customer balance is applied: total > 0 but amount_due = 0
+        const invoiceForAmounts = fullInvoice || invoice;
+        const subtotalCents = invoiceForAmounts.subtotal ?? null;
+        const totalCents = invoiceForAmounts.total ?? null;
+        const amountDueCents = invoiceForAmounts.amount_due ?? 0;
+        const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
         // Update invoice status to 'paid'
         const { error: payErr } = await supabase
@@ -446,7 +451,7 @@ Deno.serve(async (req: Request) => {
             stripe_payment_intent_id: payment_intent_id,
             subtotal_cents: subtotalCents,
             total_cents: totalCents,
-            amount_paid_cents: invoice.amount_paid || invoice.amount_due,
+            amount_paid_cents: invoiceForAmounts.amount_paid ?? invoiceForAmounts.amount_due ?? 0,
             amount_due_cents: amountDueCents,
             amount_paid_from_balance_cents: amountPaidFromBalanceCents,
             fee_cents,
@@ -512,17 +517,29 @@ Deno.serve(async (req: Request) => {
           .eq('stripe_invoice_id', invoice.id)
           .maybeSingle();
         
+        // Fetch full invoice from Stripe API to get reliable subtotal/total values
+        // Webhook payloads may not include these fields or may have them as null
+        let fullInvoice: any = null;
+        try {
+          fullInvoice = await stripe.invoices.retrieve(invoice.id);
+        } catch (e: any) {
+          console.error('[webhook] Error fetching invoice from Stripe for invoice.updated:', e?.message || e);
+          // Continue with webhook payload if fetch fails
+        }
+        
         // Calculate amount paid from customer balance
-        const subtotalCents = invoice.subtotal || null;
-        const totalCents = invoice.total || null;
-        const amountDueCents = invoice.amount_due || 0;
-        const amountPaidFromBalanceCents = totalCents ? Math.max(0, totalCents - amountDueCents) : null;
+        // Use fullInvoice if available (has reliable subtotal/total), otherwise fall back to webhook payload
+        const invoiceForAmounts = fullInvoice || invoice;
+        const subtotalCents = invoiceForAmounts.subtotal ?? null;
+        const totalCents = invoiceForAmounts.total ?? null;
+        const amountDueCents = invoiceForAmounts.amount_due ?? 0;
+        const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
         const updateData: any = {
           subtotal_cents: subtotalCents,
           total_cents: totalCents,
           amount_due_cents: amountDueCents,
-          amount_paid_cents: invoice.amount_paid || 0,
+          amount_paid_cents: invoiceForAmounts.amount_paid ?? 0,
           amount_paid_from_balance_cents: amountPaidFromBalanceCents,
           hosted_invoice_url: invoice.hosted_invoice_url || null,
           invoice_pdf: invoice.invoice_pdf || null,

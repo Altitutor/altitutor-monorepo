@@ -131,7 +131,8 @@ Deno.serve(async (req: Request) => {
         
         if (itemsError) {
           console.error(`[reconcile-items] Error checking items for invoice ${invoice.stripe_invoice_id}:`, itemsError);
-          errors.push(`Invoice ${invoice.stripe_invoice_id}: Error checking items`);
+          const errorMsg = itemsError?.message || (typeof itemsError === 'string' ? itemsError : 'Unknown error');
+          errors.push(`Invoice ${invoice.stripe_invoice_id}: Error checking items - ${errorMsg}`);
           continue;
         }
         
@@ -182,7 +183,8 @@ Deno.serve(async (req: Request) => {
           
           if (updateErr) {
             console.error(`[reconcile-items] Failed to update totals for invoice ${invoice.stripe_invoice_id}:`, updateErr);
-            errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to update totals`);
+            const errorMsg = updateErr?.message || (typeof updateErr === 'string' ? updateErr : 'Unknown error');
+            errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to update totals - ${errorMsg}`);
             continue;
           }
           reconciledThisInvoice = true;
@@ -301,7 +303,8 @@ Deno.serve(async (req: Request) => {
             
             if (itemsErr) {
               console.error(`[reconcile-items] Failed to upsert items for invoice ${invoice.stripe_invoice_id}:`, itemsErr);
-              errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to upsert items - ${itemsErr.message || 'Unknown error'}`);
+              const errorMsg = itemsErr?.message || (typeof itemsErr === 'string' ? itemsErr : 'Unknown error');
+              errors.push(`Invoice ${invoice.stripe_invoice_id}: Failed to upsert items - ${errorMsg}`);
               continue;
             }
             
