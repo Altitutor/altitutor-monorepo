@@ -277,6 +277,7 @@ export async function saveInvoiceItemsToDatabase(
     amount_cents: item.amount_cents,
     description: item.description,
     is_subsidy: item.is_subsidy || false,
+    is_fee: item.is_fee || false,
     session_id: item.session_id,
     student_id: item.student_id,
   }));

@@ -238,6 +238,7 @@ export async function loadClasses(
 /**
  * Check which sessions_students_ids are already invoiced
  * Returns a Set of invoiced sessions_students_ids
+ * Excludes voided and uncollectible invoices to allow re-invoicing
  */
 export async function getInvoicedSessionsStudentsIds(
   supabase: any,
@@ -247,10 +248,33 @@ export async function getInvoicedSessionsStudentsIds(
     return new Set();
   }
 
+  // First, get invoice_ids for active invoices (exclude voided/uncollectible)
+  // This allows re-invoicing sessions that were previously voided or marked uncollectible
+  const { data: activeInvoices, error: invoiceError } = await supabase
+    .from('invoices')
+    .select('id')
+    .in('status', ['draft', 'open', 'paid']);
+
+  if (invoiceError) {
+    console.error('[billing-runner] Error fetching active invoices:', invoiceError);
+    // On error, return empty set to be safe (won't skip sessions)
+    return new Set();
+  }
+
+  const activeInvoiceIds = (activeInvoices || []).map((inv: any) => inv.id);
+  
+  if (activeInvoiceIds.length === 0) {
+    return new Set();
+  }
+
+  // Only check invoice_items from active invoices
   const { data: invoiceItems, error } = await supabase
     .from('invoice_items')
     .select('sessions_students_id')
-    .in('sessions_students_id', sessionsStudentsIds);
+    .in('sessions_students_id', sessionsStudentsIds)
+    .in('invoice_id', activeInvoiceIds)
+    // Exclude fee items - only check session charges
+    .eq('is_fee', false);
 
   if (error) {
     console.error('[billing-runner] Error checking invoiced sessions:', error);
