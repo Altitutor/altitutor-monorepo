@@ -41,10 +41,10 @@ export async function GET(
       );
     }
 
-    // Get billing info
+    // Get billing info to find Stripe customer ID
     const { data: billing, error: billingError } = await supabaseAdmin
       .from('students_billing')
-      .select('stripe_customer_id, customer_balance_cents, customer_balance_currency, customer_balance_updated_at')
+      .select('stripe_customer_id')
       .eq('student_id', studentId)
       .maybeSingle();
 
@@ -73,7 +73,7 @@ export async function GET(
 
     const stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-12-15.clover' });
 
-    // Fetch current balance from Stripe
+    // Fetch current balance from Stripe (single source of truth)
     const customerResponse = await stripe.customers.retrieve(billing.stripe_customer_id);
     if (customerResponse.deleted) {
       return NextResponse.json(
@@ -86,16 +86,6 @@ export async function GET(
     const customer: Stripe.Customer = customerResponse as Stripe.Customer;
     const stripeBalance = customer.balance || 0;
     const currency = customer.currency || 'aud';
-
-    // Update database with latest balance
-    await supabaseAdmin
-      .from('students_billing')
-      .update({
-        customer_balance_cents: stripeBalance,
-        customer_balance_currency: currency.toLowerCase(),
-        customer_balance_updated_at: new Date().toISOString(),
-      })
-      .eq('student_id', studentId);
 
     return NextResponse.json({
       balance_cents: stripeBalance,
@@ -206,16 +196,6 @@ export async function POST(
     // Type guard: after checking deleted, we know it's a Customer
     const customer: Stripe.Customer = customerResponse as Stripe.Customer;
     const newBalance = customer.balance || 0;
-
-    // Update database
-    await supabaseAdmin
-      .from('students_billing')
-      .update({
-        customer_balance_cents: newBalance,
-        customer_balance_currency: currency.toLowerCase(),
-        customer_balance_updated_at: new Date().toISOString(),
-      })
-      .eq('student_id', studentId);
 
     return NextResponse.json({
       success: true,

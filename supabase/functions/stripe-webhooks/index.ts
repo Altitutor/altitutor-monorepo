@@ -220,8 +220,6 @@ Deno.serve(async (req: Request) => {
         const customer = event.data.object as any;
         const customerId = customer.id;
         const defaultPmId = customer.invoice_settings?.default_payment_method as string | undefined;
-        const customerBalance = customer.balance || 0; // Negative = credit balance, positive = amount owed
-        const currency = customer.currency || 'aud';
         
         // Find student by stripe_customer_id
         const { data: billing } = await supabase
@@ -239,19 +237,7 @@ Deno.serve(async (req: Request) => {
         }
         
         try {
-          // Update customer balance
-          const { error: balanceError } = await supabase
-            .from('students_billing')
-            .update({
-              customer_balance_cents: customerBalance,
-              customer_balance_currency: currency.toLowerCase(),
-              customer_balance_updated_at: new Date().toISOString(),
-            })
-            .eq('student_id', billing.student_id);
-          
-          if (balanceError) {
-            console.error('[webhook] Failed to update customer balance:', balanceError);
-          }
+          // Note: Customer balance is now fetched on-demand from Stripe, not cached in DB
           
           // Update default payment method if provided
           if (defaultPmId) {
