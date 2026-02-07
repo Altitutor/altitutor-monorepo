@@ -392,6 +392,7 @@ export const reconciliationApi = {
         created_at,
         updated_at,
         students_subjects(
+          created_at,
           subject:subjects(
             id,
             name,
@@ -463,6 +464,7 @@ export const reconciliationApi = {
             subject_name: subject.name,
             subject_curriculum: subject.curriculum,
             subject_year_level: subject.year_level,
+            subject_added_at: (studentSubject as any).created_at ?? null,
             created_at: student.created_at ?? '',
             updated_at: student.updated_at ?? '',
           });
@@ -482,6 +484,19 @@ export const reconciliationApi = {
 
   /**
    * Get students without payment method
+   * 
+   * Query Logic:
+   * 1. Fetches all students with status = 'CURRENT'
+   * 2. Fetches all payment methods from student_payment_methods table
+   *    - Note: RLS policy requires ADMINSTAFF role to access this table
+   *    - If query runs without ADMINSTAFF permissions, no payment methods will be returned,
+   *      causing ALL students to appear as having no payment method
+   * 3. Filters students to only those NOT in the set of students with payment methods
+   * 
+   * Potential Issues:
+   * - Only includes students with status = 'CURRENT' (excludes TRIAL, INACTIVE, etc.)
+   * - RLS on student_payment_methods may filter results if not running as ADMINSTAFF
+   * - Payment methods are hard-deleted (no soft delete), so deleted methods won't appear
    */
   getStudentsWithoutPaymentMethod: async (): Promise<StudentWithoutPaymentMethod[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -507,12 +522,18 @@ export const reconciliationApi = {
     if (studentsError) throw studentsError;
     
     // Get all payment methods
+    // IMPORTANT: This query requires ADMINSTAFF role due to RLS policies
+    // If this query returns empty/null, check that the user has ADMINSTAFF role
     const { data: paymentMethods, error: pmError } = await supabase
       .from('student_payment_methods')
       .select('student_id');
     
-    if (pmError) throw pmError;
+    if (pmError) {
+      console.error('[getStudentsWithoutPaymentMethod] Error fetching payment methods:', pmError);
+      throw pmError;
+    }
     
+    // Build set of student IDs who have payment methods
     const studentsWithPaymentMethods = new Set(paymentMethods?.map(pm => pm.student_id) ?? []);
     
     // Filter to students without payment methods
@@ -536,22 +557,71 @@ export const reconciliationApi = {
   },
 
   /**
-   * Get trial students who haven't signed up
+   * Get trial students who have at least one trial session in the past
    */
   getTrialStudentsNotSignedUp: async (): Promise<TrialStudentNotSignedUp[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
+    // First, find all TRIAL_SESSION sessions that are in the past
+    const now = new Date().toISOString();
+    const { data: pastTrialSessions, error: sessionsError } = await supabase
+      .from('sessions')
+      .select('id, start_at')
+      .eq('type', 'TRIAL_SESSION')
+      .lt('start_at', now)
+      .order('start_at', { ascending: true });
+    
+    if (sessionsError) throw sessionsError;
+    
+    // If no past trial sessions found, return empty array
+    if (!pastTrialSessions || pastTrialSessions.length === 0) {
+      return [];
+    }
+    
+    // Get student IDs who attended these past trial sessions, with session dates
+    const sessionIds = pastTrialSessions.map((s) => s.id);
+    const { data: sessionsStudentsData, error: sessionsStudentsError } = await supabase
+      .from('sessions_students')
+      .select('student_id, session_id, sessions!inner(start_at)')
+      .in('session_id', sessionIds);
+    
+    if (sessionsStudentsError) throw sessionsStudentsError;
+    
+    // Build a map of student_id -> first trial session date
+    const studentFirstTrialSessionMap = new Map<string, string>();
+    if (sessionsStudentsData) {
+      sessionsStudentsData.forEach((item) => {
+        const session = item.sessions as { start_at: string } | null;
+        if (session?.start_at) {
+          const studentId = item.student_id;
+          const existingDate = studentFirstTrialSessionMap.get(studentId);
+          if (!existingDate || new Date(session.start_at) < new Date(existingDate)) {
+            studentFirstTrialSessionMap.set(studentId, session.start_at);
+          }
+        }
+      });
+    }
+    
+    // Get unique student IDs
+    const studentIdsWithPastTrialSessions = Array.from(studentFirstTrialSessionMap.keys());
+    
+    // If no students found, return empty array
+    if (studentIdsWithPastTrialSessions.length === 0) {
+      return [];
+    }
+    
+    // Now query trial students who have past trial sessions
+    // Note: Removed user_id IS NULL filter per user request - now includes all trial students with past sessions
     const { data, error } = await supabase
       .from('students')
       .select('id, first_name, last_name, email, phone, status, user_id, created_at, updated_at')
       .eq('status', 'TRIAL')
-      .is('user_id', null)
-      .order('last_name', { ascending: true })
-      .order('first_name', { ascending: true });
+      .in('id', studentIdsWithPastTrialSessions);
     
     if (error) throw error;
     
-    return (data ?? []).map((student) => ({
+    // Map students with their first trial session date and sort by date ascending
+    const result = (data ?? []).map((student) => ({
       student_id: student.id,
       first_name: student.first_name,
       last_name: student.last_name,
@@ -559,8 +629,18 @@ export const reconciliationApi = {
       phone: student.phone,
       student_status: student.status,
       user_id: student.user_id,
+      first_trial_session_date: studentFirstTrialSessionMap.get(student.id) ?? null,
       created_at: student.created_at ?? '',
       updated_at: student.updated_at ?? '',
     })) as TrialStudentNotSignedUp[];
+    
+    // Sort by first trial session date ascending
+    result.sort((a, b) => {
+      const dateA = a.first_trial_session_date ? new Date(a.first_trial_session_date).getTime() : 0;
+      const dateB = b.first_trial_session_date ? new Date(b.first_trial_session_date).getTime() : 0;
+      return dateA - dateB;
+    });
+    
+    return result;
   },
 };

@@ -236,9 +236,19 @@ export function useSessionsTable({
 
   // Reset page when filters change (but not when page itself changes)
   // Use refs to track previous values and only reset if filters actually changed
-  const prevFiltersRef = useRef({
+  type FilterState = {
+    studentFilters: string[];
+    typeFilters: string[];
+    debouncedSearchTerm: string;
+    rangeStart: string | undefined;
+    rangeEnd: string | undefined;
+    showLogged: boolean;
+    showUnlogged: boolean;
+  };
+  
+  const prevFiltersRef = useRef<FilterState>({
     studentFilters: initialStudentFilters,
-    typeFilters: [],
+    typeFilters: [] as string[],
     debouncedSearchTerm: '',
     rangeStart,
     rangeEnd,

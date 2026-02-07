@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, id, token } = body;
+    const { type, id, token, customMessage, ownedNumberId } = body;
 
     // Validate required fields
     if (!type || !id || !token) {
@@ -121,19 +121,41 @@ export async function POST(request: NextRequest) {
       contactId = newContact.id;
     }
 
-    // Get an owned number for sending
-    const { data: ownedNumber, error: ownedError } = await supabase
-      .from('owned_numbers')
-      .select('id, phone_e164')
-      .limit(1)
-      .single<{ id: string; phone_e164: string }>();
+    // Get owned number for sending (use provided one or default)
+    let ownedNumber: { id: string; phone_e164: string } | null = null;
+    
+    if (ownedNumberId) {
+      const { data, error } = await supabase
+        .from('owned_numbers')
+        .select('id, phone_e164')
+        .eq('id', ownedNumberId)
+        .single<{ id: string; phone_e164: string }>();
+      
+      if (error || !data) {
+        console.error('Owned number not found:', error);
+        return NextResponse.json(
+          { error: 'Owned number not found' },
+          { status: 400 }
+        );
+      }
+      ownedNumber = data;
+    } else {
+      // Get default owned number
+      const { data, error: ownedError } = await supabase
+        .from('owned_numbers')
+        .select('id, phone_e164')
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .single<{ id: string; phone_e164: string }>();
 
-    if (ownedError || !ownedNumber) {
-      console.error('No owned number found:', ownedError);
-      return NextResponse.json(
-        { error: 'No SMS number available' },
-        { status: 500 }
-      );
+      if (ownedError || !data) {
+        console.error('No owned number found:', ownedError);
+        return NextResponse.json(
+          { error: 'No SMS number available' },
+          { status: 500 }
+        );
+      }
+      ownedNumber = data;
     }
 
     // Get or create conversation
@@ -188,12 +210,14 @@ export async function POST(request: NextRequest) {
       inviteUrl = `${baseUrl}/invite/${token}`;
     }
 
-    // Create message body using template
-    const messageBody = getInviteSmsTemplate({
-      firstName: record.first_name,
-      inviteUrl,
-      linkType: 'invite',
-    });
+    // Create message body - use custom message if provided, otherwise use template
+    const messageBody = customMessage && customMessage.trim() 
+      ? customMessage.trim()
+      : getInviteSmsTemplate({
+          firstName: record.first_name,
+          inviteUrl,
+          linkType: 'invite',
+        });
 
     // Create message record
     // Note: Need to get from/to numbers from conversation

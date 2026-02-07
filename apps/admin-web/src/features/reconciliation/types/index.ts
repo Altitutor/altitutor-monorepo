@@ -41,6 +41,7 @@ export interface StudentWithoutClasses {
   subject_name: string;
   subject_curriculum: string | null;
   subject_year_level: number | null;
+  subject_added_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +136,7 @@ export interface TrialStudentNotSignedUp {
   phone: string | null;
   student_status: string;
   user_id: string | null;
+  first_trial_session_date: string | null;
   created_at: string;
   updated_at: string;
 }
