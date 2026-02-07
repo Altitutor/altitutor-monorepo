@@ -23,6 +23,10 @@ interface EnrollmentWeekCalendarProps {
   oldClassSubject?: Tables<'subjects'>;
   oldClassStaff?: Tables<'staff'>[];
   isChangeClassMode?: boolean;
+  // Unenroll mode props
+  isUnenrollMode?: boolean;
+  unenrollingClassId?: string;
+  finalSessionDate?: string; // The final session date (not the unenrollment date which is day after)
 }
 
 interface GeneratedSession {
@@ -91,6 +95,9 @@ export function EnrollmentWeekCalendar({
   oldClassSubject,
   oldClassStaff = [],
   isChangeClassMode = false,
+  isUnenrollMode = false,
+  unenrollingClassId,
+  finalSessionDate,
 }: EnrollmentWeekCalendarProps) {
   // Determine context: if classData exists, we're in class context
   const isClassContext = !!classData;
@@ -194,6 +201,7 @@ export function EnrollmentWeekCalendar({
   // In class context: show all class sessions (no potential sessions needed, they're already there)
   // In student context: show student sessions + potential class sessions
   // In change class mode: filter out old class sessions on or after changeover date
+  // In unenroll mode: filter out unenrolling class sessions after unenrollment date
   const allSessions = useMemo(() => {
     const existingSessions = ((data?.sessions as Tables<'sessions'>[]) || []).map(s => ({
       ...s,
@@ -202,11 +210,37 @@ export function EnrollmentWeekCalendar({
     
     let filteredSessions = existingSessions;
     
+    // In unenroll mode, filter out unenrolling class sessions after final session date
+    if (isUnenrollMode && unenrollingClassId && finalSessionDate) {
+      // Parse final session date and normalize to date-only (midnight in local time)
+      const finalSessionDateParts = finalSessionDate.split('-');
+      const finalSessionDateOnly = new Date(
+        parseInt(finalSessionDateParts[0], 10),
+        parseInt(finalSessionDateParts[1], 10) - 1, // Month is 0-indexed
+        parseInt(finalSessionDateParts[2], 10)
+      );
+      
+      filteredSessions = existingSessions.filter((s) => {
+        // If session belongs to unenrolling class, only show if it's on or before final session date
+        if (s.class_id === unenrollingClassId) {
+          const sessionDate = s.start_at ? new Date(s.start_at) : null;
+          if (sessionDate) {
+            const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
+            // Compare dates - include sessions on or before the final session date
+            return sessionDateOnly.getTime() <= finalSessionDateOnly.getTime();
+          }
+          return false; // No start_at, filter out
+        }
+        // Keep all other sessions (other classes)
+        return true;
+      });
+    }
+    
     // In change class mode, filter out old class sessions on or after changeover date
     if (isChangeClassMode && oldClass) {
       const changeoverDateOnly = new Date(enrollmentDateObj.getFullYear(), enrollmentDateObj.getMonth(), enrollmentDateObj.getDate());
       
-      filteredSessions = existingSessions.filter((s) => {
+      filteredSessions = filteredSessions.filter((s) => {
         // If session belongs to old class, only show if it's before changeover date
         if (s.class_id === oldClass.id) {
           const sessionDate = s.start_at ? new Date(s.start_at) : null;
@@ -221,8 +255,8 @@ export function EnrollmentWeekCalendar({
       });
     }
     
-    // Only add potential sessions in student context
-    if (!isClassContext) {
+    // Only add potential sessions in student context (not in unenroll mode)
+    if (!isClassContext && !isUnenrollMode) {
       // In change class mode, also add old class potential sessions
       if (isChangeClassMode) {
         return [...filteredSessions, ...potentialSessions, ...potentialOldClassSessions];
@@ -231,7 +265,7 @@ export function EnrollmentWeekCalendar({
     }
     
     return filteredSessions;
-  }, [data?.sessions, potentialSessions, potentialOldClassSessions, isClassContext, isChangeClassMode, oldClass, enrollmentDateObj]);
+  }, [data?.sessions, potentialSessions, potentialOldClassSessions, isClassContext, isChangeClassMode, isUnenrollMode, unenrollingClassId, finalSessionDate, oldClass, enrollmentDateObj]);
 
   // Calculate dynamic time range based on sessions
   const { startHour, endHour, slots } = useMemo(() => {

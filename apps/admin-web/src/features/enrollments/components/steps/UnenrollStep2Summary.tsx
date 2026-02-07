@@ -1,10 +1,9 @@
 'use client';
 
-import { Label } from '@altitutor/ui';
-import { StudentCard } from '@/shared/components/StudentCard';
-import { ClassCard } from '@/shared/components/ClassCard';
+import { Textarea } from '@altitutor/ui';
 import { calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { formatClassName, formatDate, cn } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 
 interface UnenrollStep2SummaryProps {
@@ -15,58 +14,85 @@ interface UnenrollStep2SummaryProps {
   classStaff?: Tables<'staff'>[];
   unenrollmentDate: string;
   reason: string;
+  onReasonChange: (reason: string) => void;
 }
 
 export function UnenrollStep2Summary({
   student,
-  studentSubjects,
+  studentSubjects: _studentSubjects,
   classData,
   classSubject,
-  classStaff,
+  classStaff: _classStaff,
   unenrollmentDate,
   reason,
+  onReasonChange,
 }: UnenrollStep2SummaryProps) {
   // Calculate last session date
   const lastSessionDate = classData && unenrollmentDate
     ? calculateLastSessionDate(classData, getMidnightAdelaide(new Date(unenrollmentDate)))
     : null;
 
+  // Get student name
+  const studentName = `${student.first_name} ${student.last_name}`;
+
+  // Get class name
+  const className = classData && classSubject
+    ? formatClassName(classData, classSubject)
+    : 'choose class';
+
+  // Format final session date for display
+  const finalSessionDateDisplay = lastSessionDate
+    ? formatSessionDateTime(lastSessionDate)
+    : unenrollmentDate
+    ? formatDate(new Date(unenrollmentDate))
+    : 'choose date';
+
   return (
     <div className="space-y-4">
-      <div>
-        <Label className="text-xs text-muted-foreground">Student</Label>
-        <StudentCard
-          student={student}
-          subjects={studentSubjects}
-        />
+      {/* Info Card */}
+      <div className="p-4 bg-muted rounded-lg">
+        <p className="text-sm font-medium">
+          Unenroll{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {studentName}
+          </span>
+          {' from '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {className}
+          </span>
+          {', their final session will be '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {finalSessionDateDisplay}
+          </span>
+        </p>
       </div>
 
-      <div>
-        <Label className="text-xs text-muted-foreground">Class</Label>
-        <ClassCard
-          class={classData}
-          subject={classSubject}
-          staff={classStaff || []}
+      {/* Reason Text Box */}
+      <div className="space-y-2">
+        <label htmlFor="reason" className="text-sm font-medium">
+          Reason for Unenrollment <span className="text-destructive">*</span>
+        </label>
+        <Textarea
+          id="reason"
+          placeholder="Enter reason for unenrolling this student..."
+          value={reason}
+          onChange={(e) => onReasonChange(e.target.value)}
+          rows={4}
+          className="resize-none"
         />
+        <p className="text-xs text-muted-foreground">
+          Please provide a reason for unenrolling this student from the class.
+        </p>
       </div>
-
-      {lastSessionDate && (
-        <div className="p-3 bg-muted rounded-lg">
-          <p className="text-sm font-medium">Last Session</p>
-          <p className="text-sm text-muted-foreground">
-            {formatSessionDateTime(lastSessionDate)}
-          </p>
-        </div>
-      )}
-
-      {reason && (
-        <div className="p-3 bg-muted rounded-lg">
-          <p className="text-sm font-medium mb-1">Reason</p>
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-            {reason}
-          </p>
-        </div>
-      )}
     </div>
   );
 }
