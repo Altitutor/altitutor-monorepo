@@ -34,10 +34,22 @@ import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { ViewParentModal } from './ViewParentModal';
 import { ParentSearchPopover } from './ParentSearchPopover';
-import { Badge } from '@altitutor/ui';
+import { Badge, useToast } from '@altitutor/ui';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
+import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
+import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@altitutor/ui";
+import { studentsApi } from '../api/students';
+import { classesApi } from '@/shared/api';
+import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
+import { useStudentClasses } from '../hooks/useStudentClasses';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
@@ -65,6 +77,7 @@ export function ViewStudentModal({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
+  const { toast } = useToast();
   
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
@@ -106,6 +119,14 @@ export function ViewStudentModal({
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
+  
+  // Modal states for new actions
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
+  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
+  
+  // Get student classes for enroll modal
+  const { data: studentClasses = [] } = useStudentClasses(studentId || '');
   
   // Nested modal state for sessions table interactions
   const {
@@ -174,6 +195,125 @@ export function ViewStudentModal({
     }
   };
 
+  // Handle discontinue student
+  const handleDiscontinue = async () => {
+    if (!student || !currentStaff) return;
+    
+    try {
+      setIsDiscontinuing(true);
+      const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
+      
+      if (!result.success) {
+        if (result.error === 'Unenroll student from classes first') {
+          toast({
+            title: 'Cannot Discontinue',
+            description: 'Unenroll student from classes first',
+            variant: 'destructive',
+          });
+        } else if (result.error === 'Student has future sessions') {
+          const sessionCount = result.sessions?.length || 0;
+          toast({
+            title: 'Cannot Discontinue',
+            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Cannot Discontinue',
+            description: result.error || 'Failed to discontinue student',
+            variant: 'destructive',
+          });
+        }
+        return;
+      }
+      
+      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      onStudentUpdated();
+      toast({
+        title: 'Success',
+        description: 'Student discontinued successfully.',
+      });
+    } catch (error) {
+      console.error('Failed to discontinue student:', error);
+      toast({
+        title: 'Discontinue failed',
+        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDiscontinuing(false);
+    }
+  };
+
+  // Handle add class
+  const handleAddClass = () => {
+    setIsEnrollModalOpen(true);
+  };
+
+  // Handle add subject
+  const handleAddSubject = async (subject: Tables<'subjects'>) => {
+    if (!student) return;
+    
+    try {
+      await studentsApi.assignSubjectToStudent(student.id, subject.id);
+      await queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId || '') });
+      setIsAddSubjectDialogOpen(false);
+      onStudentUpdated();
+      toast({
+        title: 'Success',
+        description: 'Subject added successfully.',
+      });
+    } catch (error) {
+      console.error('Failed to add subject:', error);
+      toast({
+        title: 'Add failed',
+        description: 'There was an error adding the subject. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle enrollment
+  const handleEnroll = async (params: {
+    studentId: string;
+    classId: string;
+    enrolledAt: Date;
+    staffId: string;
+  }) => {
+    try {
+      await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
+      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(studentId || '') });
+      await queryClient.invalidateQueries({ queryKey: ['students', studentId, 'classes'] });
+      setIsEnrollModalOpen(false);
+      onStudentUpdated();
+      toast({
+        title: 'Success',
+        description: 'Student enrolled successfully.',
+      });
+    } catch (err) {
+      console.error('Failed to enroll student:', err);
+      toast({
+        title: 'Enrollment failed',
+        description: 'There was an error enrolling the student. Please try again.',
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  };
+
+  // Fetch classes for enrollment modal
+  const fetchClassesForEnrollment = async (): Promise<ClassWithExpandedSubject[]> => {
+    const { classes, classSubjects, classStaff, classStudents } = await classesApi.getAllClassesWithDetails();
+    return classes.map(c => {
+      return {
+        ...c,
+        subject: classSubjects[c.id],
+        staff: classStaff[c.id] || [],
+        students: classStudents[c.id] || []
+      } as ClassWithExpandedSubject;
+    });
+  };
+
   // Always render the Sheet to allow exit animation
   return (
     <>
@@ -237,6 +377,9 @@ export function ViewStudentModal({
                         passwordResetLabel={passwordReset.passwordResetLabel}
                         onLogAbsence={modals.openLogAbsence}
                         onBookDraftingSession={modals.openBookDraftingSession}
+                        onAddClass={handleAddClass}
+                        onAddSubject={() => setIsAddSubjectDialogOpen(true)}
+                        onDiscontinue={student && (student.status === 'TRIAL' || student.status === 'ACTIVE') ? handleDiscontinue : undefined}
                         onDelete={modals.openDeleteDialog}
                       />
                     )}
@@ -481,6 +624,43 @@ export function ViewStudentModal({
           onClose={() => setNestedStudentId(null)}
           onStudentUpdated={onStudentUpdated}
         />
+      )}
+
+      {/* Enroll Student Modal */}
+      {student && currentStaff && (
+        <EnrollStudentModal
+          isOpen={isEnrollModalOpen}
+          onClose={() => setIsEnrollModalOpen(false)}
+          context="student"
+          student={student}
+          studentSubjects={studentSubjects}
+          enrolledClassIds={studentClasses.map(c => c.class.id)}
+          onFetchClasses={fetchClassesForEnrollment}
+          onEnroll={handleEnroll}
+          currentStaffId={currentStaff.id}
+        />
+      )}
+
+      {/* Add Subject Dialog */}
+      {student && (
+        <Dialog open={isAddSubjectDialogOpen} onOpenChange={setIsAddSubjectDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Add Subject</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <SubjectSearchPopover
+                selectedSubjects={studentSubjects}
+                onSelectSubject={handleAddSubject}
+                trigger={
+                  <Button variant="outline" className="w-full">
+                    Select a subject
+                  </Button>
+                }
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
       
     </>

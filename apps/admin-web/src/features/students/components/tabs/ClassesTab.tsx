@@ -6,7 +6,7 @@ import { ScrollArea } from "@altitutor/ui";
 import { Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Plus, Pencil, X, UserX, UserCheck } from "lucide-react";
+import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { ViewClassModal, CalendarView } from '@/features/classes';
@@ -33,7 +33,6 @@ export function ClassesTab({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [isReEnrolling, setIsReEnrolling] = useState(false);
   
   // Use React Query hooks for data fetching
@@ -430,56 +429,6 @@ export function ClassesTab({
     }
   };
 
-  // Handle discontinue student
-  const handleDiscontinue = async () => {
-    if (!currentStaff) return;
-    
-    try {
-      setIsDiscontinuing(true);
-      const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
-      
-      if (!result.success) {
-        if (result.error === 'Unenroll student from classes first') {
-          toast({
-            title: 'Cannot Discontinue',
-            description: 'Unenroll student from classes first',
-            variant: 'destructive',
-          });
-        } else if (result.error === 'Student has future sessions') {
-          const sessionCount = result.sessions?.length || 0;
-          toast({
-            title: 'Cannot Discontinue',
-            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Cannot Discontinue',
-            description: result.error || 'Failed to discontinue student',
-            variant: 'destructive',
-          });
-        }
-        return;
-      }
-      
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
-      onStudentUpdated?.();
-      toast({
-        title: 'Success',
-        description: 'Student discontinued successfully.',
-      });
-    } catch (error) {
-      console.error('Failed to discontinue student:', error);
-      toast({
-        title: 'Discontinue failed',
-        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDiscontinuing(false);
-    }
-  };
-
   // Handle re-enroll student
   const handleReEnroll = async () => {
     try {
@@ -692,50 +641,28 @@ export function ClassesTab({
                 )}
                 
                 {/* Actions Section - Only show in edit mode */}
-                {isEditMode && (
+                {isEditMode && student.status === 'DISCONTINUED' && (
                   <div className="mt-8 pt-6 border-t">
                     <h4 className="text-sm font-medium mb-4">Actions</h4>
                     <div className="flex gap-2">
-                      {(student.status === 'TRIAL' || student.status === 'ACTIVE') && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={handleDiscontinue}
-                          disabled={isDiscontinuing}
-                        >
-                          {isDiscontinuing ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Discontinuing...
-                            </>
-                          ) : (
-                            <>
-                              <UserX className="h-4 w-4 mr-2" />
-                              Discontinue
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      {student.status === 'DISCONTINUED' && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={handleReEnroll}
-                          disabled={isReEnrolling}
-                        >
-                          {isReEnrolling ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Re-enrolling...
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="h-4 w-4 mr-2" />
-                              Re-enroll
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleReEnroll}
+                        disabled={isReEnrolling}
+                      >
+                        {isReEnrolling ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Re-enrolling...
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Re-enroll
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
                 )}
