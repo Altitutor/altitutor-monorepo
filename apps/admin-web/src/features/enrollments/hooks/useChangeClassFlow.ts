@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 
@@ -20,7 +20,7 @@ interface UseChangeClassFlowProps {
 }
 
 export function useChangeClassFlow({
-  isOpen: _isOpen,
+  isOpen,
   student,
   oldClass,
   selectedNewClassId,
@@ -30,6 +30,14 @@ export function useChangeClassFlow({
   onClose,
 }: UseChangeClassFlowProps) {
   const [isChanging, setIsChanging] = useState(false);
+  const [changeSuccess, setChangeSuccess] = useState(false);
+
+  // Reset change success when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setChangeSuccess(false);
+    }
+  }, [isOpen]);
 
   const handleConfirm = useCallback(async () => {
     if (!selectedNewClassId) return;
@@ -43,17 +51,19 @@ export function useChangeClassFlow({
         changeoverDate: getMidnightAdelaide(new Date(changeoverDate)),
         staffId: currentStaffId,
       });
-      onClose();
+      setChangeSuccess(true);
     } catch (error) {
       console.error('Error changing class:', error);
+      setChangeSuccess(false);
     } finally {
       setIsChanging(false);
     }
-  }, [student, oldClass, selectedNewClassId, changeoverDate, onChange, currentStaffId, onClose]);
+  }, [student, oldClass, selectedNewClassId, changeoverDate, onChange, currentStaffId]);
 
   return {
     isChanging,
     handleConfirm,
+    changeSuccess,
   };
 }
 

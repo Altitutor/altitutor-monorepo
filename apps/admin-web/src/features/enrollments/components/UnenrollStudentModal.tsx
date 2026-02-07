@@ -8,6 +8,7 @@ import { useUnenrollFlow } from '../hooks';
 import {
   UnenrollStep1DateAndReason,
   UnenrollStep2Summary,
+  UnenrollStep3MessageScreen,
 } from './steps';
 import type { UnenrollStudentModalProps } from '../types/enrollment';
 
@@ -22,12 +23,12 @@ export function UnenrollStudentModal({
   onUnenroll,
   currentStaffId,
 }: UnenrollStudentModalProps) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [unenrollmentDate, setUnenrollmentDate] = useState<string>('');
   const [reason, setReason] = useState('');
 
   // Flow management
-  const { isUnenrolling, handleConfirm } = useUnenrollFlow({
+  const { isUnenrolling, handleConfirm, unenrollmentSuccess } = useUnenrollFlow({
     isOpen,
     student,
     classData,
@@ -37,6 +38,13 @@ export function UnenrollStudentModal({
     currentStaffId,
     onClose,
   });
+
+  // Move to step 3 when unenrollment succeeds
+  useEffect(() => {
+    if (unenrollmentSuccess && step === 2) {
+      setStep(3);
+    }
+  }, [unenrollmentSuccess, step]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -53,12 +61,14 @@ export function UnenrollStudentModal({
     }
   };
 
-  const getStepTitle = (step: 1 | 2): string => {
+  const getStepTitle = (step: 1 | 2 | 3): string => {
     switch (step) {
       case 1:
         return 'Select Final Session';
       case 2:
         return 'Reason & Confirm';
+      case 3:
+        return 'Send Message';
       default:
         return '';
     }
@@ -89,7 +99,7 @@ export function UnenrollStudentModal({
                 <div className="flex-1 min-w-0">
                   <DialogTitle>Unenroll Student from Class</DialogTitle>
                   <DialogDescription>
-                    Step {step} of 2: {getStepTitle(step)}
+                    Step {step} of 3: {getStepTitle(step)}
                   </DialogDescription>
                 </div>
               </div>
@@ -99,7 +109,7 @@ export function UnenrollStudentModal({
           {/* Progress Indicator */}
           <div className="px-6 pb-4">
             <div className="flex items-center gap-2">
-              {Array.from({ length: 2 }).map((_, index) => (
+              {Array.from({ length: 3 }).map((_, index) => (
                 <div
                   key={index}
                   className={`flex-1 h-2 rounded-full transition-colors ${
@@ -147,47 +157,67 @@ export function UnenrollStudentModal({
               onReasonChange={setReason}
             />
           )}
+
+          {/* Step 3: Message Screen */}
+          {step === 3 && (
+            <UnenrollStep3MessageScreen
+              student={student}
+              classData={classData}
+              classSubject={classSubject}
+              unenrollmentDate={unenrollmentDate}
+            />
+          )}
             </div>
           </div>
         </div>
 
         {/* Footer */}
         <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-          <div className="flex gap-2">
-            {step > 1 && (
-              <Button variant="outline" onClick={handleBack} disabled={isUnenrolling}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Back
+          {step === 3 ? (
+            <div className="flex gap-2 ml-auto">
+              <Button onClick={onClose}>
+                Done
               </Button>
-            )}
-          </div>
-          
-          <div className="flex gap-2">
-            {step < 2 ? (
-              <Button 
-                onClick={handleNext}
-                disabled={!unenrollmentDate || unenrollmentDate.trim() === ''}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleConfirm} 
-                disabled={isUnenrolling || !reason || reason.trim() === ''} 
-                variant="destructive"
-              >
-                {isUnenrolling ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Unenrolling...
-                  </>
-                ) : (
-                  'Confirm Unenrollment'
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                {step > 1 && (
+                  <Button variant="outline" onClick={handleBack} disabled={isUnenrolling}>
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
                 )}
-              </Button>
-            )}
-          </div>
+              </div>
+              
+              <div className="flex gap-2">
+                {step < 2 ? (
+                  <Button 
+                    onClick={handleNext}
+                    disabled={!unenrollmentDate || unenrollmentDate.trim() === ''}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleConfirm} 
+                    disabled={isUnenrolling || !reason || reason.trim() === ''} 
+                    variant="destructive"
+                  >
+                    {isUnenrolling ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Unenrolling...
+                      </>
+                    ) : (
+                      'Confirm Unenrollment'
+                    )}
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

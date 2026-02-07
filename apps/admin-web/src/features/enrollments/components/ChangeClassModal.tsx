@@ -12,6 +12,7 @@ import {
   ChangeClassStep1SelectClass,
   ChangeClassStep2SelectDate,
   ChangeClassStep3Summary,
+  ChangeClassStep4MessageScreen,
 } from './steps';
 import type { ChangeClassModalProps } from '../types/enrollment';
 
@@ -27,7 +28,7 @@ export function ChangeClassModal({
   onChange,
   currentStaffId,
 }: ChangeClassModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedNewClassId, setSelectedNewClassId] = useState<string | null>(null);
   const [changeoverDate, setChangeoverDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,7 +63,7 @@ export function ChangeClassModal({
   const selectedNewClass = classes.find(c => c.id === selectedNewClassId);
 
   // Flow management
-  const { isChanging, handleConfirm } = useChangeClassFlow({
+  const { isChanging, handleConfirm, changeSuccess } = useChangeClassFlow({
     isOpen,
     student,
     oldClass,
@@ -72,6 +73,13 @@ export function ChangeClassModal({
     currentStaffId,
     onClose,
   });
+
+  // Move to step 4 when change succeeds
+  useEffect(() => {
+    if (changeSuccess && step === 3) {
+      setStep(4);
+    }
+  }, [changeSuccess, step]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -121,7 +129,7 @@ export function ChangeClassModal({
     }
   };
 
-  const getStepTitle = (step: 1 | 2 | 3): string => {
+  const getStepTitle = (step: 1 | 2 | 3 | 4): string => {
     switch (step) {
       case 1:
         return 'Select New Class';
@@ -129,6 +137,8 @@ export function ChangeClassModal({
         return 'Select Changeover Date';
       case 3:
         return 'Summary & Confirm';
+      case 4:
+        return 'Send Message';
       default:
         return '';
     }
@@ -153,7 +163,7 @@ export function ChangeClassModal({
                 <div className="flex-1 min-w-0">
                   <DialogTitle>Change Class</DialogTitle>
                   <DialogDescription>
-                    Step {step} of 3: {getStepTitle(step)}
+                    Step {step} of 4: {getStepTitle(step)}
                   </DialogDescription>
                 </div>
               </div>
@@ -163,7 +173,7 @@ export function ChangeClassModal({
           {/* Progress Indicator */}
           <div className="px-6 pb-4">
             <div className="flex items-center gap-2">
-              {Array.from({ length: 3 }).map((_, index) => (
+              {Array.from({ length: 4 }).map((_, index) => (
                 <div
                   key={index}
                   className={`flex-1 h-2 rounded-full transition-colors ${
@@ -230,46 +240,67 @@ export function ChangeClassModal({
                   timeOverlapWarning={timeOverlapWarning}
                 />
               )}
+
+              {/* Step 4: Message Screen */}
+              {step === 4 && (
+                <ChangeClassStep4MessageScreen
+                  student={student}
+                  oldClass={oldClass}
+                  oldClassSubject={oldClassSubject}
+                  selectedNewClass={selectedNewClass}
+                  changeoverDate={changeoverDate}
+                />
+              )}
             </div>
           </div>
         </div>
 
         {/* Footer */}
         <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-          <div className="flex gap-2">
-            {step > 1 && (
-              <Button variant="outline" onClick={handleBack} disabled={isChanging}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Back
+          {step === 4 ? (
+            <div className="flex gap-2 ml-auto">
+              <Button onClick={onClose}>
+                Done
               </Button>
-            )}
-          </div>
-          
-          <div className="flex gap-2">
-            {step < 3 ? (
-              <Button 
-                onClick={handleNext}
-                disabled={
-                  (step === 1 && !selectedNewClassId) ||
-                  (step === 2 && (!changeoverDate || changeoverDate.trim() === ''))
-                }
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleConfirm} disabled={isChanging}>
-                {isChanging ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Changing...
-                  </>
-                ) : (
-                  'Confirm Change'
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                {step > 1 && (
+                  <Button variant="outline" onClick={handleBack} disabled={isChanging}>
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
                 )}
-              </Button>
-            )}
-          </div>
+              </div>
+              
+              <div className="flex gap-2">
+                {step < 3 ? (
+                  <Button 
+                    onClick={handleNext}
+                    disabled={
+                      (step === 1 && !selectedNewClassId) ||
+                      (step === 2 && (!changeoverDate || changeoverDate.trim() === ''))
+                    }
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button onClick={handleConfirm} disabled={isChanging}>
+                    {isChanging ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Changing...
+                      </>
+                    ) : (
+                      'Confirm Change'
+                    )}
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
