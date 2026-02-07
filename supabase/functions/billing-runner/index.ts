@@ -132,6 +132,7 @@ Deno.serve(async (req: Request) => {
 
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
   const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+  const resendApiKey = Deno.env.get('RESEND_API_KEY')?.trim();
 
   try {
     // Load billing settings
@@ -237,7 +238,7 @@ Deno.serve(async (req: Request) => {
     const billingByStudent = await loadBillingInfo(supabase);
 
     // Load student and parent emails
-    const { parentEmailByStudent, studentEmailById } = await loadStudentEmails(supabase);
+    const { parentEmailsByStudent, studentEmailById } = await loadStudentEmails(supabase);
 
     // Load subsidies
     const subsidies = await loadSubsidies(supabase);
@@ -285,10 +286,11 @@ Deno.serve(async (req: Request) => {
         classById,
         subjectById,
         billingByStudent,
-        parentEmailByStudent,
+        parentEmailsByStudent,
         studentEmailById,
         isStripeTestKey,
         isStripeLiveKey,
+        resendApiKey,
       });
 
       if (result.invoiceId) {

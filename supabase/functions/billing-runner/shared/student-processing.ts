@@ -16,6 +16,7 @@ import {
   updateInvoicePaymentStatus,
   updateInvoicePaymentError,
 } from './invoice-creation.ts';
+import { sendInvoiceEmail } from './invoice-email.ts';
 
 export interface ProcessStudentResult {
   invoiceId: string | null;
@@ -40,10 +41,11 @@ export interface ProcessStudentDependencies {
   classById: Record<string, any>;
   subjectById: Record<string, any>;
   billingByStudent: Record<string, any>; // Mutable - will be updated if billing account is created
-  parentEmailByStudent: Record<string, string | undefined>;
+  parentEmailsByStudent: Record<string, string[]>; // All parent emails per student
   studentEmailById: Record<string, string | undefined>;
   isStripeTestKey: boolean;
   isStripeLiveKey: boolean;
+  resendApiKey?: string; // Optional Resend API key for sending invoice emails
 }
 
 /**
@@ -71,10 +73,11 @@ export async function processStudentInvoicing(
     classById,
     subjectById,
     billingByStudent,
-    parentEmailByStudent,
+    parentEmailsByStudent,
     studentEmailById,
     isStripeTestKey,
     isStripeLiveKey,
+    resendApiKey,
   } = deps;
 
   try {
@@ -203,7 +206,8 @@ export async function processStudentInvoicing(
     // Handle missing billing account - auto-create if missing
     if (!billing?.stripe_customer_id) {
       try {
-        const studentEmail = studentEmailById[studentId] || parentEmailByStudent[studentId];
+        const parentEmails = parentEmailsByStudent[studentId] || [];
+        const studentEmail = studentEmailById[studentId] || parentEmails[0];
         const { data: studentData } = await supabase
           .from('students')
           .select('first_name, last_name, email')
@@ -260,8 +264,16 @@ export async function processStudentInvoicing(
 
     const timestamp = Date.now();
 
-    // Handle invoice creation based on payment method availability
-    if (!defaultPM?.stripe_payment_method_id) {
+    // Get billing preferences (defaults match migration defaults)
+    const autoBillEnabled = billing?.auto_bill_enabled ?? true;
+    const invoiceEmailToStudent = billing?.invoice_email_to_student ?? true;
+    const invoiceEmailToParents = billing?.invoice_email_to_parents ?? true;
+
+    // Handle invoice creation based on billing preferences and payment method availability
+    // Auto-bill if: preferences allow it AND payment method exists
+    const shouldAutoBill = autoBillEnabled && defaultPM?.stripe_payment_method_id;
+
+    if (!shouldAutoBill) {
       // Create invoice with send_invoice collection method (no auto-charge)
       try {
         // Create invoice items in Stripe
@@ -333,6 +345,37 @@ export async function processStudentInvoicing(
             itemsErr?.message || itemsErr
           );
           // Don't throw - invoice is saved, items can be reconciled later
+        }
+
+        // Send invoice email based on billing preferences
+        if (resendApiKey) {
+          const studentEmail = studentEmailById[studentId];
+          const parentEmails = parentEmailsByStudent[studentId] || [];
+          
+          try {
+            const emailResult = await sendInvoiceEmail(
+              stripe,
+              finalizedInvoice.id,
+              studentId,
+              invoiceEmailToStudent,
+              invoiceEmailToParents,
+              studentEmail,
+              parentEmails,
+              resendApiKey
+            );
+            
+            if (emailResult.sent.length > 0) {
+              console.log(`[runner] Sent invoice ${finalizedInvoice.id} emails to: ${emailResult.sent.join(', ')}`);
+            }
+            if (emailResult.failed.length > 0) {
+              console.warn(`[runner] Failed to send invoice ${finalizedInvoice.id} emails to: ${emailResult.failed.join(', ')}`);
+            }
+          } catch (emailErr: any) {
+            // Don't fail invoice creation if email fails - log and continue
+            console.error(`[runner] Failed to send invoice email for ${finalizedInvoice.id}:`, emailErr?.message || emailErr);
+          }
+        } else {
+          console.warn(`[runner] RESEND_API_KEY not configured, skipping invoice email for ${finalizedInvoice.id}`);
         }
 
         return { invoiceId: dbInvoice.id, error: null };

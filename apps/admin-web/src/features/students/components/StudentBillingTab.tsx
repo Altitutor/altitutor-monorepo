@@ -16,6 +16,7 @@ import { StudentSubsidiesTable } from './StudentSubsidiesTable';
 import { AddSubsidyModal } from './AddSubsidyModal';
 import { StudentInvoicesTable } from './StudentInvoicesTable';
 import { CustomerBalanceSection } from './CustomerBalanceSection';
+import { BillingPreferencesSection } from './BillingPreferencesSection';
 import { getErrorMessage } from '@/shared/utils';
 
 type PaymentMethod = Tables<'student_payment_methods'>;
@@ -147,6 +148,9 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
     <div className="space-y-8">
       {/* Customer Balance Section */}
       <CustomerBalanceSection studentId={student.id} />
+
+      {/* Billing Preferences Section */}
+      <BillingPreferencesSection student={student} />
 
       {/* Payment Methods Section */}
       <div className="space-y-4">
