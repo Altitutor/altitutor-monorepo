@@ -124,8 +124,16 @@ export function Composer({
   // Auto-expand textarea as user types
   useEffect(() => {
     if (textareaRef.current) {
+      // Reset height to auto to get accurate scrollHeight
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+      // Get scrollHeight (includes padding)
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const maxHeight = 200; // max-h-[200px]
+      const newHeight = Math.min(scrollHeight, maxHeight);
+      // Set height
+      textareaRef.current.style.height = `${newHeight}px`;
+      // Hide overflow when content fits, show scrollbar only when it exceeds max height
+      textareaRef.current.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
     }
   }, [text]);
   

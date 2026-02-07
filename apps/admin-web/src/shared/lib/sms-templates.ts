@@ -12,13 +12,13 @@ export function getInviteSmsTemplate({
   studentName,
 }: SmsTemplateData): string {
   if (linkType === 'invite') {
-    return `Hi ${firstName}, you've been invited to create your Altitutor account. Click here to get started: ${inviteUrl}`;
+    return `Hi ${firstName}, click on this link to log into your Altitutor account: ${inviteUrl}`;
   } else {
     // Registration link
     if (studentName) {
-      return `Hi ${firstName}, complete registration for ${studentName} on Altitutor: ${inviteUrl}`;
+      return `Hi ${firstName}, \n\nThank you for coming to your trial session. To register ${studentName} as a student at Altitutor, please click the link below:\n\n${inviteUrl}`;
     } else {
-      return `Hi ${firstName}, complete your student registration on Altitutor: ${inviteUrl}`;
+      return `Hi ${firstName}, click the link below to log in to your Altitutor Student account: ${inviteUrl}`;
     }
   }
 }
@@ -40,4 +40,28 @@ export function getBookingConfirmationSmsTemplate({
     return `Hi ${firstName}, view your booking confirmation for ${sessionDate} at ${sessionTime}: ${bookingUrl}`;
   }
   return `Hi ${firstName}, view your booking confirmation: ${bookingUrl}`;
+}
+
+export interface EnrollmentConfirmationSmsTemplateData {
+  name: string;
+  className: string; // Class name including day and time
+  startDate: string; // Start date formatted
+  senderName: string;
+}
+
+export function getEnrollmentConfirmationSmsTemplate({
+  name,
+  className,
+  startDate,
+  senderName,
+}: EnrollmentConfirmationSmsTemplateData): string {
+  return `Hi ${name},
+
+You have been enrolled in the following class:
+
+${className}, starting on ${startDate}
+
+Kind regards,
+
+${senderName}`;
 }

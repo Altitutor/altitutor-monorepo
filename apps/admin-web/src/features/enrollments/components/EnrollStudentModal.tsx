@@ -18,6 +18,7 @@ import {
   Step1SelectStudentOrClass,
   Step2SelectEnrollmentDate,
   Step3SummaryAndConfirm,
+  Step4MessageScreen,
 } from './steps';
 import type { EnrollStudentModalProps, EnrollmentWarningState, StudentWithEnrollmentInfo } from '../types/enrollment';
 
@@ -38,7 +39,7 @@ export function EnrollStudentModal({
   onEnroll,
   currentStaffId,
 }: EnrollStudentModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedClassData, setSelectedClassData] = useState<ClassWithExpandedSubject | undefined>(undefined);
@@ -175,7 +176,7 @@ export function EnrollStudentModal({
   });
 
   // Flow management
-  const { isEnrolling, handleConfirm } = useEnrollmentFlow({
+  const { isEnrolling, handleConfirm, enrollmentSuccess } = useEnrollmentFlow({
     isOpen,
     context,
     classSubject,
@@ -188,6 +189,13 @@ export function EnrollStudentModal({
     enrollmentDate,
     onClose,
   });
+
+  // Move to step 4 when enrollment succeeds
+  useEffect(() => {
+    if (enrollmentSuccess && step === 3) {
+      setStep(4);
+    }
+  }, [enrollmentSuccess, step]);
 
   // Reset state when modal opens/closes or subjectId changes
   useEffect(() => {
@@ -262,7 +270,7 @@ export function EnrollStudentModal({
                       {context === 'class' ? 'Enroll Student in Class' : 'Enroll Student in Class'}
                     </DialogTitle>
                     <DialogDescription>
-                      Step {step} of 3: {step === 1 ? 'Select Student or Class' : step === 2 ? 'Select Enrollment Date' : 'Summary & Confirm'}
+                      Step {step} of 4: {step === 1 ? 'Select Student or Class' : step === 2 ? 'Select Enrollment Date' : step === 3 ? 'Summary & Confirm' : 'Send Message'}
                     </DialogDescription>
                   </div>
                 </div>
@@ -272,7 +280,7 @@ export function EnrollStudentModal({
             {/* Progress Indicator */}
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: 3 }).map((_, index) => (
+                {Array.from({ length: 4 }).map((_, index) => (
                   <div
                     key={index}
                     className={`flex-1 h-2 rounded-full transition-colors ${
@@ -345,43 +353,62 @@ export function EnrollStudentModal({
                 conflicts={conflicts}
               />
             )}
+
+            {/* Step 4: Message Screen */}
+            {step === 4 && (
+              <Step4MessageScreen
+                selectedStudent={selectedStudent}
+                selectedClass={selectedClass}
+                enrollmentDate={enrollmentDate}
+              />
+            )}
               </div>
             </div>
           </div>
 
           {/* Footer */}
           <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-            <div className="flex gap-2">
-              {step > 1 && (
-                <Button variant="outline" onClick={handleBack} disabled={isEnrolling}>
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Back
+            {step === 4 ? (
+              <div className="flex gap-2 ml-auto">
+                <Button onClick={onClose}>
+                  Done
                 </Button>
-              )}
-            </div>
-            
-            <div className="flex gap-2">
-              {step < 3 ? (
-                <Button 
-                  onClick={handleNext}
-                  disabled={step === 1 && !selectedStudentId && !selectedClassId}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              ) : (
-                <Button onClick={handleConfirm} disabled={isEnrolling}>
-                  {isEnrolling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Enrolling...
-                    </>
-                  ) : (
-                    'Confirm Enrollment'
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  {step > 1 && (
+                    <Button variant="outline" onClick={handleBack} disabled={isEnrolling}>
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Back
+                    </Button>
                   )}
-                </Button>
-              )}
-            </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  {step < 3 ? (
+                    <Button 
+                      onClick={handleNext}
+                      disabled={step === 1 && !selectedStudentId && !selectedClassId}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button onClick={handleConfirm} disabled={isEnrolling}>
+                      {isEnrolling ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Enrolling...
+                        </>
+                      ) : (
+                        'Confirm Enrollment'
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
