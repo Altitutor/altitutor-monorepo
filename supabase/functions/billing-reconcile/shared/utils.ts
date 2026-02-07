@@ -37,20 +37,31 @@ export function json(resp: any, status = 200): Response {
 }
 
 /**
- * Verify service role authentication
+ * Verify service role or cron secret authentication
+ * Supports both service role key (for manual calls) and billing cron secret (for cron jobs)
  */
-export function verifyAuth(req: Request, serviceKey: string): { authorized: boolean; error?: string } {
+export function verifyAuth(
+  req: Request, 
+  serviceKey: string,
+  cronSecret?: string
+): { authorized: boolean; error?: string } {
   const authHeader = req.headers.get('authorization');
   const apiKey = req.headers.get('apikey');
   const bearerToken = authHeader?.startsWith('Bearer ') 
     ? authHeader.substring(7).trim() 
     : authHeader;
   
-  if (apiKey !== serviceKey && bearerToken !== serviceKey) {
-    return { authorized: false, error: 'Unauthorized' };
+  // Check cron secret first (if provided)
+  if (cronSecret && (apiKey === cronSecret || bearerToken === cronSecret)) {
+    return { authorized: true };
   }
   
-  return { authorized: true };
+  // Check service role key
+  if (apiKey === serviceKey || bearerToken === serviceKey) {
+    return { authorized: true };
+  }
+  
+  return { authorized: false, error: 'Unauthorized' };
 }
 
 /**

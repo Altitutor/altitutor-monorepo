@@ -4,7 +4,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import type { ReconciliationRequest, ReconciliationResponse, ReconciliationMode, StrategyResult } from './shared/types.ts';
-import { json, verifyAuth } from './shared/utils.ts';
+import { json } from './shared/utils.ts';
 import { reconcileMissingInvoices } from './strategies/missing-invoices.ts';
 import { reconcileIncompleteInvoices } from './strategies/incomplete-invoices.ts';
 import { reconcileStatusDrift } from './strategies/status-drift.ts';
@@ -37,11 +37,73 @@ Deno.serve(async (req: Request) => {
   
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const billingCronSecret = Deno.env.get('BILLING_CRON_SECRET_KEY')?.trim();
   
-  // Verify service role auth
-  const authResult = verifyAuth(req, supabaseServiceKey);
-  if (!authResult.authorized) {
-    return json({ error: authResult.error || 'Unauthorized' }, 401);
+  // Check if using test or live Stripe keys (for admin token support)
+  const isStripeTestKey = STRIPE_SECRET_KEY.startsWith('sk_test_');
+  const isStripeLiveKey = STRIPE_SECRET_KEY.startsWith('sk_live_');
+  
+  let isCronJob = false;
+  let isAdminUser = false;
+  
+  try {
+    const authHeader = req.headers.get('authorization');
+    const apiKey = req.headers.get('apikey');
+    
+    // Check if this is a cron job request using custom cron secret
+    // Handle both Bearer token format and direct key comparison
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7).trim()
+      : authHeader;
+    
+    // Authenticate cron jobs using custom secret (more secure and controllable)
+    if (billingCronSecret && (apiKey === billingCronSecret || bearerToken === billingCronSecret)) {
+      isCronJob = true;
+    }
+    
+    // Allow admin users to call this function (for manual reconciliation from admin web)
+    // Enabled for both test and live keys (same as billing-runner)
+    if (isStripeTestKey || isStripeLiveKey) {
+      try {
+        // Check for admin token in custom header (sent by API route)
+        const adminToken = req.headers.get('x-admin-token');
+        if (adminToken) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: { persistSession: false },
+          });
+          const { data: { user }, error: userError } = await supabase.auth.getUser(adminToken);
+          
+          if (!userError && user) {
+            // Check if user is admin staff
+            const { data: staffData } = await supabase
+              .from('staff')
+              .select('role, status')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            
+            if (staffData?.role === 'ADMINSTAFF' && staffData?.status === 'ACTIVE') {
+              isAdminUser = true;
+            }
+          }
+        }
+      } catch (err) {
+        // Auth check failed, continue with normal flow
+        console.error('[reconcile] Admin token check failed:', err);
+      }
+    }
+    
+    // Only allow cron jobs or admin users
+    if (!isCronJob && !isAdminUser) {
+      return json(
+        {
+          error: 'Unauthorized: Reconciliation can only be triggered by cron jobs or admin staff',
+        },
+        403
+      );
+    }
+  } catch (authErr) {
+    console.error('[reconcile] Auth check failed:', authErr);
+    return json({ error: 'Unauthorized' }, 401);
   }
   
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });

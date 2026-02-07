@@ -4,6 +4,7 @@ import Stripe from 'npm:stripe@16.6.0';
 import type { StrategyResult } from '../shared/types.ts';
 import { 
   calculateAmountPaidFromBalance,
+  validateSessionsStudentsId,
   getErrorMessage 
 } from '../shared/utils.ts';
 
@@ -19,6 +20,7 @@ export async function reconcileMissingInvoices(
   const reconciled: string[] = [];
   const errors: string[] = [];
   const skipped: string[] = [];
+  const warnings: string[] = [];
   
   const startDate = new Date();
   startDate.setUTCDate(startDate.getUTCDate() - daysBack);
@@ -120,19 +122,60 @@ export async function reconcileMissingInvoices(
         }
         
         // Insert invoice items using upsert to handle duplicates
-        const itemInserts = invoiceItems.data
-          .filter(item => item.invoice === invoice.id)
-          .map((item) => ({
+        // Validate sessions_students_id before inserting
+        const itemInserts: any[] = [];
+        const invalidItems: string[] = [];
+        
+        for (const item of invoiceItems.data.filter(item => item.invoice === invoice.id)) {
+          const metadata = item.metadata || {};
+          const sessionsStudentsId = metadata.sessions_students_id;
+          const sessionId = metadata.session_id;
+          
+          // Validate sessions_students_id exists if provided
+          const validation = await validateSessionsStudentsId(
+            supabase,
+            sessionsStudentsId,
+            sessionId,
+            studentId
+          );
+          
+          if (!validation.valid) {
+            invalidItems.push(`Item ${item.id}: ${validation.error}`);
+            continue; // Skip this item
+          }
+          
+          // Validate session_id exists if provided
+          if (sessionId) {
+            const { data: sessionCheck } = await supabase
+              .from('sessions')
+              .select('id')
+              .eq('id', sessionId)
+              .maybeSingle();
+            
+            if (!sessionCheck) {
+              invalidItems.push(`Item ${item.id}: session_id ${sessionId} not found`);
+              continue; // Skip this item
+            }
+          }
+          
+          itemInserts.push({
             invoice_id: dbInvoice.id,
-            sessions_students_id: item.metadata?.sessions_students_id || '',
+            sessions_students_id: validation.sessions_students_id || '',
             stripe_invoice_item_id: item.id,
             amount_cents: item.amount,
             description: item.description || '',
-            is_subsidy: item.metadata?.is_subsidy === 'true',
-            is_fee: item.metadata?.is_fee === 'true',
-            session_id: item.metadata?.session_id || '',
+            is_subsidy: metadata.is_subsidy === 'true',
+            is_fee: metadata.is_fee === 'true',
+            session_id: sessionId || null,
             student_id: studentId,
-          }));
+          });
+        }
+        
+        if (invalidItems.length > 0) {
+          const warningMsg = `Invoice ${invoice.id} has ${invalidItems.length} invalid items`;
+          console.warn(`[missing-invoices] ${warningMsg}:`, invalidItems);
+          warnings.push(`${warningMsg}: ${invalidItems.join('; ')}`);
+        }
         
         if (itemInserts.length > 0) {
           const { error: itemsErr } = await supabase
@@ -169,7 +212,7 @@ export async function reconcileMissingInvoices(
     reconciled,
     errors,
     skipped,
-    warnings: [],
+    warnings,
     date_range: {
       start: startDate.toISOString(),
       end: new Date().toISOString(),
