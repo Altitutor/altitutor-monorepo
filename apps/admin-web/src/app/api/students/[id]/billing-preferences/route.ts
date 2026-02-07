@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getErrorMessage } from '@/shared/utils';
+import type { Database } from '@altitutor/shared';
+
+type StudentsBillingUpdate = Database['public']['Tables']['students_billing']['Update'];
 
 export async function PATCH(
   request: NextRequest,
@@ -70,11 +73,7 @@ export async function PATCH(
     }
 
     // Build update object (only include fields that are provided)
-    const updateData: {
-      auto_bill_enabled?: boolean;
-      invoice_email_to_student?: boolean;
-      invoice_email_to_parents?: boolean;
-    } = {};
+    const updateData: StudentsBillingUpdate = {};
 
     if (auto_bill_enabled !== undefined) {
       updateData.auto_bill_enabled = auto_bill_enabled;
@@ -106,6 +105,8 @@ export async function PATCH(
     // Update existing billing account
     const { data: updatedBilling, error: updateError } = await supabase
       .from('students_billing')
+      // @ts-expect-error - TypeScript inference limitation with Supabase client update method
+      // updateData is properly typed as StudentsBillingUpdate, but TypeScript can't infer it here
       .update(updateData)
       .eq('student_id', studentId)
       .select('auto_bill_enabled, invoice_email_to_student, invoice_email_to_parents')
