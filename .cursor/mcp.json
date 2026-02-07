@@ -1,16 +1,12 @@
 {
-    "mcpServers": {
-      "stripe": {
-        "url": "https://mcp.stripe.com",
-        "headers": {}
-      },
-      "Linear": {
-        "url": "https://mcp.linear.app/sse",
-        "headers": {}
-      },
-      "Supabase": {
-        "url": "https://mcp.supabase.com/mcp",
-        "headers": {}
-      }
+  "mcpServers": {
+    "Linear": {
+      "url": "https://mcp.linear.app/sse",
+      "headers": {}
+    },
+    "Supabase": {
+      "url": "https://mcp.supabase.com/mcp",
+      "headers": {}
     }
   }
+}
