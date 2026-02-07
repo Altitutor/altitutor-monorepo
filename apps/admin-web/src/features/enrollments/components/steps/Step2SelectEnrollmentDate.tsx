@@ -3,6 +3,8 @@
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import { StudentCard } from '@/shared/components/StudentCard';
+import { ClassCard } from '@/shared/components/ClassCard';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext } from '../../types/enrollment';
 import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
@@ -37,8 +39,48 @@ export function Step2SelectEnrollmentDate({
   // Determine which class to show in calendar - use classData for 'class' context, selectedClass for 'student' context
   const classForCalendar = context === 'class' ? classData : selectedClass;
   
+  // Determine which student and class to show
+  // In both contexts, show selectedStudent (from step 1) and the class
+  const studentToShow = selectedStudent;
+  const classToShow = context === 'student' 
+    ? selectedClass 
+    : (classData ? { ...classData, subject: classSubject, staff: classStaff || [], students: [] } as ClassWithExpandedSubject : undefined);
+  const studentSubject = context === 'student' && selectedClass?.subject 
+    ? [selectedClass.subject] 
+    : context === 'class' && classSubject 
+    ? [classSubject] 
+    : [];
+
   return (
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
+      {/* Show student and class cards inline */}
+      {(studentToShow || classToShow) && (
+        <div className="flex gap-3 mb-4 flex-shrink-0 items-stretch">
+          {studentToShow && (
+            <div className="w-1/2 flex">
+              <StudentCard
+                student={studentToShow}
+                subjects={studentSubject}
+                showSubjects={true}
+                showActions={false}
+              />
+            </div>
+          )}
+          
+          {classToShow && (
+            <div className={studentToShow ? "w-1/2 flex" : "w-full flex"}>
+              <ClassCard
+                class={classToShow}
+                subject={classToShow.subject}
+                staff={classToShow.staff || []}
+                students={classToShow.students || []}
+                hideActions={true}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Label htmlFor="enrollment-date">Enrollment Start Date</Label>
         <div className="relative">

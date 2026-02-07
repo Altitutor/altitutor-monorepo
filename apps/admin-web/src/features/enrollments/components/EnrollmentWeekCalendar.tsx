@@ -554,14 +554,15 @@ export function EnrollmentWeekCalendar({
                               const estimatedColumnWidth = 180;
                               const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
                               
-                              // Determine opacity: in class context, reduce opacity for other students/staff
-                              // In student context, reduce opacity for regular sessions
-                              // In change class mode, reduce opacity for old class sessions (before changeover date)
+                              // Determine opacity: 
+                              // - In student context: reduce opacity for existing sessions (not potential), full opacity for potential sessions
+                              // - In class context: full opacity for all sessions
+                              // - In change class mode: reduce opacity for old class sessions
                               const shouldReduceOpacity = isClassContext 
                                 ? false // Don't reduce card opacity in class context, we'll handle student/staff opacity individually
                                 : isOldClassSession || (isChangeClassMode && !isPotential && s.class_id === oldClass?.id)
                                   ? true // In change class mode, reduce opacity for old class sessions
-                                  : !isPotential; // In student context, reduce opacity for regular sessions
+                                  : !isPotential; // In student context, reduce opacity for regular sessions (existing student sessions)
                               
                               blocks.push(
                                 <div
@@ -595,10 +596,40 @@ export function EnrollmentWeekCalendar({
                                       ? new Set(sessionStaff.map(st => st.id))
                                       : undefined;
                                     
-                                    // Only render SessionsCard for actual sessions, not generated ones
+                                    // Convert potential session to a session-like object for SessionsCard
                                     if ('isPotential' in s && s.isPotential) {
-                                      // Skip rendering generated sessions - they're handled differently
-                                      return null;
+                                      // Create a mock session object for potential sessions
+                                      const mockSession: Tables<'sessions'> = {
+                                        id: s.id,
+                                        start_at: s.start_at,
+                                        end_at: s.end_at,
+                                        class_id: s.class_id,
+                                        type: s.type as 'CLASS' | 'PRIVATE' | 'GROUP',
+                                        created_at: new Date().toISOString(),
+                                        updated_at: new Date().toISOString(),
+                                        billing_type: 'CLASS',
+                                        is_cancelled: false,
+                                        cancellation_reason: null,
+                                        cancellation_notes: null,
+                                        cancelled_at: null,
+                                        cancelled_by: null,
+                                      } as Tables<'sessions'>;
+                                      
+                                      return (
+                                        <SessionsCard
+                                          session={mockSession}
+                                          classData={cls}
+                                          subject={subj}
+                                          staff={sessionStaff}
+                                          students={sessionStudents}
+                                          onClick={() => {}}
+                                          isCalendarView={true}
+                                          cardHeight={cardHeight}
+                                          cardWidth={cardWidth}
+                                          dimmedStudentIds={dimmedStudentIds}
+                                          dimmedStaffIds={dimmedStaffIds}
+                                        />
+                                      );
                                     }
                                     
                                     return (

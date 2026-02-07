@@ -58,8 +58,8 @@ export function Step1SelectStudentOrClass({
   classData,
   classSubject,
   classStaff,
-  student: _student,
-  studentSubjects: _studentSubjects,
+  student,
+  studentSubjects,
   filteredStudents,
   filteredClasses,
   availableDays,
@@ -85,6 +85,18 @@ export function Step1SelectStudentOrClass({
             subject={classSubject}
             staff={classStaff || []}
             students={[]}
+          />
+        </div>
+      )}
+      
+      {/* Show student card at top for student context */}
+      {context === 'student' && student && (
+        <div className="mb-4">
+          <StudentCard
+            student={student}
+            subjects={studentSubjects || []}
+            showSubjects={true}
+            showActions={false}
           />
         </div>
       )}
