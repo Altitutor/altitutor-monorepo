@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
@@ -46,6 +46,31 @@ export function ClassesTab({
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [isEditMode, setIsEditMode] = useState(false);
   
+  // Responsive: detect when container is too small for full cards
+  // Use window width instead of container ref for more reliable detection
+  const [useCompactCards, setUseCompactCards] = useState(false);
+  
+  useEffect(() => {
+    const checkSize = () => {
+      // Use window innerWidth for more reliable mobile detection
+      // Account for padding (p-6 = 24px each side = 48px total) and subject pill (~80-100px)
+      // So if window is < 640px, the card area will be < ~500px
+      const windowWidth = window.innerWidth;
+      const shouldUseCompact = windowWidth < 640;
+      setUseCompactCards(shouldUseCompact);
+    };
+    
+    // Check initially
+    checkSize();
+    
+    // Listen to window resize
+    window.addEventListener('resize', checkSize);
+    
+    return () => {
+      window.removeEventListener('resize', checkSize);
+    };
+  }, []);
+  
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -73,6 +98,8 @@ export function ClassesTab({
   // Group classes by subject
   const classesBySubject = useMemo(() => {
     const grouped: Record<string, StudentClass[]> = {};
+    const classesWithoutMatchingSubject: StudentClass[] = [];
+    const studentSubjectIds = new Set(studentSubjects.map(s => s.id));
     
     // Add all student subjects (even if they have no classes)
     studentSubjects.forEach(subject => {
@@ -83,12 +110,27 @@ export function ClassesTab({
     classes.forEach(classData => {
       if (classData.subject) {
         const subjectId = classData.subject.id;
-        if (!grouped[subjectId]) {
-          grouped[subjectId] = [];
+        // Check if student has this subject
+        if (studentSubjectIds.has(subjectId)) {
+          // Student has this subject - add to grouped
+          if (!grouped[subjectId]) {
+            grouped[subjectId] = [];
+          }
+          grouped[subjectId].push(classData);
+        } else {
+          // Student doesn't have this subject - add to bottom section
+          classesWithoutMatchingSubject.push(classData);
         }
-        grouped[subjectId].push(classData);
+      } else {
+        // Class has no subject - add to bottom section
+        classesWithoutMatchingSubject.push(classData);
       }
     });
+    
+    // Add classes without matching subjects at the end
+    if (classesWithoutMatchingSubject.length > 0) {
+      grouped['__no_subject__'] = classesWithoutMatchingSubject;
+    }
     
     return grouped;
   }, [classes, studentSubjects]);
@@ -529,7 +571,36 @@ export function ClassesTab({
           {viewMode === 'table' ? (
             <ScrollArea className="h-full">
               <div className="space-y-4">
-                {Object.entries(classesBySubject).map(([subjectId, subjectClasses]) => {
+                {Object.entries(classesBySubject)
+                  .sort(([a], [b]) => {
+                    // Put __no_subject__ entries at the end
+                    if (a === '__no_subject__') return 1;
+                    if (b === '__no_subject__') return -1;
+                    return 0;
+                  })
+                  .map(([subjectId, subjectClasses]) => {
+                  // Handle classes without subjects (shown at bottom)
+                  if (subjectId === '__no_subject__') {
+                    return (
+                      <div key={subjectId} className="space-y-2">
+                        {subjectClasses.map(classData => (
+                          <ClassCard
+                            key={classData.class.id}
+                            class={classData.class}
+                            subject={classData.subject}
+                            staff={classData.staff}
+                            students={classData.students}
+                            onClick={() => handleClassClick(classData.class.id)}
+                            onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
+                            onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
+                            hideActions={!isEditMode}
+                            compact={useCompactCards}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
+                  
                   const subject = studentSubjects.find(s => s.id === subjectId);
                   if (!subject) return null;
                   
@@ -562,7 +633,7 @@ export function ClassesTab({
                         </Badge>
                       </div>
                       
-                      {/* Class Cards */}
+                      {/* Class Cards - Show all classes for this subject stacked */}
                       <div className="flex-1 space-y-2">
                         {subjectClasses.length > 0 ? (
                           subjectClasses.map(classData => (
@@ -576,6 +647,7 @@ export function ClassesTab({
                               onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
                               onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
                               hideActions={!isEditMode}
+                              compact={useCompactCards}
                             />
                           ))
                         ) : (
