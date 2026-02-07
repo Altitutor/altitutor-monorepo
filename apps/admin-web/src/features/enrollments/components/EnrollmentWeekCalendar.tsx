@@ -635,6 +635,11 @@ export function EnrollmentWeekCalendar({
                                     
                                     // Convert potential session to a session-like object for SessionsCard
                                     if ('isPotential' in s && s.isPotential) {
+                                      // Get subject_id from class or subject
+                                      const subjectId = cls && 'subject_id' in cls && cls.subject_id
+                                        ? cls.subject_id
+                                        : subj?.id || null;
+                                      
                                       // Create a mock session object for potential sessions
                                       const mockSession: Tables<'sessions'> = {
                                         id: s.id,
@@ -645,6 +650,9 @@ export function EnrollmentWeekCalendar({
                                         created_at: new Date().toISOString(),
                                         updated_at: new Date().toISOString(),
                                         billing_type: 'CLASS',
+                                        admin_shift_id: null,
+                                        status: 'SCHEDULED',
+                                        subject_id: subjectId,
                                         is_cancelled: false,
                                         cancellation_reason: null,
                                         cancellation_notes: null,
