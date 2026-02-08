@@ -84,9 +84,9 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
   // Table toolbar mode
   if (toolbarMode === 'table') {
     return (
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 border bg-popover rounded-lg shadow-lg">
+      <div className="sticky bottom-4 z-50 border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
         <div className="px-4 py-2">
-          <div className="flex items-center gap-2 justify-center">
+          <div className="flex items-center gap-2 justify-center flex-nowrap">
             {/* Row controls */}
             <div className="flex items-center gap-0.5 pr-2 border-r border-border">
               <Button
@@ -175,9 +175,9 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
   // Text selection toolbar mode
   if (toolbarMode === 'text-selection') {
     return (
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 border bg-popover rounded-lg shadow-lg">
+      <div className="sticky bottom-4 z-50 border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
         <div className="px-4 py-2">
-          <div className="flex items-center gap-1 justify-center flex-wrap">
+          <div className="flex items-center gap-1 justify-center flex-nowrap">
             {/* Inline formatting */}
             <Button
               type="button"
@@ -285,9 +285,9 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
 
   // Default toolbar mode (cursor position, no selection)
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 border bg-popover rounded-lg shadow-lg">
+    <div className="sticky bottom-4 z-50 border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
       <div className="px-4 py-2">
-        <div className="flex items-center gap-1 justify-center flex-wrap">
+        <div className="flex items-center gap-1 justify-center flex-nowrap">
           {/* Headings */}
           <Button
             type="button"

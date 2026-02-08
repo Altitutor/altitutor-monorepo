@@ -224,7 +224,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onInput={handleTitleInput}
                           onKeyDown={handleTitleKeyDown}
                           data-placeholder="Untitled"
-                          className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground whitespace-nowrap overflow-hidden"
+                          className="text-4xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground whitespace-nowrap overflow-hidden"
                           suppressContentEditableWarning
                         />
                       </FormControl>
@@ -237,27 +237,31 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         </div>
 
         {/* Content Panel */}
-        <div className="flex-1 px-6 pt-2 pb-6 min-h-0">
+        <div className="px-6 pt-2 pb-6">
           <Form {...form}>
             {/* Property Pills - Mobile Only */}
-            <div className="md:hidden -mt-2 mb-6">
+            <div className="md:hidden -mt-2 mb-4">
               <NotePropertyPills form={form} folders={foldersArray} />
             </div>
 
+            {/* Table of Contents - Mobile Only (Collapsible) */}
+            <div className="md:hidden mb-6">
+              <NoteTableOfContents editor={editorInstanceRef.current} collapsible />
+            </div>
+
             {/* Editor Container with max-width */}
-            <div className="max-w-3xl mx-auto w-full h-full relative">
+            <div className="max-w-3xl mx-auto w-full relative">
               <FormField
                 control={form.control}
                 name="content"
                 render={({ field }) => (
-                  <FormItem className="h-full">
+                  <FormItem>
                     <FormControl>
                       <NoteEditor
                         ref={noteEditorRef}
                         content={field.value}
                         onChange={field.onChange}
                         placeholder="Start writing..."
-                        className="min-h-full"
                         onEditorReady={handleEditorReady}
                       />
                     </FormControl>
@@ -270,15 +274,13 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       </div>
 
       {/* Properties Sidebar - Desktop Only */}
-      <div className="hidden md:flex flex-col h-full w-80 flex-shrink-0">
+      <div className="hidden md:flex flex-col h-[calc(100vh-var(--navbar-height)-5rem)] w-80 flex-shrink-0 sticky top-0">
         <div className="flex-1 overflow-y-auto m-4 mr-6 space-y-4">
+          {/* Properties Panel */}
+          <NotePropertiesPanel form={form} folders={foldersArray} onDelete={handleDelete} />
+          
           {/* Table of Contents Card */}
           <NoteTableOfContents editor={editorInstanceRef.current} />
-          
-          {/* Properties Panel */}
-          <div className="flex-1 min-h-0">
-            <NotePropertiesPanel form={form} folders={foldersArray} onDelete={handleDelete} />
-          </div>
         </div>
       </div>
     </div>
