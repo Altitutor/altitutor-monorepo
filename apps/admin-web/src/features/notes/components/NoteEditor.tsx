@@ -124,9 +124,58 @@ export function NoteEditor({
     return <div className="text-muted-foreground">Loading editor...</div>;
   }
 
+  // Handle clicks in padding area to place cursor at nearest position
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!editor || editor.isDestroyed) return;
+
+    const editorElement = editor.view.dom;
+    const editorRect = editorElement.getBoundingClientRect();
+    const containerRect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX;
+    const clickY = e.clientY;
+
+    // Check if click is outside the editor content area but inside the container
+    const isLeftOfEditor = clickX < editorRect.left;
+    const isRightOfEditor = clickX > editorRect.right;
+    const isAboveEditor = clickY < editorRect.top;
+    const isBelowEditor = clickY > editorRect.bottom;
+
+    // Only handle clicks in padding areas
+    if (isLeftOfEditor || isRightOfEditor || isAboveEditor || isBelowEditor) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Find the nearest position based on Y coordinate
+      let targetY = clickY;
+      
+      // Clamp Y to editor bounds
+      if (isAboveEditor) {
+        targetY = editorRect.top;
+      } else if (isBelowEditor) {
+        targetY = editorRect.bottom;
+      }
+
+      // Use posAtCoords to find the nearest position
+      const coords = editor.view.posAtCoords({ left: editorRect.left + (editorRect.width / 2), top: targetY });
+      
+      if (coords) {
+        const { state } = editor.view;
+        const transaction = state.tr.setSelection(
+          TextSelection.near(state.doc.resolve(coords.pos))
+        );
+        editor.view.dispatch(transaction);
+        editor.commands.focus();
+      }
+    }
+  };
+
   return (
     <EditorContext.Provider value={editorContextValue || { editor: null }}>
-      <div className="relative h-full cursor-text flex flex-col" data-placeholder={placeholder}>
+      <div 
+        className="relative h-full cursor-text flex flex-col" 
+        data-placeholder={placeholder}
+        onClick={handleContainerClick}
+      >
         <div className="flex-1 min-h-0">
           <EditorContent editor={editor} />
         </div>

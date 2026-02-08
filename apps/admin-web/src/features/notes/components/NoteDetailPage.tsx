@@ -185,10 +185,10 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     <div className="flex h-[calc(100vh-var(--navbar-height)-5rem)]">
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header - Left side only */}
-        <div className="flex-shrink-0 p-4">
+        {/* Header */}
+        <div className="flex-shrink-0 p-6">
           <div className="flex items-center gap-4">
-            <div className="flex-1">
+            <div className="flex-1 max-w-3xl mx-auto w-full">
               <Form {...form}>
                 <FormField
                   control={form.control}
@@ -222,23 +222,25 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               <NotePropertyPills form={form} folders={foldersArray} />
             </div>
 
-            {/* Editor */}
-            <FormField
-              control={form.control}
-              name="content"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <NoteEditor
-                      content={field.value}
-                      onChange={field.onChange}
-                      placeholder="Start writing..."
-                      className="min-h-full"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            {/* Editor Container with max-width */}
+            <div className="max-w-3xl mx-auto w-full h-full relative">
+              <FormField
+                control={form.control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem className="h-full">
+                    <FormControl>
+                      <NoteEditor
+                        content={field.value}
+                        onChange={field.onChange}
+                        placeholder="Start writing..."
+                        className="min-h-full"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
           </Form>
         </div>
       </div>

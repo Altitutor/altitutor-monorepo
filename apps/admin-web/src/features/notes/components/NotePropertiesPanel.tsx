@@ -30,7 +30,7 @@ export function NotePropertiesPanel({ form, folders, onDelete }: NotePropertiesP
   return (
     <div className="hidden md:flex flex-col h-full w-80 flex-shrink-0">
       <div className="flex-1 overflow-y-auto m-4 mr-6">
-        <div className="bg-card border rounded-lg p-6 space-y-6 h-full flex flex-col">
+        <div className="bg-card rounded-lg p-6 space-y-6 h-full flex flex-col">
           <Form {...form}>
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Folder</label>
@@ -65,7 +65,7 @@ export function NotePropertiesPanel({ form, folders, onDelete }: NotePropertiesP
 
           {/* Delete button at bottom */}
           {onDelete && (
-            <div className="mt-auto pt-6 border-t">
+            <div className="mt-auto pt-6">
               <Button
                 variant="destructive"
                 onClick={onDelete}
