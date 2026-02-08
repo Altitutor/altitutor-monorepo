@@ -113,6 +113,82 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
   const watchedSubjectIds = form.watch('subject_ids');
   const selectedSubjectIds = useMemo(() => watchedSubjectIds || [], [watchedSubjectIds]);
 
+  // Helper functions to determine valid options
+  const getYearLevelNum = (yearLevel: string | undefined): number | null => {
+    if (!yearLevel) return null;
+    if (yearLevel === 'Reception') return 0;
+    return parseInt(yearLevel, 10);
+  };
+
+  const getValidCurriculums = (yearLevel: string | undefined): Array<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'> => {
+    const yearLevelNum = getYearLevelNum(yearLevel);
+    if (yearLevelNum === null) return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
+    
+    if (yearLevelNum >= 11 && yearLevelNum <= 13) {
+      return ['SACE', 'IB'];
+    } else if (yearLevelNum >= 7 && yearLevelNum <= 10) {
+      return ['PRESACE'];
+    } else if (yearLevelNum >= 0 && yearLevelNum <= 6) {
+      return ['PRIMARY'];
+    }
+    return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
+  };
+
+  const getValidYearLevels = (curriculum: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | undefined): string[] => {
+    if (!curriculum) return ['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
+    
+    if (curriculum === 'SACE' || curriculum === 'IB') {
+      return ['11', '12', '13'];
+    } else if (curriculum === 'PRESACE') {
+      return ['7', '8', '9', '10'];
+    } else if (curriculum === 'PRIMARY') {
+      return ['Reception', '1', '2', '3', '4', '5', '6'];
+    }
+    return ['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
+  };
+
+  const validCurriculums = useMemo(() => getValidCurriculums(yearLevel), [yearLevel]);
+  const validYearLevels = useMemo(() => getValidYearLevels(curriculum), [curriculum]);
+
+  // Auto-select curriculum when year level changes
+  useEffect(() => {
+    if (!yearLevel) return;
+    
+    const yearLevelNum = getYearLevelNum(yearLevel);
+    if (yearLevelNum === null) return;
+
+    const currentCurriculum = form.getValues('curriculum');
+    
+    // If current curriculum is not valid for the selected year level, auto-select
+    if (yearLevelNum >= 11 && yearLevelNum <= 13) {
+      if (currentCurriculum !== 'SACE' && currentCurriculum !== 'IB') {
+        // Auto-select SACE as default
+        form.setValue('curriculum', 'SACE', { shouldValidate: true });
+      }
+    } else if (yearLevelNum >= 7 && yearLevelNum <= 10) {
+      if (currentCurriculum !== 'PRESACE') {
+        form.setValue('curriculum', 'PRESACE', { shouldValidate: true });
+      }
+    } else if (yearLevelNum >= 0 && yearLevelNum <= 6) {
+      if (currentCurriculum !== 'PRIMARY') {
+        form.setValue('curriculum', 'PRIMARY', { shouldValidate: true });
+      }
+    }
+  }, [yearLevel, form]);
+
+  // Auto-select year level when curriculum changes
+  useEffect(() => {
+    if (!curriculum) return;
+    
+    const currentYearLevel = form.getValues('year_level');
+    const validYearLevelsForCurriculum = getValidYearLevels(curriculum);
+    
+    // If current year level is not valid for the selected curriculum, auto-select first valid option
+    if (currentYearLevel && !validYearLevelsForCurriculum.includes(currentYearLevel)) {
+      form.setValue('year_level', validYearLevelsForCurriculum[0] as any, { shouldValidate: true });
+    }
+  }, [curriculum, form]);
+
   // Subject search state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
@@ -134,7 +210,11 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
         // Optionally filter by curriculum and year level if provided
         if (curriculum) params.set('curriculums', curriculum);
         if (yearLevel) {
-          const yearLevelNum = yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10);
+          let yearLevelNum = yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10);
+          // If year 13 is selected, send 12 instead for subject search
+          if (yearLevelNum === 13) {
+            yearLevelNum = 12;
+          }
           params.set('year_levels', yearLevelNum.toString());
         }
         
@@ -341,29 +421,44 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Year Level *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select year level" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Reception">Reception</SelectItem>
-                      <SelectItem value="1">Year 1</SelectItem>
-                      <SelectItem value="2">Year 2</SelectItem>
-                      <SelectItem value="3">Year 3</SelectItem>
-                      <SelectItem value="4">Year 4</SelectItem>
-                      <SelectItem value="5">Year 5</SelectItem>
-                      <SelectItem value="6">Year 6</SelectItem>
-                      <SelectItem value="7">Year 7</SelectItem>
-                      <SelectItem value="8">Year 8</SelectItem>
-                      <SelectItem value="9">Year 9</SelectItem>
-                      <SelectItem value="10">Year 10</SelectItem>
-                      <SelectItem value="11">Year 11</SelectItem>
-                      <SelectItem value="12">Year 12</SelectItem>
-                      <SelectItem value="13">Year 13</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    <Select 
+                      value={field.value || ""} 
+                      onValueChange={(value) => {
+                        field.onChange(value === "" ? undefined : value);
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
+                          <SelectValue placeholder="Select year level" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {validYearLevels.map((year) => (
+                          <SelectItem key={year} value={year}>
+                            {year === 'Reception' ? 'Reception' : `Year ${year}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {field.value && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentCurriculum = form.getValues('curriculum');
+                          form.setValue('year_level', undefined as any, { shouldValidate: true });
+                          // If curriculum requires a year level, clear it too
+                          if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
+                            form.setValue('curriculum', undefined as any, { shouldValidate: true });
+                          }
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -375,19 +470,47 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Curriculum *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select curriculum" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">PRESACE</SelectItem>
-                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    <Select 
+                      value={field.value || ""} 
+                      onValueChange={(value) => {
+                        field.onChange(value === "" ? undefined : value);
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
+                          <SelectValue placeholder="Select curriculum" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {validCurriculums.map((curr) => (
+                          <SelectItem key={curr} value={curr}>
+                            {curr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {field.value && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentYearLevel = form.getValues('year_level');
+                          form.setValue('curriculum', undefined as any, { shouldValidate: true });
+                          // If year level requires a curriculum, clear it too
+                          if (currentYearLevel) {
+                            const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
+                            if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
+                              form.setValue('year_level', undefined as any, { shouldValidate: true });
+                            }
+                          }
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
