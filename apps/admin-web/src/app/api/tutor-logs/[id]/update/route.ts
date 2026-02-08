@@ -203,6 +203,7 @@ export async function PUT(
             tutor_log_id: tutorLogId,
             student_id: sa.studentId,
             attended: sa.attended,
+            created_by: createdBy,
           }))
         );
 
@@ -221,6 +222,7 @@ export async function PUT(
         .insert({
           tutor_log_id: tutorLogId,
           topic_id: topic.topicId,
+          created_by: createdBy,
         })
         .select('id')
         .single();
@@ -240,6 +242,7 @@ export async function PUT(
             topic.studentIds.map((studentId) => ({
               tutor_logs_topics_id: topicRecord.id,
               student_id: studentId,
+              created_by: createdBy,
             }))
           );
 
@@ -259,6 +262,7 @@ export async function PUT(
         .insert({
           tutor_log_id: tutorLogId,
           topics_files_id: topicFile.topicsFilesId,
+          created_by: createdBy,
         })
         .select('id')
         .single();
@@ -278,6 +282,7 @@ export async function PUT(
             topicFile.studentIds.map((studentId) => ({
               tutor_logs_topics_files_id: fileRecord.id,
               student_id: studentId,
+              created_by: createdBy,
             }))
           );
 

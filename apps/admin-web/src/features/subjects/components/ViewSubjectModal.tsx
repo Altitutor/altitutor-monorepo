@@ -57,6 +57,7 @@ import { useRouter } from "next/navigation";
 import { Separator } from "@altitutor/ui";
 import { X } from "lucide-react";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { useSubjectActions } from "../hooks";
 
 export interface ViewSubjectModalProps {
   isOpen: boolean;

@@ -93,7 +93,7 @@ export function EditTutorLogDialog({
           topicId: tf.topicFile.topic_id,
           studentIds: tf.students.map((s) => s.student_id),
         })),
-        notes: tutorLog.notes.map((n) => n.content),
+        notes: tutorLog.notes.map((n) => n.note),
       });
 
       setIsFormDataReady(true);

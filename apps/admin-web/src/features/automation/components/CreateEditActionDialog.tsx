@@ -33,7 +33,6 @@ import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType, ActivityEntityType } from '../types';
 import { TemplateVariablesPicker } from './TemplateVariablesPicker';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
-import type { Tables } from '@altitutor/shared';
 
 // Entity types that have class_id available in activity events
 const ENTITY_TYPES_WITH_CLASS_ID: ActivityEntityType[] = [
