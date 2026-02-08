@@ -8,17 +8,17 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverlay,
 } from '@dnd-kit/core';
 import { useFolderTree, useNotes } from '../api/queries';
 import { FolderTreeNode } from './FolderTreeNode';
 import { Skeleton } from '@altitutor/ui';
 import { useNoteDragAndDrop } from '../hooks/useNoteDragAndDrop';
-import { useUpdateNote } from '../api/mutations';
+import { useUpdateNote, useUpdateFolder } from '../api/mutations';
 import { DraggableNote } from './DraggableNote';
 import { DroppableNoFolder } from './DroppableNoFolder';
-import { DragOverlay } from '@dnd-kit/core';
 import { useMemo } from 'react';
-import type { Note } from '../types';
+import type { Note, FolderTreeItem } from '../types';
 
 /**
  * Main folder tree component showing root folders with notes and subfolders
@@ -28,7 +28,6 @@ export function FolderTree() {
   const router = useRouter();
   const { data: folderTree, isLoading: isLoadingFolders, error: foldersError } = useFolderTree();
   const { data: notesWithoutFolder, isLoading: isLoadingNotes } = useNotes({ folderId: null });
-  const updateNote = useUpdateNote();
 
   const isLoading = isLoadingFolders || isLoadingNotes;
   const error = foldersError;
@@ -46,21 +45,33 @@ export function FolderTree() {
     router.push(`/notes/${noteId}`);
   };
 
+  const updateNoteMutation = useUpdateNote();
+  const updateFolderMutation = useUpdateFolder();
+
   const updateNoteFolder = async (noteId: string, folderId: string | null) => {
-    await updateNote.mutateAsync({
+    await updateNoteMutation.mutateAsync({
       id: noteId,
       updates: { folder_id: folderId },
       silent: false,
     });
   };
 
-  const { activeId, handleDragStart, handleDragEnd } = useNoteDragAndDrop({
+  const updateFolderParent = async (folderId: string, parentId: string | null) => {
+    await updateFolderMutation.mutateAsync({
+      id: folderId,
+      updates: { parent_id: parentId },
+    });
+  };
+
+  const { activeId, activeType, handleDragStart, handleDragEnd } = useNoteDragAndDrop({
     updateNoteFolder,
+    updateFolderParent,
+    folderTree: folderTree || [],
   });
 
-  // Find the active note being dragged for the overlay
+  // Find the active note or folder being dragged for the overlay
   const activeNote = useMemo((): Note | null => {
-    if (!activeId) return null;
+    if (!activeId || activeType === 'folder') return null;
     const note = notesWithoutFolder?.find((n) => n.id === activeId);
     if (note) return note;
     // Search in folder tree
@@ -75,7 +86,23 @@ export function FolderTree() {
       return null;
     };
     return findNoteInTree(folderTree || []);
-  }, [activeId, notesWithoutFolder, folderTree]);
+  }, [activeId, activeType, notesWithoutFolder, folderTree]);
+
+  const activeFolder = useMemo((): FolderTreeItem | null => {
+    if (!activeId || activeType !== 'folder') return null;
+    const folderId = activeId.replace('folder-', '');
+    // Search in folder tree
+    const findFolderInTree = (folders: typeof folderTree): FolderTreeItem | null => {
+      if (!folders) return null;
+      for (const folder of folders) {
+        if (folder.id === folderId) return folder;
+        const foundInChildren = findFolderInTree(folder.children);
+        if (foundInChildren) return foundInChildren;
+      }
+      return null;
+    };
+    return findFolderInTree(folderTree || []);
+  }, [activeId, activeType, folderTree]);
 
   if (isLoading) {
     return (
@@ -150,6 +177,15 @@ export function FolderTree() {
         {activeNote ? (
           <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-background border shadow-lg text-sm opacity-90">
             <span className="flex-1 truncate">{activeNote.title}</span>
+          </div>
+        ) : activeFolder ? (
+          <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-background border shadow-lg text-sm opacity-90">
+            <span className="flex-1 truncate">{activeFolder.name}</span>
+            {(activeFolder.notes.length > 0 || activeFolder.children.length > 0) && (
+              <span className="text-xs text-muted-foreground">
+                {activeFolder.notes.length + activeFolder.children.length}
+              </span>
+            )}
           </div>
         ) : null}
       </DragOverlay>
