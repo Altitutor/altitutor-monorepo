@@ -205,7 +205,6 @@ function InvoicesTab({ studentId, studentName }: InvoicesTabProps) {
     <div className="space-y-6">
       <CustomerBalanceSection studentId={studentId} studentName={studentName} />
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Invoices</h3>
         <StudentInvoicesTable studentId={studentId} />
       </div>
     </div>

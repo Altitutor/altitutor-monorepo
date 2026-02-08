@@ -5,7 +5,7 @@ import { Button } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { getErrorMessage, formatSubjectDisplay } from '@/shared/utils';
-import { Loader2, RefreshCw, ChevronDown, ChevronUp, History, X } from 'lucide-react';
+import { Loader2, RefreshCw, ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -513,10 +513,7 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
           onClick={() => setShowHistory(!showHistory)}
           className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
         >
-          <div className="flex items-center gap-2">
-            <History className="h-4 w-4 text-muted-foreground" />
-            <h4 className="font-semibold">Balance History</h4>
-          </div>
+          <h4 className="font-semibold">Balance History</h4>
           {showHistory ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
@@ -535,8 +532,15 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
                 <div className="text-sm text-muted-foreground mb-4">
                   Showing {historyData.transactions.length} transaction{historyData.transactions.length !== 1 ? 's' : ''}
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-4 px-4">
                   <table className="w-full text-sm">
+                    <colgroup>
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '40%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '15%' }} />
+                    </colgroup>
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-2 font-medium">Date</th>
@@ -576,7 +580,7 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
                               </span>
                             </td>
                             <td className="p-2">
-                              <div className="max-w-md truncate" title={tx.description || undefined}>
+                              <div className="break-words whitespace-normal" title={tx.description || undefined}>
                                 {tx.description || '-'}
                               </div>
                               {tx.invoice_id && (
@@ -590,10 +594,10 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
                                 </div>
                               )}
                             </td>
-                            <td className={`p-2 text-right font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <td className={`p-2 text-right font-medium whitespace-nowrap ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               {isCredit ? '+' : '-'}${amountDisplay.toFixed(2)} {tx.currency.toUpperCase()}
                             </td>
-                            <td className={`p-2 text-right ${endingIsCredit ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                            <td className={`p-2 text-right whitespace-nowrap ${endingIsCredit ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
                               {endingIsCredit ? '-' : ''}${endingBalanceDisplay.toFixed(2)} {tx.currency.toUpperCase()}
                             </td>
                           </tr>

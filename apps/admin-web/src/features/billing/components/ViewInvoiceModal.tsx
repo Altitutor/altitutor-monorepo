@@ -205,8 +205,8 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                     onDownloadPdf={invoice.invoice_pdf ? () => {
                       window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
                     } : undefined}
-                    onSendInvoice={collectionMethod === 'send_invoice' ? handleSendInvoiceEmail : undefined}
-                    onChargeCard={collectionMethod === 'charge_automatically' ? handleChargeCard : undefined}
+                    onSendInvoice={collectionMethod === 'send_invoice' && invoice.status !== 'paid' ? handleSendInvoiceEmail : undefined}
+                    onChargeCard={collectionMethod === 'charge_automatically' && invoice.status !== 'paid' ? handleChargeCard : undefined}
                     isLoadingAction={isLoadingAction}
                   />
                 )}
