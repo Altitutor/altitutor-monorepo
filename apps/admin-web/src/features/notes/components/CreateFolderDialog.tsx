@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
@@ -75,6 +76,7 @@ export function CreateFolderDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Folder</DialogTitle>
+          <DialogDescription>Create a new folder to organize your notes.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -98,8 +100,8 @@ export function CreateFolderDialog({
                 <FormItem>
                   <FormLabel>Parent Folder (optional)</FormLabel>
                   <Select
-                    value={field.value || undefined}
-                    onValueChange={(value) => field.onChange(value || null)}
+                    value={field.value || '__none__'}
+                    onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -107,7 +109,7 @@ export function CreateFolderDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None (Root)</SelectItem>
+                      <SelectItem value="__none__">None (Root)</SelectItem>
                       {folders?.map((folder) => (
                         <SelectItem key={folder.id} value={folder.id}>
                           {folder.name}

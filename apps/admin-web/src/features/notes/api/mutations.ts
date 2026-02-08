@@ -54,26 +54,36 @@ export function useUpdateNote() {
   const { data: currentStaff } = useCurrentStaff();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: NoteUpdate }) => {
+    mutationFn: async ({ id, updates, silent }: { id: string; updates: NoteUpdate; silent?: boolean }) => {
       const updatesWithUpdater: NoteUpdate = {
         ...updates,
         updated_by: currentStaff?.id ?? null,
       };
-      return notesApi.update(id, updatesWithUpdater);
+      const result = await notesApi.update(id, updatesWithUpdater);
+      return { note: result, silent };
     },
-    onSuccess: (updatedNote, { id }) => {
+    onSuccess: ({ note: updatedNote, silent }, { id }) => {
       // Update specific note in cache
       queryClient.setQueryData(notesKeys.detail(id), updatedNote);
 
-      // Invalidate notes lists
+      // For silent auto-saves, only update cache, don't invalidate (prevents refetch loop)
+      if (silent) {
+        // Still update lists/tree cache if they exist, but don't invalidate to prevent refetch
+        // This is fine because the detail query is the source of truth
+        return;
+      }
+
+      // For manual saves, invalidate lists/tree so they show updated data
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
-      // Invalidate folder tree
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
 
-      toast({
-        title: 'Note updated',
-        description: 'The note has been updated successfully.',
-      });
+      // Only show toast if not silent (auto-saves are silent)
+      if (!silent) {
+        toast({
+          title: 'Note updated',
+          description: 'The note has been updated successfully.',
+        });
+      }
     },
     onError: (error: Error) => {
       toast({

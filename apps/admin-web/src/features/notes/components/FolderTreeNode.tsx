@@ -36,7 +36,7 @@ export function FolderTreeNode({ folder, level = 0 }: FolderTreeNodeProps) {
       {/* Folder */}
       <div
         className={cn(
-          'flex items-center gap-2 py-1 px-2 rounded-md hover:bg-accent cursor-pointer',
+          'flex items-center gap-2 py-1 px-2 rounded-md hover:bg-muted/50 cursor-pointer',
           level === 0 && 'font-medium'
         )}
         style={{ paddingLeft: `${indent + 8}px` }}
@@ -68,7 +68,7 @@ export function FolderTreeNode({ folder, level = 0 }: FolderTreeNodeProps) {
             <div
               key={note.id}
               className={cn(
-                'flex items-center gap-2 py-1 px-2 rounded-md hover:bg-accent cursor-pointer',
+                'flex items-center gap-2 py-1 px-2 rounded-md hover:bg-muted/50 cursor-pointer',
                 'text-sm'
               )}
               style={{ paddingLeft: `${indent + 36}px` }}

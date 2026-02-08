@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { ArrowLeft, Edit, Eye, Save, X } from 'lucide-react';
+import { Form, FormControl, FormField, FormItem } from '@altitutor/ui';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { NoteEditor } from './NoteEditor';
-import { NoteViewer } from './NoteViewer';
 import { useNote } from '../api/queries';
 import { useUpdateNote, useDeleteNote } from '../api/mutations';
 import { useFolders } from '../api/queries';
@@ -18,6 +20,15 @@ import {
   SelectValue,
 } from '@altitutor/ui';
 import { useDebounce } from '@/shared/hooks';
+import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
+
+const formSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  content: z.string(),
+  folder_id: z.string().nullable().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 interface NoteDetailPageProps {
   noteId: string;
@@ -30,61 +41,115 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const deleteNote = useDeleteNote();
   const { data: folders } = useFolders();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [folderId, setFolderId] = useState<string | null>(null);
-  const [lastSavedContent, setLastSavedContent] = useState<string>('');
+  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const isInitializedRef = useRef(false);
+  const currentNoteIdRef = useRef<string | null>(null);
+  const isUpdatingFromServerRef = useRef(false);
+  const lastSavedValuesRef = useRef<{ title?: string; content?: string; folder_id?: string | null }>({});
 
-  // Initialize form data when note loads
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      content: '',
+      folder_id: null,
+    },
+  });
+
+  // Initialize form data when note loads (only once per noteId)
   useEffect(() => {
-    if (note) {
-      setTitle(note.title);
-      setContent(note.content || '');
-      setFolderId(note.folder_id);
-      setLastSavedContent(note.content || '');
+    // Reset initialization if noteId changed (user navigated to different note)
+    if (currentNoteIdRef.current !== noteId) {
+      isInitializedRef.current = false;
+      currentNoteIdRef.current = noteId;
+      lastSavedValuesRef.current = {};
+    }
+
+    if (note && !isInitializedRef.current) {
+      isUpdatingFromServerRef.current = true;
+      form.reset({
+        title: note.title,
+        content: note.content || '',
+        folder_id: note.folder_id,
+      });
+      lastSavedValuesRef.current = {
+        title: note.title,
+        content: note.content || '',
+        folder_id: note.folder_id,
+      };
+      isInitializedRef.current = true;
+      // Reset flag after form values are set
+      setTimeout(() => {
+        isUpdatingFromServerRef.current = false;
+      }, 0);
+    }
+  }, [note, noteId, form]);
+
+  // Auto-focus title field when note loads
+  useEffect(() => {
+    if (note && titleFieldRef.current) {
+      const timer = setTimeout(() => {
+        const titleElement = titleFieldRef.current;
+        if (!titleElement) return;
+        
+        titleElement.focus();
+        // Place cursor at the end
+        const selection = window.getSelection();
+        if (!selection) return;
+        
+        const range = document.createRange();
+        range.selectNodeContents(titleElement);
+        range.collapse(false); // Collapse to end
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [note]);
 
+  // Debounced auto-save for title
+  const title = form.watch('title');
+  const debouncedTitle = useDebounce(title, 1000);
+  useEffect(() => {
+    if (!isInitializedRef.current || isUpdatingFromServerRef.current) return;
+    if (note && debouncedTitle && debouncedTitle !== lastSavedValuesRef.current.title) {
+      lastSavedValuesRef.current.title = debouncedTitle;
+      updateNote.mutate({
+        id: noteId,
+        updates: { title: debouncedTitle },
+        silent: true, // Silent auto-save
+      });
+    }
+  }, [debouncedTitle, note, noteId, updateNote]);
+
   // Debounced auto-save for content
+  const content = form.watch('content');
   const debouncedContent = useDebounce(content, 1000);
   useEffect(() => {
-    if (isEditing && note && debouncedContent !== lastSavedContent && debouncedContent !== (note.content || '')) {
+    if (!isInitializedRef.current || isUpdatingFromServerRef.current) return;
+    if (note && debouncedContent !== undefined && debouncedContent !== lastSavedValuesRef.current.content) {
+      lastSavedValuesRef.current.content = debouncedContent;
       updateNote.mutate({
         id: noteId,
         updates: { content: debouncedContent },
+        silent: true, // Silent auto-save
       });
-      setLastSavedContent(debouncedContent);
     }
-  }, [debouncedContent, isEditing, note, noteId, updateNote, lastSavedContent]);
+  }, [debouncedContent, note, noteId, updateNote]);
 
-  const handleSave = async () => {
-    if (!note) return;
-
-    try {
-      await updateNote.mutateAsync({
+  // Auto-save for folder_id
+  const folderId = form.watch('folder_id');
+  useEffect(() => {
+    if (!isInitializedRef.current || isUpdatingFromServerRef.current) return;
+    if (note && folderId !== lastSavedValuesRef.current.folder_id) {
+      lastSavedValuesRef.current.folder_id = folderId;
+      updateNote.mutate({
         id: noteId,
-        updates: {
-          title,
-          content,
-          folder_id: folderId,
-        },
+        updates: { folder_id: folderId },
+        silent: true, // Silent auto-save
       });
-      setLastSavedContent(content);
-      setIsEditing(false);
-    } catch (error) {
-      // Error handled by mutation
     }
-  };
-
-  const handleCancel = () => {
-    if (note) {
-      setTitle(note.title);
-      setContent(note.content || '');
-      setFolderId(note.folder_id);
-    }
-    setIsEditing(false);
-  };
+  }, [folderId, note, noteId, updateNote]);
 
   const handleDelete = async () => {
     if (!note) return;
@@ -97,6 +162,18 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       // Error handled by mutation
     }
   };
+
+  const {
+    ref: titleRef,
+    handleBlur: handleTitleBlur,
+    handleInput: handleTitleInput,
+  } = useContentEditableField(form, 'title', form.watch('title'));
+
+  // Combine refs - memoize to ensure stability
+  const combinedTitleRef = useCallback((node: HTMLDivElement | null) => {
+    (titleRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    (titleFieldRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  }, [titleRef]);
 
   if (isLoading) {
     return <div className="p-6">Loading...</div>;
@@ -115,76 +192,90 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
-            {isEditing ? (
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="text-2xl font-bold"
-                placeholder="Note title"
+            <Form {...form}>
+              <FormField
+                control={form.control}
+                name="title"
+                render={() => (
+                  <FormItem>
+                    <FormControl>
+                      <div
+                        ref={combinedTitleRef}
+                        contentEditable
+                        onBlur={handleTitleBlur}
+                        onInput={handleTitleInput}
+                        data-placeholder="Note title"
+                        className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
+                        suppressContentEditableWarning
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
               />
-            ) : (
-              <h1 className="text-2xl font-bold">{title}</h1>
-            )}
+            </Form>
           </div>
           <div className="flex items-center gap-2">
-            {isEditing ? (
-              <>
-                <Button variant="outline" onClick={handleCancel}>
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-                <Button onClick={handleSave}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setIsEditing(true)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <Button variant="destructive" onClick={handleDelete}>
-                  Delete
-                </Button>
-              </>
-            )}
+            <Button variant="destructive" onClick={handleDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
           </div>
         </div>
 
         {/* Folder selector */}
-        {isEditing && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Folder:</span>
-            <Select value={folderId || undefined} onValueChange={(value) => setFolderId(value || null)}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="No folder" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {folders?.map((folder) => (
-                  <SelectItem key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Folder:</span>
+          <Form {...form}>
+            <FormField
+              control={form.control}
+              name="folder_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Select
+                      value={field.value || '__none__'}
+                      onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="No folder" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {folders?.map((folder) => (
+                          <SelectItem key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </Form>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {isEditing ? (
-          <NoteEditor
-            content={content}
-            onChange={setContent}
-            autoFocus={true}
-            className="min-h-full"
+        <Form {...form}>
+          <FormField
+            control={form.control}
+            name="content"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <NoteEditor
+                    key={noteId}
+                    content={field.value}
+                    onChange={field.onChange}
+                    className="min-h-full"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
           />
-        ) : (
-          <NoteViewer content={content} className="min-h-full" />
-        )}
+        </Form>
       </div>
     </div>
   );
