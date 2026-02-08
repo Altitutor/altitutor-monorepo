@@ -19,7 +19,6 @@ import { ScrollArea } from "@altitutor/ui";
 import { 
   Search, 
   ArrowUpDown,
-  CalendarIcon,
   X,
   Filter
 } from 'lucide-react';
@@ -279,8 +278,7 @@ export function TutorLogsTable({
                   sortField === 'session_start_at' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Class</TableHead>
+              <TableHead>Type / Class</TableHead>
               <TableHead>Created by</TableHead>
               <TableHead>Staff Attendance</TableHead>
               <TableHead>Student Attendance</TableHead>
@@ -291,7 +289,7 @@ export function TutorLogsTable({
           <TableBody>
             {paginatedTutorLogs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center h-24">
+                <TableCell colSpan={8} className="text-center h-24">
                   {searchTerm || staffFilters.length > 0
                     ? "No tutor logs match your filters" 
                     : "No tutor logs found"}
@@ -323,33 +321,28 @@ export function TutorLogsTable({
                     onClick={() => handleTutorLogClick(log.session_id)}
                   >
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>{formatSessionDate(session?.start_at)}</span>
-                      </div>
+                      {formatSessionDate(session?.start_at)}
                     </TableCell>
                     <TableCell className="font-medium">
                       {formatTimeRange(session?.start_at || null, session?.end_at || null)}
                     </TableCell>
                     <TableCell>
-                      <Badge className={getSessionTypeBadgeColor(session?.type || '')}>
-                        {formatSessionType(session?.type)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {session?.class_id && classDisplay ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
-                          onClick={(e) => handleClassClick(session.class_id!, e)}
-                          title={classDisplay}
-                        >
-                          {classDisplay}
-                        </Button>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Badge className={getSessionTypeBadgeColor(session?.type || '')}>
+                          {formatSessionType(session?.type)}
+                        </Badge>
+                        {session?.class_id && classDisplay ? (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
+                            onClick={(e) => handleClassClick(session.class_id!, e)}
+                            title={classDisplay}
+                          >
+                            {classDisplay}
+                          </Button>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {log.created_by ? (
