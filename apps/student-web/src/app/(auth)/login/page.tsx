@@ -5,6 +5,9 @@ import { LoginForm } from '@/features/auth/components/LoginForm';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { CheckCircle2 } from 'lucide-react';
 
+// Mark as dynamic to prevent static generation issues
+export const dynamic = 'force-dynamic';
+
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get('reset') === 'success';

@@ -3,9 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
 
+// Mark route as dynamic since it uses searchParams and auth
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = request.nextUrl;
     const settingKey = searchParams.get('key');
 
     if (!settingKey) {
