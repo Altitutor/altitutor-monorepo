@@ -10,14 +10,14 @@ export const notesApi = {
   /**
    * Get all notes with optional filters
    */
-  list: async (filters?: { folderId?: string; search?: string }): Promise<Note[]> => {
+  list: async (filters?: { folderId?: string | null; search?: string }): Promise<Note[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { folderId, search } = filters || {};
 
     let query = supabase.from('notes_documents').select('*');
 
     // Folder filter
-    if (folderId) {
+    if (folderId !== undefined && folderId !== null) {
       query = query.eq('folder_id', folderId);
     } else if (folderId === null) {
       // Explicitly filter for notes without a folder

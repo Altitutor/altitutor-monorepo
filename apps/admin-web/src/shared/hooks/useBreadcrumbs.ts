@@ -10,6 +10,7 @@ import { classesApi } from '@/features/classes/api';
 import { sessionsApi } from '@/features/sessions/api';
 import { subjectsApi } from '@/features/subjects/api';
 import { topicsApi } from '@/features/topics/api';
+import { useNote } from '@/features/notes/api/queries';
 import { formatClassShortName, formatSubjectShortName } from '@/shared/utils';
 
 // Map of path segments to display labels
@@ -25,6 +26,7 @@ const pathLabelMap: Record<string, string> = {
   reports: 'Reports',
   subjects: 'Subjects',
   topics: 'Topics',
+  notes: 'Notes',
   settings: 'Settings',
   billing: 'Billing',
   payments: 'Payments',
@@ -83,7 +85,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
 
   // Determine which entity IDs we need to fetch
   const entityIds = useMemo(() => {
-    const ids: { type: 'student' | 'staff' | 'class' | 'session' | 'subject' | 'topic'; id: string; index: number }[] = [];
+    const ids: { type: 'student' | 'staff' | 'class' | 'session' | 'subject' | 'topic' | 'note'; id: string; index: number }[] = [];
     
     segments.forEach((segment, index) => {
       if (isUUID(segment)) {
@@ -109,6 +111,8 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           }
         } else if (prevSegment === 'topics' || (index > 1 && segments[index - 2] === 'subjects' && segments[index - 1] === 'topics')) {
           ids.push({ type: 'topic', id: segment, index });
+        } else if (prevSegment === 'notes') {
+          ids.push({ type: 'note', id: segment, index });
         } else if (prevSegment === 'invoices') {
           // Invoices keep ID as-is
         }
@@ -262,6 +266,14 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     staleTime: 1000 * 60 * 5,
   });
 
+  // Get note ID if we're on a note page
+  const noteId = useMemo(() => {
+    const noteEntity = entityIds.find(e => e.type === 'note');
+    return noteEntity?.id;
+  }, [entityIds]);
+
+  const noteQuery = useNote(noteId || '', !!noteId);
+
   return useMemo(() => {
     // If we're on the dashboard, just return Dashboard
     if (segments.length === 0 || (segments.length === 1 && segments[0] === 'dashboard')) {
@@ -299,6 +311,8 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
             name = subjectQueries.data?.[entityId.id];
           } else if (entityId.type === 'topic') {
             name = topicQueries.data?.[entityId.id];
+          } else if (entityId.type === 'note') {
+            name = noteQuery.data?.title;
           }
           
           if (name) {
@@ -322,5 +336,5 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     });
 
     return items;
-  }, [segments, entityIds, studentQueries.data, staffQueries.data, classQueries.data, sessionQueries.data, subjectQueries.data, topicQueries.data]);
+  }, [segments, entityIds, studentQueries.data, staffQueries.data, classQueries.data, sessionQueries.data, subjectQueries.data, topicQueries.data, noteQuery.data]);
 }

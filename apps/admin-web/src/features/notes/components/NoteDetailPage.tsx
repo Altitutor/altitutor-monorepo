@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,16 +9,11 @@ import { Button } from '@altitutor/ui';
 import { Form, FormControl, FormField, FormItem } from '@altitutor/ui';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { NoteEditor } from './NoteEditor';
+import { NotePropertiesPanel } from './NotePropertiesPanel';
+import { NotePropertyPills } from './NotePropertyPills';
 import { useNote } from '../api/queries';
 import { useUpdateNote, useDeleteNote } from '../api/mutations';
 import { useFolders } from '../api/queries';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
 import { useDebounce } from '@/shared/hooks';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 
@@ -151,7 +146,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     }
   }, [folderId, note, noteId, updateNote]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!note) return;
     if (!confirm('Are you sure you want to delete this note?')) return;
 
@@ -161,7 +156,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     } catch (error) {
       // Error handled by mutation
     }
-  };
+  }, [note, noteId, deleteNote, router]);
 
   const {
     ref: titleRef,
@@ -175,6 +170,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     (titleFieldRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
   }, [titleRef]);
 
+  // Memoize folders array for performance
+  const foldersArray = useMemo(() => folders || [], [folders]);
+
   if (isLoading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -184,70 +182,60 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex-shrink-0 border-b p-4 space-y-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/notes')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex-1">
-            <Form {...form}>
-              <FormField
-                control={form.control}
-                name="title"
-                render={() => (
-                  <FormItem>
-                    <FormControl>
-                      <div
-                        ref={combinedTitleRef}
-                        contentEditable
-                        onBlur={handleTitleBlur}
-                        onInput={handleTitleInput}
-                        data-placeholder="Note title"
-                        className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
-                        suppressContentEditableWarning
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </Form>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
+    <div className="flex h-[calc(100vh-var(--navbar-height)-5rem)]">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header - Left side only */}
+        <div className="flex-shrink-0 p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Form {...form}>
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={() => (
+                    <FormItem>
+                      <FormControl>
+                        <div
+                          ref={combinedTitleRef}
+                          contentEditable
+                          onBlur={handleTitleBlur}
+                          onInput={handleTitleInput}
+                          data-placeholder="Untitled"
+                          className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
+                          suppressContentEditableWarning
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </Form>
+            </div>
           </div>
         </div>
 
-        {/* Folder selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Folder:</span>
+        {/* Content Panel */}
+        <div className="flex-1 overflow-hidden p-6 min-h-0">
           <Form {...form}>
+            {/* Property Pills - Mobile Only */}
+            <div className="md:hidden -mt-2 mb-6">
+              <NotePropertyPills form={form} folders={foldersArray} />
+            </div>
+
+            {/* Editor */}
             <FormField
               control={form.control}
-              name="folder_id"
+              name="content"
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Select
-                      value={field.value || '__none__'}
-                      onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="No folder" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {folders?.map((folder) => (
-                          <SelectItem key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <NoteEditor
+                      key={noteId}
+                      content={field.value}
+                      onChange={field.onChange}
+                      placeholder="Start writing..."
+                      className="min-h-full"
+                    />
                   </FormControl>
                 </FormItem>
               )}
@@ -256,27 +244,8 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <Form {...form}>
-          <FormField
-            control={form.control}
-            name="content"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <NoteEditor
-                    key={noteId}
-                    content={field.value}
-                    onChange={field.onChange}
-                    className="min-h-full"
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-        </Form>
-      </div>
+      {/* Properties Sidebar - Desktop Only */}
+      <NotePropertiesPanel form={form} folders={foldersArray} onDelete={handleDelete} />
     </div>
   );
 }
