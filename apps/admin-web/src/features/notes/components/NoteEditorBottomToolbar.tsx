@@ -84,7 +84,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
   // Table toolbar mode
   if (toolbarMode === 'table') {
     return (
-      <div className="sticky bottom-4 z-50 border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
+      <div className="border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
         <div className="px-4 py-2">
           <div className="flex items-center gap-2 justify-center flex-nowrap">
             {/* Row controls */}
@@ -175,7 +175,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
   // Text selection toolbar mode
   if (toolbarMode === 'text-selection') {
     return (
-      <div className="sticky bottom-4 z-50 border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
+      <div className="border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
         <div className="px-4 py-2">
           <div className="flex items-center gap-1 justify-center flex-nowrap">
             {/* Inline formatting */}
@@ -242,7 +242,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
 
   // Default toolbar mode (cursor position, no selection)
   return (
-    <div className="sticky bottom-4 z-50 border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
+    <div className="border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
       <div className="px-4 py-2">
         <div className="flex items-center gap-1 justify-center flex-nowrap">
           {/* Headings */}

@@ -10,7 +10,6 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { TextSelection } from '@tiptap/pm/state';
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { cn } from '@/shared/utils';
-import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 
 interface NoteEditorProps {
   content: string;
@@ -110,15 +109,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
           'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
           'prose-td:border prose-td:border-border prose-td:p-2',
           '[&_.ProseMirror]:cursor-text',
-          '[&_p.is-empty:first-child::before]:content-[attr(data-placeholder)]',
-          '[&_p.is-empty:first-child::before]:text-muted-foreground',
-          '[&_p.is-empty:first-child::before]:float-left',
-          '[&_p.is-empty:first-child::before]:h-0',
-          '[&_p.is-empty:first-child::before]:pointer-events-none',
-          '[&_p.is-empty:first-child::before]:!opacity-100',
-          '[&_p.is-empty:first-child::before]:!visible',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
+          '[&_p.is-empty.is-editor-empty:first-child::before]:text-muted-foreground',
+          '[&_p.is-empty.is-editor-empty:first-child::before]:float-left',
+          '[&_p.is-empty.is-editor-empty:first-child::before]:h-0',
+          '[&_p.is-empty.is-editor-empty:first-child::before]:pointer-events-none',
           '[&_p.is-empty.is-editor-empty:first-child::before]:!opacity-100',
+          '[&_p.is-empty.is-editor-empty:first-child::before]:!visible',
           // Ensure empty list items and headings are visible
           '[&_.ProseMirror_ul>li>p:empty]:min-h-[1.5em]',
           '[&_.ProseMirror_ol>li>p:empty]:min-h-[1.5em]',
@@ -266,14 +263,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
 
   return (
     <div 
-      className="relative cursor-text flex flex-col min-h-[calc(100vh-var(--navbar-height)-5rem-120px)]" 
+      className="relative cursor-text flex flex-col min-h-full h-full" 
       data-placeholder={placeholder}
       onClick={handleContainerClick}
     >
-      <div className="pb-20 flex-1">
+      <div className="flex-1 min-h-0">
         <EditorContent editor={editor} />
       </div>
-      <NoteEditorBottomToolbar editor={editor} />
     </div>
   );
 });
