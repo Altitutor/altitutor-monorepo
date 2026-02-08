@@ -7,4 +7,5 @@ export * from './useStudentPasswordReset';
 export * from './useStudentMutations';
 export * from './useStudentModals';
 export * from './useStudentConversation';
-export * from './useAllParents'; 
+export * from './useAllParents';
+export * from './useStudentActions'; 

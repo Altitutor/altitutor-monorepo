@@ -7,6 +7,7 @@ import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useStaffActions } from '@/features/staff/hooks/useStaffActions';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components/absences/LogStaffAbsenceDialog';
 import {
@@ -73,6 +74,24 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const conversationId = useStaffConversation({
     staffId: id,
     enabled: !!id,
+  });
+
+  // Centralized action handlers
+  const staffActions = useStaffActions({
+    staffId: id,
+    onEditDetails: () => {
+      setActiveTab('details');
+      editFlow.startEdit();
+    },
+    onPasswordResetOrRegistration: () => {
+      passwordReset.openPasswordResetOrRegistration();
+      if (staffMember?.user_id) {
+        handlePasswordResetRequest();
+      }
+    },
+    passwordResetLabel: passwordReset.passwordResetLabel,
+    onLogAbsence: modals.openLogAbsence,
+    onDelete: modals.openDeleteDialog,
   });
 
   // UI state
@@ -211,22 +230,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         </div>
         <ActionsMenu
           type="staff"
-          onOpenInPage={() => {
-            router.push(`/staff/${id}`);
-          }}
-          onEditDetails={() => {
-            setActiveTab('details');
-            editFlow.startEdit();
-          }}
-          onPasswordResetOrRegistration={() => {
-            passwordReset.openPasswordResetOrRegistration();
-            if (staffMember?.user_id) {
-              handlePasswordResetRequest();
-            }
-          }}
-          passwordResetLabel={passwordReset.passwordResetLabel}
-          onLogAbsence={modals.openLogAbsence}
-          onDelete={modals.openDeleteDialog}
+          {...staffActions}
         />
       </div>
 
