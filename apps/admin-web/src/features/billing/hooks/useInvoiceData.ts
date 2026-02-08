@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { billingApi, type InvoiceRow, type InvoiceItemRow } from '../api/billing';
+import { billingApi, type InvoiceRow, type InvoiceItemRow, type CreditNoteRow } from '../api/billing';
 import { invoicesKeys } from './useInvoicesQuery';
 
 interface UseInvoiceDataProps {
@@ -10,6 +10,7 @@ interface UseInvoiceDataProps {
 interface UseInvoiceDataReturn {
   invoice: (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null }) | null;
   invoiceItems: InvoiceItemRow[];
+  creditNotes: CreditNoteRow[];
   isLoading: boolean;
 }
 
@@ -36,9 +37,18 @@ export function useInvoiceData({
     staleTime: 1000 * 60 * 3, // 3 minutes
   });
 
+  // Fetch credit notes using React Query
+  const { data: creditNotes = [], isLoading: isLoadingCreditNotes } = useQuery({
+    queryKey: [...invoicesKeys.details(), invoiceId || '', 'credit-notes'],
+    queryFn: () => billingApi.getCreditNotesByInvoice(invoiceId!),
+    enabled: enabled && !!invoiceId,
+    staleTime: 1000 * 60 * 3, // 3 minutes
+  });
+
   return {
     invoice: invoice || null,
     invoiceItems,
-    isLoading: isLoadingInvoice || isLoadingItems,
+    creditNotes,
+    isLoading: isLoadingInvoice || isLoadingItems || isLoadingCreditNotes,
   };
 }

@@ -809,6 +809,46 @@ Deno.serve(async (req: Request) => {
         return json({ received: true });
       }
 
+      case 'charge.refunded': {
+        // HIGH: Track direct charge refunds (not via credit notes)
+        const charge = event.data.object as any;
+        const chargeId = charge.id;
+        
+        // Find invoice by stripe_charge_id
+        const { data: invoice, error: findErr } = await supabase
+          .from('invoices')
+          .select('id')
+          .eq('stripe_charge_id', chargeId)
+          .maybeSingle();
+        
+        if (findErr) {
+          console.error('[webhook] Error finding invoice for refunded charge:', findErr);
+        } else if (invoice) {
+          const { error: updateErr } = await supabase
+            .from('invoices')
+            .update({
+              is_refunded: true,
+              refunded_at: new Date().toISOString(),
+            })
+            .eq('id', invoice.id);
+          
+          if (updateErr) {
+            console.error('[webhook] Error updating invoice refund status:', updateErr);
+          } else {
+            console.log('[webhook] Charge refunded for invoice:', invoice.id, 'charge:', chargeId);
+          }
+        } else {
+          // Charge refunded but no invoice found - this is okay, might be a standalone charge
+          console.log('[webhook] Charge refunded but no invoice found:', chargeId);
+        }
+        
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
       case 'customer.source.expiring': {
         const source = event.data.object as any;
         const paymentMethodId = source.id;
