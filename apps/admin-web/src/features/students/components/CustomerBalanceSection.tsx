@@ -59,6 +59,14 @@ interface SessionPriceOption {
   billing_type: string;
 }
 
+interface SelectedSession {
+  id: string; // Unique ID for this instance
+  optionId: string; // The session option ID
+  label: string;
+  amount_cents: number;
+  currency: string;
+}
+
 interface CustomerBalanceSectionProps {
   studentId: string;
   studentName?: string; // Optional student name for display
@@ -83,10 +91,12 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentDescription, setAdjustmentDescription] = useState('');
-  const [selectedSessionOption, setSelectedSessionOption] = useState<string>('');
+  const [selectedSessions, setSelectedSessions] = useState<SelectedSession[]>([]);
   const [adjustmentType, setAdjustmentType] = useState<'credit' | 'debit'>('credit');
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [nextSessionId, setNextSessionId] = useState(1);
+  const [sessionSelectValue, setSessionSelectValue] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -276,46 +286,80 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
 
   const displayName = studentName || (student ? `${student.first_name} ${student.last_name}` : 'this student');
 
+  // Generate description from selected sessions (for submission)
+  const generatedDescription = useMemo(() => {
+    if (selectedSessions.length === 0) return '';
+    const sessionLabels = selectedSessions.map(s => s.label);
+    return `Credit for ${sessionLabels.join(', ')}`;
+  }, [selectedSessions]);
+
+  // Calculate final description for submission
+  const finalDescription = useMemo(() => {
+    const manualDesc = adjustmentDescription.trim();
+    if (!manualDesc) return '';
+    
+    if (generatedDescription) {
+      return `${generatedDescription}. Reason: ${manualDesc}`;
+    }
+    return manualDesc;
+  }, [generatedDescription, adjustmentDescription]);
+
   // Calculate preview balance based on selected adjustment type
   const previewBalance = useMemo(() => {
     const currentBalance = balanceCents || 0;
     let adjustment = 0;
     
-    if (selectedSessionOption) {
-      const option = sessionPriceOptions.find((opt) => opt.id === selectedSessionOption);
-      if (option) {
-        adjustment = adjustmentType === 'credit' ? -option.amount_cents : option.amount_cents;
-      }
+    if (selectedSessions.length > 0) {
+      const totalCents = selectedSessions.reduce((sum, session) => sum + session.amount_cents, 0);
+      adjustment = adjustmentType === 'credit' ? -totalCents : totalCents;
     } else if (adjustmentAmount && !isNaN(parseFloat(adjustmentAmount))) {
       const amountCents = Math.round(parseFloat(adjustmentAmount) * 100);
       adjustment = adjustmentType === 'credit' ? -amountCents : amountCents;
     }
     
     return currentBalance + adjustment;
-  }, [balanceCents, selectedSessionOption, sessionPriceOptions, adjustmentAmount, adjustmentType]);
+  }, [balanceCents, selectedSessions, adjustmentAmount, adjustmentType]);
 
   // Calculate adjustment amount for preview message
   const previewAdjustment = useMemo(() => {
     let amountCents = 0;
     
-    if (selectedSessionOption) {
-      const option = sessionPriceOptions.find((opt) => opt.id === selectedSessionOption);
-      if (option) {
-        amountCents = option.amount_cents;
-      }
+    if (selectedSessions.length > 0) {
+      amountCents = selectedSessions.reduce((sum, session) => sum + session.amount_cents, 0);
     } else if (adjustmentAmount && !isNaN(parseFloat(adjustmentAmount))) {
       amountCents = Math.round(parseFloat(adjustmentAmount) * 100);
     }
     
     return { amountCents };
-  }, [selectedSessionOption, sessionPriceOptions, adjustmentAmount]);
+  }, [selectedSessions, adjustmentAmount]);
+
+  const handleAddSession = (optionId: string) => {
+    const option = sessionPriceOptions.find((opt) => opt.id === optionId);
+    if (!option) return;
+
+    const newSession: SelectedSession = {
+      id: `session-${nextSessionId}`,
+      optionId: option.id,
+      label: option.label,
+      amount_cents: option.amount_cents,
+      currency: option.currency,
+    };
+
+    setSelectedSessions([...selectedSessions, newSession]);
+    setNextSessionId(nextSessionId + 1);
+    setSessionSelectValue(''); // Reset select
+  };
+
+  const handleRemoveSession = (sessionId: string) => {
+    setSelectedSessions(selectedSessions.filter(s => s.id !== sessionId));
+  };
 
   const handleAdjustBalance = async () => {
-    // Validate description is required
+    // Validate manual description is required
     if (!adjustmentDescription.trim()) {
       toast({
         title: 'Error',
-        description: 'Description is required',
+        description: 'Reason is required',
         variant: 'destructive',
       });
       return;
@@ -323,24 +367,15 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
 
     let amountCents: number;
     
-    // Use session option if selected, otherwise use manual amount
-    if (selectedSessionOption) {
-      const option = sessionPriceOptions.find((opt) => opt.id === selectedSessionOption);
-      if (!option) {
-        toast({
-          title: 'Error',
-          description: 'Selected session option not found',
-          variant: 'destructive',
-        });
-        return;
-      }
-      amountCents = option.amount_cents;
+    // Use selected sessions if any, otherwise use manual amount
+    if (selectedSessions.length > 0) {
+      amountCents = selectedSessions.reduce((sum, session) => sum + session.amount_cents, 0);
     } else {
       const amount = parseFloat(adjustmentAmount);
       if (isNaN(amount) || amount <= 0) {
         toast({
           title: 'Error',
-          description: 'Please enter a valid amount or select a session option',
+          description: 'Please enter a valid amount or select session options',
           variant: 'destructive',
         });
         return;
@@ -353,8 +388,9 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
       // Negative amount = credit (customer owes less), positive = debit (customer owes more)
       const isCredit = adjustmentType === 'credit';
       const adjustmentCents = isCredit ? -amountCents : amountCents;
-      const selectedOption = sessionPriceOptions.find((opt) => opt.id === selectedSessionOption);
-      const currency = selectedOption?.currency || balanceData?.currency || 'aud';
+      const currency = selectedSessions.length > 0 
+        ? selectedSessions[0].currency 
+        : balanceData?.currency || 'aud';
 
       const response = await fetch(`/api/students/${studentId}/customer-balance`, {
         method: 'POST',
@@ -364,7 +400,7 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
         body: JSON.stringify({
           amount_cents: adjustmentCents,
           currency: currency.toLowerCase(),
-          description: adjustmentDescription.trim(),
+          description: finalDescription,
         }),
       });
 
@@ -381,8 +417,10 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
       setIsAdjustModalOpen(false);
       setAdjustmentAmount('');
       setAdjustmentDescription('');
-      setSelectedSessionOption('');
+      setSelectedSessions([]);
       setAdjustmentType('credit'); // Reset to credit
+      setNextSessionId(1);
+      setSessionSelectValue('');
       await refetch();
       await refetchHistory();
       queryClient.invalidateQueries({ queryKey: ['customer-balance', studentId] });
@@ -579,175 +617,271 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
         )}
       </div>
 
-      <Dialog open={isAdjustModalOpen} onOpenChange={setIsAdjustModalOpen}>
-        <DialogContent className="md:max-w-3xl [&>button]:hidden">
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    setIsAdjustModalOpen(false);
-                    setAdjustmentAmount('');
-                    setAdjustmentDescription('');
-                    setSelectedSessionOption('');
-                    setAdjustmentType('credit');
-                  }}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1">
-                  <DialogTitle>Adjust Customer Balance</DialogTitle>
-                  <DialogDescription>
-                    Add credit (negative balance) or debit (positive balance) to this customer's account.
-                    Credits will be automatically applied to future invoices.
-                  </DialogDescription>
+      <Dialog open={isAdjustModalOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsAdjustModalOpen(false);
+          setAdjustmentAmount('');
+          setAdjustmentDescription('');
+          setSelectedSessions([]);
+          setAdjustmentType('credit');
+          setNextSessionId(1);
+          setSessionSelectValue('');
+        } else {
+          setIsAdjustModalOpen(true);
+        }
+      }}>
+        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+          {/* Header */}
+          <div className="flex-shrink-0 border-b bg-background">
+            <DialogHeader className="px-6 pt-6 pb-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setIsAdjustModalOpen(false);
+                      setAdjustmentAmount('');
+                      setAdjustmentDescription('');
+                      setSelectedSessions([]);
+                      setAdjustmentType('credit');
+                      setNextSessionId(1);
+                      setSessionSelectValue('');
+                    }}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1">
+                    <DialogTitle>Adjust Customer Balance</DialogTitle>
+                    <DialogDescription>
+                      Credits will be automatically applied to future invoices.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-hidden min-h-0">
+            <div className="h-full overflow-y-auto">
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column: Options */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="session-option">Select Session(s)</Label>
+                      <Select
+                        value={sessionSelectValue}
+                        onValueChange={(value) => {
+                          if (value && value !== 'none') {
+                            handleAddSession(value);
+                          }
+                        }}
+                        disabled={isAdjusting}
+                      >
+                        <SelectTrigger id="session-option">
+                          <SelectValue placeholder="Select a session to add" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sessionPriceOptions.length > 0 ? (
+                            sessionPriceOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.label} - ${(option.amount_cents / 100).toFixed(2)} {option.currency.toUpperCase()}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>
+                              No session options available
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Custom Amount - only show when no sessions selected */}
+                    {selectedSessions.length === 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Custom Amount ({currency.toUpperCase()})</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          placeholder="0.00"
+                          value={adjustmentAmount}
+                          onChange={(e) => {
+                            setAdjustmentAmount(e.target.value);
+                            if (e.target.value) {
+                              setSelectedSessions([]); // Clear sessions when manually entering amount
+                            }
+                          }}
+                          disabled={isAdjusting}
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="description">
+                        Reason <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="description"
+                        type="text"
+                        placeholder="e.g., Refund for cancelled session"
+                        value={adjustmentDescription}
+                        onChange={(e) => setAdjustmentDescription(e.target.value)}
+                        disabled={isAdjusting}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Adjustment Type</Label>
+                      <RadioGroup
+                        value={adjustmentType}
+                        onValueChange={(value) => setAdjustmentType(value as 'credit' | 'debit')}
+                        disabled={isAdjusting}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="credit" id="credit" />
+                          <Label htmlFor="credit" className="font-normal cursor-pointer">
+                            Credit (give the student money)
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="debit" id="debit" />
+                          <Label htmlFor="debit" className="font-normal cursor-pointer">
+                            Debit (charge the student money)
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Preview */}
+                  <div className="space-y-4">
+                    {/* Selected Sessions Table */}
+                    {selectedSessions.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Selected Sessions</Label>
+                        <div className="border rounded-md">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/50">
+                                  <th className="text-left p-2 font-medium">Session</th>
+                                  <th className="text-right p-2 font-medium">Amount</th>
+                                  <th className="w-[40px] p-2"></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {selectedSessions.map((session) => (
+                                  <tr key={session.id} className="border-b hover:bg-muted/50">
+                                    <td className="p-2">{session.label}</td>
+                                    <td className="p-2 text-right font-medium">
+                                      ${(session.amount_cents / 100).toFixed(2)} {session.currency.toUpperCase()}
+                                    </td>
+                                    <td className="p-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleRemoveSession(session.id)}
+                                        disabled={isAdjusting}
+                                        className="h-8 w-8"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="border-t bg-muted/30">
+                                  <td className="p-2 font-medium">Total</td>
+                                  <td className="p-2 text-right font-semibold">
+                                    ${(selectedSessions.reduce((sum, s) => sum + s.amount_cents, 0) / 100).toFixed(2)} {selectedSessions[0]?.currency.toUpperCase() || currency.toUpperCase()}
+                                  </td>
+                                  <td className="p-2"></td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="rounded-md bg-muted p-4 text-sm">
+                      <div className="space-y-3">
+                        {/* Current Balance */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Current Balance</span>
+                          <span className="font-semibold">{formattedBalance} {currency.toUpperCase()}</span>
+                        </div>
+
+                        {/* Adjustment */}
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="text-muted-foreground">Adjustment</div>
+                            {finalDescription && (
+                              <div className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+                                {finalDescription}
+                              </div>
+                            )}
+                          </div>
+                          <span className={`font-semibold ${previewAdjustment.amountCents > 0 ? (adjustmentType === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-muted-foreground'}`}>
+                            {previewAdjustment.amountCents > 0 
+                              ? `${adjustmentType === 'credit' ? '+' : '-'}$${(previewAdjustment.amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`
+                              : `$0.00 ${currency.toUpperCase()}`
+                            }
+                          </span>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="border-t pt-3">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">New Balance</span>
+                            <span className="text-lg font-semibold">
+                              {(() => {
+                                const isNewCredit = previewBalance < 0;
+                                const displayBalance = Math.abs(previewBalance) / 100;
+                                return `${isNewCredit ? '-' : ''}$${displayBalance.toFixed(2)} ${currency.toUpperCase()}`;
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="session-option">Session Option (optional)</Label>
-              <Select
-                value={selectedSessionOption}
-                onValueChange={(value) => {
-                  setSelectedSessionOption(value);
-                  if (value) {
-                    const option = sessionPriceOptions.find((opt) => opt.id === value);
-                    if (option) {
-                      setAdjustmentAmount((option.amount_cents / 100).toFixed(2));
-                    }
-                  }
-                }}
-                disabled={isAdjusting}
-              >
-                <SelectTrigger id="session-option">
-                  <SelectValue placeholder="Select a session to use its price" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessionPriceOptions.length > 0 ? (
-                    sessionPriceOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.label} - ${(option.amount_cents / 100).toFixed(2)} {option.currency.toUpperCase()}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      No session options available
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Select a session to automatically calculate the amount including credit card fees
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount ({currency.toUpperCase()})</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0.00"
-                value={adjustmentAmount}
-                onChange={(e) => {
-                  setAdjustmentAmount(e.target.value);
-                  if (e.target.value) {
-                    setSelectedSessionOption(''); // Clear session option when manually entering amount
-                  }
-                }}
-                disabled={isAdjusting}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">
-                Description <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="description"
-                type="text"
-                placeholder="e.g., Refund for cancelled session"
-                value={adjustmentDescription}
-                onChange={(e) => setAdjustmentDescription(e.target.value)}
-                disabled={isAdjusting}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Adjustment Type</Label>
-              <RadioGroup
-                value={adjustmentType}
-                onValueChange={(value) => setAdjustmentType(value as 'credit' | 'debit')}
-                disabled={isAdjusting}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="credit" id="credit" />
-                  <Label htmlFor="credit" className="font-normal cursor-pointer">
-                    Credit (give the student money)
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="debit" id="debit" />
-                  <Label htmlFor="debit" className="font-normal cursor-pointer">
-                    Debit (charge the student money)
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-            <div className="rounded-md bg-muted p-3 text-sm">
-              <div className="font-medium mb-1">Current Balance:</div>
-              <div className="text-lg font-semibold">{formattedBalance} {currency.toUpperCase()}</div>
-              {(adjustmentAmount || selectedSessionOption) && previewAdjustment.amountCents > 0 && (
-                <>
-                  <div className="mt-2 pt-2 border-t">
-                    <div className="font-medium mb-1">After Adjustment:</div>
-                    <div className="text-lg font-semibold mb-2">
-                      {(() => {
-                        const isNewCredit = previewBalance < 0;
-                        const displayBalance = Math.abs(previewBalance) / 100;
-                        return `${isNewCredit ? '-' : ''}$${displayBalance.toFixed(2)} ${currency.toUpperCase()}`;
-                      })()}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {adjustmentType === 'credit' ? (
-                        <>You are <strong>giving</strong> {displayName} ${(previewAdjustment.amountCents / 100).toFixed(2)} {currency.toUpperCase()} credit</>
-                      ) : (
-                        <>You are <strong>charging</strong> {displayName} ${(previewAdjustment.amountCents / 100).toFixed(2)} {currency.toUpperCase()} extra</>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
+
+          {/* Footer */}
+          <div className="flex justify-between px-6 py-4 border-t bg-background">
             <Button
               variant="outline"
               onClick={() => {
                 setIsAdjustModalOpen(false);
                 setAdjustmentAmount('');
                 setAdjustmentDescription('');
-                setSelectedSessionOption('');
+                setSelectedSessions([]);
                 setAdjustmentType('credit');
+                setNextSessionId(1);
+                setSessionSelectValue('');
               }}
               disabled={isAdjusting}
-              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               variant="default"
               onClick={handleAdjustBalance}
-              disabled={isAdjusting || (!adjustmentAmount && !selectedSessionOption) || !adjustmentDescription.trim()}
-              className="w-full sm:w-auto"
+              disabled={isAdjusting || (!adjustmentAmount && selectedSessions.length === 0) || !adjustmentDescription.trim()}
             >
               Apply
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
