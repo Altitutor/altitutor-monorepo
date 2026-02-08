@@ -42,10 +42,13 @@ export function QuickBooksExportModal({
   });
   
   // Process tutor logs into QuickBooks entries
-  const quickBooksEntries = useMemo(() => {
-    if (!tutorLogsData) return [];
+  const processResult = useMemo(() => {
+    if (!tutorLogsData) return { entries: [], excludedClasses: [] };
     return processTutorLogsForExport(tutorLogsData);
   }, [tutorLogsData]);
+  
+  const quickBooksEntries = processResult.entries;
+  const excludedClasses = processResult.excludedClasses;
   
   // Generate CSV preview
   const csvPreview = useMemo(() => {
@@ -63,10 +66,33 @@ export function QuickBooksExportModal({
   const handleExport = () => {
     if (csvPreview) {
       downloadCsv(csvPreview, filename);
-      toast({
-        title: 'Export successful',
-        description: `Downloaded ${quickBooksEntries.length} timesheet entries`,
-      });
+      
+      // Show toast for excluded classes
+      if (excludedClasses.length > 0) {
+        const classNames = excludedClasses
+          .map((c) => {
+            const date = new Date(c.sessionStartAt).toLocaleDateString('en-AU', {
+              timeZone: 'Australia/Adelaide',
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            });
+            return `${c.subjectName || c.sessionType} (${date})`;
+          })
+          .join(', ');
+        
+        toast({
+          title: 'Export successful',
+          description: `Downloaded ${quickBooksEntries.length} timesheet entries. Excluded ${excludedClasses.length} class session(s) with no students: ${classNames}`,
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Export successful',
+          description: `Downloaded ${quickBooksEntries.length} timesheet entries`,
+        });
+      }
+      
       onClose();
     }
   };
@@ -123,9 +149,16 @@ export function QuickBooksExportModal({
           {!isLoading && !error && (
             <div className="flex-1 flex flex-col gap-2 min-h-0">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">
-                  Preview ({quickBooksEntries.length} entries)
-                </label>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium">
+                    Preview ({quickBooksEntries.length} entries)
+                  </label>
+                  {excludedClasses.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {excludedClasses.length} class session(s) with no students excluded
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground">
                   {filename}
                 </span>
