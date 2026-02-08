@@ -39,7 +39,7 @@ type RegistrationFormValues = {
     sunday_pm: boolean;
   };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 

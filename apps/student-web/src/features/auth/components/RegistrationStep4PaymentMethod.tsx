@@ -38,7 +38,7 @@ type RegistrationFormValues = {
     sunday_pm: boolean;
   };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 
@@ -46,6 +46,7 @@ interface RegistrationStep4PaymentMethodProps {
   form: UseFormReturn<RegistrationFormValues>;
   token: string;
   studentId: string;
+  preloadedClientSecret?: string | null;
 }
 
 // Use pre-loaded Stripe instance
@@ -234,8 +235,9 @@ export function RegistrationStep4PaymentMethod({
   form,
   token,
   studentId,
+  preloadedClientSecret,
 }: RegistrationStep4PaymentMethodProps) {
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(preloadedClientSecret || null);
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const { toast } = useToast();
@@ -243,15 +245,21 @@ export function RegistrationStep4PaymentMethod({
   // Check if payment method is already verified
   const paymentMethodVerified = form.watch('paymentMethodVerified');
 
-  // Fetch setup intent when component mounts
+  // Use preloaded client secret if available, otherwise fetch
   useEffect(() => {
     if (!studentId || paymentMethodVerified) {
       setIsVerified(true);
       return;
     }
 
+    // If we already have a client secret (preloaded), use it
+    if (clientSecret) {
+      setIsLoading(false);
+      return;
+    }
+
     // Only fetch if we don't have a client secret and we're not already loading
-    if (clientSecret || isLoading) {
+    if (isLoading) {
       return;
     }
 
@@ -298,6 +306,13 @@ export function RegistrationStep4PaymentMethod({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, token, paymentMethodVerified]); // clientSecret and isLoading intentionally excluded to prevent loops
 
+  // Update client secret if preloaded value changes
+  useEffect(() => {
+    if (preloadedClientSecret && !clientSecret) {
+      setClientSecret(preloadedClientSecret);
+    }
+  }, [preloadedClientSecret, clientSecret]);
+
   const handleSuccess = useCallback(() => {
     setIsVerified(true);
     form.setValue('paymentMethodVerified', true);
@@ -317,7 +332,7 @@ export function RegistrationStep4PaymentMethod({
         <div>
           <h3 className="text-lg font-semibold">Payment Method</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Add a payment method to complete your registration.
+          Add a payment method to pay for sessions.
           </p>
         </div>
 
@@ -341,7 +356,7 @@ export function RegistrationStep4PaymentMethod({
       <div>
         <h3 className="text-lg font-semibold">Payment Method</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Add a payment method to complete your registration. Your card will be verified but not charged.
+        Add a payment method to pay for sessions. Your card will be verified but not charged until you are added to a class.
         </p>
       </div>
 

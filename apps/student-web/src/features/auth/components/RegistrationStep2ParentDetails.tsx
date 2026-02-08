@@ -43,7 +43,7 @@ type RegistrationFormValues = {
     sunday_pm: boolean;
   };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 
@@ -70,7 +70,7 @@ export function RegistrationStep2ParentDetails({
           onClick={() => append({ first_name: '', last_name: '', email: '', phone: '' })}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Parent
+          Add Another Parent
         </Button>
       </div>
       
