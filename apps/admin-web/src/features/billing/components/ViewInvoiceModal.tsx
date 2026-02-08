@@ -93,9 +93,15 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
         throw new Error(error.error || 'Failed to send invoice');
       }
 
+      const result = await response.json();
+      const recipients = result.sent || [];
+      const recipientText = recipients.length > 0 
+        ? `Sent to: ${recipients.join(', ')}`
+        : 'Invoice email sent successfully';
+
       toast({
         title: 'Success',
-        description: 'Invoice email sent successfully',
+        description: recipientText,
       });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
@@ -205,8 +211,8 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                     onDownloadPdf={invoice.invoice_pdf ? () => {
                       window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
                     } : undefined}
-                    onSendInvoice={collectionMethod === 'send_invoice' ? handleSendInvoiceEmail : undefined}
-                    onChargeCard={collectionMethod === 'charge_automatically' ? handleChargeCard : undefined}
+                    onSendInvoice={collectionMethod === 'send_invoice' && invoice.status !== 'paid' ? handleSendInvoiceEmail : undefined}
+                    onChargeCard={collectionMethod === 'charge_automatically' && invoice.status !== 'paid' ? handleChargeCard : undefined}
                     isLoadingAction={isLoadingAction}
                   />
                 )}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
@@ -6,7 +6,7 @@ import { ScrollArea } from "@altitutor/ui";
 import { Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Plus, Pencil, X, UserX, UserCheck } from "lucide-react";
+import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { ViewClassModal, CalendarView } from '@/features/classes';
@@ -33,7 +33,6 @@ export function ClassesTab({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [isReEnrolling, setIsReEnrolling] = useState(false);
   
   // Use React Query hooks for data fetching
@@ -45,6 +44,31 @@ export function ClassesTab({
   
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [isEditMode, setIsEditMode] = useState(false);
+  
+  // Responsive: detect when container is too small for full cards
+  // Use window width instead of container ref for more reliable detection
+  const [useCompactCards, setUseCompactCards] = useState(false);
+  
+  useEffect(() => {
+    const checkSize = () => {
+      // Use window innerWidth for more reliable mobile detection
+      // Account for padding (p-6 = 24px each side = 48px total) and subject pill (~80-100px)
+      // So if window is < 640px, the card area will be < ~500px
+      const windowWidth = window.innerWidth;
+      const shouldUseCompact = windowWidth < 640;
+      setUseCompactCards(shouldUseCompact);
+    };
+    
+    // Check initially
+    checkSize();
+    
+    // Listen to window resize
+    window.addEventListener('resize', checkSize);
+    
+    return () => {
+      window.removeEventListener('resize', checkSize);
+    };
+  }, []);
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -73,6 +97,8 @@ export function ClassesTab({
   // Group classes by subject
   const classesBySubject = useMemo(() => {
     const grouped: Record<string, StudentClass[]> = {};
+    const classesWithoutMatchingSubject: StudentClass[] = [];
+    const studentSubjectIds = new Set(studentSubjects.map(s => s.id));
     
     // Add all student subjects (even if they have no classes)
     studentSubjects.forEach(subject => {
@@ -83,12 +109,27 @@ export function ClassesTab({
     classes.forEach(classData => {
       if (classData.subject) {
         const subjectId = classData.subject.id;
-        if (!grouped[subjectId]) {
-          grouped[subjectId] = [];
+        // Check if student has this subject
+        if (studentSubjectIds.has(subjectId)) {
+          // Student has this subject - add to grouped
+          if (!grouped[subjectId]) {
+            grouped[subjectId] = [];
+          }
+          grouped[subjectId].push(classData);
+        } else {
+          // Student doesn't have this subject - add to bottom section
+          classesWithoutMatchingSubject.push(classData);
         }
-        grouped[subjectId].push(classData);
+      } else {
+        // Class has no subject - add to bottom section
+        classesWithoutMatchingSubject.push(classData);
       }
     });
+    
+    // Add classes without matching subjects at the end
+    if (classesWithoutMatchingSubject.length > 0) {
+      grouped['__no_subject__'] = classesWithoutMatchingSubject;
+    }
     
     return grouped;
   }, [classes, studentSubjects]);
@@ -388,56 +429,6 @@ export function ClassesTab({
     }
   };
 
-  // Handle discontinue student
-  const handleDiscontinue = async () => {
-    if (!currentStaff) return;
-    
-    try {
-      setIsDiscontinuing(true);
-      const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
-      
-      if (!result.success) {
-        if (result.error === 'Unenroll student from classes first') {
-          toast({
-            title: 'Cannot Discontinue',
-            description: 'Unenroll student from classes first',
-            variant: 'destructive',
-          });
-        } else if (result.error === 'Student has future sessions') {
-          const sessionCount = result.sessions?.length || 0;
-          toast({
-            title: 'Cannot Discontinue',
-            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Cannot Discontinue',
-            description: result.error || 'Failed to discontinue student',
-            variant: 'destructive',
-          });
-        }
-        return;
-      }
-      
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
-      onStudentUpdated?.();
-      toast({
-        title: 'Success',
-        description: 'Student discontinued successfully.',
-      });
-    } catch (error) {
-      console.error('Failed to discontinue student:', error);
-      toast({
-        title: 'Discontinue failed',
-        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDiscontinuing(false);
-    }
-  };
-
   // Handle re-enroll student
   const handleReEnroll = async () => {
     try {
@@ -529,7 +520,36 @@ export function ClassesTab({
           {viewMode === 'table' ? (
             <ScrollArea className="h-full">
               <div className="space-y-4">
-                {Object.entries(classesBySubject).map(([subjectId, subjectClasses]) => {
+                {Object.entries(classesBySubject)
+                  .sort(([a], [b]) => {
+                    // Put __no_subject__ entries at the end
+                    if (a === '__no_subject__') return 1;
+                    if (b === '__no_subject__') return -1;
+                    return 0;
+                  })
+                  .map(([subjectId, subjectClasses]) => {
+                  // Handle classes without subjects (shown at bottom)
+                  if (subjectId === '__no_subject__') {
+                    return (
+                      <div key={subjectId} className="space-y-2">
+                        {subjectClasses.map(classData => (
+                          <ClassCard
+                            key={classData.class.id}
+                            class={classData.class}
+                            subject={classData.subject}
+                            staff={classData.staff}
+                            students={classData.students}
+                            onClick={() => handleClassClick(classData.class.id)}
+                            onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
+                            onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
+                            hideActions={!isEditMode}
+                            compact={useCompactCards}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
+                  
                   const subject = studentSubjects.find(s => s.id === subjectId);
                   if (!subject) return null;
                   
@@ -562,7 +582,7 @@ export function ClassesTab({
                         </Badge>
                       </div>
                       
-                      {/* Class Cards */}
+                      {/* Class Cards - Show all classes for this subject stacked */}
                       <div className="flex-1 space-y-2">
                         {subjectClasses.length > 0 ? (
                           subjectClasses.map(classData => (
@@ -576,6 +596,7 @@ export function ClassesTab({
                               onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
                               onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
                               hideActions={!isEditMode}
+                              compact={useCompactCards}
                             />
                           ))
                         ) : (
@@ -620,50 +641,28 @@ export function ClassesTab({
                 )}
                 
                 {/* Actions Section - Only show in edit mode */}
-                {isEditMode && (
+                {isEditMode && student.status === 'DISCONTINUED' && (
                   <div className="mt-8 pt-6 border-t">
                     <h4 className="text-sm font-medium mb-4">Actions</h4>
                     <div className="flex gap-2">
-                      {(student.status === 'TRIAL' || student.status === 'ACTIVE') && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={handleDiscontinue}
-                          disabled={isDiscontinuing}
-                        >
-                          {isDiscontinuing ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Discontinuing...
-                            </>
-                          ) : (
-                            <>
-                              <UserX className="h-4 w-4 mr-2" />
-                              Discontinue
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      {student.status === 'DISCONTINUED' && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={handleReEnroll}
-                          disabled={isReEnrolling}
-                        >
-                          {isReEnrolling ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Re-enrolling...
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="h-4 w-4 mr-2" />
-                              Re-enroll
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleReEnroll}
+                        disabled={isReEnrolling}
+                      >
+                        {isReEnrolling ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Re-enrolling...
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Re-enroll
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
                 )}

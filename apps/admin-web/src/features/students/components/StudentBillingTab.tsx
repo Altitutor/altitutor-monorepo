@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { Tables, Database } from '@altitutor/shared';
-import { Button } from '@altitutor/ui';
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AddPaymentMethodModal } from '@/features/billing/components/AddPaymentMethodModal';
@@ -11,11 +11,9 @@ import { useToast } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentMethodCard, type PaymentMethodCardData } from '@altitutor/ui';
 import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
-import { fetchStudentSubsidies } from '../api/subsidies';
-import { StudentSubsidiesTable } from './StudentSubsidiesTable';
-import { AddSubsidyModal } from './AddSubsidyModal';
 import { StudentInvoicesTable } from './StudentInvoicesTable';
 import { CustomerBalanceSection } from './CustomerBalanceSection';
+import { BillingPreferencesSection } from './BillingPreferencesSection';
 import { getErrorMessage } from '@/shared/utils';
 
 type PaymentMethod = Tables<'student_payment_methods'>;
@@ -44,9 +42,12 @@ async function fetchStudentPaymentMethods(studentId: string): Promise<PaymentMet
   return data || [];
 }
 
-export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
+interface PaymentMethodsTabProps {
+  student: Tables<'students'>;
+}
+
+function PaymentMethodsTab({ student }: PaymentMethodsTabProps) {
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
-  const [isSubsidyModalOpen, setIsSubsidyModalOpen] = useState(false);
   const [loadingMethodId, setLoadingMethodId] = useState<string | null>(null);
   const [loadingAction, setLoadingAction] = useState<'setDefault' | 'delete' | null>(null);
   const { toast } = useToast();
@@ -55,11 +56,6 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
   const { data: paymentMethods = [], isLoading: loadingPaymentMethods } = useQuery({
     queryKey: studentPaymentMethodsKeys.student(student.id),
     queryFn: () => fetchStudentPaymentMethods(student.id),
-  });
-
-  const { data: subsidies = [], isLoading: loadingSubsidies } = useQuery({
-    queryKey: studentSubsidiesKeys.student(student.id),
-    queryFn: () => fetchStudentSubsidies(student.id),
   });
 
   const handleSetDefault = async (methodId: string) => {
@@ -71,7 +67,6 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
         title: 'Success',
         description: 'Default payment method updated',
       });
-      // Invalidate and refetch the query
       queryClient.invalidateQueries({ queryKey: studentPaymentMethodsKeys.student(student.id) });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
@@ -109,7 +104,6 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
         title: 'Success',
         description: 'Payment method removed',
       });
-      // Invalidate and refetch the query
       queryClient.invalidateQueries({ queryKey: studentPaymentMethodsKeys.student(student.id) });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
@@ -144,95 +138,110 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
   };
 
   return (
-    <div className="space-y-8">
-      {/* Customer Balance Section */}
-      <CustomerBalanceSection studentId={student.id} />
-
-      {/* Payment Methods Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Payment Methods</h3>
-          <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Payment Method
-          </Button>
-        </div>
-
-        {loadingPaymentMethods ? (
-          <div>Loading…</div>
-        ) : paymentMethods.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No payment methods configured for this student
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-4">
-            {paymentMethods.map((method) => {
-              const cardData: PaymentMethodCardData = {
-                id: method.id,
-                card_brand: method.card_brand,
-                card_last4: method.card_last4,
-                card_exp_month: method.card_exp_month,
-                card_exp_year: method.card_exp_year,
-                is_default: method.is_default,
-              };
-
-              const isDeleting = loadingMethodId === method.id && loadingAction === 'delete';
-              const isSettingDefault = loadingMethodId === method.id && loadingAction === 'setDefault';
-
-              return (
-                <PaymentMethodCard
-                  key={method.id}
-                  paymentMethod={cardData}
-                  isDeleting={isDeleting}
-                  isSettingDefault={isSettingDefault}
-                  onSetDefault={handleSetDefault}
-                  onDelete={handleRemoveMethod}
-                  showActions={true}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        <AddPaymentMethodModal
-          isOpen={isPaymentMethodModalOpen}
-          onClose={() => setIsPaymentMethodModalOpen(false)}
-          studentId={student.id}
-          studentEmail={student.email || undefined}
-          studentName={student.first_name && student.last_name ? `${student.first_name} ${student.last_name}` : undefined}
-          onSuccess={handleAddSuccess}
-        />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Payment Methods</h3>
+        <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Payment Method
+        </Button>
       </div>
 
-      {/* Subsidies Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Subsidies</h3>
-          <Button onClick={() => setIsSubsidyModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Subsidy
-          </Button>
+      {loadingPaymentMethods ? (
+        <div className="text-center py-8 text-muted-foreground">Loading…</div>
+      ) : paymentMethods.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          No payment methods configured for this student
         </div>
+      ) : (
+        <div className="flex flex-wrap gap-4">
+          {paymentMethods.map((method) => {
+            const cardData: PaymentMethodCardData = {
+              id: method.id,
+              card_brand: method.card_brand,
+              card_last4: method.card_last4,
+              card_exp_month: method.card_exp_month,
+              card_exp_year: method.card_exp_year,
+              is_default: method.is_default,
+            };
 
-        {loadingSubsidies ? (
-          <div>Loading…</div>
-        ) : (
-          <StudentSubsidiesTable subsidies={subsidies} studentId={student.id} />
-        )}
+            const isDeleting = loadingMethodId === method.id && loadingAction === 'delete';
+            const isSettingDefault = loadingMethodId === method.id && loadingAction === 'setDefault';
 
-        <AddSubsidyModal
-          isOpen={isSubsidyModalOpen}
-          onClose={() => setIsSubsidyModalOpen(false)}
-          studentId={student.id}
-        />
-      </div>
+            return (
+              <PaymentMethodCard
+                key={method.id}
+                paymentMethod={cardData}
+                isDeleting={isDeleting}
+                isSettingDefault={isSettingDefault}
+                onSetDefault={handleSetDefault}
+                onDelete={handleRemoveMethod}
+                showActions={true}
+              />
+            );
+          })}
+        </div>
+      )}
 
-      {/* Invoices Section */}
+      <AddPaymentMethodModal
+        isOpen={isPaymentMethodModalOpen}
+        onClose={() => setIsPaymentMethodModalOpen(false)}
+        studentId={student.id}
+        studentEmail={student.email || undefined}
+        studentName={student.first_name && student.last_name ? `${student.first_name} ${student.last_name}` : undefined}
+        onSuccess={handleAddSuccess}
+      />
+    </div>
+  );
+}
+
+interface InvoicesTabProps {
+  studentId: string;
+  studentName: string;
+}
+
+function InvoicesTab({ studentId, studentName }: InvoicesTabProps) {
+  return (
+    <div className="space-y-6">
+      <CustomerBalanceSection studentId={studentId} studentName={studentName} />
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Invoices</h3>
-        <StudentInvoicesTable studentId={student.id} />
+        <StudentInvoicesTable studentId={studentId} />
       </div>
     </div>
+  );
+}
+
+interface BillingPreferencesTabProps {
+  student: Tables<'students'>;
+}
+
+function BillingPreferencesTab({ student }: BillingPreferencesTabProps) {
+  return <BillingPreferencesSection student={student} />;
+}
+
+export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
+  const studentName = `${student.first_name} ${student.last_name}`;
+
+  return (
+    <Tabs defaultValue="invoices" className="w-full">
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="invoices">Invoices</TabsTrigger>
+        <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+        <TabsTrigger value="billing-preferences">Billing Preferences</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="invoices" className="mt-6">
+        <InvoicesTab studentId={student.id} studentName={studentName} />
+      </TabsContent>
+
+      <TabsContent value="payment-methods" className="mt-6">
+        <PaymentMethodsTab student={student} />
+      </TabsContent>
+
+      <TabsContent value="billing-preferences" className="mt-6">
+        <BillingPreferencesTab student={student} />
+      </TabsContent>
+    </Tabs>
   );
 }
 

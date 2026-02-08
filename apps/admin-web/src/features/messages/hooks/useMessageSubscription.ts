@@ -8,6 +8,7 @@ import { messagesKeys } from '../api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useChatStore } from '../state/chatStore';
+import { formatContactName } from '../utils/formatContactName';
 
 /**
  * Hook to subscribe to new inbound messages
@@ -52,12 +53,36 @@ export function useMessageSubscription() {
             console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
           }
           
+          // Fetch conversation with contact info to get sender name
+          let senderName = 'Unknown';
+          try {
+            const { data: conversation } = await supabase
+              .from('conversations')
+              .select(`
+                id,
+                contacts (
+                  id, phone_e164, contact_type,
+                  students (id, first_name, last_name),
+                  parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
+                  staff (id, first_name, last_name)
+                )
+              `)
+              .eq('id', row.conversation_id)
+              .maybeSingle();
+            
+            if (conversation?.contacts) {
+              senderName = formatContactName({ contacts: conversation.contacts });
+            }
+          } catch (error: unknown) {
+            console.error('[useMessageSubscription] Failed to fetch conversation for sender name', error);
+          }
+          
           if (!hasWindowRef.current(row.conversation_id)) {
             openWindowRef.current({ conversationId: row.conversation_id, title: 'New message' });
           } else {
             incrementUnreadRef.current(row.conversation_id);
           }
-          toast({ title: 'New message', description: row.body });
+          toast({ title: `${senderName}: ${row.body}`, description: '' });
         }
       })
       .subscribe((status: string) => {

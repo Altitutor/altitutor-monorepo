@@ -207,10 +207,12 @@ export async function saveInvoiceToDatabase(
 
   // Calculate amount paid from customer balance
   // If total > amount_due, the difference was paid from customer balance
-  const subtotalCents = finalizedInvoice.subtotal || 0;
-  const totalCents = finalizedInvoice.total || 0;
-  const amountDueCents = finalizedInvoice.amount_due || 0;
-  const amountPaidFromBalanceCents = Math.max(0, totalCents - amountDueCents);
+  // Note: subtotal/total may be null if invoice was paid immediately from balance
+  // In that case, webhook will update these values when invoice.paid event fires
+  const subtotalCents = finalizedInvoice.subtotal ?? null;
+  const totalCents = finalizedInvoice.total ?? null;
+  const amountDueCents = finalizedInvoice.amount_due ?? 0;
+  const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
   // Insert new invoice
   const { data: insertedInvoice, error: dbErr } = await supabase
@@ -275,6 +277,7 @@ export async function saveInvoiceItemsToDatabase(
     amount_cents: item.amount_cents,
     description: item.description,
     is_subsidy: item.is_subsidy || false,
+    is_fee: item.is_fee || false,
     session_id: item.session_id,
     student_id: item.student_id,
   }));
@@ -303,17 +306,19 @@ export async function updateInvoicePaymentStatus(
   invoiceId: string,
   paidInvoice: Stripe.Invoice
 ): Promise<void> {
-  const totalCents = paidInvoice.total || 0;
-  const amountDueCents = paidInvoice.amount_due || 0;
-  const amountPaidFromBalanceCents = Math.max(0, totalCents - amountDueCents);
+  // Use null coalescing to properly handle null values (important for customer balance payments)
+  const subtotalCents = paidInvoice.subtotal ?? null;
+  const totalCents = paidInvoice.total ?? null;
+  const amountDueCents = paidInvoice.amount_due ?? 0;
+  const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
   await supabase
     .from('invoices')
     .update({
       status: paidInvoice.status,
-      subtotal_cents: paidInvoice.subtotal || null,
-      total_cents: totalCents || null,
-      amount_paid_cents: paidInvoice.amount_paid || 0,
+      subtotal_cents: subtotalCents,
+      total_cents: totalCents,
+      amount_paid_cents: paidInvoice.amount_paid ?? 0,
       amount_due_cents: amountDueCents,
       amount_paid_from_balance_cents: amountPaidFromBalanceCents,
       paid_at:

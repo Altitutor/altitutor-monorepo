@@ -99,7 +99,7 @@ export async function loadSubsidies(supabase: any): Promise<any[]> {
 }
 
 /**
- * Load billing info with default payment methods
+ * Load billing info with default payment methods and billing preferences
  */
 export async function loadBillingInfo(supabase: any): Promise<
   Record<string, {
@@ -109,12 +109,15 @@ export async function loadBillingInfo(supabase: any): Promise<
       stripe_payment_method_id: string;
       card_country: string | null;
     }>;
+    auto_bill_enabled: boolean;
+    invoice_email_to_student: boolean;
+    invoice_email_to_parents: boolean;
   }>
 > {
   // Query students_billing and student_payment_methods separately, then combine
   const { data: billingRows, error: billErr } = await supabase
     .from('students_billing')
-    .select('student_id, stripe_customer_id');
+    .select('student_id, stripe_customer_id, auto_bill_enabled, invoice_email_to_student, invoice_email_to_parents');
   if (billErr) throw billErr;
 
   const { data: paymentMethods, error: pmErr } = await supabase
@@ -139,13 +142,17 @@ export async function loadBillingInfo(supabase: any): Promise<
     });
   }
 
-  // Combine billing info with payment methods
+  // Combine billing info with payment methods and preferences
   const billingByStudent: Record<string, any> = {};
   for (const b of billingRows || []) {
     billingByStudent[b.student_id] = {
       student_id: b.student_id,
       stripe_customer_id: b.stripe_customer_id,
       payment_methods: paymentMethodsByStudent[b.student_id] || [],
+      // Billing preferences (defaults match migration defaults)
+      auto_bill_enabled: b.auto_bill_enabled ?? true,
+      invoice_email_to_student: b.invoice_email_to_student ?? true,
+      invoice_email_to_parents: b.invoice_email_to_parents ?? true,
     };
   }
 
@@ -154,20 +161,27 @@ export async function loadBillingInfo(supabase: any): Promise<
 
 /**
  * Load student and parent emails
+ * Returns all parent emails for each student (not just the first one)
  */
 export async function loadStudentEmails(supabase: any): Promise<{
-  parentEmailByStudent: Record<string, string | undefined>;
+  parentEmailsByStudent: Record<string, string[]>; // All parent emails per student
   studentEmailById: Record<string, string | undefined>;
 }> {
-  // Parent emails
+  // Parent emails - get ALL parent emails for each student
   const { data: parentsJoin } = await supabase
     .from('parents_students')
     .select('student_id, parent:parents(id, email)');
-  const parentEmailByStudent: Record<string, string | undefined> = {};
+  const parentEmailsByStudent: Record<string, string[]> = {};
   for (const row of parentsJoin || []) {
     const email = (row as any).parent?.email as string | undefined;
-    if (email && !parentEmailByStudent[row.student_id]) {
-      parentEmailByStudent[row.student_id] = email;
+    if (email) {
+      if (!parentEmailsByStudent[row.student_id]) {
+        parentEmailsByStudent[row.student_id] = [];
+      }
+      // Avoid duplicates
+      if (!parentEmailsByStudent[row.student_id].includes(email)) {
+        parentEmailsByStudent[row.student_id].push(email);
+      }
     }
   }
 
@@ -182,7 +196,7 @@ export async function loadStudentEmails(supabase: any): Promise<{
     studentEmailById[s.id] = s.email || undefined;
   }
 
-  return { parentEmailByStudent, studentEmailById };
+  return { parentEmailsByStudent, studentEmailById };
 }
 
 /**
@@ -238,6 +252,7 @@ export async function loadClasses(
 /**
  * Check which sessions_students_ids are already invoiced
  * Returns a Set of invoiced sessions_students_ids
+ * Excludes voided and uncollectible invoices to allow re-invoicing
  */
 export async function getInvoicedSessionsStudentsIds(
   supabase: any,
@@ -247,10 +262,33 @@ export async function getInvoicedSessionsStudentsIds(
     return new Set();
   }
 
+  // First, get invoice_ids for active invoices (exclude voided/uncollectible)
+  // This allows re-invoicing sessions that were previously voided or marked uncollectible
+  const { data: activeInvoices, error: invoiceError } = await supabase
+    .from('invoices')
+    .select('id')
+    .in('status', ['draft', 'open', 'paid']);
+
+  if (invoiceError) {
+    console.error('[billing-runner] Error fetching active invoices:', invoiceError);
+    // On error, return empty set to be safe (won't skip sessions)
+    return new Set();
+  }
+
+  const activeInvoiceIds = (activeInvoices || []).map((inv: any) => inv.id);
+  
+  if (activeInvoiceIds.length === 0) {
+    return new Set();
+  }
+
+  // Only check invoice_items from active invoices
   const { data: invoiceItems, error } = await supabase
     .from('invoice_items')
     .select('sessions_students_id')
-    .in('sessions_students_id', sessionsStudentsIds);
+    .in('sessions_students_id', sessionsStudentsIds)
+    .in('invoice_id', activeInvoiceIds)
+    // Exclude fee items - only check session charges
+    .eq('is_fee', false);
 
   if (error) {
     console.error('[billing-runner] Error checking invoiced sessions:', error);

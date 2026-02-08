@@ -1672,6 +1672,7 @@ export type Database = {
           description: string
           id: string
           invoice_id: string
+          is_fee: boolean
           is_subsidy: boolean
           session_id: string
           sessions_students_id: string
@@ -1684,6 +1685,7 @@ export type Database = {
           description: string
           id?: string
           invoice_id: string
+          is_fee?: boolean
           is_subsidy?: boolean
           session_id: string
           sessions_students_id: string
@@ -1696,6 +1698,7 @@ export type Database = {
           description?: string
           id?: string
           invoice_id?: string
+          is_fee?: boolean
           is_subsidy?: boolean
           session_id?: string
           sessions_students_id?: string
@@ -3659,28 +3662,28 @@ export type Database = {
       }
       students_billing: {
         Row: {
+          auto_bill_enabled: boolean
           created_at: string
-          customer_balance_cents: number | null
-          customer_balance_currency: string | null
-          customer_balance_updated_at: string | null
+          invoice_email_to_parents: boolean
+          invoice_email_to_student: boolean
           stripe_customer_id: string
           student_id: string
           updated_at: string
         }
         Insert: {
+          auto_bill_enabled?: boolean
           created_at?: string
-          customer_balance_cents?: number | null
-          customer_balance_currency?: string | null
-          customer_balance_updated_at?: string | null
+          invoice_email_to_parents?: boolean
+          invoice_email_to_student?: boolean
           stripe_customer_id: string
           student_id: string
           updated_at?: string
         }
         Update: {
+          auto_bill_enabled?: boolean
           created_at?: string
-          customer_balance_cents?: number | null
-          customer_balance_currency?: string | null
-          customer_balance_updated_at?: string | null
+          invoice_email_to_parents?: boolean
+          invoice_email_to_student?: boolean
           stripe_customer_id?: string
           student_id?: string
           updated_at?: string

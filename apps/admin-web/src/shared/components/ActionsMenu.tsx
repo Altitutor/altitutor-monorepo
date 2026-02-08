@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard } from 'lucide-react';
+import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus } from 'lucide-react';
 
 interface BaseActionsMenuProps {
   onOpenInPage: () => void;
@@ -21,6 +21,9 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   passwordResetLabel: string;
   onLogAbsence: () => void;
   onBookDraftingSession: () => void;
+  onAddClass?: () => void;
+  onAddSubject?: () => void;
+  onDiscontinue?: () => void;
   onDelete: () => void;
 }
 
@@ -107,7 +110,25 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <FileText className="h-4 w-4 mr-2" />
             Book drafting session
           </DropdownMenuItem>
+          {props.onAddClass && (
+            <DropdownMenuItem onClick={props.onAddClass}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add class
+            </DropdownMenuItem>
+          )}
+          {props.onAddSubject && (
+            <DropdownMenuItem onClick={props.onAddSubject}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add subject
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
+          {props.onDiscontinue && (
+            <DropdownMenuItem onClick={props.onDiscontinue} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+              <UserX className="h-4 w-4 mr-2" />
+              Discontinue
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
             <Trash2 className="h-4 w-4 mr-2" />
             Delete student

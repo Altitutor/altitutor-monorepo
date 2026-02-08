@@ -176,7 +176,10 @@ export function ClassCard({
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
+              <p className={cn(
+                'text-xs text-muted-foreground mt-1',
+                shouldUseCompact ? 'break-words' : 'truncate'
+              )}>
                 {isCalendarView ? (
                   classData.room ? `Room: ${classData.room}` : ''
                 ) : (
