@@ -77,7 +77,12 @@ interface SubjectActionsMenuProps extends BaseActionsMenuProps {
   onDelete?: () => void;
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps;
+interface TutorLogActionsMenuProps extends BaseActionsMenuProps {
+  type: 'tutorLog';
+  onEdit: () => void;
+}
+
+type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps;
 
 export function ActionsMenu(props: ActionsMenuProps) {
   if (props.type === 'student') {
@@ -328,6 +333,29 @@ export function ActionsMenu(props: ActionsMenuProps) {
               </DropdownMenuItem>
             </>
           )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'tutorLog') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open session in page
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={props.onEdit}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit tutor log
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     );

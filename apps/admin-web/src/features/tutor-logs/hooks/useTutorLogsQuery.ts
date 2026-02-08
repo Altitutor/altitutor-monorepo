@@ -67,12 +67,14 @@ export function useSearchTutorLogs(args?: {
 
 /**
  * Get a single tutor log with details
+ * @param id - The tutor log ID
+ * @param enabled - Optional flag to control when the query runs (default: true when id is present)
  */
-export function useTutorLog(id: string) {
+export function useTutorLog(id: string, enabled?: boolean) {
   return useQuery({
     queryKey: tutorLogsKeys.detail(id),
     queryFn: () => tutorLogsApi.getTutorLog(id),
-    enabled: !!id,
+    enabled: !!id && (enabled !== undefined ? enabled : true),
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
   });
@@ -123,6 +125,28 @@ export function useCreateTutorLog() {
       // Set the new log in cache
       queryClient.setQueryData(tutorLogsKeys.detail(newLog.id), newLog);
       queryClient.setQueryData(tutorLogsKeys.forSession(newLog.session_id), newLog);
+    },
+  });
+}
+
+/**
+ * Update a tutor log (admin only)
+ */
+export function useUpdateTutorLog() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data, createdBy }: { id: string; data: TutorLogFormData; createdBy: string }) =>
+      tutorLogsApi.updateTutorLog(id, data, createdBy),
+    onSuccess: (_, variables) => {
+      // Invalidate all tutor logs queries
+      queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
+      
+      // Invalidate sessions queries since they show log status
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      
+      // Invalidate the specific tutor log detail
+      queryClient.invalidateQueries({ queryKey: tutorLogsKeys.detail(variables.id) });
     },
   });
 }

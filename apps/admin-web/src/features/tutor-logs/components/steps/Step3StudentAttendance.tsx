@@ -63,7 +63,7 @@ export function Step3StudentAttendance({
           {sessionStudents.map((ss) => {
             const student = ss.student;
             const attendance = getStudentAttendance(ss.student_id);
-            const isAttended = attendance?.attended ?? !ss.planned_absence;
+            const isAttended = attendance ? Boolean(attendance.attended) : !ss.planned_absence;
             const isExtra = ss.is_extra;
 
             return (
@@ -106,7 +106,7 @@ export function Step3StudentAttendance({
               <div key={studentId} className="flex items-center gap-3">
                 <Checkbox
                   id={`student-${studentId}`}
-                  checked={getStudentAttendance(studentId)?.attended ?? true}
+                  checked={!!(getStudentAttendance(studentId)?.attended ?? true)}
                   onCheckedChange={(checked) =>
                     handleAttendanceChange(studentId, checked === true)
                   }

@@ -39,9 +39,9 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
   // Fetch all topics for search
   const { data: allTopicsData = [], isLoading: isLoadingAllTopics } = useTopics();
 
-  // Get subjects for all topics (for additional topics display)
-  const allTopicIds = allTopicsData.map((t) => t.id);
-  const { data: subjectsMap = new Map() } = useTopicsWithSubjects(allTopicIds);
+  // Get subjects only for additional topics (not in the subject's topic list)
+  // This avoids sending ALL topic IDs which can exceed URL length limits
+  const { data: subjectsMap = new Map() } = useTopicsWithSubjects(additionalTopicIds);
 
   const subjectTopics = subjectTopicsData;
   const allTopics = allTopicsData;

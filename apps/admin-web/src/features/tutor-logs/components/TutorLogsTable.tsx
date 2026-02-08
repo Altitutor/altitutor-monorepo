@@ -30,6 +30,9 @@ import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useRouter } from 'next/navigation';
+import { EditTutorLogDialog } from './EditTutorLogDialog';
 
 
 type TutorLogsTableProps = {
@@ -51,6 +54,8 @@ export function TutorLogsTable({
   onToChange, 
   onResetDates 
 }: TutorLogsTableProps) {
+  const router = useRouter();
+  
   // Use custom hook for all state management and data fetching
   const {
     tutorLogs,
@@ -97,6 +102,8 @@ export function TutorLogsTable({
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
+  const [selectedTutorLogId, setSelectedTutorLogId] = useState<string | null>(null);
+  const [isEditTutorLogModalOpen, setIsEditTutorLogModalOpen] = useState(false);
 
   const handleTutorLogClick = (sessionId: string) => {
     if (onOpenSession) onOpenSession(sessionId);
@@ -278,18 +285,19 @@ export function TutorLogsTable({
                   sortField === 'session_start_at' ? "opacity-100" : "opacity-40"
                 )} />
               </TableHead>
-              <TableHead>Type / Class</TableHead>
+              <TableHead>Class</TableHead>
               <TableHead>Created by</TableHead>
               <TableHead>Staff Attendance</TableHead>
               <TableHead>Student Attendance</TableHead>
               <TableHead>Topics Covered</TableHead>
               <TableHead>Files</TableHead>
+              <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedTutorLogs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center h-24">
+                <TableCell colSpan={9} className="text-center h-24">
                   {searchTerm || staffFilters.length > 0
                     ? "No tutor logs match your filters" 
                     : "No tutor logs found"}
@@ -454,6 +462,18 @@ export function TutorLogsTable({
                         </div>
                       )}
                     </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <ActionsMenu
+                        type="tutorLog"
+                        onOpenInPage={() => {
+                          router.push(`/sessions/${log.session_id}`);
+                        }}
+                        onEdit={() => {
+                          setSelectedTutorLogId(log.id);
+                          setIsEditTutorLogModalOpen(true);
+                        }}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -525,6 +545,21 @@ export function TutorLogsTable({
           onClose={() => {
             setIsFileModalOpen(false);
             setSelectedFileId(null);
+          }}
+        />
+      )}
+
+      {/* Edit Tutor Log Modal */}
+      {selectedTutorLogId && (
+        <EditTutorLogDialog
+          tutorLogId={selectedTutorLogId}
+          isOpen={isEditTutorLogModalOpen}
+          onClose={() => {
+            setIsEditTutorLogModalOpen(false);
+            setSelectedTutorLogId(null);
+          }}
+          onTutorLogUpdated={() => {
+            refetch();
           }}
         />
       )}
