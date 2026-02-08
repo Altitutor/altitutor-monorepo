@@ -6,6 +6,7 @@ import { Markdown } from '@tiptap/markdown';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
+import Placeholder from '@tiptap/extension-placeholder';
 import { TextSelection } from '@tiptap/pm/state';
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { cn } from '@/shared/utils';
@@ -87,9 +88,16 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
         },
       }),
       Typography,
+      Placeholder.configure({
+        placeholder,
+        emptyEditorClass: 'is-editor-empty',
+        showOnlyCurrent: false,
+        showOnlyWhenEditable: true,
+        includeChildren: true,
+      }),
     ],
     contentType: 'markdown',
-    content,
+    content: content || '<p></p>',
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -102,11 +110,15 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
           'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
           'prose-td:border prose-td:border-border prose-td:p-2',
           '[&_.ProseMirror]:cursor-text',
-          '[&_.ProseMirror>p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
-          '[&_.ProseMirror>p.is-editor-empty:first-child::before]:text-muted-foreground',
-          '[&_.ProseMirror>p.is-editor-empty:first-child::before]:float-left',
-          '[&_.ProseMirror>p.is-editor-empty:first-child::before]:pointer-events-none',
-          '[&_.ProseMirror>p.is-editor-empty:first-child::before]:h-0',
+          '[&_p.is-empty:first-child::before]:content-[attr(data-placeholder)]',
+          '[&_p.is-empty:first-child::before]:text-muted-foreground',
+          '[&_p.is-empty:first-child::before]:float-left',
+          '[&_p.is-empty:first-child::before]:h-0',
+          '[&_p.is-empty:first-child::before]:pointer-events-none',
+          '[&_p.is-empty:first-child::before]:!opacity-100',
+          '[&_p.is-empty:first-child::before]:!visible',
+          '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
+          '[&_p.is-empty.is-editor-empty:first-child::before]:!opacity-100',
           // Ensure empty list items and headings are visible
           '[&_.ProseMirror_ul>li>p:empty]:min-h-[1.5em]',
           '[&_.ProseMirror_ol>li>p:empty]:min-h-[1.5em]',
@@ -254,11 +266,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
 
   return (
     <div 
-      className="relative cursor-text flex flex-col min-h-[600px]" 
+      className="relative cursor-text flex flex-col" 
       data-placeholder={placeholder}
       onClick={handleContainerClick}
     >
-      <div className="pb-20">
+      <div className="pb-20 min-h-[200px]">
         <EditorContent editor={editor} />
       </div>
       <NoteEditorBottomToolbar editor={editor} />
