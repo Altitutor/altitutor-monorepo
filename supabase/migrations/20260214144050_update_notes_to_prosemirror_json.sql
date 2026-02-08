@@ -5,6 +5,22 @@
 -- ========================
 -- UPDATE SEARCH VECTOR FUNCTION
 -- ========================
+-- Create function to safely parse text as JSONB (returns NULL if invalid JSON)
+CREATE OR REPLACE FUNCTION public.safe_text_to_jsonb(text_content TEXT)
+RETURNS JSONB AS $$
+BEGIN
+  IF text_content IS NULL OR text_content = '' THEN
+    RETURN NULL;
+  END IF;
+  
+  BEGIN
+    RETURN text_content::jsonb;
+  EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+  END;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
 -- Create function to extract text from ProseMirror JSON structure
 CREATE OR REPLACE FUNCTION public.extract_text_from_prosemirror_json(json_content JSONB)
 RETURNS TEXT AS $$
@@ -39,15 +55,19 @@ CREATE OR REPLACE FUNCTION public.update_notes_documents_search_vector()
 RETURNS TRIGGER AS $$
 DECLARE
   content_text TEXT;
+  content_jsonb JSONB;
 BEGIN
   -- Extract text from content
   -- Try to parse as JSON first (ProseMirror format)
-  BEGIN
-    content_text := public.extract_text_from_prosemirror_json(NEW.content::jsonb);
-  EXCEPTION WHEN OTHERS THEN
-    -- If parsing fails, treat as plain text (backward compatibility with existing markdown)
+  content_jsonb := public.safe_text_to_jsonb(NEW.content);
+  
+  IF content_jsonb IS NOT NULL THEN
+    -- Successfully parsed as JSON, extract text from ProseMirror structure
+    content_text := public.extract_text_from_prosemirror_json(content_jsonb);
+  ELSE
+    -- Not valid JSON, treat as plain text (backward compatibility with existing markdown)
     content_text := COALESCE(NEW.content, '');
-  END;
+  END IF;
 
   NEW.search_vector :=
     setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
@@ -64,8 +84,8 @@ SET search_vector =
     CASE 
       WHEN content IS NULL OR content = '' THEN ''
       ELSE COALESCE(
-        public.extract_text_from_prosemirror_json(content::jsonb),
-        content  -- Fallback to plain text if JSON parsing fails
+        public.extract_text_from_prosemirror_json(public.safe_text_to_jsonb(content)),
+        content  -- Fallback to plain text if JSON parsing fails or content is not JSON
       )
     END
   ), 'B');
