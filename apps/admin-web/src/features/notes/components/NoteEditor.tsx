@@ -1,11 +1,14 @@
 'use client';
 
-import { useEditor, EditorContent, EditorContext } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
+import { TableKit } from '@tiptap/extension-table';
+import { TextStyleKit } from '@tiptap/extension-text-style';
+import Typography from '@tiptap/extension-typography';
 import { TextSelection } from '@tiptap/pm/state';
-import { useEffect, useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { cn } from '@/shared/utils';
 import { NoteEditorBubbleMenu, NoteEditorFloatingMenu } from './NoteEditorToolbar';
 
@@ -15,15 +18,22 @@ interface NoteEditorProps {
   className?: string;
   placeholder?: string;
   autoFocus?: boolean;
+  onEditorReady?: (editor: Editor) => void;
 }
 
 export interface NoteEditorRef {
-  focus: () => void;
+  focusToEnd: () => void;
+  getEditor: () => Editor | null;
 }
 
 /**
- * Tiptap markdown editor component
- * Simplified implementation following TipTap best practices
+ * Tiptap markdown editor component.
+ *
+ * The editor is the source of truth while the user edits. External content
+ * changes (initial load, navigating to another note) are detected by comparing
+ * the incoming `content` prop against the last value the editor emitted via
+ * `onChange`. This avoids a lossy markdown round-trip that would reset
+ * formatting applied through the toolbar.
  */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
   content,
@@ -31,14 +41,19 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
   className,
   placeholder = 'Start writing...',
   autoFocus = false,
+  onEditorReady,
 }, ref) => {
-  // Track last onChange value to prevent unnecessary updates
+  // Tracks the last markdown value emitted by onUpdate → onChange.
+  // Used to distinguish editor-originated content changes (echoes) from
+  // genuinely external ones (initial load, note navigation).
   const lastOnChangeRef = useRef<string>(content);
+  // Keep onChange in a ref so the onUpdate closure always calls the latest version
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Ensure input rules are enabled for markdown shortcuts
         bulletList: {
           keepMarks: true,
           keepAttributes: false,
@@ -49,11 +64,30 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
         },
       }),
       Markdown.configure({
-        // Configure markdown parsing options
         markedOptions: {
-          gfm: true, // GitHub Flavored Markdown for better list support
+          gfm: true,
         },
       }),
+      TableKit.configure({
+        table: {
+          resizable: true,
+        },
+      }),
+      TextStyleKit.configure({
+        fontFamily: {
+          types: ['textStyle'],
+        },
+        fontSize: {
+          types: ['textStyle'],
+        },
+        color: {
+          types: ['textStyle'],
+        },
+        backgroundColor: {
+          types: ['textStyle'],
+        },
+      }),
+      Typography,
     ],
     contentType: 'markdown',
     content,
@@ -61,28 +95,33 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
     editorProps: {
       attributes: {
         class: cn(
-          'prose prose-sm max-w-none focus:outline-none',
+          'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
           'prose-headings:font-semibold prose-headings:tracking-tight',
           'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
           'prose-li:my-1',
+          'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
+          'prose-td:border prose-td:border-border prose-td:p-2',
           '[&_.ProseMirror]:cursor-text',
           '[&_.ProseMirror>p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_.ProseMirror>p.is-editor-empty:first-child::before]:text-muted-foreground',
           '[&_.ProseMirror>p.is-editor-empty:first-child::before]:float-left',
           '[&_.ProseMirror>p.is-editor-empty:first-child::before]:pointer-events-none',
           '[&_.ProseMirror>p.is-editor-empty:first-child::before]:h-0',
+          // Ensure empty list items and headings are visible
+          '[&_.ProseMirror_ul>li>p:empty]:min-h-[1.5em]',
+          '[&_.ProseMirror_ol>li>p:empty]:min-h-[1.5em]',
+          '[&_.ProseMirror_h1:empty]:min-h-[2em]',
+          '[&_.ProseMirror_h2:empty]:min-h-[1.75em]',
+          '[&_.ProseMirror_h3:empty]:min-h-[1.5em]',
           className
         ),
         'data-placeholder': placeholder,
       },
-      handleClick: (view, pos, event) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:56',message:'handleClick called',data:{pos,docSize:view.state.doc.content.size},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
+      handleClick: (view, _pos, event) => {
         // If clicking below content, place cursor at end of document
         const { state } = view;
         const docSize = state.doc.content.size;
-        
+
         const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
         if (coords && coords.pos >= docSize) {
           const transaction = state.tr.setSelection(
@@ -94,84 +133,40 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
         }
         return false;
       },
-      handleKeyDown: (view, event) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:72',message:'handleKeyDown called',data:{key:event.key,code:event.code,shiftKey:event.shiftKey,ctrlKey:event.ctrlKey,metaKey:event.metaKey},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        return false; // Let TipTap handle it
-      },
     },
     onUpdate: ({ editor }) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:73',message:'onUpdate triggered',data:{markdown:editor.getMarkdown(),html:editor.getHTML()},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       if (!editor) return;
 
       let markdown = editor.getMarkdown();
-      
-      // Normalize markdown: replace &nbsp; in empty list items and headings with proper markdown
-      // This fixes rendering issues with empty nodes
-      markdown = markdown.replace(/^(\s*[-*+])\s+&nbsp;(\s*)$/gm, '$1 $2'); // Empty list items: "- &nbsp;" -> "- "
-      markdown = markdown.replace(/^(#{1,6})\s+&nbsp;(\s*)$/gm, '$1 $2'); // Empty headings: "# &nbsp;" -> "# "
-      markdown = markdown.replace(/&nbsp;/g, ' '); // Replace remaining &nbsp; with regular spaces
-      
-      // Only call onChange if content actually changed
+
+      // Normalize &nbsp; that TipTap inserts as placeholders in empty nodes
+      markdown = markdown.replace(/^(\s*[-*+])\s+&nbsp;(\s*)$/gm, '$1 $2');
+      markdown = markdown.replace(/^(#{1,6})\s+&nbsp;(\s*)$/gm, '$1 $2');
+      markdown = markdown.replace(/&nbsp;/g, ' ');
+
       if (markdown !== lastOnChangeRef.current) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:79',message:'onChange called',data:{oldMarkdown:lastOnChangeRef.current,newMarkdown:markdown},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         lastOnChangeRef.current = markdown;
-        onChange(markdown);
+        onChangeRef.current(markdown);
       }
     },
   });
 
-  // Sync external content changes to editor
+  // Sync truly-external content changes to the editor.
+  // If `content` matches the last value the editor emitted via onChange, it is
+  // an echo of an editor-driven change and we must NOT call setContent (which
+  // would rebuild the ProseMirror state and destroy any in-progress formatting).
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
-    let currentMarkdown = editor.getMarkdown();
-    // Normalize current markdown for comparison (same normalization as in onUpdate)
-    currentMarkdown = currentMarkdown.replace(/^(\s*[-*+])\s+&nbsp;(\s*)$/gm, '$1 $2');
-    currentMarkdown = currentMarkdown.replace(/^(#{1,6})\s+&nbsp;(\s*)$/gm, '$1 $2');
-    currentMarkdown = currentMarkdown.replace(/&nbsp;/g, ' ');
-    
-    // Normalize external content for comparison
-    let normalizedContent = content.replace(/&nbsp;/g, ' ');
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:87',message:'Content sync effect',data:{currentMarkdown,externalContent:normalizedContent,willUpdate:currentMarkdown!==normalizedContent},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    
-    // Only update if content actually changed
-    if (currentMarkdown !== normalizedContent) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:93',message:'setContent called',data:{content},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      editor.commands.setContent(content, {
-        contentType: 'markdown',
-        emitUpdate: false, // Prevent triggering onChange when setting externally
-      });
-      // Update ref to match new content
-      lastOnChangeRef.current = content;
-    }
-  }, [content, editor]);
+    const isEcho = content === lastOnChangeRef.current;
 
-  // Expose focus method via ref
-  useImperativeHandle(ref, () => ({
-    focus: () => {
-      if (editor && !editor.isDestroyed) {
-        // Move cursor to end of document
-        const { state } = editor.view;
-        const docSize = state.doc.content.size;
-        const transaction = state.tr.setSelection(
-          TextSelection.near(state.doc.resolve(docSize))
-        );
-        editor.view.dispatch(transaction);
-        editor.commands.focus();
-      }
-    },
-  }), [editor]);
+    // Content matches what the editor last emitted – nothing to sync
+    if (isEcho) return;
+
+    // Genuinely external change (initial load, note navigation, etc.)
+    lastOnChangeRef.current = content;
+    editor.commands.setContent(content, { contentType: 'markdown' });
+  }, [content, editor]);
 
   // Auto-focus when requested
   useEffect(() => {
@@ -187,11 +182,27 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
     return () => clearTimeout(timeoutId);
   }, [autoFocus, editor]);
 
-  // Memoize editor context value
-  const editorContextValue = useMemo(
-    () => (editor ? { editor } : null),
-    [editor]
-  );
+  // Notify parent when editor is ready
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && onEditorReady) {
+      onEditorReady(editor);
+    }
+  }, [editor, onEditorReady]);
+
+  // Expose editor methods via ref
+  useImperativeHandle(ref, () => ({
+    focusToEnd: () => {
+      if (!editor || editor.isDestroyed) return;
+      const { state } = editor.view;
+      const docSize = state.doc.content.size;
+      const transaction = state.tr.setSelection(
+        TextSelection.near(state.doc.resolve(docSize))
+      );
+      editor.view.dispatch(transaction);
+      editor.commands.focus();
+    },
+    getEditor: () => editor,
+  }), [editor]);
 
   if (!editor) {
     return <div className="text-muted-foreground">Loading editor...</div>;
@@ -203,7 +214,6 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
 
     const editorElement = editor.view.dom;
     const editorRect = editorElement.getBoundingClientRect();
-    const containerRect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX;
     const clickY = e.clientY;
 
@@ -243,23 +253,21 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
   };
 
   return (
-    <EditorContext.Provider value={editorContextValue || { editor: null }}>
-      <div 
-        className="relative h-full cursor-text flex flex-col" 
-        data-placeholder={placeholder}
-        onClick={handleContainerClick}
-      >
-        <div className="flex-1 min-h-0">
-          <EditorContent editor={editor} />
-        </div>
-        <BubbleMenu editor={editor}>
-          <NoteEditorBubbleMenu />
-        </BubbleMenu>
-        <FloatingMenu editor={editor}>
-          <NoteEditorFloatingMenu />
-        </FloatingMenu>
+    <div 
+      className="relative h-full cursor-text flex flex-col" 
+      data-placeholder={placeholder}
+      onClick={handleContainerClick}
+    >
+      <div className="flex-1 min-h-0">
+        <EditorContent editor={editor} />
       </div>
-    </EditorContext.Provider>
+      <BubbleMenu editor={editor}>
+        <NoteEditorBubbleMenu editor={editor} />
+      </BubbleMenu>
+      <FloatingMenu editor={editor}>
+        <NoteEditorFloatingMenu editor={editor} />
+      </FloatingMenu>
+    </div>
   );
 });
 

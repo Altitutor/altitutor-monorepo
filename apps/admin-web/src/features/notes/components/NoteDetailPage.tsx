@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button } from '@altitutor/ui';
 import { Form, FormControl, FormField, FormItem } from '@altitutor/ui';
-import { ArrowLeft, Trash2 } from 'lucide-react';
-import { NoteEditor } from './NoteEditor';
+import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
 import { NotePropertyPills } from './NotePropertyPills';
+import { NoteTableOfContents } from './NoteTableOfContents';
+import type { Editor } from '@tiptap/react';
 import { useNote } from '../api/queries';
 import { useUpdateNote, useDeleteNote } from '../api/mutations';
 import { useFolders } from '../api/queries';
@@ -37,10 +37,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const { data: folders } = useFolders();
 
   const titleFieldRef = useRef<HTMLDivElement>(null);
-  const noteEditorRef = useRef<{ focus: () => void } | null>(null);
+  const noteEditorRef = useRef<NoteEditorRef>(null);
+  const editorInstanceRef = useRef<Editor | null>(null);
   const isInitializedRef = useRef(false);
   const currentNoteIdRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
+  const initialFocusDoneRef = useRef(false);
   const lastSavedValuesRef = useRef<{ title?: string; content?: string; folder_id?: string | null }>({});
 
   const form = useForm<FormData>({
@@ -57,6 +59,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     // Reset initialization if noteId changed (user navigated to different note)
     if (currentNoteIdRef.current !== noteId) {
       isInitializedRef.current = false;
+      initialFocusDoneRef.current = false;
       currentNoteIdRef.current = noteId;
       lastSavedValuesRef.current = {};
     }
@@ -81,18 +84,21 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     }
   }, [note, noteId, form]);
 
-  // Auto-focus title field when note loads
+  // Auto-focus title field only on initial load (once per noteId).
+  // Without the guard, every auto-save query invalidation would re-trigger
+  // this effect and steal focus from the editor.
   useEffect(() => {
-    if (note && titleFieldRef.current) {
+    if (note && titleFieldRef.current && !initialFocusDoneRef.current) {
+      initialFocusDoneRef.current = true;
       const timer = setTimeout(() => {
         const titleElement = titleFieldRef.current;
         if (!titleElement) return;
-        
+
         titleElement.focus();
         // Place cursor at the end
         const selection = window.getSelection();
         if (!selection) return;
-        
+
         const range = document.createRange();
         range.selectNodeContents(titleElement);
         range.collapse(false); // Collapse to end
@@ -162,33 +168,8 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const {
     ref: titleRef,
     handleBlur: handleTitleBlur,
-    handleInput: handleTitleInputBase,
+    handleInput: handleTitleInput,
   } = useContentEditableField(form, 'title', form.watch('title'));
-
-  // Wrap handleInput to strip line breaks from title
-  const handleTitleInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
-    const element = e.currentTarget;
-    const text = element.innerText || '';
-    // Strip line breaks and replace with space
-    const singleLineText = text.replace(/\n/g, ' ').trim();
-    
-    // Update the element content if it had line breaks
-    if (text !== singleLineText) {
-      element.innerText = singleLineText;
-      // Move cursor to end
-      const selection = window.getSelection();
-      if (selection) {
-        const range = document.createRange();
-        range.selectNodeContents(element);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-    }
-    
-    // Call the base handler
-    handleTitleInputBase(e);
-  }, [handleTitleInputBase]);
 
   // Combine refs - memoize to ensure stability
   const combinedTitleRef = useCallback((node: HTMLDivElement | null) => {
@@ -196,16 +177,18 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     (titleFieldRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
   }, [titleRef]);
 
-  // Handle Enter key in title - prevent new line and focus editor
+  // Handle Enter key in title - prevent newline and move focus to note editor
   const handleTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      e.stopPropagation();
-      // Focus the note editor and move cursor to end
-      if (noteEditorRef.current) {
-        noteEditorRef.current.focus();
-      }
+      // Move focus to note editor and place cursor at the end
+      noteEditorRef.current?.focusToEnd();
     }
+  }, []);
+
+  // Handle editor ready callback
+  const handleEditorReady = useCallback((editor: Editor) => {
+    editorInstanceRef.current = editor;
   }, []);
 
   // Memoize folders array for performance
@@ -222,9 +205,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   return (
     <div className="flex h-[calc(100vh-var(--navbar-height)-5rem)]">
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Header */}
-        <div className="flex-shrink-0 p-6 pb-2">
+        <div className="px-6 pt-6 pb-2">
           <div className="flex items-center gap-4">
             <div className="flex-1 max-w-3xl mx-auto w-full">
               <Form {...form}>
@@ -241,7 +224,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onInput={handleTitleInput}
                           onKeyDown={handleTitleKeyDown}
                           data-placeholder="Untitled"
-                          className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
+                          className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground whitespace-nowrap overflow-hidden"
                           suppressContentEditableWarning
                         />
                       </FormControl>
@@ -254,7 +237,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         </div>
 
         {/* Content Panel */}
-        <div className="flex-1 overflow-hidden px-6 pb-6 pt-2 min-h-0">
+        <div className="flex-1 px-6 pt-2 pb-6 min-h-0">
           <Form {...form}>
             {/* Property Pills - Mobile Only */}
             <div className="md:hidden -mt-2 mb-6">
@@ -275,6 +258,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                         onChange={field.onChange}
                         placeholder="Start writing..."
                         className="min-h-full"
+                        onEditorReady={handleEditorReady}
                       />
                     </FormControl>
                   </FormItem>
@@ -286,7 +270,17 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       </div>
 
       {/* Properties Sidebar - Desktop Only */}
-      <NotePropertiesPanel form={form} folders={foldersArray} onDelete={handleDelete} />
+      <div className="hidden md:flex flex-col h-full w-80 flex-shrink-0">
+        <div className="flex-1 overflow-y-auto m-4 mr-6 space-y-4">
+          {/* Table of Contents Card */}
+          <NoteTableOfContents editor={editorInstanceRef.current} />
+          
+          {/* Properties Panel */}
+          <div className="flex-1 min-h-0">
+            <NotePropertiesPanel form={form} folders={foldersArray} onDelete={handleDelete} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
