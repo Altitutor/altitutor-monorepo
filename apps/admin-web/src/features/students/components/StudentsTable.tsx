@@ -12,6 +12,7 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
@@ -152,6 +153,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
@@ -355,6 +357,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       await studentsApi.deleteStudent(studentId);
       setIsDeleteDialogOpen(false);
       setActionStudentId(null);
+      setDeleteConfirmText('');
       handleStudentUpdated();
       toast({
         title: "Success",
@@ -839,36 +842,64 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       )}
 
       {/* Delete Confirmation Dialog */}
-      {actionStudentId && filteredStudents.find(s => s.id === actionStudentId) && (
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the student
-                "{filteredStudents.find(s => s.id === actionStudentId)!.first_name} {filteredStudents.find(s => s.id === actionStudentId)!.last_name}" and all associated data from the database.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => actionStudentId && handleDeleteStudent(actionStudentId)}
-                disabled={isDeleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete'
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+      {actionStudentId && filteredStudents.find(s => s.id === actionStudentId) && (() => {
+        const studentToDelete = filteredStudents.find(s => s.id === actionStudentId)!;
+        const studentFullName = `${studentToDelete.first_name} ${studentToDelete.last_name}`;
+        return (
+          <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+            setIsDeleteDialogOpen(open);
+            if (!open) {
+              setDeleteConfirmText('');
+            }
+          }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the student
+                  "{studentFullName}" and all associated data from the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="py-4">
+                <div className="space-y-2">
+                  <Label>
+                    Type <strong>{studentFullName}</strong> to confirm deletion
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder={studentFullName}
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (actionStudentId) {
+                      handleDeleteStudent(actionStudentId);
+                      setDeleteConfirmText('');
+                    }
+                  }}
+                  disabled={isDeleting || deleteConfirmText !== studentFullName}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        );
+      })()}
     </div>
   );
 } 

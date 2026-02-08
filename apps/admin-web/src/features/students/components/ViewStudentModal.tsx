@@ -22,6 +22,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
 import { 
   DetailsTab,
@@ -119,6 +121,7 @@ export function ViewStudentModal({
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Modal states for new actions
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
@@ -569,7 +572,15 @@ export function ViewStudentModal({
 
       {/* Delete Confirmation Dialog */}
       {student && (
-        <AlertDialog open={modals.isDeleteDialogOpen} onOpenChange={modals.closeDeleteDialog}>
+        <AlertDialog open={modals.isDeleteDialogOpen} onOpenChange={(open) => {
+          if (open) {
+            // Dialog is opening - no action needed, modals hook handles it
+          } else {
+            // Dialog is closing - reset confirmation text
+            modals.closeDeleteDialog();
+            setDeleteConfirmText('');
+          }
+        }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -578,12 +589,29 @@ export function ViewStudentModal({
                 "{student.first_name} {student.last_name}" and all associated data from the database.
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <div className="py-4">
+              <div className="space-y-2">
+                <Label>
+                  Type <strong>{student.first_name} {student.last_name}</strong> to confirm deletion
+                </Label>
+                <Input
+                  type="text"
+                  placeholder={`${student.first_name} ${student.last_name}`}
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+            </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={handleDeleteStudent}
-                disabled={mutations.isDeleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  await handleDeleteStudent();
+                  setDeleteConfirmText('');
+                }}
+                disabled={mutations.isDeleting || deleteConfirmText !== `${student.first_name} ${student.last_name}`}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {mutations.isDeleting ? (
                   <>
