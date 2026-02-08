@@ -98,7 +98,7 @@ export function ChangeClassStep4MessageScreen({
     if (recipients.length > 0 && !selectedRecipient) {
       setSelectedRecipient(recipients[0]);
     }
-  }, [student, parents]);
+  }, [student, parents, selectedRecipient]);
 
   // Get contactId when phone recipient is selected
   useEffect(() => {
@@ -123,7 +123,7 @@ export function ChangeClassStep4MessageScreen({
     };
 
     fetchContactId();
-  }, [selectedRecipient?.id, selectedRecipient?.type, student?.id]);
+  }, [selectedRecipient, student?.id]);
 
   // Pre-populate message with change class template when recipient changes
   useEffect(() => {
@@ -178,7 +178,7 @@ export function ChangeClassStep4MessageScreen({
 
     // Set template when recipient changes (reset draft)
     setComposerDraft(template);
-  }, [selectedRecipient?.id, selectedRecipient?.type, oldClass?.id, selectedNewClass?.id, selectedNewClass?.day_of_week, selectedNewClass?.start_time, student?.id, changeoverDate, currentStaff?.id, oldClassSubject, parents]);
+  }, [selectedRecipient, oldClass, selectedNewClass, student, changeoverDate, currentStaff, oldClassSubject, parents]);
 
   // Build recipient options for dropdown
   const recipientOptions: Array<{ type: 'student' | 'parent'; id?: string; label: string; value: string }> = [];
@@ -280,7 +280,7 @@ export function ChangeClassStep4MessageScreen({
                   draft={composerDraft}
                   onDraftChange={setComposerDraft}
                   onDraftClear={() => setComposerDraft('')}
-                  onBeforeSend={async (messageBody, selectedSenderId) => {
+                  onBeforeSend={async (_messageBody, _selectedSenderId) => {
                     // Allow sending through Composer - it handles the message sending
                     return null;
                   }}

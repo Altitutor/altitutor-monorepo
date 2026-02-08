@@ -2,7 +2,6 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -12,27 +11,58 @@ import {
 import { Input } from '@altitutor/ui';
 
 type RegistrationFormValues = {
-  student: any;
-  parents: any[];
-  availability: any;
+  student: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    school?: string;
+    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
+    year_level?: number;
+    subject_ids: string[];
+  };
+  parents: Array<{
+    id?: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }>;
+  availability: {
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday_am: boolean;
+    saturday_pm: boolean;
+    sunday_am: boolean;
+    sunday_pm: boolean;
+  };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 
 interface RegistrationStep4PasswordProps {
   form: UseFormReturn<RegistrationFormValues>;
+  skipPassword?: boolean; // If true, user is signing in with existing password
 }
 
 export function RegistrationStep4Password({
   form,
+  skipPassword = false,
 }: RegistrationStep4PasswordProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold">Create Password</h3>
+        <h3 className="text-lg font-semibold">
+          {skipPassword ? 'Enter Your Password' : 'Create Password'}
+        </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose a password for your account. It must be at least 6 characters long.
+          {skipPassword
+            ? 'Enter your password to verify your identity and complete registration.'
+            : 'Choose a password for your account. It must be at least 6 characters long.'}
         </p>
       </div>
 
@@ -50,19 +80,21 @@ export function RegistrationStep4Password({
         )}
       />
 
-      <FormField
-        control={form.control}
-        name="confirmPassword"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Confirm Password *</FormLabel>
-            <FormControl>
-              <Input type="password" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      {!skipPassword && (
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Confirm Password *</FormLabel>
+              <FormControl>
+                <Input type="password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
     </div>
   );
 }

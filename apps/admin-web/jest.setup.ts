@@ -2,12 +2,12 @@ import '@testing-library/jest-dom';
 import React from 'react';
 
 // Make React available globally for JSX transformation in tests
-(global as any).React = React;
+(global as unknown as { React: typeof React }).React = React;
 
 // Suppress console warnings for expected test scenarios
 const originalError = console.error;
 beforeAll(() => {
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     // Suppress react-phone-number-input E.164 format warnings in tests
     if (
       typeof args[0] === 'string' &&

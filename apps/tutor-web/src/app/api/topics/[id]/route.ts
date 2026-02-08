@@ -107,33 +107,9 @@ export async function PATCH(
           }
         }
         
-        // Calculate new index if parent is changing
-        const serviceClient = getServiceRoleClient();
-        const { data: siblingsData, error: siblingsError } = newParentId
-          ? await serviceClient
-              .from('topics')
-              .select('index')
-              .eq('subject_id', topic.subject_id)
-              .eq('parent_id', newParentId)
-          : await serviceClient
-              .from('topics')
-              .select('index')
-              .eq('subject_id', topic.subject_id)
-              .is('parent_id', null);
-        
-        if (siblingsError) {
-          console.error('Error fetching siblings:', siblingsError);
-          return NextResponse.json(
-            { error: 'Failed to calculate new index' },
-            { status: 500 }
-          );
-        }
-        
-        const maxIndex = siblingsData && siblingsData.length > 0
-          ? Math.max(...siblingsData.map((t: any) => t.index))
-          : 0;
-        
-        body.index = maxIndex + 1;
+        // Don't calculate index manually - the BEFORE UPDATE trigger will handle it
+        // This prevents race conditions and unique constraint violations
+        // The trigger will recalculate the index based on the new parent group
         body.parent_id = newParentId;
       }
     }
@@ -144,7 +120,8 @@ export async function PATCH(
     const updates: TablesUpdate<'topics'> = {};
     if (body.name !== undefined) updates.name = body.name;
     if (body.parent_id !== undefined) updates.parent_id = body.parent_id;
-    if (body.index !== undefined) updates.index = body.index;
+    // Don't set index - the BEFORE UPDATE trigger will recalculate it when parent_id changes
+    // This prevents unique constraint violations
     
     const { data, error } = await serviceClient
       .from('topics')
@@ -156,7 +133,7 @@ export async function PATCH(
     if (error) {
       console.error('Error updating topic:', error);
       return NextResponse.json(
-        { error: 'Failed to update topic' },
+        { error: 'Failed to update topic', details: error.message, code: error.code },
         { status: 500 }
       );
     }

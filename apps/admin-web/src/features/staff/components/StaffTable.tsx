@@ -39,7 +39,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     return { field, direction };
   };
   
-  const updateUrlParams = (updates: Record<string, string | null>) => {
+  const updateUrlParams = useCallback((updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
     Object.entries(updates).forEach(([key, value]) => {
       if (value === null || value === '') {
@@ -49,7 +49,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
       }
     });
     router.push(`/staff?${params.toString()}`);
-  };
+  }, [searchParams, router]);
   
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);

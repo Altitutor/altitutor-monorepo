@@ -208,11 +208,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   // Check if current student has planned absence (from session.planned_absence)
   // The vstudent_session_detail view includes planned_absence for the current student
   const isCurrentStudentAbsent = session.planned_absence === true;
-  
-  // Find current student's data
-  const currentStudentData = currentStudentId 
-    ? sessionsStudents.find((ss: any) => ss.student_id === currentStudentId)
-    : null;
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>

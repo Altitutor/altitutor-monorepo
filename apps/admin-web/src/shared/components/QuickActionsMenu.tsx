@@ -12,7 +12,7 @@ import {
   DropdownMenuSubTrigger,
 } from '@altitutor/ui';
 import { Zap, Plus } from 'lucide-react';
-import { QUICK_ACTIONS, getBookingActions, getNonBookingActions } from '@/shared/constants/quickActions';
+import { getBookingActions, getNonBookingActions } from '@/shared/constants/quickActions';
 
 export function QuickActionsMenu() {
   const minimized = useChatStore(s => s.minimized);

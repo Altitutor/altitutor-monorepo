@@ -9,6 +9,7 @@ export type ReconciliationMode =
   | 'incomplete-invoices'   // Fix incomplete invoices in DB
   | 'status-drift'          // Fix status mismatches
   | 'amounts-mismatch'      // Detect and report amount discrepancies
+  | 'refund-drift'          // Fix refund status drift (using Events API)
   | 'all';                  // Run all strategies
 
 /**
@@ -21,6 +22,7 @@ export interface ReconciliationRequest {
   only_missing_totals?: boolean;
   fix_status_drift?: boolean;  // Whether to fix status drift or just report
   fix_amounts_mismatch?: boolean; // Whether to fix amounts or just report
+  fix_refund_drift?: boolean; // Whether to fix refund drift or just report
 }
 
 /**

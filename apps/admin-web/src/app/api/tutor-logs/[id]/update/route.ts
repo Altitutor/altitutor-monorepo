@@ -166,13 +166,6 @@ export async function PUT(
       studentIds: tf.studentIds || [],
     }));
 
-    // Ensure notes is an array of non-empty strings
-    const notes: string[] = Array.isArray(data.notes)
-      ? data.notes
-          .filter((note): note is string => typeof note === 'string' && note.trim().length > 0)
-          .map((note) => String(note).trim())
-      : [];
-
     // Insert staff attendance
     if (staffAttendance.length > 0) {
       const { error: staffError } = await supabase

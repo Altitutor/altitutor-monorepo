@@ -43,7 +43,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   const modals = useInvoiceModals();
   const queryClient = useQueryClient();
 
-  const { invoice, invoiceItems, isLoading } = invoiceData;
+  const { invoice, invoiceItems, creditNotes, isLoading } = invoiceData;
 
   // Fetch Stripe details for retry information
   const { data: stripeDetails, isLoading: isLoadingStripeDetails } = useQuery({
@@ -253,7 +253,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   
                   <div className="text-sm font-medium text-muted-foreground">Status:</div>
                   <div className="text-sm">
-                    {getInvoiceStatusBadge(invoice.status)}
+                    {getInvoiceStatusBadge(invoice.status, invoice.is_refunded)}
                   </div>
                   
                   {subtotalCents !== null && subtotalCents !== undefined && (
@@ -426,6 +426,82 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   </div>
                 )}
               </div>
+
+              {/* Credit Notes and Refunds */}
+              {(creditNotes.length > 0 || invoice.is_refunded) && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Refunds & Credits</h3>
+                    
+                    {/* Direct Refund */}
+                    {invoice.is_refunded && (
+                      <div className="mb-3 p-3 rounded-md border bg-muted/50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="destructive" className="text-xs">Refunded</Badge>
+                              {invoice.refunded_at && (
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(invoice.refunded_at), 'MMM d, yyyy h:mm a')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Charge was refunded directly from Stripe Dashboard
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Credit Notes */}
+                    {creditNotes.length > 0 && (
+                      <div className="space-y-3">
+                        {creditNotes.map((creditNote) => (
+                          <div
+                            key={creditNote.id}
+                            className={cn(
+                              "p-3 rounded-md border",
+                              creditNote.status === 'void' && "opacity-60 bg-muted/30"
+                            )}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge 
+                                    variant={creditNote.status === 'void' ? 'outline' : 'secondary'} 
+                                    className="text-xs"
+                                  >
+                                    Credit Note
+                                  </Badge>
+                                  {creditNote.status === 'void' && (
+                                    <Badge variant="outline" className="text-xs">Void</Badge>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(creditNote.created_at), 'MMM d, yyyy')}
+                                  </span>
+                                </div>
+                                {creditNote.reason && (
+                                  <div className="text-sm text-muted-foreground mb-1">
+                                    {creditNote.reason}
+                                  </div>
+                                )}
+                                <div className="text-xs text-muted-foreground">
+                                  Status: {creditNote.status}
+                                </div>
+                              </div>
+                              <div className="text-sm font-medium text-green-600 dark:text-green-400 ml-4">
+                                -{formatInvoiceAmount(creditNote.amount_cents, creditNote.currency)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
             </div>
           </div>

@@ -1850,10 +1850,12 @@ export type Database = {
           id: string
           invoice_date: string
           invoice_pdf: string | null
+          is_refunded: boolean
           metadata: Json | null
           net_cents: number | null
           paid_at: string | null
           receipt_url: string | null
+          refunded_at: string | null
           status: string
           stripe_charge_id: string | null
           stripe_invoice_id: string
@@ -1886,10 +1888,12 @@ export type Database = {
           id?: string
           invoice_date: string
           invoice_pdf?: string | null
+          is_refunded?: boolean
           metadata?: Json | null
           net_cents?: number | null
           paid_at?: string | null
           receipt_url?: string | null
+          refunded_at?: string | null
           status?: string
           stripe_charge_id?: string | null
           stripe_invoice_id: string
@@ -1922,10 +1926,12 @@ export type Database = {
           id?: string
           invoice_date?: string
           invoice_pdf?: string | null
+          is_refunded?: boolean
           metadata?: Json | null
           net_cents?: number | null
           paid_at?: string | null
           receipt_url?: string | null
+          refunded_at?: string | null
           status?: string
           stripe_charge_id?: string | null
           stripe_invoice_id?: string
@@ -2190,6 +2196,127 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notes_documents: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          folder_id: string | null
+          id: string
+          search_vector: unknown
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          created_by: string
+          folder_id?: string | null
+          id?: string
+          search_vector?: unknown
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          folder_id?: string | null
+          id?: string
+          search_vector?: unknown
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "notes_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_documents_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_documents_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notes_folders: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "notes_folders"
             referencedColumns: ["id"]
           },
         ]
@@ -7026,6 +7153,10 @@ export type Database = {
         }
         Returns: string
       }
+      extract_text_from_prosemirror_json: {
+        Args: { json_content: Json }
+        Returns: string
+      }
       format_class_full_name:
         | {
             Args: {
@@ -7305,6 +7436,7 @@ export type Database = {
         }
         Returns: string
       }
+      safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }
       search_classes_admin: {
         Args: {
           p_ascending?: boolean

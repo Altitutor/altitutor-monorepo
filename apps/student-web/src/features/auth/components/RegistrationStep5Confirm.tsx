@@ -2,6 +2,9 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import { Badge } from '@altitutor/ui';
+import { useState, useEffect } from 'react';
+import type { Tables } from '@altitutor/shared';
+import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
 
 type RegistrationFormValues = {
   student: {
@@ -32,7 +35,7 @@ type RegistrationFormValues = {
     sunday_pm: boolean;
   };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 
@@ -59,6 +62,32 @@ export function RegistrationStep5Confirm({
   const selectedAvailability = Object.entries(formData.availability)
     .filter(([_, value]) => value === true)
     .map(([key]) => AVAILABILITY_LABELS[key] || key);
+  
+  const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+
+  // Fetch subjects if we have subject_ids but no subject details
+  useEffect(() => {
+    if (formData.student.subject_ids && formData.student.subject_ids.length > 0 && selectedSubjects.length === 0) {
+      setIsLoadingSubjects(true);
+      // Fetch all subjects and filter by IDs
+      fetch('/api/subjects/search?limit=200')
+        .then(async (response) => {
+          if (!response.ok) throw new Error('Failed to fetch subjects');
+          const data = await response.json();
+          const subjects = (data.subjects || []).filter((s: Tables<'subjects'>) => 
+            formData.student.subject_ids?.includes(s.id)
+          );
+          setSelectedSubjects(subjects);
+        })
+        .catch((error) => {
+          console.error('Error fetching subjects:', error);
+        })
+        .finally(() => {
+          setIsLoadingSubjects(false);
+        });
+    }
+  }, [formData.student.subject_ids, selectedSubjects.length]);
 
   return (
     <div className="space-y-6">
@@ -101,6 +130,40 @@ export function RegistrationStep5Confirm({
               <>
                 <div className="text-muted-foreground">Year Level:</div>
                 <div>{formData.student.year_level === 0 ? 'Reception' : `Year ${formData.student.year_level}`}</div>
+              </>
+            )}
+            
+            {formData.student.subject_ids && formData.student.subject_ids.length > 0 && (
+              <>
+                <div className="text-muted-foreground">Subjects:</div>
+                <div>
+                  {isLoadingSubjects ? (
+                    <span className="text-muted-foreground text-sm">Loading subjects...</span>
+                  ) : selectedSubjects.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedSubjects.map((subject) => {
+                        const { style, textColorClass } = getSubjectColorStyle(subject);
+                        const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                        return (
+                          <Badge
+                            key={subject.id}
+                            className={cn(
+                              defaultClass || `${textColorClass} border-0`,
+                              !defaultClass && 'border-0'
+                            )}
+                            style={style.backgroundColor ? style : undefined}
+                          >
+                            {formatSubjectDisplay(subject)}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span className="text-sm">
+                      {formData.student.subject_ids.length} subject{formData.student.subject_ids.length !== 1 ? 's' : ''} selected
+                    </span>
+                  )}
+                </div>
               </>
             )}
           </div>

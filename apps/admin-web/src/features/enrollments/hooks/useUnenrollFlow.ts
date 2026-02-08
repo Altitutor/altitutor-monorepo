@@ -29,7 +29,7 @@ export function useUnenrollFlow({
   reason,
   onUnenroll,
   currentStaffId,
-  onClose,
+  onClose: _onClose,
 }: UseUnenrollFlowProps) {
   const [isUnenrolling, setIsUnenrolling] = useState(false);
   const [unenrollmentSuccess, setUnenrollmentSuccess] = useState(false);

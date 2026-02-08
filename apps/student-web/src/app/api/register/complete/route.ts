@@ -34,15 +34,29 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!token || !student || !password || !confirmPassword) {
+    const missingFields: string[] = [];
+    if (!token) missingFields.push('token');
+    if (!student) missingFields.push('student');
+    
+    // Password validation depends on skipPassword flag
+    if (skipPassword) {
+      // When skipping password creation, we still need password for sign-in
+      if (!password) missingFields.push('password');
+    } else {
+      // When creating new password, both password and confirmPassword are required
+      if (!password) missingFields.push('password');
+      if (!confirmPassword) missingFields.push('confirmPassword');
+    }
+    
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: `Missing required fields: ${missingFields.join(', ')}` },
         { status: 400 }
       );
     }
 
-    // Validate password match
-    if (password !== confirmPassword) {
+    // Validate password match (only when not skipping password)
+    if (!skipPassword && password !== confirmPassword) {
       return NextResponse.json(
         { error: 'Passwords do not match' },
         { status: 400 }
@@ -50,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate password strength (weaker requirements)
-    if (password.length < 6) {
+    if (password && password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters' },
         { status: 400 }
@@ -74,8 +88,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if at least one parent has email and phone
+    type ParentData = { email: string; phone: string };
     const hasValidParent = parents.some(
-      (p: any) => p.email && p.email.trim() !== '' && p.phone && p.phone.trim() !== ''
+      (p: unknown): p is ParentData => {
+        if (typeof p !== 'object' || p === null) return false;
+        const parent = p as Record<string, unknown>;
+        return (
+          typeof parent.email === 'string' &&
+          typeof parent.phone === 'string' &&
+          parent.email.trim() !== '' &&
+          parent.phone.trim() !== ''
+        );
+      }
     );
 
     if (!hasValidParent) {

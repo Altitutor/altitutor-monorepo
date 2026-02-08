@@ -17,14 +17,17 @@ export function formatInvoiceDate(dateString: string | null): string {
 /**
  * Get status badge for invoice
  */
-export function getInvoiceStatusBadge(status: string) {
+export function getInvoiceStatusBadge(
+  status: string,
+  isRefunded?: boolean
+) {
   let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
   let label = status;
 
   switch (status) {
     case 'paid':
       variant = 'default';
-      label = 'Paid';
+      label = isRefunded ? 'Paid (Refunded)' : 'Paid';
       break;
     case 'draft':
       variant = 'outline';

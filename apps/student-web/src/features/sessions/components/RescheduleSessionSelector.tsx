@@ -8,6 +8,9 @@ import { useAvailableRescheduleSessions } from '../hooks/useAbsences';
 import { WeekViewCalendar } from './WeekViewCalendar';
 import { StudentSessionsCard } from './StudentSessionsCard';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import type { Database } from '@altitutor/shared';
+
+type StudentSessionView = Database['public']['Views']['vstudent_session_base']['Row'];
 
 interface RescheduleSessionSelectorProps {
   originalSession: StudentSession;
@@ -94,32 +97,74 @@ export function RescheduleSessionSelector({
   }, [selectedTargetSessionId]);
 
   // Convert original session to StudentSession format
-  const originalSessionForCard: any = {
+  const originalSessionForCard: StudentSessionView = {
     session_id: originalSession.id,
     start_at: originalSession.start_at,
     end_at: originalSession.end_at,
-    class_id: originalSession.class_id,
+    class_id: originalSession.class_id ?? null,
     session_type: originalSession.type || 'CLASS',
-    subject_name: originalSession.subject?.name,
-    subject_curriculum: originalSession.subject?.curriculum,
-    subject_level: originalSession.subject?.level,
-    subject_year_level: originalSession.subject?.year_level,
-    class_level: originalSession.class?.level,
-  };
+    subject_id: originalSession.subject?.id ?? null,
+    session_created_at: originalSession.created_at || new Date().toISOString(),
+    session_updated_at: originalSession.updated_at || new Date().toISOString(),
+    session_student_id: originalSession.id,
+    planned_absence: false,
+    planned_absence_logged_at: null,
+    is_rescheduled: false,
+    rescheduled_at: null,
+    is_credited: false,
+    credited_at: null,
+    day_of_week: null,
+    start_time: null,
+    end_time: null,
+    room: null,
+    class_level: originalSession.class?.level ?? null,
+    class_status: null,
+    subject_name: originalSession.subject?.name ?? null,
+    subject_curriculum: originalSession.subject?.curriculum ?? null,
+    subject_discipline: null,
+    subject_level: originalSession.subject?.level ?? null,
+    subject_color: null,
+    subject_year_level: originalSession.subject?.year_level ?? null,
+    subject_short_name: null,
+    subject_long_name: null,
+    students: null,
+    staff: null,
+  } as StudentSessionView;
 
   // Convert target session to StudentSession format
-  const targetSessionForCard: any = selectedTargetSession ? {
+  const targetSessionForCard: StudentSessionView | null = selectedTargetSession ? {
     session_id: selectedTargetSession.id,
     start_at: selectedTargetSession.start_at,
     end_at: selectedTargetSession.end_at,
-    class_id: selectedTargetSession.class_id,
+    class_id: selectedTargetSession.class_id ?? null,
     session_type: selectedTargetSession.type || 'CLASS',
-    subject_name: selectedTargetSession.subject?.name,
-    subject_curriculum: selectedTargetSession.subject?.curriculum,
-    subject_level: selectedTargetSession.subject?.level,
-    subject_year_level: selectedTargetSession.subject?.year_level,
-    class_level: selectedTargetSession.class?.level,
-  } : null;
+    subject_id: selectedTargetSession.subject?.id ?? null,
+    session_created_at: selectedTargetSession.created_at || new Date().toISOString(),
+    session_updated_at: selectedTargetSession.updated_at || new Date().toISOString(),
+    session_student_id: selectedTargetSession.id,
+    planned_absence: false,
+    planned_absence_logged_at: null,
+    is_rescheduled: false,
+    rescheduled_at: null,
+    is_credited: false,
+    credited_at: null,
+    day_of_week: null,
+    start_time: null,
+    end_time: null,
+    room: null,
+    class_level: selectedTargetSession.class?.level ?? null,
+    class_status: null,
+    subject_name: selectedTargetSession.subject?.name ?? null,
+    subject_curriculum: selectedTargetSession.subject?.curriculum ?? null,
+    subject_discipline: null,
+    subject_level: selectedTargetSession.subject?.level ?? null,
+    subject_color: null,
+    subject_year_level: selectedTargetSession.subject?.year_level ?? null,
+    subject_short_name: null,
+    subject_long_name: null,
+    students: null,
+    staff: null,
+  } as StudentSessionView : null;
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import type { Json } from '@altitutor/shared/supabase/generated';
 import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
 
 export async function POST(request: Request) {
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
 
     // Call the RPC function
     const { data, error } = await supabase.rpc('log_student_absences_self', {
-      operations: operations as any,
+      operations: operations as Json,
       logged_by_student_id: studentId,
     });
 
@@ -82,18 +83,21 @@ export async function POST(request: Request) {
     }
 
     // Check if the RPC function returned an error in the result
-    if (data && typeof data === 'object' && 'success' in data && !data.success) {
+    type RpcResult = { success: boolean; error?: string } | unknown;
+    if (data && typeof data === 'object' && 'success' in data && !(data as RpcResult & { success: boolean }).success) {
+      const errorResult = data as RpcResult & { success: boolean; error?: string };
       return NextResponse.json(
-        { error: (data as any).error || 'Failed to log absences' },
+        { error: errorResult.error || 'Failed to log absences' },
         { status: 400 }
       );
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     console.error('Unexpected error in log absences API route:', error);
     return NextResponse.json(
-      { error: 'An unexpected error occurred' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

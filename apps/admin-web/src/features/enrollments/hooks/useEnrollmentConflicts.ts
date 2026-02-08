@@ -122,7 +122,7 @@ export function useEnrollmentConflicts({
       // Reset conflicts when not on step 3
       setConflicts({ sameSubjectWarning: null, timeOverlapWarnings: [] });
     }
-  }, [depsString, step, selectedStudentId, selectedClassId, enrollmentDate, context, studentId, classDataId]);
+  }, [depsString, step, selectedStudentId, selectedClassId, enrollmentDate, context, student, classData]);
 
   return conflicts;
 }

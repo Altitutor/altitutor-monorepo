@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Button, Label } from '@altitutor/ui';
-import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
+import { loadStripe, StripeElementsOptions, type Stripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, CreditCard } from 'lucide-react';
 import { useCreateSetupIntent } from '../hooks/usePaymentMethods';
 import { useToast } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
+import type { BillingData, PaymentMethodData } from '../api/payment-methods';
 
 // Use pre-loaded Stripe instance from usePreWarmBilling
 // This ensures Stripe.js is already loaded when modal opens
-let stripePromise: Promise<any> | null = null;
+let stripePromise: Promise<Stripe | null> | null = null;
 function getStripePromise() {
   if (!stripePromise) {
     stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
@@ -108,12 +109,14 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
         };
 
         // Optimistically add to cache - ensure we handle null payment_methods
-        queryClient.setQueryData(['payment-methods'], (old: any) => {
+        queryClient.setQueryData(['payment-methods'], (old: BillingData | null | undefined) => {
           if (!old) {
             // If no data exists, create a minimal structure
-            const newData = {
+            const newData: BillingData = {
               student_id: studentId,
-              stripe_customer_id: '',
+              stripe_customer_id: null,
+              created_at: null,
+              updated_at: null,
               payment_methods: [optimisticPaymentMethod],
               default_payment_method: null,
             };
@@ -121,20 +124,20 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
           }
           
           // Handle payment_methods - could be array or JSON string
-          let existingMethods: any[] = [];
+          let existingMethods: PaymentMethodData[] = [];
           if (old.payment_methods) {
             if (Array.isArray(old.payment_methods)) {
               existingMethods = old.payment_methods;
             } else if (typeof old.payment_methods === 'string') {
               try {
-                existingMethods = JSON.parse(old.payment_methods);
+                existingMethods = JSON.parse(old.payment_methods) as PaymentMethodData[];
               } catch {
                 existingMethods = [];
               }
             }
           }
           
-          const updatedData = {
+          const updatedData: BillingData = {
             ...old,
             payment_methods: [...existingMethods, optimisticPaymentMethod],
           };
@@ -150,8 +153,9 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
         // Real-time subscription will update with actual data when webhook processes
         onSuccess();
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage);
       setIsProcessing(false);
     }
   };
@@ -260,7 +264,8 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
     if (!isOpen && clientSecret) {
       setClientSecret(null);
     }
-  }, [isOpen, studentId]); // Only depend on isOpen and studentId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, studentId]); // clientSecret, createSetupIntent, isLoading, onClose, toast intentionally excluded to prevent loops
 
   const handleSuccess = useCallback(() => {
     setClientSecret(null);

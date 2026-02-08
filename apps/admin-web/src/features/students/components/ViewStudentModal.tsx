@@ -123,11 +123,11 @@ export function ViewStudentModal({
   const [activeTab, setActiveTab] = useState('details');
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [_isDiscontinuing, setIsDiscontinuing] = useState(false);
   
   // Modal states for new actions
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   
   // Get student classes for enroll modal
   const { data: studentClasses = [] } = useStudentClasses(studentId || '');

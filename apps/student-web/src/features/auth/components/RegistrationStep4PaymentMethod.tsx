@@ -2,18 +2,43 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Button, Label } from '@altitutor/ui';
+import { Button, Label } from '@altitutor/ui';
 import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { Loader2, CreditCard, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 
 type RegistrationFormValues = {
-  student: any;
-  parents: any[];
-  availability: any;
+  student: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    school?: string;
+    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
+    year_level?: number;
+    subject_ids: string[];
+  };
+  parents: Array<{
+    id?: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }>;
+  availability: {
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday_am: boolean;
+    saturday_pm: boolean;
+    sunday_am: boolean;
+    sunday_pm: boolean;
+  };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 
@@ -21,10 +46,12 @@ interface RegistrationStep4PaymentMethodProps {
   form: UseFormReturn<RegistrationFormValues>;
   token: string;
   studentId: string;
+  preloadedClientSecret?: string | null;
 }
 
 // Use pre-loaded Stripe instance
-let stripePromise: Promise<any> | null = null;
+import type { Stripe } from '@stripe/stripe-js';
+let stripePromise: Promise<Stripe | null> | null = null;
 function getStripePromise() {
   if (!stripePromise) {
     stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
@@ -35,7 +62,7 @@ function getStripePromise() {
 function PaymentForm({ 
   onSuccess, 
   clientSecret, 
-  studentId,
+  studentId: _studentId,
   token 
 }: { 
   onSuccess: () => void; 
@@ -145,8 +172,9 @@ function PaymentForm({
         
         onSuccess();
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage);
       setIsProcessing(false);
     }
   };
@@ -207,8 +235,9 @@ export function RegistrationStep4PaymentMethod({
   form,
   token,
   studentId,
+  preloadedClientSecret,
 }: RegistrationStep4PaymentMethodProps) {
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(preloadedClientSecret || null);
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const { toast } = useToast();
@@ -216,15 +245,21 @@ export function RegistrationStep4PaymentMethod({
   // Check if payment method is already verified
   const paymentMethodVerified = form.watch('paymentMethodVerified');
 
-  // Fetch setup intent when component mounts
+  // Use preloaded client secret if available, otherwise fetch
   useEffect(() => {
     if (!studentId || paymentMethodVerified) {
       setIsVerified(true);
       return;
     }
 
+    // If we already have a client secret (preloaded), use it
+    if (clientSecret) {
+      setIsLoading(false);
+      return;
+    }
+
     // Only fetch if we don't have a client secret and we're not already loading
-    if (clientSecret || isLoading) {
+    if (isLoading) {
       return;
     }
 
@@ -252,13 +287,14 @@ export function RegistrationStep4PaymentMethod({
           setIsLoading(false);
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         if (cancelled) return;
         
+        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize payment method setup';
         console.error('[RegistrationStep4PaymentMethod] Error fetching setup intent:', error);
         toast({
           title: 'Error',
-          description: error.message || 'Failed to initialize payment method setup',
+          description: errorMessage,
           variant: 'destructive',
         });
         setIsLoading(false);
@@ -267,7 +303,15 @@ export function RegistrationStep4PaymentMethod({
     return () => {
       cancelled = true;
     };
-  }, [studentId, token, paymentMethodVerified]); // Removed clientSecret and isLoading from deps to prevent loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, token, paymentMethodVerified]); // clientSecret and isLoading intentionally excluded to prevent loops
+
+  // Update client secret if preloaded value changes
+  useEffect(() => {
+    if (preloadedClientSecret && !clientSecret) {
+      setClientSecret(preloadedClientSecret);
+    }
+  }, [preloadedClientSecret, clientSecret]);
 
   const handleSuccess = useCallback(() => {
     setIsVerified(true);
@@ -288,7 +332,7 @@ export function RegistrationStep4PaymentMethod({
         <div>
           <h3 className="text-lg font-semibold">Payment Method</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Add a payment method to complete your registration.
+          Add a payment method to pay for sessions.
           </p>
         </div>
 
@@ -312,7 +356,7 @@ export function RegistrationStep4PaymentMethod({
       <div>
         <h3 className="text-lg font-semibold">Payment Method</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Add a payment method to complete your registration. Your card will be verified but not charged.
+        Add a payment method to pay for sessions. Your card will be verified but not charged until you are added to a class.
         </p>
       </div>
 

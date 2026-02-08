@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { StatData } from '../types';
 import { cn } from '@/shared/utils';
 
@@ -14,33 +14,7 @@ export function StatCounter({ value, suffix, description, duration = 2000, class
   const [hasAnimated, setHasAnimated] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (hasAnimated) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !hasAnimated) {
-            setHasAnimated(true);
-            animateCounter();
-          }
-        });
-      },
-      { threshold: 0.5 }
-    );
-
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
-
-    return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
-      }
-    };
-  }, [hasAnimated]);
-
-  const animateCounter = () => {
+  const animateCounter = useCallback(() => {
     const startTime = Date.now();
     const startValue = 0;
     const endValue = value;
@@ -64,7 +38,34 @@ export function StatCounter({ value, suffix, description, duration = 2000, class
     };
 
     requestAnimationFrame(animate);
-  };
+  }, [value, duration]);
+
+  useEffect(() => {
+    if (hasAnimated) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasAnimated) {
+            setHasAnimated(true);
+            animateCounter();
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    const currentRef = ref.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasAnimated, animateCounter]);
 
   return (
     <div ref={ref} className={className}>

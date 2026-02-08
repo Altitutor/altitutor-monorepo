@@ -11,12 +11,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Mail, MessageSquare, Copy, Check, X, Phone, ChevronDown, Paperclip } from 'lucide-react';
+import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
@@ -28,7 +26,6 @@ import { Composer } from '@/features/messages/components/Composer';
 import { replaceVariables } from '@/features/messages/utils/variableReplacer';
 import { getStudentClasses } from '@/features/messages/api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { calculateSMSSegments } from '@/features/messages/utils/smsSegments';
 import { templateContainsLinkVariables } from '@/features/messages/utils/generateLinkTokens';
 import { generateLinkTokensForStudent } from '@/features/messages/utils/generateLinkTokens';
 import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
@@ -73,17 +70,6 @@ export function SendStudentInviteDialog({
   const { data: availableSenders } = useAvailableSenders();
   const { data: currentStaff } = useCurrentStaff();
   const canExpand = useResponsiveButtons(buttonRowRef);
-
-  // Helper to get sender display name
-  const getSenderDisplayName = (senderId: string | null): string => {
-    if (!senderId || !availableSenders) return 'Select sender';
-    const sender = availableSenders.find(s => s.id === senderId);
-    if (!sender) return 'Select sender';
-    if (sender.sender_type === 'ALPHANUMERIC') {
-      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
-    }
-    return sender.phone_e164 || sender.label || 'Unknown';
-  };
 
   // Set default sender to iMessage when senders load
   useEffect(() => {
@@ -274,7 +260,7 @@ export function SendStudentInviteDialog({
         setComposerDraft('');
       }
     }
-  }, [inviteUrl, linkType, student.first_name, student.last_name, selectedRecipient, parents]);
+  }, [inviteUrl, linkType, student.first_name, student.last_name, selectedRecipient, parents, composerDraft, customMessage]);
 
   // Auto-expand textarea
   useEffect(() => {
@@ -662,10 +648,6 @@ export function SendStudentInviteDialog({
     }
   });
 
-  const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
-  const isIMessageSender = selectedSender?.provider === 'IMESSAGE';
-  const isSMSSender = selectedSender?.provider === 'TWILIO';
-  const smsSegments = isSMSSender ? calculateSMSSegments(customMessage) : null;
   const isSending = Object.values(sendingEmail).some(v => v) || Object.values(sendingSms).some(v => v);
   
   const dialogTitle = linkType === 'invite' ? 'Send Invite' : 'Send Registration Link';
@@ -813,7 +795,7 @@ export function SendStudentInviteDialog({
                               draft={composerDraft}
                               onDraftChange={setComposerDraft}
                               onDraftClear={() => setComposerDraft('')}
-                              onBeforeSend={async (messageBody, selectedSenderId) => {
+                              onBeforeSend={async (_messageBody, _selectedSenderId) => {
                                 // Allow sending through Composer - it handles the message sending
                                 return null;
                               }}

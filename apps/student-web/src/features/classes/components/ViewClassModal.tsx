@@ -10,6 +10,12 @@ import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { formatDateTime } from '@/shared/utils';
 import { getSubjectCurriculumColor } from '@/shared/utils';
 import { cn } from '@/shared/utils';
+import type { Database } from '@altitutor/shared';
+
+type StudentClassDetail = Database['public']['Views']['vstudent_class_detail']['Row'];
+type ClassStudent = { first_name: string; last_name: string; year_level?: number };
+type ClassStaff = { first_name: string; last_name: string; subjects?: string[] };
+type ClassSession = Database['public']['Views']['vstudent_sessions']['Row'];
 
 interface ViewClassModalProps {
   classId: string | null;
@@ -112,7 +118,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {classDetails.students.map((student: any, index: number) => (
+                        {((classDetails as StudentClassDetail & { students?: ClassStudent[] }).students || []).map((student, index) => (
                           <div 
                             key={index} 
                             className="flex items-center gap-2 py-2 border-b last:border-0"
@@ -145,7 +151,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {classDetails.staff.map((staffMember: any, index: number) => (
+                        {((classDetails as StudentClassDetail & { staff?: ClassStaff[] }).staff || []).map((staffMember, index) => (
                           <div 
                             key={index} 
                             className="flex items-center gap-2 py-2 border-b last:border-0"
@@ -185,24 +191,24 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                       </div>
                     ) : sessions && sessions.length > 0 ? (
                       <div className="space-y-3">
-                        {sessions.map((session: any) => (
+                        {(sessions as ClassSession[]).map((session) => (
                           <div 
                             key={session.session_id} 
                             className="p-3 border rounded-lg space-y-1"
                           >
                             <div className="flex items-center justify-between">
                               <p className="font-medium text-sm">
-                                {formatDateTime(session.start_at)}
+                                {session.start_at ? formatDateTime(session.start_at) : '-'}
                               </p>
-                              {session.attendance_status && (
-                                <Badge variant={session.attendance_status === 'PRESENT' ? 'default' : 'secondary'}>
-                                  {session.attendance_status}
+                              {(session as ClassSession & { attendance_status?: string | null }).attendance_status && (
+                                <Badge variant={(session as ClassSession & { attendance_status?: string | null }).attendance_status === 'PRESENT' ? 'default' : 'secondary'}>
+                                  {(session as ClassSession & { attendance_status?: string | null }).attendance_status}
                                 </Badge>
                               )}
                             </div>
                             
                             <div className="flex gap-2 text-xs text-muted-foreground">
-                              {session.is_planned_absence && (
+                              {session.planned_absence && (
                                 <Badge variant="outline" className="text-xs">Planned Absence</Badge>
                               )}
                               {session.is_credited && (
@@ -213,7 +219,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                               )}
                             </div>
                             
-                            {session.has_tutor_log && (
+                            {(session as ClassSession & { has_tutor_log?: boolean | null }).has_tutor_log && (
                               <p className="text-xs text-muted-foreground">
                                 ✓ Has tutor log
                               </p>

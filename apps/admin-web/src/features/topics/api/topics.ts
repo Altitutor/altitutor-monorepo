@@ -179,7 +179,8 @@ export const topicsApi = {
     }
     
     // Don't set index - database triggers will recalculate siblings automatically
-    // when parent_id changes
+    // when parent_id changes. The BEFORE UPDATE trigger will handle index recalculation
+    // to prevent unique constraint violations.
     
     const { data: updated, error } = await supabase
       .from('topics')

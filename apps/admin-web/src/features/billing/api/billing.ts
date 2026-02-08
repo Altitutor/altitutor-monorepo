@@ -1,10 +1,10 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { InvoiceRow, InvoiceItemRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
+import type { InvoiceRow, InvoiceItemRow, CreditNoteRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
 
 // Re-export types for backward compatibility
-export type { InvoiceRow, InvoiceItemRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
+export type { InvoiceRow, InvoiceItemRow, CreditNoteRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
 
 export const billingApi = {
   // Get all invoices for a student
@@ -127,6 +127,17 @@ export const billingApi = {
     const total = result.total ?? 0;
     
     return { invoices, total };
+  },
+
+  // Get credit notes for an invoice
+  async getCreditNotesByInvoice(invoiceId: string): Promise<CreditNoteRow[]> {
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('credit_notes')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as CreditNoteRow[];
   },
 
   // Backward compatibility - returns invoices instead of payment attempts

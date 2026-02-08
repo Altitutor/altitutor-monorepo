@@ -9,6 +9,7 @@ import { reconcileMissingInvoices } from './strategies/missing-invoices.ts';
 import { reconcileIncompleteInvoices } from './strategies/incomplete-invoices.ts';
 import { reconcileStatusDrift } from './strategies/status-drift.ts';
 import { reconcileAmountsMismatch } from './strategies/amounts-mismatch.ts';
+import { reconcileRefundDrift } from './strategies/refund-drift.ts';
 
 /**
  * Unified reconciliation coordinator
@@ -129,6 +130,7 @@ Deno.serve(async (req: Request) => {
     const onlyMissingTotals = body.only_missing_totals !== false; // Default true
     const fixStatusDrift = body.fix_status_drift === true; // Default false (report only)
     const fixAmountsMismatch = body.fix_amounts_mismatch === true; // Default false (report only)
+    const fixRefundDrift = body.fix_refund_drift === true; // Default false (report only)
     
     const strategies: StrategyResult[] = [];
     
@@ -160,6 +162,12 @@ Deno.serve(async (req: Request) => {
     if (mode === 'all' || mode === 'amounts-mismatch') {
       console.log('[reconcile] Running amounts-mismatch strategy...');
       const result = await reconcileAmountsMismatch(stripe, supabase, daysBack, fixAmountsMismatch);
+      strategies.push(result);
+    }
+    
+    if (mode === 'all' || mode === 'refund-drift') {
+      console.log('[reconcile] Running refund-drift strategy...');
+      const result = await reconcileRefundDrift(stripe, supabase, daysBack, fixRefundDrift);
       strategies.push(result);
     }
     

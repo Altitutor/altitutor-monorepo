@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useMessagesForContact } from '../api/queries';
 import { useMarkRead } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -318,13 +319,16 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
     return (
       <div className="relative group">
         <div className="relative rounded-2xl overflow-hidden border shadow-sm" style={{ maxWidth: '400px', maxHeight: '500px' }}>
-          <img
-            src={attachmentUrl || undefined}
-            alt={attachment.filename || 'Image'}
-            className="max-h-[500px] max-w-full h-auto w-auto object-contain"
-            style={{ display: 'block' }}
-            onError={() => setImageError(true)}
-          />
+          <div className="relative w-full h-[500px]">
+            <Image
+              src={attachmentUrl || ''}
+              alt={attachment.filename || 'Image'}
+              fill
+              className="object-contain"
+              unoptimized
+              onError={() => setImageError(true)}
+            />
+          </div>
           {/* Download button overlay */}
           <button
             onClick={handleDownload}
@@ -581,7 +585,6 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     
     // Track if user has manually scrolled away from bottom
     let userScrolledAway = false;
-    let lastScrollTop = scrollContainer.scrollTop;
     
     const handleScroll = () => {
       if (!scrollRef.current) return;
@@ -590,7 +593,6 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
       
       // User scrolled away if they're more than 100px from bottom
       userScrolledAway = distanceFromBottom > 100;
-      lastScrollTop = currentScrollTop;
     };
     
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
@@ -631,16 +633,19 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     };
   }, [data]);
 
-  const items = data?.pages?.flatMap(p => p.items) || [];
-
   // Filter and process messages for search
-  type MessageItem = typeof items[number];
-  type ProcessedMessageItem = (MessageItem & { type: 'message'; searchTerm?: string }) | { type: 'separator'; count: number; id: string };
-  
-  const processedMessages = useMemo((): ProcessedMessageItem[] => {
+  const processedMessages = useMemo(() => {
+    if (!data?.pages) return [];
+    const items = data.pages.flatMap(p => p.items);
+    
+    type MessageItem = typeof items[number];
+    type ProcessedMessageItem = 
+      | (MessageItem & { type: 'message'; searchTerm?: string })
+      | { type: 'separator'; count: number; id: string };
+    
     if (!isSearching || !searchTerm.trim()) {
       // When not searching, return items with type 'message'
-      return items.slice().reverse().map((m) => ({ ...m, type: 'message' as const }));
+      return items.slice().reverse().map((m) => ({ ...m, type: 'message' as const })) as ProcessedMessageItem[];
     }
     
     const search = searchTerm.toLowerCase();
@@ -669,7 +674,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     }
     
     return filtered;
-  }, [items, isSearching, searchTerm]);
+  }, [data, isSearching, searchTerm]);
 
   // Highlight search term in message body
   const highlightText = (text: string, term: string) => {
@@ -745,7 +750,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         {hasNextPage && (
           <button className="text-xs text-blue-600 hover:underline mb-2" onClick={() => fetchNextPage()}>Load older messages</button>
         )}
-        {items.length === 0 ? (
+        {processedMessages.length === 0 && !isSearching ? (
           <div className="text-xs text-muted-foreground">No messages yet.</div>
         ) : isSearching && processedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">No messages found.</div>

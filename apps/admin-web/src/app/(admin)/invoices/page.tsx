@@ -435,7 +435,7 @@ export default function InvoicesPage() {
                     </TableCell>
                     <TableCell>{`$${((invoice.amount_due_cents || 0)/100).toFixed(2)}`}</TableCell>
                     <TableCell>
-                      {getInvoiceStatusBadge(invoice.status)}
+                      {getInvoiceStatusBadge(invoice.status, invoice.is_refunded)}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <ActionsMenu

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
@@ -84,13 +85,20 @@ export async function middleware(req: NextRequest) {
   // Check if user is a student using vstudent_profile view
   // This view is accessible to students (unlike the students table which has RLS blocking direct access)
   // The view automatically filters to the current user's record via current_student_id() function
-  const { data: student, error: studentError } = await (supabase as any)
+  // Type assertion needed because view may not be in generated types
+  const { data: student, error: studentError } = await (supabase as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        maybeSingle: () => Promise<{ data: { id: string } | null; error: PostgrestError | null }>;
+      };
+    };
+  })
     .from('vstudent_profile')
     .select('id')
-    .maybeSingle() as { data: { id: string } | null; error: any };
+    .maybeSingle();
 
   if (studentError) {
-    console.error('[STUDENT-WEB MIDDLEWARE] Error fetching student:', studentError);
+    // Error fetching student - continue with flow
   }
 
   // Check if user is staff (should not be on student portal)
@@ -98,17 +106,16 @@ export async function middleware(req: NextRequest) {
     .from('staff')
     .select('role')
     .eq('user_id', user.id)
-    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
+    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: PostgrestError | null };
 
   if (staffError) {
-    console.error('[STUDENT-WEB MIDDLEWARE] Error fetching staff:', staffError);
+    // Error fetching staff - continue with flow
   }
 
   // If user is staff, redirect them to appropriate portal
   if (staff) {
     const role = staff.role;
     if (role === 'ADMINSTAFF') {
-      console.log('[STUDENT-WEB MIDDLEWARE] Staff member (ADMINSTAFF) detected, redirecting to admin portal');
       const redirectResponse = NextResponse.redirect(new URL('/admin/dashboard', adminPortalUrl));
       // Copy cookies from supabaseResponse to redirectResponse
       supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -116,7 +123,6 @@ export async function middleware(req: NextRequest) {
       });
       return redirectResponse;
     } else if (role === 'TUTOR') {
-      console.log('[STUDENT-WEB MIDDLEWARE] Staff member (TUTOR) detected, redirecting to tutor portal');
       const redirectResponse = NextResponse.redirect(new URL('/dashboard', tutorPortalUrl));
       // Copy cookies from supabaseResponse to redirectResponse
       supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -128,7 +134,6 @@ export async function middleware(req: NextRequest) {
 
   // If user is not a student, block access
   if (!student) {
-    console.log('[STUDENT-WEB MIDDLEWARE] No student record found, redirecting to login with error');
     const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {

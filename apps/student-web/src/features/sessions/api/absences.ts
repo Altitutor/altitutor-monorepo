@@ -72,16 +72,16 @@ export const absencesApi = {
 
       // Transform and filter by date range
       const sessions: StudentSession[] = (data || [])
-        .filter((session: any) => {
+        .filter((session) => {
           // Filter by date range
-          const sessionDate = new Date(session.start_at || 0);
+          const sessionDate = new Date((session as { start_at?: string }).start_at || 0);
           return sessionDate <= maxDate;
         })
-        .filter((session: any) => {
+        .filter((session) => {
           // Filter out sessions without session_student_id (required for absence logging)
-          return !!session.session_student_id;
+          return !!(session as { session_student_id?: string }).session_student_id;
         })
-        .map((session: any) => {
+        .map((session) => {
           // Extract class and subject from the view data
           // vstudent_session_base includes class and subject fields
           const mappedSession = {

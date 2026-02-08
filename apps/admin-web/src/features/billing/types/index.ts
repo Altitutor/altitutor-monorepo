@@ -11,6 +11,11 @@ export type InvoiceRow = Tables<'invoices'>;
 export type InvoiceItemRow = Tables<'invoice_items'>;
 
 /**
+ * Credit note row type
+ */
+export type CreditNoteRow = Tables<'credit_notes'>;
+
+/**
  * Missing payment obligation type
  * TODO: Replace with proper type when views are added to generated types
  * This represents data from a database view that isn't yet in the generated types

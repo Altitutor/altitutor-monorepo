@@ -89,8 +89,8 @@ export function EnrollmentWeekCalendar({
   enrollmentDate,
   selectedClass,
   classData,
-  classStaff = [],
-  onEnrollmentDateChange,
+  classStaff: _classStaff = [],
+  onEnrollmentDateChange: _onEnrollmentDateChange,
   oldClass,
   oldClassSubject,
   oldClassStaff = [],
@@ -121,7 +121,7 @@ export function EnrollmentWeekCalendar({
   const rangeEndStr = format(weekEnd, 'yyyy-MM-dd');
   
   // Fetch sessions: by classId in class context, by studentId in student context
-  const { data, isLoading } = useSessionsWithDetails({ 
+  const { data } = useSessionsWithDetails({ 
     rangeStart: rangeStartStr, 
     rangeEnd: rangeEndStr,
     studentId: isClassContext ? undefined : (studentId || undefined),
@@ -268,10 +268,10 @@ export function EnrollmentWeekCalendar({
   }, [data?.sessions, potentialSessions, potentialOldClassSessions, isClassContext, isChangeClassMode, isUnenrollMode, unenrollingClassId, finalSessionDate, oldClass, enrollmentDateObj]);
 
   // Calculate dynamic time range based on sessions
-  const { startHour, endHour, slots } = useMemo(() => {
+  const { startHour, slots } = useMemo(() => {
     if (allSessions.length === 0) {
       // Default range if no sessions
-      return { startHour: 9, endHour: 20, slots: Array.from({ length: 12 }, (_, i) => 9 + i) };
+      return { startHour: 9, slots: Array.from({ length: 12 }, (_, i) => 9 + i) };
     }
 
     let earliestStart = Infinity;
@@ -297,7 +297,7 @@ export function EnrollmentWeekCalendar({
     const slotCount = endHour - startHour + 1;
     const slots = Array.from({ length: slotCount }, (_, i) => startHour + i);
 
-    return { startHour, endHour, slots };
+    return { startHour, slots };
   }, [allSessions]);
 
   const slotHeight = 75; // px per hour

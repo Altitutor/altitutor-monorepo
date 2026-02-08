@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { classesApi } from '../api';
 import { useToast } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -50,7 +50,7 @@ export function useClassModalData({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const fetchClassData = async () => {
+  const fetchClassData = useCallback(async () => {
     if (!classId) return;
     
     try {
@@ -74,7 +74,7 @@ export function useClassModalData({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [classId, toast]);
 
   useEffect(() => {
     if (isOpen && classId) {
@@ -83,7 +83,7 @@ export function useClassModalData({
       // Reset state when closing
       setClassDetail(null);
     }
-  }, [isOpen, classId]);
+  }, [isOpen, classId, fetchClassData]);
 
   const refresh = async () => {
     await fetchClassData();

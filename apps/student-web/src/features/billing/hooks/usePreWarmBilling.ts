@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { usePaymentMethods } from './usePaymentMethods';
 import { useProfile } from '@/features/profile/hooks/useProfile';
 import { paymentMethodsApi } from '../api/payment-methods';
 
 // Pre-load Stripe.js instance
-let stripePromise: Promise<any> | null = null;
+let stripePromise: Promise<Stripe | null> | null = null;
 
 function getStripePromise() {
   if (!stripePromise) {

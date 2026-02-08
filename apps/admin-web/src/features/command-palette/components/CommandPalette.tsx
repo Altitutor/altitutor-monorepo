@@ -64,6 +64,7 @@ const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Tutor logs', href: '/tutor-logs', icon: ClipboardList },
   { title: 'Subjects', href: '/subjects', icon: Beaker },
   { title: 'Topics', href: '/topics', icon: Newspaper },
+  { title: 'Notes', href: '/notes', icon: FileText },
 ];
 
 interface CommandPaletteProps {

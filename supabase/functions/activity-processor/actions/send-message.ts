@@ -7,7 +7,9 @@ import {
   extractTemplateVariables,
   getOrGenerateStudentInviteToken,
   getOrGenerateStudentRegistrationToken,
-  buildStudentInviteUrl
+  buildStudentInviteUrl,
+  formatTime,
+  formatDayOfWeek
 } from '../utils.ts';
 
 export async function executeSendMessage(
@@ -156,17 +158,21 @@ export async function executeSendMessage(
         continue;
       }
 
-      // Generate per-contact message body if needed (for link variables with bulk recipients)
+      // Generate per-contact message body if needed (for link variables with bulk recipients OR student_and_parents)
+      // For student_and_parents, we need per-contact student data (first_name, last_name, etc.)
+      const needsPerContactData = usePerContactMessages || 
+        (config.recipients && config.recipients.type === 'student_and_parents');
+      
       let messageBody: string;
-      if (usePerContactMessages) {
-        // Generate per-contact link variables
+      if (needsPerContactData) {
+        // Generate per-contact variables
         const contactVariables = { ...baseVariables };
         
         // Determine student_id for this contact
-        let studentIdForLinks: string | null = contact.student_id || null;
+        let studentIdForData: string | null = contact.student_id || null;
         
         // If contact is a parent, try to get student_id from parents_students
-        if (!studentIdForLinks && contact.parent_id) {
+        if (!studentIdForData && contact.parent_id) {
           const { data: parentStudent } = await supabase
             .from('parents_students')
             .select('student_id')
@@ -175,37 +181,101 @@ export async function executeSendMessage(
             .maybeSingle();
           
           if (parentStudent?.student_id) {
-            studentIdForLinks = parentStudent.student_id;
+            studentIdForData = parentStudent.student_id;
           }
         }
         
-        // Generate student links if we have a student_id
-        if (studentIdForLinks) {
-          // Generate invite link
-          const inviteToken = await getOrGenerateStudentInviteToken(supabase, studentIdForLinks);
-          if (inviteToken) {
-            contactVariables['student_invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
-            contactVariables['student.invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
-          } else {
-            contactVariables['student_invite_link'] = '';
-            contactVariables['student.invite_link'] = '';
+        // Load student data if we have a student_id (for first_name, last_name, classes, etc.)
+        if (studentIdForData) {
+          const { data: student } = await supabase
+            .from('students')
+            .select('first_name, last_name')
+            .eq('id', studentIdForData)
+            .maybeSingle();
+          
+          if (student) {
+            contactVariables['first_name'] = student.first_name || '';
+            contactVariables['last_name'] = student.last_name || '';
+            
+            // Load student classes for {classes} variable
+            const { data: enrollments } = await supabase
+              .from('classes_students')
+              .select(`
+                class_id,
+                classes!inner (
+                  id,
+                  day_of_week,
+                  start_time,
+                  end_time,
+                  room,
+                  level,
+                  subject_id,
+                  subjects (
+                    long_name,
+                    short_name,
+                    curriculum
+                  )
+                )
+              `)
+              .eq('student_id', studentIdForData)
+              .is('unenrolled_at', null);
+            
+            if (enrollments && enrollments.length > 0) {
+              const classesList = enrollments
+                .map((e: any) => {
+                  const cls = e.classes;
+                  const subject = cls?.subjects;
+                  if (!cls) return null;
+                  
+                  const dayName = formatDayOfWeek(cls.day_of_week);
+                  const startTime = cls.start_time ? formatTime(cls.start_time) : '';
+                  const endTime = cls.end_time ? formatTime(cls.end_time) : '';
+                  const subjectName = subject?.short_name || subject?.long_name || '';
+                  
+                  return `- ${subjectName} ${dayName} ${startTime} - ${endTime}`;
+                })
+                .filter(Boolean)
+                .join('\n');
+              
+              contactVariables['classes'] = classesList || 'No classes enrolled';
+            } else {
+              contactVariables['classes'] = 'No classes enrolled';
+            }
           }
           
-          // Generate registration link
-          const registrationToken = await getOrGenerateStudentRegistrationToken(supabase, studentIdForLinks);
-          if (registrationToken) {
-            contactVariables['student_registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
-            contactVariables['student.registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
-          } else {
+          // Generate student links if needed
+          if (usePerContactMessages) {
+            // Generate invite link
+            const inviteToken = await getOrGenerateStudentInviteToken(supabase, studentIdForData);
+            if (inviteToken) {
+              contactVariables['student_invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
+              contactVariables['student.invite_link'] = buildStudentInviteUrl(inviteToken, 'invite');
+            } else {
+              contactVariables['student_invite_link'] = '';
+              contactVariables['student.invite_link'] = '';
+            }
+            
+            // Generate registration link
+            const registrationToken = await getOrGenerateStudentRegistrationToken(supabase, studentIdForData);
+            if (registrationToken) {
+              contactVariables['student_registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
+              contactVariables['student.registration_link'] = buildStudentInviteUrl(registrationToken, 'register');
+            } else {
+              contactVariables['student_registration_link'] = '';
+              contactVariables['student.registration_link'] = '';
+            }
+          }
+        } else {
+          // No student_id available, set student variables to empty
+          contactVariables['first_name'] = '';
+          contactVariables['last_name'] = '';
+          contactVariables['classes'] = 'No classes enrolled';
+          if (usePerContactMessages) {
+            contactVariables['student_invite_link'] = '';
+            contactVariables['student.invite_link'] = '';
             contactVariables['student_registration_link'] = '';
             contactVariables['student.registration_link'] = '';
           }
-        } else {
-          // No student_id available, set links to empty
-          contactVariables['student_invite_link'] = '';
-          contactVariables['student.invite_link'] = '';
-          contactVariables['student_registration_link'] = '';
-          contactVariables['student.registration_link'] = '';
         }
         
         messageBody = replaceTemplateVariables(messageTemplate, contactVariables);

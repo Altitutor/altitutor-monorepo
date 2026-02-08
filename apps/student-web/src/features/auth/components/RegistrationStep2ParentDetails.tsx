@@ -2,7 +2,6 @@
 
 import { UseFormReturn, useFieldArray } from 'react-hook-form';
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -15,7 +14,16 @@ import { Button } from '@altitutor/ui';
 import { Plus, X } from 'lucide-react';
 
 type RegistrationFormValues = {
-  student: any;
+  student: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    school?: string;
+    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
+    year_level?: number;
+    subject_ids: string[];
+  };
   parents: Array<{
     id?: string;
     first_name: string;
@@ -23,9 +31,19 @@ type RegistrationFormValues = {
     email: string;
     phone: string;
   }>;
-  availability: any;
+  availability: {
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday_am: boolean;
+    saturday_pm: boolean;
+    sunday_am: boolean;
+    sunday_pm: boolean;
+  };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 
@@ -52,7 +70,7 @@ export function RegistrationStep2ParentDetails({
           onClick={() => append({ first_name: '', last_name: '', email: '', phone: '' })}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Parent
+          Add Another Parent
         </Button>
       </div>
       

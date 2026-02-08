@@ -12,11 +12,8 @@ import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
 import { fetchStudentSubsidies } from '@/features/students/api/subsidies';
-import { billingApi } from '@/features/billing/api/billing';
-import { sessionsApi } from '@/features/sessions/api/sessions';
 import { formatInvoiceDate, getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { Badge } from '@altitutor/ui';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -37,7 +34,7 @@ export function ChangeClassStep3Summary({
   student,
   oldClass,
   oldClassSubject,
-  oldClassStaff,
+  oldClassStaff: _oldClassStaff,
   selectedNewClass,
   changeoverDate,
   timeOverlapWarning,
@@ -162,7 +159,7 @@ export function ChangeClassStep3Summary({
       };
     });
 
-    const overridesBySubjectAndBilling: Record<string, Record<string, any>> = {};
+    const overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string }>> = {};
     pricingOverrides.forEach(override => {
       if (!overridesBySubjectAndBilling[override.subject_id]) {
         overridesBySubjectAndBilling[override.subject_id] = {};

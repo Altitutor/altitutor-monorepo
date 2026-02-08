@@ -7,6 +7,7 @@ import { TaskTitleField, TaskDescriptionField } from '../fields';
 import { TaskPropertyPills } from '../fields/TaskPropertyPills';
 import { TaskActivityTab } from '@/features/activity/components/tabs/TaskActivityTab';
 import { TaskNotes } from '../TaskNotes';
+import type { TaskEditorRef } from '../TaskEditor';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewClassModal } from '@/features/classes/components/modal/ViewClassModal';
@@ -59,7 +60,7 @@ export function TaskContentPanel({
 }: TaskContentPanelProps) {
   // Refs for fields
   const titleFieldRef = useRef<HTMLDivElement>(null);
-  const descriptionFieldRef = useRef<HTMLDivElement>(null);
+  const descriptionFieldRef = useRef<TaskEditorRef>(null);
 
   // Modal state for entity tags
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -107,14 +108,10 @@ export function TaskContentPanel({
   // Handle Enter key in title field - move focus to description
   const handleTitleEnter = useCallback(() => {
     if (descriptionFieldRef.current) {
-      descriptionFieldRef.current.focus();
-      // Place cursor at the start of description
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(descriptionFieldRef.current);
-      range.collapse(true); // Collapse to start
-      selection?.removeAllRanges();
-      selection?.addRange(range);
+      const editor = descriptionFieldRef.current.getEditor();
+      if (editor && 'commands' in editor && editor.commands && typeof editor.commands.focus === 'function') {
+        editor.commands.focus();
+      }
     }
   }, []);
 
@@ -173,7 +170,7 @@ export function TaskContentPanel({
           <TaskDescriptionField
             form={form as unknown as UseFormReturn<{ description?: string }>}
             value={form.getValues('description')}
-            onTagClick={handleTagClick}
+            onTagClick={handleTagClick as (type: TagEntityType, id: string) => void}
             descriptionRef={descriptionFieldRef}
           />
         </div>

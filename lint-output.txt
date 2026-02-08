@@ -1,0 +1,933 @@
+
+> workspace@0.0.0 lint /Users/matthewchua/Documents/Github/altitutor-monorepo
+> turbo run lint
+
+• Packages in scope: @altitutor/shared, @altitutor/ui, admin-web, student-web, tutor-web
+• Running lint in 5 packages
+• Remote caching disabled
+tutor-web:lint: cache hit, replaying logs 860a7b4d4db2df99
+tutor-web:lint: 
+tutor-web:lint: > tutor-web@0.1.0 lint /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/tutor-web
+tutor-web:lint: > next lint
+tutor-web:lint: 
+tutor-web:lint: 
+tutor-web:lint: ./src/app/api/notifications/[notificationId]/route.ts
+tutor-web:lint: 74:58  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/app/api/topics/route.ts
+tutor-web:lint: 119:54  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 123:42  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/app/api/topics-files/route.ts
+tutor-web:lint: 87:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/app/api/tutor-logs/route.ts
+tutor-web:lint: 189:78  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 202:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/app/my-account/page.tsx
+tutor-web:lint: 87:47  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 87:94  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 88:34  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/auth/api/invites.ts
+tutor-web:lint: 49:10  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 50:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/classes/components/ClassesTable.tsx
+tutor-web:lint: 53:9  Warning: The 'tutorClasses' logical expression could make the dependencies of useMemo Hook (at line 109) change on every render. To fix this, wrap the initialization of 'tutorClasses' in its own useMemo() Hook.  react-hooks/exhaustive-deps
+tutor-web:lint: 188:34  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/classes/components/TutorClassesTable.tsx
+tutor-web:lint: 54:39  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 64:55  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 64:63  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 90:42  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/classes/components/modal/tabs/ClassInfoTab.tsx
+tutor-web:lint: 55:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 263:60  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/classes/components/modal/tabs/ClassStaffTab.tsx
+tutor-web:lint: 126:68  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 127:72  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 189:68  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 190:72  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 252:58  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 253:62  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/sessions/api/absences.ts
+tutor-web:lint: 76:20  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 200:27  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 201:24  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/sessions/components/SessionModal.tsx
+tutor-web:lint: 146:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 183:41  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 222:52  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 230:74  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 247:58  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 291:45  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/staff/components/StaffTableRow.tsx
+tutor-web:lint: 32:50  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 35:46  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/staff/components/modal/tabs/StaffDetailsTab.tsx
+tutor-web:lint: 78:42  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 104:76  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: ./src/features/topics/components/TopicsHierarchy.tsx
+tutor-web:lint: 116:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+tutor-web:lint: 
+tutor-web:lint: info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+@altitutor/ui:lint: cache hit, replaying logs 465f9faf059a7c7a
+@altitutor/ui:lint: 
+@altitutor/ui:lint: > @altitutor/ui@0.0.0 lint /Users/matthewchua/Documents/Github/altitutor-monorepo/packages/ui
+@altitutor/ui:lint: > eslint .
+@altitutor/ui:lint: 
+@altitutor/ui:lint: Pages directory cannot be found at /Users/matthewchua/Documents/Github/altitutor-monorepo/packages/ui/pages or /Users/matthewchua/Documents/Github/altitutor-monorepo/packages/ui/src/pages. If using a custom path, please configure with the `no-html-link-for-pages` rule in your eslint config file.
+admin-web:lint: cache miss, executing 747541c612fd95e7
+@altitutor/shared:lint: cache hit, replaying logs f9304f4c2234ff63
+@altitutor/shared:lint: 
+@altitutor/shared:lint: > @altitutor/shared@0.0.0 lint /Users/matthewchua/Documents/Github/altitutor-monorepo/packages/shared
+@altitutor/shared:lint: > eslint .
+@altitutor/shared:lint: 
+@altitutor/shared:lint: Pages directory cannot be found at /Users/matthewchua/Documents/Github/altitutor-monorepo/packages/shared/pages or /Users/matthewchua/Documents/Github/altitutor-monorepo/packages/shared/src/pages. If using a custom path, please configure with the `no-html-link-for-pages` rule in your eslint config file.
+student-web:lint: cache hit, replaying logs 06be17e26333906d
+student-web:lint: 
+student-web:lint: > student-web@0.1.0 lint /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/student-web
+student-web:lint: > next lint
+student-web:lint: 
+student-web:lint: 
+student-web:lint: ./src/features/auth/components/RegistrationStep3Availability.tsx
+student-web:lint: 79:51  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/billing/components/AddPaymentMethodModal.tsx
+student-web:lint: 14:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 111:61  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 124:32  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 153:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 247:26  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/billing/hooks/usePaymentMethods.ts
+student-web:lint: 45:65  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 52:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 63:62  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 97:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 98:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 137:59  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 142:57  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 146:65  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 176:59  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 179:65  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/billing/hooks/usePreWarmBilling.ts
+student-web:lint: 8:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/bookings/api/pricing.ts
+student-web:lint: 25:52  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/bookings/api/session-files.ts
+student-web:lint: 70:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 103:34  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/bookings/components/BookDraftingSessionModal.tsx
+student-web:lint: 194:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 222:21  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/classes/components/ViewClassModal.tsx
+student-web:lint: 115:62  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 148:63  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 188:49  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/api/absences.ts
+student-web:lint: 75:27  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 80:27  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 84:24  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 178:21  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 198:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/api/sessions.ts
+student-web:lint: 46:39  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 47:45  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/components/ConfirmationView.tsx
+student-web:lint: 19:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 32:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/components/RescheduleSessionSelector.tsx
+student-web:lint: 97:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 111:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/components/SessionHoverTooltip.tsx
+student-web:lint: 138:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 145:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 146:35  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 188:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 191:8  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 213:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 218:12  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 226:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 229:12  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/components/SessionModal.tsx
+student-web:lint: 121:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 183:64  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 187:62  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 196:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 197:21  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 198:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 199:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 200:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 201:24  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 202:24  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 203:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 204:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 205:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 246:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 246:68  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 247:56  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 247:101  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 284:46  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 312:43  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/components/StudentSessionsCard.tsx
+student-web:lint: 80:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 88:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 89:35  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 117:39  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/components/WeekViewCalendar.tsx
+student-web:lint: 136:59  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/types/absence.ts
+student-web:lint: 51:10  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/features/sessions/utils/session-helpers.ts
+student-web:lint: 30:14  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 31:11  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/middleware.ts
+student-web:lint: 87:69  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 90:61  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 101:79  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/shared/lib/stripe/sync-customer.ts
+student-web:lint: 47:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: ./src/shared/lib/supabase/storage.ts
+student-web:lint: 48:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 49:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+student-web:lint: 
+student-web:lint: info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+admin-web:lint: 
+admin-web:lint: > admin-web@0.1.0 lint /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web
+admin-web:lint: > eslint . --ext .ts,.tsx --max-warnings=2000
+admin-web:lint: 
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/jest.setup.ts
+admin-web:lint:    5:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   10:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/app/(admin)/billing/reconciliation/page.tsx
+admin-web:lint:   133:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   187:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   245:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/app/api/invites/send-email/route.ts
+admin-web:lint:   54:19  warning  '_' is assigned a value but never used  @typescript-eslint/no-unused-vars
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/app/api/invoices/[id]/send-invoice/route.ts
+admin-web:lint:   104:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/app/api/students/send-registration-invite/route.ts
+admin-web:lint:   67:19  warning  '_' is assigned a value but never used  @typescript-eslint/no-unused-vars
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/app/api/tutor-logs/[id]/update/route.ts
+admin-web:lint:   170:11  warning  '_notes' is assigned a value but never used  @typescript-eslint/no-unused-vars
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/activity/api/activity.ts
+admin-web:lint:    97:96  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   178:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   184:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   188:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   190:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   191:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   198:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   200:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   201:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   204:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   205:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   218:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   220:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   221:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   227:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   231:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   235:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   247:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   252:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/admin-shifts/api/admin-shifts.ts
+admin-web:lint:   105:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   166:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   218:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   224:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/admin-shifts/components/AddAdminShiftModal.tsx
+admin-web:lint:   92:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/admin-shifts/components/AdminShiftsTable.tsx
+admin-web:lint:    92:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   112:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/admin-shifts/components/modal/tabs/AdminShiftInfoTab.tsx
+admin-web:lint:   116:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/admin-shifts/hooks/useAdminShiftsQuery.ts
+admin-web:lint:    10:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   121:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/automation/types/index.ts
+admin-web:lint:    70:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    87:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   100:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/billing/api/billing.ts
+admin-web:lint:    53:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   148:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   152:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   165:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   174:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   183:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   192:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/billing/components/AddPaymentMethodModal.tsx
+admin-web:lint:   106:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/class-planner/api/classPlans.ts
+admin-web:lint:   134:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   136:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   137:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   141:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   142:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   380:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   422:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   423:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   424:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   425:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   436:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/class-planner/components/ApplyPlanDialog.tsx
+admin-web:lint:    63:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   106:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/class-planner/components/ClassBank.tsx
+admin-web:lint:   180:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   180:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/class-planner/components/StudentList.tsx
+admin-web:lint:   66:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/class-planner/components/WeekCalendarView.tsx
+admin-web:lint:   306:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   306:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/classes/api/classes.ts
+admin-web:lint:    89:45   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    89:82   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    89:118  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    89:153  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    90:46   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    98:50   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   160:18   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   161:39   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   162:39   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   163:36   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   167:53   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   175:32   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   472:44   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/classes/components/AddClassModal.tsx
+admin-web:lint:   97:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/classes/components/ClassesTable.tsx
+admin-web:lint:    97:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   120:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   125:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   147:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   151:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   401:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/classes/hooks/useClassesQuery.ts
+admin-web:lint:    10:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   176:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/command-palette/components/CommandPalette.tsx
+admin-web:lint:   88:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/command-palette/utils/entityFormatters.ts
+admin-web:lint:   60:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   61:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/command-palette/utils/filtering.ts
+admin-web:lint:   120:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   132:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/components/EnrollmentWeekCalendar.tsx
+admin-web:lint:   517:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   521:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   522:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   559:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   560:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/components/steps/ChangeClassStep4MessageScreen.tsx
+admin-web:lint:    55:21  warning  Unexpected any. Specify a different type                                                                                                                                               @typescript-eslint/no-explicit-any
+admin-web:lint:    56:23  warning  Unexpected any. Specify a different type                                                                                                                                               @typescript-eslint/no-explicit-any
+admin-web:lint:    57:20  warning  Unexpected any. Specify a different type                                                                                                                                               @typescript-eslint/no-explicit-any
+admin-web:lint:   101:6   warning  React Hook useEffect has a missing dependency: 'selectedRecipient'. Either include it or remove the dependency array                                                                   react-hooks/exhaustive-deps
+admin-web:lint:   126:6   warning  React Hook useEffect has a missing dependency: 'selectedRecipient'. Either include it or remove the dependency array                                                                   react-hooks/exhaustive-deps
+admin-web:lint:   181:6   warning  React Hook useEffect has missing dependencies: 'currentStaff', 'oldClass', 'selectedNewClass', 'selectedRecipient', and 'student'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/components/steps/Step3SummaryAndConfirm.tsx
+admin-web:lint:   104:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/components/steps/Step4MessageScreen.tsx
+admin-web:lint:   102:6  warning  React Hook useEffect has a missing dependency: 'selectedRecipient'. Either include it or remove the dependency array                                                                       react-hooks/exhaustive-deps
+admin-web:lint:   127:6  warning  React Hook useEffect has a missing dependency: 'selectedRecipient'. Either include it or remove the dependency array                                                                       react-hooks/exhaustive-deps
+admin-web:lint:   167:6  warning  React Hook useEffect has missing dependencies: 'currentStaff', 'parents', 'selectedClass', 'selectedRecipient', and 'selectedStudent'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/components/steps/UnenrollStep3MessageScreen.tsx
+admin-web:lint:    53:21  warning  Unexpected any. Specify a different type                                                                                                                            @typescript-eslint/no-explicit-any
+admin-web:lint:    54:23  warning  Unexpected any. Specify a different type                                                                                                                            @typescript-eslint/no-explicit-any
+admin-web:lint:    55:20  warning  Unexpected any. Specify a different type                                                                                                                            @typescript-eslint/no-explicit-any
+admin-web:lint:    99:6   warning  React Hook useEffect has a missing dependency: 'selectedRecipient'. Either include it or remove the dependency array                                                react-hooks/exhaustive-deps
+admin-web:lint:   124:6   warning  React Hook useEffect has a missing dependency: 'selectedRecipient'. Either include it or remove the dependency array                                                react-hooks/exhaustive-deps
+admin-web:lint:   164:6   warning  React Hook useEffect has missing dependencies: 'classData', 'currentStaff', 'selectedRecipient', and 'student'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/hooks/useAssignStaffConflicts.ts
+admin-web:lint:    95:74  warning  Unexpected any. Specify a different type                                                                                                                                                     @typescript-eslint/no-explicit-any
+admin-web:lint:   155:74  warning  Unexpected any. Specify a different type                                                                                                                                                     @typescript-eslint/no-explicit-any
+admin-web:lint:   203:6   warning  React Hook useEffect has missing dependencies: 'classData', 'classes', 'selectedClassIds', 'selectedStaffIds', 'staff', and 'staffList'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/hooks/useAssignStaffData.ts
+admin-web:lint:   180:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   182:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/hooks/useClassConflicts.ts
+admin-web:lint:   86:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/enrollments/hooks/useEnrollmentConflicts.ts
+admin-web:lint:   125:6  warning  React Hook useEffect has missing dependencies: 'classData' and 'student'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/api/mutations.ts
+admin-web:lint:   111:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/components/Composer.tsx
+admin-web:lint:    85:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   115:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   251:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/components/ConversationList.tsx
+admin-web:lint:   50:9  warning  The 'items' logical expression could make the dependencies of useMemo Hook (at line 121) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'items' in its own useMemo() Hook  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/components/MessageThread.tsx
+admin-web:lint:   636:9  warning  The 'items' logical expression could make the dependencies of useMemo Hook (at line 674) change on every render. To fix this, wrap the initialization of 'items' in its own useMemo() Hook  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/components/NewConversationDialog.tsx
+admin-web:lint:    71:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    72:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   125:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   127:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/components/bulk/MessagePreview.tsx
+admin-web:lint:   98:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/floating/ConversationAvatarList.tsx
+admin-web:lint:   17:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   53:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   84:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/hooks/useAnnouncements.ts
+admin-web:lint:    72:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   295:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   296:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   297:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/hooks/useMessageAttachments.ts
+admin-web:lint:   62:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/messages/utils/contactHelpers.ts
+admin-web:lint:   248:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/notes/components/NoteEditorBottomToolbar.tsx
+admin-web:lint:   44:10  warning  'hasSelection' is assigned a value but never used  @typescript-eslint/no-unused-vars
+admin-web:lint:   45:10  warning  'isInTable' is assigned a value but never used     @typescript-eslint/no-unused-vars
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/notes/components/NoteEditorTableMenu.tsx
+admin-web:lint:    6:3   warning  'Plus' is defined but never used  @typescript-eslint/no-unused-vars
+admin-web:lint:   13:10  warning  'cn' is defined but never used    @typescript-eslint/no-unused-vars
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/notes/components/NoteTableOfContents.tsx
+admin-web:lint:   24:33  warning  'editor' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/parents/api/parents.ts
+admin-web:lint:   44:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   47:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   58:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/parents/components/AddParentModal.tsx
+admin-web:lint:    84:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    88:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    89:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   159:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/parents/components/ParentsTable.tsx
+admin-web:lint:   231:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/parents/hooks/useParentsQuery.ts
+admin-web:lint:   96:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/reconciliation/api/reconciliation.ts
+admin-web:lint:   179:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   180:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   181:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   182:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   199:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   201:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   202:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   203:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   268:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   332:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   333:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   453:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   457:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   467:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   543:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/api/absences.ts
+admin-web:lint:   108:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   109:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   171:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   191:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/api/session-files.ts
+admin-web:lint:   131:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   185:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/components/SendBookingConfirmationDialog.tsx
+admin-web:lint:   72:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   73:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/components/SessionDetailsTab.tsx
+admin-web:lint:    28:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    49:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    91:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   178:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   314:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   410:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   433:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   460:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/components/SessionModal.tsx
+admin-web:lint:   367:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/components/SessionsCalendarView.tsx
+admin-web:lint:    46:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   156:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   156:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   159:75  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   160:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   164:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   166:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   175:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   181:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   201:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   202:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   212:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   219:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   219:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   220:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   220:74  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   221:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   222:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   261:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   268:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   268:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   269:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   269:74  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   270:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   271:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/components/SessionsTable.tsx
+admin-web:lint:   485:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   485:84  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   502:90  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   523:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   523:91  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   547:94  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/components/TodaySessionsCalendarView.tsx
+admin-web:lint:    26:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    42:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   126:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   126:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   130:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   131:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   135:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   137:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   146:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   152:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   172:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   173:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   183:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   190:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   190:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   191:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   191:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   192:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   193:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   239:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   246:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   246:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   247:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   247:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   248:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   249:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/hooks/useSessionData.ts
+admin-web:lint:   13:9   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   27:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   40:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/hooks/useSessionHelpers.ts
+admin-web:lint:    5:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    6:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    7:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    8:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   45:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   57:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   58:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   72:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/hooks/useSessionsQuery.ts
+admin-web:lint:    97:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   118:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   124:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   150:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/hooks/useStudentSearchForFilter.ts
+admin-web:lint:   36:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   37:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/sessions/types/absence.ts
+admin-web:lint:   51:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/api/staff-files.ts
+admin-web:lint:   131:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   185:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/api/staff.ts
+admin-web:lint:   128:43   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   128:79   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   128:117  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   129:42   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   140:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   149:44   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   228:20   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   233:20   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   240:39   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   247:20   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   248:21   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   249:19   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   249:27   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   406:20   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   528:45   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   538:26   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   539:26   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   541:21   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   668:43   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   669:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   720:47   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/components/AddStaffModal.tsx
+admin-web:lint:   128:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   132:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   264:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/components/StaffTable.tsx
+admin-web:lint:    42:9   warning  The 'updateUrlParams' function makes the dependencies of useCallback Hook (at line 138) change on every render. To fix this, wrap the definition of 'updateUrlParams' in its own useCallback() Hook  react-hooks/exhaustive-deps
+admin-web:lint:    42:9   warning  The 'updateUrlParams' function makes the dependencies of useCallback Hook (at line 155) change on every render. To fix this, wrap the definition of 'updateUrlParams' in its own useCallback() Hook  react-hooks/exhaustive-deps
+admin-web:lint:    42:9   warning  The 'updateUrlParams' function makes the dependencies of useCallback Hook (at line 164) change on every render. To fix this, wrap the definition of 'updateUrlParams' in its own useCallback() Hook  react-hooks/exhaustive-deps
+admin-web:lint:    42:9   warning  The 'updateUrlParams' function makes the dependencies of useCallback Hook (at line 173) change on every render. To fix this, wrap the definition of 'updateUrlParams' in its own useCallback() Hook  react-hooks/exhaustive-deps
+admin-web:lint:   261:39  warning  Unexpected any. Specify a different type                                                                                                                                                             @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/components/modal/SendInviteDialog.tsx
+admin-web:lint:   203:6  warning  React Hook useEffect has missing dependencies: 'composerDraft' and 'customMessage'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/components/modal/tabs/StaffModalSessionsTable.tsx
+admin-web:lint:   100:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/components/modal/tabs/StaffSessionsCalendarView.tsx
+admin-web:lint:    54:345  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    58:19   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   133:72   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   133:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   136:75   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   137:72   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   141:46   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   143:53   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   152:57   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   158:83   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   178:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   179:56   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   189:45   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   196:40   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   196:55   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   197:41   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   197:74   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   198:63   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   199:60   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   234:45   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   241:40   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   241:55   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   242:41   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   242:74   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   243:63   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   244:60   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/staff/hooks/useStaffQuery.ts
+admin-web:lint:    13:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   177:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/stripe-sync/api/stripe-sync.ts
+admin-web:lint:   112:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/api/students.ts
+admin-web:lint:   612:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   640:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   641:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   642:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   643:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   644:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   645:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   646:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   647:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   648:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   649:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   650:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   651:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   921:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   922:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   924:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/AddStudentModal.tsx
+admin-web:lint:   127:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   131:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   132:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   134:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   254:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/CustomerBalanceSection.tsx
+admin-web:lint:   122:20  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+admin-web:lint:   123:23  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+admin-web:lint:   124:20  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+admin-web:lint:   171:71  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+admin-web:lint:   270:17  warning  '_student' is assigned a value but never used  @typescript-eslint/no-unused-vars
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/SendRegistrationInviteDialog.tsx
+admin-web:lint:   82:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   83:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/SendStudentInviteDialog.tsx
+admin-web:lint:   113:21  warning  Unexpected any. Specify a different type                                                                                                @typescript-eslint/no-explicit-any
+admin-web:lint:   114:23  warning  Unexpected any. Specify a different type                                                                                                @typescript-eslint/no-explicit-any
+admin-web:lint:   263:6   warning  React Hook useEffect has missing dependencies: 'composerDraft' and 'customMessage'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/StudentModalSessionsTable.tsx
+admin-web:lint:   96:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/StudentSessionsCalendarView.tsx
+admin-web:lint:    55:347  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    59:19   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   138:72   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   138:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   141:75   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   142:72   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   146:46   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   148:53   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   157:57   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   163:83   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   183:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   184:56   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   194:45   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   201:40   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   201:55   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   202:41   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   202:74   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   203:63   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   204:60   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   239:45   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   246:40   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   246:55   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   247:41   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   247:74   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   248:63   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   249:60   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/StudentsTable.tsx
+admin-web:lint:   139:9  warning  The 'students' logical expression could make the dependencies of useMemo Hook (at line 170) change on every render. To fix this, wrap the initialization of 'students' in its own useMemo() Hook  react-hooks/exhaustive-deps
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/components/tabs/ClassesTabNew.tsx
+admin-web:lint:   25:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/students/mappers/studentMappers.ts
+admin-web:lint:    8:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    9:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   12:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/subjects/api/subjects.ts
+admin-web:lint:    65:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   161:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   183:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/subjects/components/EditSubjectModal.tsx
+admin-web:lint:    93:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    94:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   126:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   127:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   233:84  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   253:84  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/subjects/components/ViewSubjectModal.tsx
+admin-web:lint:   133:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   134:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   186:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   187:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tasks/components/CreateTaskDialog.tsx
+admin-web:lint:    83:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   162:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   195:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tasks/components/EditTaskDialog.tsx
+admin-web:lint:    84:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   252:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   316:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tasks/components/TasksTable.tsx
+admin-web:lint:   97:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   98:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/topics/api/topics-files.ts
+admin-web:lint:    38:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    90:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   114:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   230:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   277:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/topics/api/topics.ts
+admin-web:lint:   157:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   223:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   265:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   301:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   304:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/topics/hooks/useTopicUpdate.ts
+admin-web:lint:   73:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   73:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   76:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   79:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tutor-logs/api/quickbooks-export.ts
+admin-web:lint:   42:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   43:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   44:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   45:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   46:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   47:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tutor-logs/api/tutor-logs.ts
+admin-web:lint:    43:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   216:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   216:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   340:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   341:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   342:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   343:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   344:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   345:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   346:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   347:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   348:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   349:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   354:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tutor-logs/components/steps/Step1SessionPicker.tsx
+admin-web:lint:   51:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   55:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tutor-logs/components/steps/Step2StaffAttendance.tsx
+admin-web:lint:   117:62  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   156:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tutor-logs/components/steps/Step9Confirmation.tsx
+admin-web:lint:    29:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    62:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    72:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    86:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:    90:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   228:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   258:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tutor-logs/hooks/useTopicsWithSubjects.ts
+admin-web:lint:   37:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/features/tutor-logs/hooks/useUnloggedSessionsForStaff.ts
+admin-web:lint:   69:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   70:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   71:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   72:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   73:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   82:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   84:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/middleware.ts
+admin-web:lint:   93:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/shared/api/notes.ts
+admin-web:lint:   77:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/shared/api/search.ts
+admin-web:lint:   112:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/shared/components/GlobalSearch.tsx
+admin-web:lint:   162:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   163:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   164:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   169:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   170:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   171:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   172:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   216:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/shared/components/files/FileCard.tsx
+admin-web:lint:   66:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   67:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/shared/components/files/FilePreviewModal.tsx
+admin-web:lint:   47:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   48:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: /Users/matthewchua/Documents/Github/altitutor-monorepo/apps/admin-web/src/shared/utils/enrollment.ts
+admin-web:lint:   85:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   90:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint:   96:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+admin-web:lint: 
+admin-web:lint: ✖ 480 problems (0 errors, 480 warnings)
+admin-web:lint: 
+
+ Tasks:    5 successful, 5 total
+Cached:    4 cached, 5 total
+  Time:    5.904s 
+

@@ -25,6 +25,7 @@ export function SafeImage({ fallback, ...props }: SafeImageProps) {
   return (
     <Image
       {...props}
+      alt={props.alt || ''}
       onError={() => setHasError(true)}
     />
   );

@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { StudentSession, RescheduleSession } from '../types/absence';
 import { StudentSessionsCard } from './StudentSessionsCard';
-import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
+import type { Database } from '@altitutor/shared';
+
+type StudentSessionView = Database['public']['Views']['vstudent_session_base']['Row'];
 
 interface ConfirmationViewProps {
   originalSession: StudentSession;
@@ -15,54 +16,77 @@ interface ConfirmationViewProps {
 export function ConfirmationView({
   originalSession,
   targetSession,
-  allSessions,
+  allSessions: _allSessions,
 }: ConfirmationViewProps) {
   // Convert original session to StudentSession format
-  const originalSessionForCard: any = {
+  const originalSessionForCard: StudentSessionView = {
     session_id: originalSession.id,
     start_at: originalSession.start_at,
     end_at: originalSession.end_at,
-    class_id: originalSession.class_id,
+    class_id: originalSession.class_id ?? null,
     session_type: originalSession.type || 'CLASS',
-    subject_name: originalSession.subject?.name,
-    subject_curriculum: originalSession.subject?.curriculum,
-    subject_level: originalSession.subject?.level,
-    subject_year_level: originalSession.subject?.year_level,
-  };
+    subject_id: originalSession.subject?.id ?? null,
+    session_created_at: originalSession.created_at || new Date().toISOString(),
+    session_updated_at: originalSession.updated_at || new Date().toISOString(),
+    session_student_id: originalSession.id,
+    planned_absence: false,
+    planned_absence_logged_at: null,
+    is_rescheduled: false,
+    rescheduled_at: null,
+    is_credited: false,
+    credited_at: null,
+    day_of_week: null,
+    start_time: null,
+    end_time: null,
+    room: null,
+    class_level: null,
+    class_status: null,
+    subject_name: originalSession.subject?.name ?? null,
+    subject_curriculum: originalSession.subject?.curriculum ?? null,
+    subject_discipline: null,
+    subject_level: originalSession.subject?.level ?? null,
+    subject_color: null,
+    subject_year_level: originalSession.subject?.year_level ?? null,
+    subject_short_name: null,
+    subject_long_name: null,
+    students: null,
+    staff: null,
+  } as StudentSessionView;
 
   // Convert target session to StudentSession format
-  const targetSessionForCard: any = {
+  const targetSessionForCard: StudentSessionView = {
     session_id: targetSession.id,
     start_at: targetSession.start_at,
     end_at: targetSession.end_at,
-    class_id: targetSession.class_id,
+    class_id: targetSession.class_id ?? null,
     session_type: targetSession.type || 'CLASS',
-    subject_name: targetSession.subject?.name,
-    subject_curriculum: targetSession.subject?.curriculum,
-    subject_level: targetSession.subject?.level,
-    subject_year_level: targetSession.subject?.year_level,
-  };
-
-  // Convert all sessions to format expected by StudentSessionsCalendarView
-  const calendarSessions = useMemo(() => {
-    return allSessions.map((s) => ({
-      session_id: s.id,
-      start_at: s.start_at,
-      end_at: s.end_at,
-      class_id: s.class_id,
-      session_type: s.type || 'CLASS',
-      subject_name: s.subject?.name,
-      subject_curriculum: s.subject?.curriculum,
-      subject_level: s.subject?.level,
-      subject_year_level: s.subject?.year_level,
-      staff: [],
-      students: [],
-      planned_absence: s.id === originalSession.id, // Mark original as absent
-      is_rescheduled: s.id === originalSession.id,
-      is_credited: false,
-      session_student_id: s.sessionsStudentsId,
-    }));
-  }, [allSessions, originalSession.id]);
+    subject_id: targetSession.subject?.id ?? null,
+    session_created_at: targetSession.created_at || new Date().toISOString(),
+    session_updated_at: targetSession.updated_at || new Date().toISOString(),
+    session_student_id: targetSession.id,
+    planned_absence: false,
+    planned_absence_logged_at: null,
+    is_rescheduled: false,
+    rescheduled_at: null,
+    is_credited: false,
+    credited_at: null,
+    day_of_week: null,
+    start_time: null,
+    end_time: null,
+    room: null,
+    class_level: null,
+    class_status: null,
+    subject_name: targetSession.subject?.name ?? null,
+    subject_curriculum: targetSession.subject?.curriculum ?? null,
+    subject_discipline: null,
+    subject_level: targetSession.subject?.level ?? null,
+    subject_color: null,
+    subject_year_level: targetSession.subject?.year_level ?? null,
+    subject_short_name: null,
+    subject_long_name: null,
+    students: null,
+    staff: null,
+  } as StudentSessionView;
 
   return (
     <div className="space-y-6">

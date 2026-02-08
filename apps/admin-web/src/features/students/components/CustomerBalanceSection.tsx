@@ -10,7 +10,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@altitutor/ui';
@@ -266,25 +265,6 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
   const isCredit = balanceCents < 0;
   const balanceDisplay = Math.abs(balanceCents) / 100;
   const formattedBalance = `${isCredit ? '-' : ''}$${balanceDisplay.toFixed(2)}`;
-
-  // Fetch student name if not provided
-  const { data: student } = useQuery({
-    queryKey: ['student-name', studentId],
-    queryFn: async () => {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from('students')
-        .select('first_name, last_name')
-        .eq('id', studentId)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !studentName && isAdjustModalOpen,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  const displayName = studentName || (student ? `${student.first_name} ${student.last_name}` : 'this student');
 
   // Generate description from selected sessions (for submission)
   const generatedDescription = useMemo(() => {

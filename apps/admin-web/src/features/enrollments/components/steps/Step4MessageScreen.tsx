@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel } from '@altitutor/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
 import { getEnrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
@@ -49,10 +48,14 @@ export function Step4MessageScreen({
         .eq('student_id', selectedStudent.id);
 
       if (!error && parentsData) {
-        const parentList = parentsData
-          .map((ps: any) => ps.parents)
-          .filter((p: any) => p !== null && p.phone)
-          .map((p: any) => ({
+        type ParentStudentRow = {
+          parent_id: string;
+          parents: Tables<'parents'> | null;
+        };
+        const parentList = (parentsData as ParentStudentRow[])
+          .map((ps) => ps.parents)
+          .filter((p): p is Tables<'parents'> => p !== null && p.phone !== null)
+          .map((p) => ({
             id: p.id,
             first_name: p.first_name,
             last_name: p.last_name,
@@ -96,7 +99,7 @@ export function Step4MessageScreen({
     if (recipients.length > 0 && !selectedRecipient) {
       setSelectedRecipient(recipients[0]);
     }
-  }, [selectedStudent, parents]);
+  }, [selectedStudent, parents, selectedRecipient]);
 
   // Get contactId when phone recipient is selected
   useEffect(() => {
@@ -121,7 +124,7 @@ export function Step4MessageScreen({
     };
 
     fetchContactId();
-  }, [selectedRecipient?.id, selectedRecipient?.type, selectedStudent?.id]);
+  }, [selectedRecipient, selectedStudent?.id]);
 
   // Pre-populate message with enrollment template when recipient changes
   useEffect(() => {
@@ -161,7 +164,7 @@ export function Step4MessageScreen({
 
     // Set template when recipient changes (reset draft)
     setComposerDraft(template);
-  }, [selectedRecipient?.id, selectedRecipient?.type, selectedClass?.id, selectedStudent?.id, enrollmentDate, currentStaff?.id]);
+  }, [selectedRecipient, selectedClass, selectedStudent, enrollmentDate, currentStaff, parents]);
 
   // Build recipient options for dropdown
   const recipientOptions: Array<{ type: 'student' | 'parent'; id?: string; label: string; value: string }> = [];
@@ -260,7 +263,7 @@ export function Step4MessageScreen({
                   draft={composerDraft}
                   onDraftChange={setComposerDraft}
                   onDraftClear={() => setComposerDraft('')}
-                  onBeforeSend={async (messageBody, selectedSenderId) => {
+                  onBeforeSend={async (_messageBody, _selectedSenderId) => {
                     // Allow sending through Composer - it handles the message sending
                     return null;
                   }}

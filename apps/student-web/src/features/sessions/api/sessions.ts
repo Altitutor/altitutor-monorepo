@@ -43,12 +43,20 @@ export const sessionsApi = {
     
     // Parse staff and students JSON
     return (data || []).map((session) => {
-      const staff = (session.staff as any) || [];
-      const students = (session.students as any) || [];
+      const sessionWithRelations = session as StudentSessionBase & {
+        staff?: unknown;
+        students?: unknown;
+      };
+      const staff = Array.isArray(sessionWithRelations.staff) 
+        ? sessionWithRelations.staff as StudentSessionWithStaff['staff']
+        : [];
+      const students = Array.isArray(sessionWithRelations.students)
+        ? sessionWithRelations.students as StudentSessionWithStaff['students']
+        : [];
       return {
         ...session,
-        staff: Array.isArray(staff) ? staff : [],
-        students: Array.isArray(students) ? students : [],
+        staff,
+        students,
       } as StudentSessionWithStaff;
     });
   },

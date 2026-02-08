@@ -39,8 +39,32 @@ export default function BookTrialPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStudentExistsError, setShowStudentExistsError] = useState(false);
   const [contactFormRef, setContactFormRef] = useState<UseFormReturn<TrialContactFormValues> | null>(null);
-  const [_isFormValid, setIsFormValid] = useState(false);
+  const [, setIsFormValid] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+
+  // Fetch subjects for confirmation step if they're missing
+  useEffect(() => {
+    if (currentStep === 3 && contactData?.subject_ids && contactData.subject_ids.length > 0 && selectedSubjects.length === 0) {
+      setIsLoadingSubjects(true);
+      // Fetch all subjects and filter by IDs
+      fetch('/api/subjects/search?limit=200')
+        .then(async (response) => {
+          if (!response.ok) throw new Error('Failed to fetch subjects');
+          const data = await response.json();
+          const subjects = (data.subjects || []).filter((s: Tables<'subjects'>) => 
+            contactData.subject_ids?.includes(s.id)
+          );
+          setSelectedSubjects(subjects);
+        })
+        .catch((error) => {
+          console.error('Error fetching subjects:', error);
+        })
+        .finally(() => {
+          setIsLoadingSubjects(false);
+        });
+    }
+  }, [currentStep, contactData?.subject_ids, selectedSubjects.length]);
 
   // Initialize selectedSlot from query params on mount
   useEffect(() => {
@@ -271,7 +295,9 @@ export default function BookTrialPage() {
                     <>
                       <div className="text-sm font-medium text-muted-foreground">Subjects:</div>
                       <div className="text-sm">
-                        {selectedSubjects.length > 0 ? (
+                        {isLoadingSubjects ? (
+                          <span className="text-muted-foreground">Loading subjects...</span>
+                        ) : selectedSubjects.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
                             {selectedSubjects.map((subject) => {
                               const { style, textColorClass } = getSubjectColorStyle(subject);

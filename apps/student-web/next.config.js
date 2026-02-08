@@ -5,6 +5,15 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
+  redirects: async () => {
+    return [
+      {
+        source: '/new-student-registration',
+        destination: '/booking/trial-session',
+        permanent: true, // 308 redirect - permanent, better for SEO
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

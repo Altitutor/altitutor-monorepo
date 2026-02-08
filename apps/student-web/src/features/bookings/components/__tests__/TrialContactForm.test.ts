@@ -78,12 +78,14 @@ describe('TrialContactForm Schema', () => {
     });
 
     it('should reject missing student first name', () => {
-      const { student_first_name, ...data } = validData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { student_first_name: _student_first_name, ...data } = validData;
       expect(() => trialContactSchema.parse(data)).toThrow();
     });
 
     it('should reject missing student email', () => {
-      const { student_email, ...data } = validData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { student_email: _student_email, ...data } = validData;
       expect(() => trialContactSchema.parse(data)).toThrow();
     });
 
@@ -114,22 +116,26 @@ describe('TrialContactForm Schema', () => {
     });
 
     it('should reject missing parent first name', () => {
-      const { parent_first_name, ...data } = validData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { parent_first_name: _parent_first_name, ...data } = validData;
       expect(() => trialContactSchema.parse(data)).toThrow('Parent first name is required');
     });
 
     it('should reject missing parent last name', () => {
-      const { parent_last_name, ...data } = validData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { parent_last_name: _parent_last_name, ...data } = validData;
       expect(() => trialContactSchema.parse(data)).toThrow('Parent last name is required');
     });
 
     it('should reject missing parent email', () => {
-      const { parent_email, ...data } = validData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { parent_email: _parent_email, ...data } = validData;
       expect(() => trialContactSchema.parse(data)).toThrow('Parent email is required');
     });
 
     it('should reject missing parent phone', () => {
-      const { parent_phone, ...data } = validData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { parent_phone: _parent_phone, ...data } = validData;
       expect(() => trialContactSchema.parse(data)).toThrow('Parent phone number is required');
     });
 
@@ -164,7 +170,8 @@ describe('TrialContactForm Schema', () => {
 
   describe('edge cases', () => {
     it('should default skip_parent_details to false', () => {
-      const { skip_parent_details, ...data } = validData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { skip_parent_details: _skip_parent_details, ...data } = validData;
       const result = trialContactSchema.parse(data);
       expect(result.skip_parent_details).toBe(false);
     });

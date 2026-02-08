@@ -200,7 +200,7 @@ export function SendInviteDialog({
         setComposerDraft('');
       }
     }
-  }, [inviteUrl, staffMember.first_name, selectedRecipient]);
+  }, [inviteUrl, staffMember.first_name, selectedRecipient, composerDraft, customMessage]);
 
   // Auto-expand textarea
   useEffect(() => {
@@ -572,7 +572,7 @@ export function SendInviteDialog({
                           draft={composerDraft}
                           onDraftChange={setComposerDraft}
                           onDraftClear={() => setComposerDraft('')}
-                          onBeforeSend={async (messageBody, selectedSenderId) => {
+                          onBeforeSend={async (_messageBody, _selectedSenderId) => {
                             // Allow sending through Composer - it handles the message sending
                             return null;
                           }}

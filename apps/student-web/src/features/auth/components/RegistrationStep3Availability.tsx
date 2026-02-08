@@ -1,19 +1,32 @@
 'use client';
 
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, Path } from 'react-hook-form';
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 
 type RegistrationFormValues = {
-  student: any;
-  parents: any[];
+  student: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    school?: string;
+    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
+    year_level?: number;
+    subject_ids: string[];
+  };
+  parents: Array<{
+    id?: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }>;
   availability: {
     monday: boolean;
     tuesday: boolean;
@@ -26,7 +39,7 @@ type RegistrationFormValues = {
     sunday_pm: boolean;
   };
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   paymentMethodVerified: boolean;
 };
 
@@ -34,7 +47,10 @@ interface RegistrationStep3AvailabilityProps {
   form: UseFormReturn<RegistrationFormValues>;
 }
 
-const AVAILABILITY_OPTIONS = [
+const AVAILABILITY_OPTIONS: Array<{
+  key: keyof RegistrationFormValues['availability'];
+  label: string;
+}> = [
   { key: 'monday', label: 'Monday' },
   { key: 'tuesday', label: 'Tuesday' },
   { key: 'wednesday', label: 'Wednesday' },
@@ -63,12 +79,12 @@ export function RegistrationStep3Availability({
           <FormField
             key={option.key}
             control={form.control}
-            name={`availability.${option.key}` as any}
+            name={`availability.${option.key}` as Path<RegistrationFormValues>}
             render={({ field }) => (
               <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                 <FormControl>
                   <Checkbox
-                    checked={field.value}
+                    checked={Boolean(field.value)}
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
