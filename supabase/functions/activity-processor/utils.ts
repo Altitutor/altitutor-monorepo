@@ -587,8 +587,65 @@ export async function extractTemplateVariables(
     variables.sender_name = 'System';
   }
   
-  // Generate invite/registration links for students if student_id is available
+  // Generate invite/registration links and extract student data if student_id is available
   if (activityEvent.student_id) {
+    // Load student data for first_name, last_name, classes
+    const { data: student } = await supabase
+      .from('students')
+      .select('first_name, last_name')
+      .eq('id', activityEvent.student_id)
+      .maybeSingle();
+    
+    if (student) {
+      variables['first_name'] = student.first_name || '';
+      variables['last_name'] = student.last_name || '';
+      
+      // Load student classes for {classes} variable
+      const { data: enrollments } = await supabase
+        .from('classes_students')
+        .select(`
+          class_id,
+          classes!inner (
+            id,
+            day_of_week,
+            start_time,
+            end_time,
+            room,
+            level,
+            subject_id,
+            subjects (
+              long_name,
+              short_name,
+              curriculum
+            )
+          )
+        `)
+        .eq('student_id', activityEvent.student_id)
+        .is('unenrolled_at', null);
+      
+      if (enrollments && enrollments.length > 0) {
+        const classesList = enrollments
+          .map((e: any) => {
+            const cls = e.classes;
+            const subject = cls?.subjects;
+            if (!cls) return null;
+            
+            const dayName = formatDayOfWeek(cls.day_of_week);
+            const startTime = cls.start_time ? formatTime(cls.start_time) : '';
+            const endTime = cls.end_time ? formatTime(cls.end_time) : '';
+            const subjectName = subject?.short_name || subject?.long_name || '';
+            
+            return `- ${subjectName} ${dayName} ${startTime} - ${endTime}`;
+          })
+          .filter(Boolean)
+          .join('\n');
+        
+        variables['classes'] = classesList || 'No classes enrolled';
+      } else {
+        variables['classes'] = 'No classes enrolled';
+      }
+    }
+    
     // Student invite link
     const inviteToken = await getOrGenerateStudentInviteToken(supabase, activityEvent.student_id);
     if (inviteToken) {
@@ -761,6 +818,17 @@ export async function extractTemplateVariables(
           variables['sessions.subject.long_name'] = subjectData.long_name || '';
           variables['sessions.subject.short_name'] = subjectData.short_name || '';
         }
+      }
+      
+      // Generate booking confirmation link for trial sessions
+      if (sessionData.type === 'TRIAL_SESSION' && sessionData.id) {
+        // Determine base URL (use environment variable or default to production)
+        const studentUrl = Deno.env.get('NEXT_PUBLIC_STUDENT_URL') || 'https://student.altitutor.com';
+        const bookingConfirmationUrl = `${studentUrl}/booking-success?sessionId=${sessionData.id}`;
+        variables['booking_confirmation_link'] = bookingConfirmationUrl;
+        variables['booking_confirmation_url'] = bookingConfirmationUrl;
+        variables['session.booking_confirmation_link'] = bookingConfirmationUrl;
+        variables['session.booking_confirmation_url'] = bookingConfirmationUrl;
       }
     }
   }
