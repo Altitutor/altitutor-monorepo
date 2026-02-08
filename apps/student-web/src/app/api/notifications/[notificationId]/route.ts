@@ -72,7 +72,8 @@ export async function PATCH(
     }
     
     // Double-check student_id matches (should be redundant since view filters, but extra safety)
-    const notificationStudentId = (existingNotification as any).student_id;
+    type NotificationRow = Database['public']['Views']['vstudent_notifications']['Row'];
+    const notificationStudentId = (existingNotification as NotificationRow).student_id;
     if (!notificationStudentId || notificationStudentId !== studentId) {
       return NextResponse.json(
         { error: 'Unauthorized: You can only mark your own notifications as read' },

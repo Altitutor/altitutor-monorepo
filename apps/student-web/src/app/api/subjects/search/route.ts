@@ -46,7 +46,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rpcData = rpcResult as { subjects: any[]; total: number } | null;
+    type SubjectSearchResult = {
+      subjects: Array<{
+        id: string;
+        name: string;
+        curriculum: string;
+        year_level: number | null;
+        discipline: string | null;
+        level: string | null;
+        color: string | null;
+        short_name?: string | null;
+        long_name?: string | null;
+        created_at: string | null;
+        updated_at: string | null;
+      }>;
+      total: number;
+    };
+    const rpcData = rpcResult as SubjectSearchResult | null;
     return NextResponse.json({
       subjects: rpcData?.subjects || [],
       total: rpcData?.total ?? 0,

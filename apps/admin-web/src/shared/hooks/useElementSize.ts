@@ -53,10 +53,10 @@ export function useElementSize<T extends HTMLElement = HTMLDivElement>(): [RefOb
         resizeObserverRef.current = null;
       }
     };
-    // Intentionally no dependency array - effect should run on every render
+    // Intentionally empty dependency array - effect should run on every render
     // to check if ref.current has changed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  });
+  }, []);
 
   return [ref, size];
 }

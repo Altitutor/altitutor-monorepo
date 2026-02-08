@@ -260,7 +260,8 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
     if (!isOpen && clientSecret) {
       setClientSecret(null);
     }
-  }, [isOpen, studentId]); // Only depend on isOpen and studentId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, studentId]); // clientSecret, createSetupIntent, isLoading, onClose, toast intentionally excluded to prevent loops
 
   const handleSuccess = useCallback(() => {
     setClientSecret(null);

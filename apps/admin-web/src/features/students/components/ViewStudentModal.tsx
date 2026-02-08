@@ -127,7 +127,6 @@ export function ViewStudentModal({
   // Modal states for new actions
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   
   // Get student classes for enroll modal
   const { data: studentClasses = [] } = useStudentClasses(studentId || '');

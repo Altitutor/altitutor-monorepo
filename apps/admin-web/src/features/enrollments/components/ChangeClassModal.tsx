@@ -4,8 +4,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { StudentCard } from '@/shared/components/StudentCard';
-import { ClassCard } from '@/shared/components/ClassCard';
 import { useChangeClassData, useChangeClassFlow } from '../hooks';
 import { filterClassesForChange } from '../utils/changeClassFilters';
 import {
@@ -20,7 +18,7 @@ export function ChangeClassModal({
   isOpen,
   onClose,
   student,
-  studentSubjects = [],
+  studentSubjects: _studentSubjects = [],
   oldClass,
   oldClassSubject,
   oldClassStaff = [],

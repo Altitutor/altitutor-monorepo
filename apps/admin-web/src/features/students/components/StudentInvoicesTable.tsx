@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, DateRangePicker, useToast } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
-import { useInvoicesList, useInvoiceItems, formatInvoiceDate, getInvoiceStatusBadge, ViewInvoiceModal, invoicesKeys, useInvoiceActions } from '@/features/billing';
+import { useInvoicesList, useInvoiceItems, formatInvoiceDate, getInvoiceStatusBadge, ViewInvoiceModal, invoicesKeys } from '@/features/billing';
 import { cn, getErrorMessage } from '@/shared/utils';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { TablePagination } from '@/shared/components/TablePagination';

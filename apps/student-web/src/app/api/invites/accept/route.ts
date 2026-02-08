@@ -92,7 +92,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Update student record - link to auth user, update email if changed, clear invite token
-    const updateData: any = {
+    type StudentUpdate = Database['public']['Tables']['students']['Update'];
+    const updateData: StudentUpdate = {
       user_id: authData.user.id,
       invite_token: null, // Clear the token after successful use
     };

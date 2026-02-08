@@ -138,7 +138,7 @@ export function CreateEditActionDialog({
   ruleId,
   entityType,
   action,
-  templates,
+  templates: _templates,
   staffList,
 }: CreateEditActionDialogProps) {
   const isEditing = !!action;
@@ -314,7 +314,6 @@ export function CreateEditActionDialog({
       const isSessionType = currentNotificationType.startsWith('session_');
       const isTutorLogType = currentNotificationType === 'tutor_log_staff';
       const isAdminStaffOnDay = currentNotificationType === 'admin_staff_on_day';
-      const isGlobalType = ['all_admin_staff', 'all_staff'].includes(currentNotificationType);
       
       // Global types (all_admin_staff, all_staff) are always valid
       // admin_staff_on_day requires class_id or session_id

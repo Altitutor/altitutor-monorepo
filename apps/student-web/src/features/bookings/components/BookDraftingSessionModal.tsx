@@ -62,7 +62,6 @@ export function BookDraftingSessionModal({
   const [timeError, setTimeError] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
   // Auto-select subject from original session when rescheduling
   useEffect(() => {
@@ -101,7 +100,6 @@ export function BookDraftingSessionModal({
     setTimeError(false);
     setSelectedFiles([]);
     setUploadingFiles(false);
-    setUploadProgress({});
     onClose();
   };
 
@@ -193,7 +191,6 @@ export function BookDraftingSessionModal({
                   file,
                   displayOrder: index,
                 });
-                setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
               } catch (error: any) {
                 console.error(`Failed to upload ${file.name}:`, {
                   error,

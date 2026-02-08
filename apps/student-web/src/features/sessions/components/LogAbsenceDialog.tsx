@@ -14,7 +14,6 @@ import { AbsenceSessionSelector } from './AbsenceSessionSelector';
 import { RescheduleSessionSelector } from './RescheduleSessionSelector';
 import { ConfirmationView } from './ConfirmationView';
 import type {
-  AbsenceDecision,
   AbsenceOperation,
   StudentSession,
   RescheduleSession,

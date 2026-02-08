@@ -2,7 +2,6 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -12,9 +11,34 @@ import {
 import { Input } from '@altitutor/ui';
 
 type RegistrationFormValues = {
-  student: any;
-  parents: any[];
-  availability: any;
+  student: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    school?: string;
+    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
+    year_level?: number;
+    subject_ids: string[];
+  };
+  parents: Array<{
+    id?: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }>;
+  availability: {
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday_am: boolean;
+    saturday_pm: boolean;
+    sunday_am: boolean;
+    sunday_pm: boolean;
+  };
   password: string;
   confirmPassword: string;
   paymentMethodVerified: boolean;

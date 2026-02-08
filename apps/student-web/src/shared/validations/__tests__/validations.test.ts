@@ -115,14 +115,17 @@ describe('studentSchema', () => {
   });
 
   it('should reject missing required fields', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { firstName: _firstName, ...missingFirstName } = validStudentData;
     expect(() => studentSchema.parse(missingFirstName)).toThrow();
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { email: _email, ...missingEmail } = validStudentData;
     expect(() => studentSchema.parse(missingEmail)).toThrow();
   });
 
   it('should allow optional phone field', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { phone: _phone, ...withoutPhone } = validStudentData;
     expect(() => studentSchema.parse(withoutPhone)).not.toThrow();
   });
@@ -175,6 +178,7 @@ describe('tutorSchema', () => {
   });
 
   it('should reject missing required fields', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { firstName: _firstName, ...missingFirstName } = validTutorData;
     expect(() => tutorSchema.parse(missingFirstName)).toThrow();
   });
@@ -251,6 +255,7 @@ describe('paymentSchema', () => {
   });
 
   it('should allow optional invoice number', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { invoiceNumber: _invoiceNumber, ...withoutInvoice } = validPaymentData;
     expect(() => paymentSchema.parse(withoutInvoice)).not.toThrow();
   });

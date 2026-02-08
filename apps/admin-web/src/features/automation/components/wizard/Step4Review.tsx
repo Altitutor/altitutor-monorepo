@@ -14,7 +14,7 @@ interface Step4ReviewProps {
   templates: Tables<'message_templates'>[];
 }
 
-export function Step4Review({ formData, ruleId, templates }: Step4ReviewProps) {
+export function Step4Review({ formData, ruleId, templates: _templates }: Step4ReviewProps) {
   const { data: rule, isLoading } = useAutomationRule(ruleId || '', !!ruleId);
 
   const formatCondition = (condition: AutomationCondition | null | undefined): string => {

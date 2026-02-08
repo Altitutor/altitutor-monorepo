@@ -27,7 +27,7 @@ export function useChangeClassFlow({
   changeoverDate,
   onChange,
   currentStaffId,
-  onClose,
+  onClose: _onClose,
 }: UseChangeClassFlowProps) {
   const [isChanging, setIsChanging] = useState(false);
   const [changeSuccess, setChangeSuccess] = useState(false);

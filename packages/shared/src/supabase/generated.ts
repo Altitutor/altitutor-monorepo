@@ -1845,10 +1845,12 @@ export type Database = {
           id: string
           invoice_date: string
           invoice_pdf: string | null
+          is_refunded: boolean
           metadata: Json | null
           net_cents: number | null
           paid_at: string | null
           receipt_url: string | null
+          refunded_at: string | null
           status: string
           stripe_charge_id: string | null
           stripe_invoice_id: string
@@ -1881,10 +1883,12 @@ export type Database = {
           id?: string
           invoice_date: string
           invoice_pdf?: string | null
+          is_refunded?: boolean
           metadata?: Json | null
           net_cents?: number | null
           paid_at?: string | null
           receipt_url?: string | null
+          refunded_at?: string | null
           status?: string
           stripe_charge_id?: string | null
           stripe_invoice_id: string
@@ -1917,10 +1921,12 @@ export type Database = {
           id?: string
           invoice_date?: string
           invoice_pdf?: string | null
+          is_refunded?: boolean
           metadata?: Json | null
           net_cents?: number | null
           paid_at?: string | null
           receipt_url?: string | null
+          refunded_at?: string | null
           status?: string
           stripe_charge_id?: string | null
           stripe_invoice_id?: string

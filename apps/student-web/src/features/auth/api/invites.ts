@@ -23,8 +23,19 @@ export interface AcceptInviteRequest {
 export interface AcceptInviteResponse {
   success: boolean;
   message: string;
-  data?: any;
-  session?: any;
+  data?: {
+    student?: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+    };
+  };
+  session?: {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+  };
 }
 
 export const invitesApi = {

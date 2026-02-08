@@ -108,7 +108,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {

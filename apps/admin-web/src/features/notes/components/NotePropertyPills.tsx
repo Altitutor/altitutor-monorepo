@@ -7,7 +7,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@altitutor/ui';
 import { Folder } from 'lucide-react';
 import { z } from 'zod';

@@ -39,7 +39,7 @@ export default function BookTrialPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStudentExistsError, setShowStudentExistsError] = useState(false);
   const [contactFormRef, setContactFormRef] = useState<UseFormReturn<TrialContactFormValues> | null>(null);
-  const [_isFormValid, setIsFormValid] = useState(false);
+  const [, setIsFormValid] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
 
   // Initialize selectedSlot from query params on mount

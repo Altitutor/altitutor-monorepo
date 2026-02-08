@@ -74,8 +74,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if at least one parent has email and phone
+    type ParentData = { email: string; phone: string };
     const hasValidParent = parents.some(
-      (p: any) => p.email && p.email.trim() !== '' && p.phone && p.phone.trim() !== ''
+      (p: unknown): p is ParentData => {
+        if (typeof p !== 'object' || p === null) return false;
+        const parent = p as Record<string, unknown>;
+        return (
+          typeof parent.email === 'string' &&
+          typeof parent.phone === 'string' &&
+          parent.email.trim() !== '' &&
+          parent.phone.trim() !== ''
+        );
+      }
     );
 
     if (!hasValidParent) {

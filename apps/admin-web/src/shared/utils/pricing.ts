@@ -1,4 +1,5 @@
-import type { Tables } from '@altitutor/shared';
+import type { SubjectPricingOverrideRow } from '@/features/billing/api/subject-pricing-overrides';
+import type { StudentSubsidyRow } from '@/features/students/api/subsidies';
 
 /**
  * Calculate session price based on billing type, subject, and student subsidies
@@ -15,9 +16,9 @@ export function calculateSessionPrice(
   studentId: string | undefined,
   targetDate: Date,
   pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }>,
-  overridesBySubjectAndBilling: Record<string, Record<string, any>>,
-  pricingOverrides: any[],
-  subsidies: any[]
+  overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string }>>,
+  pricingOverrides: SubjectPricingOverrideRow[],
+  subsidies: StudentSubsidyRow[]
 ): { amount_cents: number; currency: string } {
   if (!session.billing_type) {
     return { amount_cents: 0, currency: 'aud' };
@@ -34,7 +35,7 @@ export function calculateSessionPrice(
 
   if (override) {
     const overrideData = pricingOverrides?.find(
-      (o: any) =>
+      (o: SubjectPricingOverrideRow) =>
         o.subject_id === session.subject_id && o.billing_type === session.billing_type
     );
     if (overrideData) {
@@ -63,7 +64,7 @@ export function calculateSessionPrice(
 
   if (studentId && session.subject_id && session.billing_type) {
     const activeSub = (subsidies || []).find(
-      (s: any) =>
+      (s: StudentSubsidyRow) =>
         s.student_id === studentId &&
         s.subject_id === session.subject_id &&
         s.billing_type === session.billing_type &&

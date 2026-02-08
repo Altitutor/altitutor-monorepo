@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { X, File, AlertCircle, Loader2 } from 'lucide-react';
 import type { AttachmentFile } from '../hooks/useMessageAttachments';
 import { isHeicFile, convertHeicToPreview } from '../utils/heicConverter';
@@ -50,10 +51,12 @@ export function AttachmentPreview({ attachment, onRemove }: AttachmentPreviewPro
   if (isImage && previewUrl && !heicConverting && !heicError) {
     return (
       <div className="relative group rounded-lg overflow-hidden border border-border" style={{ maxWidth: '200px', maxHeight: '200px' }}>
-        <img
+        <Image
           src={previewUrl}
           alt={attachment.file.name}
-          className="w-full h-full object-cover"
+          fill
+          className="object-cover"
+          unoptimized
         />
         {/* Overlay for upload states and HEIC conversion */}
         {(isUploading || isError || heicConverting) && (

@@ -21,7 +21,6 @@
  */
 
 import {
-  AlertTriangle,
   GraduationCap,
   UserRound,
   Users,

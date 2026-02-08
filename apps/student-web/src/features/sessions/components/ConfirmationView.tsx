@@ -1,10 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { StudentSession, RescheduleSession } from '../types/absence';
 import { StudentSessionsCard } from './StudentSessionsCard';
-import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
 
 interface ConfirmationViewProps {
   originalSession: StudentSession;
@@ -15,7 +13,7 @@ interface ConfirmationViewProps {
 export function ConfirmationView({
   originalSession,
   targetSession,
-  allSessions,
+  allSessions: _allSessions,
 }: ConfirmationViewProps) {
   // Convert original session to StudentSession format
   const originalSessionForCard: any = {
@@ -42,27 +40,6 @@ export function ConfirmationView({
     subject_level: targetSession.subject?.level,
     subject_year_level: targetSession.subject?.year_level,
   };
-
-  // Convert all sessions to format expected by StudentSessionsCalendarView
-  const calendarSessions = useMemo(() => {
-    return allSessions.map((s) => ({
-      session_id: s.id,
-      start_at: s.start_at,
-      end_at: s.end_at,
-      class_id: s.class_id,
-      session_type: s.type || 'CLASS',
-      subject_name: s.subject?.name,
-      subject_curriculum: s.subject?.curriculum,
-      subject_level: s.subject?.level,
-      subject_year_level: s.subject?.year_level,
-      staff: [],
-      students: [],
-      planned_absence: s.id === originalSession.id, // Mark original as absent
-      is_rescheduled: s.id === originalSession.id,
-      is_credited: false,
-      session_student_id: s.sessionsStudentsId,
-    }));
-  }, [allSessions, originalSession.id]);
 
   return (
     <div className="space-y-6">

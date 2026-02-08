@@ -230,10 +230,11 @@ export async function POST(
       sessionFile: createdSessionFile,
       file: createdFile,
     });
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     console.error('Unexpected error uploading session file:', error);
     return NextResponse.json(
-      { error: error.message || 'An unexpected error occurred' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

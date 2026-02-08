@@ -1,6 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database, Tables } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Tables } from '@altitutor/shared';
 import { formatClassShortName, formatClassName } from '@/shared/utils';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 

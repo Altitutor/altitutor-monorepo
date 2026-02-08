@@ -26,7 +26,7 @@ export function UnenrollStep1DateAndReason({
   studentSubjects: _studentSubjects,
   classData,
   classSubject,
-  classStaff,
+  classStaff: _classStaff,
   unenrollmentDate,
   reason: _reason,
   onDateChange,

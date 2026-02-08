@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
 import { formatClassName, cn } from '@/shared/utils';
-import { calculateFirstSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
+import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays, isBefore, startOfDay } from 'date-fns';
 import { formatDate } from '@/shared/utils/datetime';
@@ -29,7 +29,7 @@ export function Step3SummaryAndConfirm({
   context: _context,
   selectedStudent,
   selectedClass,
-  studentSubjects,
+  studentSubjects: _studentSubjects,
   enrollmentDate,
   conflicts,
 }: Step3SummaryAndConfirmProps) {

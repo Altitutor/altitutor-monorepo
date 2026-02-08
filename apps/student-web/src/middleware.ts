@@ -90,7 +90,7 @@ export async function middleware(req: NextRequest) {
     .maybeSingle() as { data: { id: string } | null; error: any };
 
   if (studentError) {
-    console.error('[STUDENT-WEB MIDDLEWARE] Error fetching student:', studentError);
+    // Error fetching student - continue with flow
   }
 
   // Check if user is staff (should not be on student portal)
@@ -101,14 +101,13 @@ export async function middleware(req: NextRequest) {
     .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
 
   if (staffError) {
-    console.error('[STUDENT-WEB MIDDLEWARE] Error fetching staff:', staffError);
+    // Error fetching staff - continue with flow
   }
 
   // If user is staff, redirect them to appropriate portal
   if (staff) {
     const role = staff.role;
     if (role === 'ADMINSTAFF') {
-      console.log('[STUDENT-WEB MIDDLEWARE] Staff member (ADMINSTAFF) detected, redirecting to admin portal');
       const redirectResponse = NextResponse.redirect(new URL('/admin/dashboard', adminPortalUrl));
       // Copy cookies from supabaseResponse to redirectResponse
       supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -116,7 +115,6 @@ export async function middleware(req: NextRequest) {
       });
       return redirectResponse;
     } else if (role === 'TUTOR') {
-      console.log('[STUDENT-WEB MIDDLEWARE] Staff member (TUTOR) detected, redirecting to tutor portal');
       const redirectResponse = NextResponse.redirect(new URL('/dashboard', tutorPortalUrl));
       // Copy cookies from supabaseResponse to redirectResponse
       supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -128,7 +126,6 @@ export async function middleware(req: NextRequest) {
 
   // If user is not a student, block access
   if (!student) {
-    console.log('[STUDENT-WEB MIDDLEWARE] No student record found, redirecting to login with error');
     const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {

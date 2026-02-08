@@ -13,7 +13,6 @@ import {
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink, X } from 'lucide-react';
-import type { Database } from '@altitutor/shared';
 import { useInvoicesWithItems } from '../hooks';
 import { DateRangePicker } from '@altitutor/ui';
 

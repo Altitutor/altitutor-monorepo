@@ -74,12 +74,14 @@ export async function PATCH(request: NextRequest) {
     }
     
     // Filter body to only include whitelisted fields
-    const updates: Partial<Record<AllowedField, any>> = {};
+    type StudentUpdate = Database['public']['Tables']['students']['Update'];
+    const updates: Record<string, unknown> = {};
     for (const field of ALLOWED_UPDATE_FIELDS) {
-      if (field in body) {
-        updates[field] = body[field];
+      if (field in body && typeof body === 'object' && body !== null) {
+        updates[field] = (body as Record<string, unknown>)[field];
       }
     }
+    const typedUpdates = updates as Partial<Pick<StudentUpdate, AllowedField>>;
     
     // Check if there are any valid updates
     if (Object.keys(updates).length === 0) {
@@ -109,7 +111,7 @@ export async function PATCH(request: NextRequest) {
     
     const { data, error } = await adminClient
       .from('students')
-      .update(updates)
+      .update(typedUpdates)
       .eq('id', studentId)
       .select()
       .single();
@@ -125,10 +127,10 @@ export async function PATCH(request: NextRequest) {
     // Update auth user email/phone if changed
     if (studentData.user_id && (updates.email || updates.phone)) {
       const authUpdates: { email?: string; phone?: string } = {};
-      if (updates.email && updates.email !== studentData.email) {
+      if ('email' in updates && typeof updates.email === 'string' && updates.email !== studentData.email) {
         authUpdates.email = updates.email;
       }
-      if (updates.phone && updates.phone !== studentData.phone) {
+      if ('phone' in updates && typeof updates.phone === 'string' && updates.phone !== studentData.phone) {
         authUpdates.phone = updates.phone;
       }
       

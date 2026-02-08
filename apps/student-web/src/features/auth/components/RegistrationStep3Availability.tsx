@@ -2,18 +2,31 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 
 type RegistrationFormValues = {
-  student: any;
-  parents: any[];
+  student: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    school?: string;
+    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
+    year_level?: number;
+    subject_ids: string[];
+  };
+  parents: Array<{
+    id?: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }>;
   availability: {
     monday: boolean;
     tuesday: boolean;

@@ -202,7 +202,7 @@ export function RegistrationFlow({
       fieldsToValidate.push('paymentMethodVerified');
     }
 
-    const isValid = await form.trigger(fieldsToValidate as any);
+    const isValid = await form.trigger(fieldsToValidate as Array<keyof RegistrationFormValues>);
     
     if (isValid) {
       onStepChange(currentStep + 1);
@@ -366,7 +366,6 @@ export function RegistrationFlow({
     }
   };
 
-  const currentStepData = steps[currentStep];
   const isLastStep = currentStep === steps.length - 1;
   const isFirstStep = currentStep === 0;
 

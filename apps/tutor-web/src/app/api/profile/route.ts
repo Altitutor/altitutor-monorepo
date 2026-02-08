@@ -17,8 +17,6 @@ const ALLOWED_UPDATE_FIELDS = [
   'availability_sunday_pm',
 ] as const;
 
-type AllowedField = typeof ALLOWED_UPDATE_FIELDS[number];
-
 /**
  * PATCH /api/profile
  * Update tutor's own profile
