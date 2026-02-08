@@ -178,8 +178,13 @@ export const topicsApi = {
       data.parent_id = null;
     }
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-web/features/topics/api/topics.ts:173',message:'Admin API updateTopic called',data:{topicId:id,hasParentId:data.parent_id !== undefined,hasIndex:data.index !== undefined,parentId:data.parent_id},timestamp:Date.now(),runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     // Don't set index - database triggers will recalculate siblings automatically
-    // when parent_id changes
+    // when parent_id changes. The BEFORE UPDATE trigger will handle index recalculation
+    // to prevent unique constraint violations.
     
     const { data: updated, error } = await supabase
       .from('topics')
@@ -187,6 +192,10 @@ export const topicsApi = {
       .eq('id', id)
       .select()
       .single();
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-web/features/topics/api/topics.ts:198',message:'Admin API updateTopic result',data:{success:!error,errorCode:error?.code,errorMessage:error?.message,updatedIndex:updated?.index,updatedParentId:updated?.parent_id},timestamp:Date.now(),runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     
     if (error) {
       console.error('Error updating topic:', error);

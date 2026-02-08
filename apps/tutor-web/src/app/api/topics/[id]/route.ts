@@ -71,6 +71,10 @@ export async function PATCH(
     if (body.parent_id !== undefined) {
       const newParentId = body.parent_id === 'none' ? null : body.parent_id;
       
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tutor-web/api/topics/[id]/route.ts:72',message:'Parent change check',data:{topicId,topicParentId:topic.parent_id,newParentId,isChanging:newParentId !== topic.parent_id},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      
       // Only validate if actually changing parent
       if (newParentId !== topic.parent_id) {
         if (newParentId) {
@@ -107,34 +111,14 @@ export async function PATCH(
           }
         }
         
-        // Calculate new index if parent is changing
-        const serviceClient = getServiceRoleClient();
-        const { data: siblingsData, error: siblingsError } = newParentId
-          ? await serviceClient
-              .from('topics')
-              .select('index')
-              .eq('subject_id', topic.subject_id)
-              .eq('parent_id', newParentId)
-          : await serviceClient
-              .from('topics')
-              .select('index')
-              .eq('subject_id', topic.subject_id)
-              .is('parent_id', null);
-        
-        if (siblingsError) {
-          console.error('Error fetching siblings:', siblingsError);
-          return NextResponse.json(
-            { error: 'Failed to calculate new index' },
-            { status: 500 }
-          );
-        }
-        
-        const maxIndex = siblingsData && siblingsData.length > 0
-          ? Math.max(...siblingsData.map((t: any) => t.index))
-          : 0;
-        
-        body.index = maxIndex + 1;
+        // Don't calculate index manually - the BEFORE UPDATE trigger will handle it
+        // This prevents race conditions and unique constraint violations
+        // The trigger will recalculate the index based on the new parent group
         body.parent_id = newParentId;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tutor-web/api/topics/[id]/route.ts:110',message:'Parent changed - letting trigger handle index',data:{oldParentId:topic.parent_id,newParentId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
       }
     }
     
@@ -144,7 +128,12 @@ export async function PATCH(
     const updates: TablesUpdate<'topics'> = {};
     if (body.name !== undefined) updates.name = body.name;
     if (body.parent_id !== undefined) updates.parent_id = body.parent_id;
-    if (body.index !== undefined) updates.index = body.index;
+    // Don't set index - the BEFORE UPDATE trigger will recalculate it when parent_id changes
+    // This prevents unique constraint violations
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tutor-web/api/topics/[id]/route.ts:144',message:'About to update topic',data:{topicId,updates,hasIndex:updates.index !== undefined,hasParentId:updates.parent_id !== undefined},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
     const { data, error } = await serviceClient
       .from('topics')
@@ -153,10 +142,17 @@ export async function PATCH(
       .select()
       .single();
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tutor-web/api/topics/[id]/route.ts:149',message:'Update result',data:{success:!error,errorCode:error?.code,errorMessage:error?.message,updatedIndex:data?.index,updatedParentId:data?.parent_id},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     if (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tutor-web/api/topics/[id]/route.ts:156',message:'Update error details',data:{errorCode:error.code,errorMessage:error.message,errorDetails:error.details,errorHint:error.hint,updates},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       console.error('Error updating topic:', error);
       return NextResponse.json(
-        { error: 'Failed to update topic' },
+        { error: 'Failed to update topic', details: error.message, code: error.code },
         { status: 500 }
       );
     }
