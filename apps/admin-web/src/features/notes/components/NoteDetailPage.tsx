@@ -237,7 +237,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         </div>
 
         {/* Content Panel */}
-        <div className="px-6 pt-2 pb-6">
+        <div className="px-6">
           <Form {...form}>
             {/* Property Pills - Mobile Only */}
             <div className="md:hidden -mt-2 mb-4">

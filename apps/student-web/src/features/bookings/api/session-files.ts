@@ -67,8 +67,8 @@ export const sessionFilesApi = {
     
     // Get signed URLs for each file
     const filesWithUrls = await Promise.all(
-      (data || []).map(async (sessionFile: any) => {
-        const file = sessionFile.file as Tables<'files'>;
+      (data || []).map(async (sessionFile: Tables<'sessions_files'> & { file: Tables<'files'> }) => {
+        const file = sessionFile.file;
         const signedUrl = await getSessionFileSignedUrl(file.storage_path);
         
         return {
@@ -100,7 +100,7 @@ export const sessionFilesApi = {
       throw sessionFileError;
     }
     
-    const file = (sessionFile as any).file as { storage_path: string };
+    const file = (sessionFile as { file: { storage_path: string } }).file;
     
     // Delete from storage first
     try {

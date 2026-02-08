@@ -14,12 +14,7 @@ export function getInviteSmsTemplate({
   if (linkType === 'invite') {
     return `Hi ${firstName}, click on this link to log into your Altitutor account: ${inviteUrl}`;
   } else {
-    // Registration link
-    if (studentName) {
-      return `Hi ${firstName}, \n\nThank you for coming to your trial session. To register ${studentName} as a student at Altitutor, please click the link below:\n\n${inviteUrl}`;
-    } else {
-      return `Hi ${firstName}, click the link below to log in to your Altitutor Student account: ${inviteUrl}`;
-    }
+    return `Hi ${firstName}, \n\nThank you for coming to your trial session. To register ${studentName} as a student at Altitutor, please click the link below:\n\n${inviteUrl}`;
   }
 }
 

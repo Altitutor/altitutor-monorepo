@@ -191,13 +191,15 @@ export function BookDraftingSessionModal({
                   file,
                   displayOrder: index,
                 });
-              } catch (error: any) {
+              } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                const errorWithDetails = error as { message?: string; statusCode?: number; error?: { code?: string; message?: string } };
                 console.error(`Failed to upload ${file.name}:`, {
                   error,
-                  message: error?.message,
-                  statusCode: error?.statusCode,
-                  errorCode: error?.error?.code,
-                  errorMessage: error?.error?.message,
+                  message: errorWithDetails.message,
+                  statusCode: errorWithDetails.statusCode,
+                  errorCode: errorWithDetails.error?.code,
+                  errorMessage: errorWithDetails.error?.message,
                   fileName: file.name,
                   fileSize: file.size,
                   fileType: file.type,
@@ -205,7 +207,7 @@ export function BookDraftingSessionModal({
                 });
                 toast({
                   title: 'File Upload Failed',
-                  description: `Failed to upload ${file.name}: ${error?.message || error?.error?.message || 'Unknown error'}. You can add it later.`,
+                  description: `Failed to upload ${file.name}: ${errorMessage || errorWithDetails.error?.message || 'Unknown error'}. You can add it later.`,
                   variant: 'destructive',
                 });
               }
@@ -219,10 +221,11 @@ export function BookDraftingSessionModal({
       setBookingSuccess(true);
       setCurrentStep(4); // Move to success step
       onBookingCreated?.(sessionId);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create booking. Please try again.';
       toast({
         title: 'Booking Failed',
-        description: error.message || 'Failed to create booking. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

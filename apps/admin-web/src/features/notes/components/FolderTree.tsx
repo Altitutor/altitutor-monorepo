@@ -1,11 +1,24 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { useFolderTree, useNotes } from '../api/queries';
 import { FolderTreeNode } from './FolderTreeNode';
 import { Skeleton } from '@altitutor/ui';
-import { FileText } from 'lucide-react';
-import { cn } from '@/shared/utils';
+import { useNoteDragAndDrop } from '../hooks/useNoteDragAndDrop';
+import { useUpdateNote } from '../api/mutations';
+import { DraggableNote } from './DraggableNote';
+import { DroppableNoFolder } from './DroppableNoFolder';
+import { DragOverlay } from '@dnd-kit/core';
+import { useMemo } from 'react';
+import type { Note } from '../types';
 
 /**
  * Main folder tree component showing root folders with notes and subfolders
@@ -15,13 +28,54 @@ export function FolderTree() {
   const router = useRouter();
   const { data: folderTree, isLoading: isLoadingFolders, error: foldersError } = useFolderTree();
   const { data: notesWithoutFolder, isLoading: isLoadingNotes } = useNotes({ folderId: null });
+  const updateNote = useUpdateNote();
 
   const isLoading = isLoadingFolders || isLoadingNotes;
   const error = foldersError;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before starting drag
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
   const handleNoteClick = (noteId: string) => {
     router.push(`/notes/${noteId}`);
   };
+
+  const updateNoteFolder = async (noteId: string, folderId: string | null) => {
+    await updateNote.mutateAsync({
+      id: noteId,
+      updates: { folder_id: folderId },
+      silent: false,
+    });
+  };
+
+  const { activeId, handleDragStart, handleDragEnd } = useNoteDragAndDrop({
+    updateNoteFolder,
+  });
+
+  // Find the active note being dragged for the overlay
+  const activeNote = useMemo((): Note | null => {
+    if (!activeId) return null;
+    const note = notesWithoutFolder?.find((n) => n.id === activeId);
+    if (note) return note;
+    // Search in folder tree
+    const findNoteInTree = (folders: typeof folderTree): Note | null => {
+      if (!folders) return null;
+      for (const folder of folders) {
+        const found = folder.notes.find((n) => n.id === activeId);
+        if (found) return found;
+        const foundInChildren = findNoteInTree(folder.children);
+        if (foundInChildren) return foundInChildren;
+      }
+      return null;
+    };
+    return findNoteInTree(folderTree || []);
+  }, [activeId, notesWithoutFolder, folderTree]);
 
   if (isLoading) {
     return (
@@ -54,41 +108,51 @@ export function FolderTree() {
   }
 
   return (
-    <div className="space-y-1">
-      {/* Notes without folders */}
-      {hasNotesWithoutFolder && (
-        <div className="mb-4">
-          <div className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-            No Folder
-          </div>
-          {notesWithoutFolder.map((note) => (
-            <div
-              key={note.id}
-              className={cn(
-                'flex items-center gap-2 py-1 px-2 rounded-md hover:bg-muted/50 cursor-pointer',
-                'text-sm'
-              )}
-              style={{ paddingLeft: '8px' }}
-              onClick={() => handleNoteClick(note.id)}
-            >
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 truncate">{note.title}</span>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-1">
+        {/* Notes without folders */}
+        {hasNotesWithoutFolder && (
+          <div className="mb-4">
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+              No Folder
             </div>
-          ))}
-        </div>
-      )}
+            <DroppableNoFolder>
+              {notesWithoutFolder.map((note) => (
+                <DraggableNote
+                  key={note.id}
+                  note={note}
+                  onClick={() => handleNoteClick(note.id)}
+                  indent={8}
+                />
+              ))}
+            </DroppableNoFolder>
+          </div>
+        )}
 
-      {/* Folders */}
-      {hasFolders && (
-        <>
-          {hasNotesWithoutFolder && (
-            <div className="border-t my-2" />
-          )}
-          {folderTree.map((folder) => (
-            <FolderTreeNode key={folder.id} folder={folder} level={0} />
-          ))}
-        </>
-      )}
-    </div>
+        {/* Folders */}
+        {hasFolders && (
+          <>
+            {hasNotesWithoutFolder && (
+              <div className="border-t my-2" />
+            )}
+            {folderTree.map((folder) => (
+              <FolderTreeNode key={folder.id} folder={folder} level={0} />
+            ))}
+          </>
+        )}
+      </div>
+      <DragOverlay>
+        {activeNote ? (
+          <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-background border shadow-lg text-sm opacity-90">
+            <span className="flex-1 truncate">{activeNote.title}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

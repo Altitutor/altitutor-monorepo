@@ -266,11 +266,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
 
   return (
     <div 
-      className="relative cursor-text flex flex-col" 
+      className="relative cursor-text flex flex-col min-h-[calc(100vh-var(--navbar-height)-5rem-120px)]" 
       data-placeholder={placeholder}
       onClick={handleContainerClick}
     >
-      <div className="pb-20 min-h-[200px]">
+      <div className="pb-20 flex-1">
         <EditorContent editor={editor} />
       </div>
       <NoteEditorBottomToolbar editor={editor} />

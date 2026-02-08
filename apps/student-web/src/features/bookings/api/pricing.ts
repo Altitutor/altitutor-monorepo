@@ -22,7 +22,11 @@ export const pricingApi = {
   ): Promise<SessionPrice> {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
-    const { data, error } = await (supabase.rpc as any)('calculate_session_price', {
+    // Type assertion needed because RPC function may not be in generated types
+    const { data, error } = await (supabase.rpc as unknown as (
+      name: string,
+      args: Record<string, unknown>
+    ) => Promise<{ data: unknown; error: unknown }>)('calculate_session_price', {
       p_subject_id: subjectId,
       p_billing_type: 'DRAFTING',
       p_start_at: startAt,

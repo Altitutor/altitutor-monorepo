@@ -97,12 +97,13 @@ export async function POST(
     const { data: parentsData } = await supabase
       .from('parents_students')
       .select('student_id, parent:parents(id, email)')
-      .eq('student_id', invoice.student_id);
+      .eq('student_id', invoice.student_id)
+      .returns<Array<{ student_id: string; parent: { id: string; email: string } | null }>>();
 
     const parentEmails: string[] = [];
     if (parentsData) {
       for (const row of parentsData) {
-        const parent = row.parent as { id: string; email: string } | null | undefined;
+        const parent = row.parent;
         const email = parent?.email;
         if (email && typeof email === 'string' && !parentEmails.includes(email)) {
           parentEmails.push(email);

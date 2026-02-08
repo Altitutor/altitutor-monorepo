@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
@@ -84,10 +85,17 @@ export async function middleware(req: NextRequest) {
   // Check if user is a student using vstudent_profile view
   // This view is accessible to students (unlike the students table which has RLS blocking direct access)
   // The view automatically filters to the current user's record via current_student_id() function
-  const { data: student, error: studentError } = await (supabase as any)
+  // Type assertion needed because view may not be in generated types
+  const { data: student, error: studentError } = await (supabase as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        maybeSingle: () => Promise<{ data: { id: string } | null; error: PostgrestError | null }>;
+      };
+    };
+  })
     .from('vstudent_profile')
     .select('id')
-    .maybeSingle() as { data: { id: string } | null; error: any };
+    .maybeSingle();
 
   if (studentError) {
     // Error fetching student - continue with flow
@@ -98,7 +106,7 @@ export async function middleware(req: NextRequest) {
     .from('staff')
     .select('role')
     .eq('user_id', user.id)
-    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
+    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: PostgrestError | null };
 
   if (staffError) {
     // Error fetching staff - continue with flow

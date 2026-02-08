@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -43,6 +44,7 @@ export function CreateNoteDialog({
   onClose,
   defaultFolderId,
 }: CreateNoteDialogProps) {
+  const router = useRouter();
   const createNote = useCreateNote();
   const { data: folders } = useFolders();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,13 +60,15 @@ export function CreateNoteDialog({
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
-      await createNote.mutateAsync({
+      const createdNote = await createNote.mutateAsync({
         title: data.title,
         content: '',
         folder_id: data.folderId || null,
       });
       form.reset();
       onClose();
+      // Navigate to the created note's page
+      router.push(`/notes/${createdNote.id}`);
     } catch (error) {
       // Error handled by mutation
     } finally {

@@ -155,6 +155,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
+  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   // Server provides filtered/sorted page; apply compound sorting for status field
   const filteredStudents = useMemo(() => {
@@ -376,7 +378,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   
 
   // Loading state
-  if (isLoading && students.length === 0) {
+  if (isLoading && filteredStudents.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -408,7 +410,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   }
 
   // Error state
-  if (error && students.length === 0) {
+  if (error && filteredStudents.length === 0) {
     return (
       <div className="text-red-500 p-4">
         Failed to load students. Please try again.

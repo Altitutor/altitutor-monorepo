@@ -42,11 +42,12 @@ export async function uploadSessionFile({ sessionId, file }: UploadSessionFileOp
     });
   
   if (error) {
+    const errorWithDetails = error as { message: string; statusCode?: number; code?: string };
     console.error('Storage upload error:', {
       error,
       message: error.message,
-      statusCode: (error as any).statusCode,
-      errorCode: (error as any).code,
+      statusCode: errorWithDetails.statusCode,
+      errorCode: errorWithDetails.code,
       path,
       sessionId,
       fileName: file.name,

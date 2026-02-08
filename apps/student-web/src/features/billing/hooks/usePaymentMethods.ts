@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { paymentMethodsApi } from '../api/payment-methods';
+import { paymentMethodsApi, type BillingData, type PaymentMethodData } from '../api/payment-methods';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 export function usePaymentMethods() {
@@ -42,14 +42,14 @@ export function usePaymentMethods() {
           // When a new payment method is inserted, replace the optimistic placeholder
           // by matching the stripe_payment_method_id
           if (payload.eventType === 'INSERT') {
-            queryClient.setQueryData(['payment-methods'], (old: any) => {
+            queryClient.setQueryData(['payment-methods'], (old: BillingData | null | undefined) => {
               if (!old || !old.payment_methods) return old;
               
-              const newPaymentMethod = payload.new;
+              const newPaymentMethod = payload.new as PaymentMethodData;
               const stripePmId = newPaymentMethod.stripe_payment_method_id;
               
               // Replace the optimistic placeholder with the real payment method
-              const updatedMethods = old.payment_methods.map((pm: any) => {
+              const updatedMethods = old.payment_methods.map((pm) => {
                 if (pm.stripe_payment_method_id === stripePmId && pm.id?.startsWith('temp-')) {
                   return {
                     ...newPaymentMethod,
@@ -60,7 +60,7 @@ export function usePaymentMethods() {
               });
               
               // If no match found, add the new payment method
-              const hasMatch = old.payment_methods.some((pm: any) => 
+              const hasMatch = old.payment_methods.some((pm) => 
                 pm.stripe_payment_method_id === stripePmId && pm.id?.startsWith('temp-')
               );
               
@@ -94,8 +94,8 @@ export function usePaymentMethods() {
     if (!studentId) return;
 
     // Check if there are any optimistic (temp) payment methods
-    const data = queryClient.getQueryData(['payment-methods']) as any;
-    const hasOptimisticUpdates = data?.payment_methods?.some((pm: any) => pm.id?.startsWith('temp-'));
+    const data = queryClient.getQueryData<BillingData | null>(['payment-methods']);
+    const hasOptimisticUpdates = data?.payment_methods?.some((pm) => pm.id?.startsWith('temp-'));
     
     if (!hasOptimisticUpdates) return;
 
@@ -134,16 +134,16 @@ export function useSetDefaultPaymentMethod() {
     mutationFn: (paymentMethodId: string) => paymentMethodsApi.setDefaultPaymentMethod(paymentMethodId),
     onSuccess: (_, paymentMethodId) => {
       // Optimistically update the cache
-      queryClient.setQueryData(['payment-methods'], (old: any) => {
+      queryClient.setQueryData(['payment-methods'], (old: BillingData | null | undefined) => {
         if (!old || !old.payment_methods) return old;
         
         return {
           ...old,
-          payment_methods: old.payment_methods.map((pm: any) => ({
+          payment_methods: old.payment_methods.map((pm) => ({
             ...pm,
             is_default: pm.id === paymentMethodId,
           })),
-          default_payment_method: old.payment_methods.find((pm: any) => pm.id === paymentMethodId) || null,
+          default_payment_method: old.payment_methods.find((pm) => pm.id === paymentMethodId) || null,
         };
       });
       
@@ -173,10 +173,10 @@ export function useDeletePaymentMethod() {
     mutationFn: (paymentMethodId: string) => paymentMethodsApi.deletePaymentMethod(paymentMethodId),
     onSuccess: (_, paymentMethodId) => {
       // Optimistically remove from cache
-      queryClient.setQueryData(['payment-methods'], (old: any) => {
+      queryClient.setQueryData(['payment-methods'], (old: BillingData | null | undefined) => {
         if (!old || !old.payment_methods) return old;
         
-        const filteredMethods = old.payment_methods.filter((pm: any) => pm.id !== paymentMethodId);
+        const filteredMethods = old.payment_methods.filter((pm) => pm.id !== paymentMethodId);
         
         return {
           ...old,

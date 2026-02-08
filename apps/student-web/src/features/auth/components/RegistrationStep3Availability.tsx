@@ -1,6 +1,6 @@
 'use client';
 
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, Path } from 'react-hook-form';
 import {
   FormControl,
   FormField,
@@ -47,7 +47,10 @@ interface RegistrationStep3AvailabilityProps {
   form: UseFormReturn<RegistrationFormValues>;
 }
 
-const AVAILABILITY_OPTIONS = [
+const AVAILABILITY_OPTIONS: Array<{
+  key: keyof RegistrationFormValues['availability'];
+  label: string;
+}> = [
   { key: 'monday', label: 'Monday' },
   { key: 'tuesday', label: 'Tuesday' },
   { key: 'wednesday', label: 'Wednesday' },
@@ -76,12 +79,12 @@ export function RegistrationStep3Availability({
           <FormField
             key={option.key}
             control={form.control}
-            name={`availability.${option.key}` as any}
+            name={`availability.${option.key}` as Path<RegistrationFormValues>}
             render={({ field }) => (
               <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                 <FormControl>
                   <Checkbox
-                    checked={field.value}
+                    checked={Boolean(field.value)}
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>

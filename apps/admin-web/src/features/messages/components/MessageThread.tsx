@@ -750,7 +750,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         {hasNextPage && (
           <button className="text-xs text-blue-600 hover:underline mb-2" onClick={() => fetchNextPage()}>Load older messages</button>
         )}
-        {items.length === 0 ? (
+        {processedMessages.length === 0 && !isSearching ? (
           <div className="text-xs text-muted-foreground">No messages yet.</div>
         ) : isSearching && processedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">No messages found.</div>
