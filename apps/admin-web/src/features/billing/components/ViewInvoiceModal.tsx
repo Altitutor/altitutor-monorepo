@@ -16,6 +16,7 @@ import { getErrorMessage } from '@/shared/utils';
 import {
   useInvoiceData,
   useInvoiceModals,
+  useInvoiceActions,
   formatInvoiceDate,
   formatInvoiceAmount,
   calculateLineItemsSubtotal,
@@ -159,6 +160,25 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     }
   };
 
+  // Centralized action handlers (must be after handler functions are defined)
+  const invoiceActions = useInvoiceActions({
+    invoiceId: invoiceId || '',
+    invoice,
+    onOpenInPage: () => {
+      router.push(`/invoices/${invoiceId}`);
+      onClose();
+    },
+    onViewOnStripe: invoice?.hosted_invoice_url ? () => {
+      window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+    } : undefined,
+    onDownloadPdf: invoice?.invoice_pdf ? () => {
+      window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
+    } : undefined,
+    onSendInvoice: collectionMethod === 'send_invoice' && invoice?.status !== 'paid' ? handleSendInvoiceEmail : undefined,
+    onChargeCard: collectionMethod === 'charge_automatically' && invoice?.status !== 'paid' ? handleChargeCard : undefined,
+    isLoadingAction,
+  });
+
   // Always render the Sheet to allow exit animation
   if (isLoading || !invoice) {
     return (
@@ -201,19 +221,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                 {invoiceId && (
                   <ActionsMenu
                     type="invoice"
-                    onOpenInPage={() => {
-                      router.push(`/invoices/${invoiceId}`);
-                      onClose();
-                    }}
-                    onViewOnStripe={invoice.hosted_invoice_url ? () => {
-                      window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
-                    } : undefined}
-                    onDownloadPdf={invoice.invoice_pdf ? () => {
-                      window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
-                    } : undefined}
-                    onSendInvoice={collectionMethod === 'send_invoice' && invoice.status !== 'paid' ? handleSendInvoiceEmail : undefined}
-                    onChargeCard={collectionMethod === 'charge_automatically' && invoice.status !== 'paid' ? handleChargeCard : undefined}
-                    isLoadingAction={isLoadingAction}
+                    {...invoiceActions}
                   />
                 )}
               </div>

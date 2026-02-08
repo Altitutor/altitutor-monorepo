@@ -40,6 +40,8 @@ import { AddResourceFileModal } from '@/features/topics/components/AddResourceFi
 import { EditTopicFileModal } from '@/features/topics/components/EditTopicFileModal';
 import { buildTopicTree } from '@/features/topics/utils/codes';
 import { ViewTopicModal } from '@/features/topics/components/ViewTopicModal';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useTopicActions } from '@/features/topics/hooks/useTopicActions';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -191,6 +193,14 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
   // Use subjectId from path, or fallback to topic's subject_id
   const effectiveSubjectId = subjectId || topic?.subject_id || '';
 
+  // Centralized action handlers
+  const topicActions = useTopicActions({
+    topicId,
+    topic,
+    onEdit: handleEdit,
+    onDelete: () => setShowDeleteDialog(true),
+  });
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -247,6 +257,12 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
             {topic.name}
           </p>
         </div>
+        {topic && !isEditing && (
+          <ActionsMenu
+            type="topic"
+            {...topicActions}
+          />
+        )}
       </div>
 
       <div className="space-y-6">

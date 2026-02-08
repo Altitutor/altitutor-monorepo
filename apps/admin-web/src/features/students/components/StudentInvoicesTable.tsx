@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, DateRangePicker, useToast } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
-import { useInvoicesList, useInvoiceItems, formatInvoiceDate, getInvoiceStatusBadge, ViewInvoiceModal, invoicesKeys } from '@/features/billing';
+import { useInvoicesList, useInvoiceItems, formatInvoiceDate, getInvoiceStatusBadge, ViewInvoiceModal, invoicesKeys, useInvoiceActions } from '@/features/billing';
 import { cn, getErrorMessage } from '@/shared/utils';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { TablePagination } from '@/shared/components/TablePagination';
@@ -229,21 +229,26 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                     {getInvoiceStatusBadge(invoice.status)}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <ActionsMenu
-                      type="invoice"
-                      onOpenInPage={() => {
-                        router.push(`/invoices/${invoice.id}`);
-                      }}
-                      onViewOnStripe={invoice.hosted_invoice_url ? () => {
-                        window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
-                      } : undefined}
-                      onDownloadPdf={invoice.invoice_pdf ? () => {
-                        window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
-                      } : undefined}
-                      onSendInvoice={invoice.collection_method === 'send_invoice' && invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
-                      onChargeCard={invoice.collection_method === 'charge_automatically' && invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
-                      isLoadingAction={isLoadingAction && actionInvoiceId === invoice.id}
-                    />
+                    {(() => {
+                      // For table rows, we can't use hooks directly, so we use inline logic matching the hook pattern
+                      return (
+                        <ActionsMenu
+                          type="invoice"
+                          onOpenInPage={() => {
+                            router.push(`/invoices/${invoice.id}`);
+                          }}
+                          onViewOnStripe={invoice.hosted_invoice_url ? () => {
+                            window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+                          } : undefined}
+                          onDownloadPdf={invoice.invoice_pdf ? () => {
+                            window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
+                          } : undefined}
+                          onSendInvoice={invoice.collection_method === 'send_invoice' && invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
+                          onChargeCard={invoice.collection_method === 'charge_automatically' && invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
+                          isLoadingAction={isLoadingAction && actionInvoiceId === invoice.id}
+                        />
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
                 );

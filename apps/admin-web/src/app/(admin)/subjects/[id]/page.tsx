@@ -48,6 +48,8 @@ import { useToast } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { TopicsHierarchy, AddTopicModal, AddResourceFileModal } from '@/features/topics';
 import { useTopics } from '@/features/topics/hooks';
+import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useSubjectActions } from '@/features/subjects/hooks/useSubjectActions';
 
 const formSchema = z.object({
   name: z.string().min(1, "Subject name is required"),
@@ -211,6 +213,13 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
     }
   };
 
+  // Centralized action handlers
+  const subjectActions = useSubjectActions({
+    subjectId: id,
+    onEdit: handleEditClick,
+    onDelete: () => setIsDeleteDialogOpen(true),
+  });
+
   if (loading && !subject) {
     return (
       <div className="p-6">
@@ -274,6 +283,12 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
             {subject.name}
           </p>
         </div>
+        {subject && !isEditing && (
+          <ActionsMenu
+            type="subject"
+            {...subjectActions}
+          />
+        )}
       </div>
 
       <div className="space-y-6">

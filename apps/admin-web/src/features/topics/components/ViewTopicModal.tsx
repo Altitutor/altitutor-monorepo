@@ -60,6 +60,7 @@ import { EditTopicFileModal } from './EditTopicFileModal';
 import { buildTopicTree } from '../utils/codes';
 import { Plus } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useTopicActions } from '../hooks/useTopicActions';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -211,6 +212,20 @@ export function ViewTopicModal({
 
   const subject = subjects.find(s => s.id === topic?.subject_id);
 
+  // Centralized action handlers (must be after handler functions are defined)
+  const topicActions = useTopicActions({
+    topicId: topicId || '',
+    topic,
+    onOpenInPage: () => {
+      if (topic?.subject_id) {
+        router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
+        onClose();
+      }
+    },
+    onEdit: handleEdit,
+    onDelete: () => setShowDeleteDialog(true),
+  });
+
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
@@ -240,12 +255,7 @@ export function ViewTopicModal({
               {topicId && topic && !isEditing && (
                 <ActionsMenu
                   type="topic"
-                  onOpenInPage={() => {
-                    router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);
-                    onClose();
-                  }}
-                  onEdit={handleEdit}
-                  onDelete={() => setShowDeleteDialog(true)}
+                  {...topicActions}
                 />
               )}
             </div>
