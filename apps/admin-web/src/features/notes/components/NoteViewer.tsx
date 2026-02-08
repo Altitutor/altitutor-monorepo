@@ -1,16 +1,20 @@
 'use client';
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { generateHTML } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import { TableKit } from '@tiptap/extension-table';
+import { TextStyleKit } from '@tiptap/extension-text-style';
+import Typography from '@tiptap/extension-typography';
+import type { JSONContent } from '@tiptap/core';
 import { cn } from '@/shared/utils';
 
 interface NoteViewerProps {
-  content: string;
+  content: string; // JSON string
   className?: string;
 }
 
 /**
- * Component to render markdown content in view mode
+ * Component to render ProseMirror JSON content in view mode
  */
 export function NoteViewer({ content, className }: NoteViewerProps) {
   if (!content) {
@@ -21,40 +25,64 @@ export function NoteViewer({ content, className }: NoteViewerProps) {
     );
   }
 
+  let jsonContent: JSONContent;
+  try {
+    jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
+  } catch {
+    // Fallback for legacy markdown content or invalid JSON
+    return (
+      <div className={cn('text-muted-foreground italic', className)}>
+        Invalid content format.
+      </div>
+    );
+  }
+
+  const html = generateHTML(jsonContent, [
+    StarterKit.configure({
+      bulletList: {
+        keepMarks: true,
+        keepAttributes: false,
+      },
+      orderedList: {
+        keepMarks: true,
+        keepAttributes: false,
+      },
+    }),
+    TableKit.configure({
+      table: {
+        resizable: true,
+      },
+    }),
+    TextStyleKit.configure({
+      fontFamily: {
+        types: ['textStyle'],
+      },
+      fontSize: {
+        types: ['textStyle'],
+      },
+      color: {
+        types: ['textStyle'],
+      },
+      backgroundColor: {
+        types: ['textStyle'],
+      },
+    }),
+    Typography,
+  ]);
+
   return (
-    <div className={cn('markdown-content', className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          h1: ({ children }) => <h1 className="text-3xl font-bold mb-4 mt-6">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-2xl font-bold mb-3 mt-5">{children}</h2>,
-          h3: ({ children }) => <h3 className="text-xl font-semibold mb-2 mt-4">{children}</h3>,
-          p: ({ children }) => <p className="mb-4 leading-relaxed">{children}</p>,
-          ul: ({ children }) => <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal list-inside mb-4 space-y-1">{children}</ol>,
-          li: ({ children }) => <li className="ml-4">{children}</li>,
-          code: ({ children }) => (
-            <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
-          ),
-          pre: ({ children }) => (
-            <pre className="bg-muted p-4 rounded-md overflow-x-auto mb-4">{children}</pre>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-muted-foreground pl-4 italic mb-4">
-              {children}
-            </blockquote>
-          ),
-          a: ({ href, children }) => (
-            <a href={href} className="text-primary underline hover:text-primary/80">
-              {children}
-            </a>
-          ),
-          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-          em: ({ children }) => <em className="italic">{children}</em>,
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
+    <div
+      className={cn(
+        'prose prose-sm dark:prose-invert max-w-none',
+        'prose-headings:font-semibold prose-headings:tracking-tight',
+        'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
+        'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
+        'prose-li:my-1',
+        'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
+        'prose-td:border prose-td:border-border prose-td:p-2',
+        className
+      )}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }

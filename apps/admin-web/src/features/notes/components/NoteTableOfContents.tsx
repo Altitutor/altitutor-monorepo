@@ -139,12 +139,15 @@ export function NoteTableOfContents({ editor, className, collapsible = false }: 
     }
   };
 
-  if (tocItems.length === 0) {
+  // Always show on mobile (collapsible), hide on desktop if empty
+  if (tocItems.length === 0 && !collapsible) {
     return null;
   }
 
-  const content = (
+  const content = tocItems.length > 0 ? (
     <TocNavigation items={tocItems} editor={editor} onItemClick={scrollToHeading} />
+  ) : (
+    <p className="text-sm text-muted-foreground">No headings yet</p>
   );
 
   if (collapsible) {

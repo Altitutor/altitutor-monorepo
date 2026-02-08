@@ -76,14 +76,6 @@ export function useUpdateNote() {
       // For manual saves, invalidate lists/tree so they show updated data
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
-
-      // Only show toast if not silent (auto-saves are silent)
-      if (!silent) {
-        toast({
-          title: 'Note updated',
-          description: 'The note has been updated successfully.',
-        });
-      }
     },
     onError: (error: Error) => {
       toast({

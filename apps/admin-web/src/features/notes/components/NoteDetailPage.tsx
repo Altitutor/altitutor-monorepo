@@ -15,8 +15,9 @@ import type { Editor } from '@tiptap/react';
 import { useNote } from '../api/queries';
 import { useUpdateNote, useDeleteNote } from '../api/mutations';
 import { useFolders } from '../api/queries';
-import { useDebounce } from '@/shared/hooks';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
+import { useSidebarWidth } from '../hooks/useSidebarWidth';
+import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -36,16 +37,18 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
   const { data: folders } = useFolders();
+  const sidebarWidth = useSidebarWidth();
+  const [isMobile, setIsMobile] = useState(false);
 
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const noteEditorRef = useRef<NoteEditorRef>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
-  const isInitializedRef = useRef(false);
+  
+  // Track initialization state
   const currentNoteIdRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
-  const initialFocusDoneRef = useRef(false);
-  const lastSavedValuesRef = useRef<{ title?: string; content?: string; folder_id?: string | null }>({});
-  const [sidebarWidth, setSidebarWidth] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [initialFocusDone, setInitialFocusDone] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -60,38 +63,32 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   useEffect(() => {
     // Reset initialization if noteId changed (user navigated to different note)
     if (currentNoteIdRef.current !== noteId) {
-      isInitializedRef.current = false;
-      initialFocusDoneRef.current = false;
+      setIsInitialized(false);
+      setInitialFocusDone(false);
       currentNoteIdRef.current = noteId;
-      lastSavedValuesRef.current = {};
     }
 
-    if (note && !isInitializedRef.current) {
+    if (note && !isInitialized) {
       isUpdatingFromServerRef.current = true;
       form.reset({
         title: note.title,
         content: note.content || '',
         folder_id: note.folder_id,
       });
-      lastSavedValuesRef.current = {
-        title: note.title,
-        content: note.content || '',
-        folder_id: note.folder_id,
-      };
-      isInitializedRef.current = true;
+      setIsInitialized(true);
       // Reset flag after form values are set
       setTimeout(() => {
         isUpdatingFromServerRef.current = false;
       }, 0);
     }
-  }, [note, noteId, form]);
+  }, [note, noteId, form, isInitialized]);
 
   // Auto-focus title field only on initial load (once per noteId).
   // Without the guard, every auto-save query invalidation would re-trigger
   // this effect and steal focus from the editor.
   useEffect(() => {
-    if (note && titleFieldRef.current && !initialFocusDoneRef.current) {
-      initialFocusDoneRef.current = true;
+    if (note && titleFieldRef.current && !initialFocusDone) {
+      setInitialFocusDone(true);
       const timer = setTimeout(() => {
         const titleElement = titleFieldRef.current;
         if (!titleElement) return;
@@ -109,51 +106,23 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [note]);
+  }, [note, initialFocusDone]);
 
-  // Debounced auto-save for title
-  const title = form.watch('title');
-  const debouncedTitle = useDebounce(title, 1000);
-  useEffect(() => {
-    if (!isInitializedRef.current || isUpdatingFromServerRef.current) return;
-    if (note && debouncedTitle && debouncedTitle !== lastSavedValuesRef.current.title) {
-      lastSavedValuesRef.current.title = debouncedTitle;
+  // Auto-save hook
+  useNoteAutoSave({
+    form,
+    noteId,
+    note: note || undefined,
+    isInitialized,
+    isUpdatingFromServer: () => isUpdatingFromServerRef.current,
+    onSave: (updates) => {
       updateNote.mutate({
         id: noteId,
-        updates: { title: debouncedTitle },
+        updates,
         silent: true, // Silent auto-save
       });
-    }
-  }, [debouncedTitle, note, noteId, updateNote]);
-
-  // Debounced auto-save for content
-  const content = form.watch('content');
-  const debouncedContent = useDebounce(content, 1000);
-  useEffect(() => {
-    if (!isInitializedRef.current || isUpdatingFromServerRef.current) return;
-    if (note && debouncedContent !== undefined && debouncedContent !== lastSavedValuesRef.current.content) {
-      lastSavedValuesRef.current.content = debouncedContent;
-      updateNote.mutate({
-        id: noteId,
-        updates: { content: debouncedContent },
-        silent: true, // Silent auto-save
-      });
-    }
-  }, [debouncedContent, note, noteId, updateNote]);
-
-  // Auto-save for folder_id
-  const folderId = form.watch('folder_id');
-  useEffect(() => {
-    if (!isInitializedRef.current || isUpdatingFromServerRef.current) return;
-    if (note && folderId !== lastSavedValuesRef.current.folder_id) {
-      lastSavedValuesRef.current.folder_id = folderId;
-      updateNote.mutate({
-        id: noteId,
-        updates: { folder_id: folderId },
-        silent: true, // Silent auto-save
-      });
-    }
-  }, [folderId, note, noteId, updateNote]);
+    },
+  });
 
   const handleDelete = useCallback(async () => {
     if (!note) return;
@@ -193,67 +162,19 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     editorInstanceRef.current = editor;
   }, []);
 
+  // Track mobile breakpoint for toolbar positioning
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Memoize folders array for performance
   const foldersArray = useMemo(() => folders || [], [folders]);
-
-  // Detect sidebar width for toolbar positioning
-  useEffect(() => {
-    const detectSidebarWidth = () => {
-      // Find the left navigation sidebar - it's the first child of the main layout container
-      // and has classes: hidden md:flex flex-col border-r
-      const layoutContainer = document.querySelector('div.flex.h-\\[calc\\(100vh-var\\(--navbar-height\\)\\)\\].overflow-hidden');
-      if (!layoutContainer) return;
-
-      // The sidebar is the first child of the layout container
-      const sidebar = layoutContainer.firstElementChild as HTMLElement | null;
-      if (sidebar) {
-        const computedStyle = window.getComputedStyle(sidebar);
-        // Check if sidebar is visible (on desktop it should be visible)
-        if (computedStyle.display !== 'none' && sidebar.offsetWidth > 0) {
-          setSidebarWidth(sidebar.offsetWidth);
-        } else {
-          // On mobile, sidebar is hidden
-          setSidebarWidth(0);
-        }
-      } else {
-        setSidebarWidth(0);
-      }
-    };
-
-    // Initial detection with delay to ensure DOM is ready
-    const timeoutId = setTimeout(detectSidebarWidth, 100);
-    detectSidebarWidth();
-
-    // Watch for sidebar width changes using ResizeObserver
-    const resizeObserver = new ResizeObserver(() => {
-      detectSidebarWidth();
-    });
-
-    // Observe the layout container and its first child (sidebar)
-    const layoutContainer = document.querySelector('div.flex.h-\\[calc\\(100vh-var\\(--navbar-height\\)\\)\\].overflow-hidden');
-    if (layoutContainer) {
-      resizeObserver.observe(layoutContainer);
-      if (layoutContainer.firstElementChild) {
-        resizeObserver.observe(layoutContainer.firstElementChild);
-      }
-    }
-
-    // Also listen for window resize and transition end (for sidebar collapse animation)
-    window.addEventListener('resize', detectSidebarWidth);
-    
-    // Listen for transition end to catch sidebar collapse/expand animations
-    const handleTransitionEnd = () => {
-      detectSidebarWidth();
-    };
-    document.addEventListener('transitionend', handleTransitionEnd);
-
-    return () => {
-      clearTimeout(timeoutId);
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', detectSidebarWidth);
-      document.removeEventListener('transitionend', handleTransitionEnd);
-    };
-  }, []);
 
   if (isLoading) {
     return <div className="p-6">Loading...</div>;
@@ -303,7 +224,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           <div className="px-6 flex-1 flex flex-col min-h-0 pb-20">
             <Form {...form}>
               {/* Property Pills - Mobile Only */}
-              <div className="md:hidden -mt-2 mb-4">
+              <div className="md:hidden pt-4 mb-4">
                 <NotePropertyPills form={form} folders={foldersArray} />
               </div>
 
@@ -340,8 +261,10 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         <div 
           className="fixed bottom-0 z-50 px-6 pb-4 bg-background pointer-events-none" 
           style={{ 
-            left: `${sidebarWidth}px`, 
-            right: '320px' // Properties sidebar width (w-80 = 320px)
+            // Mobile: full width minus floating action buttons (right-4 + w-16 = 80px)
+            // Desktop: account for sidebar and properties panel
+            left: isMobile ? 0 : `${sidebarWidth}px`,
+            right: isMobile ? '80px' : '320px', // Properties sidebar width (w-80 = 320px)
           }}
         >
           <div className="pointer-events-auto">

@@ -94,7 +94,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().addRowBefore().run()}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
                 title="Add row above"
               >
                 <ArrowUp className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().addRowAfter().run()}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
                 title="Add row below"
               >
                 <ArrowDown className="h-3.5 w-3.5" />
@@ -114,7 +114,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().deleteRow().run()}
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                className="h-8 w-8 p-0 text-destructive hover:bg-transparent hover:text-destructive dark:hover:text-destructive"
                 title="Delete row"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -128,7 +128,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().addColumnBefore().run()}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
                 title="Add column left"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -138,7 +138,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().addColumnAfter().run()}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
                 title="Add column right"
               >
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -148,7 +148,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().deleteColumn().run()}
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                className="h-8 w-8 p-0 text-destructive hover:bg-transparent hover:text-destructive dark:hover:text-destructive"
                 title="Delete column"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -161,7 +161,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
               variant="ghost"
               size="sm"
               onClick={() => editor.chain().focus().deleteTable().run()}
-              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+              className="h-8 w-8 p-0 text-destructive hover:bg-transparent"
               title="Delete table"
             >
               <Trash2 className="h-4 w-4" />
@@ -185,7 +185,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
               size="sm"
               onClick={() => editor.chain().focus().toggleBold().run()}
               className={cn(
-                'h-8 w-8 p-0',
+                'h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current',
                 editor.isActive('bold') && 'bg-accent'
               )}
               title="Bold"
@@ -198,7 +198,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
               size="sm"
               onClick={() => editor.chain().focus().toggleItalic().run()}
               className={cn(
-                'h-8 w-8 p-0',
+                'h-8 w-8 p-0 hover:bg-transparent',
                 editor.isActive('italic') && 'bg-accent'
               )}
               title="Italic"
@@ -211,7 +211,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
               size="sm"
               onClick={() => editor.chain().focus().toggleStrike().run()}
               className={cn(
-                'h-8 w-8 p-0',
+                'h-8 w-8 p-0 hover:bg-transparent',
                 editor.isActive('strike') && 'bg-accent'
               )}
               title="Strikethrough"
@@ -224,7 +224,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
               size="sm"
               onClick={() => editor.chain().focus().toggleCode().run()}
               className={cn(
-                'h-8 w-8 p-0',
+                'h-8 w-8 p-0 hover:bg-transparent',
                 editor.isActive('code') && 'bg-accent'
               )}
               title="Inline Code"
@@ -251,14 +251,13 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            className={cn(
-              'h-8 px-2 text-xs',
-              editor.isActive('heading', { level: 1 }) && 'bg-accent'
-            )}
+              className={cn(
+                'h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current',
+                editor.isActive('heading', { level: 1 }) && 'bg-accent'
+              )}
             title="Heading 1"
           >
-            <Heading1 className="h-4 w-4 mr-1" />
-            H1
+            <Heading1 className="h-4 w-4" />
           </Button>
           <Button
             type="button"
@@ -266,13 +265,12 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             className={cn(
-              'h-8 px-2 text-xs',
+              'h-8 w-8 p-0 hover:bg-transparent',
               editor.isActive('heading', { level: 2 }) && 'bg-accent'
             )}
             title="Heading 2"
           >
-            <Heading2 className="h-4 w-4 mr-1" />
-            H2
+            <Heading2 className="h-4 w-4" />
           </Button>
           <Button
             type="button"
@@ -280,13 +278,12 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
             className={cn(
-              'h-8 px-2 text-xs',
+              'h-8 w-8 p-0 hover:bg-transparent',
               editor.isActive('heading', { level: 3 }) && 'bg-accent'
             )}
             title="Heading 3"
           >
-            <Heading3 className="h-4 w-4 mr-1" />
-            H3
+            <Heading3 className="h-4 w-4" />
           </Button>
 
           <div className="w-px h-6 bg-border mx-1" />
@@ -298,7 +295,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             className={cn(
-              'h-8 w-8 p-0',
+              'h-8 w-8 p-0 hover:bg-transparent',
               editor.isActive('bulletList') && 'bg-accent'
             )}
             title="Bullet List"
@@ -311,7 +308,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className={cn(
-              'h-8 w-8 p-0',
+              'h-8 w-8 p-0 hover:bg-transparent',
               editor.isActive('orderedList') && 'bg-accent'
             )}
             title="Numbered List"
@@ -328,7 +325,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             className={cn(
-              'h-8 w-8 p-0',
+              'h-8 w-8 p-0 hover:bg-transparent',
               editor.isActive('blockquote') && 'bg-accent'
             )}
             title="Quote"
@@ -341,7 +338,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().toggleCodeBlock().run()}
             className={cn(
-              'h-8 w-8 p-0',
+              'h-8 w-8 p-0 hover:bg-transparent',
               editor.isActive('codeBlock') && 'bg-accent'
             )}
             title="Code Block"
@@ -353,7 +350,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
-            className="h-8 w-8 p-0"
+            className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
             title="Horizontal Rule"
           >
             <Minus className="h-4 w-4" />
@@ -364,7 +361,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
             className={cn(
-              'h-8 w-8 p-0',
+              'h-8 w-8 p-0 hover:bg-transparent',
               editor.isActive('table') && 'bg-accent'
             )}
             title="Insert Table"
@@ -381,7 +378,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
-            className="h-8 w-8 p-0"
+            className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
             title="Undo"
           >
             <Undo className="h-4 w-4" />
@@ -392,7 +389,7 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
             size="sm"
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
-            className="h-8 w-8 p-0"
+            className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
             title="Redo"
           >
             <Redo className="h-4 w-4" />

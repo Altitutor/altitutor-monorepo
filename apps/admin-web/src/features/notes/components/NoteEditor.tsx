@@ -2,18 +2,18 @@
 
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Markdown } from '@tiptap/markdown';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextSelection } from '@tiptap/pm/state';
+import type { JSONContent } from '@tiptap/core';
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { cn } from '@/shared/utils';
 
 interface NoteEditorProps {
-  content: string;
-  onChange: (markdown: string) => void;
+  content: string; // JSON string
+  onChange: (json: string) => void; // JSON string
   className?: string;
   placeholder?: string;
   autoFocus?: boolean;
@@ -26,13 +26,13 @@ export interface NoteEditorRef {
 }
 
 /**
- * Tiptap markdown editor component.
+ * Tiptap ProseMirror JSON editor component.
  *
  * The editor is the source of truth while the user edits. External content
  * changes (initial load, navigating to another note) are detected by comparing
  * the incoming `content` prop against the last value the editor emitted via
- * `onChange`. This avoids a lossy markdown round-trip that would reset
- * formatting applied through the toolbar.
+ * `onChange`. This avoids unnecessary round-trips that would reset formatting
+ * applied through the toolbar.
  */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
   content,
@@ -42,7 +42,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
   autoFocus = false,
   onEditorReady,
 }, ref) => {
-  // Tracks the last markdown value emitted by onUpdate → onChange.
+  // Tracks the last JSON value emitted by onUpdate → onChange.
   // Used to distinguish editor-originated content changes (echoes) from
   // genuinely external ones (initial load, note navigation).
   const lastOnChangeRef = useRef<string>(content);
@@ -60,11 +60,6 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
         orderedList: {
           keepMarks: true,
           keepAttributes: false,
-        },
-      }),
-      Markdown.configure({
-        markedOptions: {
-          gfm: true,
         },
       }),
       TableKit.configure({
@@ -95,8 +90,16 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
         includeChildren: true,
       }),
     ],
-    contentType: 'markdown',
-    content: content || '<p></p>',
+    content: (() => {
+      try {
+        if (!content) return { type: 'doc', content: [{ type: 'paragraph' }] };
+        const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+        return parsed || { type: 'doc', content: [{ type: 'paragraph' }] };
+      } catch {
+        // Fallback for legacy markdown content or invalid JSON
+        return { type: 'doc', content: [{ type: 'paragraph' }] };
+      }
+    })(),
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -104,7 +107,19 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
           'prose-headings:font-semibold prose-headings:tracking-tight',
           'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
+          // Consistent spacing for all block elements (Linear/Notion style)
           'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
+          // Headings: consistent spacing
+          'prose-h1:mt-4 prose-h1:mb-2',
+          'prose-h2:mt-4 prose-h2:mb-2',
+          'prose-h3:mt-2 prose-h3:mb-2',
+          // First element in editor has no top margin
+          '[&_.ProseMirror>h1:first-child]:mt-0',
+          '[&_.ProseMirror>h2:first-child]:mt-0',
+          '[&_.ProseMirror>h3:first-child]:mt-0',
+          '[&_.ProseMirror>p:first-child]:mt-0',
+          '[&_.ProseMirror>ul:first-child]:mt-0',
+          '[&_.ProseMirror>ol:first-child]:mt-0',
           'prose-li:my-1',
           'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
           'prose-td:border prose-td:border-border prose-td:p-2',
@@ -146,16 +161,12 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
     onUpdate: ({ editor }) => {
       if (!editor) return;
 
-      let markdown = editor.getMarkdown();
+      const json = editor.getJSON();
+      const jsonString = JSON.stringify(json);
 
-      // Normalize &nbsp; that TipTap inserts as placeholders in empty nodes
-      markdown = markdown.replace(/^(\s*[-*+])\s+&nbsp;(\s*)$/gm, '$1 $2');
-      markdown = markdown.replace(/^(#{1,6})\s+&nbsp;(\s*)$/gm, '$1 $2');
-      markdown = markdown.replace(/&nbsp;/g, ' ');
-
-      if (markdown !== lastOnChangeRef.current) {
-        lastOnChangeRef.current = markdown;
-        onChangeRef.current(markdown);
+      if (jsonString !== lastOnChangeRef.current) {
+        lastOnChangeRef.current = jsonString;
+        onChangeRef.current(jsonString);
       }
     },
   });
@@ -174,7 +185,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
 
     // Genuinely external change (initial load, note navigation, etc.)
     lastOnChangeRef.current = content;
-    editor.commands.setContent(content, { contentType: 'markdown' });
+    try {
+      const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+      editor.commands.setContent(parsed || { type: 'doc', content: [{ type: 'paragraph' }] });
+    } catch {
+      // Fallback for invalid JSON - set empty document
+      editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+    }
   }, [content, editor]);
 
   // Auto-focus when requested
