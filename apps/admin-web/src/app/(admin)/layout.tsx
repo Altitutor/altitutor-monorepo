@@ -130,6 +130,15 @@ const navItems: NavItem[] = [
     href: '/topics',
     icon: Newspaper,
   },
+  {
+    type: 'heading',
+    title: 'DOCUMENTATION',
+  },
+  {
+    title: 'Notes',
+    href: '/notes',
+    icon: FileText,
+  },
 ];
 
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {

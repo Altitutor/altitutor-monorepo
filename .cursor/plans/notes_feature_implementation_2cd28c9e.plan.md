@@ -1,49 +1,55 @@
 ---
 name: Notes Feature Implementation
-overview: Implement a Notion-like notes feature for admin-web with markdown editing, folders (including subfolders), and a hierarchical tree view showing folders and notes. The feature will follow the existing feature-first architecture pattern and use document-based storage.
+overview: Implement a Notion-like notes feature for admin-web with markdown editing, folders (including subfolders), and a folder tree view showing folders and notes hierarchically. The feature will follow the existing feature-first architecture pattern and use document-based storage.
 todos:
   - id: db-migration
     content: "Create database migration: notes_folders and notes_documents tables with RLS policies, indexes, and triggers"
-    status: pending
+    status: completed
   - id: generate-types
     content: Run pnpm db:types to generate TypeScript types for new tables
-    status: pending
+    status: completed
   - id: api-layer
     content: "Create API clients: notes.ts and folders.ts with CRUD operations"
-    status: pending
+    status: completed
   - id: react-query-hooks
     content: "Create React Query hooks: queries.ts, mutations.ts, queryKeys.ts"
-    status: pending
+    status: completed
   - id: types
     content: Create TypeScript types in features/notes/types/index.ts
-    status: pending
+    status: completed
   - id: note-editor
     content: Create NoteEditor component with Tiptap and Markdown extension
-    status: pending
+    status: completed
   - id: note-viewer
     content: Create NoteViewer component with react-markdown for rendering
-    status: pending
-  - id: notes-tree
-    content: Create NotesTree component showing root folders with expandable notes and subfolders
-    status: pending
+    status: completed
+  - id: folder-tree
+    content: Create FolderTree component as main view showing root folders with expandable notes and subfolders
+    status: completed
+  - id: folder-tree-node
+    content: Create FolderTreeNode recursive component for rendering nested folder/note structure
+    status: completed
+  - id: notes-table
+    content: Create NotesTable component for list view with filtering (optional, not used on main page)
+    status: cancelled
   - id: note-detail-page
     content: Create NoteDetailPage component with edit/view toggle
-    status: pending
+    status: completed
   - id: notes-list-page
-    content: Create /notes page.tsx with NotesTree component and Add Note/Add Folder buttons
-    status: pending
+    content: Create /notes page.tsx with folder tree view showing root folders, notes, and subfolders recursively
+    status: completed
   - id: note-detail-route
     content: Create /notes/[id]/page.tsx for individual note view
-    status: pending
+    status: completed
   - id: navigation
     content: Add Notes to sidebar navigation and command palette
-    status: pending
+    status: completed
   - id: dependencies
     content: Add Tiptap and react-markdown dependencies to package.json
-    status: pending
+    status: completed
   - id: auto-save
     content: Implement auto-save functionality with debouncing for note content
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -56,7 +62,7 @@ Implement a Notion-like notes system for `admin-web` with:
 - Markdown editing with Tiptap editor
 - Edit/View mode toggle
 - Folders with subfolder support
-- Hierarchical tree view showing root folders, expandable to show notes and subfolders
+- Folder tree view showing root folders, notes, and subfolders recursively
 - Individual note detail page
 - Document-based storage (markdown in database)
 
@@ -105,10 +111,12 @@ apps/admin-web/src/features/notes/
 │   ├── queryKeys.ts      # Query key factory
 │   └── index.ts
 ├── components/
-│   ├── NotesTree.tsx              # Hierarchical tree view showing folders and notes
+│   ├── NotesTable.tsx           # Table/list view component (optional, not used on main page)
 │   ├── NoteEditor.tsx            # Tiptap markdown editor component
 │   ├── NoteViewer.tsx            # Markdown renderer (view mode)
 │   ├── NoteDetailPage.tsx        # Full note detail page component
+│   ├── FolderTree.tsx             # Main folder tree view component (shows folders + notes)
+│   ├── FolderTreeNode.tsx         # Recursive folder/note tree node component
 │   ├── CreateNoteDialog.tsx      # Create new note dialog
 │   ├── CreateFolderDialog.tsx    # Create folder dialog
 │   └── index.ts
@@ -124,11 +132,15 @@ apps/admin-web/src/features/notes/
 ### Pages & Routes
 
 1. `**apps/admin-web/src/app/(admin)/notes/page.tsx**`
-  - Notes tree view page
-  - Shows `NotesTree` component displaying root folders
-  - "Add Note" and "Add Folder" buttons at the top
-  - Root folders expandable to show notes and subfolders
-  - Recursive expansion of subfolders
+  - Notes folder tree page
+  - Shows `FolderTree` component as main view
+  - Header with "Add Note" and "Add Folder" buttons at the top
+  - Displays root folders (folders with `parent_id IS NULL`)
+  - Each folder can be expanded to show:
+    - Notes in that folder
+    - Subfolders (recursively expandable)
+  - Click note → navigate to `/notes/[id]`
+  - Click folder → expand/collapse to show contents
 2. `**apps/admin-web/src/app/(admin)/notes/[id]/page.tsx**`
   - Individual note detail page
   - Shows `NoteDetailPage` component
@@ -137,21 +149,14 @@ apps/admin-web/src/features/notes/
 
 ### Components
 
-#### NotesTree Component
+#### NotesTable Component (Optional)
 
-- Displays root folders (folders with `parent_id IS NULL`) at the top level
-- Each folder can be expanded to show:
-  - Notes in that folder (clickable → navigate to `/notes/[id]`)
-  - Subfolders (recursively expandable)
-- Expand/collapse functionality for folders
-- Visual hierarchy with indentation
-- Folder icons and note icons to distinguish items
-- Similar to file explorer UI (VS Code sidebar style)
-- Empty state when no folders exist
-- Click folder name → expand/collapse
-- Click note → navigate to note detail page
-- Context menu for folders (rename, delete, create subfolder)
-- Context menu for notes (rename, delete, move)
+- Similar to `TasksTable.tsx` pattern
+- Columns: Title, Folder, Created By, Updated At
+- Row click → navigate to `/notes/[id]`
+- Filter by folder
+- Search functionality
+- **Note:** Not used on main page, kept for potential future use
 
 #### NoteEditor Component
 
@@ -179,6 +184,30 @@ apps/admin-web/src/features/notes/
   - `NoteViewer` in view mode
 - Sidebar (optional): Properties panel (future)
 
+#### FolderTree Component (Main View)
+
+- **Main component for notes list page**
+- Shows root folders (folders with `parent_id IS NULL`)
+- Each folder displays:
+  - Folder name with expand/collapse icon
+  - When expanded:
+    - Notes in that folder (clickable → navigate to `/notes/[id]`)
+    - Subfolders (recursively rendered using `FolderTreeNode`)
+- Expand/collapse state managed per folder
+- Similar to file explorer/tree view UI
+- Empty state when no folders exist
+
+#### FolderTreeNode Component
+
+- Recursive component for rendering folder hierarchy
+- Takes a folder and renders:
+  - Folder name with expand/collapse
+  - Notes in folder (when expanded)
+  - Child folders (when expanded) - recursively renders itself
+- Handles nested folder structure to any depth
+- Click note → navigate to note detail page
+- Click folder → toggle expand/collapse
+
 ### API Layer
 
 #### `features/notes/api/notes.ts`
@@ -198,12 +227,26 @@ export const notesApi = {
 ```typescript
 export const foldersApi = {
   list: async () => Promise<Folder[]>
-  getRootFolders: async () => Promise<Folder[]> // Folders with parent_id IS NULL
+  listRoot: async () => Promise<Folder[]> // Folders with parent_id IS NULL
+  listByParent: async (parentId: string) => Promise<Folder[]> // Child folders
   get: async (id: string) => Promise<Folder | null>
   create: async (data: FolderInsert) => Promise<Folder>
   update: async (id: string, data: FolderUpdate) => Promise<Folder>
   delete: async (id: string) => Promise<void>
-  getChildren: async (folderId: string) => Promise<{ folders: Folder[]; notes: Note[] }> // Get subfolders and notes for a folder
+  getTree: async () => Promise<FolderTree[]> // Hierarchical structure with notes
+}
+```
+
+#### `features/notes/api/notes.ts` (Updated)
+
+```typescript
+export const notesApi = {
+  list: async (filters?: { folderId?: string; search?: string }) => Promise<Note[]>
+  listByFolder: async (folderId: string) => Promise<Note[]> // Notes in a folder
+  get: async (id: string) => Promise<Note | null>
+  create: async (data: NoteInsert) => Promise<Note>
+  update: async (id: string, data: NoteUpdate) => Promise<Note>
+  delete: async (id: string) => Promise<void>
 }
 ```
 
@@ -220,14 +263,15 @@ export type Folder = Tables<'notes_folders'>
 export type FolderInsert = TablesInsert<'notes_folders'>
 export type FolderUpdate = TablesUpdate<'notes_folders'>
 
-export type FolderWithChildren = Folder & {
-  children: FolderWithChildren[]
+export type FolderTree = Folder & {
   notes: Note[]
+  children: FolderTree[]
 }
 
-export type NotesTreeItem = 
-  | { type: 'folder'; folder: Folder; children: NotesTreeItem[] }
-  | { type: 'note'; note: Note }
+export type FolderWithContent = Folder & {
+  notes: Note[]
+  children: FolderWithContent[]
+}
 ```
 
 ### Navigation Updates
@@ -279,9 +323,10 @@ Add to `apps/admin-web/package.json`:
 3. **Core Components**
   - `NoteEditor` with Tiptap
   - `NoteViewer` with react-markdown
-  - `NotesTree` component with recursive folder/note display
+  - `FolderTree` component
+  - `NotesTable` component
 4. **Pages**
-  - Notes tree view page (`/notes`) with Add Note/Add Folder buttons
+  - Notes list page (`/notes`)
   - Note detail page (`/notes/[id]`)
 5. **Navigation**
   - Add to sidebar
@@ -291,6 +336,38 @@ Add to `apps/admin-web/package.json`:
   - Loading states
   - Error handling
   - Empty states
+
+### UI Structure for Notes List Page
+
+The `/notes` page will have this structure:
+
+```
+┌─────────────────────────────────────────┐
+│  Notes                          [Add Note] [Add Folder] │
+├─────────────────────────────────────────┤
+│                                         │
+│  📁 Folder 1                    [▼]    │
+│    📄 Note 1                            │
+│    📄 Note 2                            │
+│    📁 Subfolder 1                [▶]    │
+│                                         │
+│  📁 Folder 2                    [▶]     │
+│                                         │
+│  📁 Folder 3                    [▼]     │
+│    📄 Note 3                            │
+│    📁 Subfolder 2                [▼]    │
+│      📄 Note 4                          │
+│      📁 Sub-subfolder            [▶]    │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+- Header with title and action buttons ("Add Note", "Add Folder")
+- Main content area showing root folders
+- Each folder can be expanded to show notes and subfolders
+- Recursive expansion for nested folders
+- Click note → navigate to detail page
+- Click folder → toggle expand/collapse
 
 ### Key Implementation Details
 
@@ -319,44 +396,26 @@ const editor = useEditor({
 - Show `NoteEditor` when editing, `NoteViewer` when viewing
 - Auto-save on edit mode exit
 
-#### NotesTree Implementation
+#### Folder Hierarchy & Tree View
 
-**Structure:**
-
-- Fetch root folders (where `parent_id IS NULL`)
-- For each expanded folder, fetch:
-  - Subfolders (where `parent_id = folder.id`)
-  - Notes (where `folder_id = folder.id`)
-- Build tree structure recursively in TypeScript
-- Track expanded state per folder using React state
-- Lazy load children when folder is expanded (recommended) or fetch all upfront
-
-**UI Layout:**
-
-```
-[Add Note] [Add Folder] buttons at top
-
-📁 Folder 1                    [expand/collapse icon]
-  📄 Note 1                    [click → navigate to /notes/[id]]
-  📄 Note 2
-  📁 Subfolder 1.1
-    📄 Note 3
-    📁 Subfolder 1.1.1
-      📄 Note 4
-📁 Folder 2
-  📄 Note 5
-```
-
-**Features:**
-
-- Expand/collapse folders (chevron icon)
-- Click folder name → toggle expand/collapse
-- Click note → navigate to `/notes/[id]`
-- Visual indentation for hierarchy
-- Icons: Folder icon for folders, FileText icon for notes
-- Empty state message when no root folders exist
-- Empty folder message when folder has no children
-- Context menu (right-click) for rename/delete/move operations (optional)
+- Fetch all folders and notes, build tree structure in TypeScript
+- Root folders: `WHERE parent_id IS NULL`
+- For each folder, fetch:
+  - Notes: `WHERE folder_id = folder.id`
+  - Child folders: `WHERE parent_id = folder.id`
+- Build recursive tree structure:
+  ```typescript
+  type FolderWithContent = Folder & {
+    notes: Note[]
+    children: FolderWithContent[]
+  }
+  ```
+- Display as expandable tree view:
+  - Root folders at top level
+  - Expand folder → show notes and subfolders
+  - Subfolders recursively expandable
+  - Notes clickable → navigate to detail page
+- Expand/collapse state managed in component state
 
 ### Files to Create/Modify
 
@@ -364,7 +423,9 @@ const editor = useEditor({
 
 - `supabase/migrations/[timestamp]_create_notes_system.sql`
 - `apps/admin-web/src/features/notes/**/*` (entire feature directory)
-- `apps/admin-web/src/app/(admin)/notes/page.tsx` (tree view with Add Note/Add Folder buttons)
+  - `components/FolderTree.tsx` (main tree view)
+  - `components/FolderTreeNode.tsx` (recursive node component)
+- `apps/admin-web/src/app/(admin)/notes/page.tsx` (folder tree view page)
 - `apps/admin-web/src/app/(admin)/notes/[id]/page.tsx`
 
 **Modified Files:**
@@ -377,15 +438,16 @@ const editor = useEditor({
 ### Testing Considerations
 
 - Test folder creation/deletion
-- Test subfolder nesting and recursive expansion
+- Test subfolder nesting (multiple levels)
 - Test note CRUD operations
+- Test folder tree expansion/collapse
+- Test recursive folder rendering
+- Test notes display within folders
 - Test markdown rendering
 - Test edit/view toggle
 - Test auto-save
 - Test RLS policies
-- Test tree view expansion/collapse
-- Test empty states (no folders, empty folders)
-- Test navigation from tree items to note detail page
+- Test empty states (no folders, no notes in folder)
 
 ### Future Enhancements (Out of Scope)
 
