@@ -72,9 +72,15 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
         throw new Error(error.error || 'Failed to send invoice');
       }
 
+      const result = await response.json();
+      const recipients = result.sent || [];
+      const recipientText = recipients.length > 0 
+        ? `Sent to: ${recipients.join(', ')}`
+        : 'Invoice email sent successfully';
+
       toast({
         title: 'Success',
-        description: 'Invoice email sent successfully',
+        description: recipientText,
       });
 
       // Invalidate invoice queries to refresh data
