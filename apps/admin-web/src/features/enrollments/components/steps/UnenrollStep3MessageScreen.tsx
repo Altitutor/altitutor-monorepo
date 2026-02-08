@@ -96,7 +96,7 @@ export function UnenrollStep3MessageScreen({
     if (recipients.length > 0 && !selectedRecipient) {
       setSelectedRecipient(recipients[0]);
     }
-  }, [student, parents]);
+  }, [student, parents, selectedRecipient]);
 
   // Get contactId when phone recipient is selected
   useEffect(() => {
@@ -121,7 +121,7 @@ export function UnenrollStep3MessageScreen({
     };
 
     fetchContactId();
-  }, [selectedRecipient?.id, selectedRecipient?.type, student?.id]);
+  }, [selectedRecipient, student?.id]);
 
   // Pre-populate message with unenrollment template when recipient changes
   useEffect(() => {
@@ -161,7 +161,7 @@ export function UnenrollStep3MessageScreen({
 
     // Set template when recipient changes (reset draft)
     setComposerDraft(template);
-  }, [selectedRecipient?.id, selectedRecipient?.type, classData?.id, student?.id, unenrollmentDate, currentStaff?.id, classSubject, parents]);
+  }, [selectedRecipient, classData, student, unenrollmentDate, currentStaff, classSubject, parents]);
 
   // Build recipient options for dropdown
   const recipientOptions: Array<{ type: 'student' | 'parent'; id?: string; label: string; value: string }> = [];
@@ -259,7 +259,7 @@ export function UnenrollStep3MessageScreen({
                   draft={composerDraft}
                   onDraftChange={setComposerDraft}
                   onDraftClear={() => setComposerDraft('')}
-                  onBeforeSend={async (messageBody, selectedSenderId) => {
+                  onBeforeSend={async (_messageBody, _selectedSenderId) => {
                     // Allow sending through Composer - it handles the message sending
                     return null;
                   }}

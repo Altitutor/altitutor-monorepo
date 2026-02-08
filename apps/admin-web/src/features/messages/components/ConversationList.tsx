@@ -47,8 +47,6 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     };
   }, [qc]);
 
-  const items: AggregatedConversation[] = data || [];
-  
   // Check if aggregated conversation is unread (has unreadCount > 0)
   const isUnread = (aggregated: AggregatedConversation) => {
     return aggregated.unreadCount > 0;
@@ -80,6 +78,7 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
 
   // Filter conversations by contact name/phone or filter pills
   const filteredItems = useMemo(() => {
+    const items: AggregatedConversation[] = data || [];
     let filtered = items;
     
     // Apply search filter
@@ -118,7 +117,7 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     }
     
     return filtered;
-  }, [items, searchTerm, activeFilter]);
+  }, [data, searchTerm, activeFilter]);
 
   const handleNewConversation = async (conversationId: string) => {
     // Get contactId from conversation

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       
       // Extract attachments
       const attachmentEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith('attachment-'));
-      for (const [_, file] of attachmentEntries) {
+      for (const [, file] of attachmentEntries) {
         if (file instanceof File) {
           const buffer = Buffer.from(await file.arrayBuffer());
           attachments.push({

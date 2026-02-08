@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, Dispatch, SetStateAction, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, Dispatch, SetStateAction, useMemo, useRef, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -39,8 +38,7 @@ interface ClassesTableProps {
 
 type ViewMode = 'table' | 'timetable';
 
-export function ClassesTable({ addModalState }: ClassesTableProps) {
-  const router = useRouter();
+export function ClassesTable({ addModalState: _addModalState }: ClassesTableProps) {
   
   // React Query hook for data fetching - uses vtutor_classes view
   const { 
@@ -52,7 +50,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   } = useClasses();
 
   // vtutor_classes returns classes with flattened subject fields
-  const tutorClasses = (classesData || []) as TutorClass[];
+  const tutorClasses = useMemo(() => (classesData || []) as TutorClass[], [classesData]);
   
   // Convert TutorClass to Tables<'classes'> format for compatibility with helper functions
   // Filter out classes missing required fields (start_time, end_time, status are required in Tables<'classes'>)
@@ -87,25 +85,28 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     }));
   
   // Build subject objects from flattened fields for compatibility
-  const classSubjects: Record<string, Tables<'subjects'>> = {};
-  tutorClasses.forEach((cls) => {
-    // Only create subject if we have required fields (id and name are required)
-    if (cls.subject_id && cls.id && cls.subject_name) {
-      classSubjects[cls.id] = {
-        id: cls.subject_id,
-        name: cls.subject_name,
-        curriculum: cls.subject_curriculum,
-        discipline: cls.subject_discipline,
-        level: cls.subject_level,
-        color: cls.subject_color,
-        year_level: cls.subject_year_level,
-        short_name: null,
-        long_name: null,
-        created_at: null,
-        updated_at: null,
-      };
-    }
-  });
+  const classSubjects = useMemo<Record<string, Tables<'subjects'>>>(() => {
+    const subjects: Record<string, Tables<'subjects'>> = {};
+    tutorClasses.forEach((cls) => {
+      // Only create subject if we have required fields (id and name are required)
+      if (cls.subject_id && cls.id && cls.subject_name) {
+        subjects[cls.id] = {
+          id: cls.subject_id,
+          name: cls.subject_name,
+          curriculum: cls.subject_curriculum,
+          discipline: cls.subject_discipline,
+          level: cls.subject_level,
+          color: cls.subject_color,
+          year_level: cls.subject_year_level,
+          short_name: null,
+          long_name: null,
+          created_at: null,
+          updated_at: null,
+        };
+      }
+    });
+    return subjects;
+  }, [tutorClasses]);
   
   // Students and staff are not in vtutor_classes - they're in vtutor_class_detail
   // These will be fetched when viewing individual class details
@@ -124,14 +125,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
 
-  const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
-    const subject = classSubjects[classItem.id];
-    if (subject) {
-      return formatSubjectDisplay(subject);
-    }
-    return '-';
-  };
-
   const getSubjectBadgeStyle = (classItem: Tables<'classes'>): { style: React.CSSProperties; textColorClass: string; defaultClass: string } => {
     const subject = classSubjects[classItem.id];
     if (!subject) {
@@ -141,6 +134,15 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
     return { style, textColorClass, defaultClass };
   };
+
+  // Helper function to get subject display name
+  const getSubjectDisplay = useCallback((classItem: Tables<'classes'>): string => {
+    const subject = classSubjects[classItem.id];
+    if (subject) {
+      return formatSubjectDisplay(subject);
+    }
+    return '-';
+  }, [classSubjects]);
 
   // Memoized filtered and sorted classes
   const filteredClasses = useMemo(() => {
@@ -158,7 +160,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     result = sortClassesByDayAndTime(result);
     
     return result;
-  }, [classes, searchTerm, dayFilter, classSubjects]);
+  }, [classes, searchTerm, dayFilter, getSubjectDisplay]);
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {

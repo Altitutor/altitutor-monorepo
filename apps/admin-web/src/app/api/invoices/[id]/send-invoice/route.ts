@@ -101,9 +101,10 @@ export async function POST(
 
     const parentEmails: string[] = [];
     if (parentsData) {
-      for (const row of parentsData as any[]) {
-        const email = row.parent?.email as string | undefined;
-        if (email && !parentEmails.includes(email)) {
+      for (const row of parentsData) {
+        const parent = row.parent as { id: string; email: string } | null | undefined;
+        const email = parent?.email;
+        if (email && typeof email === 'string' && !parentEmails.includes(email)) {
           parentEmails.push(email);
         }
       }

@@ -41,7 +41,6 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
-import { useStudentActions } from '../hooks/useStudentActions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -137,7 +136,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   // Get all subjects for the filter dropdown
   const { data: allSubjects = [] } = useSubjects();
 
-  const students = data?.students || [];
   const total = data?.total || 0;
 
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -157,11 +155,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
-  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
-  const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
   // Server provides filtered/sorted page; apply compound sorting for status field
   const filteredStudents = useMemo(() => {
+    const students = data?.students || [];
     if (!students.length) return students;
     
     // If sorting by status, apply secondary sort by first_name
@@ -170,7 +167,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     }
     
     return students;
-  }, [students, sortField, sortDirection]);
+  }, [data?.students, sortField, sortDirection]);
 
   // Non-virtualized table for stability (virtualization can be re-enabled later)
   const parentRef = useRef<HTMLDivElement | null>(null);

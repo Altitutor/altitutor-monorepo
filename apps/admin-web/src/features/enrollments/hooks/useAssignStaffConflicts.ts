@@ -200,7 +200,7 @@ export function useAssignStaffConflicts({
     return () => {
       cancelled = true;
     };
-  }, [context, step, selectedStaffId, selectedClassIdsStr, selectedStaffIdsStr, staff?.id, classData?.id, classIds, staffIds, assignmentDate, enabled]);
+  }, [context, step, selectedStaffId, selectedClassIds, selectedStaffIds, staff, classData, classes, staffList, assignmentDate, enabled]);
 
   return {
     staffConflicts,
