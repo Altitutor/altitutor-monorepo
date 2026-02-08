@@ -1,7 +1,6 @@
 'use client';
 
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
-import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { TableKit } from '@tiptap/extension-table';
@@ -10,7 +9,7 @@ import Typography from '@tiptap/extension-typography';
 import { TextSelection } from '@tiptap/pm/state';
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { cn } from '@/shared/utils';
-import { NoteEditorBubbleMenu, NoteEditorFloatingMenu } from './NoteEditorToolbar';
+import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 
 interface NoteEditorProps {
   content: string;
@@ -97,6 +96,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
         class: cn(
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
           'prose-headings:font-semibold prose-headings:tracking-tight',
+          'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
           'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
           'prose-li:my-1',
           'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
@@ -258,15 +258,10 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
       data-placeholder={placeholder}
       onClick={handleContainerClick}
     >
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto pb-20">
         <EditorContent editor={editor} />
       </div>
-      <BubbleMenu editor={editor}>
-        <NoteEditorBubbleMenu editor={editor} />
-      </BubbleMenu>
-      <FloatingMenu editor={editor}>
-        <NoteEditorFloatingMenu editor={editor} />
-      </FloatingMenu>
+      <NoteEditorBottomToolbar editor={editor} />
     </div>
   );
 });
