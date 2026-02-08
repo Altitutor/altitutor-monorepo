@@ -230,7 +230,6 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                 <FormItem>
                   <FormControl>
                     <NoteEditor
-                      key={noteId}
                       content={field.value}
                       onChange={field.onChange}
                       placeholder="Start writing..."
