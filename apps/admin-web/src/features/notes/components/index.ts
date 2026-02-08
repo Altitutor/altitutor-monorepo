@@ -1,6 +1,4 @@
 export * from './NoteEditor';
-export * from './NoteEditorToolbar';
-export * from './NoteEditorTableMenu';
 export * from './NoteEditorBottomToolbar';
 export * from './NoteViewer';
 export * from './FolderTree';

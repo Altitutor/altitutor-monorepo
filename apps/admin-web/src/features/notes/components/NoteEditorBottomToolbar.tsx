@@ -232,51 +232,8 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
               <Code className="h-4 w-4" />
             </Button>
 
-            <div className="w-px h-6 bg-border mx-1" />
-
-            {/* Convert to heading */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              className={cn(
-                'h-8 px-2 text-xs',
-                editor.isActive('heading', { level: 1 }) && 'bg-accent'
-              )}
-              title="Convert to Heading 1"
-            >
-              <Heading1 className="h-4 w-4 mr-1" />
-              H1
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              className={cn(
-                'h-8 px-2 text-xs',
-                editor.isActive('heading', { level: 2 }) && 'bg-accent'
-              )}
-              title="Convert to Heading 2"
-            >
-              <Heading2 className="h-4 w-4 mr-1" />
-              H2
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-              className={cn(
-                'h-8 px-2 text-xs',
-                editor.isActive('heading', { level: 3 }) && 'bg-accent'
-              )}
-              title="Convert to Heading 3"
-            >
-              <Heading3 className="h-4 w-4 mr-1" />
-              H3
-            </Button>
+            {/* Note: Heading buttons removed from text-selection mode to avoid duplication.
+                Headings are available in the default toolbar mode when no text is selected. */}
           </div>
         </div>
       </div>
