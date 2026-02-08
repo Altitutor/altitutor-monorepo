@@ -278,6 +278,58 @@ export async function getOrCreateContactsAndConversations(
   };
 }
 
+/**
+ * Ensure contact exists for a phone number (create if missing)
+ * Creates a contact with type 'OTHER' if it doesn't exist
+ * Returns contact ID or null if phone is invalid
+ */
+export async function ensureContactForPhoneNumber(phoneE164: string): Promise<string | null> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  
+  // Check if contact already exists for this phone number
+  const { data: existingContact } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('phone_e164', phoneE164)
+    .maybeSingle();
+  
+  if (existingContact?.id) {
+    return existingContact.id;
+  }
+  
+  // Create contact with type 'OTHER' (no linked student/parent/staff)
+  const contactData: TablesInsert<'contacts'> = {
+    contact_type: 'OTHER',
+    phone_e164: phoneE164,
+    student_id: null,
+    parent_id: null,
+    staff_id: null,
+    is_opted_out: false,
+  };
+  
+  const { data: newContact, error: createError } = await supabase
+    .from('contacts')
+    .insert(contactData)
+    .select('id')
+    .single();
+  
+  if (createError) {
+    // Check if it was a duplicate key error (race condition)
+    if (createError.code === '23505') {
+      const { data: retryContact } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('phone_e164', phoneE164)
+        .maybeSingle();
+      return retryContact?.id || null;
+    }
+    console.error('Error creating contact for phone number:', createError);
+    return null;
+  }
+  
+  return newContact.id;
+}
+
 
 
 

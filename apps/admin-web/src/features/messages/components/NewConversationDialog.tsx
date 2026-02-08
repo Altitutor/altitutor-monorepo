@@ -7,11 +7,12 @@ import { Button } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Alert, AlertDescription, AlertTitle } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, AlertCircle, X } from 'lucide-react';
+import { Loader2, AlertCircle, X, Search, Phone } from 'lucide-react';
+import { PhoneInput, standardizeAUPhone, validateAUPhone } from '@/shared/components/PhoneInput';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getExistingConversationForRelated, ensureConversationForContact } from '../api/queries';
-import { ensureContactForStudent, ensureContactForParent, ensureContactForStaff } from '../utils/contactHelpers';
+import { ensureContactForStudent, ensureContactForParent, ensureContactForStaff, ensureContactForPhoneNumber } from '../utils/contactHelpers';
 import { staffApi, type StaffListItem } from '@/features/staff/api/staff';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -28,12 +29,16 @@ type SearchResultItem =
   | { type: 'staff'; data: StaffListItem }
   | { type: 'parent'; data: Tables<'parents'> };
 
+type DialogMode = 'search' | 'phone';
+
 export function NewConversationDialog({
   isOpen,
   onClose,
   onConversationSelected,
 }: NewConversationDialogProps) {
+  const [mode, setMode] = useState<DialogMode>('search');
   const [searchQuery, setSearchQuery] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedItem, setSelectedItem] = useState<SearchResultItem | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,12 +166,81 @@ export function NewConversationDialog({
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery('');
+      setPhoneNumber('');
       setSelectedItem(null);
       setError(null);
       setShowNoPhoneWarning(false);
       setIsProcessing(false);
+      setMode('search');
     }
   }, [isOpen]);
+
+  const handlePhoneNumberSubmit = async () => {
+    if (!phoneNumber.trim()) {
+      setError('Please enter a phone number');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Standardize and validate phone number
+      const standardized = standardizeAUPhone(phoneNumber);
+      const validation = validateAUPhone(standardized);
+
+      if (!validation.valid) {
+        setError(validation.error || 'Invalid phone number format');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Check if conversation already exists for this phone number
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      
+      // First, check if contact exists
+      const { data: existingContact } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('phone_e164', standardized)
+        .maybeSingle();
+
+      let contactId: string | null;
+      if (existingContact?.id) {
+        contactId = existingContact.id;
+      } else {
+        // Create new contact for this phone number
+        contactId = await ensureContactForPhoneNumber(standardized);
+        if (!contactId) {
+          throw new Error('Failed to create contact');
+        }
+      }
+
+      // Check if conversation already exists for this contact
+      const { data: existingConversation } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', contactId)
+        .in('status', ['OPEN', 'SNOOZED'])
+        .limit(1)
+        .maybeSingle();
+
+      if (existingConversation?.id) {
+        onConversationSelected(existingConversation.id);
+        onClose();
+        return;
+      }
+
+      // Create conversation
+      const conversationId = await ensureConversationForContact(contactId);
+      onConversationSelected(conversationId);
+      onClose();
+    } catch (err) {
+      console.error('Error creating conversation from phone number:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create conversation');
+      setIsProcessing(false);
+    }
+  };
 
   const handleItemSelect = async (item: SearchResultItem) => {
     setSelectedItem(item);
@@ -326,14 +400,73 @@ export function NewConversationDialog({
                 <div className="flex-1">
                   <DialogTitle>New Conversation</DialogTitle>
                   <DialogDescription>
-                    Search for a student, staff member, or parent to start a new conversation
+                    {mode === 'search' 
+                      ? 'Search for a student, staff member, or parent to start a new conversation'
+                      : 'Enter a phone number to start a new conversation'}
                   </DialogDescription>
                 </div>
               </div>
             </div>
           </DialogHeader>
 
-          {showNoPhoneWarning && selectedItem ? (
+          {/* Mode Toggle */}
+          <div className="flex gap-2 border-b">
+            <Button
+              variant={mode === 'search' ? 'default' : 'ghost'}
+              onClick={() => setMode('search')}
+              className="flex-1"
+              size="sm"
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Search Contacts
+            </Button>
+            <Button
+              variant={mode === 'phone' ? 'default' : 'ghost'}
+              onClick={() => setMode('phone')}
+              className="flex-1"
+              size="sm"
+            >
+              <Phone className="h-4 w-4 mr-2" />
+              New Number
+            </Button>
+          </div>
+
+          {mode === 'phone' ? (
+            <div className="space-y-4">
+              <PhoneInput
+                value={phoneNumber}
+                onChange={setPhoneNumber}
+                placeholder="0478 778 288"
+              />
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={onClose} disabled={isProcessing}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handlePhoneNumberSubmit} 
+                  disabled={isProcessing || !phoneNumber.trim()}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Start Conversation'
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : showNoPhoneWarning && selectedItem ? (
             <div className="space-y-4">
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
