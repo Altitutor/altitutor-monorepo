@@ -5,7 +5,7 @@ import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { TextSelection } from '@tiptap/pm/state';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
 import { cn } from '@/shared/utils';
 import { NoteEditorBubbleMenu, NoteEditorFloatingMenu } from './NoteEditorToolbar';
 
@@ -17,22 +17,44 @@ interface NoteEditorProps {
   autoFocus?: boolean;
 }
 
+export interface NoteEditorRef {
+  focus: () => void;
+}
+
 /**
  * Tiptap markdown editor component
  * Simplified implementation following TipTap best practices
  */
-export function NoteEditor({
+export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(({
   content,
   onChange,
   className,
   placeholder = 'Start writing...',
   autoFocus = false,
-}: NoteEditorProps) {
+}, ref) => {
   // Track last onChange value to prevent unnecessary updates
   const lastOnChangeRef = useRef<string>(content);
 
   const editor = useEditor({
-    extensions: [StarterKit, Markdown],
+    extensions: [
+      StarterKit.configure({
+        // Ensure input rules are enabled for markdown shortcuts
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+      }),
+      Markdown.configure({
+        // Configure markdown parsing options
+        markedOptions: {
+          gfm: true, // GitHub Flavored Markdown for better list support
+        },
+      }),
+    ],
     contentType: 'markdown',
     content,
     immediatelyRender: false,
@@ -54,6 +76,9 @@ export function NoteEditor({
         'data-placeholder': placeholder,
       },
       handleClick: (view, pos, event) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:56',message:'handleClick called',data:{pos,docSize:view.state.doc.content.size},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         // If clicking below content, place cursor at end of document
         const { state } = view;
         const docSize = state.doc.content.size;
@@ -69,14 +94,32 @@ export function NoteEditor({
         }
         return false;
       },
+      handleKeyDown: (view, event) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:72',message:'handleKeyDown called',data:{key:event.key,code:event.code,shiftKey:event.shiftKey,ctrlKey:event.ctrlKey,metaKey:event.metaKey},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        return false; // Let TipTap handle it
+      },
     },
     onUpdate: ({ editor }) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:73',message:'onUpdate triggered',data:{markdown:editor.getMarkdown(),html:editor.getHTML()},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       if (!editor) return;
 
-      const markdown = editor.getMarkdown();
+      let markdown = editor.getMarkdown();
+      
+      // Normalize markdown: replace &nbsp; in empty list items and headings with proper markdown
+      // This fixes rendering issues with empty nodes
+      markdown = markdown.replace(/^(\s*[-*+])\s+&nbsp;(\s*)$/gm, '$1 $2'); // Empty list items: "- &nbsp;" -> "- "
+      markdown = markdown.replace(/^(#{1,6})\s+&nbsp;(\s*)$/gm, '$1 $2'); // Empty headings: "# &nbsp;" -> "# "
+      markdown = markdown.replace(/&nbsp;/g, ' '); // Replace remaining &nbsp; with regular spaces
       
       // Only call onChange if content actually changed
       if (markdown !== lastOnChangeRef.current) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:79',message:'onChange called',data:{oldMarkdown:lastOnChangeRef.current,newMarkdown:markdown},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         lastOnChangeRef.current = markdown;
         onChange(markdown);
       }
@@ -87,10 +130,24 @@ export function NoteEditor({
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
-    const currentMarkdown = editor.getMarkdown();
+    let currentMarkdown = editor.getMarkdown();
+    // Normalize current markdown for comparison (same normalization as in onUpdate)
+    currentMarkdown = currentMarkdown.replace(/^(\s*[-*+])\s+&nbsp;(\s*)$/gm, '$1 $2');
+    currentMarkdown = currentMarkdown.replace(/^(#{1,6})\s+&nbsp;(\s*)$/gm, '$1 $2');
+    currentMarkdown = currentMarkdown.replace(/&nbsp;/g, ' ');
+    
+    // Normalize external content for comparison
+    let normalizedContent = content.replace(/&nbsp;/g, ' ');
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:87',message:'Content sync effect',data:{currentMarkdown,externalContent:normalizedContent,willUpdate:currentMarkdown!==normalizedContent},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     
     // Only update if content actually changed
-    if (currentMarkdown !== content) {
+    if (currentMarkdown !== normalizedContent) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteEditor.tsx:93',message:'setContent called',data:{content},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       editor.commands.setContent(content, {
         contentType: 'markdown',
         emitUpdate: false, // Prevent triggering onChange when setting externally
@@ -99,6 +156,22 @@ export function NoteEditor({
       lastOnChangeRef.current = content;
     }
   }, [content, editor]);
+
+  // Expose focus method via ref
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      if (editor && !editor.isDestroyed) {
+        // Move cursor to end of document
+        const { state } = editor.view;
+        const docSize = state.doc.content.size;
+        const transaction = state.tr.setSelection(
+          TextSelection.near(state.doc.resolve(docSize))
+        );
+        editor.view.dispatch(transaction);
+        editor.commands.focus();
+      }
+    },
+  }), [editor]);
 
   // Auto-focus when requested
   useEffect(() => {
@@ -188,4 +261,6 @@ export function NoteEditor({
       </div>
     </EditorContext.Provider>
   );
-}
+});
+
+NoteEditor.displayName = 'NoteEditor';

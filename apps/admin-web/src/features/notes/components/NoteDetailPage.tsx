@@ -37,6 +37,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const { data: folders } = useFolders();
 
   const titleFieldRef = useRef<HTMLDivElement>(null);
+  const noteEditorRef = useRef<{ focus: () => void } | null>(null);
   const isInitializedRef = useRef(false);
   const currentNoteIdRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
@@ -161,14 +162,51 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const {
     ref: titleRef,
     handleBlur: handleTitleBlur,
-    handleInput: handleTitleInput,
+    handleInput: handleTitleInputBase,
   } = useContentEditableField(form, 'title', form.watch('title'));
+
+  // Wrap handleInput to strip line breaks from title
+  const handleTitleInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    const text = element.innerText || '';
+    // Strip line breaks and replace with space
+    const singleLineText = text.replace(/\n/g, ' ').trim();
+    
+    // Update the element content if it had line breaks
+    if (text !== singleLineText) {
+      element.innerText = singleLineText;
+      // Move cursor to end
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+    
+    // Call the base handler
+    handleTitleInputBase(e);
+  }, [handleTitleInputBase]);
 
   // Combine refs - memoize to ensure stability
   const combinedTitleRef = useCallback((node: HTMLDivElement | null) => {
     (titleRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
     (titleFieldRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
   }, [titleRef]);
+
+  // Handle Enter key in title - prevent new line and focus editor
+  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      // Focus the note editor and move cursor to end
+      if (noteEditorRef.current) {
+        noteEditorRef.current.focus();
+      }
+    }
+  }, []);
 
   // Memoize folders array for performance
   const foldersArray = useMemo(() => folders || [], [folders]);
@@ -186,7 +224,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex-shrink-0 p-6">
+        <div className="flex-shrink-0 p-6 pb-2">
           <div className="flex items-center gap-4">
             <div className="flex-1 max-w-3xl mx-auto w-full">
               <Form {...form}>
@@ -201,6 +239,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           contentEditable
                           onBlur={handleTitleBlur}
                           onInput={handleTitleInput}
+                          onKeyDown={handleTitleKeyDown}
                           data-placeholder="Untitled"
                           className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
                           suppressContentEditableWarning
@@ -215,7 +254,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         </div>
 
         {/* Content Panel */}
-        <div className="flex-1 overflow-hidden p-6 min-h-0">
+        <div className="flex-1 overflow-hidden px-6 pb-6 pt-2 min-h-0">
           <Form {...form}>
             {/* Property Pills - Mobile Only */}
             <div className="md:hidden -mt-2 mb-6">
@@ -231,6 +270,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                   <FormItem className="h-full">
                     <FormControl>
                       <NoteEditor
+                        ref={noteEditorRef}
                         content={field.value}
                         onChange={field.onChange}
                         placeholder="Start writing..."
