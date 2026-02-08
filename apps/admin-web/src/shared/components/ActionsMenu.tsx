@@ -40,6 +40,7 @@ interface SessionActionsMenuProps extends BaseActionsMenuProps {
   type: 'session';
   onLogSession?: () => void;
   hasTutorLog: boolean;
+  onEditTutorLog?: () => void;
   onReschedule?: () => void;
   canReschedule?: boolean;
 }
@@ -198,6 +199,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <DropdownMenuItem onClick={props.onReschedule}>
                 <CalendarX className="h-4 w-4 mr-2" />
                 Reschedule session
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.hasTutorLog && props.onEditTutorLog && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onEditTutorLog}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit tutor log
               </DropdownMenuItem>
             </>
           )}
