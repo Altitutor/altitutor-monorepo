@@ -5,6 +5,7 @@ import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useStaffActions } from '../../hooks/useStaffActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStaffDetails, useCurrentStaff } from '../../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
@@ -94,6 +95,28 @@ export function ViewStaffModal({
   const conversationId = useStaffConversation({
     staffId: staffId,
     enabled: isOpen && !!staffId,
+  });
+
+  // Centralized action handlers
+  const staffActions = useStaffActions({
+    staffId: staffId || '',
+    onOpenInPage: () => {
+      router.push(`/staff/${staffId}`);
+      onClose();
+    },
+    onEditDetails: () => {
+      setActiveTab('details');
+      editFlow.startEdit();
+    },
+    onPasswordResetOrRegistration: () => {
+      passwordReset.openPasswordResetOrRegistration();
+      if (staffMember?.user_id) {
+        handlePasswordResetRequest();
+      }
+    },
+    passwordResetLabel: passwordReset.passwordResetLabel,
+    onLogAbsence: modals.openLogAbsence,
+    onDelete: modals.openDeleteDialog,
   });
 
   // UI state
@@ -255,23 +278,7 @@ export function ViewStaffModal({
                     {staffId && (
                       <ActionsMenu
                         type="staff"
-                        onOpenInPage={() => {
-                          router.push(`/staff/${staffId}`);
-                          onClose();
-                        }}
-                        onEditDetails={() => {
-                          setActiveTab('details');
-                          editFlow.startEdit();
-                        }}
-                        onPasswordResetOrRegistration={() => {
-                          passwordReset.openPasswordResetOrRegistration();
-                          if (staffMember?.user_id) {
-                            handlePasswordResetRequest();
-                          }
-                        }}
-                        passwordResetLabel={passwordReset.passwordResetLabel}
-                        onLogAbsence={modals.openLogAbsence}
-                        onDelete={modals.openDeleteDialog}
+                        {...staffActions}
                       />
                     )}
                   </div>

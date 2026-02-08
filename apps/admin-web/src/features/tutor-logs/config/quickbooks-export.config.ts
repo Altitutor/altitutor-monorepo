@@ -19,7 +19,6 @@ export const PAY_CATEGORIES = {
   HOMEWORK_HELP: 'Homework help',
   TRAINING: 'Training',
   SECONDARY_TUTOR: 'Secondary tutor',
-  ONE_STUDENT: '1 Student',
   MAIN_TUTOR: 'Main tutor',
 } as const;
 
@@ -59,8 +58,7 @@ export function getSessionPriority(sessionType: SessionType): number {
  * 2. Homework help - if session.subject.name = 'Homework Help'
  * 3. Training - if staff_attendance.type = TRIAL_TUTOR
  * 4. Secondary tutor - if staff_attendance.type = SECONDARY_TUTOR
- * 5. 1 Student - if staff_attendance.type = MAIN_TUTOR AND exactly 1 student attended
- * 6. Main tutor - if staff_attendance.type = MAIN_TUTOR AND more than 1 student attended
+ * 5. Main tutor - if staff_attendance.type = MAIN_TUTOR (regardless of student count)
  */
 export function determinePayCategory(params: {
   sessionType: SessionType;
@@ -68,7 +66,7 @@ export function determinePayCategory(params: {
   staffAttendanceType: StaffAttendanceType | null;
   attendedStudentCount: number;
 }): PayCategory | null {
-  const { sessionType, subjectName, staffAttendanceType, attendedStudentCount } = params;
+  const { sessionType, subjectName, staffAttendanceType } = params;
 
   // 1. Admin - highest priority
   if (sessionType === 'ADMIN_SHIFT') {
@@ -90,14 +88,9 @@ export function determinePayCategory(params: {
     return PAY_CATEGORIES.SECONDARY_TUTOR;
   }
 
-  // 5 & 6. Main tutor variations
+  // 5. Main tutor (regardless of student count)
   if (staffAttendanceType === 'MAIN_TUTOR') {
-    if (attendedStudentCount === 1) {
-      return PAY_CATEGORIES.ONE_STUDENT;
-    }
-    if (attendedStudentCount > 1) {
-      return PAY_CATEGORIES.MAIN_TUTOR;
-    }
+    return PAY_CATEGORIES.MAIN_TUTOR;
   }
 
   // No match found

@@ -57,6 +57,7 @@ import { useRouter } from "next/navigation";
 import { Separator } from "@altitutor/ui";
 import { X } from "lucide-react";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { useSubjectActions } from "../hooks";
 
 export interface ViewSubjectModalProps {
   isOpen: boolean;
@@ -250,6 +251,17 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
     }
   };
 
+  // Centralized action handlers (must be after handler functions are defined)
+  const subjectActions = useSubjectActions({
+    subjectId: subjectId || '',
+    onOpenInPage: () => {
+      router.push(`/subjects/${subjectId}`);
+      onClose();
+    },
+    onEdit: handleEditClick,
+    onDelete: () => setIsDeleteDialogOpen(true),
+  });
+
   return (
     <>
       <Sheet open={isOpen} onOpenChange={(isOpen) => {
@@ -282,12 +294,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                 {subjectId && !isEditing && (
                   <ActionsMenu
                     type="subject"
-                    onOpenInPage={() => {
-                      router.push(`/subjects/${subjectId}`);
-                      onClose();
-                    }}
-                    onEdit={handleEditClick}
-                    onDelete={() => setIsDeleteDialogOpen(true)}
+                    {...subjectActions}
                   />
                 )}
               </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
+import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { X } from 'lucide-react';
 import { getSessionTitle } from '../utils/session-helpers';
@@ -122,6 +123,24 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     firstClassStaffId: sessionData.firstClassStaffId,
   });
 
+  // Centralized action handlers
+  const sessionActions = useSessionActions({
+    sessionId: sessionId || '',
+    onOpenInPage: () => {
+      router.push(`/sessions/${sessionId}`);
+      onClose();
+    },
+    onLogSession: modals.openLogSessionModal,
+    hasTutorLog: helpers.hasTutorLog,
+    onReschedule: () => {
+      const studentId = helpers.getFirstStudentIdForReschedule();
+      if (studentId) {
+        modals.openRescheduleModal(studentId);
+      }
+    },
+    canReschedule: helpers.canReschedule,
+  });
+
   // Always render the Sheet to allow exit animation
   if (sessionData.isLoading || !sessionData.data) {
     return (
@@ -177,19 +196,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                   {sessionId && (
                     <ActionsMenu
                       type="session"
-                      onOpenInPage={() => {
-                        router.push(`/sessions/${sessionId}`);
-                        onClose();
-                      }}
-                      onLogSession={modals.openLogSessionModal}
-                      hasTutorLog={helpers.hasTutorLog}
-                      onReschedule={() => {
-                        const studentId = helpers.getFirstStudentIdForReschedule();
-                        if (studentId) {
-                          modals.openRescheduleModal(studentId);
-                        }
-                      }}
-                      canReschedule={helpers.canReschedule}
+                      {...sessionActions}
                     />
                   )}
                 </div>

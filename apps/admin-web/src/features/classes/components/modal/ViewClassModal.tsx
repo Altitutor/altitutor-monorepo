@@ -6,6 +6,7 @@ import { Button } from "@altitutor/ui";
 import { Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useClassActions } from '../../hooks/useClassActions';
 import { useQueryClient } from '@tanstack/react-query';
 import { classesApi } from "../../api";
 import { useClassDetails, classesKeys, useDeleteClass } from '../../hooks/useClassesQuery';
@@ -67,6 +68,15 @@ export function ViewClassModal({
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Centralized action handlers
+  const classActions = useClassActions({
+    classId: classId || '',
+    onOpenInPage: () => {
+      router.push(`/classes/${classId}`);
+      onClose();
+    },
+  });
   const deleteClassMutation = useDeleteClass();
 
   // Reset states when modal closes
@@ -268,10 +278,7 @@ export function ViewClassModal({
                 {classId && (
                   <ActionsMenu
                     type="class"
-                    onOpenInPage={() => {
-                      router.push(`/classes/${classId}`);
-                      onClose();
-                    }}
+                    {...classActions}
                   />
                 )}
               </div>

@@ -10,15 +10,25 @@ import { cn } from '@/shared/utils';
 import {
   useInvoiceData,
   useInvoiceModals,
+  useInvoiceActions,
   formatInvoiceDate,
   getInvoiceStatusBadge,
   formatInvoiceAmount,
   calculateLineItemsSubtotal,
 } from '@/features/billing';
+import { useState } from 'react';
+import { useToast } from '@altitutor/ui';
+import { getErrorMessage } from '@/shared/utils';
+import { format } from 'date-fns';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { invoicesKeys } from '@/features/billing/hooks/useInvoicesQuery';
 
 export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
 
   // Business logic hooks
   const invoiceData = useInvoiceData({
@@ -29,6 +39,117 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   const modals = useInvoiceModals();
 
   const { invoice, invoiceItems, isLoading } = invoiceData;
+
+  // Fetch Stripe details for retry information
+  const { data: stripeDetails } = useQuery({
+    queryKey: ['invoice-stripe-details', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const response = await fetch(`/api/invoices/${id}/stripe-details`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch Stripe details');
+      }
+      return response.json();
+    },
+    enabled: !!id && !!invoice?.stripe_invoice_id,
+    staleTime: 1000 * 60, // 1 minute
+  });
+
+  const collectionMethod = invoice?.collection_method;
+
+  const handleSendInvoiceEmail = async () => {
+    if (!id) return;
+    setIsLoadingAction(true);
+    try {
+      const response = await fetch(`/api/invoices/${id}/send-invoice`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send invoice');
+      }
+
+      const result = await response.json();
+      const recipients = result.sent || [];
+      const recipientText = recipients.length > 0 
+        ? `Sent to: ${recipients.join(', ')}`
+        : 'Invoice email sent successfully';
+
+      toast({
+        title: 'Success',
+        description: recipientText,
+      });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Error',
+        description: errorMessage || 'Failed to send invoice',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
+
+  const handleChargeCard = async () => {
+    if (!id || !invoice?.stripe_invoice_id) return;
+
+    // Check if there's a future retry scheduled
+    if (stripeDetails?.next_payment_attempt) {
+      const nextAttemptDate = new Date(stripeDetails.next_payment_attempt * 1000);
+      const formattedDate = format(nextAttemptDate, 'MMM d, yyyy h:mm a');
+      
+      if (!confirm(`Are you sure you want to attempt this payment now? This payment will already be automatically attempted at ${formattedDate}.`)) {
+        return;
+      }
+    }
+
+    setIsLoadingAction(true);
+    try {
+      const response = await fetch(`/api/invoices/${id}/charge-card`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to charge card');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Payment attempt initiated successfully',
+      });
+      
+      // Invalidate invoice queries to refresh data
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: ['invoice-stripe-details', id] });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Error',
+        description: errorMessage || 'Failed to charge card',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
+
+  // Centralized action handlers
+  const invoiceActions = useInvoiceActions({
+    invoiceId: id,
+    invoice,
+    onViewOnStripe: invoice?.hosted_invoice_url ? () => {
+      window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+    } : undefined,
+    onDownloadPdf: invoice?.invoice_pdf ? () => {
+      window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
+    } : undefined,
+    onSendInvoice: collectionMethod === 'send_invoice' && invoice?.status !== 'paid' ? handleSendInvoiceEmail : undefined,
+    onChargeCard: collectionMethod === 'charge_automatically' && invoice?.status !== 'paid' ? handleChargeCard : undefined,
+    isLoadingAction,
+  });
 
   // Computed values
   const totalAmount = invoice?.amount_due_cents || 0;
@@ -87,15 +208,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         </div>
         <ActionsMenu
           type="invoice"
-          onOpenInPage={() => {
-            router.push(`/invoices/${id}`);
-          }}
-          onViewOnStripe={invoice.hosted_invoice_url ? () => {
-            window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
-          } : undefined}
-          onDownloadPdf={invoice.invoice_pdf ? () => {
-            window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
-          } : undefined}
+          {...invoiceActions}
         />
       </div>
 

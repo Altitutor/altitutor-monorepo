@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@altitutor/ui';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useSessionActions } from '@/features/sessions/hooks/useSessionActions';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
@@ -52,6 +53,20 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
     sessionsStaff: sessionData.data?.sessionsStaff || [],
     tutorLog: sessionData.data?.tutorLog,
     firstClassStaffId: sessionData.firstClassStaffId,
+  });
+
+  // Centralized action handlers
+  const sessionActions = useSessionActions({
+    sessionId: id,
+    onLogSession: modals.openLogSessionModal,
+    hasTutorLog: helpers.hasTutorLog,
+    onReschedule: () => {
+      const studentId = helpers.getFirstStudentIdForReschedule();
+      if (studentId) {
+        modals.openRescheduleModal(studentId);
+      }
+    },
+    canReschedule: helpers.canReschedule,
   });
 
   // Navigation handlers
@@ -163,18 +178,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         </div>
         <ActionsMenu
           type="session"
-          onOpenInPage={() => {
-            router.push(`/sessions/${id}`);
-          }}
-          onLogSession={modals.openLogSessionModal}
-          hasTutorLog={helpers.hasTutorLog}
-          onReschedule={() => {
-            const studentId = helpers.getFirstStudentIdForReschedule();
-            if (studentId) {
-              modals.openRescheduleModal(studentId);
-            }
-          }}
-          canReschedule={helpers.canReschedule}
+          {...sessionActions}
         />
       </div>
 

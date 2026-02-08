@@ -6,6 +6,7 @@ import { Button } from "@altitutor/ui";
 import { Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useAdminShiftActions } from '../../hooks/useAdminShiftActions';
 import { useQueryClient } from '@tanstack/react-query';
 import { adminShiftsApi } from "../../api";
 import { useAdminShiftDetails, adminShiftsKeys, useDeleteAdminShift } from '../../hooks/useAdminShiftsQuery';
@@ -66,6 +67,15 @@ export function ViewAdminShiftModal({
   const { data: currentStaff } = useCurrentStaff();
   const queryClient = useQueryClient();
   const deleteAdminShiftMutation = useDeleteAdminShift();
+
+  // Centralized action handlers
+  const adminShiftActions = useAdminShiftActions({
+    adminShiftId: adminShiftId || '',
+    onOpenInPage: () => {
+      router.push(`/admin-shifts/${adminShiftId}`);
+      onClose();
+    },
+  });
 
   // Reset states when modal closes
   useEffect(() => {
@@ -273,10 +283,7 @@ export function ViewAdminShiftModal({
                 {adminShiftId && (
                   <ActionsMenu
                     type="adminShift"
-                    onOpenInPage={() => {
-                      router.push(`/admin-shifts/${adminShiftId}`);
-                      onClose();
-                    }}
+                    {...adminShiftActions}
                   />
                 )}
               </div>

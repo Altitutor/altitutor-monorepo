@@ -59,6 +59,7 @@ import {
   useStudentModals,
   useStudentConversation,
   useAllParents,
+  useStudentActions,
   studentsKeys,
 } from '../hooks';
 import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
@@ -317,6 +318,28 @@ export function ViewStudentModal({
     });
   };
 
+  // Centralized action handlers (must be after all handler functions are defined)
+  const studentActions = useStudentActions({
+    studentId: studentId || '',
+    student,
+    onOpenInPage: () => {
+      router.push(`/students/${studentId}`);
+      onClose();
+    },
+    onEditDetails: () => {
+      setActiveTab('details');
+      editFlow.startEdit();
+    },
+    onPasswordResetOrRegistration: passwordReset.openPasswordResetOrRegistration,
+    passwordResetLabel: passwordReset.passwordResetLabel,
+    onLogAbsence: modals.openLogAbsence,
+    onBookDraftingSession: modals.openBookDraftingSession,
+    onAddClass: handleAddClass,
+    onAddSubject: () => setIsAddSubjectDialogOpen(true),
+    onDiscontinue: handleDiscontinue,
+    onDelete: modals.openDeleteDialog,
+  });
+
   // Always render the Sheet to allow exit animation
   return (
     <>
@@ -368,22 +391,7 @@ export function ViewStudentModal({
                     {studentId && (
                       <ActionsMenu
                         type="student"
-                        onOpenInPage={() => {
-                          router.push(`/students/${studentId}`);
-                          onClose();
-                        }}
-                        onEditDetails={() => {
-                          setActiveTab('details');
-                          editFlow.startEdit();
-                        }}
-                        onPasswordResetOrRegistration={passwordReset.openPasswordResetOrRegistration}
-                        passwordResetLabel={passwordReset.passwordResetLabel}
-                        onLogAbsence={modals.openLogAbsence}
-                        onBookDraftingSession={modals.openBookDraftingSession}
-                        onAddClass={handleAddClass}
-                        onAddSubject={() => setIsAddSubjectDialogOpen(true)}
-                        onDiscontinue={student && (student.status === 'TRIAL' || student.status === 'ACTIVE') ? handleDiscontinue : undefined}
-                        onDelete={modals.openDeleteDialog}
+                        {...studentActions}
                       />
                     )}
                   </div>

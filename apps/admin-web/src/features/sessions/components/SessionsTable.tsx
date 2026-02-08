@@ -31,7 +31,7 @@ import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { LogSessionModal } from '@/features/tutor-logs';
+import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { useSessionsTable } from '../hooks/useSessionsTable';
@@ -99,6 +99,8 @@ export function SessionsTable({
     useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [selectedTutorLogId, setSelectedTutorLogId] = useState<string | null>(null);
+  const [isEditTutorLogModalOpen, setIsEditTutorLogModalOpen] = useState(false);
 
   // Session types constant
   const SESSION_TYPES = [
@@ -592,6 +594,10 @@ export function SessionsTable({
                             setIsLogSessionModalOpen(true);
                           }}
                           hasTutorLog={!!tutorLogs[session.id]}
+                          onEditTutorLog={tutorLogs[session.id] ? () => {
+                            setSelectedTutorLogId(tutorLogs[session.id].id);
+                            setIsEditTutorLogModalOpen(true);
+                          } : undefined}
                           onReschedule={() => {
                             if (rescheduleStudentId) {
                               setSelectedStudentForReschedule(rescheduleStudentId);
@@ -691,6 +697,21 @@ export function SessionsTable({
             setIsRescheduleModalOpen(false);
             setSelectedSessionForReschedule(null);
             setSelectedStudentForReschedule(null);
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Edit Tutor Log Modal */}
+      {selectedTutorLogId && (
+        <EditTutorLogDialog
+          tutorLogId={selectedTutorLogId}
+          isOpen={isEditTutorLogModalOpen}
+          onClose={() => {
+            setIsEditTutorLogModalOpen(false);
+            setSelectedTutorLogId(null);
+          }}
+          onTutorLogUpdated={() => {
             refetch();
           }}
         />

@@ -52,17 +52,21 @@ export type NotificationRecipientType =
   | 'session_all'
   | 'all_admin_staff'
   | 'all_staff'
-  | 'admin_staff_on_day';
+  | 'admin_staff_on_day'
+  | 'tutor_log_staff';
 
 export type MessageRecipientType = 
   | 'single'
   | 'class_students' 
   | 'class_students_and_parents' 
   | 'session_students' 
-  | 'session_students_and_parents';
+  | 'session_students_and_parents'
+  | 'student_and_parents'
+  | 'tutor_log_students'
+  | 'tutor_log_students_and_parents';
 
 export interface SendMessageActionConfig {
-  template_id: string;
+  message_content: string;
   variables?: Record<string, any>;
   contact_id?: string;  // For single recipient (backward compat)
   student_id?: string;

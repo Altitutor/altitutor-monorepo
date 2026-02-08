@@ -98,6 +98,24 @@ export function useStudentAttendance({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStudents.length, isLoading]); // Only depend on sessionStudents.length and isLoading
 
+  // Initialize additionalStudents from existing studentAttendance when editing.
+  // If sessionStudents is empty, ALL students from studentAttendance are "additional".
+  // If sessionStudents has data, only students NOT in session are "additional".
+  const hasInitializedAdditional = useRef(false);
+  useEffect(() => {
+    if (!isLoading && studentAttendance.length > 0 && !hasInitializedAdditional.current) {
+      const sessionStudentIds = new Set(sessionStudents.map((ss) => ss.student_id));
+      const additionalStudentIds = studentAttendance
+        .map((sa) => sa.studentId)
+        .filter((id) => !sessionStudentIds.has(id));
+
+      if (additionalStudentIds.length > 0) {
+        hasInitializedAdditional.current = true;
+        setAdditionalStudents(additionalStudentIds);
+      }
+    }
+  }, [isLoading, sessionStudents, studentAttendance]);
+
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) =>
       sa.studentId === studentId ? { ...sa, attended } : sa

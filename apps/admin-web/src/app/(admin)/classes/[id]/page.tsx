@@ -8,6 +8,7 @@ import { Button } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useClassActions } from '@/features/classes/hooks/useClassActions';
 import { classesApi } from "@/features/classes/api";
 import { useClassDetails, classesKeys, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
@@ -149,6 +150,11 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
     queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(id) });
   };
 
+  // Centralized action handlers
+  const classActions = useClassActions({
+    classId: id,
+  });
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -199,9 +205,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         </div>
         <ActionsMenu
           type="class"
-          onOpenInPage={() => {
-            router.push(`/classes/${id}`);
-          }}
+          {...classActions}
         />
       </div>
 

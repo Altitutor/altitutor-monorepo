@@ -6,3 +6,4 @@ export * from './useFilePreview';
 export * from './useFileItems';
 export * from './useFileUploadFlow';
 export * from './useFileDragAndDrop';
+export * from './useTopicActions';

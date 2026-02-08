@@ -10,5 +10,6 @@ export * from './hooks/useInvoicesQuery';
 export * from './hooks/useInvoiceItems';
 export * from './hooks/useInvoiceData';
 export * from './hooks/useInvoiceModals';
+export * from './hooks/useInvoiceActions';
 export * from './utils/invoiceFormatters';
 

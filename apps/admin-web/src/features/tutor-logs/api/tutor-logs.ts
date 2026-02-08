@@ -72,9 +72,9 @@ export const tutorLogsApi = {
         .from('tutor_logs')
         .select(`
           *,
-          session:sessions!inner(
+          session:sessions(
             *,
-            class:classes!inner(
+            class:classes(
               *,
               subject:subjects(*)
             )
@@ -391,10 +391,29 @@ export const tutorLogsApi = {
   /**
    * Update a tutor log (admin only)
    */
-  updateTutorLog: async (_id: string, _updates: Partial<TutorLogFormData>): Promise<void> => {
-    // This is complex - for now, just throw an error
-    // In a real implementation, you'd need to diff the changes and update accordingly
-    throw new Error('Tutor log updates not yet implemented');
+  updateTutorLog: async (id: string, data: TutorLogFormData, createdBy: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/tutor-logs/${id}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data, createdBy }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update tutor log');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update tutor log');
+      }
+    } catch (error) {
+      throw error;
+    }
   },
 
   /**

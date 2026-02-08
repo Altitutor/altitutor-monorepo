@@ -41,6 +41,7 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import { useStudentActions } from '../hooks/useStudentActions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -729,6 +730,18 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                           setActionStudentId(student.id);
                           setIsBookDraftingSessionModalOpen(true);
                         }}
+                        // For table context, these actions open the modal where they can be performed
+                        onAddClass={() => {
+                          handleStudentClick(student.id);
+                        }}
+                        onAddSubject={() => {
+                          handleStudentClick(student.id);
+                        }}
+                        onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE' 
+                          ? () => {
+                              handleStudentClick(student.id);
+                            }
+                          : undefined}
                         onDelete={() => {
                           setActionStudentId(student.id);
                           setIsDeleteDialogOpen(true);
