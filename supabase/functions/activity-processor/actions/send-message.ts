@@ -18,7 +18,7 @@ export async function executeSendMessage(
   entityData?: any
 ): Promise<void> {
   const config = action.action_config as {
-    template_id: string;
+    message_content: string;
     variables?: Record<string, any>;
     contact_id?: string;
     student_id?: string;
@@ -27,25 +27,18 @@ export async function executeSendMessage(
     recipients?: {
       type: 'class_students' | 'class_students_and_parents' | 
             'session_students' | 'session_students_and_parents' | 
+            'student_and_parents' |
+            'tutor_log_students' |
+            'tutor_log_students_and_parents' |
             'single';
     };
   };
 
-  if (!config.template_id) {
-    throw new Error('template_id required for SEND_MESSAGE action');
+  if (!config.message_content || !config.message_content.trim()) {
+    throw new Error('message_content required for SEND_MESSAGE action');
   }
 
-  // Load template
-  const { data: template, error: templateErr } = await supabase
-    .from('message_templates')
-    .select('content')
-    .eq('id', config.template_id)
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (templateErr || !template) {
-    throw new Error(`Template not found: ${config.template_id}`);
-  }
+  const messageTemplate = config.message_content;
 
   // Determine contact IDs
   let contactIds: string[] = [];
@@ -138,8 +131,8 @@ export async function executeSendMessage(
   // Merge with any provided variables (config.variables takes precedence)
   const baseVariables = { ...variables, ...(config.variables || {}) };
 
-  // Check if template contains per-student link variables
-  const hasLinkVariables = /\{(student_invite_link|student_registration_link|student\.invite_link|student\.registration_link)\}/gi.test(template.content);
+  // Check if message content contains per-student link variables
+  const hasLinkVariables = /\{(student_invite_link|student_registration_link|student\.invite_link|student\.registration_link)\}/gi.test(messageTemplate);
   
   // For bulk recipients with link variables, we need per-contact message bodies
   // Otherwise, use shared message body
@@ -215,10 +208,10 @@ export async function executeSendMessage(
           contactVariables['student.registration_link'] = '';
         }
         
-        messageBody = replaceTemplateVariables(template.content, contactVariables);
+        messageBody = replaceTemplateVariables(messageTemplate, contactVariables);
       } else {
         // Use shared message body (no per-contact customization needed)
-        messageBody = replaceTemplateVariables(template.content, baseVariables);
+        messageBody = replaceTemplateVariables(messageTemplate, baseVariables);
       }
 
       // Ensure conversation exists

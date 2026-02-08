@@ -32,6 +32,8 @@ import type { ActionConfig, SendMessageActionConfig, CreateTaskActionConfig, Cre
 import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType, ActivityEntityType } from '../types';
 import { TemplateVariablesPicker } from './TemplateVariablesPicker';
+import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
+import type { Tables } from '@altitutor/shared';
 
 // Entity types that have class_id available in activity events
 const ENTITY_TYPES_WITH_CLASS_ID: ActivityEntityType[] = [
@@ -56,14 +58,34 @@ const ENTITY_TYPES_WITH_SESSION_ID: ActivityEntityType[] = [
   'tutor_logs_topics_students',
 ];
 
+// Entity types that have student_id available in activity events
+const ENTITY_TYPES_WITH_STUDENT_ID: ActivityEntityType[] = [
+  'students',
+  'sessions_students',
+  'tutor_logs_student_attendance',
+  'classes_students',
+  'parents_students',
+];
+
+// Entity types that are tutor_logs (can use tutor_log recipient types)
+const ENTITY_TYPES_TUTOR_LOGS: ActivityEntityType[] = [
+  'tutor_logs',
+  'tutor_logs_staff_attendance',
+  'tutor_logs_student_attendance',
+  'tutor_logs_topics',
+  'tutor_logs_topics_files',
+  'tutor_logs_topics_files_students',
+  'tutor_logs_topics_students',
+];
+
 const actionFormSchema = z.object({
   action_type: z.enum(['SEND_MESSAGE', 'CREATE_TASK', 'CREATE_NOTIFICATION']),
   order_index: z.number().int().min(0),
   // SEND_MESSAGE config
-  template_id: z.string().optional(),
+  message_content: z.string().optional(),
   target_contact_id: z.string().optional(),
   selected_sender_id: z.string().optional(),
-  message_recipient_type: z.enum(['single', 'class_students', 'class_students_and_parents', 'session_students', 'session_students_and_parents']).optional(),
+  message_recipient_type: z.enum(['single', 'class_students', 'class_students_and_parents', 'session_students', 'session_students_and_parents', 'student_and_parents', 'tutor_log_students', 'tutor_log_students_and_parents']).optional(),
   // CREATE_TASK config
   title_template: z.string().optional(),
   description_template: z.string().optional(),
@@ -78,10 +100,10 @@ const actionFormSchema = z.object({
   notification_body: z.string().optional(),
   action_url: z.string().optional(),
   target_staff_id: z.string().optional(),
-  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'admin_staff_on_day']).optional(),
+  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'admin_staff_on_day', 'tutor_log_staff']).optional(),
 }).refine((data) => {
   if (data.action_type === 'SEND_MESSAGE') {
-    return !!data.template_id && !!data.selected_sender_id;
+    return !!data.message_content && data.message_content.trim().length > 0 && !!data.selected_sender_id;
   }
   if (data.action_type === 'CREATE_TASK') {
     return !!data.title_template;
@@ -130,7 +152,7 @@ export function CreateEditActionDialog({
     defaultValues: {
       action_type: 'CREATE_TASK' as const,
       order_index: 0,
-      template_id: '',
+      message_content: '',
       target_contact_id: '',
       selected_sender_id: '',
       message_recipient_type: 'single' as const,
@@ -154,6 +176,8 @@ export function CreateEditActionDialog({
   // Determine which recipient types are available based on entity type
   const hasClassId = entityType ? ENTITY_TYPES_WITH_CLASS_ID.includes(entityType) : false;
   const hasSessionId = entityType ? ENTITY_TYPES_WITH_SESSION_ID.includes(entityType) : false;
+  const hasStudentId = entityType ? ENTITY_TYPES_WITH_STUDENT_ID.includes(entityType) : false;
+  const isTutorLogEntity = entityType ? ENTITY_TYPES_TUTOR_LOGS.includes(entityType) : false;
 
   // Refs for text inputs/textareas to handle cursor position
   const titleInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -161,6 +185,7 @@ export function CreateEditActionDialog({
   const notificationTitleInputRef = React.useRef<HTMLInputElement | null>(null);
   const notificationBodyTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const actionUrlInputRef = React.useRef<HTMLInputElement | null>(null);
+  const messageContentTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
 
   // Helper function to insert variable at cursor position
   const insertVariable = (
@@ -202,11 +227,12 @@ export function CreateEditActionDialog({
       const config = action.action_config as unknown as ActionConfig;
       
       // Determine recipient types from config and validate against entity type
-      let notificationRecipientType: 'single' | 'class_students' | 'class_staff' | 'class_all' | 'session_students' | 'session_staff' | 'session_all' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day' = 'single';
+      let notificationRecipientType: 'single' | 'class_students' | 'class_staff' | 'class_all' | 'session_students' | 'session_staff' | 'session_all' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day' | 'tutor_log_staff' = 'single';
       if (action.action_type === 'CREATE_NOTIFICATION' && 'recipients' in config && config.recipients?.type) {
         const recipientType = config.recipients.type;
         const isClassType = recipientType.startsWith('class_');
         const isSessionType = recipientType.startsWith('session_');
+        const isTutorLogType = recipientType === 'tutor_log_staff';
         const isGlobalType = ['all_admin_staff', 'all_staff'].includes(recipientType);
         const isAdminStaffOnDay = recipientType === 'admin_staff_on_day';
         
@@ -214,25 +240,30 @@ export function CreateEditActionDialog({
         if (recipientType === 'single' || 
             (isClassType && hasClassId) || 
             (isSessionType && hasSessionId) ||
+            (isTutorLogType && isTutorLogEntity) ||
             isGlobalType ||
             (isAdminStaffOnDay && (hasClassId || hasSessionId))) {
-          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_staff' || recipientType === 'class_all' || recipientType === 'session_students' || recipientType === 'session_staff' || recipientType === 'session_all' || recipientType === 'all_admin_staff' || recipientType === 'all_staff' || recipientType === 'admin_staff_on_day') {
+          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_staff' || recipientType === 'class_all' || recipientType === 'session_students' || recipientType === 'session_staff' || recipientType === 'session_all' || recipientType === 'all_admin_staff' || recipientType === 'all_staff' || recipientType === 'admin_staff_on_day' || recipientType === 'tutor_log_staff') {
             notificationRecipientType = recipientType;
           }
         }
       }
       
-      let messageRecipientType: 'single' | 'class_students' | 'class_students_and_parents' | 'session_students' | 'session_students_and_parents' = 'single';
+      let messageRecipientType: 'single' | 'class_students' | 'class_students_and_parents' | 'session_students' | 'session_students_and_parents' | 'student_and_parents' | 'tutor_log_students' | 'tutor_log_students_and_parents' = 'single';
       if (action.action_type === 'SEND_MESSAGE' && 'recipients' in config && config.recipients?.type) {
         const recipientType = config.recipients.type;
         const isClassType = recipientType.startsWith('class_');
         const isSessionType = recipientType.startsWith('session_');
+        const isTutorLogType = recipientType.startsWith('tutor_log_');
+        const isStudentType = recipientType === 'student_and_parents';
         
         // Validate recipient type against entity type - only assign if valid
         if (recipientType === 'single' || 
             (isClassType && hasClassId) || 
-            (isSessionType && hasSessionId)) {
-          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_students_and_parents' || recipientType === 'session_students' || recipientType === 'session_students_and_parents') {
+            (isSessionType && hasSessionId) ||
+            (isTutorLogType && isTutorLogEntity) ||
+            (isStudentType && hasStudentId)) {
+          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_students_and_parents' || recipientType === 'session_students' || recipientType === 'session_students_and_parents' || recipientType === 'student_and_parents' || recipientType === 'tutor_log_students' || recipientType === 'tutor_log_students_and_parents') {
             messageRecipientType = recipientType;
           }
         }
@@ -241,7 +272,7 @@ export function CreateEditActionDialog({
       form.reset({
         action_type: action.action_type as ActionType,
         order_index: action.order_index || 0,
-        template_id: action.action_type === 'SEND_MESSAGE' && 'template_id' in config ? config.template_id : undefined,
+        message_content: action.action_type === 'SEND_MESSAGE' && 'message_content' in config ? config.message_content : undefined,
         target_contact_id: action.action_type === 'SEND_MESSAGE' && ('target_contact_id' in config || 'contact_id' in config) ? ('target_contact_id' in config && typeof config.target_contact_id === 'string' ? config.target_contact_id : ('contact_id' in config && typeof config.contact_id === 'string' ? config.contact_id : undefined)) : undefined,
         // Handle both old field name (selected_sender_id) and new field name (owned_number_id) for backward compatibility
         selected_sender_id: action.action_type === 'SEND_MESSAGE' && ('owned_number_id' in config || 'selected_sender_id' in config) ? ('owned_number_id' in config && typeof config.owned_number_id === 'string' ? config.owned_number_id : ('selected_sender_id' in config && typeof config.selected_sender_id === 'string' ? config.selected_sender_id : undefined)) : undefined,
@@ -269,7 +300,7 @@ export function CreateEditActionDialog({
         notification_recipient_type: 'single',
       });
     }
-  }, [isOpen, isEditing, action, form, hasClassId, hasSessionId]);
+  }, [isOpen, isEditing, action, form, hasClassId, hasSessionId, hasStudentId, isTutorLogEntity]);
 
   // Reset recipient types if they're invalid for the current entity type
   useEffect(() => {
@@ -282,13 +313,17 @@ export function CreateEditActionDialog({
     if (currentNotificationType && currentNotificationType !== 'single') {
       const isClassType = currentNotificationType.startsWith('class_');
       const isSessionType = currentNotificationType.startsWith('session_');
+      const isTutorLogType = currentNotificationType === 'tutor_log_staff';
       const isAdminStaffOnDay = currentNotificationType === 'admin_staff_on_day';
+      const isGlobalType = ['all_admin_staff', 'all_staff'].includes(currentNotificationType);
       
       // Global types (all_admin_staff, all_staff) are always valid
       // admin_staff_on_day requires class_id or session_id
       // Class/session types require corresponding IDs
+      // Tutor log types require tutor log entity
       if ((isClassType && !hasClassId) || 
           (isSessionType && !hasSessionId) ||
+          (isTutorLogType && !isTutorLogEntity) ||
           (isAdminStaffOnDay && !hasClassId && !hasSessionId)) {
         form.setValue('notification_recipient_type', 'single');
       }
@@ -298,24 +333,29 @@ export function CreateEditActionDialog({
     if (currentMessageType && currentMessageType !== 'single') {
       const isClassType = currentMessageType.startsWith('class_');
       const isSessionType = currentMessageType.startsWith('session_');
+      const isTutorLogType = currentMessageType.startsWith('tutor_log_');
+      const isStudentType = currentMessageType === 'student_and_parents';
       
-      if ((isClassType && !hasClassId) || (isSessionType && !hasSessionId)) {
+      if ((isClassType && !hasClassId) || 
+          (isSessionType && !hasSessionId) ||
+          (isTutorLogType && !isTutorLogEntity) ||
+          (isStudentType && !hasStudentId)) {
         form.setValue('message_recipient_type', 'single');
       }
     }
-  }, [entityType, hasClassId, hasSessionId, form]);
+  }, [entityType, hasClassId, hasSessionId, hasStudentId, isTutorLogEntity, form]);
 
   const onSubmit = async (data: z.infer<typeof actionFormSchema>) => {
     try {
       let actionConfig: ActionConfig;
 
       if (data.action_type === 'SEND_MESSAGE') {
-        if (!data.template_id) {
-          throw new Error('Template ID is required for SEND_MESSAGE action');
+        if (!data.message_content || !data.message_content.trim()) {
+          throw new Error('Message content is required for SEND_MESSAGE action');
         }
         const recipientType = data.message_recipient_type || 'single';
         const sendMessageConfig: SendMessageActionConfig = {
-          template_id: data.template_id,
+          message_content: data.message_content,
           owned_number_id: data.selected_sender_id,
           ...(recipientType === 'single' && data.target_contact_id && data.target_contact_id.trim()
             ? { contact_id: data.target_contact_id }
@@ -635,27 +675,69 @@ export function CreateEditActionDialog({
               <>
                 <FormField
                   control={form.control}
-                  name="template_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Message Template *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || undefined}>
+                  name="message_content"
+                  render={({ field }) => {
+                    const handleTemplateSelect = (template: Tables<'message_templates'>) => {
+                      const currentValue = field.value || '';
+                      const textarea = messageContentTextareaRef.current;
+                      
+                      if (textarea) {
+                        const start = textarea.selectionStart || 0;
+                        const end = textarea.selectionEnd || 0;
+                        const textBefore = currentValue.substring(0, start);
+                        const textAfter = currentValue.substring(end);
+                        const newValue = textBefore + template.content + textAfter;
+                        field.onChange(newValue);
+                        
+                        // Restore cursor position after template insertion
+                        setTimeout(() => {
+                          const newPosition = start + template.content.length;
+                          textarea.focus();
+                          textarea.setSelectionRange(newPosition, newPosition);
+                        }, 0);
+                      } else {
+                        // Fallback: append to end
+                        field.onChange(currentValue + (currentValue ? '\n\n' : '') + template.content);
+                      }
+                    };
+                    
+                    return (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Message Content *</FormLabel>
+                          <div className="flex items-center gap-2">
+                            <MessageTemplatesPicker 
+                              onSelect={handleTemplateSelect}
+                              expanded={true}
+                            />
+                            <TemplateVariablesPicker
+                              entityType={entityType}
+                              hasClassId={hasClassId}
+                              hasSessionId={hasSessionId}
+                              onInsert={(variable) => insertVariable({ value: field.value || '', onChange: field.onChange }, messageContentTextareaRef, variable)}
+                            />
+                          </div>
+                        </div>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a template" />
-                          </SelectTrigger>
+                          <Textarea
+                            {...field}
+                            ref={(e) => {
+                              field.ref(e);
+                              messageContentTextareaRef.current = e;
+                            }}
+                            placeholder="Type your message here or insert a template..."
+                            rows={6}
+                            value={field.value || ''}
+                            className="font-mono text-sm"
+                          />
                         </FormControl>
-                        <SelectContent>
-                          {templates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                        <FormDescription>
+                          Compose your message. You can insert templates or variables using the buttons above.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
@@ -730,11 +812,20 @@ export function CreateEditActionDialog({
                               <SelectItem value="session_students_and_parents">All Students & Parents in Session</SelectItem>
                             </>
                           )}
+                          {hasStudentId && (
+                            <SelectItem value="student_and_parents">Student & All Parents</SelectItem>
+                          )}
+                          {isTutorLogEntity && (
+                            <>
+                              <SelectItem value="tutor_log_students">All Students in Tutor Log</SelectItem>
+                              <SelectItem value="tutor_log_students_and_parents">All Students & Parents in Tutor Log</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        {!hasClassId && !hasSessionId
-                          ? 'Only single recipient is available. Bulk options require the rule to trigger on classes, sessions, or related entities.'
+                        {!hasClassId && !hasSessionId && !hasStudentId && !isTutorLogEntity
+                          ? 'Only single recipient is available. Bulk options require the rule to trigger on classes, sessions, students, or tutor logs.'
                           : 'Choose who receives this message. Bulk options are available based on the rule\'s entity type.'}
                       </FormDescription>
                       <FormMessage />
@@ -876,6 +967,9 @@ export function CreateEditActionDialog({
                           )}
                           {(hasClassId || hasSessionId) && (
                             <SelectItem value="admin_staff_on_day">Admin Staff on Day</SelectItem>
+                          )}
+                          {isTutorLogEntity && (
+                            <SelectItem value="tutor_log_staff">All Staff in Tutor Log</SelectItem>
                           )}
                         </SelectContent>
                       </Select>

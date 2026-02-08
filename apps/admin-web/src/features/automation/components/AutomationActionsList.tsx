@@ -55,11 +55,13 @@ export function AutomationActionsList({
           }
           return 'No title template';
         case 'SEND_MESSAGE':
-          if ('template_id' in config) {
-            const template = templates.find((t) => t.id === config.template_id);
-            return template ? `Template: ${template.name}` : 'No template selected';
+          if ('message_content' in config && config.message_content) {
+            const preview = config.message_content.length > 40 
+              ? config.message_content.substring(0, 40) + '...' 
+              : config.message_content;
+            return preview;
           }
-          return 'No template selected';
+          return 'No message content';
         case 'CREATE_NOTIFICATION':
           if ('title' in config) {
             return config.title || 'No title';

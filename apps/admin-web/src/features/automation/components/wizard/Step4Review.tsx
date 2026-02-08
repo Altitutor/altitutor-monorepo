@@ -58,11 +58,13 @@ export function Step4Review({ formData, ruleId, templates }: Step4ReviewProps) {
           }
           return 'Create Task (no title template)';
         case 'SEND_MESSAGE':
-          if ('template_id' in config) {
-            const template = templates.find((t) => t.id === config.template_id);
-            return template ? `Send Message: ${template.name}` : 'Send Message (no template)';
+          if ('message_content' in config && config.message_content) {
+            const preview = config.message_content.length > 50 
+              ? config.message_content.substring(0, 50) + '...' 
+              : config.message_content;
+            return `Send Message: ${preview}`;
           }
-          return 'Send Message (no template)';
+          return 'Send Message (no content)';
         case 'CREATE_NOTIFICATION':
           if ('title' in config) {
             return config.title || 'Create Notification (no title)';

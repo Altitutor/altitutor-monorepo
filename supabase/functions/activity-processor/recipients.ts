@@ -330,6 +330,28 @@ async function resolveAdminStaffOnDay(
 }
 
 /**
+ * Resolve all staff assigned to a tutor log
+ * Uses entity_id (tutor_log_id) from activity event
+ */
+async function resolveTutorLogStaff(
+  supabase: SupabaseClient<unknown>,
+  activityEvent: ActivityEvent
+): Promise<NotificationRecipient[]> {
+  if (!activityEvent.entity_id) {
+    throw new Error('entity_id (tutor_log_id) required for tutor_log_staff recipient type');
+  }
+  
+  const { data: staffAttendance } = await supabase
+    .from('tutor_logs_staff_attendance')
+    .select('staff_id')
+    .eq('tutor_log_id', activityEvent.entity_id);
+  
+  if (!staffAttendance) return [];
+  
+  return staffAttendance.map((sa: any) => ({ staff_id: sa.staff_id }));
+}
+
+/**
  * Resolve single recipient - handled by caller, returns empty array
  */
 async function resolveSingle(
@@ -359,6 +381,7 @@ const notificationRecipientResolvers: Record<string, NotificationRecipientResolv
   'all_admin_staff': resolveAllAdminStaff,
   'all_staff': resolveAllStaff,
   'admin_staff_on_day': resolveAdminStaffOnDay,
+  'tutor_log_staff': resolveTutorLogStaff,
 };
 
 /**
@@ -564,6 +587,105 @@ async function resolveMessageSessionStudentsAndParents(
 }
 
 /**
+ * Resolve contact IDs for a single student and all their parents
+ * Uses student_id from activity event
+ */
+async function resolveMessageStudentAndParents(
+  supabase: SupabaseClient<unknown>,
+  activityEvent: ActivityEvent
+): Promise<string[]> {
+  if (!activityEvent.student_id) {
+    throw new Error('student_id required for student_and_parents recipient type');
+  }
+  
+  const contactIds: string[] = [];
+  
+  // Get student contact
+  const studentContacts = await getStudentContactIds(supabase, [activityEvent.student_id]);
+  contactIds.push(...studentContacts);
+  
+  // Get parent contacts via parents_students
+  const { data: parentLinks } = await supabase
+    .from('parents_students')
+    .select('parent_id')
+    .eq('student_id', activityEvent.student_id);
+  
+  if (parentLinks && parentLinks.length > 0) {
+    const parentIds = parentLinks.map((pl: any) => pl.parent_id);
+    const parentContacts = await getParentContactIds(supabase, parentIds);
+    contactIds.push(...parentContacts);
+  }
+  
+  // Deduplicate
+  return [...new Set(contactIds)];
+}
+
+/**
+ * Resolve contact IDs for all students in a tutor log's student attendance
+ * Uses entity_id (tutor_log_id) from activity event
+ */
+async function resolveMessageTutorLogStudents(
+  supabase: SupabaseClient<unknown>,
+  activityEvent: ActivityEvent
+): Promise<string[]> {
+  if (!activityEvent.entity_id) {
+    throw new Error('entity_id (tutor_log_id) required for tutor_log_students recipient type');
+  }
+  
+  const { data: studentAttendance } = await supabase
+    .from('tutor_logs_student_attendance')
+    .select('student_id')
+    .eq('tutor_log_id', activityEvent.entity_id);
+  
+  if (!studentAttendance || studentAttendance.length === 0) return [];
+  
+  const studentIds = studentAttendance.map((sa: any) => sa.student_id);
+  return getStudentContactIds(supabase, studentIds);
+}
+
+/**
+ * Resolve contact IDs for all students and their parents in a tutor log's student attendance
+ * Uses entity_id (tutor_log_id) from activity event
+ */
+async function resolveMessageTutorLogStudentsAndParents(
+  supabase: SupabaseClient<unknown>,
+  activityEvent: ActivityEvent
+): Promise<string[]> {
+  if (!activityEvent.entity_id) {
+    throw new Error('entity_id (tutor_log_id) required for tutor_log_students_and_parents recipient type');
+  }
+  
+  const { data: studentAttendance } = await supabase
+    .from('tutor_logs_student_attendance')
+    .select('student_id')
+    .eq('tutor_log_id', activityEvent.entity_id);
+  
+  if (!studentAttendance || studentAttendance.length === 0) return [];
+  
+  const studentIds = studentAttendance.map((sa: any) => sa.student_id);
+  const contactIds: string[] = [];
+  
+  // Get student contacts
+  const studentContacts = await getStudentContactIds(supabase, studentIds);
+  contactIds.push(...studentContacts);
+  
+  // Get parent contacts via parents_students
+  const { data: parentLinks } = await supabase
+    .from('parents_students')
+    .select('parent_id')
+    .in('student_id', studentIds);
+  
+  if (parentLinks && parentLinks.length > 0) {
+    const parentIds = parentLinks.map((pl: any) => pl.parent_id);
+    const parentContacts = await getParentContactIds(supabase, parentIds);
+    contactIds.push(...parentContacts);
+  }
+  
+  // Deduplicate
+  return [...new Set(contactIds)];
+}
+
+/**
  * Resolve single recipient - handled by caller, returns empty array
  */
 async function resolveMessageSingle(
@@ -588,6 +710,9 @@ const messageRecipientResolvers: Record<string, MessageRecipientResolver> = {
   'class_students_and_parents': resolveMessageClassStudentsAndParents,
   'session_students': resolveMessageSessionStudents,
   'session_students_and_parents': resolveMessageSessionStudentsAndParents,
+  'student_and_parents': resolveMessageStudentAndParents,
+  'tutor_log_students': resolveMessageTutorLogStudents,
+  'tutor_log_students_and_parents': resolveMessageTutorLogStudentsAndParents,
   // Future recipient types can be added here:
   // 'all_admin_staff': resolveMessageAllAdminStaff,
   // 'all_staff': resolveMessageAllStaff,
