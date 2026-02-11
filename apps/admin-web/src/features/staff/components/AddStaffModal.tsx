@@ -51,6 +51,7 @@ const formSchema = z.object({
     .optional()
     .nullable(),
   role: z.enum(['TUTOR','ADMINSTAFF']),
+  status: z.enum(['ACTIVE','INACTIVE','TRIAL']),
   officeKeyNumber: z.union([
     z.number().int().positive(),
     z.string().regex(/^\d+$/).transform(Number),
@@ -103,6 +104,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       email: '',
       phoneNumber: '',
       role: 'TUTOR',
+      status: 'ACTIVE',
       officeKeyNumber: null,
       hasParkingRemote: 'NONE',
       availability_monday: false,
@@ -132,7 +134,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         email: (formData.email || null) as any,
         phone_number: formData.phoneNumber || null,
         role: formData.role,
-        status: 'ACTIVE' as const,
+        status: formData.status,
         office_key_number: formData.officeKeyNumber || null,
         has_parking_remote: formData.hasParkingRemote || 'NONE',
         availability_monday: formData.availability_monday,
@@ -344,6 +346,35 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
               )}
             </div>
             
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select 
+                    disabled={isSubmitting}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={'ACTIVE'}>Active</SelectItem>
+                      <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
+                      <SelectItem value={'TRIAL'}>Trial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.status && (
+                <p className="text-sm text-red-500">{errors.status.message}</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="hasParkingRemote">Parking Remote</Label>
               <Controller
