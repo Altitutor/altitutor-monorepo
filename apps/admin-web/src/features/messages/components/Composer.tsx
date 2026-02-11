@@ -5,7 +5,7 @@ import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables, TEMPLATE_VARIABLES } from '../utils/variableReplacer';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
-import { getStudentClasses } from '../api/bulk';
+import { getStudentClasses, getStudentClassesWithStartDates } from '../api/bulk';
 import { formatClassName } from '@/shared/utils';
 import { getInviteUrlForStudent, getInviteUrlForStaff } from '@/shared/utils/invites';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -241,7 +241,7 @@ export function Composer({
           }
           
           // Replace variables with actual data
-          content = replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
+          content = await replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
         } catch (error) {
           console.error('Error fetching student classes for template:', error);
           // Fall back to template with placeholders if we can't fetch classes
@@ -279,7 +279,7 @@ export function Composer({
               }
               
               // Replace variables with actual data
-              content = replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
+              content = await replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
             } catch (error) {
               console.error('Error fetching student classes for template:', error);
               // Fall back to template with placeholders if we can't fetch classes
@@ -370,6 +370,54 @@ export function Composer({
           return 'No classes enrolled';
         }
       }
+      if (variable === 'classes_with_start_date') {
+        try {
+          const classesWithDates = await getStudentClassesWithStartDates(student.id);
+          const classesText = classesWithDates.length > 0
+            ? classesWithDates
+                .map(({ class: cls, subject, startDate }) => {
+                  const className = formatClassName(cls, subject);
+                  if (startDate) {
+                    // Format date as "Wed 11th Feb"
+                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const dayName = dayNames[startDate.getDay()];
+                    const day = startDate.getDate();
+                    const month = monthNames[startDate.getMonth()];
+                    const getOrdinal = (n: number): string => {
+                      const s = ['th', 'st', 'nd', 'rd'];
+                      const v = n % 100;
+                      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                    };
+                    const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
+                    return `- ${className} starting on ${formattedDate}`;
+                  } else {
+                    return `- ${className}`;
+                  }
+                })
+                .join('\n')
+            : 'No classes enrolled';
+          return classesText;
+        } catch (error) {
+          console.error('Error fetching classes with start dates:', error);
+          // Fallback to regular classes
+          try {
+            const classes = await getStudentClasses(student.id);
+            const classesText = classes.length > 0
+              ? classes
+                  .map(({ class: cls, subject }) => {
+                    const className = formatClassName(cls, subject);
+                    return `- ${className}`;
+                  })
+                  .join('\n')
+              : 'No classes enrolled';
+            return classesText;
+          } catch (fallbackError) {
+            console.error('Error fetching student classes:', fallbackError);
+            return 'No classes enrolled';
+          }
+        }
+      }
       // Link variables need token generation
       if (variable === 'registration_link') {
         try {
@@ -458,6 +506,54 @@ export function Composer({
             } catch (error) {
               console.error('Error fetching student classes:', error);
               return 'No classes enrolled';
+            }
+          }
+          if (variable === 'classes_with_start_date') {
+            try {
+              const classesWithDates = await getStudentClassesWithStartDates(student.id);
+              const classesText = classesWithDates.length > 0
+                ? classesWithDates
+                    .map(({ class: cls, subject, startDate }) => {
+                      const className = formatClassName(cls, subject);
+                      if (startDate) {
+                        // Format date as "Wed 11th Feb"
+                        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        const dayName = dayNames[startDate.getDay()];
+                        const day = startDate.getDate();
+                        const month = monthNames[startDate.getMonth()];
+                        const getOrdinal = (n: number): string => {
+                          const s = ['th', 'st', 'nd', 'rd'];
+                          const v = n % 100;
+                          return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                        };
+                        const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
+                        return `- ${className} starting on ${formattedDate}`;
+                      } else {
+                        return `- ${className}`;
+                      }
+                    })
+                    .join('\n')
+                : 'No classes enrolled';
+              return classesText;
+            } catch (error) {
+              console.error('Error fetching classes with start dates:', error);
+              // Fallback to regular classes
+              try {
+                const classes = await getStudentClasses(student.id);
+                const classesText = classes.length > 0
+                  ? classes
+                      .map(({ class: cls, subject }) => {
+                        const className = formatClassName(cls, subject);
+                        return `- ${className}`;
+                      })
+                      .join('\n')
+                  : 'No classes enrolled';
+                return classesText;
+              } catch (fallbackError) {
+                console.error('Error fetching student classes:', fallbackError);
+                return 'No classes enrolled';
+              }
             }
           }
           // Link variables need token generation

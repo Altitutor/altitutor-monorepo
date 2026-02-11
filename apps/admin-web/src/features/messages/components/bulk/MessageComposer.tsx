@@ -166,9 +166,20 @@ export function MessageComposer({
     ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
     : null;
 
-  const previewMessage = currentStudent && studentClasses[currentStudent.id]
-    ? replaceVariables(message, currentStudent, studentClasses[currentStudent.id] || [], senderName)
-    : message;
+  const [previewMessage, setPreviewMessage] = useState<string>(message);
+
+  // Update preview message when message, student, or classes change
+  useEffect(() => {
+    const updatePreview = async () => {
+      if (currentStudent && studentClasses[currentStudent.id]) {
+        const replaced = await replaceVariables(message, currentStudent, studentClasses[currentStudent.id] || [], senderName);
+        setPreviewMessage(replaced);
+      } else {
+        setPreviewMessage(message);
+      }
+    };
+    updatePreview();
+  }, [message, currentStudent, studentClasses, senderName]);
 
   const handlePrevious = () => {
     setPreviewIndex(Math.max(0, previewIndex - 1));

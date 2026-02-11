@@ -130,36 +130,48 @@ export function MessagePreview({
 
   const selectedRecipient = recipients.find(r => r.id === selectedRecipientId);
 
-  // Get preview message for selected recipient
-  const getPreviewMessage = () => {
-    if (!selectedRecipient) return message;
+  const [previewMessage, setPreviewMessage] = useState<string>(message);
 
-    // For parents, use their student's data
-    const studentId = selectedRecipient.type === 'parent' 
-      ? selectedRecipient.studentId 
-      : selectedRecipient.id;
+  // Update preview message when message, recipient, or classes change
+  useEffect(() => {
+    const updatePreview = async () => {
+      if (!selectedRecipient) {
+        setPreviewMessage(message);
+        return;
+      }
 
-    const student = students.find(s => s.id === studentId);
-    if (!student || !studentId) return message;
+      // For parents, use their student's data
+      const studentId = selectedRecipient.type === 'parent' 
+        ? selectedRecipient.studentId 
+        : selectedRecipient.id;
 
-    const senderName = currentStaff 
-      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
-      : null;
+      const student = students.find(s => s.id === studentId);
+      if (!student || !studentId) {
+        setPreviewMessage(message);
+        return;
+      }
 
-    const classes = studentClasses[studentId] || [];
-    
-    // Note: Link tokens are not generated in preview to avoid unnecessary API calls
-    // They will be generated when actually sending
-    // Replace variables (link variables will be empty strings)
-    let previewText = replaceVariables(message, student, classes, senderName);
-    
-    // Add placeholder text for link variables in preview
-    previewText = previewText.replace(/\{registration_link\}/gi, '[Registration Link]');
-    previewText = previewText.replace(/\{invite_link\}/gi, '[Invite Link]');
-    previewText = previewText.replace(/\{forgot_password_link\}/gi, '[Forgot Password Link]');
-    
-    return previewText;
-  };
+      const senderName = currentStaff 
+        ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+        : null;
+
+      const classes = studentClasses[studentId] || [];
+      
+      // Note: Link tokens are not generated in preview to avoid unnecessary API calls
+      // They will be generated when actually sending
+      // Replace variables (link variables will be empty strings)
+      let previewText = await replaceVariables(message, student, classes, senderName);
+      
+      // Add placeholder text for link variables in preview
+      previewText = previewText.replace(/\{registration_link\}/gi, '[Registration Link]');
+      previewText = previewText.replace(/\{invite_link\}/gi, '[Invite Link]');
+      previewText = previewText.replace(/\{forgot_password_link\}/gi, '[Forgot Password Link]');
+      
+      setPreviewMessage(previewText);
+    };
+
+    updatePreview();
+  }, [message, selectedRecipient, studentClasses, currentStaff, students]);
 
 
   return (
@@ -258,7 +270,7 @@ export function MessagePreview({
                           : 'bg-brand-lightBlue text-brand-dark-bg'
                       }`}>
                         <p className="text-sm whitespace-pre-wrap break-words">
-                          {getPreviewMessage()}
+                          {previewMessage}
                         </p>
                       </div>
                     </div>
