@@ -3,15 +3,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
-import { replaceVariables } from '../utils/variableReplacer';
+import { replaceVariables, TEMPLATE_VARIABLES } from '../utils/variableReplacer';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses } from '../api/bulk';
+import { formatClassName } from '@/shared/utils';
+import { getInviteUrlForStudent, getInviteUrlForStaff } from '@/shared/utils/invites';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
-import { Loader2, Paperclip, Phone, Check } from 'lucide-react';
+import { Loader2, Paperclip, Phone, Check, Code } from 'lucide-react';
 import { useMessageAttachments } from '../hooks/useMessageAttachments';
 import { AttachmentPreviewList } from './AttachmentPreview';
 import { calculateSMSSegments } from '../utils/smsSegments';
@@ -42,6 +44,7 @@ export function Composer({
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -322,6 +325,301 @@ export function Composer({
     }
   };
 
+  // Helper function to get the replacement value for a single variable
+  const getVariableValue = async (variable: string): Promise<string> => {
+    // Get sender name from current staff
+    const senderName = currentStaff 
+      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+      : null;
+
+    // Simple variables that can be resolved immediately
+    if (variable === 'sender_name') {
+      return senderName || '';
+    }
+
+    if (!contactData) {
+      return `{${variable}}`; // Return placeholder if no contact data
+    }
+
+    const contact = contactData;
+
+    // Handle student/parent contacts
+    if (contact.contact_type === 'STUDENT' && contact.students) {
+      const student = contact.students as Tables<'students'>;
+      
+      if (variable === 'first_name') {
+        return student.first_name || '';
+      }
+      if (variable === 'last_name') {
+        return student.last_name || '';
+      }
+      if (variable === 'classes') {
+        try {
+          const classes = await getStudentClasses(student.id);
+          const classesText = classes.length > 0
+            ? classes
+                .map(({ class: cls, subject }) => {
+                  const className = formatClassName(cls, subject);
+                  return `- ${className}`;
+                })
+                .join('\n')
+            : 'No classes enrolled';
+          return classesText;
+        } catch (error) {
+          console.error('Error fetching student classes:', error);
+          return 'No classes enrolled';
+        }
+      }
+      // Link variables need token generation
+      if (variable === 'registration_link') {
+        try {
+          setIsGeneratingTokens(true);
+          const linkTokens = await generateLinkTokensForStudent(student.id, {
+            includeRegistration: true,
+            includeInvite: false,
+            includePasswordReset: false,
+          });
+          if (linkTokens?.registrationToken) {
+            const registrationUrl = getInviteUrlForStudent(linkTokens.registrationToken, 'register');
+            return registrationUrl;
+          }
+        } catch (error) {
+          console.error('Error generating registration link:', error);
+        } finally {
+          setIsGeneratingTokens(false);
+        }
+        return ''; // Return empty if token generation fails
+      }
+      if (variable === 'invite_link') {
+        try {
+          setIsGeneratingTokens(true);
+          const linkTokens = await generateLinkTokensForStudent(student.id, {
+            includeRegistration: false,
+            includeInvite: true,
+            includePasswordReset: false,
+          });
+          if (linkTokens?.inviteToken) {
+            const inviteUrl = getInviteUrlForStudent(linkTokens.inviteToken, 'invite');
+            return inviteUrl;
+          }
+        } catch (error) {
+          console.error('Error generating invite link:', error);
+        } finally {
+          setIsGeneratingTokens(false);
+        }
+        return ''; // Return empty if token generation fails
+      }
+      if (variable === 'forgot_password_link') {
+        try {
+          setIsGeneratingTokens(true);
+          const linkTokens = await generateLinkTokensForStudent(student.id, {
+            includeRegistration: false,
+            includeInvite: false,
+            includePasswordReset: true,
+          });
+          if (linkTokens?.forgotPasswordLink) {
+            return linkTokens.forgotPasswordLink;
+          }
+        } catch (error) {
+          console.error('Error generating password reset link:', error);
+        } finally {
+          setIsGeneratingTokens(false);
+        }
+        return ''; // Return empty if token generation fails
+      }
+    }
+    // Handle parent contacts - use first student
+    else if (contact.contact_type === 'PARENT' && contact.parents) {
+      const parent = contact.parents as any;
+      const parentStudents = parent.parents_students || [];
+      if (parentStudents.length > 0) {
+        const firstStudent = parentStudents[0]?.students;
+        if (firstStudent) {
+          const student = firstStudent as Tables<'students'>;
+          
+          if (variable === 'first_name') {
+            return student.first_name || '';
+          }
+          if (variable === 'last_name') {
+            return student.last_name || '';
+          }
+          if (variable === 'classes') {
+            try {
+              const classes = await getStudentClasses(student.id);
+              const classesText = classes.length > 0
+                ? classes
+                    .map(({ class: cls, subject }) => {
+                      const className = formatClassName(cls, subject);
+                      return `- ${className}`;
+                    })
+                    .join('\n')
+                : 'No classes enrolled';
+              return classesText;
+            } catch (error) {
+              console.error('Error fetching student classes:', error);
+              return 'No classes enrolled';
+            }
+          }
+          // Link variables need token generation
+          if (variable === 'registration_link') {
+            try {
+              setIsGeneratingTokens(true);
+              const linkTokens = await generateLinkTokensForStudent(student.id, {
+                includeRegistration: true,
+                includeInvite: false,
+                includePasswordReset: false,
+              });
+              if (linkTokens?.registrationToken) {
+                const registrationUrl = getInviteUrlForStudent(linkTokens.registrationToken, 'register');
+                return registrationUrl;
+              }
+            } catch (error) {
+              console.error('Error generating registration link:', error);
+            } finally {
+              setIsGeneratingTokens(false);
+            }
+            return ''; // Return empty if token generation fails
+          }
+          if (variable === 'invite_link') {
+            try {
+              setIsGeneratingTokens(true);
+              const linkTokens = await generateLinkTokensForStudent(student.id, {
+                includeRegistration: false,
+                includeInvite: true,
+                includePasswordReset: false,
+              });
+              if (linkTokens?.inviteToken) {
+                const inviteUrl = getInviteUrlForStudent(linkTokens.inviteToken, 'invite');
+                return inviteUrl;
+              }
+            } catch (error) {
+              console.error('Error generating invite link:', error);
+            } finally {
+              setIsGeneratingTokens(false);
+            }
+            return ''; // Return empty if token generation fails
+          }
+          if (variable === 'forgot_password_link') {
+            try {
+              setIsGeneratingTokens(true);
+              const linkTokens = await generateLinkTokensForStudent(student.id, {
+                includeRegistration: false,
+                includeInvite: false,
+                includePasswordReset: true,
+              });
+              if (linkTokens?.forgotPasswordLink) {
+                return linkTokens.forgotPasswordLink;
+              }
+            } catch (error) {
+              console.error('Error generating password reset link:', error);
+            } finally {
+              setIsGeneratingTokens(false);
+            }
+            return ''; // Return empty if token generation fails
+          }
+        }
+      }
+    }
+    // Handle staff contacts
+    else if (contact.contact_type === 'STAFF' && contact.staff) {
+      const staff = contact.staff as Tables<'staff'>;
+      
+      if (variable === 'first_name') {
+        return staff.first_name || '';
+      }
+      if (variable === 'last_name') {
+        return staff.last_name || '';
+      }
+      // Link variables need token generation
+      if (variable === 'invite_link') {
+        try {
+          setIsGeneratingTokens(true);
+          const linkTokens = await generateLinkTokensForStaff(staff.id, staff.role, {
+            includeInvite: true,
+            includePasswordReset: false,
+          });
+          if (linkTokens?.inviteToken && staff.role) {
+            const inviteUrl = getInviteUrlForStaff(linkTokens.inviteToken, staff.role);
+            return inviteUrl;
+          }
+        } catch (error) {
+          console.error('Error generating invite link for staff:', error);
+        } finally {
+          setIsGeneratingTokens(false);
+        }
+        return ''; // Return empty if token generation fails
+      }
+      if (variable === 'forgot_password_link') {
+        try {
+          setIsGeneratingTokens(true);
+          const linkTokens = await generateLinkTokensForStaff(staff.id, staff.role, {
+            includeInvite: false,
+            includePasswordReset: true,
+          });
+          if (linkTokens?.forgotPasswordLink) {
+            return linkTokens.forgotPasswordLink;
+          }
+        } catch (error) {
+          console.error('Error generating password reset link for staff:', error);
+        } finally {
+          setIsGeneratingTokens(false);
+        }
+        return ''; // Return empty if token generation fails
+      }
+    }
+
+    // Fallback: return placeholder
+    return `{${variable}}`;
+  };
+
+  // Insert variable at cursor position and replace with actual value
+  const handleInsertVariable = async (variable: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const textBefore = text.substring(0, start);
+    const textAfter = text.substring(end);
+    
+    // Get the replacement value
+    const replacementValue = await getVariableValue(variable);
+    const newText = textBefore + replacementValue + textAfter;
+    
+    setText(newText);
+    
+    // Dismiss the dropdown
+    setVariablesMenuOpen(false);
+    
+    // Restore cursor position after variable insertion
+    setTimeout(() => {
+      const newPosition = start + replacementValue.length;
+      textarea.focus();
+      textarea.setSelectionRange(newPosition, newPosition);
+    }, 0);
+  };
+
+  // Get available variables based on contact type
+  const getAvailableVariables = () => {
+    if (!contactData) {
+      // If no contact data, show all variables
+      return TEMPLATE_VARIABLES;
+    }
+
+    const contact = contactData;
+    
+    // For staff contacts, exclude classes and registration_link
+    if (contact.contact_type === 'STAFF') {
+      return TEMPLATE_VARIABLES.filter(
+        v => v.name !== 'classes' && v.name !== 'registration_link'
+      );
+    }
+    
+    // For STUDENT and PARENT contacts, show all variables
+    return TEMPLATE_VARIABLES;
+  };
+
+  const availableVariables = getAvailableVariables();
 
   const getSenderDisplayName = (sender: Sender | undefined): string => {
     if (!sender) return 'Select sender';
@@ -404,6 +702,58 @@ export function Composer({
                 </div>
               )}
             </div>
+            
+            {/* Variables button */}
+            <DropdownMenu open={variablesMenuOpen} onOpenChange={setVariablesMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                {canExpand ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onMouseDown={(e) => {
+                      // Prevent losing focus on textarea when clicking button
+                      e.preventDefault();
+                    }}
+                    disabled={send.isPending || !contactId || !selectedSenderId}
+                    className="h-10"
+                  >
+                    <Code className="h-4 w-4 mr-2" />
+                    Variables
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onMouseDown={(e) => {
+                      // Prevent losing focus on textarea when clicking button
+                      e.preventDefault();
+                    }}
+                    disabled={send.isPending || !contactId || !selectedSenderId}
+                    className="h-10"
+                    aria-label="Insert variable"
+                  >
+                    <Code className="h-4 w-4" />
+                  </Button>
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {availableVariables.map((variable) => (
+                  <DropdownMenuItem
+                    key={variable.name}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleInsertVariable(variable.name);
+                    }}
+                    className="flex flex-col items-start"
+                  >
+                    <span className="text-sm font-medium">{`{${variable.name}}`}</span>
+                    <span className="text-xs text-muted-foreground">{variable.description}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             {/* Upload button - only show for iMessage senders */}
             {isIMessageSender && canAddMore && (
