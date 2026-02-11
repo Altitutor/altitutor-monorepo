@@ -127,7 +127,7 @@ export function BillingPreferencesSection({ student }: BillingPreferencesSection
         </p>
       </div>
 
-      <div className="space-y-6 border rounded-lg p-6">
+      <div className="space-y-6">
         {/* Auto-bill toggle */}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5 flex-1">

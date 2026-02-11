@@ -79,14 +79,6 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
     queryClient.invalidateQueries({ queryKey: studentSubsidiesKeys.student(studentId) });
   };
 
-  if (subsidies.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No subsidies configured for this student
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="border rounded-lg">
@@ -103,7 +95,14 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
             </TableRow>
           </TableHeader>
           <TableBody>
-            {subsidies.map((subsidy) => {
+            {subsidies.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  No subsidies configured for this student
+                </TableCell>
+              </TableRow>
+            ) : (
+              subsidies.map((subsidy) => {
               const { style, textColorClass } = getSubjectColorStyle(subsidy.subject);
               const defaultClass = !subsidy.subject.color ? 'bg-gray-100 text-gray-800' : '';
 
@@ -156,7 +155,8 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
                   </TableCell>
                 </TableRow>
               );
-            })}
+              })
+            )}
           </TableBody>
         </Table>
       </div>

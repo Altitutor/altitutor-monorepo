@@ -14,6 +14,9 @@ import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
 import { StudentInvoicesTable } from './StudentInvoicesTable';
 import { CustomerBalanceSection } from './CustomerBalanceSection';
 import { BillingPreferencesSection } from './BillingPreferencesSection';
+import { StudentSubsidiesTable } from './StudentSubsidiesTable';
+import { AddSubsidyModal } from './AddSubsidyModal';
+import { fetchStudentSubsidies } from '../api/subsidies';
 import { getErrorMessage } from '@/shared/utils';
 
 type PaymentMethod = Tables<'student_payment_methods'>;
@@ -141,7 +144,7 @@ function PaymentMethodsTab({ student }: PaymentMethodsTabProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Payment Methods</h3>
-        <Button onClick={() => setIsPaymentMethodModalOpen(true)}>
+        <Button onClick={() => setIsPaymentMethodModalOpen(true)} size="sm">
           <Plus className="mr-2 h-4 w-4" />
           Add Payment Method
         </Button>
@@ -219,14 +222,49 @@ function BillingPreferencesTab({ student }: BillingPreferencesTabProps) {
   return <BillingPreferencesSection student={student} />;
 }
 
+interface SubsidiesTabProps {
+  studentId: string;
+}
+
+function SubsidiesTab({ studentId }: SubsidiesTabProps) {
+  const [isAddSubsidyModalOpen, setIsAddSubsidyModalOpen] = useState(false);
+  const { data: subsidies = [], isLoading } = useQuery({
+    queryKey: studentSubsidiesKeys.student(studentId),
+    queryFn: () => fetchStudentSubsidies(studentId),
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-8 text-muted-foreground">Loading…</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Subsidies</h3>
+        <Button onClick={() => setIsAddSubsidyModalOpen(true)} size="sm">
+          <Plus className="mr-2 h-4 w-4" />
+          Add Subsidy
+        </Button>
+      </div>
+      <StudentSubsidiesTable subsidies={subsidies} studentId={studentId} />
+      <AddSubsidyModal
+        isOpen={isAddSubsidyModalOpen}
+        onClose={() => setIsAddSubsidyModalOpen(false)}
+        studentId={studentId}
+      />
+    </div>
+  );
+}
+
 export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
   const studentName = `${student.first_name} ${student.last_name}`;
 
   return (
     <Tabs defaultValue="invoices" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
+      <TabsList className="grid w-full grid-cols-4">
         <TabsTrigger value="invoices">Invoices</TabsTrigger>
         <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+        <TabsTrigger value="subsidies">Subsidies</TabsTrigger>
         <TabsTrigger value="billing-preferences">Billing Preferences</TabsTrigger>
       </TabsList>
 
@@ -236,6 +274,10 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
 
       <TabsContent value="payment-methods" className="mt-6">
         <PaymentMethodsTab student={student} />
+      </TabsContent>
+
+      <TabsContent value="subsidies" className="mt-6">
+        <SubsidiesTab studentId={student.id} />
       </TabsContent>
 
       <TabsContent value="billing-preferences" className="mt-6">
