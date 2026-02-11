@@ -270,6 +270,78 @@ export async function getStudentClasses(studentId: string): Promise<Array<{
     }));
 }
 
+/**
+ * Get student's enrolled classes with their first session start dates
+ * Returns classes with the date of the first session where the student is enrolled and not marked as absent
+ */
+export async function getStudentClassesWithStartDates(studentId: string): Promise<Array<{
+  class: Tables<'classes'>;
+  subject: Tables<'subjects'> | null;
+  startDate: Date | null;
+}>> {
+  const supabase = getSupabaseClient();
+  
+  // First get all enrolled classes
+  const classes = await getStudentClasses(studentId);
+  
+  if (classes.length === 0) {
+    return [];
+  }
+  
+  const classIds = classes.map(c => c.class.id);
+  
+  // Get the first non-absent session for each class (only future sessions)
+  const now = new Date().toISOString();
+  
+  // Query sessions_students and join sessions, then filter and sort in memory
+  // Note: We can't order by nested relation fields in Supabase, so we fetch all and sort client-side
+  const { data: sessionsData, error: sessionsError } = await supabase
+    .from('sessions_students')
+    .select(`
+      session:sessions!inner(
+        id,
+        class_id,
+        start_at
+      )
+    `)
+    .eq('student_id', studentId)
+    .eq('planned_absence', false)
+    .in('session.class_id', classIds)
+    .gte('session.start_at', now);
+  
+  if (sessionsError) {
+    console.error('Error fetching sessions for classes:', sessionsError);
+    // Return classes without start dates if we can't fetch sessions
+    return classes.map(c => ({ ...c, startDate: null }));
+  }
+  
+  // Sort sessions by start_at ascending (client-side since we can't order by nested relation)
+  const sortedSessions = (sessionsData || []).sort((a: any, b: any) => {
+    const dateA = a.session?.start_at ? new Date(a.session.start_at).getTime() : 0;
+    const dateB = b.session?.start_at ? new Date(b.session.start_at).getTime() : 0;
+    return dateA - dateB;
+  });
+  
+  // Build a map of class_id -> first session start_at
+  const classStartDateMap = new Map<string, Date>();
+  const processedClasses = new Set<string>();
+  
+  sortedSessions.forEach((item: any) => {
+    const session = item.session;
+    if (session?.class_id && session?.start_at && !processedClasses.has(session.class_id)) {
+      classStartDateMap.set(session.class_id, new Date(session.start_at));
+      processedClasses.add(session.class_id);
+    }
+  });
+  
+  // Map classes with their start dates
+  return classes.map(c => ({
+    class: c.class,
+    subject: c.subject,
+    startDate: classStartDateMap.get(c.class.id) || null,
+  }));
+}
+
 type EnrollmentWithClassRow = {
   student_id: string;
   unenrolled_at: string | null;

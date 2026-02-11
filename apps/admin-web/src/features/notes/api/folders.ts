@@ -105,11 +105,38 @@ export const foldersApi = {
   },
 
   /**
-   * Delete a folder
+   * Delete a folder (only if empty - no notes and no child folders)
    */
   delete: async (folderId: string): Promise<void> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
 
+    // Check if folder has any notes
+    const { data: notes, error: notesError } = await supabase
+      .from('notes_documents')
+      .select('id')
+      .eq('folder_id', folderId)
+      .limit(1);
+
+    if (notesError) throw notesError;
+
+    if (notes && notes.length > 0) {
+      throw new Error('Cannot delete folder: folder contains notes');
+    }
+
+    // Check if folder has any child folders
+    const { data: childFolders, error: foldersError } = await supabase
+      .from('notes_folders')
+      .select('id')
+      .eq('parent_id', folderId)
+      .limit(1);
+
+    if (foldersError) throw foldersError;
+
+    if (childFolders && childFolders.length > 0) {
+      throw new Error('Cannot delete folder: folder contains subfolders');
+    }
+
+    // Folder is empty, safe to delete
     const { error } = await supabase.from('notes_folders').delete().eq('id', folderId);
 
     if (error) throw error;

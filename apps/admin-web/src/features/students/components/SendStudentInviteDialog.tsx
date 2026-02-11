@@ -384,7 +384,7 @@ export function SendStudentInviteDialog({
       }
       
       // Replace variables with actual data
-      content = replaceVariables(
+      content = await replaceVariables(
         template.content,
         student,
         studentClasses,

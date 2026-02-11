@@ -266,7 +266,7 @@ export function useAnnouncements() {
 
         const classes = studentClassesMap[student.id] || [];
         const linkTokens = linkTokensMap[student.id];
-        const personalizedMessage = replaceVariables(message, student, classes, senderName, linkTokens || undefined);
+        const personalizedMessage = await replaceVariables(message, student, classes, senderName, linkTokens || undefined);
 
         messages.push({
           conversationId,
@@ -307,7 +307,7 @@ export function useAnnouncements() {
 
           const classes = studentClassesMap[studentId] || [];
           const linkTokens = linkTokensMap[studentId];
-          const personalizedMessage = replaceVariables(message, student, classes, senderName, linkTokens || undefined);
+          const personalizedMessage = await replaceVariables(message, student, classes, senderName, linkTokens || undefined);
 
           messages.push({
             conversationId,
