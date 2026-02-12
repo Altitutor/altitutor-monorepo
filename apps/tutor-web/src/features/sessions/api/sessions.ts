@@ -57,6 +57,21 @@ export const sessionsApi = {
   },
 
   /**
+   * Get tutor log for a session (for display in session modal)
+   * Uses vtutor_tutor_log view
+   */
+  getTutorLogBySessionId: async (sessionId: string) => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('vtutor_tutor_log')
+      .select('*')
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  },
+
+  /**
    * Get a session by ID
    * Uses vtutor_sessions view
    * Note: The view uses 'session_id' as the column name, not 'id'

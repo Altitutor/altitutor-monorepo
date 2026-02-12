@@ -13,6 +13,10 @@ export default function ClassesPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [logSessionPreselectedId, setLogSessionPreselectedId] = useState<string | undefined>(
+    undefined
+  );
+  const [logSessionCompletedCount, setLogSessionCompletedCount] = useState(0);
   const { data: currentStaff } = useCurrentStaff();
 
   const handleOpenSession = (sessionId: string) => {
@@ -22,10 +26,21 @@ export default function ClassesPage() {
 
   const handleCloseSessionModal = () => {
     setIsSessionModalOpen(false);
-    // Delay clearing sessionId to allow exit animation
-    setTimeout(() => {
-      setSelectedSessionId(null);
-    }, 300);
+    setTimeout(() => setSelectedSessionId(null), 300);
+  };
+
+  const handleOpenLogSession = (preselectedSessionId?: string) => {
+    setLogSessionPreselectedId(preselectedSessionId);
+    setIsLogSessionModalOpen(true);
+  };
+
+  const handleCloseLogSession = () => {
+    const hadPreselected = !!logSessionPreselectedId;
+    setIsLogSessionModalOpen(false);
+    setLogSessionPreselectedId(undefined);
+    if (hadPreselected) {
+      setLogSessionCompletedCount((c) => c + 1);
+    }
   };
 
   return (
@@ -41,7 +56,7 @@ export default function ClassesPage() {
           </div>
           {currentStaff?.id && (
             <Button
-              onClick={() => setIsLogSessionModalOpen(true)}
+              onClick={() => handleOpenLogSession()}
               className="flex items-center gap-2"
             >
               <FileText className="h-4 w-4" />
@@ -71,14 +86,19 @@ export default function ClassesPage() {
         isOpen={isSessionModalOpen}
         sessionId={selectedSessionId}
         onClose={handleCloseSessionModal}
+        onLogSessionClick={() => handleOpenLogSession(selectedSessionId ?? undefined)}
+        currentStaffId={currentStaff?.id ?? null}
+        currentStaffIdForNotes={currentStaff?.id ?? null}
+        refreshTrigger={logSessionCompletedCount}
       />
 
-      {/* Log Session Modal */}
+      {/* Log Session Modal - composed at app level */}
       {currentStaff?.id && (
         <LogSessionModal
           isOpen={isLogSessionModalOpen}
-          onClose={() => setIsLogSessionModalOpen(false)}
+          onClose={handleCloseLogSession}
           currentStaffId={currentStaff.id}
+          preselectedSessionId={logSessionPreselectedId}
         />
       )}
     </div>

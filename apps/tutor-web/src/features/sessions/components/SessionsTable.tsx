@@ -22,7 +22,6 @@ import {
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSessions } from '../hooks/useSessionsQuery';
 import { cn } from '@/shared/utils/index';
-import { ViewClassModal } from '@/features/classes';
 import type { Database } from '@altitutor/shared';
 
 type TutorSession = Database['public']['Views']['vtutor_sessions']['Row'];
@@ -33,9 +32,22 @@ type SessionsTableProps = {
   rangeStart?: string; // YYYY-MM-DD
   rangeEnd?: string;   // YYYY-MM-DD
   onOpenSession?: (id: string) => void;
+  /** Renders the class modal - composed at app level to avoid cross-feature import */
+  renderClassModal?: (props: {
+    classId: string | null;
+    isOpen: boolean;
+    onClose: () => void;
+  }) => React.ReactNode;
 };
 
-export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSession }: SessionsTableProps) {
+export function SessionsTable({
+  classId,
+  limit,
+  rangeStart,
+  rangeEnd,
+  onOpenSession,
+  renderClassModal,
+}: SessionsTableProps) {
   
   // React Query hook for data fetching - uses vtutor_sessions view
   const { 
@@ -205,10 +217,16 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
     if (onOpenSession) onOpenSession(id);
   };
 
-  const handleClassClick = (classId: string, e: React.MouseEvent) => {
+  const handleClassClick = (clsId: string, e: React.MouseEvent) => {
+    if (!renderClassModal) return;
     e.stopPropagation();
-    setSelectedClassId(classId);
+    setSelectedClassId(clsId);
     setIsClassModalOpen(true);
+  };
+
+  const handleCloseClassModal = () => {
+    setIsClassModalOpen(false);
+    setSelectedClassId(null);
   };
 
   // Loading state
@@ -343,17 +361,23 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
                   {!classId && (
                     <TableCell>
                       {session.class_id ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
-                          onClick={(e) => handleClassClick(session.class_id!, e)}
-                          title={getClassDisplay(session)}
-                        >
-                          {/* Default to short names, only show full on 2xl+ screens */}
-                          <span className="2xl:hidden">{getClassShortDisplay(session)}</span>
-                          <span className="hidden 2xl:inline">{getClassDisplay(session)}</span>
-                        </Button>
+                        renderClassModal ? (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
+                            onClick={(e) => handleClassClick(session.class_id!, e)}
+                            title={getClassDisplay(session)}
+                          >
+                            <span className="2xl:hidden">{getClassShortDisplay(session)}</span>
+                            <span className="hidden 2xl:inline">{getClassDisplay(session)}</span>
+                          </Button>
+                        ) : (
+                          <span className="text-sm font-medium">
+                            <span className="2xl:hidden">{getClassShortDisplay(session)}</span>
+                            <span className="hidden 2xl:inline">{getClassDisplay(session)}</span>
+                          </span>
+                        )
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
@@ -378,21 +402,14 @@ export function SessionsTable({ classId, limit, rangeStart, rangeEnd, onOpenSess
         </div>
       )}
 
-      {/* Class Modal */}
-      {selectedClassId && (
-        <ViewClassModal
-          classId={selectedClassId}
-          isOpen={isClassModalOpen}
-          onClose={() => {
-            setIsClassModalOpen(false);
-            setSelectedClassId(null);
-          }}
-          onClassUpdated={() => {
-            // Refresh sessions when class is updated
-            refetch();
-          }}
-        />
-      )}
+      {/* Class Modal - composed at app level when renderClassModal provided */}
+      {renderClassModal &&
+        selectedClassId &&
+        renderClassModal({
+          classId: selectedClassId,
+          isOpen: isClassModalOpen,
+          onClose: handleCloseClassModal,
+        })}
     </div>
   );
 } 

@@ -12,7 +12,6 @@ import {
 } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { MoreVertical, Edit, Trash2 } from 'lucide-react';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useCreateSessionNote, useUpdateNote, useDeleteNote } from '../hooks/useSessionNotes';
 import type { Tables } from '@altitutor/shared';
 
@@ -24,15 +23,21 @@ type SessionNotesProps = {
   sessionId: string;
   notes: NoteWithStaff[];
   onNoteAdded?: () => void;
+  /** Current staff ID for filtering notes and authorization - provided by parent */
+  currentStaffId?: string | null;
 };
 
-export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProps) {
+export function SessionNotes({
+  sessionId,
+  notes,
+  onNoteAdded,
+  currentStaffId,
+}: SessionNotesProps) {
   const [newNote, setNewNote] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateSessionNote();
   const updateNoteMutation = useUpdateNote();
   const deleteNoteMutation = useDeleteNote();
@@ -46,7 +51,7 @@ export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProp
   }, [newNote]);
 
   const handleSubmit = async () => {
-    if (!newNote.trim() || !currentStaff?.id) return;
+    if (!newNote.trim() || !currentStaffId) return;
 
     try {
       await createNoteMutation.mutateAsync({
@@ -135,7 +140,7 @@ export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProp
   }, [editingNoteText, editingNoteId]);
 
   // Filter notes to only show those created by current tutor
-  const tutorNotes = notes.filter((note) => note.created_by === currentStaff?.id);
+  const tutorNotes = notes.filter((note) => note.created_by === currentStaffId);
 
   return (
     <div className="space-y-4">
@@ -202,7 +207,7 @@ export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProp
                   </div>
 
                   {/* Actions menu - only show for notes created by current tutor */}
-                  {editingNoteId !== note.id && note.created_by === currentStaff?.id && (
+                  {editingNoteId !== note.id && note.created_by === currentStaffId && (
                     <div className="flex-shrink-0">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -247,7 +252,7 @@ export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProp
           onKeyDown={handleKeyDown}
           placeholder="Add a note..."
           className="min-h-[80px] resize-none text-sm"
-          disabled={createNoteMutation.isPending || !currentStaff}
+          disabled={createNoteMutation.isPending || !currentStaffId}
         />
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
@@ -255,7 +260,7 @@ export function SessionNotes({ sessionId, notes, onNoteAdded }: SessionNotesProp
           </span>
           <Button
             onClick={handleSubmit}
-            disabled={!newNote.trim() || createNoteMutation.isPending || !currentStaff}
+            disabled={!newNote.trim() || createNoteMutation.isPending || !currentStaffId}
             size="sm"
             variant="default"
           >
