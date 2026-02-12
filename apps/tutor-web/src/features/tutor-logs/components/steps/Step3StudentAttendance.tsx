@@ -7,9 +7,7 @@ import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Plus, X, Search } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useTutorLogStep3Data } from '../../hooks/useTutorLogStep3Data';
 
 type StudentAttendanceItem = {
   studentId: string;
@@ -27,106 +25,24 @@ export function Step3StudentAttendance({
   studentAttendance,
   onUpdate,
 }: Step3StudentAttendanceProps) {
-  const [sessionStudents, setSessionStudents] = useState<
-    Array<Tables<'sessions_students'> & { student: Tables<'students'> }>
-  >([]);
-  const [allStudents, setAllStudents] = useState<Tables<'students'>[]>([]);
+  const { sessionStudents, allStudents, isLoading } =
+    useTutorLogStep3Data(sessionId);
+
   const [additionalStudents, setAdditionalStudents] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Initialize form data if empty when data loads
   useEffect(() => {
-    const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      
-      // Get session students from vtutor_sessions_students view
-      const { data: ssData, error: ssError } = await supabase
-        .from('vtutor_sessions_students')
-        .select('*')
-        .eq('session_id', sessionId);
-
-      if (ssError) {
-        // eslint-disable-next-line no-console
-        console.error('Error fetching session students:', ssError);
-        return;
-      }
-
-      // Transform session students
-      type SessionStudentRow = {
-        student_id: string;
-        planned_absence: boolean;
-      };
-      
-      if (ssData) {
-        const transformed = (ssData as SessionStudentRow[]).map((ss) => ({
-          student_id: ss.student_id,
-          planned_absence: ss.planned_absence,
-          student: {
-            id: ss.student_id,
-            first_name: '', // Will be filled from allStudents
-            last_name: '', // Will be filled from allStudents
-            year_level: null,
-          },
-        }));
-        setSessionStudents(transformed as Array<Tables<'sessions_students'> & { student: Tables<'students'> }>);
-      }
-
-      // Get all students for search from vtutor_students view
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('vtutor_students')
-        .select('*')
-        .order('first_name');
-
-      if (studentsError) {
-        // eslint-disable-next-line no-console
-        console.error('Error fetching students:', studentsError);
-        return;
-      }
-
-      setAllStudents(studentsData as Tables<'students'>[]);
-
-      // Populate student data in sessionStudents
-      if (ssData && studentsData) {
-        type SessionStudentRow = {
-          student_id: string;
-          planned_absence: boolean;
-        };
-        const updatedSessionStudents = (ssData as SessionStudentRow[]).map((ss) => {
-          const student = studentsData.find((s) => s.id === ss.student_id);
-          return {
-            student_id: ss.student_id,
-            planned_absence: ss.planned_absence,
-            student: student || {
-              id: ss.student_id,
-              first_name: '',
-              last_name: '',
-              year_level: null,
-            },
-          };
-        });
-        setSessionStudents(updatedSessionStudents as Array<Tables<'sessions_students'> & { student: Tables<'students'> }>);
-      }
-
-      // Initialize form data if empty
-      if (studentAttendance.length === 0 && ssData) {
-        type SessionStudentRow = {
-          student_id: string;
-          planned_absence: boolean;
-        };
-        const initialAttendance = (ssData as SessionStudentRow[]).map((ss) => ({
-          studentId: ss.student_id,
-          attended: !ss.planned_absence,
-        }));
-        onUpdate(initialAttendance);
-      }
-
-      setIsLoading(false);
-    };
-
-    fetchData();
+    if (!isLoading && studentAttendance.length === 0 && sessionStudents.length > 0) {
+      const initialAttendance = sessionStudents.map((ss) => ({
+        studentId: ss.student_id,
+        attended: !ss.planned_absence,
+      }));
+      onUpdate(initialAttendance);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, studentAttendance.length]);
+  }, [isLoading, studentAttendance.length, sessionStudents.length]);
 
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) =>

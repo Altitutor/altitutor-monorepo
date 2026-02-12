@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { topicsFilesApi } from '../api';
+import { useQueries, useQuery } from '@tanstack/react-query';
+import { topicsFilesApi } from '../api/topics-files';
 import type { Enums } from '@altitutor/shared';
 
 /**
@@ -10,6 +10,7 @@ import type { Enums } from '@altitutor/shared';
 export const topicsFilesKeys = {
   all: ['topics-files'] as const,
   byId: (id: string) => ['topics-files', id] as const,
+  byIds: (ids: string[]) => ['topics-files', 'by-ids', ids.sort().join(',')] as const,
   byTopic: (topicId: string) => ['topics-files', 'topic', topicId] as const,
   byTopicAndType: (topicId: string, type: Enums<'resource_type'>) =>
     ['topics-files', 'topic', topicId, 'type', type] as const,
@@ -44,13 +45,29 @@ export function useTopicFileById(id: string | null) {
 
 /**
  * Get topic files for a topic
- * Note: Tutors can only read topic files through views
+ * Uses vtutor_topics_files view
  */
 export function useTopicFilesByTopic(topicId: string | null) {
   return useQuery({
-    queryKey: topicsFilesKeys.byTopic(topicId!),
+    queryKey: topicsFilesKeys.byTopic(topicId ?? ''),
     queryFn: () => topicsFilesApi.getTopicFilesByTopic(topicId!),
     enabled: !!topicId,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
+/**
+ * Get topic files by IDs
+ * Uses vtutor_topics_files view
+ */
+export function useTopicFilesByIds(ids: string[]) {
+  return useQuery({
+    queryKey: topicsFilesKeys.byIds(ids),
+    queryFn: () => topicsFilesApi.getTopicFilesByIds(ids),
+    enabled: ids.length > 0,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
   });
 }
 
