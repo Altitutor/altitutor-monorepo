@@ -12,6 +12,7 @@ interface ParentSearchPopoverProps {
   allParents: Tables<'parents'>[];
   selectedParents: Tables<'parents'>[];
   onSelectParent: (parent: Tables<'parents'>) => void;
+  onCreateNewParent?: () => void;
   trigger?: React.ReactNode;
   align?: 'start' | 'center' | 'end';
 }
@@ -20,6 +21,7 @@ export function ParentSearchPopover({
   allParents,
   selectedParents,
   onSelectParent,
+  onCreateNewParent,
   trigger,
   align = 'end',
 }: ParentSearchPopoverProps) {
@@ -78,10 +80,27 @@ export function ParentSearchPopover({
           <ScrollArea className="h-[300px]">
             <div className="space-y-1 pr-4">
               {filteredParents.length === 0 ? (
-                <div className="p-3 text-center text-sm text-muted-foreground">
-                  {searchQuery
-                    ? 'No parents match your search'
-                    : 'No available parents found'}
+                <div className="space-y-2">
+                  <div className="p-3 text-center text-sm text-muted-foreground">
+                    {searchQuery
+                      ? 'No parents match your search'
+                      : 'No available parents found'}
+                  </div>
+                  {searchQuery && onCreateNewParent && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start h-auto p-3 border-dashed"
+                      onClick={() => {
+                        setIsOpen(false);
+                        onCreateNewParent();
+                      }}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <Plus className="h-4 w-4" />
+                        <span className="font-medium">Create new parent</span>
+                      </div>
+                    </Button>
+                  )}
                 </div>
               ) : (
                 filteredParents.map((parent) => (

@@ -37,6 +37,7 @@ import { MessagesTabContent } from '@/features/messages/components/MessagesTabCo
 import { ViewParentModal } from './ViewParentModal';
 import { ParentSearchPopover } from './ParentSearchPopover';
 import { Badge, useToast } from '@altitutor/ui';
+import { AddParentModal } from '@/features/parents/components/AddParentModal';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
@@ -62,6 +63,7 @@ import {
   useStudentActions,
   studentsKeys,
 } from '../hooks';
+import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
 import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 
 interface ViewStudentModalProps {
@@ -128,6 +130,7 @@ export function ViewStudentModal({
   // Modal states for new actions
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
+  const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
   
   // Get student classes for enroll modal
   const { data: studentClasses = [] } = useStudentClasses(studentId || '');
@@ -437,6 +440,7 @@ export function ViewStudentModal({
                             allParents={allParents}
                             selectedParents={editFlow.tempStudentParents}
                             onSelectParent={editFlow.assignParent}
+                            onCreateNewParent={() => setIsAddParentModalOpen(true)}
                           />
                         ) : undefined
                       }
@@ -698,6 +702,23 @@ export function ViewStudentModal({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Add Parent Modal */}
+      <AddParentModal
+        isOpen={isAddParentModalOpen}
+        onClose={() => setIsAddParentModalOpen(false)}
+        onParentAdded={async (newParent?: Tables<'parents'>) => {
+          if (!newParent) return;
+          
+          // Invalidate queries to refresh parent list
+          queryClient.invalidateQueries({ queryKey: ['students', 'all-parents'] });
+          queryClient.invalidateQueries({ queryKey: parentsKeys.lists() });
+          
+          // Select the newly created parent
+          editFlow.assignParent(newParent);
+          setIsAddParentModalOpen(false);
+        }}
+      />
       
     </>
   );

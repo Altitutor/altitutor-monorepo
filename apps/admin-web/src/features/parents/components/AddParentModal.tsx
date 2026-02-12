@@ -25,11 +25,12 @@ import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { getErrorMessage } from '@/shared/utils';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
 import { studentsApi } from '@/features/students/api/students';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AddParentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onParentAdded: () => void;
+  onParentAdded: (parent?: Tables<'parents'>) => void;
 }
 
 // Schema for form validation
@@ -52,6 +53,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModalProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const createParentMutation = useCreateParent();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -102,6 +104,9 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
         );
       }
       
+      // Invalidate all-parents query to refresh parent lists
+      queryClient.invalidateQueries({ queryKey: ['students', 'all-parents'] });
+      
       toast({
         title: "Success",
         description: "Parent added successfully.",
@@ -109,7 +114,7 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
       
       reset();
       setSelectedStudents([]);
-      onParentAdded();
+      onParentAdded(createdParent);
       onClose();
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
