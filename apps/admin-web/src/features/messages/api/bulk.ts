@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatClassShortName, formatClassName } from '@/shared/utils';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
@@ -562,7 +563,98 @@ export async function getStaffClassesWithStartDates(staffId: string): Promise<Ar
   }));
 }
 
+export interface MessagePreviewRecipient {
+  id: string;
+  type: 'student' | 'parent';
+  name: string;
+  phone: string | null;
+  studentId?: string;
+}
 
+export interface MessagePreviewData {
+  recipients: MessagePreviewRecipient[];
+  studentClasses: Record<
+    string,
+    Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>
+  >;
+}
+
+type ParentStudentRow = {
+  parent_id: string;
+  student_id: string;
+  parents: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+  } | null;
+};
+
+/**
+ * Fetch recipients and student classes for bulk message preview.
+ * Replaces useEffect-based loading in MessagePreview component.
+ */
+export async function fetchMessagePreviewData(
+  students: Tables<'students'>[],
+  sendToParents: boolean
+): Promise<MessagePreviewData> {
+  const allRecipients: MessagePreviewRecipient[] = [];
+  const classesMap: Record<
+    string,
+    Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>
+  > = {};
+
+  // Load student classes in parallel
+  const classResults = await Promise.all(
+    students.map((s) => getStudentClasses(s.id))
+  );
+  students.forEach((student, i) => {
+    allRecipients.push({
+      id: student.id,
+      type: 'student',
+      name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+      phone: student.phone,
+    });
+    classesMap[student.id] = classResults[i];
+  });
+
+  if (sendToParents && students.length > 0) {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const studentIds = students.map((s) => s.id);
+    const { data: parentStudents, error } = await supabase
+      .from('parents_students')
+      .select(
+        `
+        parent_id,
+        student_id,
+        parents (
+          id,
+          first_name,
+          last_name,
+          phone
+        )
+      `
+      )
+      .in('student_id', studentIds);
+
+    if (!error && parentStudents) {
+      const typed = parentStudents as ParentStudentRow[];
+      typed.forEach((ps) => {
+        if (ps.parents) {
+          allRecipients.push({
+            id: `parent-${ps.parent_id}`,
+            type: 'parent',
+            name: `${ps.parents.first_name || ''} ${ps.parents.last_name || ''}`.trim(),
+            phone: ps.parents.phone,
+            studentId: ps.student_id,
+          });
+        }
+      });
+    }
+  }
+
+  return { recipients: allRecipients, studentClasses: classesMap };
+}
 
 
 

@@ -5,23 +5,13 @@ import { Loader2 } from 'lucide-react';
 import { ScrollArea, Badge } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { replaceVariablesForParent, type StudentWithClasses } from '../../utils/variableReplacerParent';
-import { getStudentClasses } from '../../api/bulk';
+import { useMessagePreviewData } from '../../hooks/useMessagePreviewData';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Sender } from '../../api/queries';
 import type { AttachmentFile } from '../../hooks/useMessageAttachments';
 import { MessageAttachment } from '../MessageThread';
-
-interface Recipient {
-  id: string;
-  type: 'student' | 'parent';
-  name: string;
-  phone: string | null;
-  studentId?: string; // For parents, reference to their student
-}
+import type { MessagePreviewRecipient } from '../../api/bulk';
 
 interface MessagePreviewProps {
   students: Tables<'students'>[];
@@ -44,90 +34,26 @@ export function MessagePreview({
   onBack: _onBack,
   isSending: _isSending = false,
 }: MessagePreviewProps) {
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
-  const [studentClasses, setStudentClasses] = useState<
-    Record<string, Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>>
-  >({});
-  const [isLoading, setIsLoading] = useState(true);
+  const { recipients, studentClasses, isLoading } = useMessagePreviewData({
+    students,
+    sendToParents,
+  });
   const { data: currentStaff } = useCurrentStaff();
 
-  // Load all recipients and their classes
+  // Auto-select first recipient when data loads
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      
-      try {
-        const allRecipients: Recipient[] = [];
-        const classesMap: Record<string, Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>> = {};
+    if (recipients.length > 0 && !selectedRecipientId) {
+      setSelectedRecipientId(recipients[0].id);
+    } else if (
+      selectedRecipientId &&
+      !recipients.some((r) => r.id === selectedRecipientId)
+    ) {
+      setSelectedRecipientId(recipients[0]?.id ?? null);
+    }
+  }, [recipients, selectedRecipientId]);
 
-        // Add students as recipients
-        for (const student of students) {
-          allRecipients.push({
-            id: student.id,
-            type: 'student',
-            name: `${student.first_name} ${student.last_name}`,
-            phone: student.phone,
-          });
-
-          // Load student classes
-          const classes = await getStudentClasses(student.id);
-          classesMap[student.id] = classes;
-        }
-
-        // Add parents if requested
-        if (sendToParents) {
-          const studentIds = students.map(s => s.id);
-          const { data: parentStudents, error } = await supabase
-            .from('parents_students')
-            .select(`
-              parent_id,
-              student_id,
-              parents (
-                id,
-                first_name,
-                last_name,
-                phone
-              )
-            `)
-            .in('student_id', studentIds);
-
-          if (error) {
-            console.error('Error fetching parents:', error);
-          } else {
-            (parentStudents || []).forEach((ps: any) => {
-              if (ps.parents) {
-                allRecipients.push({
-                  id: `parent-${ps.parent_id}`,
-                  type: 'parent',
-                  name: `${ps.parents.first_name} ${ps.parents.last_name}`,
-                  phone: ps.parents.phone,
-                  studentId: ps.student_id,
-                });
-              }
-            });
-          }
-        }
-
-        setRecipients(allRecipients);
-        setStudentClasses(classesMap);
-        
-        // Select first recipient
-        if (allRecipients.length > 0) {
-          setSelectedRecipientId(allRecipients[0].id);
-        }
-      } catch (error) {
-        console.error('Error loading preview data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, [students, sendToParents]);
-
-  const recipientsWithPhone = recipients.filter(r => r.phone);
+  const recipientsWithPhone = recipients.filter((r) => r.phone);
 
   const selectedRecipient = recipients.find(r => r.id === selectedRecipientId);
 
