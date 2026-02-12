@@ -120,10 +120,10 @@ export async function processStudentInvoicing(
         continue;
       }
 
-      // Skip zero-amount sessions
-      if (netCents <= 0) continue;
+      // Include zero-amount sessions (e.g., $0 subsidies) - Stripe will automatically mark $0 invoices as paid
+      // This ensures proper audit trail and reconciliation even when session price is $0
 
-      // Add session charge
+      // Add session charge (even if amount is 0)
       const classLongName = getClassLongName(session, classById, subjectById);
       const sessionDate = formatSessionDate(session.start_at);
       invoiceItems.push({
@@ -140,6 +140,7 @@ export async function processStudentInvoicing(
     }
 
     // Calculate total fees as a separate line item
+    // Note: Fees are only added if totalNetCents > 0 (fees on $0 amounts would be $0 anyway)
     if (totalNetCents > 0 && invoiceCurrency) {
       // If no payment method, assume Australian card (domestic fees)
       const isIntl = defaultPM
@@ -157,7 +158,7 @@ export async function processStudentInvoicing(
       );
       const totalFeesCents = grossCents - totalNetCents;
 
-      // Add fees as a separate line item
+      // Add fees as a separate line item (only if fees > 0)
       if (totalFeesCents > 0 && invoiceItems.length > 0) {
         const firstSessionItem = invoiceItems.find((item: any) => item.sessions_students_id);
         if (firstSessionItem) {
@@ -174,11 +175,18 @@ export async function processStudentInvoicing(
         }
       }
     }
+    // If totalNetCents is 0, fees would also be 0, so we skip adding a fee line item
+    // The invoice will still be created with $0 line items and Stripe will mark it as paid automatically
 
-    // Skip if no items to invoice
+    // Safety check: Skip if no items to invoice
+    // This should rarely happen now that we include $0 sessions, but could occur if all sessions
+    // had currency mismatches or other validation errors
     if (invoiceItems.length === 0) {
       console.log(`[runner] No invoice items for student ${studentId} on ${invoiceDate}, skipping`);
-      return { invoiceId: null, error: null };
+      return { 
+        invoiceId: null, 
+        error: `No invoice items generated. All sessions may have been skipped due to validation errors.${errors.length > 0 ? ' Errors: ' + errors.join('; ') : ''}` 
+      };
     }
 
     // Validate currency consistency
