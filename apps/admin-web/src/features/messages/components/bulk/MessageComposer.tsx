@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Paperclip, Phone, Check, Code } from 'lucide
 import { Button, Textarea, ScrollArea, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@altitutor/ui';
 import { MessageTemplatesPicker } from '../MessageTemplatesPicker';
 import { replaceVariables } from '../../utils/variableReplacer';
-import { getStudentClasses } from '../../api/bulk';
+import { useStudentClassesForTemplate } from '../../hooks/useTemplatePreviewData';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
 import type { Sender } from '../../api/queries';
@@ -43,10 +43,13 @@ export function MessageComposer({
   onBack: _onBack,
 }: MessageComposerProps) {
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [studentClasses, setStudentClasses] = useState<
-    Record<string, Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>>
-  >({});
-  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
+  const currentStudent = students[previewIndex];
+  const { data: studentClassesList, isLoading: isLoadingClasses } =
+    useStudentClassesForTemplate(currentStudent?.id ?? null);
+  const studentClasses = useMemo(() => {
+    if (!currentStudent?.id || !studentClassesList) return {};
+    return { [currentStudent.id]: studentClassesList };
+  }, [currentStudent?.id, studentClassesList]);
   const { data: currentStaff } = useCurrentStaff();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -131,32 +134,6 @@ export function MessageComposer({
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, [message]);
-
-  const currentStudent = students[previewIndex];
-
-  // Load classes for current student
-  useEffect(() => {
-    if (!currentStudent) return;
-    
-    const loadClasses = async () => {
-      if (studentClasses[currentStudent.id]) return; // Already loaded
-      
-      setIsLoadingClasses(true);
-      try {
-        const classes = await getStudentClasses(currentStudent.id);
-        setStudentClasses(prev => ({
-          ...prev,
-          [currentStudent.id]: classes,
-        }));
-      } catch (error) {
-        console.error('Error loading student classes:', error);
-      } finally {
-        setIsLoadingClasses(false);
-      }
-    };
-    
-    loadClasses();
-  }, [currentStudent, studentClasses]);
 
   const handleTemplateSelect = (template: Tables<'message_templates'>) => {
     onMessageChange(template.content);
