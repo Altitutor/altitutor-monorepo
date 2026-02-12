@@ -37,4 +37,6 @@ export const VENUE_COORDINATES = {
 
 // Contact information
 export const CONTACT_PHONE = '+61 483 849 842';
-export const CONTACT_EMAIL = 'admin@altitutor.com'; 
+export const CONTACT_EMAIL = 'admin@altitutor.com';
+export const CONTACT_NO_SLOTS_MESSAGE =
+  'No sessions available? Get in contact, and we will book you in.';
