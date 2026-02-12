@@ -13,7 +13,7 @@ import { NoteTableOfContents } from './NoteTableOfContents';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import type { Editor } from '@tiptap/react';
 import { useNote } from '../api/queries';
-import { useUpdateNote, useDeleteNote } from '../api/mutations';
+import { useUpdateNote, useDeleteNote } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';

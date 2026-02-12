@@ -15,7 +15,7 @@ import {
 import { Button } from '@altitutor/ui';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { useUpdateNote } from '../api/mutations';
+import { useUpdateNote } from '../hooks/useNoteMutations';
 import type { Note } from '../types';
 
 const formSchema = z.object({

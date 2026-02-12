@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { notesApi } from './notes';
-import { foldersApi } from './folders';
-import { notesKeys, foldersKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
+import { notesApi } from '../api/notes';
+import { foldersApi } from '../api/folders';
+import { notesKeys, foldersKeys } from '../api/queryKeys';
 import type { NoteInsert, NoteUpdate, FolderInsert, FolderUpdate } from '../types';
 import { useCurrentStaff } from '@/features/staff/hooks';
 
@@ -26,9 +26,7 @@ export function useCreateNote() {
       return notesApi.create(noteWithCreator);
     },
     onSuccess: () => {
-      // Invalidate notes lists
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
-      // Invalidate folder tree (includes notes)
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
       toast({
         title: 'Note created',
@@ -63,17 +61,12 @@ export function useUpdateNote() {
       return { note: result, silent };
     },
     onSuccess: ({ note: updatedNote, silent }, { id }) => {
-      // Update specific note in cache
       queryClient.setQueryData(notesKeys.detail(id), updatedNote);
 
-      // For silent auto-saves, only update cache, don't invalidate (prevents refetch loop)
       if (silent) {
-        // Still update lists/tree cache if they exist, but don't invalidate to prevent refetch
-        // This is fine because the detail query is the source of truth
         return;
       }
 
-      // For manual saves, invalidate lists/tree so they show updated data
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
     },
@@ -97,12 +90,8 @@ export function useDeleteNote() {
   return useMutation({
     mutationFn: async (noteId: string) => notesApi.delete(noteId),
     onSuccess: (_, deletedId) => {
-      // Remove from detail cache
       queryClient.removeQueries({ queryKey: notesKeys.detail(deletedId) });
-
-      // Invalidate notes lists
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
-      // Invalidate folder tree
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
 
       toast({
@@ -140,10 +129,8 @@ export function useCreateFolder() {
       return foldersApi.create(folderWithCreator);
     },
     onSuccess: () => {
-      // Invalidate folders lists
       queryClient.invalidateQueries({ queryKey: foldersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.root() });
-      // Invalidate folder tree
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
       toast({
         title: 'Folder created',
@@ -171,13 +158,10 @@ export function useUpdateFolder() {
     mutationFn: async ({ id, updates }: { id: string; updates: FolderUpdate }) =>
       foldersApi.update(id, updates),
     onSuccess: (updatedFolder, { id }) => {
-      // Update specific folder in cache
       queryClient.setQueryData(foldersKeys.detail(id), updatedFolder);
 
-      // Invalidate folders lists
       queryClient.invalidateQueries({ queryKey: foldersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.root() });
-      // Invalidate folder tree
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
 
       toast({
@@ -205,13 +189,9 @@ export function useDeleteFolder() {
   return useMutation({
     mutationFn: async (folderId: string) => foldersApi.delete(folderId),
     onSuccess: (_, deletedId) => {
-      // Remove from detail cache
       queryClient.removeQueries({ queryKey: foldersKeys.detail(deletedId) });
-
-      // Invalidate folders lists
       queryClient.invalidateQueries({ queryKey: foldersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.root() });
-      // Invalidate folder tree
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
 
       toast({

@@ -14,7 +14,7 @@ import { useFolderTree, useNotes } from '../api/queries';
 import { FolderTreeNode } from './FolderTreeNode';
 import { Skeleton } from '@altitutor/ui';
 import { useNoteDragAndDrop } from '../hooks/useNoteDragAndDrop';
-import { useUpdateNote, useUpdateFolder } from '../api/mutations';
+import { useUpdateNote, useUpdateFolder } from '../hooks/useNoteMutations';
 import { DraggableNote } from './DraggableNote';
 import { DroppableNoFolder } from './DroppableNoFolder';
 import { useMemo } from 'react';

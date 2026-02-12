@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { useDeleteFolder } from '../api/mutations';
+import { useDeleteFolder } from '../hooks/useNoteMutations';
 import { RenameFolderDialog } from './RenameFolderDialog';
 import type { FolderTreeItem } from '../types';
 

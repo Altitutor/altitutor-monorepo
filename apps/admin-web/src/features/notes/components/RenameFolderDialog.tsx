@@ -15,7 +15,7 @@ import {
 import { Button } from '@altitutor/ui';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { useUpdateFolder } from '../api/mutations';
+import { useUpdateFolder } from '../hooks/useNoteMutations';
 import type { FolderTreeItem } from '../types';
 
 const formSchema = z.object({

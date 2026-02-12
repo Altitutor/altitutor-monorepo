@@ -15,7 +15,7 @@ import {
 import { Button } from '@altitutor/ui';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { useCreateFolder } from '../api/mutations';
+import { useCreateFolder } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';
 import {
   Select,
