@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { staffApi } from '../api/staff';
 import type { Tables } from '@altitutor/shared';
 type Staff = Tables<'staff'>;
@@ -283,5 +283,30 @@ export function useStaffSearchForAbsence(params: {
     queryKey: ['staff', 'search-for-absence', search.trim(), page],
     queryFn: () => staffApi.searchForAbsence({ search, page, pageSize }),
     staleTime: 1000 * 30, // 30 seconds
+  });
+}
+
+/**
+ * Infinite staff list for Step0StaffSelector and similar pickers.
+ * Supports search and load-more pagination.
+ */
+export function useStaffListInfinite(search: string, pageSize = 50) {
+  return useInfiniteQuery({
+    queryKey: ['staff', 'list-infinite', search.trim(), pageSize],
+    queryFn: ({ pageParam }) =>
+      staffApi.listMinimal({
+        search: search || undefined,
+        limit: pageSize,
+        offset: pageParam,
+        orderBy: 'first_name',
+        ascending: true,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + p.staff.length, 0);
+      if (lastPage.staff.length < pageSize) return undefined;
+      return totalFetched;
+    },
+    staleTime: 1000 * 60 * 2,
   });
 } 

@@ -27,6 +27,21 @@ export function useSubjects() {
   });
 }
 
+// Paginated subject list (for pickers, filters)
+export function useSubjectsList(params?: {
+  limit?: number;
+  offset?: number;
+  search?: string;
+}) {
+  const { limit = 100, offset = 0, search } = params ?? {};
+  return useQuery({
+    queryKey: [...subjectsKeys.lists(), 'paginated', limit, offset, search ?? ''] as const,
+    queryFn: () => subjectsApi.list({ limit, offset, search }),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
+  });
+}
+
 // Get single subject
 export function useSubject(subjectId: string) {
   return useQuery({

@@ -15,7 +15,7 @@ import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery'
 import { useStaffWithSubjectsById, staffKeys, useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { staffApi } from '@/features/staff/api/staff';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { subjectsApi } from '@/features/subjects/api/subjects';
+import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { AssignStaffModal } from '@/features/enrollments';
@@ -74,7 +74,8 @@ export function ClassesTab({
   // Subjects editing state
   const [isEditingSubjects, setIsEditingSubjects] = useState(false);
   const [tempStaffSubjects, setTempStaffSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [initialFilteredSubjects, setInitialFilteredSubjects] = useState<Tables<'subjects'>[]>([]);
+  const { data: subjectsListData } = useSubjectsList({ limit: 100, offset: 0 });
+  const initialFilteredSubjects = subjectsListData?.subjects ?? [];
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -138,24 +139,6 @@ export function ClassesTab({
 
   
 
-
-  // Fetch initial subjects (all subjects since staff don't have curriculum/year level)
-  useEffect(() => {
-    const fetchInitialSubjects = async () => {
-      try {
-        const { subjects } = await subjectsApi.list({
-          limit: 100,
-          offset: 0,
-        });
-        setInitialFilteredSubjects(subjects);
-      } catch (error) {
-        console.error('Error fetching initial subjects:', error);
-        setInitialFilteredSubjects([]);
-      }
-    };
-
-    fetchInitialSubjects();
-  }, []);
 
   // Handle starting subject edit
   const handleStartEditSubjects = () => {

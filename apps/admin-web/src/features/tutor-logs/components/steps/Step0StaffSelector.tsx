@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Search } from 'lucide-react';
-import { staffApi, type StaffListItem } from '@/features/staff/api/staff';
+import { useStaffListInfinite } from '@/features/staff/hooks/useStaffQuery';
 import { StaffCard } from '@/shared/components/StaffCard';
 import type { Tables } from '@altitutor/shared';
 
@@ -20,56 +20,14 @@ export function Step0StaffSelector({
   onSelectStaff,
 }: Step0StaffSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [staff, setStaff] = useState<StaffListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const limit = 50;
-
-  useEffect(() => {
-    const fetchStaff = async () => {
-      setIsLoading(true);
-      try {
-        const result = await staffApi.listMinimal({
-          search: searchTerm || undefined,
-          limit,
-          offset: 0,
-          orderBy: 'first_name',
-          ascending: true,
-        });
-        setStaff(result.staff);
-        setHasMore(result.staff.length === limit);
-        setOffset(result.staff.length);
-      } catch (error) {
-        console.error('Error fetching staff:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStaff();
-  }, [searchTerm]);
-
-  const loadMore = async () => {
-    if (!hasMore || isLoading) return;
-    setIsLoading(true);
-    try {
-      const result = await staffApi.listMinimal({
-        search: searchTerm || undefined,
-        limit,
-        offset,
-        orderBy: 'first_name',
-        ascending: true,
-      });
-      setStaff((prev) => [...prev, ...result.staff]);
-      setHasMore(result.staff.length === limit);
-      setOffset((prev) => prev + result.staff.length);
-    } catch (error) {
-      console.error('Error loading more staff:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useStaffListInfinite(searchTerm, 50);
+  const staff = data?.pages.flatMap((p) => p.staff) ?? [];
 
   return (
     <div className="space-y-4">
@@ -110,14 +68,14 @@ export function Step0StaffSelector({
               />
             </div>
           ))}
-          {hasMore && (
+          {hasNextPage && (
             <Button
               variant="outline"
-              onClick={loadMore}
-              disabled={isLoading}
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
               className="w-full"
             >
-              {isLoading ? 'Loading...' : 'Load More'}
+              {isFetchingNextPage ? 'Loading...' : 'Load More'}
             </Button>
           )}
         </div>
