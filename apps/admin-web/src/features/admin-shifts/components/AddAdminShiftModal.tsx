@@ -65,6 +65,13 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
       setLoading(false);
       return;
     }
+
+    // Validate end time is after start time
+    if (endTime <= startTime) {
+      setError('End time must be after start time');
+      setLoading(false);
+      return;
+    }
     
     // Validate date range
     if (sessionStartDate && sessionEndDate && sessionStartDate > sessionEndDate) {

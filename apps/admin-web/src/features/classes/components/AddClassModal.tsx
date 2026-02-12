@@ -69,6 +69,13 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       return;
     }
     
+    // Validate end time is after start time
+    if (startTime && endTime && endTime <= startTime) {
+      setError('End time must be after start time');
+      setLoading(false);
+      return;
+    }
+
     // Validate date range
     if (sessionStartDate && sessionEndDate && sessionStartDate > sessionEndDate) {
       setError('Session start date must be before or equal to end date');

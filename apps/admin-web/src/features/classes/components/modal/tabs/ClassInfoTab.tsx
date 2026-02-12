@@ -51,6 +51,15 @@ const classInfoSchema = z.object({
 }, {
   message: 'Session end date must be after or equal to start date',
   path: ['sessionEndDate'],
+}).refine((data) => {
+  // Validate that end time is after start time
+  if (data.startTime && data.endTime) {
+    return data.endTime > data.startTime;
+  }
+  return true;
+}, {
+  message: 'End time must be after start time',
+  path: ['endTime'],
 });
 
 type FormData = z.infer<typeof classInfoSchema>;
