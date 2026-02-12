@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -21,8 +21,7 @@ import type { StudentSubsidyRow } from '../api/subsidies';
 import { deleteSubsidy } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
 import { EditSubsidyModal } from './EditSubsidyModal';
-import { pricingApi } from '@/features/billing/api/pricing';
-import type { BillingPricingRow } from '@/features/billing/api/pricing';
+import { useBillingPricing } from '@/features/billing/hooks/useBillingPricing';
 
 interface StudentSubsidiesTableProps {
   subsidies: StudentSubsidyRow[];
@@ -32,22 +31,13 @@ interface StudentSubsidiesTableProps {
 export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidiesTableProps) {
   const [editingSubsidy, setEditingSubsidy] = useState<StudentSubsidyRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [defaultPricing, setDefaultPricing] = useState<BillingPricingRow[]>([]);
+  const { data: defaultPricing = [] } = useBillingPricing();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch default pricing for each billing type
-  useEffect(() => {
-    pricingApi.getBillingPricing()
-      .then(setDefaultPricing)
-      .catch(() => {
-        // Silently fail - default pricing is optional for display
-      });
-  }, []);
-
   // Helper to get default hourly rate for a billing type
   const getDefaultHourlyRate = (billingType: string): number | null => {
-    const pricing = defaultPricing.find(p => p.billing_type === billingType);
+    const pricing = defaultPricing.find((p) => p.billing_type === billingType);
     return pricing ? pricing.hourly_rate_cents : null;
   };
 
