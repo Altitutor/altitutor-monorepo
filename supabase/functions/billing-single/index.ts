@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
         }
       } catch (err) {
         // Auth check failed, continue with normal flow
-        console.error('[billing-single] Admin token check failed:', err);
+        console.error('[billing-single] Admin token check failed:', err instanceof Error ? err.message : String(err));
       }
     }
 
@@ -315,9 +315,10 @@ Deno.serve(async (req: Request) => {
     if (result.error) {
       return json(
         {
-          error: result.error,
+          error: 'invoice_creation_failed',
           sessions_students_id,
           invoiceId: result.invoiceId,
+          message: result.error,
         },
         500
       );
@@ -326,7 +327,7 @@ Deno.serve(async (req: Request) => {
     if (!result.invoiceId) {
       return json(
         {
-          error: 'Failed to create invoice',
+          error: 'no_invoice_id',
           sessions_students_id,
           message: 'Invoice processing completed but no invoice ID was returned.',
         },
@@ -343,11 +344,15 @@ Deno.serve(async (req: Request) => {
       message: 'Session invoiced successfully',
     });
   } catch (e: any) {
-    console.error('[billing-single] Error:', e);
+    console.error('[billing-single] Unexpected error:', e instanceof Error ? e.message : String(e));
+    if (e?.stack) {
+      console.error('[billing-single] Stack trace:', e.stack);
+    }
     return json(
       {
-        error: 'Internal server error',
+        error: 'internal_server_error',
         message: e?.message || 'An unexpected error occurred',
+        sessions_students_id: requestBody?.sessions_students_id || null,
       },
       500
     );
