@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea, Badge } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
+import { replaceVariablesForParent, type StudentWithClasses } from '../../utils/variableReplacerParent';
 import { getStudentClasses } from '../../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
@@ -140,27 +141,65 @@ export function MessagePreview({
         return;
       }
 
-      // For parents, use their student's data
-      const studentId = selectedRecipient.type === 'parent' 
-        ? selectedRecipient.studentId 
-        : selectedRecipient.id;
-
-      const student = students.find(s => s.id === studentId);
-      if (!student || !studentId) {
-        setPreviewMessage(message);
-        return;
-      }
-
       const senderName = currentStaff 
         ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
         : null;
 
-      const classes = studentClasses[studentId] || [];
-      
-      // Note: Link tokens are not generated in preview to avoid unnecessary API calls
-      // They will be generated when actually sending
-      // Replace variables (link variables will be empty strings)
-      let previewText = await replaceVariables(message, student, classes, senderName);
+      let previewText = message;
+
+      if (selectedRecipient.type === 'parent') {
+        // For parents, we need to get the parent data and all their students
+        const parentId = selectedRecipient.id.replace('parent-', '');
+        const studentId = selectedRecipient.studentId;
+        
+        if (!studentId) {
+          setPreviewMessage(message);
+          return;
+        }
+
+        // Get parent data from recipients (we stored it earlier)
+        // For preview, we'll use a mock parent object and the student's data
+        // In the actual send, useAnnouncements will handle this properly
+        const student = students.find(s => s.id === studentId);
+        if (!student) {
+          setPreviewMessage(message);
+          return;
+        }
+
+        const classes = studentClasses[studentId] || [];
+        
+        // Create a mock parent object for preview (name from recipient)
+        const mockParent: Tables<'parents'> = {
+          id: parentId,
+          first_name: selectedRecipient.name.split(' ')[0] || '',
+          last_name: selectedRecipient.name.split(' ').slice(1).join(' ') || '',
+          email: null,
+          phone: selectedRecipient.phone,
+          user_id: null,
+          invite_token: null,
+          created_by: null,
+          created_at: null,
+          updated_at: null,
+        };
+
+        // For preview, use just the one student
+        const studentsWithClasses: StudentWithClasses[] = [{
+          student,
+          classes,
+        }];
+
+        previewText = await replaceVariablesForParent(message, mockParent, studentsWithClasses, senderName);
+      } else {
+        // For students, use regular replacer
+        const student = students.find(s => s.id === selectedRecipient.id);
+        if (!student) {
+          setPreviewMessage(message);
+          return;
+        }
+
+        const classes = studentClasses[student.id] || [];
+        previewText = await replaceVariables(message, student, classes, senderName);
+      }
       
       // Add placeholder text for link variables in preview
       previewText = previewText.replace(/\{registration_link\}/gi, '[Registration Link]');
@@ -171,7 +210,7 @@ export function MessagePreview({
     };
 
     updatePreview();
-  }, [message, selectedRecipient, studentClasses, currentStaff, students]);
+  }, [message, selectedRecipient, studentClasses, currentStaff, students, recipients]);
 
 
   return (

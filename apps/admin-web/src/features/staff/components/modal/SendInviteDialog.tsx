@@ -27,6 +27,7 @@ import { MessageTemplatesPicker } from '@/features/messages/components/MessageTe
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { replaceVariablesForStaff } from '@/features/messages/utils/variableReplacerStaff';
+import { getStaffClasses } from '@/features/messages/api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { calculateSMSSegments } from '@/features/messages/utils/smsSegments';
 import { templateContainsLinkVariables } from '@/features/messages/utils/generateLinkTokens';
@@ -291,10 +292,14 @@ export function SendInviteDialog({
         }
       }
       
+      // Fetch staff classes
+      const classes = await getStaffClasses(staffMember.id);
+      
       // Replace variables with actual data
-      content = replaceVariablesForStaff(
+      content = await replaceVariablesForStaff(
         template.content,
         staffMember,
+        classes,
         senderName,
         linkTokens ? {
           inviteToken: linkTokens.inviteToken || token,

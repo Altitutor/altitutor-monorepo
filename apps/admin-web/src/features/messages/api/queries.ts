@@ -602,13 +602,13 @@ export async function getContactForTemplate(contactId: string) {
     .select(`
       id,
       contact_type,
-      students (id, first_name, last_name),
+      students (id, first_name, last_name, status, user_id),
       parents (
         id,
         first_name,
         last_name,
         parents_students (
-          students (id, first_name, last_name)
+          students (id, first_name, last_name, status, user_id)
         )
       ),
       staff (id, first_name, last_name, role, email, user_id)

@@ -3,14 +3,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
-import { replaceVariables, TEMPLATE_VARIABLES } from '../utils/variableReplacer';
+import { replaceVariables } from '../utils/variableReplacer';
+import { replaceVariablesForParent, type StudentWithClasses } from '../utils/variableReplacerParent';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
-import { getStudentClasses, getStudentClassesWithStartDates } from '../api/bulk';
+import { getVariablesForRecipientType, STUDENT_SUB_VARIABLES, getStudentSubVariableName, parseStudentSubVariable, canGenerateStudentVariable, canGenerateStaffVariable, canGenerateParentVariable, type RecipientType } from '../utils/variableConfig';
+import { getStudentClasses, getStudentClassesWithStartDates, getStaffClasses, getStaffClassesWithStartDates } from '../api/bulk';
 import { formatClassName } from '@/shared/utils';
 import { getInviteUrlForStudent, getInviteUrlForStaff } from '@/shared/utils/invites';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@altitutor/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
 import { Loader2, Paperclip, Phone, Check, Code } from 'lucide-react';
@@ -45,6 +47,8 @@ export function Composer({
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
+  const [studentHasClasses, setStudentHasClasses] = useState<Record<string, boolean>>({});
+  const [staffHasClasses, setStaffHasClasses] = useState<Record<string, boolean>>({});
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -123,6 +127,82 @@ export function Composer({
 
   // Fetch contact data to get student/parent info for variable replacement
   const { data: contactData } = useContactForTemplate(contactId);
+
+  // Fetch classes for students to determine if class variables can be shown
+  useEffect(() => {
+    const fetchStudentClasses = async () => {
+      if (!contactData) return;
+
+      const contact = contactData;
+      
+      // For student contacts
+      if (contact.contact_type === 'STUDENT' && contact.students) {
+        const student = contact.students as Tables<'students'>;
+        if (!studentHasClasses[student.id]) {
+          try {
+            const classes = await getStudentClasses(student.id);
+            setStudentHasClasses(prev => ({
+              ...prev,
+              [student.id]: classes.length > 0,
+            }));
+          } catch (error) {
+            console.error('Error fetching student classes:', error);
+            setStudentHasClasses(prev => ({
+              ...prev,
+              [student.id]: false,
+            }));
+          }
+        }
+      }
+      
+      // For parent contacts - fetch classes for all linked students
+      if (contact.contact_type === 'PARENT' && contact.parents) {
+        const parent = contact.parents as any;
+        const parentStudents = parent.parents_students || [];
+        
+        for (const ps of parentStudents) {
+          const student = ps.students as Tables<'students'> | undefined;
+          if (!student || studentHasClasses[student.id] !== undefined) continue;
+          
+          try {
+            const classes = await getStudentClasses(student.id);
+            setStudentHasClasses(prev => ({
+              ...prev,
+              [student.id]: classes.length > 0,
+            }));
+          } catch (error) {
+            console.error('Error fetching student classes:', error);
+            setStudentHasClasses(prev => ({
+              ...prev,
+              [student.id]: false,
+            }));
+          }
+        }
+      }
+      
+      // For staff contacts - fetch classes
+      if (contact.contact_type === 'STAFF' && contact.staff) {
+        const staff = contact.staff as Tables<'staff'>;
+        if (staffHasClasses[staff.id] === undefined) {
+          try {
+            const classes = await getStaffClasses(staff.id);
+            setStaffHasClasses(prev => ({
+              ...prev,
+              [staff.id]: classes.length > 0,
+            }));
+          } catch (error) {
+            console.error('Error fetching staff classes:', error);
+            setStaffHasClasses(prev => ({
+              ...prev,
+              [staff.id]: false,
+            }));
+          }
+        }
+      }
+    };
+
+    fetchStudentClasses();
+  }, [contactData, studentHasClasses, staffHasClasses]);
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -249,43 +329,78 @@ export function Composer({
           setIsGeneratingTokens(false);
         }
       }
-      // Check if it's a parent contact - use their first student
+      // Check if it's a parent contact - use all their students
       else if (contact.contact_type === 'PARENT' && contact.parents) {
-        const parent = contact.parents as any;
-        const parentStudents = parent.parents_students || [];
+        const parentData = contact.parents as any;
+        const parent: Tables<'parents'> = {
+          id: parentData.id,
+          first_name: parentData.first_name || '',
+          last_name: parentData.last_name || '',
+          email: parentData.email || null,
+          phone: parentData.phone || null,
+          user_id: parentData.user_id || null,
+          invite_token: parentData.invite_token || null,
+          created_by: parentData.created_by || null,
+          created_at: parentData.created_at || null,
+          updated_at: parentData.updated_at || null,
+        };
+        const parentStudents = (contact.parents as any).parents_students || [];
+        
         if (parentStudents.length > 0) {
-          const firstStudent = parentStudents[0]?.students;
-          if (firstStudent) {
-            const student = firstStudent as Tables<'students'>;
-            try {
-              setIsGeneratingTokens(needsLinks);
-              
-              // Fetch student classes
-              const classes = await getStudentClasses(student.id);
-              
-              // Generate link tokens if template contains link variables
-              let linkTokens = null;
-              if (needsLinks) {
-                try {
-                  linkTokens = await generateLinkTokensForStudent(student.id, {
-                    includeRegistration: template.content.includes('{registration_link}'),
-                    includeInvite: template.content.includes('{invite_link}'),
-                    includePasswordReset: template.content.includes('{forgot_password_link}'),
-                  });
-                } catch (error) {
-                  console.error('Error generating link tokens:', error);
-                  // Continue without tokens - variables will be replaced with empty strings
+          try {
+            setIsGeneratingTokens(needsLinks);
+            
+            // Build students array with classes and link tokens
+            const studentsWithClasses: StudentWithClasses[] = await Promise.all(
+              parentStudents.map(async (ps: any) => {
+                const student = ps.students as Tables<'students'>;
+                if (!student) return null;
+
+                const classes = await getStudentClasses(student.id);
+                
+                let linkTokens = null;
+                if (needsLinks) {
+                  try {
+                    const tokens = await generateLinkTokensForStudent(student.id, {
+                      includeRegistration: template.content.includes('{registration_link}'),
+                      includeInvite: template.content.includes('{invite_link}'),
+                      includePasswordReset: template.content.includes('{forgot_password_link}'),
+                    });
+                    linkTokens = tokens ? {
+                      registrationToken: tokens.registrationToken || null,
+                      inviteToken: tokens.inviteToken || null,
+                      forgotPasswordLink: tokens.forgotPasswordLink || null,
+                    } : null;
+                  } catch (error) {
+                    console.error('Error generating link tokens:', error);
+                    // Continue without tokens
+                  }
                 }
-              }
-              
-              // Replace variables with actual data
-              content = await replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
-            } catch (error) {
-              console.error('Error fetching student classes for template:', error);
-              // Fall back to template with placeholders if we can't fetch classes
-            } finally {
-              setIsGeneratingTokens(false);
-            }
+
+                return {
+                  student,
+                  classes,
+                  linkTokens,
+                };
+              })
+            );
+
+            // Filter out nulls and sort alphabetically by name (consistent with UI)
+            const validStudents = studentsWithClasses
+              .filter((s): s is StudentWithClasses => s !== null)
+              .sort((a, b) => {
+                const nameA = `${a.student.first_name || ''} ${a.student.last_name || ''}`.trim().toLowerCase();
+                const nameB = `${b.student.first_name || ''} ${b.student.last_name || ''}`.trim().toLowerCase();
+                return nameA.localeCompare(nameB);
+              });
+            
+            // Replace variables with actual data (using parent replacer)
+            content = await replaceVariablesForParent(template.content, parent, validStudents, senderName);
+          } catch (error) {
+            console.error('Error fetching student classes for template:', error);
+            // Fall back to template with placeholders if we can't fetch classes
+          } finally {
+            setIsGeneratingTokens(false);
           }
         }
       }
@@ -294,6 +409,9 @@ export function Composer({
         const staff = contact.staff as Tables<'staff'>;
         try {
           setIsGeneratingTokens(needsLinks);
+          
+          // Fetch staff classes
+          const classes = await getStaffClasses(staff.id);
           
           // Generate link tokens if template contains link variables
           let linkTokens = null;
@@ -309,8 +427,8 @@ export function Composer({
             }
           }
           
-          // Replace variables with actual data (staff don't have classes)
-          content = replaceVariablesForStaff(template.content, staff, senderName, linkTokens || undefined);
+          // Replace variables with actual data
+          content = await replaceVariablesForStaff(template.content, staff, classes, senderName, linkTokens || undefined);
         } catch (error) {
           console.error('Error processing staff template:', error);
         } finally {
@@ -350,6 +468,11 @@ export function Composer({
       if (variable === 'first_name') {
         return student.first_name || '';
       }
+      if (variable === 'full_name') {
+        return `${student.first_name || ''} ${student.last_name || ''}`.trim();
+      }
+      
+      // Backward compatibility: also handle {last_name} (deprecated)
       if (variable === 'last_name') {
         return student.last_name || '';
       }
@@ -476,22 +599,115 @@ export function Composer({
         return ''; // Return empty if token generation fails
       }
     }
-    // Handle parent contacts - use first student
+    // Handle parent contacts
     else if (contact.contact_type === 'PARENT' && contact.parents) {
-      const parent = contact.parents as any;
-      const parentStudents = parent.parents_students || [];
-      if (parentStudents.length > 0) {
-        const firstStudent = parentStudents[0]?.students;
-        if (firstStudent) {
-          const student = firstStudent as Tables<'students'>;
-          
-          if (variable === 'first_name') {
-            return student.first_name || '';
+      const parentData = contact.parents as any;
+      const parent: Tables<'parents'> = {
+        id: parentData.id,
+        first_name: parentData.first_name || '',
+        last_name: parentData.last_name || '',
+        email: parentData.email || null,
+        phone: parentData.phone || null,
+        user_id: parentData.user_id || null,
+        invite_token: parentData.invite_token || null,
+        created_by: parentData.created_by || null,
+        created_at: parentData.created_at || null,
+        updated_at: parentData.updated_at || null,
+      };
+      const parentStudents = (contact.parents as any).parents_students || [];
+      
+      // Handle parent-specific variables
+      if (variable === 'parent_first_name') {
+        return parent.first_name || '';
+      }
+      if (variable === 'parent_full_name') {
+        return `${parent.first_name || ''} ${parent.last_name || ''}`.trim();
+      }
+      
+      // Backward compatibility: also handle {parent_last_name} (deprecated)
+      if (variable === 'parent_last_name') {
+        return parent.last_name || '';
+      }
+      
+      // Handle student sub-variables: parent.student{N}.{variable}
+      const parsed = parseStudentSubVariable(variable);
+      if (parsed) {
+        const { index, variable: subVariable } = parsed;
+        const studentIndex = index - 1; // Convert to 0-based index
+        
+        // Check if student index is valid
+        if (studentIndex < 0 || studentIndex >= parentStudents.length) {
+          console.warn(`Invalid student index ${index} for parent ${parent.id}`);
+          return ''; // Return empty if invalid
+        }
+        
+        const studentData = parentStudents[studentIndex]?.students;
+        if (!studentData) {
+          return '';
+        }
+        
+        const student = studentData as Tables<'students'>;
+        
+        // Handle student sub-variables
+        if (subVariable === 'first_name') {
+          return student.first_name || '';
+        }
+        if (subVariable === 'full_name') {
+          return `${student.first_name || ''} ${student.last_name || ''}`.trim();
+        }
+        
+        // Backward compatibility: also handle {last_name} (deprecated)
+        if (subVariable === 'last_name') {
+          return student.last_name || '';
+        }
+        if (subVariable === 'classes') {
+          try {
+            const classes = await getStudentClasses(student.id);
+            const classesText = classes.length > 0
+              ? classes
+                  .map(({ class: cls, subject }) => {
+                    const className = formatClassName(cls, subject);
+                    return `- ${className}`;
+                  })
+                  .join('\n')
+              : 'No classes enrolled';
+            return classesText;
+          } catch (error) {
+            console.error('Error fetching student classes:', error);
+            return 'No classes enrolled';
           }
-          if (variable === 'last_name') {
-            return student.last_name || '';
-          }
-          if (variable === 'classes') {
+        }
+        if (subVariable === 'classes_with_start_date') {
+          try {
+            const classesWithDates = await getStudentClassesWithStartDates(student.id);
+            const classesText = classesWithDates.length > 0
+              ? classesWithDates
+                  .map(({ class: cls, subject, startDate }) => {
+                    const className = formatClassName(cls, subject);
+                    if (startDate) {
+                      // Format date as "Wed 11th Feb"
+                      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const dayName = dayNames[startDate.getDay()];
+                      const day = startDate.getDate();
+                      const month = monthNames[startDate.getMonth()];
+                      const getOrdinal = (n: number): string => {
+                        const s = ['th', 'st', 'nd', 'rd'];
+                        const v = n % 100;
+                        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                      };
+                      const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
+                      return `- ${className} starting on ${formattedDate}`;
+                    } else {
+                      return `- ${className}`;
+                    }
+                  })
+                  .join('\n')
+              : 'No classes enrolled';
+            return classesText;
+          } catch (error) {
+            console.error('Error fetching classes with start dates:', error);
+            // Fallback to regular classes
             try {
               const classes = await getStudentClasses(student.id);
               const classesText = classes.length > 0
@@ -503,116 +719,68 @@ export function Composer({
                     .join('\n')
                 : 'No classes enrolled';
               return classesText;
-            } catch (error) {
-              console.error('Error fetching student classes:', error);
+            } catch (fallbackError) {
+              console.error('Error fetching student classes:', fallbackError);
               return 'No classes enrolled';
             }
           }
-          if (variable === 'classes_with_start_date') {
-            try {
-              const classesWithDates = await getStudentClassesWithStartDates(student.id);
-              const classesText = classesWithDates.length > 0
-                ? classesWithDates
-                    .map(({ class: cls, subject, startDate }) => {
-                      const className = formatClassName(cls, subject);
-                      if (startDate) {
-                        // Format date as "Wed 11th Feb"
-                        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        const dayName = dayNames[startDate.getDay()];
-                        const day = startDate.getDate();
-                        const month = monthNames[startDate.getMonth()];
-                        const getOrdinal = (n: number): string => {
-                          const s = ['th', 'st', 'nd', 'rd'];
-                          const v = n % 100;
-                          return n + (s[(v - 20) % 10] || s[v] || s[0]);
-                        };
-                        const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
-                        return `- ${className} starting on ${formattedDate}`;
-                      } else {
-                        return `- ${className}`;
-                      }
-                    })
-                    .join('\n')
-                : 'No classes enrolled';
-              return classesText;
-            } catch (error) {
-              console.error('Error fetching classes with start dates:', error);
-              // Fallback to regular classes
-              try {
-                const classes = await getStudentClasses(student.id);
-                const classesText = classes.length > 0
-                  ? classes
-                      .map(({ class: cls, subject }) => {
-                        const className = formatClassName(cls, subject);
-                        return `- ${className}`;
-                      })
-                      .join('\n')
-                  : 'No classes enrolled';
-                return classesText;
-              } catch (fallbackError) {
-                console.error('Error fetching student classes:', fallbackError);
-                return 'No classes enrolled';
-              }
+        }
+        // Link variables need token generation
+        if (subVariable === 'registration_link') {
+          try {
+            setIsGeneratingTokens(true);
+            const linkTokens = await generateLinkTokensForStudent(student.id, {
+              includeRegistration: true,
+              includeInvite: false,
+              includePasswordReset: false,
+            });
+            if (linkTokens?.registrationToken) {
+              const registrationUrl = getInviteUrlForStudent(linkTokens.registrationToken, 'register');
+              return registrationUrl;
             }
+          } catch (error) {
+            console.error('Error generating registration link:', error);
+          } finally {
+            setIsGeneratingTokens(false);
           }
-          // Link variables need token generation
-          if (variable === 'registration_link') {
-            try {
-              setIsGeneratingTokens(true);
-              const linkTokens = await generateLinkTokensForStudent(student.id, {
-                includeRegistration: true,
-                includeInvite: false,
-                includePasswordReset: false,
-              });
-              if (linkTokens?.registrationToken) {
-                const registrationUrl = getInviteUrlForStudent(linkTokens.registrationToken, 'register');
-                return registrationUrl;
-              }
-            } catch (error) {
-              console.error('Error generating registration link:', error);
-            } finally {
-              setIsGeneratingTokens(false);
+          return ''; // Return empty if token generation fails
+        }
+        if (subVariable === 'invite_link') {
+          try {
+            setIsGeneratingTokens(true);
+            const linkTokens = await generateLinkTokensForStudent(student.id, {
+              includeRegistration: false,
+              includeInvite: true,
+              includePasswordReset: false,
+            });
+            if (linkTokens?.inviteToken) {
+              const inviteUrl = getInviteUrlForStudent(linkTokens.inviteToken, 'invite');
+              return inviteUrl;
             }
-            return ''; // Return empty if token generation fails
+          } catch (error) {
+            console.error('Error generating invite link:', error);
+          } finally {
+            setIsGeneratingTokens(false);
           }
-          if (variable === 'invite_link') {
-            try {
-              setIsGeneratingTokens(true);
-              const linkTokens = await generateLinkTokensForStudent(student.id, {
-                includeRegistration: false,
-                includeInvite: true,
-                includePasswordReset: false,
-              });
-              if (linkTokens?.inviteToken) {
-                const inviteUrl = getInviteUrlForStudent(linkTokens.inviteToken, 'invite');
-                return inviteUrl;
-              }
-            } catch (error) {
-              console.error('Error generating invite link:', error);
-            } finally {
-              setIsGeneratingTokens(false);
+          return ''; // Return empty if token generation fails
+        }
+        if (subVariable === 'forgot_password_link') {
+          try {
+            setIsGeneratingTokens(true);
+            const linkTokens = await generateLinkTokensForStudent(student.id, {
+              includeRegistration: false,
+              includeInvite: false,
+              includePasswordReset: true,
+            });
+            if (linkTokens?.forgotPasswordLink) {
+              return linkTokens.forgotPasswordLink;
             }
-            return ''; // Return empty if token generation fails
+          } catch (error) {
+            console.error('Error generating password reset link:', error);
+          } finally {
+            setIsGeneratingTokens(false);
           }
-          if (variable === 'forgot_password_link') {
-            try {
-              setIsGeneratingTokens(true);
-              const linkTokens = await generateLinkTokensForStudent(student.id, {
-                includeRegistration: false,
-                includeInvite: false,
-                includePasswordReset: true,
-              });
-              if (linkTokens?.forgotPasswordLink) {
-                return linkTokens.forgotPasswordLink;
-              }
-            } catch (error) {
-              console.error('Error generating password reset link:', error);
-            } finally {
-              setIsGeneratingTokens(false);
-            }
-            return ''; // Return empty if token generation fails
-          }
+          return ''; // Return empty if token generation fails
         }
       }
     }
@@ -623,8 +791,78 @@ export function Composer({
       if (variable === 'first_name') {
         return staff.first_name || '';
       }
+      if (variable === 'full_name') {
+        return `${staff.first_name || ''} ${staff.last_name || ''}`.trim();
+      }
+      
+      // Backward compatibility: also handle {last_name} (deprecated)
       if (variable === 'last_name') {
         return staff.last_name || '';
+      }
+      if (variable === 'classes') {
+        try {
+          const classes = await getStaffClasses(staff.id);
+          const classesText = classes.length > 0
+            ? classes
+                .map(({ class: cls, subject }) => {
+                  const className = formatClassName(cls, subject);
+                  return `- ${className}`;
+                })
+                .join('\n')
+            : 'No classes assigned';
+          return classesText;
+        } catch (error) {
+          console.error('Error fetching staff classes:', error);
+          return 'No classes assigned';
+        }
+      }
+      if (variable === 'classes_with_start_date') {
+        try {
+          const classesWithDates = await getStaffClassesWithStartDates(staff.id);
+          const classesText = classesWithDates.length > 0
+            ? classesWithDates
+                .map(({ class: cls, subject, startDate }) => {
+                  const className = formatClassName(cls, subject);
+                  if (startDate) {
+                    // Format date as "Wed 11th Feb"
+                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const dayName = dayNames[startDate.getDay()];
+                    const day = startDate.getDate();
+                    const month = monthNames[startDate.getMonth()];
+                    const getOrdinal = (n: number): string => {
+                      const s = ['th', 'st', 'nd', 'rd'];
+                      const v = n % 100;
+                      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                    };
+                    const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
+                    return `- ${className} starting on ${formattedDate}`;
+                  } else {
+                    return `- ${className}`;
+                  }
+                })
+                .join('\n')
+            : 'No classes assigned';
+          return classesText;
+        } catch (error) {
+          console.error('Error fetching classes with start dates:', error);
+          // Fallback to regular classes
+          try {
+            const classes = await getStaffClasses(staff.id);
+            const classesText = classes.length > 0
+              ? classes
+                  .map(({ class: cls, subject }) => {
+                    const className = formatClassName(cls, subject);
+                    return `- ${className}`;
+                  })
+                  .join('\n')
+              : 'No classes assigned';
+            return classesText;
+          } catch (fallbackError) {
+            console.error('Error fetching staff classes:', fallbackError);
+            return 'No classes assigned';
+          }
+        }
       }
       // Link variables need token generation
       if (variable === 'invite_link') {
@@ -695,27 +933,70 @@ export function Composer({
     }, 0);
   };
 
-  // Get available variables based on contact type
+  // Get available variables based on contact type, filtered by what can be generated
   const getAvailableVariables = () => {
     if (!contactData) {
-      // If no contact data, show all variables
-      return TEMPLATE_VARIABLES;
+      // If no contact data, show student variables (most common)
+      return getVariablesForRecipientType('STUDENT');
     }
 
     const contact = contactData;
+    const allVariables = getVariablesForRecipientType(contact.contact_type as RecipientType);
     
-    // For staff contacts, exclude classes and registration_link
-    if (contact.contact_type === 'STAFF') {
-      return TEMPLATE_VARIABLES.filter(
-        v => v.name !== 'classes' && v.name !== 'registration_link'
+    // Filter variables based on what can be generated
+    if (contact.contact_type === 'STUDENT' && contact.students) {
+      const student = contact.students as Tables<'students'>;
+      const hasClasses = studentHasClasses[student.id] ?? false;
+      
+      return allVariables.filter(variable => 
+        canGenerateStudentVariable(variable.name, student, hasClasses)
       );
     }
     
-    // For STUDENT and PARENT contacts, show all variables
-    return TEMPLATE_VARIABLES;
+    if (contact.contact_type === 'STAFF' && contact.staff) {
+      const staff = contact.staff as Tables<'staff'>;
+      const hasClasses = staffHasClasses[staff.id] ?? false;
+      
+      return allVariables.filter(variable => 
+        canGenerateStaffVariable(variable.name, staff, hasClasses)
+      );
+    }
+    
+    if (contact.contact_type === 'PARENT' && contact.parents) {
+      const parent = contact.parents as any;
+      
+      return allVariables.filter(variable => 
+        canGenerateParentVariable(variable.name, parent)
+      );
+    }
+    
+    // Default: return all variables if we can't determine
+    return allVariables;
   };
 
   const availableVariables = getAvailableVariables();
+
+  // Get parent's students for nested variable menus
+  const getParentStudents = () => {
+    if (!contactData || contactData.contact_type !== 'PARENT' || !contactData.parents) {
+      return [];
+    }
+    
+    const parent = contactData.parents as any;
+    const parentStudents = parent.parents_students || [];
+    
+    // Extract and sort students alphabetically by name
+    return parentStudents
+      .map((ps: any) => ps.students)
+      .filter(Boolean)
+      .sort((a: Tables<'students'>, b: Tables<'students'>) => {
+        const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
+        const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+  };
+
+  const parentStudents = getParentStudents();
 
   const getSenderDisplayName = (sender: Sender | undefined): string => {
     if (!sender) return 'Select sender';
@@ -848,6 +1129,52 @@ export function Composer({
                     <span className="text-xs text-muted-foreground">{variable.description}</span>
                   </DropdownMenuItem>
                 ))}
+                
+                {/* Show student sub-variables for parent contacts */}
+                {contactData?.contact_type === 'PARENT' && parentStudents.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {parentStudents.map((student: Tables<'students'>, index: number) => {
+                      const studentIndex = index + 1; // 1-based index for display
+                      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || `Student ${studentIndex}`;
+                      const hasClasses = studentHasClasses[student.id] ?? false;
+                      
+                      // Filter student sub-variables based on what can be generated
+                      const availableSubVariables = STUDENT_SUB_VARIABLES.filter(subVariable =>
+                        canGenerateStudentVariable(subVariable.name, student, hasClasses)
+                      );
+                      
+                      // Only show submenu if there are available variables
+                      if (availableSubVariables.length === 0) return null;
+                      
+                      return (
+                        <DropdownMenuSub key={student.id}>
+                          <DropdownMenuSubTrigger>
+                            <span className="text-sm">Student {studentIndex}: {studentName}</span>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {availableSubVariables.map((subVariable) => {
+                              const fullVariableName = getStudentSubVariableName(studentIndex, subVariable.name);
+                              return (
+                                <DropdownMenuItem
+                                  key={fullVariableName}
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    handleInsertVariable(fullVariableName);
+                                  }}
+                                  className="flex flex-col items-start"
+                                >
+                                  <span className="text-sm font-medium">{`{${fullVariableName}}`}</span>
+                                  <span className="text-xs text-muted-foreground">{subVariable.description}</span>
+                                </DropdownMenuItem>
+                              );
+                            })}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    })}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             
