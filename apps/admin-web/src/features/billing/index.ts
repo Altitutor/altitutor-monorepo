@@ -3,6 +3,8 @@ export * from './api/pricing';
 export * from './api/payment-methods';
 export * from './api/subject-pricing-overrides';
 export * from './api/billing-settings';
+export * from './api/billing-preferences';
+export * from './hooks/useBillingPreferences';
 export * from './components/AddPaymentMethodModal';
 export * from './components/ViewInvoiceModal';
 export * from './components/BillingSettingsTable';
