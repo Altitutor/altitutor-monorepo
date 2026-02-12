@@ -10,6 +10,10 @@ import {
   Button,
 } from '@altitutor/ui';
 import { useStudentFutureSessions, useLogAbsences } from '../../hooks';
+import {
+  useMissingStudentSession,
+  useInitialStudentForAbsence,
+} from '../../hooks/useAbsenceInitialData';
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
 import { AbsenceBulkActionSelector } from './AbsenceBulkActionSelector';
 import { StudentCard } from '@/shared/components/StudentCard';
@@ -23,9 +27,7 @@ import type {
 import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
-import type { Tables, Database } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Tables } from '@altitutor/shared';
 
 type WizardStep = 'select-student' | 'select-sessions' | 'process-sessions' | 'success' | 'error';
 
@@ -74,58 +76,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     4 // weeks back when allowing past sessions
   );
 
-  // Fetch the specific session if it's not in futureSessions but initialSessionId is provided
-  const [missingSession, setMissingSession] = useState<StudentSession | null>(null);
-  useEffect(() => {
-    const fetchMissingSession = async () => {
-      if (!isOpen || !initialSessionId || !initialStudentId || !futureSessions) return;
-      
-      const sessionExists = futureSessions.some(s => s.id === initialSessionId);
-      if (sessionExists) {
-        setMissingSession(null);
-        return;
-      }
-
-      // Session is missing, fetch it directly
-      try {
-        const supabase = getSupabaseClient() as SupabaseClient<Database>;
-        const { data, error } = await supabase
-          .from('sessions_students')
-          .select(`
-            id,
-            session_id,
-            planned_absence,
-            session:sessions!inner(
-              *,
-              class:classes(
-                *,
-                subject:subjects(*)
-              )
-            )
-          `)
-          .eq('student_id', initialStudentId)
-          .eq('session_id', initialSessionId)
-          .maybeSingle();
-
-        if (!error && data && data.session) {
-          const session: StudentSession = {
-            ...data.session,
-            class: data.session.class || null,
-            subject: data.session.class?.subject || null,
-            sessionsStudentsId: data.id,
-          };
-          setMissingSession(session);
-        } else {
-          setMissingSession(null);
-        }
-      } catch (error) {
-        console.error('Error fetching missing session:', error);
-        setMissingSession(null);
-      }
-    };
-
-    fetchMissingSession();
-  }, [isOpen, initialSessionId, initialStudentId, futureSessions]);
+  const { data: missingSessionData } = useMissingStudentSession(
+    initialStudentId ?? undefined,
+    initialSessionId ?? undefined,
+    futureSessions ?? undefined,
+    isOpen
+  );
+  const missingSession = missingSessionData ?? null;
 
   // Combine futureSessions with missingSession
   const allSessions = useMemo(() => {
@@ -141,30 +98,20 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   // Log absences mutation
   const logAbsencesMutation = useLogAbsences();
 
-  // Initialize with pre-filled values
+  const { data: initialStudentData } = useInitialStudentForAbsence(
+    initialStudentId ?? undefined,
+    isOpen && !!initialStudentId && !selectedStudent && !hasInitialized
+  );
+
   useEffect(() => {
-    if (isOpen && initialStudentId && !selectedStudent && !hasInitialized) {
-      // Fetch the initial student
-      const fetchInitialStudent = async () => {
-        const supabase = getSupabaseClient() as SupabaseClient<Database>;
-        const { data, error } = await supabase
-          .from('students')
-          .select('*')
-          .eq('id', initialStudentId)
-          .single();
-        
-        if (!error && data) {
-          setSelectedStudent(data as Tables<'students'>);
-          // If initialSessionId is also provided, select it
-          if (initialSessionId) {
-            setSelectedSessionIds(new Set([initialSessionId]));
-          }
-          setHasInitialized(true);
-        }
-      };
-      fetchInitialStudent();
+    if (initialStudentData && !hasInitialized) {
+      setSelectedStudent(initialStudentData);
+      if (initialSessionId) {
+        setSelectedSessionIds(new Set([initialSessionId]));
+      }
+      setHasInitialized(true);
     }
-  }, [isOpen, initialStudentId, initialSessionId, selectedStudent, hasInitialized]);
+  }, [initialStudentData, initialSessionId, hasInitialized]);
 
   // Auto-advance to select-sessions when student is loaded and we have initial values
   useEffect(() => {
@@ -194,7 +141,6 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
-      setMissingSession(null);
     }
   }, [isOpen]);
 

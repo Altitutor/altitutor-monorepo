@@ -10,6 +10,10 @@ import {
   Button,
 } from '@altitutor/ui';
 import { useStaffFutureSessions, useLogStaffAbsences } from '../../hooks';
+import {
+  useMissingStaffSession,
+  useInitialStaffForAbsence,
+} from '../../hooks/useAbsenceInitialData';
 import { StaffAbsenceSessionSelector } from './StaffAbsenceSessionSelector';
 import { StaffAbsenceBulkActionSelector } from './StaffAbsenceBulkActionSelector';
 import { StaffCard } from '@/shared/components/StaffCard';
@@ -23,10 +27,7 @@ import type {
 import { Search, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useStaffSearchForAbsence } from '@/features/staff/hooks';
-import { staffApi } from '@/features/staff/api/staff';
-import type { Tables, Database } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Tables } from '@altitutor/shared';
 
 type WizardStep = 'select-staff' | 'select-sessions' | 'process-sessions' | 'confirm' | 'success' | 'error';
 
@@ -74,58 +75,13 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
     4 // weeks back when allowing past sessions
   );
 
-  // Fetch the specific session if it's not in futureSessions but initialSessionId is provided
-  const [missingSession, setMissingSession] = useState<StaffSession | null>(null);
-  useEffect(() => {
-    const fetchMissingSession = async () => {
-      if (!isOpen || !initialSessionId || !initialStaffId || !futureSessions) return;
-      
-      const sessionExists = futureSessions.some(s => s.id === initialSessionId);
-      if (sessionExists) {
-        setMissingSession(null);
-        return;
-      }
-
-      // Session is missing, fetch it directly
-      try {
-        const supabase = getSupabaseClient() as SupabaseClient<Database>;
-        const { data, error } = await supabase
-          .from('sessions_staff')
-          .select(`
-            id,
-            session_id,
-            planned_absence,
-            session:sessions!inner(
-              *,
-              class:classes(
-                *,
-                subject:subjects(*)
-              )
-            )
-          `)
-          .eq('staff_id', initialStaffId)
-          .eq('session_id', initialSessionId)
-          .maybeSingle();
-
-        if (!error && data && data.session) {
-          const session: StaffSession = {
-            ...data.session,
-            class: data.session.class || null,
-            subject: data.session.class?.subject || null,
-            sessionsStaffId: data.id,
-          };
-          setMissingSession(session);
-        } else {
-          setMissingSession(null);
-        }
-      } catch (error) {
-        console.error('Error fetching missing session:', error);
-        setMissingSession(null);
-      }
-    };
-
-    fetchMissingSession();
-  }, [isOpen, initialSessionId, initialStaffId, futureSessions]);
+  const { data: missingSessionData } = useMissingStaffSession(
+    initialStaffId ?? undefined,
+    initialSessionId ?? undefined,
+    futureSessions ?? undefined,
+    isOpen
+  );
+  const missingSession = missingSessionData ?? null;
 
   // Combine futureSessions with missingSession
   const allSessions = useMemo(() => {
@@ -141,25 +97,20 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
   // Log absences mutation
   const logStaffAbsencesMutation = useLogStaffAbsences();
 
-  // Initialize with pre-filled values
+  const { data: initialStaffData } = useInitialStaffForAbsence(
+    initialStaffId ?? undefined,
+    isOpen && !!initialStaffId && !selectedStaff && !hasInitialized
+  );
+
   useEffect(() => {
-    if (isOpen && initialStaffId && !selectedStaff && !hasInitialized) {
-      // Fetch the initial staff
-      const fetchInitialStaff = async () => {
-        const staff = await staffApi.getById(initialStaffId);
-        
-        if (staff) {
-          setSelectedStaff(staff);
-          // If initialSessionId is also provided, select it
-          if (initialSessionId) {
-            setSelectedSessionIds(new Set([initialSessionId]));
-          }
-          setHasInitialized(true);
-        }
-      };
-      fetchInitialStaff();
+    if (initialStaffData && !hasInitialized) {
+      setSelectedStaff(initialStaffData);
+      if (initialSessionId) {
+        setSelectedSessionIds(new Set([initialSessionId]));
+      }
+      setHasInitialized(true);
     }
-  }, [isOpen, initialStaffId, initialSessionId, selectedStaff, hasInitialized]);
+  }, [initialStaffData, initialSessionId, hasInitialized]);
 
   // Auto-advance to select-sessions when staff is loaded and we have initial values
   useEffect(() => {
@@ -192,7 +143,6 @@ export function LogStaffAbsenceDialog({ isOpen, onClose, staffId, initialStaffId
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
-      setMissingSession(null);
     }
   }, [isOpen]);
 
