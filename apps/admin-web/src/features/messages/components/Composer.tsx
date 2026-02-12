@@ -6,20 +6,21 @@ import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
 import { replaceVariablesForParent, type StudentWithClasses } from '../utils/variableReplacerParent';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
-import { getVariablesForRecipientType, STUDENT_SUB_VARIABLES, getStudentSubVariableName, parseStudentSubVariable, canGenerateStudentVariable, canGenerateStaffVariable, canGenerateParentVariable, type RecipientType } from '../utils/variableConfig';
-import { getStudentClasses, getStudentClassesWithStartDates, getStaffClasses, getStaffClassesWithStartDates } from '../api/bulk';
-import { formatClassName } from '@/shared/utils';
-import { getInviteUrlForStudent, getInviteUrlForStaff } from '@/shared/utils/invites';
+import { getStudentClasses, getStaffClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useAvailableSenders, useContactForTemplate, type Sender } from '../api/queries';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@altitutor/ui';
+import { useAvailableSenders, useContactForTemplate } from '../api/queries';
+import { Button } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
-import { Loader2, Paperclip, Phone, Check, Code } from 'lucide-react';
+import { Loader2, Paperclip } from 'lucide-react';
 import { useMessageAttachments } from '../hooks/useMessageAttachments';
 import { AttachmentPreviewList } from './AttachmentPreview';
 import { calculateSMSSegments } from '../utils/smsSegments';
 import { useResponsiveButtons } from '../hooks/useResponsiveButtons';
+import { useContactClasses } from '../hooks/useContactClasses';
+import { useVariableReplacement } from '../hooks/useVariableReplacement';
+import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
+import { ComposerSenderSelector } from './ComposerSenderSelector';
 
 interface Props {
   contactId: string | null;
@@ -47,8 +48,6 @@ export function Composer({
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
-  const [studentHasClasses, setStudentHasClasses] = useState<Record<string, boolean>>({});
-  const [staffHasClasses, setStaffHasClasses] = useState<Record<string, boolean>>({});
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,8 +88,8 @@ export function Composer({
     
     try {
       await addFiles(files);
-    } catch (error: any) {
-      alert(error?.message || 'Failed to add files');
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Failed to add files');
     }
   };
 
@@ -119,8 +118,8 @@ export function Composer({
     if (files.length > 0) {
       try {
         await addFiles(files);
-      } catch (error: any) {
-        alert(error?.message || 'Failed to add files');
+      } catch (error: unknown) {
+        alert(error instanceof Error ? error.message : 'Failed to add files');
       }
     }
   };
@@ -128,81 +127,17 @@ export function Composer({
   // Fetch contact data to get student/parent info for variable replacement
   const { data: contactData } = useContactForTemplate(contactId);
 
-  // Fetch classes for students to determine if class variables can be shown
-  useEffect(() => {
-    const fetchStudentClasses = async () => {
-      if (!contactData) return;
+  // Fetch classes for students/staff to determine if class variables can be shown (React Query)
+  const { studentHasClasses, staffHasClasses } = useContactClasses(contactData ?? null);
 
-      const contact = contactData;
-      
-      // For student contacts
-      if (contact.contact_type === 'STUDENT' && contact.students) {
-        const student = contact.students as Tables<'students'>;
-        if (!studentHasClasses[student.id]) {
-          try {
-            const classes = await getStudentClasses(student.id);
-            setStudentHasClasses(prev => ({
-              ...prev,
-              [student.id]: classes.length > 0,
-            }));
-          } catch (error) {
-            console.error('Error fetching student classes:', error);
-            setStudentHasClasses(prev => ({
-              ...prev,
-              [student.id]: false,
-            }));
-          }
-        }
-      }
-      
-      // For parent contacts - fetch classes for all linked students
-      if (contact.contact_type === 'PARENT' && contact.parents) {
-        const parent = contact.parents as any;
-        const parentStudents = parent.parents_students || [];
-        
-        for (const ps of parentStudents) {
-          const student = ps.students as Tables<'students'> | undefined;
-          if (!student || studentHasClasses[student.id] !== undefined) continue;
-          
-          try {
-            const classes = await getStudentClasses(student.id);
-            setStudentHasClasses(prev => ({
-              ...prev,
-              [student.id]: classes.length > 0,
-            }));
-          } catch (error) {
-            console.error('Error fetching student classes:', error);
-            setStudentHasClasses(prev => ({
-              ...prev,
-              [student.id]: false,
-            }));
-          }
-        }
-      }
-      
-      // For staff contacts - fetch classes
-      if (contact.contact_type === 'STAFF' && contact.staff) {
-        const staff = contact.staff as Tables<'staff'>;
-        if (staffHasClasses[staff.id] === undefined) {
-          try {
-            const classes = await getStaffClasses(staff.id);
-            setStaffHasClasses(prev => ({
-              ...prev,
-              [staff.id]: classes.length > 0,
-            }));
-          } catch (error) {
-            console.error('Error fetching staff classes:', error);
-            setStaffHasClasses(prev => ({
-              ...prev,
-              [staff.id]: false,
-            }));
-          }
-        }
-      }
-    };
-
-    fetchStudentClasses();
-  }, [contactData, studentHasClasses, staffHasClasses]);
+  // Variable replacement logic (extracted to hook)
+  const { getVariableValue, getAvailableVariables, getParentStudents } = useVariableReplacement(
+    contactData ?? null,
+    studentHasClasses,
+    staffHasClasses,
+    currentStaff ?? undefined,
+    setIsGeneratingTokens
+  );
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -443,469 +378,6 @@ export function Composer({
     }
   };
 
-  // Helper function to get the replacement value for a single variable
-  const getVariableValue = async (variable: string): Promise<string> => {
-    // Get sender name from current staff
-    const senderName = currentStaff 
-      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
-      : null;
-
-    // Simple variables that can be resolved immediately
-    if (variable === 'sender_name') {
-      return senderName || '';
-    }
-
-    if (!contactData) {
-      return `{${variable}}`; // Return placeholder if no contact data
-    }
-
-    const contact = contactData;
-
-    // Handle student/parent contacts
-    if (contact.contact_type === 'STUDENT' && contact.students) {
-      const student = contact.students as Tables<'students'>;
-      
-      if (variable === 'first_name') {
-        return student.first_name || '';
-      }
-      if (variable === 'full_name') {
-        return `${student.first_name || ''} ${student.last_name || ''}`.trim();
-      }
-      
-      // Backward compatibility: also handle {last_name} (deprecated)
-      if (variable === 'last_name') {
-        return student.last_name || '';
-      }
-      if (variable === 'classes') {
-        try {
-          const classes = await getStudentClasses(student.id);
-          const classesText = classes.length > 0
-            ? classes
-                .map(({ class: cls, subject }) => {
-                  const className = formatClassName(cls, subject);
-                  return `- ${className}`;
-                })
-                .join('\n')
-            : 'No classes enrolled';
-          return classesText;
-        } catch (error) {
-          console.error('Error fetching student classes:', error);
-          return 'No classes enrolled';
-        }
-      }
-      if (variable === 'classes_with_start_date') {
-        try {
-          const classesWithDates = await getStudentClassesWithStartDates(student.id);
-          const classesText = classesWithDates.length > 0
-            ? classesWithDates
-                .map(({ class: cls, subject, startDate }) => {
-                  const className = formatClassName(cls, subject);
-                  if (startDate) {
-                    // Format date as "Wed 11th Feb"
-                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const dayName = dayNames[startDate.getDay()];
-                    const day = startDate.getDate();
-                    const month = monthNames[startDate.getMonth()];
-                    const getOrdinal = (n: number): string => {
-                      const s = ['th', 'st', 'nd', 'rd'];
-                      const v = n % 100;
-                      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-                    };
-                    const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
-                    return `- ${className} starting on ${formattedDate}`;
-                  } else {
-                    return `- ${className}`;
-                  }
-                })
-                .join('\n')
-            : 'No classes enrolled';
-          return classesText;
-        } catch (error) {
-          console.error('Error fetching classes with start dates:', error);
-          // Fallback to regular classes
-          try {
-            const classes = await getStudentClasses(student.id);
-            const classesText = classes.length > 0
-              ? classes
-                  .map(({ class: cls, subject }) => {
-                    const className = formatClassName(cls, subject);
-                    return `- ${className}`;
-                  })
-                  .join('\n')
-              : 'No classes enrolled';
-            return classesText;
-          } catch (fallbackError) {
-            console.error('Error fetching student classes:', fallbackError);
-            return 'No classes enrolled';
-          }
-        }
-      }
-      // Link variables need token generation
-      if (variable === 'registration_link') {
-        try {
-          setIsGeneratingTokens(true);
-          const linkTokens = await generateLinkTokensForStudent(student.id, {
-            includeRegistration: true,
-            includeInvite: false,
-            includePasswordReset: false,
-          });
-          if (linkTokens?.registrationToken) {
-            const registrationUrl = getInviteUrlForStudent(linkTokens.registrationToken, 'register');
-            return registrationUrl;
-          }
-        } catch (error) {
-          console.error('Error generating registration link:', error);
-        } finally {
-          setIsGeneratingTokens(false);
-        }
-        return ''; // Return empty if token generation fails
-      }
-      if (variable === 'invite_link') {
-        try {
-          setIsGeneratingTokens(true);
-          const linkTokens = await generateLinkTokensForStudent(student.id, {
-            includeRegistration: false,
-            includeInvite: true,
-            includePasswordReset: false,
-          });
-          if (linkTokens?.inviteToken) {
-            const inviteUrl = getInviteUrlForStudent(linkTokens.inviteToken, 'invite');
-            return inviteUrl;
-          }
-        } catch (error) {
-          console.error('Error generating invite link:', error);
-        } finally {
-          setIsGeneratingTokens(false);
-        }
-        return ''; // Return empty if token generation fails
-      }
-      if (variable === 'forgot_password_link') {
-        try {
-          setIsGeneratingTokens(true);
-          const linkTokens = await generateLinkTokensForStudent(student.id, {
-            includeRegistration: false,
-            includeInvite: false,
-            includePasswordReset: true,
-          });
-          if (linkTokens?.forgotPasswordLink) {
-            return linkTokens.forgotPasswordLink;
-          }
-        } catch (error) {
-          console.error('Error generating password reset link:', error);
-        } finally {
-          setIsGeneratingTokens(false);
-        }
-        return ''; // Return empty if token generation fails
-      }
-    }
-    // Handle parent contacts
-    else if (contact.contact_type === 'PARENT' && contact.parents) {
-      const parentData = contact.parents as any;
-      const parent: Tables<'parents'> = {
-        id: parentData.id,
-        first_name: parentData.first_name || '',
-        last_name: parentData.last_name || '',
-        email: parentData.email || null,
-        phone: parentData.phone || null,
-        user_id: parentData.user_id || null,
-        invite_token: parentData.invite_token || null,
-        created_by: parentData.created_by || null,
-        created_at: parentData.created_at || null,
-        updated_at: parentData.updated_at || null,
-      };
-      const parentStudents = (contact.parents as any).parents_students || [];
-      
-      // Handle parent-specific variables
-      if (variable === 'parent_first_name') {
-        return parent.first_name || '';
-      }
-      if (variable === 'parent_full_name') {
-        return `${parent.first_name || ''} ${parent.last_name || ''}`.trim();
-      }
-      
-      // Backward compatibility: also handle {parent_last_name} (deprecated)
-      if (variable === 'parent_last_name') {
-        return parent.last_name || '';
-      }
-      
-      // Handle student sub-variables: parent.student{N}.{variable}
-      const parsed = parseStudentSubVariable(variable);
-      if (parsed) {
-        const { index, variable: subVariable } = parsed;
-        const studentIndex = index - 1; // Convert to 0-based index
-        
-        // Check if student index is valid
-        if (studentIndex < 0 || studentIndex >= parentStudents.length) {
-          console.warn(`Invalid student index ${index} for parent ${parent.id}`);
-          return ''; // Return empty if invalid
-        }
-        
-        const studentData = parentStudents[studentIndex]?.students;
-        if (!studentData) {
-          return '';
-        }
-        
-        const student = studentData as Tables<'students'>;
-        
-        // Handle student sub-variables
-        if (subVariable === 'first_name') {
-          return student.first_name || '';
-        }
-        if (subVariable === 'full_name') {
-          return `${student.first_name || ''} ${student.last_name || ''}`.trim();
-        }
-        
-        // Backward compatibility: also handle {last_name} (deprecated)
-        if (subVariable === 'last_name') {
-          return student.last_name || '';
-        }
-        if (subVariable === 'classes') {
-          try {
-            const classes = await getStudentClasses(student.id);
-            const classesText = classes.length > 0
-              ? classes
-                  .map(({ class: cls, subject }) => {
-                    const className = formatClassName(cls, subject);
-                    return `- ${className}`;
-                  })
-                  .join('\n')
-              : 'No classes enrolled';
-            return classesText;
-          } catch (error) {
-            console.error('Error fetching student classes:', error);
-            return 'No classes enrolled';
-          }
-        }
-        if (subVariable === 'classes_with_start_date') {
-          try {
-            const classesWithDates = await getStudentClassesWithStartDates(student.id);
-            const classesText = classesWithDates.length > 0
-              ? classesWithDates
-                  .map(({ class: cls, subject, startDate }) => {
-                    const className = formatClassName(cls, subject);
-                    if (startDate) {
-                      // Format date as "Wed 11th Feb"
-                      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                      const dayName = dayNames[startDate.getDay()];
-                      const day = startDate.getDate();
-                      const month = monthNames[startDate.getMonth()];
-                      const getOrdinal = (n: number): string => {
-                        const s = ['th', 'st', 'nd', 'rd'];
-                        const v = n % 100;
-                        return n + (s[(v - 20) % 10] || s[v] || s[0]);
-                      };
-                      const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
-                      return `- ${className} starting on ${formattedDate}`;
-                    } else {
-                      return `- ${className}`;
-                    }
-                  })
-                  .join('\n')
-              : 'No classes enrolled';
-            return classesText;
-          } catch (error) {
-            console.error('Error fetching classes with start dates:', error);
-            // Fallback to regular classes
-            try {
-              const classes = await getStudentClasses(student.id);
-              const classesText = classes.length > 0
-                ? classes
-                    .map(({ class: cls, subject }) => {
-                      const className = formatClassName(cls, subject);
-                      return `- ${className}`;
-                    })
-                    .join('\n')
-                : 'No classes enrolled';
-              return classesText;
-            } catch (fallbackError) {
-              console.error('Error fetching student classes:', fallbackError);
-              return 'No classes enrolled';
-            }
-          }
-        }
-        // Link variables need token generation
-        if (subVariable === 'registration_link') {
-          try {
-            setIsGeneratingTokens(true);
-            const linkTokens = await generateLinkTokensForStudent(student.id, {
-              includeRegistration: true,
-              includeInvite: false,
-              includePasswordReset: false,
-            });
-            if (linkTokens?.registrationToken) {
-              const registrationUrl = getInviteUrlForStudent(linkTokens.registrationToken, 'register');
-              return registrationUrl;
-            }
-          } catch (error) {
-            console.error('Error generating registration link:', error);
-          } finally {
-            setIsGeneratingTokens(false);
-          }
-          return ''; // Return empty if token generation fails
-        }
-        if (subVariable === 'invite_link') {
-          try {
-            setIsGeneratingTokens(true);
-            const linkTokens = await generateLinkTokensForStudent(student.id, {
-              includeRegistration: false,
-              includeInvite: true,
-              includePasswordReset: false,
-            });
-            if (linkTokens?.inviteToken) {
-              const inviteUrl = getInviteUrlForStudent(linkTokens.inviteToken, 'invite');
-              return inviteUrl;
-            }
-          } catch (error) {
-            console.error('Error generating invite link:', error);
-          } finally {
-            setIsGeneratingTokens(false);
-          }
-          return ''; // Return empty if token generation fails
-        }
-        if (subVariable === 'forgot_password_link') {
-          try {
-            setIsGeneratingTokens(true);
-            const linkTokens = await generateLinkTokensForStudent(student.id, {
-              includeRegistration: false,
-              includeInvite: false,
-              includePasswordReset: true,
-            });
-            if (linkTokens?.forgotPasswordLink) {
-              return linkTokens.forgotPasswordLink;
-            }
-          } catch (error) {
-            console.error('Error generating password reset link:', error);
-          } finally {
-            setIsGeneratingTokens(false);
-          }
-          return ''; // Return empty if token generation fails
-        }
-      }
-    }
-    // Handle staff contacts
-    else if (contact.contact_type === 'STAFF' && contact.staff) {
-      const staff = contact.staff as Tables<'staff'>;
-      
-      if (variable === 'first_name') {
-        return staff.first_name || '';
-      }
-      if (variable === 'full_name') {
-        return `${staff.first_name || ''} ${staff.last_name || ''}`.trim();
-      }
-      
-      // Backward compatibility: also handle {last_name} (deprecated)
-      if (variable === 'last_name') {
-        return staff.last_name || '';
-      }
-      if (variable === 'classes') {
-        try {
-          const classes = await getStaffClasses(staff.id);
-          const classesText = classes.length > 0
-            ? classes
-                .map(({ class: cls, subject }) => {
-                  const className = formatClassName(cls, subject);
-                  return `- ${className}`;
-                })
-                .join('\n')
-            : 'No classes assigned';
-          return classesText;
-        } catch (error) {
-          console.error('Error fetching staff classes:', error);
-          return 'No classes assigned';
-        }
-      }
-      if (variable === 'classes_with_start_date') {
-        try {
-          const classesWithDates = await getStaffClassesWithStartDates(staff.id);
-          const classesText = classesWithDates.length > 0
-            ? classesWithDates
-                .map(({ class: cls, subject, startDate }) => {
-                  const className = formatClassName(cls, subject);
-                  if (startDate) {
-                    // Format date as "Wed 11th Feb"
-                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const dayName = dayNames[startDate.getDay()];
-                    const day = startDate.getDate();
-                    const month = monthNames[startDate.getMonth()];
-                    const getOrdinal = (n: number): string => {
-                      const s = ['th', 'st', 'nd', 'rd'];
-                      const v = n % 100;
-                      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-                    };
-                    const formattedDate = `${dayName} ${getOrdinal(day)} ${month}`;
-                    return `- ${className} starting on ${formattedDate}`;
-                  } else {
-                    return `- ${className}`;
-                  }
-                })
-                .join('\n')
-            : 'No classes assigned';
-          return classesText;
-        } catch (error) {
-          console.error('Error fetching classes with start dates:', error);
-          // Fallback to regular classes
-          try {
-            const classes = await getStaffClasses(staff.id);
-            const classesText = classes.length > 0
-              ? classes
-                  .map(({ class: cls, subject }) => {
-                    const className = formatClassName(cls, subject);
-                    return `- ${className}`;
-                  })
-                  .join('\n')
-              : 'No classes assigned';
-            return classesText;
-          } catch (fallbackError) {
-            console.error('Error fetching staff classes:', fallbackError);
-            return 'No classes assigned';
-          }
-        }
-      }
-      // Link variables need token generation
-      if (variable === 'invite_link') {
-        try {
-          setIsGeneratingTokens(true);
-          const linkTokens = await generateLinkTokensForStaff(staff.id, staff.role, {
-            includeInvite: true,
-            includePasswordReset: false,
-          });
-          if (linkTokens?.inviteToken && staff.role) {
-            const inviteUrl = getInviteUrlForStaff(linkTokens.inviteToken, staff.role);
-            return inviteUrl;
-          }
-        } catch (error) {
-          console.error('Error generating invite link for staff:', error);
-        } finally {
-          setIsGeneratingTokens(false);
-        }
-        return ''; // Return empty if token generation fails
-      }
-      if (variable === 'forgot_password_link') {
-        try {
-          setIsGeneratingTokens(true);
-          const linkTokens = await generateLinkTokensForStaff(staff.id, staff.role, {
-            includeInvite: false,
-            includePasswordReset: true,
-          });
-          if (linkTokens?.forgotPasswordLink) {
-            return linkTokens.forgotPasswordLink;
-          }
-        } catch (error) {
-          console.error('Error generating password reset link for staff:', error);
-        } finally {
-          setIsGeneratingTokens(false);
-        }
-        return ''; // Return empty if token generation fails
-      }
-    }
-
-    // Fallback: return placeholder
-    return `{${variable}}`;
-  };
-
   // Insert variable at cursor position and replace with actual value
   const handleInsertVariable = async (variable: string) => {
     const textarea = textareaRef.current;
@@ -933,78 +405,8 @@ export function Composer({
     }, 0);
   };
 
-  // Get available variables based on contact type, filtered by what can be generated
-  const getAvailableVariables = () => {
-    if (!contactData) {
-      // If no contact data, show student variables (most common)
-      return getVariablesForRecipientType('STUDENT');
-    }
-
-    const contact = contactData;
-    const allVariables = getVariablesForRecipientType(contact.contact_type as RecipientType);
-    
-    // Filter variables based on what can be generated
-    if (contact.contact_type === 'STUDENT' && contact.students) {
-      const student = contact.students as Tables<'students'>;
-      const hasClasses = studentHasClasses[student.id] ?? false;
-      
-      return allVariables.filter(variable => 
-        canGenerateStudentVariable(variable.name, student, hasClasses)
-      );
-    }
-    
-    if (contact.contact_type === 'STAFF' && contact.staff) {
-      const staff = contact.staff as Tables<'staff'>;
-      const hasClasses = staffHasClasses[staff.id] ?? false;
-      
-      return allVariables.filter(variable => 
-        canGenerateStaffVariable(variable.name, staff, hasClasses)
-      );
-    }
-    
-    if (contact.contact_type === 'PARENT' && contact.parents) {
-      const parent = contact.parents as any;
-      
-      return allVariables.filter(variable => 
-        canGenerateParentVariable(variable.name, parent)
-      );
-    }
-    
-    // Default: return all variables if we can't determine
-    return allVariables;
-  };
-
   const availableVariables = getAvailableVariables();
-
-  // Get parent's students for nested variable menus
-  const getParentStudents = () => {
-    if (!contactData || contactData.contact_type !== 'PARENT' || !contactData.parents) {
-      return [];
-    }
-    
-    const parent = contactData.parents as any;
-    const parentStudents = parent.parents_students || [];
-    
-    // Extract and sort students alphabetically by name
-    return parentStudents
-      .map((ps: any) => ps.students)
-      .filter(Boolean)
-      .sort((a: Tables<'students'>, b: Tables<'students'>) => {
-        const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
-        const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-  };
-
   const parentStudents = getParentStudents();
-
-  const getSenderDisplayName = (sender: Sender | undefined): string => {
-    if (!sender) return 'Select sender';
-    if (sender.sender_type === 'ALPHANUMERIC') {
-      return sender.alphanumeric_sender_id || sender.label || 'Unknown';
-    }
-    return sender.phone_e164 || sender.label || 'Unknown';
-  };
 
   return (
     <div ref={containerRef} className="border-t dark:border-brand-dark-border flex-shrink-0">
@@ -1080,103 +482,17 @@ export function Composer({
               )}
             </div>
             
-            {/* Variables button */}
-            <DropdownMenu open={variablesMenuOpen} onOpenChange={setVariablesMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                {canExpand ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onMouseDown={(e) => {
-                      // Prevent losing focus on textarea when clicking button
-                      e.preventDefault();
-                    }}
-                    disabled={send.isPending || !contactId || !selectedSenderId}
-                    className="h-10"
-                  >
-                    <Code className="h-4 w-4 mr-2" />
-                    Variables
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onMouseDown={(e) => {
-                      // Prevent losing focus on textarea when clicking button
-                      e.preventDefault();
-                    }}
-                    disabled={send.isPending || !contactId || !selectedSenderId}
-                    className="h-10"
-                    aria-label="Insert variable"
-                  >
-                    <Code className="h-4 w-4" />
-                  </Button>
-                )}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {availableVariables.map((variable) => (
-                  <DropdownMenuItem
-                    key={variable.name}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      handleInsertVariable(variable.name);
-                    }}
-                    className="flex flex-col items-start"
-                  >
-                    <span className="text-sm font-medium">{`{${variable.name}}`}</span>
-                    <span className="text-xs text-muted-foreground">{variable.description}</span>
-                  </DropdownMenuItem>
-                ))}
-                
-                {/* Show student sub-variables for parent contacts */}
-                {contactData?.contact_type === 'PARENT' && parentStudents.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    {parentStudents.map((student: Tables<'students'>, index: number) => {
-                      const studentIndex = index + 1; // 1-based index for display
-                      const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || `Student ${studentIndex}`;
-                      const hasClasses = studentHasClasses[student.id] ?? false;
-                      
-                      // Filter student sub-variables based on what can be generated
-                      const availableSubVariables = STUDENT_SUB_VARIABLES.filter(subVariable =>
-                        canGenerateStudentVariable(subVariable.name, student, hasClasses)
-                      );
-                      
-                      // Only show submenu if there are available variables
-                      if (availableSubVariables.length === 0) return null;
-                      
-                      return (
-                        <DropdownMenuSub key={student.id}>
-                          <DropdownMenuSubTrigger>
-                            <span className="text-sm">Student {studentIndex}: {studentName}</span>
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent>
-                            {availableSubVariables.map((subVariable) => {
-                              const fullVariableName = getStudentSubVariableName(studentIndex, subVariable.name);
-                              return (
-                                <DropdownMenuItem
-                                  key={fullVariableName}
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                    handleInsertVariable(fullVariableName);
-                                  }}
-                                  className="flex flex-col items-start"
-                                >
-                                  <span className="text-sm font-medium">{`{${fullVariableName}}`}</span>
-                                  <span className="text-xs text-muted-foreground">{subVariable.description}</span>
-                                </DropdownMenuItem>
-                              );
-                            })}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    })}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ComposerVariablesDropdown
+              availableVariables={availableVariables}
+              parentStudents={parentStudents}
+              studentHasClasses={studentHasClasses}
+              contactType={contactData?.contact_type}
+              open={variablesMenuOpen}
+              onOpenChange={setVariablesMenuOpen}
+              onInsertVariable={handleInsertVariable}
+              canExpand={canExpand}
+              disabled={send.isPending || !contactId || !selectedSenderId}
+            />
             
             {/* Upload button - only show for iMessage senders */}
             {isIMessageSender && canAddMore && (
@@ -1209,116 +525,14 @@ export function Composer({
               </div>
             )}
             
-            {/* Sender selector */}
             {contactId && availableSenders && availableSenders.length > 0 && (
-              <div className="flex-shrink-0">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    {canExpand ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={send.isPending || !contactId}
-                        type="button"
-                        className="h-10"
-                      >
-                        <Phone 
-                          className={`h-4 w-4 mr-2 ${
-                            selectedSender?.provider === 'IMESSAGE' 
-                              ? 'text-[#007AFF] dark:text-[#0A84FF]' 
-                              : selectedSender?.provider === 'TWILIO'
-                              ? 'text-[#30D158] dark:text-[#1E8E3E]'
-                              : ''
-                          }`}
-                        />
-                        {selectedSender ? getSenderDisplayName(selectedSender) : 'Phone'}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={send.isPending || !contactId}
-                        type="button"
-                        className="h-10"
-                        aria-label="Select sender"
-                      >
-                        <Phone 
-                          className={`h-4 w-4 ${
-                            selectedSender?.provider === 'IMESSAGE' 
-                              ? 'text-[#007AFF] dark:text-[#0A84FF]' 
-                              : selectedSender?.provider === 'TWILIO'
-                              ? 'text-[#30D158] dark:text-[#1E8E3E]'
-                              : ''
-                          }`}
-                        />
-                      </Button>
-                    )}
-                  </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {(() => {
-                    // Group senders by provider
-                    const imessageSenders = availableSenders.filter(s => s.provider === 'IMESSAGE');
-                    const twilioSenders = availableSenders.filter(s => s.provider === 'TWILIO');
-                    
-                    return (
-                      <>
-                        {imessageSenders.length > 0 && (
-                          <>
-                            <DropdownMenuLabel>iMessage</DropdownMenuLabel>
-                            {imessageSenders.map((sender) => (
-                              <DropdownMenuItem
-                                key={sender.id}
-                                onClick={() => setSelectedSenderId(sender.id)}
-                                className="flex items-center justify-between"
-                              >
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-medium">
-                                    {getSenderDisplayName(sender)}
-                                  </span>
-                                  {sender.is_default && (
-                                    <span className="text-xs text-muted-foreground">Default</span>
-                                  )}
-                                </div>
-                                {selectedSenderId === sender.id && (
-                                  <Check className="h-4 w-4 ml-2" />
-                                )}
-                              </DropdownMenuItem>
-                            ))}
-                          </>
-                        )}
-                        {imessageSenders.length > 0 && twilioSenders.length > 0 && (
-                          <DropdownMenuSeparator />
-                        )}
-                        {twilioSenders.length > 0 && (
-                          <>
-                            <DropdownMenuLabel>SMS</DropdownMenuLabel>
-                            {twilioSenders.map((sender) => (
-                              <DropdownMenuItem
-                                key={sender.id}
-                                onClick={() => setSelectedSenderId(sender.id)}
-                                className="flex items-center justify-between"
-                              >
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-medium">
-                                    {getSenderDisplayName(sender)}
-                                  </span>
-                                  {sender.is_default && (
-                                    <span className="text-xs text-muted-foreground">Default</span>
-                                  )}
-                                </div>
-                                {selectedSenderId === sender.id && (
-                                  <Check className="h-4 w-4 ml-2" />
-                                )}
-                              </DropdownMenuItem>
-                            ))}
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              </div>
+              <ComposerSenderSelector
+                availableSenders={availableSenders}
+                selectedSenderId={selectedSenderId}
+                onSelectSender={setSelectedSenderId}
+                canExpand={canExpand}
+                disabled={send.isPending || !contactId}
+              />
             )}
           </div>
           
