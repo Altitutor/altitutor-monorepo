@@ -466,9 +466,6 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   
   // Reset initial load flag when contact changes
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MessageThread.tsx:462',message:'Contact change effect',data:{contactId,prevContactId:prevContactId.current,isChanging:prevContactId.current!==contactId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     if (prevContactId.current !== contactId) {
       isInitialLoad.current = true;
       prevContactId.current = contactId;
@@ -478,9 +475,6 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         clearTimeout(markReadTimeoutRef.current);
         markReadTimeoutRef.current = null;
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MessageThread.tsx:470',message:'Contact changed, reset initial load',data:{contactId,isInitialLoad:isInitialLoad.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
     }
   }, [contactId]);
 

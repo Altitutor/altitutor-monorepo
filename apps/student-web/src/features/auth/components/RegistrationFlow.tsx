@@ -343,10 +343,6 @@ export function RegistrationFlow({
   });
 
   const handleNext = async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:255',message:'handleNext called',data:{currentStep,skipPassword},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    
     // Validate current step before proceeding
     const fieldsToValidate: (keyof RegistrationFormValues)[] = [];
     
@@ -368,9 +364,6 @@ export function RegistrationFlow({
     } else if (currentStep === 4) {
       // Payment method step - verify payment method is verified
       const paymentMethodVerified = form.getValues('paymentMethodVerified');
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:274',message:'Payment method check',data:{paymentMethodVerified},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (!paymentMethodVerified) {
         toast({
           title: 'Payment Method Required',
@@ -382,17 +375,7 @@ export function RegistrationFlow({
       fieldsToValidate.push('paymentMethodVerified');
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:286',message:'Before validation trigger',data:{fieldsToValidate},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    
     const isValid = await form.trigger(fieldsToValidate as Array<keyof RegistrationFormValues>);
-    
-    // #region agent log
-    const formValues = form.getValues();
-    const formErrors = form.formState.errors;
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:290',message:'After validation trigger',data:{isValid,formValues,formErrors:JSON.stringify(formErrors)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     
     if (isValid) {
       onStepChange(currentStep + 1);
@@ -400,10 +383,6 @@ export function RegistrationFlow({
       // Extract all validation errors
       const errors = form.formState.errors;
       const errorMessages = extractValidationErrors(errors);
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:298',message:'Validation failed',data:{errorMessages,errors:JSON.stringify(errors)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       
       if (errorMessages.length > 0) {
         toast({
@@ -428,10 +407,6 @@ export function RegistrationFlow({
   };
 
   const handleSubmit = async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:347',message:'handleSubmit called',data:{isSubmitting},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    
     // Prevent multiple submissions
     if (isSubmitting) {
       return;
@@ -439,9 +414,6 @@ export function RegistrationFlow({
 
     // Verify payment method before submitting
     const paymentMethodVerified = form.getValues('paymentMethodVerified');
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:354',message:'Payment method check in submit',data:{paymentMethodVerified},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!paymentMethodVerified) {
       toast({
         title: 'Payment Method Required',
@@ -451,26 +423,12 @@ export function RegistrationFlow({
       return;
     }
 
-    // #region agent log
-    const formValuesBeforeValidation = form.getValues();
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:364',message:'Before full form validation',data:{formValues:JSON.stringify(formValuesBeforeValidation)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    
     const isValid = await form.trigger();
-    
-    // #region agent log
-    const formErrorsAfterValidation = form.formState.errors;
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:368',message:'After full form validation',data:{isValid,formErrors:JSON.stringify(formErrorsAfterValidation)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     
     if (!isValid) {
       // Extract all validation errors
       const errors = form.formState.errors;
       const errorMessages = extractValidationErrors(errors);
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:375',message:'Validation failed in submit',data:{errorMessages,errors:JSON.stringify(errors)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       
       if (errorMessages.length > 0) {
         toast({
@@ -513,10 +471,6 @@ export function RegistrationFlow({
         skipPassword,
       };
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:495',message:'Sending registration request',data:{requestBody:JSON.stringify(requestBody),skipPassword},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      
       const response = await fetch('/api/register/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -524,10 +478,6 @@ export function RegistrationFlow({
       });
 
       const data = await response.json();
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'RegistrationFlow.tsx:520',message:'Registration API response',data:{ok:response.ok,status:response.status,data:JSON.stringify(data)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
 
       if (!response.ok) {
         if (data.alreadyRegistered) {
