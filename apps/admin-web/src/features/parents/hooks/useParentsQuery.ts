@@ -70,6 +70,18 @@ export function useUpdateParent() {
   });
 }
 
+export function useDeleteParent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => parentsApi.delete(id),
+    onSuccess: (_, deletedId) => {
+      queryClient.removeQueries({ queryKey: parentsKeys.detail(deletedId) });
+      queryClient.invalidateQueries({ queryKey: parentsKeys.lists() });
+    },
+  });
+}
+
 export function useParentDetails(id: string | null, enabled: boolean = true) {
   return useQuery({
     queryKey: parentsKeys.detail(id || ''),

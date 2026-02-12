@@ -12,16 +12,25 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
-import { 
-  Search, 
-  ArrowUpDown,
-} from 'lucide-react';
+import { useToast } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { Search, ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { TablePagination } from '@/shared/components/TablePagination';
-import { useParentsList } from '../hooks/useParentsQuery';
+import { useParentsList, useDeleteParent } from '../hooks/useParentsQuery';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 
 interface ParentsTableProps {
@@ -80,6 +89,13 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
 
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+
+  // Delete dialog state
+  const [parentToDelete, setParentToDelete] = useState<(typeof parents)[0] | null>(null);
+  const [isParentDeleteDialogOpen, setIsParentDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const deleteParentMutation = useDeleteParent();
+  const { toast } = useToast();
 
   // Refetch when onRefresh prop changes
   useEffect(() => {
@@ -269,6 +285,11 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                         onOpenInPage={() => {
                           router.push(`/parents/${parent.id}`);
                         }}
+                        onDelete={() => {
+                          setParentToDelete(parent);
+                          setDeleteConfirmText('');
+                          setIsParentDeleteDialogOpen(true);
+                        }}
                       />
                     </TableCell>
                   </TableRow>
@@ -305,6 +326,75 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
         parentId={selectedParentId}
         onParentUpdated={handleParentUpdated}
       />
+
+      {/* Delete parent confirmation dialog */}
+      <AlertDialog open={isParentDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setParentToDelete(null);
+          setDeleteConfirmText('');
+        }
+        setIsParentDeleteDialogOpen(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the parent
+              {parentToDelete ? ` ${parentToDelete.first_name} ${parentToDelete.last_name}` : ''} and all associated data from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label>
+                Type <strong>DELETE</strong> to confirm deletion
+              </Label>
+              <Input
+                type="text"
+                placeholder="Type DELETE to confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!parentToDelete) return;
+                try {
+                  await deleteParentMutation.mutateAsync(parentToDelete.id);
+                  refetch();
+                  setParentToDelete(null);
+                  setIsParentDeleteDialogOpen(false);
+                  setDeleteConfirmText('');
+                  toast({
+                    title: 'Parent deleted',
+                    description: 'Parent has been deleted successfully.',
+                  });
+                } catch {
+                  toast({
+                    title: 'Delete failed',
+                    description: 'There was an error deleting the parent. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+              disabled={deleteParentMutation.isPending || deleteConfirmText !== 'DELETE'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleteParentMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

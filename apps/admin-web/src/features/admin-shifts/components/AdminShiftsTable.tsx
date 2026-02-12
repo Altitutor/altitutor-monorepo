@@ -12,13 +12,23 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
-import { 
-  Search
-} from 'lucide-react';
+import { useToast } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
+import { Search, Loader2 } from 'lucide-react';
 import { TablePagination } from '@/shared/components/TablePagination';
-import { useAdminShiftsMinimalPaginated } from '../hooks/useAdminShiftsQuery';
+import { useAdminShiftsMinimalPaginated, useDeleteAdminShift } from '../hooks/useAdminShiftsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { AddAdminShiftModal } from './AddAdminShiftModal';
@@ -104,6 +114,13 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
   // Cross-feature modal states
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+
+  // Delete dialog state
+  const [adminShiftToDelete, setAdminShiftToDelete] = useState<Tables<'admin_shifts'> | null>(null);
+  const [isAdminShiftDeleteDialogOpen, setIsAdminShiftDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const deleteAdminShiftMutation = useDeleteAdminShift();
+  const { toast } = useToast();
 
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
@@ -377,6 +394,11 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                           onOpenInPage={() => {
                             router.push(`/admin-shifts/${shift.id}`);
                           }}
+                          onDelete={() => {
+                            setAdminShiftToDelete(shift);
+                            setDeleteConfirmText('');
+                            setIsAdminShiftDeleteDialogOpen(true);
+                          }}
                         />
                       </TableCell>
                     </TableRow>
@@ -440,6 +462,75 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
           }}
         />
       )}
+
+      {/* Delete admin shift confirmation dialog */}
+      <AlertDialog open={isAdminShiftDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setAdminShiftToDelete(null);
+          setDeleteConfirmText('');
+        }
+        setIsAdminShiftDeleteDialogOpen(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the admin shift
+              and all associated data from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label>
+                Type <strong>DELETE</strong> to confirm deletion
+              </Label>
+              <Input
+                type="text"
+                placeholder="Type DELETE to confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!adminShiftToDelete) return;
+                try {
+                  await deleteAdminShiftMutation.mutateAsync(adminShiftToDelete.id);
+                  refetch();
+                  setAdminShiftToDelete(null);
+                  setIsAdminShiftDeleteDialogOpen(false);
+                  setDeleteConfirmText('');
+                  toast({
+                    title: 'Admin shift deleted',
+                    description: 'Admin shift has been deleted successfully.',
+                  });
+                } catch {
+                  toast({
+                    title: 'Delete failed',
+                    description: 'There was an error deleting the admin shift. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+              disabled={deleteAdminShiftMutation.isPending || deleteConfirmText !== 'DELETE'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleteAdminShiftMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

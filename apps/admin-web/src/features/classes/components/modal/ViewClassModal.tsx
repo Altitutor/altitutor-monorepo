@@ -3,6 +3,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
 import { Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -55,6 +67,8 @@ export function ViewClassModal({
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Nested modal state for sessions table interactions
   const {
@@ -75,6 +89,10 @@ export function ViewClassModal({
     onOpenInPage: () => {
       router.push(`/classes/${classId}`);
       onClose();
+    },
+    onDelete: () => {
+      setDeleteConfirmText('');
+      setIsDeleteDialogOpen(true);
     },
   });
   const deleteClassMutation = useDeleteClass();
@@ -307,8 +325,6 @@ export function ViewClassModal({
                   onEdit={() => setIsEditing(true)}
                   onCancelEdit={() => setIsEditing(false)}
                   onSubmit={handleClassUpdate}
-                  onDelete={isEditing ? handleDeleteClass : undefined}
-                  isDeleting={isDeleting}
                 />
               </div>
             </TabsContent>
@@ -415,6 +431,63 @@ export function ViewClassModal({
         onStudentUpdated={onClassUpdated}
       />
     )}
+
+    {/* Delete confirmation dialog */}
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+      if (!open) {
+        setDeleteConfirmText('');
+      }
+      setIsDeleteDialogOpen(open);
+    }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the class
+            {classData?.level ? ` "${classData.level}"` : ''} and all associated data from the database.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="py-4">
+          <div className="space-y-2">
+            <Label>
+              {classData?.level ? (
+                <>Type <strong>{classData.level}</strong> to confirm deletion</>
+              ) : (
+                <>Type <strong>DELETE</strong> to confirm deletion</>
+              )}
+            </Label>
+            <Input
+              type="text"
+              placeholder={classData?.level || 'DELETE'}
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              handleDeleteClass();
+              setIsDeleteDialogOpen(false);
+              setDeleteConfirmText('');
+            }}
+            disabled={isDeleting || (classData?.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete'
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </>
   );
 } 

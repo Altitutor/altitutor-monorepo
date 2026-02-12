@@ -4,6 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -13,7 +26,7 @@ import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
 import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { useParentDetails, parentsKeys } from '@/features/parents/hooks/useParentsQuery';
+import { useParentDetails, parentsKeys, useDeleteParent } from '@/features/parents/hooks/useParentsQuery';
 import {
   useParentEditFlow,
   useParentMutations,
@@ -55,6 +68,12 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const deleteParentMutation = useDeleteParent();
+  const { toast } = useToast();
 
   // Handle details submit
   const handleDetailsSubmit = async (data: ParentDetailsFormData) => {
@@ -67,6 +86,27 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         toRemove: editFlow.studentsToRemove,
       }
     );
+  };
+
+  const handleDeleteParent = async () => {
+    if (!parent) return;
+    try {
+      setIsDeleting(true);
+      await deleteParentMutation.mutateAsync(id);
+      router.push('/parents');
+      toast({
+        title: 'Parent deleted',
+        description: 'Parent has been deleted successfully.',
+      });
+    } catch {
+      toast({
+        title: 'Delete failed',
+        description: 'There was an error deleting the parent. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -121,6 +161,10 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
           type="parent"
           onOpenInPage={() => {
             router.push(`/parents/${id}`);
+          }}
+          onDelete={() => {
+            setDeleteConfirmText('');
+            setIsDeleteDialogOpen(true);
           }}
         />
       </div>
@@ -205,6 +249,57 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
           }}
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) setDeleteConfirmText('');
+        setIsDeleteDialogOpen(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the parent
+              {parent ? ` ${parent.first_name} ${parent.last_name}` : ''} and all associated data from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label>
+                Type <strong>DELETE</strong> to confirm deletion
+              </Label>
+              <Input
+                type="text"
+                placeholder="Type DELETE to confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                handleDeleteParent();
+                setIsDeleteDialogOpen(false);
+                setDeleteConfirmText('');
+              }}
+              disabled={isDeleting || deleteConfirmText !== 'DELETE'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

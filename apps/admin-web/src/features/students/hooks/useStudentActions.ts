@@ -34,10 +34,6 @@ interface UseStudentActionsProps {
    */
   onAddClass?: () => void;
   /**
-   * Optional callback for add subject action
-   */
-  onAddSubject?: () => void;
-  /**
    * Optional callback for discontinue action
    */
   onDiscontinue?: () => void;
@@ -61,7 +57,6 @@ export function useStudentActions({
   onLogAbsence,
   onBookDraftingSession,
   onAddClass,
-  onAddSubject,
   onDiscontinue,
   onDelete,
 }: UseStudentActionsProps) {
@@ -83,9 +78,8 @@ export function useStudentActions({
     onLogAbsence,
     onBookDraftingSession,
     onAddClass,
-    onAddSubject,
-    onDiscontinue: student && (student.status === 'TRIAL' || student.status === 'ACTIVE') 
-      ? onDiscontinue 
+    onDiscontinue: student && (student.status === 'TRIAL' || student.status === 'ACTIVE')
+      ? onDiscontinue
       : undefined,
     onDelete,
   };

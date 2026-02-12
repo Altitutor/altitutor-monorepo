@@ -12,13 +12,26 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
 import { 
-  Search
+  Search,
+  Loader2,
 } from 'lucide-react';
 import { TablePagination } from '@/shared/components/TablePagination';
-import { useClassesMinimalPaginated } from '../hooks/useClassesQuery';
+import { useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
@@ -112,6 +125,13 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+
+  // Delete dialog state
+  const [classToDelete, setClassToDelete] = useState<typeof classes[0] | null>(null);
+  const [isClassDeleteDialogOpen, setIsClassDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const deleteClassMutation = useDeleteClass();
+  const { toast } = useToast();
 
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
@@ -448,6 +468,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                           onOpenInPage={() => {
                             router.push(`/classes/${cls.id}`);
                           }}
+                          onDelete={() => {
+                            setClassToDelete(cls);
+                            setDeleteConfirmText('');
+                            setIsClassDeleteDialogOpen(true);
+                          }}
                         />
                       </TableCell>
                     </TableRow>
@@ -535,6 +560,79 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           refetch();
         }}
       />
+
+      {/* Delete class confirmation dialog */}
+      <AlertDialog open={isClassDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setClassToDelete(null);
+          setDeleteConfirmText('');
+        }
+        setIsClassDeleteDialogOpen(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the class
+              {classToDelete?.level ? ` "${classToDelete.level}"` : ''} and all associated data from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label>
+                {classToDelete?.level ? (
+                  <>Type <strong>{classToDelete.level}</strong> to confirm deletion</>
+                ) : (
+                  <>Type <strong>DELETE</strong> to confirm deletion</>
+                )}
+              </Label>
+              <Input
+                type="text"
+                placeholder={classToDelete?.level || 'DELETE'}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!classToDelete) return;
+                try {
+                  await deleteClassMutation.mutateAsync(classToDelete.id);
+                  refetch();
+                  setClassToDelete(null);
+                  setIsClassDeleteDialogOpen(false);
+                  setDeleteConfirmText('');
+                  toast({
+                    title: 'Class deleted',
+                    description: 'Class has been deleted successfully.',
+                  });
+                } catch {
+                  toast({
+                    title: 'Delete failed',
+                    description: 'There was an error deleting the class. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+              disabled={deleteClassMutation.isPending || (classToDelete?.level ? deleteConfirmText !== classToDelete.level : deleteConfirmText !== 'DELETE')}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleteClassMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 

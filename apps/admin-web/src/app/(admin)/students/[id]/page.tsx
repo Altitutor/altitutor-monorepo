@@ -45,18 +45,12 @@ import {
   useStudentActions,
 } from '@/features/students/hooks';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
-import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
 import { useToast } from '@altitutor/ui';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
+import { DiscontinueStudentConfirmDialog } from '@/features/students/components/DiscontinueStudentConfirmDialog';
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -107,8 +101,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
-  const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
-  const [_isDiscontinuing, setIsDiscontinuing] = useState(false);
+  const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
+  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -162,19 +156,19 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(id) });
   };
 
-  // Handle discontinue student
-  const handleDiscontinue = async () => {
-    if (!student || !currentStaff) return;
-    
+  // Handle discontinue student. Returns true on success, false otherwise.
+  const handleDiscontinue = async (): Promise<boolean> => {
+    if (!student || !currentStaff) return false;
+
     try {
       setIsDiscontinuing(true);
       const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
-      
+
       if (!result.success) {
         if (result.error === 'Unenroll student from classes first') {
           toast({
             title: 'Cannot Discontinue',
-            description: 'Unenroll student from classes first',
+            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
             variant: 'destructive',
           });
         } else if (result.error === 'Student has future sessions') {
@@ -191,15 +185,16 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             variant: 'destructive',
           });
         }
-        return;
+        return false;
       }
-      
+
       await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
       handleStudentUpdated();
       toast({
         title: 'Success',
         description: 'Student discontinued successfully.',
       });
+      return true;
     } catch (error) {
       console.error('Failed to discontinue student:', error);
       toast({
@@ -207,6 +202,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
         variant: 'destructive',
       });
+      return false;
     } finally {
       setIsDiscontinuing(false);
     }
@@ -215,29 +211,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   // Handle add class
   const handleAddClass = () => {
     setIsEnrollModalOpen(true);
-  };
-
-  // Handle add subject
-  const handleAddSubject = async (subject: Tables<'subjects'>) => {
-    if (!student) return;
-    
-    try {
-      await studentsApi.assignSubjectToStudent(student.id, subject.id);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(id) });
-      setIsAddSubjectDialogOpen(false);
-      handleStudentUpdated();
-      toast({
-        title: 'Success',
-        description: 'Subject added successfully.',
-      });
-    } catch (error) {
-      console.error('Failed to add subject:', error);
-      toast({
-        title: 'Add failed',
-        description: 'There was an error adding the subject. Please try again.',
-        variant: 'destructive',
-      });
-    }
   };
 
   // Handle enrollment
@@ -294,8 +267,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
     onAddClass: handleAddClass,
-    onAddSubject: () => setIsAddSubjectDialogOpen(true),
-    onDiscontinue: handleDiscontinue,
+    onDiscontinue: () => setIsDiscontinueDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });
 
@@ -570,26 +542,15 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         />
       )}
 
-      {/* Add Subject Dialog */}
+      {/* Discontinue Confirmation Dialog */}
       {student && (
-        <Dialog open={isAddSubjectDialogOpen} onOpenChange={setIsAddSubjectDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add Subject</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <SubjectSearchPopover
-                selectedSubjects={studentSubjects}
-                onSelectSubject={handleAddSubject}
-                trigger={
-                  <Button variant="outline" className="w-full">
-                    Select a subject
-                  </Button>
-                }
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+        <DiscontinueStudentConfirmDialog
+          isOpen={isDiscontinueDialogOpen}
+          onOpenChange={setIsDiscontinueDialogOpen}
+          studentName={`${student.first_name} ${student.last_name}`}
+          onConfirm={handleDiscontinue}
+          isDiscontinuing={isDiscontinuing}
+        />
       )}
     </div>
   );

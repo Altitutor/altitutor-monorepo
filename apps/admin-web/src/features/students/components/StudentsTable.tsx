@@ -53,6 +53,7 @@ import {
 } from "@altitutor/ui";
 import { Loader2 } from "lucide-react";
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
+import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
 import { studentsApi } from '../api';
 import { useToast } from "@altitutor/ui";
 // import { useVirtualizer } from '@tanstack/react-virtual';
@@ -157,6 +158,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
+  const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
 
   // Server provides filtered/sorted page; apply compound sorting for status field
   const filteredStudents = useMemo(() => {
@@ -280,6 +283,56 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const handleStudentClick = (id: string) => {
     setSelectedStudentId(id);
     setIsViewModalOpen(true);
+  };
+
+  const handleDiscontinueStudent = async (): Promise<boolean> => {
+    if (!currentStaff || !studentToDiscontinue) return false;
+    try {
+      setIsDiscontinuing(true);
+      const result = await studentsApi.discontinueStudent(studentToDiscontinue.id, currentStaff.id);
+
+      if (!result.success) {
+        if (result.error === 'Unenroll student from classes first') {
+          toast({
+            title: 'Cannot Discontinue',
+            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
+            variant: 'destructive',
+          });
+        } else if (result.error === 'Student has future sessions') {
+          const sessionCount = result.sessions?.length || 0;
+          toast({
+            title: 'Cannot Discontinue',
+            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Cannot Discontinue',
+            description: result.error || 'Failed to discontinue student',
+            variant: 'destructive',
+          });
+        }
+        return false;
+      }
+
+      refetch();
+      setStudentToDiscontinue(null);
+      toast({
+        title: 'Success',
+        description: 'Student discontinued successfully.',
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to discontinue student:', error);
+      toast({
+        title: 'Discontinue failed',
+        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setIsDiscontinuing(false);
+    }
   };
 
   const handleStudentUpdated = () => {
@@ -733,12 +786,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         onAddClass={() => {
                           handleStudentClick(student.id);
                         }}
-                        onAddSubject={() => {
-                          handleStudentClick(student.id);
-                        }}
-                        onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE' 
+                        onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
                           ? () => {
-                              handleStudentClick(student.id);
+                              setStudentToDiscontinue(student);
                             }
                           : undefined}
                         onDelete={() => {
@@ -912,6 +962,19 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           </AlertDialog>
         );
       })()}
+
+      {/* Discontinue Confirmation Dialog */}
+      {studentToDiscontinue && (
+        <DiscontinueStudentConfirmDialog
+          isOpen={!!studentToDiscontinue}
+          onOpenChange={(open) => {
+            if (!open) setStudentToDiscontinue(null);
+          }}
+          studentName={[studentToDiscontinue.first_name, studentToDiscontinue.last_name].filter(Boolean).join(' ') || 'this student'}
+          onConfirm={handleDiscontinueStudent}
+          isDiscontinuing={isDiscontinuing}
+        />
+      )}
     </div>
   );
 } 

@@ -4,21 +4,9 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
-import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@altitutor/ui";
-import { Loader2, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Pencil, AlertTriangle } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -64,8 +52,6 @@ interface AdminShiftInfoTabProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: AdminShiftInfoFormData) => Promise<void>;
-  onDelete?: () => void;
-  isDeleting?: boolean;
 }
 
 export function AdminShiftInfoTab({
@@ -75,11 +61,7 @@ export function AdminShiftInfoTab({
   onEdit,
   onCancelEdit: _onCancelEdit,
   onSubmit,
-  onDelete,
-  isDeleting = false
 }: AdminShiftInfoTabProps) {
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const form = useForm<AdminShiftInfoFormData>({
     resolver: zodResolver(adminShiftInfoSchema),
     defaultValues: {
@@ -314,73 +296,6 @@ export function AdminShiftInfoTab({
                 Changing the day, time, or dates will affect these sessions.
               </AlertDescription>
             </Alert>
-          )}
-
-          {onDelete && (
-            <>
-              <Separator className="my-6" />
-              <div className="pt-4">
-                <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-                  setIsDeleteDialogOpen(open);
-                  if (!open) {
-                    setDeleteConfirmText('');
-                  }
-                }}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" type="button" className="flex items-center w-full">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Admin Shift
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the admin shift
-                        and all associated data from the database.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="py-4">
-                      <div className="space-y-2">
-                        <Label>
-                          Type <strong>DELETE</strong> to confirm deletion
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Type DELETE to confirm"
-                          value={deleteConfirmText}
-                          onChange={(e) => setDeleteConfirmText(e.target.value)}
-                          className="mt-2"
-                        />
-                      </div>
-                    </div>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => {
-                          if (onDelete && deleteConfirmText === 'DELETE') {
-                            onDelete();
-                            setIsDeleteDialogOpen(false);
-                            setDeleteConfirmText('');
-                          }
-                        }}
-                        disabled={isDeleting || deleteConfirmText !== 'DELETE'}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Deleting...
-                          </>
-                        ) : (
-                          'Delete'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </>
           )}
         </form>
       </div>

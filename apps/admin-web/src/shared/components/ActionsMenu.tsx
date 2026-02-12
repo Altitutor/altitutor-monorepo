@@ -22,7 +22,6 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   onLogAbsence: () => void;
   onBookDraftingSession: () => void;
   onAddClass?: () => void;
-  onAddSubject?: () => void;
   onDiscontinue?: () => void;
   onDelete: () => void;
 }
@@ -56,14 +55,17 @@ interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
 
 interface ClassActionsMenuProps extends BaseActionsMenuProps {
   type: 'class';
+  onDelete?: () => void;
 }
 
 interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
   type: 'adminShift';
+  onDelete?: () => void;
 }
 
 interface ParentActionsMenuProps extends BaseActionsMenuProps {
   type: 'parent';
+  onDelete?: () => void;
 }
 
 interface TopicActionsMenuProps extends BaseActionsMenuProps {
@@ -120,12 +122,6 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <DropdownMenuItem onClick={props.onAddClass}>
               <Plus className="h-4 w-4 mr-2" />
               Add class
-            </DropdownMenuItem>
-          )}
-          {props.onAddSubject && (
-            <DropdownMenuItem onClick={props.onAddSubject}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add subject
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
@@ -371,7 +367,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     );
   }
 
-  if (props.type === 'class' || props.type === 'adminShift' || props.type === 'parent') {
+  if (props.type === 'class') {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -384,6 +380,69 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete class
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'adminShift') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete admin shift
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'parent') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete parent
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     );

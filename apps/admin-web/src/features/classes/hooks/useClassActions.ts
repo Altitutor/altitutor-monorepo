@@ -7,6 +7,10 @@ interface UseClassActionsProps {
    * Callback when opening in page (for modals, this should close the modal)
    */
   onOpenInPage?: () => void;
+  /**
+   * Callback when delete is clicked - typically opens delete confirmation dialog
+   */
+  onDelete?: () => void;
 }
 
 /**
@@ -16,6 +20,7 @@ interface UseClassActionsProps {
 export function useClassActions({
   classId,
   onOpenInPage,
+  onDelete,
 }: UseClassActionsProps) {
   const router = useRouter();
 
@@ -29,5 +34,6 @@ export function useClassActions({
 
   return {
     onOpenInPage: handleOpenInPage,
+    onDelete,
   };
 }
