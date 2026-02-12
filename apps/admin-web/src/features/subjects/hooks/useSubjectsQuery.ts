@@ -32,11 +32,27 @@ export function useSubjectsList(params?: {
   limit?: number;
   offset?: number;
   search?: string;
+  curriculums?: string[];
+  yearLevels?: number[];
 }) {
-  const { limit = 100, offset = 0, search } = params ?? {};
+  const {
+    limit = 100,
+    offset = 0,
+    search,
+    curriculums,
+    yearLevels,
+  } = params ?? {};
   return useQuery({
-    queryKey: [...subjectsKeys.lists(), 'paginated', limit, offset, search ?? ''] as const,
-    queryFn: () => subjectsApi.list({ limit, offset, search }),
+    queryKey: [
+      ...subjectsKeys.lists(),
+      'paginated',
+      limit,
+      offset,
+      search ?? '',
+      curriculums?.join(',') ?? '',
+      yearLevels?.join(',') ?? '',
+    ] as const,
+    queryFn: () => subjectsApi.list({ limit, offset, search, curriculums, yearLevels }),
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
   });
