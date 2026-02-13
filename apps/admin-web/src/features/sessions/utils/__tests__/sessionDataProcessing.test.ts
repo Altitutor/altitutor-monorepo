@@ -108,6 +108,7 @@ describe('processSessionStudents', () => {
     created_by: null,
     user_id: null,
     invite_token: null,
+    welcome_modal_acknowledged_at: null,
   };
 
   it('should process student with planned attendance', () => {

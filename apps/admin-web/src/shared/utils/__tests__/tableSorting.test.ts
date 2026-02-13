@@ -37,6 +37,7 @@ describe('sortStudentsByStatus', () => {
       created_by: null,
       user_id: null,
       invite_token: null,
+      welcome_modal_acknowledged_at: null,
     },
     {
       id: 'student-2',
@@ -62,6 +63,7 @@ describe('sortStudentsByStatus', () => {
       created_by: null,
       user_id: null,
       invite_token: null,
+      welcome_modal_acknowledged_at: null,
     },
     {
       id: 'student-3',
@@ -87,6 +89,7 @@ describe('sortStudentsByStatus', () => {
       created_by: null,
       user_id: null,
       invite_token: null,
+      welcome_modal_acknowledged_at: null,
     },
   ];
 

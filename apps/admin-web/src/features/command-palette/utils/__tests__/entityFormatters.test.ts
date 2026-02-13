@@ -64,6 +64,7 @@ describe('getEntityDisplayText', () => {
           school: null,
           updated_at: null,
           user_id: null,
+          welcome_modal_acknowledged_at: null,
           year_level: null,
         },
       };
@@ -100,6 +101,7 @@ describe('getEntityDisplayText', () => {
           school: null,
           updated_at: null,
           user_id: null,
+          welcome_modal_acknowledged_at: null,
           year_level: null,
         },
       };

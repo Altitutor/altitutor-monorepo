@@ -38,6 +38,7 @@ describe('formatStudentDisplay', () => {
       created_by: null,
       user_id: null,
       invite_token: null,
+      welcome_modal_acknowledged_at: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -68,6 +69,7 @@ describe('formatStudentDisplay', () => {
       created_by: null,
       user_id: null,
       invite_token: null,
+      welcome_modal_acknowledged_at: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');
