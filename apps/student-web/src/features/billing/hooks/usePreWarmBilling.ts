@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { usePaymentMethods } from './usePaymentMethods';
-import { useProfile } from '@/features/profile/hooks/useProfile';
+import { useProfile } from '@/shared/hooks';
 import { paymentMethodsApi } from '../api/payment-methods';
 
 // Pre-load Stripe.js instance

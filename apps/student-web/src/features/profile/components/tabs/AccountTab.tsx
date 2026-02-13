@@ -16,7 +16,7 @@ import {
 import { Input } from '@altitutor/ui';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
-import { authApi } from '@/features/auth/api';
+import { authApi } from '@/shared/api';
 import type { Database } from '@altitutor/shared';
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];

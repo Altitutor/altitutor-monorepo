@@ -19,7 +19,7 @@ import type {
   RescheduleSession,
 } from '../types/absence';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useCurrentStudentId } from '@/shared/hooks';
 
 type WizardStep = 'select-session' | 'reschedule' | 'confirmation' | 'success' | 'error';
 
@@ -34,21 +34,10 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedTargetSessionId, setSelectedTargetSessionId] = useState<string | null>(null);
   const [targetSession, setTargetSession] = useState<RescheduleSession | null>(null);
-  const [studentId, setStudentId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Get current student ID
-  useEffect(() => {
-    const loadStudentId = async () => {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.rpc('current_student_id');
-      if (!error && data) {
-        setStudentId(data);
-      }
-    };
-    loadStudentId();
-  }, []);
+  const { data: studentId } = useCurrentStudentId();
 
   // Get student's future sessions
   const { data: futureSessions, isLoading: loadingSessions } = useStudentFutureSessions(8);

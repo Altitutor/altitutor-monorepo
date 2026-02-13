@@ -6,7 +6,7 @@ import { CreditCard, Plus, Loader2 } from 'lucide-react';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { AddPaymentMethodModal } from './AddPaymentMethodModal';
 import { PaymentMethodsList } from './PaymentMethodsList';
-import { useProfile } from '@/features/profile/hooks/useProfile';
+import { useProfile } from '@/shared/hooks';
 
 export function PaymentMethodCard() {
   const { data: billing, isLoading } = usePaymentMethods();

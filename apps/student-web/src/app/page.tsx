@@ -4,9 +4,9 @@ import {
   ResourcesSection,
   UCATSection,
   CommunitySection,
-  GetStartedSection,
   ScrollIndicator,
 } from '@/features/landing';
+import { GetStartedSectionWithAuth } from './GetStartedSectionWithAuth';
 
 export default function HomePage() {
   const structuredData = {
@@ -77,7 +77,7 @@ export default function HomePage() {
       <ResourcesSection />
       <UCATSection />
       <CommunitySection />
-      <GetStartedSection />
+      <GetStartedSectionWithAuth />
       <ScrollIndicator />
     </>
   );

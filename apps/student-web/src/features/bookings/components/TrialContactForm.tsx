@@ -4,6 +4,8 @@ import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useEffect, useMemo } from 'react';
+import { useSubjectsSearch, useSubjectSearchWithTerm } from '@/shared/hooks';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   Form,
   FormControl,
@@ -192,93 +194,37 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
   // Subject search state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
-  const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
-  const [isSearchingSubjects, setIsSearchingSubjects] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
+  const debouncedSearchQuery = useDebounce(subjectSearchQuery, 300);
   // Cache of selected subject objects (to show subjects that don't match current filters)
   const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
 
-  // Fetch all subjects (always show subject selector)
-  useEffect(() => {
-    const fetchSubjects = async () => {
-      setIsSearchingSubjects(true);
-      try {
-        const params = new URLSearchParams({
-          limit: '100',
-        });
-        
-        // Optionally filter by curriculum and year level if provided
-        if (curriculum) params.set('curriculums', curriculum);
-        if (yearLevel) {
-          let yearLevelNum = yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10);
-          // If year 13 is selected, send 12 instead for subject search
-          if (yearLevelNum === 13) {
-            yearLevelNum = 12;
-          }
-          params.set('year_levels', yearLevelNum.toString());
-        }
-        
-        const response = await fetch(`/api/subjects/search?${params.toString()}`);
-        if (!response.ok) throw new Error('Failed to fetch subjects');
-        
-        const data = await response.json();
-        setAllSubjects(data.subjects || []);
-      } catch (error) {
-        console.error('Error fetching subjects:', error);
-        setAllSubjects([]);
-      } finally {
-        setIsSearchingSubjects(false);
-      }
-    };
+  // Fetch subjects filtered by curriculum/year level (React Query)
+  const { data: subjectsFilteredData, isLoading: isLoadingFiltered } = useSubjectsSearch({
+    curriculum: curriculum ?? null,
+    yearLevel: yearLevel ?? null,
+  });
+  const allSubjects = subjectsFilteredData?.subjects ?? [];
 
-    fetchSubjects();
-  }, [curriculum, yearLevel]);
+  // Search by term when user types (ignores curriculum/year level)
+  const { data: subjectsSearchData, isFetching: isSearchingByTerm } = useSubjectSearchWithTerm({
+    searchTerm: debouncedSearchQuery,
+    enabled: debouncedSearchQuery.trim().length > 0,
+  });
+  const subjectSearchResults = debouncedSearchQuery.trim().length > 0 ? (subjectsSearchData?.subjects ?? []) : allSubjects;
 
-  // Debounced subject search
+  const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
+
+  // Reset search when popover closes
   useEffect(() => {
     if (!isSubjectPopoverOpen) {
       setSubjectSearchQuery('');
-      setSubjectSearchResults([]);
-      return;
     }
-
-    const timeoutId = setTimeout(async () => {
-      if (subjectSearchQuery.trim().length === 0) {
-        // No search term - use filtered subjects (respect curriculum/year level)
-        setSubjectSearchResults(allSubjects);
-        setIsSearchingSubjects(false);
-      } else {
-        // Search term present - search ALL subjects (ignore filters)
-        setIsSearchingSubjects(true);
-        try {
-          const params = new URLSearchParams({
-            search: subjectSearchQuery.trim(),
-            limit: '100',
-          });
-          // DO NOT add curriculum/year_level filters when searching
-          
-          const response = await fetch(`/api/subjects/search?${params.toString()}`);
-          if (!response.ok) throw new Error('Failed to search subjects');
-          
-          const data = await response.json();
-          setSubjectSearchResults(data.subjects || []);
-        } catch (error) {
-          console.error('Error searching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSearchingSubjects(false);
-        }
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen, allSubjects]);
+  }, [isSubjectPopoverOpen]);
 
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
-    const subjectsToShow = subjectSearchQuery.trim().length > 0 ? subjectSearchResults : allSubjects;
-    return subjectsToShow.filter(s => !selectedIds.has(s.id));
-  }, [subjectSearchResults, allSubjects, selectedSubjectIds, subjectSearchQuery]);
+    return subjectSearchResults.filter((s) => !selectedIds.has(s.id));
+  }, [subjectSearchResults, selectedSubjectIds]);
 
   const selectedSubjects = useMemo(() => {
     if (!selectedSubjectIds || selectedSubjectIds.length === 0) return [];

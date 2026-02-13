@@ -61,9 +61,39 @@ For each finding, record:
 - Line number or relevant snippet (if applicable)
 - Estimated impact (performance / maintainability / both)
 
+**1.4 Early Exit – No Refactoring Needed**
+
+**Before building the full plan, check if refactoring would produce meaningful gain.**
+
+If **zero P0, P1, and P2 findings** (only P3 or none):
+```markdown
+## Analysis Complete – No Refactoring Recommended
+
+The scope (`[app/feature]`) appears to follow Bulletproof React principles well.
+
+- **P0/P1/P2 findings**: 0
+- **Conclusion**: Refactoring would produce minimal gain. No changes recommended.
+- **Optional**: You could address any P3 items (docs, style) if desired, but they are low priority.
+```
+
+**Stop here. Do not proceed to Phase 2 or 3.** Do not suggest refactoring for the sake of it.
+
+If **only P3 findings** (or very few P2, e.g. ≤2):
+```markdown
+## Analysis Complete – Minimal Refactoring Value
+
+- **P0/P1/P2 findings**: 0 (or very few)
+- **P3 findings**: [list]
+- **Recommendation**: Scope is healthy. Refactoring would have minimal impact. Proceed only if you have specific pain points.
+```
+
+Ask: "Do you want to address any of these P3 items, or consider this done?"
+
+**Only proceed to Phase 2 if there are P0, P1, or meaningful P2 findings.**
+
 ### Phase 2: Prioritization
 
-Order findings by Bulletproof React priority. Load `references/BULLETPROOF_REACT_PRIORITIES.md` for the authoritative order:
+Order findings by Bulletproof React priority (only when refactoring is warranted). Load `references/BULLETPROOF_REACT_PRIORITIES.md` for the authoritative order:
 
 **P0 - Critical (Fix First)**
 - Cross-feature imports
@@ -191,9 +221,21 @@ When done (or user requests stop):
 - **User says "no" to confirmation**: Stop. Do not execute.
 - **Circular dependency discovered**: Pause, explain, ask user how to resolve.
 
+## Repeatability / Idempotency
+
+**The skill is designed for multiple runs across different agent sessions.**
+
+- **Stateless**: Each run re-analyzes the codebase from scratch. No persistent "done" list.
+- **Progressive**: Fixed issues disappear from findings. A refactored 900-line component won't be flagged on the next run.
+- **Agent-agnostic**: Different agents can run it in succession. Each sees only the current state and remaining issues.
+- **Convergent**: Successive runs reduce findings until P0/P1/P2 are zero, then early exit reports "already good."
+
+**Before each run**: Ensure `pnpm checkall` passes so the next agent starts from a clean baseline. If a prior run left failing tests or type errors, fix those first.
+
 ## Important Notes
 
 - **Never refactor without confirmation** after presenting the plan
+- **Don't refactor for the sake of it** – if P0/P1/P2 findings are zero, stop and report "already good"
 - **Add tests before refactoring** when possible (TDD approach)
 - **One change at a time** - easier to review and revert
 - **Preserve behavior** - refactoring must not change functionality

@@ -5,6 +5,9 @@ import {
   generateInvoiceIdempotencyKey,
   generateInvoiceItemIdempotencyKey,
 } from './utils.ts';
+import { formatStripeErrorMessage } from './stripe-errors.ts';
+
+const LOG_PREFIX = '[billing-runner]';
 
 /**
  * Create Stripe invoice items and return them with stripe_invoice_item_id
@@ -71,7 +74,10 @@ export async function rollbackStripeInvoiceItems(
     try {
       await stripe.invoiceItems.del(itemId);
     } catch (delErr) {
-      console.error(`[billing-runner] Failed to delete invoice item ${itemId} during rollback:`, delErr);
+      console.error(
+        `${LOG_PREFIX} Failed to delete invoice item ${itemId} during rollback:`,
+        formatStripeErrorMessage(delErr, 'delete invoice item', { invoiceItemId: itemId })
+      );
     }
   }
 }
@@ -151,12 +157,21 @@ export async function createChargeAutomaticallyInvoice(
 
 /**
  * Attempt to pay an invoice
+ * Returns the paid invoice with expanded fields to access charge and payment_intent IDs
+ * Following Stripe best practices: retrieve invoice with expanded fields after payment
  */
 export async function payInvoice(
   stripe: Stripe,
   invoiceId: string
 ): Promise<Stripe.Invoice> {
-  return await stripe.invoices.pay(invoiceId);
+  // Pay the invoice
+  await stripe.invoices.pay(invoiceId);
+  
+  // Retrieve the paid invoice with expanded fields to get charge/payment_intent IDs
+  // This ensures we have access to latest_charge and payment_intent for refund tracking
+  return await stripe.invoices.retrieve(invoiceId, {
+    expand: ['latest_charge', 'payment_intent']
+  });
 }
 
 /**
@@ -293,19 +308,41 @@ export async function saveInvoiceItemsToDatabase(
     });
 
   if (itemsErr) {
-    console.error('[invoice-creation] Failed to save invoice items:', itemsErr);
+    console.error(
+      `${LOG_PREFIX} Failed to save invoice items:`,
+      formatStripeErrorMessage(itemsErr, 'save invoice items to database', { invoiceId })
+    );
     throw itemsErr;
   }
 }
 
 /**
  * Update invoice payment status in database
+ * Extracts charge ID and payment intent ID from paid invoice for refund tracking
+ * Following Stripe best practices: store charge ID for refund/dispute tracking
  */
 export async function updateInvoicePaymentStatus(
   supabase: any,
   invoiceId: string,
   paidInvoice: Stripe.Invoice
 ): Promise<void> {
+  // Extract charge ID from latest_charge (can be string ID or expanded object)
+  // This is critical for refund tracking - charge.refunded webhooks need this to find invoices
+  let chargeId: string | null = null;
+  if (paidInvoice.latest_charge) {
+    chargeId = typeof paidInvoice.latest_charge === 'string'
+      ? paidInvoice.latest_charge
+      : (paidInvoice.latest_charge as any)?.id || null;
+  }
+  
+  // Extract payment intent ID from payment_intent (can be string ID or expanded object)
+  let payment_intent_id: string | null = null;
+  if (paidInvoice.payment_intent) {
+    payment_intent_id = typeof paidInvoice.payment_intent === 'string'
+      ? paidInvoice.payment_intent
+      : (paidInvoice.payment_intent as any)?.id || null;
+  }
+  
   // Use null coalescing to properly handle null values (important for customer balance payments)
   const subtotalCents = paidInvoice.subtotal ?? null;
   const totalCents = paidInvoice.total ?? null;
@@ -316,6 +353,8 @@ export async function updateInvoicePaymentStatus(
     .from('invoices')
     .update({
       status: paidInvoice.status,
+      stripe_charge_id: chargeId, // CRITICAL: For refund tracking and dispute handling
+      stripe_payment_intent_id: payment_intent_id,
       subtotal_cents: subtotalCents,
       total_cents: totalCents,
       amount_paid_cents: paidInvoice.amount_paid ?? 0,

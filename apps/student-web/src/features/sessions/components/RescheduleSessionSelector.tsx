@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { ArrowRight, X } from 'lucide-react';
 import type { StudentSession, RescheduleSession } from '../types/absence';
 import { useAvailableRescheduleSessions } from '../hooks/useAbsences';
 import { WeekViewCalendar } from './WeekViewCalendar';
 import { StudentSessionsCard } from './StudentSessionsCard';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useCurrentStudentId } from '@/shared/hooks';
 import type { Database } from '@altitutor/shared';
 
 type StudentSessionView = Database['public']['Views']['vstudent_session_base']['Row'];
@@ -25,7 +25,7 @@ export function RescheduleSessionSelector({
   onSelectTargetSession,
   onClearTargetSession,
 }: RescheduleSessionSelectorProps) {
-  const [studentId, setStudentId] = useState<string | null>(null);
+  const { data: studentId } = useCurrentStudentId();
   const [rescheduleWeekStart, setRescheduleWeekStart] = useState<Date>(() => {
     const today = new Date();
     const dayOfWeek = today.getDay();
@@ -35,18 +35,6 @@ export function RescheduleSessionSelector({
     currentWeekStart.setHours(0, 0, 0, 0);
     return currentWeekStart;
   });
-
-  // Get current student ID
-  useEffect(() => {
-    const loadStudentId = async () => {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.rpc('current_student_id');
-      if (!error && data) {
-        setStudentId(data);
-      }
-    };
-    loadStudentId();
-  }, []);
 
   const minDate = useMemo(() => {
     const today = new Date();

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
+import { useSubjectsSearch, useSubjectSearchWithTerm } from '@/shared/hooks';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   FormControl,
   FormField,
@@ -176,9 +178,7 @@ export function RegistrationStep1StudentDetails({
   // Subject search state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
-  const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
-  const [isSearchingSubjects, setIsSearchingSubjects] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
+  const debouncedSearchQuery = useDebounce(subjectSearchQuery, 300);
   const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
 
   // Initialize cache with initial subjects
@@ -190,80 +190,34 @@ export function RegistrationStep1StudentDetails({
     setSelectedSubjectsCache(cache);
   }, [initialSubjects]);
 
-  // Fetch subjects based on curriculum and year level
-  useEffect(() => {
-    const fetchSubjects = async () => {
-      setIsSearchingSubjects(true);
-      try {
-        const params = new URLSearchParams({ limit: '100' });
-        if (curriculum) params.set('curriculums', curriculum);
-        if (yearLevel !== undefined) {
-          // If year 13 is selected, send 12 instead for subject search
-          let yearLevelForSearch = yearLevel;
-          if (yearLevel === 13) {
-            yearLevelForSearch = 12;
-          }
-          params.set('year_levels', yearLevelForSearch.toString());
-        }
-        
-        const response = await fetch(`/api/subjects/search?${params.toString()}`);
-        if (!response.ok) throw new Error('Failed to fetch subjects');
-        
-        const data = await response.json();
-        setAllSubjects(data.subjects || []);
-      } catch (error) {
-        console.error('Error fetching subjects:', error);
-        setAllSubjects([]);
-      } finally {
-        setIsSearchingSubjects(false);
-      }
-    };
+  // Fetch subjects filtered by curriculum/year level (React Query)
+  const { data: subjectsFilteredData, isLoading: isLoadingFiltered } = useSubjectsSearch({
+    curriculum: curriculum ?? null,
+    yearLevel: yearLevel ?? null,
+  });
+  const allSubjects = subjectsFilteredData?.subjects ?? [];
 
-    fetchSubjects();
-  }, [curriculum, yearLevel]);
+  // Search by term when user types (ignores curriculum/year level)
+  const { data: subjectsSearchData, isFetching: isSearchingByTerm } = useSubjectSearchWithTerm({
+    searchTerm: debouncedSearchQuery,
+    enabled: debouncedSearchQuery.trim().length > 0,
+  });
+  const subjectSearchResults =
+    debouncedSearchQuery.trim().length > 0 ? (subjectsSearchData?.subjects ?? []) : allSubjects;
 
-  // Debounced subject search
+  const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
+
+  // Reset search when popover closes
   useEffect(() => {
     if (!isSubjectPopoverOpen) {
       setSubjectSearchQuery('');
-      setSubjectSearchResults([]);
-      return;
     }
-
-    const timeoutId = setTimeout(async () => {
-      if (subjectSearchQuery.trim().length === 0) {
-        setSubjectSearchResults(allSubjects);
-        setIsSearchingSubjects(false);
-      } else {
-        setIsSearchingSubjects(true);
-        try {
-          const params = new URLSearchParams({
-            search: subjectSearchQuery.trim(),
-            limit: '100',
-          });
-          
-          const response = await fetch(`/api/subjects/search?${params.toString()}`);
-          if (!response.ok) throw new Error('Failed to search subjects');
-          
-          const data = await response.json();
-          setSubjectSearchResults(data.subjects || []);
-        } catch (error) {
-          console.error('Error searching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSearchingSubjects(false);
-        }
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen, allSubjects]);
+  }, [isSubjectPopoverOpen]);
 
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
-    const subjectsToShow = subjectSearchQuery.trim().length > 0 ? subjectSearchResults : allSubjects;
-    return subjectsToShow.filter(s => !selectedIds.has(s.id));
-  }, [subjectSearchResults, allSubjects, selectedSubjectIds, subjectSearchQuery]);
+    return subjectSearchResults.filter((s) => !selectedIds.has(s.id));
+  }, [subjectSearchResults, selectedSubjectIds]);
 
   const selectedSubjects = useMemo(() => {
     if (!selectedSubjectIds || selectedSubjectIds.length === 0) return [];
