@@ -8,6 +8,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { WelcomeModalGate } from '@/features/welcome';
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -239,7 +240,7 @@ export default function StudentLayout({
           {children}
         </div>
       </div>
+      <WelcomeModalGate />
     </>
   );
 }
-
