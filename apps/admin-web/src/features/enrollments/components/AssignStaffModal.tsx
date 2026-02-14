@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
@@ -191,6 +191,9 @@ export function AssignStaffModal({
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b space-y-3">
           <div className="flex-1">
             <DialogTitle>Assign Staff</DialogTitle>
+            <DialogDescription className="sr-only">
+              Select staff or classes to assign, then choose a date and confirm.
+            </DialogDescription>
             {(context === 'class' && classData && classSubject) || 
              (context === 'staff' && staff) || 
              selectedClasses.length > 0 || 

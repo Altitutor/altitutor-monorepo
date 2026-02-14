@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
@@ -44,6 +44,9 @@ export function ClassStaffTab({
   
   // Get current staff for assignment
   const { data: currentStaff } = useCurrentStaff();
+
+  // Stable reference for assigned staff IDs to avoid infinite update loops when AssignStaffModal opens (parent re-renders)
+  const assignedStaffIds = useMemo(() => classStaff.map(s => s.id), [classStaff]);
 
   const handleViewStaff = (staffId: string) => {
     setSelectedStaffId(staffId);
@@ -222,7 +225,7 @@ export function ClassStaffTab({
           classData={classData}
           classSubject={classSubject}
           classStaff={classStaff}
-          assignedStaffIds={classStaff.map(s => s.id)}
+          assignedStaffIds={assignedStaffIds}
           onAssign={handleAssignStaffFromModal}
           currentStaffId={currentStaff.id}
         />

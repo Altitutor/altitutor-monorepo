@@ -200,7 +200,9 @@ export function useAssignStaffConflicts({
     return () => {
       cancelled = true;
     };
-  }, [context, step, selectedStaffId, selectedClassIds, selectedStaffIds, staff, classData, classes, staffList, assignmentDate, enabled]);
+    // Use stable primitives (classIds, staffIds, selectedClassIdsStr, selectedStaffIdsStr, staff?.id, classData?.id)
+    // to avoid infinite loops when parent passes new array/object references each render (e.g. class context from ViewClassModal)
+  }, [context, step, selectedStaffId, selectedClassIdsStr, selectedStaffIdsStr, staff?.id, classData?.id, classIds, staffIds, assignmentDate, enabled]);
 
   return {
     staffConflicts,
