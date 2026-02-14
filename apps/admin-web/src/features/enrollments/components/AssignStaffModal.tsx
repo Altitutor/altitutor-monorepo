@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   useAssignStaffData,
   useAssignStaffConflicts,
@@ -15,8 +15,6 @@ import {
   AssignStaffStep3Summary,
 } from './steps';
 import type { AssignStaffModalProps } from '../types/enrollment';
-import { ClassCard } from '@/shared/components/ClassCard';
-import { StaffCard } from '@/shared/components/StaffCard';
 
 export function AssignStaffModal({
   isOpen,
@@ -181,82 +179,65 @@ export function AssignStaffModal({
     }
   };
 
-  const canProceed = step === 1
-    ? (context === 'staff' && selectedClassIds.length > 0) || (context === 'class' && selectedStaffIds.length > 0)
-    : true;
+  const canProceed =
+    step === 1
+      ? (context === 'staff' && selectedClassIds.length > 0) || (context === 'class' && selectedStaffIds.length > 0)
+      : step === 2
+        ? !!assignmentDate && assignmentDate.trim() !== ''
+        : true;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b space-y-3">
-          <div className="flex-1">
-            <DialogTitle>Assign Staff</DialogTitle>
-            <DialogDescription className="sr-only">
-              Select staff or classes to assign, then choose a date and confirm.
-            </DialogDescription>
-            {(context === 'class' && classData && classSubject) || 
-             (context === 'staff' && staff) || 
-             selectedClasses.length > 0 || 
-             selectedStaff.length > 0 ? (
-              <div className="mt-3 flex items-center gap-3 flex-wrap">
-                {/* Show class card for class context */}
-                {context === 'class' && classData && classSubject && (
-                  <div className="flex-shrink-0">
-                    <ClassCard
-                      class={classData}
-                      subject={classSubject}
-                      staff={classStaff || []}
-                      students={[]}
-                      compact={true}
-                    />
-                  </div>
-                )}
-                
-                {/* Show staff card for staff context */}
-                {context === 'staff' && staff && (
-                  <div className="flex-shrink-0">
-                    <StaffCard
-                      staff={staff}
-                      subjects={staffSubjects || []}
-                      showSubjects={true}
-                      showActions={false}
-                    />
-                  </div>
-                )}
-                
-                {/* Show selected staff cards for class context */}
-                {context === 'class' && selectedStaff.map(s => (
-                  <div key={s.id} className="flex-shrink-0">
-                    <StaffCard
-                      staff={s}
-                      subjects={[]}
-                      showSubjects={false}
-                      showActions={false}
-                    />
-                  </div>
-                ))}
-                
-                {/* Show selected class cards for staff context */}
-                {context === 'staff' && selectedClasses.map(c => (
-                  <div key={c.id} className="flex-shrink-0">
-                    <ClassCard
-                      class={c}
-                      subject={c.subject}
-                      staff={c.staff || []}
-                      students={c.students || []}
-                      compact={true}
-                    />
-                  </div>
-                ))}
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+        {/* Header */}
+        <div className="flex-shrink-0 border-b bg-background">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1 min-w-0">
+                  <DialogTitle>Assign Staff</DialogTitle>
+                  <DialogDescription>
+                    Step {step} of 3: {step === 1 ? 'Choose Class or Staff' : step === 2 ? 'Choose Date' : 'Summary & Confirm'}
+                  </DialogDescription>
+                </div>
               </div>
-            ) : null}
-          </div>
-        </DialogHeader>
+            </div>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4 flex flex-col">
-          {/* Step 1: Select Classes or Staff */}
-          {step === 1 && (
-            <AssignStaffStep1SelectClassOrStaff
+          {/* Progress Indicator */}
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={`flex-1 h-2 rounded-full transition-colors ${
+                    index < step - 1
+                      ? 'bg-primary'
+                      : index === step - 1
+                      ? 'bg-primary/50'
+                      : 'bg-muted'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-hidden min-h-0">
+          <div className="h-full overflow-y-auto">
+            <div className="p-6">
+            {/* Step 1: Select Classes or Staff */}
+            {step === 1 && (
+              <AssignStaffStep1SelectClassOrStaff
               context={context}
               isFetching={isFetching}
               classData={classData}
@@ -283,11 +264,10 @@ export function AssignStaffModal({
               staffUnavailability={staffUnavailability}
               classUnavailability={classUnavailability}
             />
-          )}
+            )}
 
-          {/* Step 2: Select Assignment Date */}
-          {step === 2 && (
-            <div className="flex-1 overflow-y-auto">
+            {/* Step 2: Select Assignment Date */}
+            {step === 2 && (
               <AssignStaffStep2SelectDate
                 context={context}
                 assignmentDate={assignmentDate}
@@ -300,29 +280,28 @@ export function AssignStaffModal({
                 staffSubjects={staffSubjects}
                 selectedClasses={selectedClasses}
               />
-            </div>
-          )}
+            )}
 
-          {/* Step 3: Summary & Confirm */}
+            {/* Step 3: Summary & Confirm */}
           {step === 3 && (
-            <div className="flex-1 overflow-y-auto">
-              <AssignStaffStep3Summary
-                context={context}
-                selectedStaff={selectedStaff}
-                selectedClasses={selectedClasses}
-                staff={staff}
-                staffSubjects={staffSubjects}
-                classData={classData}
-                classSubject={classSubject}
-                classStaff={classStaff}
-                assignmentDate={assignmentDate}
-                staffConflicts={staffConflicts}
-                classConflicts={classConflicts}
-                staffUnavailability={staffUnavailability}
-                classUnavailability={classUnavailability}
-              />
-            </div>
+            <AssignStaffStep3Summary
+              context={context}
+              selectedStaff={selectedStaff}
+              selectedClasses={selectedClasses}
+              staff={staff}
+              staffSubjects={staffSubjects}
+              classData={classData}
+              classSubject={classSubject}
+              classStaff={classStaff}
+              assignmentDate={assignmentDate}
+              staffConflicts={staffConflicts}
+              classConflicts={classConflicts}
+              staffUnavailability={staffUnavailability}
+              classUnavailability={classUnavailability}
+            />
           )}
+            </div>
+          </div>
         </div>
 
         <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">

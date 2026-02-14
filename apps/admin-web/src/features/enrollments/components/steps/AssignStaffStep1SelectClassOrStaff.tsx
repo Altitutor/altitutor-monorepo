@@ -9,9 +9,13 @@ import { Loader2, Search, Filter, X } from 'lucide-react';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { formatClassName } from '@/shared/utils';
+import { formatClassName, cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { AssignStaffContext, StaffConflictInfo, ClassConflictInfo, StaffUnavailabilityInfo } from '../../types/enrollment';
+
+function staffDisplayName(s: Tables<'staff'>): string {
+  return [s.first_name, s.last_name].filter(Boolean).join(' ') || 'Staff';
+}
 
 interface AssignStaffStep1SelectClassOrStaffProps {
   context: AssignStaffContext;
@@ -56,10 +60,10 @@ interface AssignStaffStep1SelectClassOrStaffProps {
 export function AssignStaffStep1SelectClassOrStaff({
   context,
   isFetching,
-  classData: _classData,
-  classSubject: _classSubject,
+  classData,
+  classSubject,
   classStaff: _classStaff,
-  staff: _staff,
+  staff,
   staffSubjects: _staffSubjects,
   filteredClasses,
   filteredStaff,
@@ -80,8 +84,104 @@ export function AssignStaffStep1SelectClassOrStaff({
   staffUnavailability,
   classUnavailability,
 }: AssignStaffStep1SelectClassOrStaffProps) {
+  // Selected items for the card
+  const selectedClasses = filteredClasses.filter(c => selectedClassIds.includes(c.id));
+  const selectedStaff = filteredStaff.filter(s => selectedStaffIds.includes(s.id));
+
   return (
     <div className="flex flex-col flex-1 min-h-0 space-y-4">
+      {/* Info Card: Assign {staff member(s)} to {class} */}
+      <div className="mb-4 p-4 bg-muted rounded-lg">
+        <p className="text-sm font-medium flex flex-wrap items-center gap-x-1 gap-y-2">
+          Assign{' '}
+          {context === 'staff' ? (
+            staff ? (
+              <span className={cn(
+                "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+                "bg-primary/10 text-primary border-primary/20"
+              )}>
+                {staffDisplayName(staff)}
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2 py-1 rounded-md font-semibold border bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20">
+                choose staff
+              </span>
+            )
+          ) : (
+            <>
+              {selectedStaff.length > 0 ? (
+                selectedStaff.map((s) => (
+                  <span
+                    key={s.id}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold border",
+                      "bg-primary/10 text-primary border-primary/20"
+                    )}
+                  >
+                    {staffDisplayName(s)}
+                    <button
+                      type="button"
+                      onClick={() => onToggleStaff(s.id)}
+                      className="rounded p-0.5 hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      aria-label={`Remove ${staffDisplayName(s)}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-md font-semibold border bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20">
+                  choose staff
+                </span>
+              )}
+            </>
+          )}{' '}
+          to{' '}
+          {context === 'class' ? (
+            classData && classSubject ? (
+              <span className={cn(
+                "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+                "bg-primary/10 text-primary border-primary/20"
+              )}>
+                {formatClassName(classData, classSubject)}
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2 py-1 rounded-md font-semibold border bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20">
+                choose class
+              </span>
+            )
+          ) : (
+            <>
+              {selectedClasses.length > 0 ? (
+                selectedClasses.map((c) => (
+                  <span
+                    key={c.id}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold border",
+                      "bg-primary/10 text-primary border-primary/20"
+                    )}
+                  >
+                    {formatClassName(c, c.subject)}
+                    <button
+                      type="button"
+                      onClick={() => onToggleClass(c.id)}
+                      className="rounded p-0.5 hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      aria-label={`Remove ${formatClassName(c, c.subject)}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-md font-semibold border bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20">
+                  choose class
+                </span>
+              )}
+            </>
+          )}
+        </p>
+      </div>
+
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
