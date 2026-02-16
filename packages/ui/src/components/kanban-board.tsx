@@ -598,7 +598,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <ScrollArea className="h-full w-full">
+          <div className="h-full w-full overflow-x-auto overflow-y-hidden">
             <div className="flex h-full p-4 gap-4 min-w-max">
               {activeColumnDef.options.map((option: { value: any; label: string }) => {
                 const columnItems = sortedItems.filter(
@@ -626,8 +626,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 );
               })}
             </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
 
           <DragOverlay>
             {activeDragItem ? (
@@ -700,7 +699,7 @@ function KanbanColumn<TItem>({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col w-[300px] min-w-[300px] rounded-lg bg-muted/30 transition-colors',
+        'flex flex-col h-full w-[300px] min-w-[300px] rounded-lg bg-muted/30 transition-colors',
         isOver && 'bg-muted/50'
       )}
     >
