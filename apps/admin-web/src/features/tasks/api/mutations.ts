@@ -56,11 +56,6 @@ export function useUpdateTask() {
       
       // Invalidate tasks list
       queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
-      
-      toast({
-        title: 'Task updated',
-        description: 'The task has been updated successfully.',
-      });
     },
     onError: (error: Error) => {
       toast({

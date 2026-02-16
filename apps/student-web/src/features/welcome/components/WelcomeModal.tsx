@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   Button,
 } from '@altitutor/ui';
-import { CONTACT_EMAIL, STUDENT_WELCOME_ADDRESS, STUDENT_WELCOME_PHONE } from '@/shared/constants';
+import { CONTACT_EMAIL, CONTACT_PHONE, STUDENT_WELCOME_ADDRESS, SUBSIDY_INFO_URL } from '@/shared/constants';
 import { cn, getSubjectColorStyle } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 
@@ -85,6 +85,7 @@ export function WelcomeModal({
 }: WelcomeModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [cardsVisible, setCardsVisible] = useState(false);
+  const [stepThreeVisible, setStepThreeVisible] = useState(false);
   const [infoPageIndex, setInfoPageIndex] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -122,6 +123,24 @@ export function WelcomeModal({
       cancelAnimationFrame(frameB);
     };
   }, [step, infoPageIndex]);
+
+  useEffect(() => {
+    if (step !== 3) {
+      setStepThreeVisible(false);
+      return;
+    }
+
+    let frameA = 0;
+    let frameB = 0;
+    frameA = requestAnimationFrame(() => {
+      frameB = requestAnimationFrame(() => setStepThreeVisible(true));
+    });
+
+    return () => {
+      cancelAnimationFrame(frameA);
+      cancelAnimationFrame(frameB);
+    };
+  }, [step]);
 
   const formatCurrencyPerHour = (cents: number | null) => {
     if (cents === null) return '-';
@@ -161,11 +180,11 @@ export function WelcomeModal({
         body: (
           <>
             <p>
-              Sessions are automatically billed in advance on Monday of each week. The cost for sessions is{' '}
+              Sessions are automatically billed at 7:00pm on the day before the session. The cost for sessions is{' '}
               <strong className="text-foreground">{formatCurrencyPerHour(defaultClassHourlyRateCents)}</strong>{' '}
               for standard class billing. If you would like to apply for a subsidy,{' '}
               <a
-                href="https://altitutor.com/about/subsidy/"
+                href={SUBSIDY_INFO_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="text-brand-mediumBlue underline underline-offset-2"
@@ -222,7 +241,7 @@ export function WelcomeModal({
             </p>
             <p className="mt-2">
               If you have any questions, please reach out via text or phone call at{' '}
-              <strong className="text-foreground">{STUDENT_WELCOME_PHONE}</strong> or email{' '}
+              <strong className="text-foreground">{CONTACT_PHONE}</strong> or email{' '}
               <strong className="text-foreground">{CONTACT_EMAIL}</strong>.
             </p>
             <div className="mt-3 overflow-hidden rounded-md border border-border/60">
@@ -329,7 +348,7 @@ export function WelcomeModal({
         <div className={cn('flex-1 px-6 py-5', step === 1 ? 'overflow-y-auto' : 'overflow-hidden')}>
           {step === 1 ? (
             <section className="animate-in fade-in-0 slide-in-from-bottom-2 duration-500 space-y-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-m text-muted-foreground leading-relaxed">
                 Thank you for registering to be a student with us at Altitutor. You have registered to be enrolled in
                 classes for the following subjects:
               </p>
@@ -341,7 +360,9 @@ export function WelcomeModal({
                     Loading your subjects...
                   </div>
                 ) : subjectChips.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">Your selected subjects will appear here once loaded.</div>
+                  <div className="text-m text-muted-foreground leading-relaxed">
+                    Your selected subjects will appear here once loaded.
+                  </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {subjectChips.map((subject) => {
@@ -378,7 +399,7 @@ export function WelcomeModal({
                 )}
               </div>
 
-              <p className="text-sm text-muted-foreground">
+              <p className="text-m text-muted-foreground leading-relaxed">
                 Our admin staff are currently working on enrolling you in sessions for these subjects. You will receive
                 a text message with your classes, and your schedule on the Altitutor Student portal will be updated.
               </p>
@@ -401,20 +422,44 @@ export function WelcomeModal({
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-brand-lightBlue/20 text-brand-mediumBlue dark:bg-brand-lightBlue/25 dark:text-brand-lightBlue">
                         <card.icon className="h-4 w-4" />
                       </span>
-                      <h3 className="text-sm font-semibold tracking-wide text-foreground">{card.title}</h3>
+                      <h3 className="text-xl font-semibold tracking-wide text-foreground">{card.title}</h3>
                     </div>
-                    <div className="text-sm leading-relaxed text-muted-foreground">{card.body}</div>
+                    <div className="text-m leading-relaxed text-muted-foreground">{card.body}</div>
                   </article>
                 ))}
               </div>
             </section>
           ) : (
-            <section className="flex h-full flex-col items-center justify-center text-center animate-in fade-in-0 zoom-in-95 duration-500">
-              <p className="text-3xl font-semibold text-foreground">Welcome to Altitutor!</p>
-              <div className="my-5 inline-flex h-16 w-16 items-center justify-center rounded-full bg-brand-lightBlue/20 dark:bg-brand-lightBlue/25">
+            <section className="flex h-full flex-col items-center justify-center text-center">
+              <p
+                className="text-xl font-semibold text-foreground transition-all duration-500"
+                style={{
+                  opacity: stepThreeVisible ? 1 : 0,
+                  transform: stepThreeVisible ? 'translateY(0)' : 'translateY(10px)',
+                }}
+              >
+                Welcome to Altitutor!
+              </p>
+              <div
+                className="my-5 inline-flex h-16 w-16 items-center justify-center rounded-full bg-brand-lightBlue/20 dark:bg-brand-lightBlue/25 transition-all duration-500"
+                style={{
+                  opacity: stepThreeVisible ? 1 : 0,
+                  transform: stepThreeVisible ? 'scale(1)' : 'scale(0.92)',
+                  transitionDelay: '120ms',
+                }}
+              >
                 <Heart className="h-8 w-8 text-brand-mediumBlue dark:text-brand-lightBlue animate-pulse" />
               </div>
-              <p className="text-lg text-muted-foreground">We can&apos;t wait to see you</p>
+              <p
+                className="text-m text-muted-foreground leading-relaxed transition-all duration-500"
+                style={{
+                  opacity: stepThreeVisible ? 1 : 0,
+                  transform: stepThreeVisible ? 'translateY(0)' : 'translateY(10px)',
+                  transitionDelay: '220ms',
+                }}
+              >
+                We can&apos;t wait to see you
+              </p>
             </section>
           )}
         </div>

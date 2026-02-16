@@ -40,7 +40,7 @@ export const CONTACT_PHONE = '+61 483 849 842';
 export const CONTACT_EMAIL = 'admin@altitutor.com';
 export const CONTACT_NO_SLOTS_MESSAGE =
   'No sessions available? Get in contact, and we will book you in.';
+export const SUBSIDY_INFO_URL = 'https://altitutor.com/about/subsidy/';
 
 // Student welcome modal content
 export const STUDENT_WELCOME_ADDRESS = 'Level 1, 17A Solomon St, Adelaide SA 5000';
-export const STUDENT_WELCOME_PHONE = '0483849842';

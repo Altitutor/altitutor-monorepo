@@ -23,6 +23,7 @@ import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
 import { TaskTextWithTags } from './fields/TaskTextWithTags';
 import { EditTaskDialog } from './EditTaskDialog';
+import { TaskEditor } from './TaskEditor';
 import {
   getStatusLabel,
   getStatusIconColor,
@@ -63,10 +64,12 @@ export function TasksList() {
   const assigneeFilter = (filters.assignee ?? []) as string[];
   const priorityFilter = (filters.priority ?? []) as TaskPriority[];
   const estimateFilter = (filters.estimate ?? []) as number[];
+  const statusFilter = (filters.status ?? []) as TaskStatus[];
 
   const { data: tasks = [], isLoading } = useTasks({
     assignedTo: assigneeFilter.length > 0 ? assigneeFilter : undefined,
     priority: priorityFilter.length > 0 ? priorityFilter : undefined,
+    status: statusFilter.length > 0 ? statusFilter : undefined,
   });
 
   const filteredTasks = useMemo(() => {
@@ -106,10 +109,14 @@ export function TasksList() {
   );
 
   const handleAdd = useCallback(
-    (partial: { name: string } & Record<string, unknown>) => {
+    (data: { name: string; description?: string } & Record<string, unknown>) => {
       createTask.mutate({
-        title: partial.name,
-        status: 'backlog' as const,
+        title: data.name,
+        description: data.description,
+        status: (data.status as TaskStatus) || 'todo',
+        assigned_to: data.assignee as string | null,
+        priority: data.priority as number | null,
+        estimate: data.estimate as number | null,
       });
     },
     [createTask]
@@ -117,21 +124,44 @@ export function TasksList() {
 
   const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = {
     key: 'status',
+    label: 'Status',
     getValue: (t) => t.status as TaskStatus,
-    options: STATUS_OPTIONS,
-    renderBubble: (value) => {
+    defaultValue: 'todo',
+    filterable: true,
+    options: STATUS_OPTIONS.map(opt => ({
+      ...opt,
+      icon: opt.value === 'backlog'
+        ? Circle
+        : opt.value === 'todo'
+          ? Circle
+          : opt.value === 'in_progress'
+            ? Clock
+            : opt.value === 'in_review'
+              ? Eye
+              : opt.value === 'done'
+                ? CheckCircle
+                : Circle
+    })),
+    renderBubble: (value, collapsed) => {
       const label = getStatusLabel(value);
       const iconColor = getStatusIconColor(value);
       const Icon =
         value === 'backlog'
           ? Circle
-          : value === 'in_progress'
-            ? Clock
-            : value === 'in_review'
-              ? Eye
-              : value === 'done'
-                ? CheckCircle
-                : Circle;
+          : value === 'todo'
+            ? Circle
+            : value === 'in_progress'
+              ? Clock
+              : value === 'in_review'
+                ? Eye
+                : value === 'done'
+                  ? CheckCircle
+                  : Circle;
+      
+      if (collapsed) {
+        return <Icon className={cn("h-3 w-3", iconColor)} />;
+      }
+
       return (
         <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
           <Icon className="h-3 w-3" />
@@ -160,14 +190,16 @@ export function TasksList() {
         label: 'Assignee',
         visibleByDefault: true,
         getValue: (t) => t.assigned_to ?? null,
+        defaultValue: null,
         filterOptions: assigneeFilterOptions,
         groupable: true,
         sortable: false,
         filterable: true,
-        renderPill: (item, onChange) => (
+        renderPill: (item, onChange, collapsed) => (
           <TaskListAssigneePill
             task={item}
             staffList={staffList}
+            collapsed={collapsed}
             onChange={(id) => {
               handleAssigneeChange(item, id);
               onChange(id);
@@ -180,14 +212,16 @@ export function TasksList() {
         label: 'Estimate',
         visibleByDefault: true,
         getValue: (t) => t.estimate ?? null,
+        defaultValue: null,
         filterOptions: ESTIMATE_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
         groupable: true,
         sortable: true,
         filterable: true,
         compare: (a, b) => (Number(a) ?? 0) - (Number(b) ?? 0),
-        renderPill: (item, onChange) => (
+        renderPill: (item, onChange, collapsed) => (
           <TaskListEstimatePill
             value={item.estimate ?? null}
+            collapsed={collapsed}
             onChange={(v) => {
               handleEstimateChange(item, v);
               onChange(v);
@@ -200,14 +234,16 @@ export function TasksList() {
         label: 'Priority',
         visibleByDefault: true,
         getValue: (t) => t.priority ?? 0,
+        defaultValue: 0,
         filterOptions: PRIORITY_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
-        groupable: false,
+        groupable: true,
         sortable: true,
         filterable: true,
         compare: (a, b) => (Number(b) ?? 0) - (Number(a) ?? 0),
-        renderPill: (item, onChange) => (
+        renderPill: (item, onChange, collapsed) => (
           <TaskListPriorityPill
             value={(item.priority ?? 0) as TaskPriority}
+            collapsed={collapsed}
             onChange={(v) => {
               handlePriorityChange(item, v);
               onChange(v);
@@ -228,6 +264,7 @@ export function TasksList() {
   const groupByOptions = [
     { key: 'assignee', label: 'Assignee' },
     { key: 'estimate', label: 'Estimate' },
+    { key: 'status', label: 'Status' },
   ];
 
   const sortByOptions = [
@@ -267,7 +304,23 @@ export function TasksList() {
             const label = getEstimateLabel(Number(valueKey));
             return label ?? valueKey;
           }
+          if (columnKey === 'status') {
+            if (valueKey === '__null__') return 'No status';
+            return getStatusLabel(valueKey as TaskStatus);
+          }
           return valueKey === '__null__' ? 'No value' : valueKey;
+        }}
+        descriptionConfig={{
+          enabled: true,
+          renderEditor: ({ value, onChange, placeholder }) => (
+            <TaskEditor
+              content={value}
+              onChange={onChange}
+              placeholder={placeholder}
+              className="min-h-[60px]"
+            />
+          ),
+          placeholder: "Add task description..."
         }}
       />
 
@@ -289,10 +342,12 @@ function TaskListAssigneePill({
   task,
   staffList,
   onChange,
+  collapsed,
 }: {
   task: TaskWithAssignee;
   staffList: { id: string; first_name: string | null; last_name: string | null }[];
   onChange: (staffId: string | null) => void;
+  collapsed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -305,8 +360,8 @@ function TaskListAssigneePill({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1.5 h-8 px-3 text-xs border rounded-full',
-            'bg-background hover:bg-muted/80 transition-colors'
+            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            collapsed ? 'w-8 justify-center p-0' : 'px-3 text-xs'
           )}
           onClick={(e) => e.stopPropagation()}
         >
@@ -315,14 +370,18 @@ function TaskListAssigneePill({
               <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-[10px] font-medium flex-shrink-0">
                 {initials}
               </div>
-              <span className="truncate max-w-[80px]">
-                {assignee.first_name} {assignee.last_name}
-              </span>
+              {!collapsed && (
+                <span className="truncate max-w-[80px]">
+                  {assignee.first_name} {assignee.last_name}
+                </span>
+              )}
             </>
           ) : (
             <>
-              <User className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Assign</span>
+              <User className={cn("h-3 w-3 text-muted-foreground", !assignee && "opacity-40 group-hover:opacity-100")} />
+              {!collapsed && (
+                <span className="text-muted-foreground opacity-40 group-hover:opacity-100">Assign</span>
+              )}
             </>
           )}
         </button>
@@ -384,14 +443,17 @@ function TaskListAssigneePill({
 function TaskListPriorityPill({
   value,
   onChange,
+  collapsed,
 }: {
   value: TaskPriority;
   onChange: (v: TaskPriority) => void;
+  collapsed?: boolean;
 }) {
   const label = getPriorityLabel(value);
   const iconColor = getPriorityIconColor(value);
   const Icon =
     value === 0 ? Circle : value === 2 ? AlertTriangle : value === 4 ? Info : AlertCircle;
+  const isEmpty = value === 0;
 
   return (
     <Select
@@ -399,11 +461,16 @@ function TaskListPriorityPill({
       onValueChange={(v) => onChange(Number(v) as TaskPriority)}
     >
       <SelectTrigger
-        className="h-8 px-3 text-xs border rounded-full w-auto gap-1.5"
+        className={cn(
+          "h-8 border rounded-full bg-background group gap-1.5",
+          collapsed ? "w-8 justify-center p-0" : "px-3 text-xs w-auto"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <Icon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
-        <span className="truncate">{label}</span>
+        <Icon className={cn('h-3 w-3 flex-shrink-0', iconColor, isEmpty && "opacity-40 group-hover:opacity-100")} />
+        {!collapsed && (
+          <span className={cn("truncate", isEmpty && "text-muted-foreground opacity-40 group-hover:opacity-100")}>{label}</span>
+        )}
       </SelectTrigger>
       <SelectContent>
         {PRIORITY_OPTIONS.map((o) => (
@@ -419,11 +486,14 @@ function TaskListPriorityPill({
 function TaskListEstimatePill({
   value,
   onChange,
+  collapsed,
 }: {
   value: number | null;
   onChange: (v: number | null) => void;
+  collapsed?: boolean;
 }) {
   const label = value ? getEstimateLabel(value) : null;
+  const isEmpty = value == null;
 
   return (
     <Select
@@ -431,11 +501,16 @@ function TaskListEstimatePill({
       onValueChange={(v) => onChange(v === 'none' ? null : Number(v))}
     >
       <SelectTrigger
-        className="h-8 px-3 text-xs border rounded-full w-auto gap-1.5"
+        className={cn(
+          "h-8 border rounded-full bg-background group gap-1.5",
+          collapsed ? "w-8 justify-center p-0" : "px-3 text-xs w-auto"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <Gauge className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-        <span className="truncate">{label || 'Estimate'}</span>
+        <Gauge className={cn("h-3 w-3 text-muted-foreground flex-shrink-0", isEmpty && "opacity-40 group-hover:opacity-100")} />
+        {!collapsed && (
+          <span className={cn("truncate", isEmpty && "text-muted-foreground opacity-40 group-hover:opacity-100")}>{label || 'Estimate'}</span>
+        )}
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="none">None</SelectItem>
