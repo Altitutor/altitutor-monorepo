@@ -1,29 +1,42 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  closestCorners,
-  useDroppable,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+  KanbanBoard,
+  type KanbanColumnDef,
+  type EntityListPillColumn,
+  type EntityListStatusColumn,
+} from '@altitutor/ui';
+import { useTasks } from '../api/queries';
+import { useUpdateTask, useCreateTask } from '../api/mutations';
+import { useStaffSearch } from '../hooks/useStaffSearch';
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
-import { useTasks } from '../api/queries';
-import { useUpdateTask } from '../api/mutations';
-import type { TaskStatus, TaskPriority, TaskWithAssignee } from '../types';
-import { cn } from '@/shared/utils/index';
-import { Skeleton, Button } from '@altitutor/ui';
-import { Plus } from 'lucide-react';
+import {
+  getStatusLabel,
+  getStatusIconColor,
+  getPriorityLabel,
+  getPriorityIconColor,
+  getEstimateLabel,
+  ESTIMATE_OPTIONS,
+  PRIORITY_OPTIONS,
+} from '../utils/taskUtils';
+import {
+  TaskAssigneeEntityPill,
+  TaskPriorityEntityPill,
+  TaskEstimateEntityPill,
+} from './fields/TaskEntityPills';
+import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
+import { cn } from '@/shared/utils';
+import { Circle, Clock, Eye, CheckCircle } from 'lucide-react';
+
+const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
+  { value: 'backlog', label: 'Backlog' },
+  { value: 'todo', label: 'Todo' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'in_review', label: 'In Review' },
+  { value: 'done', label: 'Done' },
+];
 
 interface TasksBoardProps {
   filters?: {
@@ -34,201 +47,277 @@ interface TasksBoardProps {
   onCreateTask?: (status: TaskStatus) => void;
 }
 
-const STATUS_COLUMNS: { status: TaskStatus; label: string }[] = [
-  { status: 'backlog', label: 'Backlog' },
-  { status: 'todo', label: 'Todo' },
-  { status: 'in_progress', label: 'In Progress' },
-  { status: 'in_review', label: 'In Review' },
-  { status: 'done', label: 'Done' },
-];
-
-interface ColumnProps {
-  status: TaskStatus;
-  label: string;
-  tasks: TaskWithAssignee[];
-  onTaskClick: (task: TaskWithAssignee) => void;
-  onCreateTask?: (status: TaskStatus) => void;
-}
-
-function Column({ status, label, tasks, onTaskClick, onCreateTask }: ColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: status,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      data-status={status}
-      className={cn(
-        'flex-1 min-w-[250px] bg-muted/30 rounded-lg p-4',
-        'flex flex-col gap-3 h-full',
-        isOver && 'ring-2 ring-primary ring-offset-2'
-      )}
-    >
-      <div className="flex items-center justify-between flex-shrink-0">
-        <h3 className="font-semibold text-sm">{label}</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
-            {tasks.length}
-          </span>
-          {onCreateTask && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCreateTask(status);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto">
-          {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
-          ))}
-          {tasks.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              No tasks
-            </div>
-          )}
-        </div>
-      </SortableContext>
-    </div>
-  );
-}
-
-export function TasksBoard({ filters, onCreateTask }: TasksBoardProps) {
-  const { data: tasks = [], isLoading } = useTasks({
-    assignedTo: filters?.assignedTo,
-    priority: filters?.priority as TaskPriority | undefined,
-    search: filters?.search,
-  });
-  const updateTask = useUpdateTask();
-  const [activeTask, setActiveTask] = useState<TaskWithAssignee | null>(null);
+export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
+  const [activeColumnKey, setActiveColumnKey] = useState<string>('status');
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
+  const assigneeFilter = (filters.assignee ?? []) as string[];
+  const priorityFilter = (filters.priority ?? []) as TaskPriority[];
+  const statusFilter = (filters.status ?? []) as TaskStatus[];
+
+  const { data: tasks = [], isLoading } = useTasks({
+    assignedTo: assigneeFilter.length > 0 ? assigneeFilter : undefined,
+    priority: priorityFilter.length > 0 ? priorityFilter : undefined,
+    status: statusFilter.length > 0 ? statusFilter : undefined,
+    search: initialFilters?.search,
+  });
+
+  const updateTask = useUpdateTask();
+  const createTask = useCreateTask();
+
+  const handleUpdate = useCallback(
+    (task: TaskWithAssignee, updates: Partial<TaskWithAssignee>) => {
+      updateTask.mutate({ id: task.id, updates: updates as any });
+    },
+    [updateTask]
   );
 
-  // Group tasks by status
-  const tasksByStatus = useMemo(() => {
-    const grouped: Record<TaskStatus, TaskWithAssignee[]> = {
-      backlog: [],
-      todo: [],
-      in_progress: [],
-      in_review: [],
-      done: [],
-    };
+  const { staff: staffList } = useStaffSearch('', true);
 
-    tasks.forEach((task) => {
-      if (task.status in grouped) {
-        grouped[task.status as TaskStatus].push(task);
+  const assigneeFilterOptions = useMemo(
+    () =>
+      staffList.map((s) => ({
+        value: s.id as unknown,
+        label: `${s.first_name} ${s.last_name}`,
+      })),
+    [staffList]
+  );
+
+  const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = useMemo(() => ({
+    key: 'status',
+    label: 'Status',
+    getValue: (t) => t.status as TaskStatus,
+    defaultValue: 'todo',
+    filterable: true,
+    options: STATUS_OPTIONS.map(opt => ({
+      ...opt,
+      icon: opt.value === 'backlog'
+        ? Circle
+        : opt.value === 'todo'
+          ? Circle
+          : opt.value === 'in_progress'
+            ? Clock
+            : opt.value === 'in_review'
+              ? Eye
+              : opt.value === 'done'
+                ? CheckCircle
+                : Circle
+    })),
+    renderBubble: (value, collapsed) => {
+      const label = getStatusLabel(value);
+      const iconColor = getStatusIconColor(value);
+      const Icon =
+        value === 'backlog'
+          ? Circle
+          : value === 'todo'
+            ? Circle
+            : value === 'in_progress'
+              ? Clock
+              : value === 'in_review'
+                ? Eye
+                : value === 'done'
+                  ? CheckCircle
+                  : Circle;
+      
+      if (collapsed) {
+        return <Icon className={cn("h-3 w-3", iconColor)} />;
       }
-    });
 
-    return grouped;
-  }, [tasks]);
+      return (
+        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
+          <Icon className="h-3 w-3" />
+          {label}
+        </span>
+      );
+    },
+    onStatusChange: (task, value) => handleUpdate(task, { status: value }),
+  }), [handleUpdate]);
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const task = tasks.find((t) => t.id === event.active.id);
-    if (task) {
-      setActiveTask(task);
+  const rightPills: EntityListPillColumn<TaskWithAssignee, unknown>[] = useMemo(
+    () => [
+      {
+        key: 'assignee',
+        label: 'Assignee',
+        visibleByDefault: true,
+        getValue: (t) => t.assigned_to ?? null,
+        defaultValue: null,
+        filterOptions: assigneeFilterOptions,
+        groupable: true,
+        sortable: false,
+        filterable: true,
+        renderPill: (item, onChange, collapsed) => (
+          <TaskAssigneeEntityPill
+            task={item}
+            staffList={staffList}
+            collapsed={collapsed}
+            onChange={(id) => {
+              handleUpdate(item, { assigned_to: id });
+              onChange(id);
+            }}
+          />
+        ),
+      },
+      {
+        key: 'estimate',
+        label: 'Estimate',
+        visibleByDefault: true,
+        getValue: (t) => t.estimate ?? null,
+        defaultValue: null,
+        filterOptions: ESTIMATE_OPTIONS.map((o: { value: number; label: string }) => ({ value: o.value as unknown, label: o.label })),
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        compare: (a, b) => (Number(a) ?? 0) - (Number(b) ?? 0),
+        renderPill: (item, onChange, collapsed) => (
+          <TaskEstimateEntityPill
+            value={item.estimate ?? null}
+            collapsed={collapsed}
+            onChange={(v) => {
+              handleUpdate(item, { estimate: v });
+              onChange(v);
+            }}
+          />
+        ),
+      },
+      {
+        key: 'priority',
+        label: 'Priority',
+        visibleByDefault: true,
+        getValue: (t) => t.priority ?? 0,
+        defaultValue: 0,
+        filterOptions: PRIORITY_OPTIONS.map((o: { value: TaskPriority; label: string }) => ({ value: o.value as unknown, label: o.label })),
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        compare: (a, b) => (Number(b) ?? 0) - (Number(a) ?? 0),
+        renderPill: (item, onChange, collapsed) => (
+          <TaskPriorityEntityPill
+            value={(item.priority ?? 0) as TaskPriority}
+            collapsed={collapsed}
+            onChange={(v) => {
+              handleUpdate(item, { priority: v });
+              onChange(v);
+            }}
+          />
+        ),
+      },
+    ],
+    [staffList, assigneeFilterOptions, handleUpdate]
+  );
+
+  const columnDefs: KanbanColumnDef<TaskWithAssignee, any>[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'Status',
+      getValue: (t) => t.status,
+      options: STATUS_OPTIONS,
+      onValueChange: (t, v) => handleUpdate(t, { status: v }),
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      getValue: (t) => t.priority ?? 0,
+      options: PRIORITY_OPTIONS,
+      onValueChange: (t, v) => handleUpdate(t, { priority: v }),
+    },
+    {
+      key: 'assignee',
+      label: 'Assignee',
+      getValue: (t) => t.assigned_to ?? '__null__',
+      options: [
+        { value: '__null__', label: 'Unassigned' },
+        ...staffList.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))
+      ],
+      onValueChange: (t, v) => handleUpdate(t, { assigned_to: v === '__null__' ? null : v }),
     }
-  };
+  ], [handleUpdate, staffList]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveTask(null);
+  const groupByOptions = [
+    { key: 'assignee', label: 'Assignee' },
+    { key: 'priority', label: 'Priority' },
+    { key: 'estimate', label: 'Estimate' },
+    { key: 'status', label: 'Status' },
+  ];
 
-    const { active, over } = event;
-    if (!over) return;
+  const sortByOptions = [
+    { key: 'estimate', label: 'Estimate' },
+    { key: 'priority', label: 'Priority' },
+    { key: 'status', label: 'Status' },
+  ];
 
-    const taskId = active.id as string;
-    
-    // Determine the target status
-    // If over.id is a valid status, use it directly (dropped on column)
-    // Otherwise, it's a task ID (dropped on a task card), so find that task's status
-    const validStatuses = STATUS_COLUMNS.map((col) => col.status);
-    let newStatus: TaskStatus;
-    
-    if (validStatuses.includes(over.id as TaskStatus)) {
-      newStatus = over.id as TaskStatus;
-    } else {
-      // over.id is a task ID, find that task's status
-      const targetTask = tasks.find((t) => t.id === over.id);
-      if (!targetTask) return;
-      newStatus = targetTask.status as TaskStatus;
+  const handleAdd = useCallback(
+    (columnValue: any) => {
+      const defaults: any = {
+        title: 'New Task',
+        status: 'todo',
+      };
+
+      if (activeColumnKey === 'status') defaults.status = columnValue;
+      if (activeColumnKey === 'priority') defaults.priority = columnValue;
+      if (activeColumnKey === 'assignee') defaults.assigned_to = columnValue === '__null__' ? null : columnValue;
+
+      createTask.mutate(defaults);
+    },
+    [activeColumnKey, createTask]
+  );
+
+  const getGroupLabel = useCallback((columnKey: string, valueKey: string) => {
+    if (columnKey === 'assignee') {
+      if (valueKey === '__null__') return 'Unassigned';
+      const s = staffList.find((x) => x.id === valueKey);
+      return s ? `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || valueKey : valueKey;
     }
-
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || task.status === newStatus) return;
-
-    // Update task status
-    updateTask.mutate({
-      id: taskId,
-      updates: { status: newStatus },
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex gap-4 h-full">
-        {STATUS_COLUMNS.map((col) => (
-          <div key={col.status} className="flex-1 min-w-[250px] bg-muted/30 rounded-lg p-4 flex flex-col">
-            <Skeleton className="h-6 w-24 mb-4 flex-shrink-0" />
-            <div className="space-y-2 flex-1 overflow-y-auto">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+    if (columnKey === 'estimate') {
+      if (valueKey === '__null__') return 'No estimate';
+      const label = getEstimateLabel(Number(valueKey));
+      return label ?? valueKey;
+    }
+    if (columnKey === 'status') {
+      if (valueKey === '__null__') return 'No status';
+      return getStatusLabel(valueKey as TaskStatus);
+    }
+    if (columnKey === 'priority') {
+      if (valueKey === '__null__') return 'No priority';
+      return getPriorityLabel(Number(valueKey) as TaskPriority);
+    }
+    return valueKey === '__null__' ? 'No value' : valueKey;
+  }, [staffList]);
 
   return (
     <>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4 h-full overflow-x-auto overflow-y-hidden">
-          {STATUS_COLUMNS.map((column) => (
-            <Column
-              key={column.status}
-              status={column.status}
-              label={column.label}
-              tasks={tasksByStatus[column.status]}
-              onTaskClick={(task) => {
-                setSelectedTaskId(task.id);
-                setIsEditDialogOpen(true);
-              }}
-              onCreateTask={onCreateTask}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeTask ? (
-            <div style={{ opacity: 0.5 }}>
-              <TaskCard task={activeTask} />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      <KanbanBoard<TaskWithAssignee>
+        items={tasks}
+        getItemId={(t) => t.id}
+        columnDefs={columnDefs}
+        activeColumnKey={activeColumnKey}
+        onActiveColumnKeyChange={setActiveColumnKey}
+        renderCard={(t) => (
+          <TaskCard 
+            task={t} 
+            onClick={() => {
+              setSelectedTaskId(t.id);
+              setIsEditDialogOpen(true);
+            }} 
+          />
+        )}
+        onCardClick={(t) => {
+          setSelectedTaskId(t.id);
+          setIsEditDialogOpen(true);
+        }}
+        statusColumn={statusColumn}
+        rightPills={rightPills}
+        groupByOptions={groupByOptions}
+        sortByOptions={sortByOptions}
+        filters={filters}
+        onFiltersChange={setFilters}
+        getGroupLabel={getGroupLabel}
+        onAdd={handleAdd}
+        isLoading={isLoading}
+        emptyMessage="No tasks found"
+      />
 
-      {/* Edit task dialog */}
       {selectedTaskId && (
         <EditTaskDialog
           isOpen={isEditDialogOpen}
@@ -237,12 +326,8 @@ export function TasksBoard({ filters, onCreateTask }: TasksBoardProps) {
             setSelectedTaskId(null);
           }}
           taskId={selectedTaskId}
-          onTaskUpdated={() => {
-            // Task was updated, dialog will handle closing
-          }}
         />
       )}
     </>
   );
 }
-

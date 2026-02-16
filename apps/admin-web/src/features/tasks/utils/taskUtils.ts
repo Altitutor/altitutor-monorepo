@@ -165,6 +165,14 @@ export function getEstimateLabel(estimate: number | null | undefined): EstimateS
   return ESTIMATE_OPTIONS.find(opt => opt.value === estimate)?.label || null;
 }
 
+export const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
+  { value: 0, label: 'No priority' },
+  { value: 1, label: 'Urgent' },
+  { value: 2, label: 'High' },
+  { value: 3, label: 'Medium' },
+  { value: 4, label: 'Low' },
+];
+
 /**
  * Convert size label to estimate number (1-5)
  */
