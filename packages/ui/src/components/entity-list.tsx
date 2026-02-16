@@ -61,6 +61,16 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   defaultValue?: TValue;
 }
 
+export interface QuickFilter {
+  id: string;
+  name: string;
+  config: Record<string, unknown[]>;
+  user_id: string | null;
+  target_entity: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface EntityListProps<TItem> {
   items: TItem[];
   getItemId: (item: TItem) => string;
@@ -85,12 +95,19 @@ export interface EntityListProps<TItem> {
   onSortChange?: (key: string, direction: 'asc' | 'desc') => void;
   filters?: Record<string, unknown[]>;
   onFiltersChange?: (filters: Record<string, unknown[]>) => void;
+  quickFilters?: QuickFilter[];
+  onApplyQuickFilter?: (filter: QuickFilter) => void;
   /** Resolve group key to display label (e.g. id -> name for assignee) */
   getGroupLabel?: (columnKey: string, valueKey: string) => string;
   /** Description field configuration */
   descriptionConfig?: {
     enabled: boolean;
-    renderEditor: (props: { value: string; onChange: (val: string) => void; placeholder?: string }) => React.ReactNode;
+    renderEditor: (props: {
+      value: string;
+      onChange: (val: string) => void;
+      placeholder?: string;
+      ref?: React.RefObject<any>;
+    }) => React.ReactNode;
     placeholder?: string;
   };
 }
@@ -154,6 +171,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     onSortChange,
     filters: controlledFilters,
     onFiltersChange,
+    quickFilters = [],
+    onApplyQuickFilter,
     getGroupLabel,
     descriptionConfig,
   } = props;
@@ -165,22 +184,6 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   const [internalSortBy, setInternalSortBy] = React.useState<string>('name');
   const [internalSortDirection, setInternalSortDirection] = React.useState<'asc' | 'desc'>('asc');
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
-  const [addName, setAddName] = React.useState('');
-  const [addDescription, setAddDescription] = React.useState('');
-  const [isDescriptionVisible, setIsDescriptionVisible] = React.useState(false);
-  const [addValues, setAddValues] = React.useState<Record<string, unknown>>(() => {
-    const defaults: Record<string, unknown> = {};
-    if (statusColumn?.defaultValue !== undefined) {
-      defaults[statusColumn.key] = statusColumn.defaultValue;
-    }
-    rightPills.forEach((p) => {
-      if (p.defaultValue !== undefined) {
-        defaults[p.key] = p.defaultValue;
-      }
-    });
-    return defaults;
-  });
-  const [isAddFocused, setIsAddFocused] = React.useState(false);
 
   const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
@@ -240,7 +243,27 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
         const pill = rightPills.find((p) => p.key === columnKey);
         const statusVal = statusColumn?.key === columnKey ? statusColumn.getValue(item) : undefined;
         const value = pill ? pill.getValue(item) : statusVal;
-        const match = selected.some((v) => v === value || (typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value)));
+        const match = selected.some((v) => {
+          if (v === value) return true;
+          
+          // Handle date range objects from quick filters
+          if (typeof v === 'object' && v !== null && 'type' in v && (v as any).type === 'date_range') {
+            const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
+            const itemDateStr = typeof value === 'string' ? value : null;
+            if (!itemDateStr) return false;
+            const itemTime = new Date(itemDateStr).getTime();
+            if (isNaN(itemTime)) return false;
+            
+            if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
+            if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
+            if (dr.start && dr.end) {
+              return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
+            }
+            return false;
+          }
+
+          return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
+        });
         if (!match) return false;
       }
       return true;
@@ -285,34 +308,10 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     }));
   }, [sortedItems, groupBy, groupByOptions, rightPills, statusColumn, getGroupLabel]);
 
-  const handleAddSubmit = () => {
-    const name = addName.trim();
-    if (!name || !onAdd) return;
-    onAdd({
-      name,
-      description: addDescription,
-      ...addValues,
-    });
-    setAddName('');
-    setAddDescription('');
-    setIsDescriptionVisible(false);
-    // Reset values to defaults
-    const defaults: Record<string, unknown> = {};
-    if (statusColumn?.defaultValue !== undefined) {
-      defaults[statusColumn.key] = statusColumn.defaultValue;
-    }
-    rightPills.forEach((p) => {
-      if (p.defaultValue !== undefined) {
-        defaults[p.key] = p.defaultValue;
-      }
-    });
-    setAddValues(defaults);
-  };
-
   return (
     <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-end gap-1 p-2 border-b flex-shrink-0 overflow-x-auto no-scrollbar">
+      <div className="flex items-center justify-end gap-1 p-2 border-b flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -428,6 +427,34 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
               <DropdownMenuLabel>Filters</DropdownMenuLabel>
               
+              {quickFilters.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Quick Filters
+                  </div>
+                  <div className="px-2 pb-2 flex flex-wrap gap-1">
+                    {quickFilters.map((qf) => (
+                      <Button
+                        key={qf.id}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          if (onApplyQuickFilter) {
+                            onApplyQuickFilter(qf);
+                          } else {
+                            setFilters(qf.config);
+                          }
+                        }}
+                      >
+                        {qf.name}
+                      </Button>
+                    ))}
+                  </div>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
               {activeFilterCount > 0 && (
                 <div className="px-2 pb-2 flex flex-wrap gap-1">
                   {Object.entries(filters).map(([columnKey, selected]) => {
@@ -563,78 +590,161 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
       {/* Add row */}
       {onAdd && (
-        <div
-          className={cn(
-            'flex flex-col border-t flex-shrink-0 w-full',
-            isAddFocused && 'bg-muted/30'
-          )}
+        <EntityListAddRow
+          onAdd={onAdd}
+          statusColumn={statusColumn}
+          rightPills={rightPills}
+          visiblePillKeys={visiblePillKeys}
+          addButtonLabel={addButtonLabel}
+          descriptionConfig={descriptionConfig}
+        />
+      )}
+    </div>
+  );
+}
+
+interface EntityListAddRowProps<TItem> {
+  onAdd: (data: { name: string; description?: string } & Record<string, unknown>) => void;
+  statusColumn?: EntityListStatusColumn<TItem, any>;
+  rightPills: EntityListPillColumn<TItem, any>[];
+  visiblePillKeys: string[];
+  addButtonLabel: string;
+  descriptionConfig?: EntityListProps<TItem>['descriptionConfig'];
+}
+
+function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
+  const { onAdd, statusColumn, rightPills, visiblePillKeys, addButtonLabel, descriptionConfig } = props;
+
+  const [addName, setAddName] = React.useState('');
+  const [addDescription, setAddDescription] = React.useState('');
+  const [isDescriptionVisible, setIsDescriptionVisible] = React.useState(false);
+  const [addValues, setAddValues] = React.useState<Record<string, unknown>>(() => {
+    const defaults: Record<string, unknown> = {};
+    if (statusColumn?.defaultValue !== undefined) {
+      defaults[statusColumn.key] = statusColumn.defaultValue;
+    }
+    rightPills.forEach((p) => {
+      if (p.defaultValue !== undefined) {
+        defaults[p.key] = p.defaultValue;
+      }
+    });
+    return defaults;
+  });
+  const [isAddFocused, setIsAddFocused] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const descriptionRef = React.useRef<any>(null);
+
+  const handleAddSubmit = () => {
+    const name = addName.trim();
+    if (!name) return;
+    onAdd({
+      name,
+      description: addDescription,
+      ...addValues,
+    });
+    setAddName('');
+    setAddDescription('');
+    setIsDescriptionVisible(false);
+    // Reset values to defaults
+    const defaults: Record<string, unknown> = {};
+    if (statusColumn?.defaultValue !== undefined) {
+      defaults[statusColumn.key] = statusColumn.defaultValue;
+    }
+    rightPills.forEach((p) => {
+      if (p.defaultValue !== undefined) {
+        defaults[p.key] = p.defaultValue;
+      }
+    });
+    setAddValues(defaults);
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col border-t flex-shrink-0 w-full',
+        isAddFocused && 'bg-muted/30'
+      )}
+    >
+      <div className="flex items-center gap-3 p-2 w-full min-w-0 overflow-hidden">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground h-8 w-8 p-0 flex-shrink-0"
+          aria-label={addButtonLabel}
+          onClick={handleAddSubmit}
         >
-          <div className="flex items-center gap-3 p-2 w-full overflow-x-hidden">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground h-8 w-8 p-0 flex-shrink-0"
-              aria-label={addButtonLabel}
-              onClick={handleAddSubmit}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+          <Plus className="h-4 w-4" />
+        </Button>
 
-            {statusColumn && (
-              <div className="flex-shrink-0">
-                <EntityListStatusBubble
-                  item={addValues as TItem}
-                  column={{
-                    ...statusColumn,
-                    onStatusChange: (_item, val) => setAddValues(prev => ({ ...prev, [statusColumn.key]: val }))
-                  }}
-                />
-              </div>
-            )}
-
-            <Input
-              placeholder={`${addButtonLabel}… (Cmd+Enter for description)`}
-              value={addName}
-              onChange={(e) => setAddName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (e.metaKey || e.ctrlKey) {
-                    setIsDescriptionVisible(true);
-                  } else {
-                    handleAddSubmit();
-                  }
-                }
+        {statusColumn && (
+          <div className="flex-shrink-0">
+            <EntityListStatusBubble
+              item={addValues as TItem}
+              column={{
+                ...statusColumn,
+                onStatusChange: (_item, val) => setAddValues(prev => ({ ...prev, [statusColumn.key]: val }))
               }}
-              onFocus={() => setIsAddFocused(true)}
-              onBlur={() => setIsAddFocused(false)}
-              className="flex-1 h-8 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm font-medium min-w-0"
             />
-
-            <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto no-scrollbar">
-              {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill) => (
-                <div key={pill.key}>
-                  {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })))}
-                </div>
-              ))}
-            </div>
           </div>
+        )}
 
-          {descriptionConfig?.enabled && (isDescriptionVisible || addDescription.trim() !== '') && (
-            <div className="px-11 pb-3">
-              {descriptionConfig.renderEditor({
-                value: addDescription,
-                onChange: setAddDescription,
-                placeholder: descriptionConfig.placeholder || "Add description...",
-              })}
+        <Input
+          ref={inputRef}
+          placeholder={`${addButtonLabel}… (Shift+Enter for description)`}
+          value={addName}
+          onChange={(e) => setAddName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (e.shiftKey) {
+                if (descriptionConfig?.enabled) {
+                  setIsDescriptionVisible(true);
+                  // Focus description editor on next tick
+                  setTimeout(() => {
+                    descriptionRef.current?.focusToEnd?.();
+                  }, 0);
+                }
+              } else {
+                handleAddSubmit();
+              }
+            }
+          }}
+          onFocus={() => setIsAddFocused(true)}
+          onBlur={() => setIsAddFocused(false)}
+          className="flex-1 h-8 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm font-medium min-w-0 truncate"
+        />
+
+        <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill) => (
+            <div key={pill.key} className="flex-shrink-0">
+              {/* Responsive: show full pill on larger screens, icon on smaller */}
+              <div className="hidden lg:block">
+                {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), false)}
+              </div>
+              <div className="lg:hidden">
+                {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)}
+              </div>
             </div>
-          )}
+          ))}
+        </div>
+      </div>
+
+      {descriptionConfig?.enabled && (isDescriptionVisible || addDescription.trim() !== '') && (
+        <div className="px-11 pb-3">
+          {descriptionConfig.renderEditor({
+            value: addDescription,
+            onChange: setAddDescription,
+            placeholder: descriptionConfig.placeholder || "Add description...",
+            ref: descriptionRef,
+          })}
         </div>
       )}
     </div>
   );
 }
+
 
 interface EntityListRowProps<TItem> {
   item: TItem;
@@ -689,18 +799,20 @@ function EntityListRow<TItem>({
       )}
 
       {/* Name */}
-      <div className="flex-1 min-w-0 truncate text-sm font-medium">
-        {renderName(item)}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium line-clamp-1">
+          {renderName(item)}
+        </div>
       </div>
 
       {/* Right: pills */}
-      <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+      <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {rightPills.map((pill) => {
           return (
             <div
               key={pill.key}
               onClick={(e) => e.stopPropagation()}
-              className="transition-opacity"
+              className="transition-opacity flex-shrink-0"
             >
               {/* Responsive: show full pill on larger screens, icon on smaller */}
               <div className="hidden lg:block">

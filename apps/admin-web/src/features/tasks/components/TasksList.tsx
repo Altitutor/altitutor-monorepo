@@ -352,8 +352,9 @@ export function TasksList() {
         }}
         descriptionConfig={{
           enabled: true,
-          renderEditor: ({ value, onChange, placeholder }) => (
+          renderEditor: ({ value, onChange, placeholder, ref }) => (
             <TaskEditor
+              ref={ref}
               content={value}
               onChange={onChange}
               placeholder={placeholder}
