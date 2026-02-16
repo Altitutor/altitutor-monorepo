@@ -60,6 +60,7 @@ interface CreateTaskDialogProps {
   onClose: () => void;
   onTaskCreated?: () => void;
   defaultStatus?: TaskStatus;
+  defaultValues?: Partial<TaskFormData>;
 }
 
 export function CreateTaskDialog({
@@ -67,6 +68,7 @@ export function CreateTaskDialog({
   onClose,
   onTaskCreated,
   defaultStatus,
+  defaultValues,
 }: CreateTaskDialogProps) {
   const createTask = useCreateTask();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
@@ -84,11 +86,11 @@ export function CreateTaskDialog({
     defaultValues: {
       title: '',
       description: '',
-      status: defaultStatus || 'todo',
-      priority: 0,
-      assignedTo: null,
-      estimate: null,
-      dueDate: null,
+      status: defaultStatus || defaultValues?.status || 'todo',
+      priority: defaultValues?.priority ?? 0,
+      assignedTo: defaultValues?.assignedTo || null,
+      estimate: defaultValues?.estimate || null,
+      dueDate: defaultValues?.dueDate || null,
     },
   });
 
@@ -98,16 +100,16 @@ export function CreateTaskDialog({
       form.reset({
         title: '',
         description: '',
-        status: defaultStatus || 'todo',
-        priority: 0,
-        assignedTo: null,
-        estimate: null,
-        dueDate: null,
+        status: defaultStatus || defaultValues?.status || 'todo',
+        priority: defaultValues?.priority ?? 0,
+        assignedTo: defaultValues?.assignedTo || null,
+        estimate: defaultValues?.estimate || null,
+        dueDate: defaultValues?.dueDate || null,
       });
       setSelectedAssignee(null);
       setCreatedTaskId(null);
     }
-  }, [isOpen, defaultStatus, form]);
+  }, [isOpen, defaultStatus, defaultValues, form]);
 
   const onSubmit = async (data: FormData): Promise<void> => {
     try {

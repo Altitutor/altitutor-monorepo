@@ -12,6 +12,7 @@ import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
+import { CreateTaskDialog } from './CreateTaskDialog';
 import {
   getStatusLabel,
   getStatusIconColor,
@@ -52,6 +53,9 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
   const [filters, setFilters] = useState<Record<string, unknown[]>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createDefaultStatus, setCreateDefaultStatus] = useState<TaskStatus | undefined>(undefined);
+  const [createDefaultValues, setCreateDefaultValues] = useState<any>({});
 
   const assigneeFilter = (filters.assignee ?? []) as string[];
   const priorityFilter = (filters.priority ?? []) as TaskPriority[];
@@ -250,17 +254,22 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
   const handleAdd = useCallback(
     (columnValue: any) => {
       const defaults: any = {
-        title: 'New Task',
-        status: 'todo',
+        status: 'todo' as TaskStatus,
       };
 
-      if (activeColumnKey === 'status') defaults.status = columnValue;
-      if (activeColumnKey === 'priority') defaults.priority = columnValue;
-      if (activeColumnKey === 'assignee') defaults.assigned_to = columnValue === '__null__' ? null : columnValue;
+      if (activeColumnKey === 'status') {
+        defaults.status = columnValue as TaskStatus;
+      } else if (activeColumnKey === 'priority') {
+        defaults.priority = columnValue as number;
+      } else if (activeColumnKey === 'assignee') {
+        defaults.assignedTo = columnValue === '__null__' ? null : (columnValue as string);
+      }
 
-      createTask.mutate(defaults);
+      setCreateDefaultStatus(defaults.status);
+      setCreateDefaultValues(defaults);
+      setIsCreateDialogOpen(true);
     },
-    [activeColumnKey, createTask]
+    [activeColumnKey]
   );
 
   const getGroupLabel = useCallback((columnKey: string, valueKey: string) => {
@@ -293,19 +302,16 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
         columnDefs={columnDefs}
         activeColumnKey={activeColumnKey}
         onActiveColumnKeyChange={setActiveColumnKey}
-        renderCard={(t) => (
+        renderCard={(t, visiblePillKeys) => (
           <TaskCard 
             task={t} 
+            visiblePillKeys={visiblePillKeys}
             onClick={() => {
               setSelectedTaskId(t.id);
               setIsEditDialogOpen(true);
             }} 
           />
         )}
-        onCardClick={(t) => {
-          setSelectedTaskId(t.id);
-          setIsEditDialogOpen(true);
-        }}
         statusColumn={statusColumn}
         rightPills={rightPills}
         groupByOptions={groupByOptions}
@@ -328,6 +334,13 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
           taskId={selectedTaskId}
         />
       )}
+
+      <CreateTaskDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        defaultStatus={createDefaultStatus}
+        defaultValues={createDefaultValues}
+      />
     </>
   );
 }

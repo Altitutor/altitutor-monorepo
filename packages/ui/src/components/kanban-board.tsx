@@ -31,7 +31,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './dropdown-menu';
-import { ScrollArea } from './scroll-area';
+import { ScrollArea, ScrollBar } from './scroll-area';
 import { cn } from '../lib/cn';
 import {
   LayoutGrid,
@@ -65,8 +65,7 @@ export interface KanbanBoardProps<TItem> {
   activeColumnKey: string;
   onActiveColumnKeyChange?: (key: string) => void;
 
-  renderCard: (item: TItem) => React.ReactNode;
-  onCardClick?: (item: TItem) => void;
+  renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
 
   // Shared features with EntityList
   statusColumn?: EntityListStatusColumn<TItem, any>;
@@ -84,6 +83,12 @@ export interface KanbanBoardProps<TItem> {
 
   filters?: Record<string, unknown[]>;
   onFiltersChange?: (filters: Record<string, unknown[]>) => void;
+
+  hideEmptyColumns?: boolean;
+  onHideEmptyColumnsChange?: (hide: boolean) => void;
+
+  visiblePillKeys?: string[];
+  onVisiblePillKeysChange?: (keys: string[]) => void;
 
   onAdd?: (columnValue: any) => void;
   addButtonLabel?: string;
@@ -140,7 +145,6 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     activeColumnKey,
     onActiveColumnKeyChange,
     renderCard,
-    onCardClick,
     statusColumn,
     rightPills,
     groupByOptions = [],
@@ -153,6 +157,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     onSortChange,
     filters: controlledFilters,
     onFiltersChange,
+    hideEmptyColumns: controlledHideEmptyColumns,
+    onHideEmptyColumnsChange,
+    visiblePillKeys: controlledVisiblePills,
+    onVisiblePillKeysChange,
     onAdd,
     addButtonLabel = 'Add',
     isLoading = false,
@@ -163,6 +171,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const [internalSortBy, setInternalSortBy] = React.useState<string>('name');
   const [internalSortDirection, setInternalSortDirection] = React.useState<'asc' | 'desc'>('asc');
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
+  const [internalHideEmptyColumns, setInternalHideEmptyColumns] = React.useState(false);
+  const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
+    rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
+  );
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
 
   const groupBy = controlledGroupBy ?? internalGroupBy;
@@ -177,8 +189,18 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const sortDirection = controlledSortDirection ?? internalSortDirection;
   const filters = controlledFilters ?? internalFilters;
   const setFilters = onFiltersChange ?? setInternalFilters;
+  const hideEmptyColumns = controlledHideEmptyColumns ?? internalHideEmptyColumns;
+  const setHideEmptyColumns = onHideEmptyColumnsChange ?? setInternalHideEmptyColumns;
+  const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
+  const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
 
   const activeColumnDef = columnDefs.find(c => c.key === activeColumnKey) || columnDefs[0];
+
+  const togglePillVisibility = (key: string) => {
+    setVisiblePillKeys(
+      visiblePillKeys.includes(key) ? visiblePillKeys.filter((k) => k !== key) : [...visiblePillKeys, key]
+    );
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -291,216 +313,230 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   return (
     <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-end gap-1 p-2 border-b flex-shrink-0 overflow-x-auto no-scrollbar">
-        {columnDefs.length > 1 && (
-          <div className="flex items-center mr-auto">
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Columns className="h-4 w-4 mr-2" />
-                  <span>Columns: {activeColumnDef.label}</span>
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[180px]">
-                {columnDefs.map((o: KanbanColumnDef<TItem>) => (
-                  <DropdownMenuItem key={o.key} onClick={() => onActiveColumnKeyChange?.(o.key)}>
-                    {o.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-
-        {groupByOptions.length > 0 && (
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
-                  <span className={cn(!groupBy && "opacity-50")}>
-                    Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
-                  </span>
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[180px]">
-                <DropdownMenuItem onClick={() => setGroupBy(null)}>None</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {groupByOptions.map((o: { key: string; label: string }) => (
-                  <DropdownMenuItem key={o.key} onClick={() => setGroupBy(o.key)}>
-                    {o.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {groupBy && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-l-none border-l-0 px-2"
-                onClick={() => setGroupBy(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
-
-        {sortByOptions.length > 0 && (
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
-                  <span className={cn(sortBy === 'name' && "opacity-50")}>
-                    Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
-                  </span>
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {sortByOptions.map((o: { key: string; label: string }) => (
-                  <DropdownMenuItem
-                    key={o.key}
-                    onClick={() => {
-                      const nextDirection =
-                        sortBy === o.key && sortDirection === 'asc' ? 'desc' : 'asc';
-                      setSortBy(o.key, nextDirection);
-                    }}
-                  >
-                    {o.label} {sortBy === o.key && <span className="ml-1">({sortDirection})</span>}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {sortBy !== 'name' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-l-none border-l-0 px-2"
-                onClick={() => {
-                  setSortBy('name', 'asc');
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center">
+      <ScrollArea className="w-full border-b">
+        <div className="flex items-center justify-end gap-1 p-2 flex-shrink-0 min-w-max">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
-                <Filter className="h-4 w-4 mr-2" />
-                <span className={cn(activeFilterCount === 0 && "opacity-50")}>
-                  Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
-                </span>
+              <Button variant="outline" size="sm" className="mr-1">
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                <span className={cn(!visiblePillKeys.length && "opacity-50")}>View options</span>
                 <ChevronDown className="h-4 w-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
-              <DropdownMenuLabel>Filters</DropdownMenuLabel>
-              
-              {activeFilterCount > 0 && (
-                <div className="px-2 pb-2 flex flex-wrap gap-1">
-                  {Object.entries(filters).map(([columnKey, selected]: [string, unknown[]]) => {
-                    if (!selected?.length) return null;
-                    const pill = rightPills.find((p) => p.key === columnKey);
-                    const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
-                    const colDef = columnDefs.find(c => c.key === columnKey);
-                    const label = pill?.label ?? statusCol?.label ?? colDef?.label ?? columnKey;
-                    
-                    return (
-                      <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
-                        <span className="font-semibold">{label} is</span>
-                        {selected.map((val, idx) => {
-                          const options = pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
-                          const opt = options.find((o: any) => String(o.value) === String(val));
-                          const valLabel = opt?.label ?? String(val);
-                          return (
-                            <React.Fragment key={String(val)}>
-                              {idx > 0 && <span className="opacity-50">OR</span>}
-                              <button
-                                onClick={() => removeFilterValue(columnKey, val)}
-                                className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                              >
-                                {valLabel}
-                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                              </button>
-                            </React.Fragment>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                  <button
-                    onClick={clearFilters}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded border text-xs font-medium transition-colors"
-                  >
-                    Clear all
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
+            <DropdownMenuContent align="end" className="w-[200px]">
+              <DropdownMenuLabel>Show pills</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
-              <ScrollArea className="flex-1 overflow-y-auto">
-                {statusColumn && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {statusColumn.options.map((opt: { value: any; label: string }) => {
-                        const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={String(opt.value)}
-                            checked={selected}
-                            onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
-                          >
-                            {opt.label}
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
+              {rightPills.map((p) => (
+                <DropdownMenuCheckboxItem
+                  key={p.key}
+                  checked={visiblePillKeys.includes(p.key)}
+                  onCheckedChange={() => togglePillVisibility(p.key)}
+                >
+                  {p.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {columnDefs.length > 1 && (
+            <div className="flex items-center mr-auto">
+               <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Columns className="h-4 w-4 mr-2" />
+                    <span>Columns: {activeColumnDef.label}</span>
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[180px]">
+                  {columnDefs.map((o: KanbanColumnDef<TItem>) => (
+                    <DropdownMenuItem key={o.key} onClick={() => onActiveColumnKeyChange?.(o.key)}>
+                      {o.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          {groupByOptions.length > 0 && (
+            <div className="flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
+                    <span className={cn(!groupBy && "opacity-50")}>
+                      Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
+                    </span>
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[180px]">
+                  <DropdownMenuItem onClick={() => setGroupBy(null)}>None</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {groupByOptions.map((o: { key: string; label: string }) => (
+                    <DropdownMenuItem key={o.key} onClick={() => setGroupBy(o.key)}>
+                      {o.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {groupBy && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-l-none border-l-0 px-2"
+                  onClick={() => setGroupBy(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          {sortByOptions.length > 0 && (
+            <div className="flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    <span className={cn(sortBy === 'name' && "opacity-50")}>
+                      Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                  <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {sortByOptions.map((o: { key: string; label: string }) => (
+                    <DropdownMenuItem
+                      key={o.key}
+                      onClick={() => {
+                        const nextDirection =
+                          sortBy === o.key && sortDirection === 'asc' ? 'desc' : 'asc';
+                        setSortBy(o.key, nextDirection);
+                      }}
+                    >
+                      {o.label} {sortBy === o.key && <span className="ml-1">({sortDirection})</span>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {sortBy !== 'name' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-l-none border-l-0 px-2"
+                  onClick={() => {
+                    setSortBy('name', 'asc');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
+                  <Filter className="h-4 w-4 mr-2" />
+                  <span className={cn(activeFilterCount === 0 && "opacity-50")}>
+                    Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
+                <DropdownMenuLabel>Filters</DropdownMenuLabel>
+                
+                <div className="px-2 py-1.5">
+                  <DropdownMenuCheckboxItem
+                    checked={hideEmptyColumns}
+                    onCheckedChange={setHideEmptyColumns}
+                  >
+                    Hide empty columns
+                  </DropdownMenuCheckboxItem>
+                </div>
+
+                <DropdownMenuSeparator />
+                
+                {activeFilterCount > 0 && (
+                  <div className="px-2 pb-2 flex flex-wrap gap-1">
+                    {Object.entries(filters).map(([columnKey, selected]: [string, unknown[]]) => {
+                      if (!selected?.length) return null;
+                      const pill = rightPills.find((p) => p.key === columnKey);
+                      const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
+                      const colDef = columnDefs.find(c => c.key === columnKey);
+                      const label = pill?.label ?? statusCol?.label ?? colDef?.label ?? columnKey;
+                      
+                      return (
+                        <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
+                          <span className="font-semibold">{label} is</span>
+                          {selected.map((val, idx) => {
+                            const options = pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
+                            const opt = options.find((o: any) => String(o.value) === String(val));
+                            const valLabel = opt?.label ?? String(val);
+                            return (
+                              <React.Fragment key={String(val)}>
+                                {idx > 0 && <span className="opacity-50">OR</span>}
+                                <button
+                                  onClick={() => removeFilterValue(columnKey, val)}
+                                  className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                                >
+                                  {valLabel}
+                                  <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                                </button>
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded border text-xs font-medium transition-colors"
+                    >
+                      Clear all
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 )}
-                {columnDefs.map((col: KanbanColumnDef<TItem>) => (
-                   <DropdownMenuSub key={col.key}>
-                    <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {col.options.map((opt: { value: any; label: string }) => {
-                        const selected = (filters[col.key] ?? []).includes(opt.value);
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={String(opt.value)}
-                            checked={selected}
-                            onCheckedChange={() => toggleFilter(col.key, opt.value)}
-                          >
-                            {opt.label}
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                ))}
-                {rightPills
-                  .filter((p: EntityListPillColumn<TItem, any>) => p.filterable !== false && p.filterOptions?.length)
-                  .map((p: EntityListPillColumn<TItem, any>) => (
-                    <DropdownMenuSub key={p.key}>
-                      <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+
+                <DropdownMenuSeparator />
+                
+                <ScrollArea className="flex-1 overflow-y-auto">
+                  {statusColumn && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
-                        {p.filterOptions!.map((opt: { value: any; label: string }) => {
-                          const selected = (filters[p.key] ?? []).includes(opt.value);
+                        {statusColumn.options.map((opt: { value: any; label: string }) => {
+                          const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
                           return (
                             <DropdownMenuCheckboxItem
                               key={String(opt.value)}
                               checked={selected}
-                              onCheckedChange={() => toggleFilter(p.key, opt.value)}
+                              onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
+                            >
+                              {opt.label}
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+                  {columnDefs.map((col: KanbanColumnDef<TItem>) => (
+                     <DropdownMenuSub key={col.key}>
+                      <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {col.options.map((opt: { value: any; label: string }) => {
+                          const selected = (filters[col.key] ?? []).includes(opt.value);
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={String(opt.value)}
+                              checked={selected}
+                              onCheckedChange={() => toggleFilter(col.key, opt.value)}
                             >
                               {opt.label}
                             </DropdownMenuCheckboxItem>
@@ -509,21 +545,44 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                   ))}
-              </ScrollArea>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {activeFilterCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-l-none border-l-0 px-2"
-              onClick={clearFilters}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+                  {rightPills
+                    .filter((p: EntityListPillColumn<TItem, any>) => p.filterable !== false && p.filterOptions?.length)
+                    .map((p: EntityListPillColumn<TItem, any>) => (
+                      <DropdownMenuSub key={p.key}>
+                        <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {p.filterOptions!.map((opt: { value: any; label: string }) => {
+                            const selected = (filters[p.key] ?? []).includes(opt.value);
+                            return (
+                              <DropdownMenuCheckboxItem
+                                key={String(opt.value)}
+                                checked={selected}
+                                onCheckedChange={() => toggleFilter(p.key, opt.value)}
+                              >
+                                {opt.label}
+                              </DropdownMenuCheckboxItem>
+                            );
+                          })}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    ))}
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {activeFilterCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-l-none border-l-0 px-2"
+                onClick={clearFilters}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
 
       {/* Board */}
       <div className="flex-1 min-h-0 relative">
@@ -539,36 +598,41 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex h-full overflow-x-auto p-4 gap-4 no-scrollbar">
-            {activeColumnDef.options.map((option: { value: any; label: string }) => {
-              const columnItems = sortedItems.filter(
-                (item) => String(activeColumnDef.getValue(item)) === String(option.value)
-              );
-              
-              return (
-                <KanbanColumn
-                  key={String(option.value)}
-                  id={`column-${option.value}`}
-                  label={option.label}
-                  items={columnItems}
-                  getItemId={getItemId}
-                  renderCard={renderCard}
-                  onCardClick={onCardClick}
-                  onAdd={onAdd ? () => onAdd(option.value) : undefined}
-                  addButtonLabel={addButtonLabel}
-                  groupBy={groupBy}
-                  getGroupLabel={getGroupLabel}
-                  statusColumn={statusColumn}
-                  rightPills={rightPills}
-                />
-              );
-            })}
-          </div>
+          <ScrollArea className="h-full w-full">
+            <div className="flex h-full p-4 gap-4 min-w-max">
+              {activeColumnDef.options.map((option: { value: any; label: string }) => {
+                const columnItems = sortedItems.filter(
+                  (item) => String(activeColumnDef.getValue(item)) === String(option.value)
+                );
+                
+                if (hideEmptyColumns && columnItems.length === 0) return null;
+
+                return (
+                  <KanbanColumn
+                    key={String(option.value)}
+                    id={`column-${option.value}`}
+                    label={option.label}
+                    items={columnItems}
+                    getItemId={getItemId}
+                    renderCard={renderCard}
+                    onAdd={onAdd ? () => onAdd(option.value) : undefined}
+                    addButtonLabel={addButtonLabel}
+                    groupBy={groupBy}
+                    getGroupLabel={getGroupLabel}
+                    statusColumn={statusColumn}
+                    rightPills={rightPills.filter(p => visiblePillKeys.includes(p.key))}
+                    visiblePillKeys={visiblePillKeys}
+                  />
+                );
+              })}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
           <DragOverlay>
             {activeDragItem ? (
               <div className="opacity-50 rotate-3 scale-105 pointer-events-none">
-                {renderCard(activeDragItem)}
+                {renderCard(activeDragItem, visiblePillKeys)}
               </div>
             ) : null}
           </DragOverlay>
@@ -587,14 +651,14 @@ interface KanbanColumnProps<TItem> {
   label: string;
   items: TItem[];
   getItemId: (item: TItem) => string;
-  renderCard: (item: TItem) => React.ReactNode;
-  onCardClick?: (item: TItem) => void;
+  renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
   onAdd?: () => void;
   addButtonLabel: string;
   groupBy: string | null;
   getGroupLabel?: (columnKey: string, valueKey: string) => string;
   statusColumn?: EntityListStatusColumn<TItem, any>;
   rightPills: EntityListPillColumn<TItem, any>[];
+  visiblePillKeys: string[];
 }
 
 function KanbanColumn<TItem>({
@@ -603,13 +667,13 @@ function KanbanColumn<TItem>({
   items,
   getItemId,
   renderCard,
-  onCardClick,
   onAdd,
   addButtonLabel,
   groupBy,
   getGroupLabel,
   statusColumn,
   rightPills,
+  visiblePillKeys,
 }: KanbanColumnProps<TItem>) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -636,8 +700,8 @@ function KanbanColumn<TItem>({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col w-[300px] min-w-[300px] rounded-lg bg-muted/30 border transition-colors',
-        isOver && 'bg-muted/50 border-primary/50'
+        'flex flex-col w-[300px] min-w-[300px] rounded-lg bg-muted/30 transition-colors',
+        isOver && 'bg-muted/50'
       )}
     >
       <div className="flex items-center justify-between p-3 flex-shrink-0">
@@ -671,7 +735,7 @@ function KanbanColumn<TItem>({
                       item={item}
                       getItemId={getItemId}
                       renderCard={renderCard}
-                      onClick={onCardClick ? () => onCardClick(item) : undefined}
+                      visiblePillKeys={visiblePillKeys}
                     />
                   ))}
                 </div>
@@ -696,11 +760,11 @@ function KanbanColumn<TItem>({
 interface SortableCardProps<TItem> {
   item: TItem;
   getItemId: (item: TItem) => string;
-  renderCard: (item: TItem) => React.ReactNode;
-  onClick?: () => void;
+  renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
+  visiblePillKeys: string[];
 }
 
-function SortableCard<TItem>({ item, getItemId, renderCard, onClick }: SortableCardProps<TItem>) {
+function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: SortableCardProps<TItem>) {
   const id = getItemId(item);
   const {
     attributes,
@@ -721,15 +785,13 @@ function SortableCard<TItem>({ item, getItemId, renderCard, onClick }: SortableC
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-md bg-card border shadow-sm transition-shadow hover:shadow-md',
-        isDragging && 'opacity-30',
-        onClick && 'cursor-pointer'
+        'group relative rounded-md transition-shadow hover:shadow-md',
+        isDragging && 'opacity-30'
       )}
-      onClick={onClick}
       {...attributes}
       {...listeners}
     >
-      {renderCard(item)}
+      {renderCard(item, visiblePillKeys)}
     </div>
   );
 }

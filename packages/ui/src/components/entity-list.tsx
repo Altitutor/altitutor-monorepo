@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from './dropdown-menu';
 import { Input } from './input';
-import { ScrollArea } from './scroll-area';
+import { ScrollArea, ScrollBar } from './scroll-area';
 import { cn } from '../lib/cn';
 import {
   LayoutGrid,
@@ -194,6 +194,16 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
         setInternalSortDirection(d);
       };
   const sortDirection = controlledSortDirection ?? internalSortDirection;
+
+  // Handle mutual exclusivity between group and sort
+  const handleSetGroupBy = (key: string | null) => {
+    setGroupBy(key);
+    if (key && key === sortBy) {
+      setSortBy('name', 'asc');
+    }
+  };
+
+  const visibleSortByOptions = sortByOptions.filter(o => o.key !== groupBy);
   const filters = controlledFilters ?? internalFilters;
   const setFilters = onFiltersChange ?? setInternalFilters;
 
@@ -338,10 +348,10 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[180px]">
-                <DropdownMenuItem onClick={() => setGroupBy(null)}>None</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSetGroupBy(null)}>None</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {groupByOptions.map((o) => (
-                  <DropdownMenuItem key={o.key} onClick={() => setGroupBy(o.key)}>
+                  <DropdownMenuItem key={o.key} onClick={() => handleSetGroupBy(o.key)}>
                     {o.label}
                   </DropdownMenuItem>
                 ))}
@@ -352,7 +362,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                 variant="outline"
                 size="sm"
                 className="rounded-l-none border-l-0 px-2"
-                onClick={() => setGroupBy(null)}
+                onClick={() => handleSetGroupBy(null)}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -375,7 +385,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
               <DropdownMenuContent align="end" className="w-[200px]">
                 <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {sortByOptions.map((o) => (
+                {visibleSortByOptions.map((o) => (
                   <DropdownMenuItem
                     key={o.key}
                     onClick={() => {
