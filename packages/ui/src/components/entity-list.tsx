@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from './dropdown-menu';
 import { Input } from './input';
-import { ScrollArea, ScrollBar } from './scroll-area';
+import { ScrollArea } from './scroll-area';
 import { cn } from '../lib/cn';
 import {
   LayoutGrid,
@@ -25,6 +25,7 @@ import {
   ChevronDown,
   Check,
   X,
+  Layers,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -311,16 +312,16 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   return (
     <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-end gap-1 p-2 border-b flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="mr-auto">
               <LayoutGrid className="h-4 w-4 mr-2" />
-              <span className={cn(!visiblePillKeys.length && "opacity-50")}>View options</span>
-              <ChevronDown className="h-4 w-4 ml-2" />
+              <span className={cn("hidden sm:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
+              <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[200px]">
+          <DropdownMenuContent align="start" className="w-[200px]">
             <DropdownMenuLabel>Show columns</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {rightPills.map((p) => (
@@ -340,10 +341,11 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
-                  <span className={cn(!groupBy && "opacity-50")}>
+                  <Layers className="h-4 w-4 mr-2" />
+                  <span className={cn("hidden sm:inline", !groupBy && "opacity-50")}>
                     Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-2" />
+                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[180px]">
@@ -375,10 +377,10 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
                   <ArrowUpDown className="h-4 w-4 mr-2" />
-                  <span className={cn(sortBy === 'name' && "opacity-50")}>
+                  <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
                     Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-2" />
+                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px]">
@@ -418,10 +420,10 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
                 <Filter className="h-4 w-4 mr-2" />
-                <span className={cn(activeFilterCount === 0 && "opacity-50")}>
+                <span className={cn("hidden sm:inline", activeFilterCount === 0 && "opacity-50")}>
                   Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
                 </span>
-                <ChevronDown className="h-4 w-4 ml-2" />
+                <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
@@ -498,46 +500,61 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
               <DropdownMenuSeparator />
               
               <ScrollArea className="flex-1 overflow-y-auto">
-                {statusColumn && statusColumn.filterable !== false && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {statusColumn.options.map((opt) => {
-                        const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={String(opt.value)}
-                            checked={selected}
-                            onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
-                          >
-                            {opt.label}
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                )}
-                {rightPills
-                  .filter((p) => p.filterable !== false && p.filterOptions?.length)
-                  .map((p) => (
-                    <DropdownMenuSub key={p.key}>
-                      <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {p.filterOptions!.map((opt) => {
-                          const selected = (filters[p.key] ?? []).includes(opt.value);
-                          return (
-                            <DropdownMenuCheckboxItem
-                              key={String(opt.value)}
-                              checked={selected}
-                              onCheckedChange={() => toggleFilter(p.key, opt.value)}
-                            >
-                              {opt.label}
-                            </DropdownMenuCheckboxItem>
-                          );
-                        })}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  ))}
+                {(() => {
+                  const renderedKeys = new Set<string>();
+                  const filterElements: React.ReactNode[] = [];
+
+                  if (statusColumn && statusColumn.filterable !== false) {
+                    renderedKeys.add(statusColumn.key);
+                    filterElements.push(
+                      <DropdownMenuSub key={statusColumn.key}>
+                        <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {statusColumn.options.map((opt) => {
+                            const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
+                            return (
+                              <DropdownMenuCheckboxItem
+                                key={String(opt.value)}
+                                checked={selected}
+                                onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
+                              >
+                                {opt.label}
+                              </DropdownMenuCheckboxItem>
+                            );
+                          })}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    );
+                  }
+
+                  rightPills
+                    .filter((p) => p.filterable !== false && p.filterOptions?.length)
+                    .forEach((p) => {
+                      if (renderedKeys.has(p.key)) return;
+                      renderedKeys.add(p.key);
+                      filterElements.push(
+                        <DropdownMenuSub key={p.key}>
+                          <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {p.filterOptions!.map((opt) => {
+                              const selected = (filters[p.key] ?? []).includes(opt.value);
+                              return (
+                                <DropdownMenuCheckboxItem
+                                  key={String(opt.value)}
+                                  checked={selected}
+                                  onCheckedChange={() => toggleFilter(p.key, opt.value)}
+                                >
+                                  {opt.label}
+                                </DropdownMenuCheckboxItem>
+                              );
+                            })}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    });
+
+                  return filterElements;
+                })()}
               </ScrollArea>
             </DropdownMenuContent>
           </DropdownMenu>

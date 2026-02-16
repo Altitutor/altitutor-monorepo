@@ -31,7 +31,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './dropdown-menu';
-import { ScrollArea, ScrollBar } from './scroll-area';
+import { ScrollArea } from './scroll-area';
 import { cn } from '../lib/cn';
 import {
   LayoutGrid,
@@ -41,8 +41,10 @@ import {
   ChevronDown,
   X,
   Columns,
+  Layers,
+  Check,
 } from 'lucide-react';
-import { EntityListPillColumn, EntityListStatusColumn } from './entity-list';
+import { EntityListPillColumn, EntityListStatusColumn, QuickFilter } from './entity-list';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,6 +91,9 @@ export interface KanbanBoardProps<TItem> {
 
   visiblePillKeys?: string[];
   onVisiblePillKeysChange?: (keys: string[]) => void;
+
+  quickFilters?: QuickFilter[];
+  onApplyQuickFilter?: (filter: QuickFilter) => void;
 
   onAdd?: (columnValue: any) => void;
   addButtonLabel?: string;
@@ -161,6 +166,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     onHideEmptyColumnsChange,
     visiblePillKeys: controlledVisiblePills,
     onVisiblePillKeysChange,
+    quickFilters = [],
+    onApplyQuickFilter,
     onAdd,
     addButtonLabel = 'Add',
     isLoading = false,
@@ -237,10 +244,27 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           if (!selected?.length) continue;
           
           const value = getPropValue(item, columnKey, rightPills, statusColumn, columnDefs);
-          const match = selected.some((v) => 
-            v === value || 
-            (typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value))
-          );
+          const match = selected.some((v) => {
+            if (v === value) return true;
+
+            // Handle date range objects from quick filters
+            if (typeof v === 'object' && v !== null && 'type' in v && (v as any).type === 'date_range') {
+              const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
+              const itemDateStr = typeof value === 'string' ? value : null;
+              if (!itemDateStr) return false;
+              const itemTime = new Date(itemDateStr).getTime();
+              if (isNaN(itemTime)) return false;
+              
+              if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
+              if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
+              if (dr.start && dr.end) {
+                return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
+              }
+              return false;
+            }
+
+            return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
+          });
           if (!match) return false;
         }
         return true;
@@ -313,155 +337,183 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   return (
     <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
-      <ScrollArea className="w-full border-b">
-        <div className="flex items-center justify-end gap-1 p-2 flex-shrink-0 min-w-max">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="mr-1">
-                <LayoutGrid className="h-4 w-4 mr-2" />
-                <span className={cn(!visiblePillKeys.length && "opacity-50")}>View options</span>
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              <DropdownMenuLabel>Show pills</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {rightPills.map((p) => (
-                <DropdownMenuCheckboxItem
-                  key={p.key}
-                  checked={visiblePillKeys.includes(p.key)}
-                  onCheckedChange={() => togglePillVisibility(p.key)}
-                >
-                  {p.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {columnDefs.length > 1 && (
-            <div className="flex items-center mr-auto">
-               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+      <div className="flex items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="mr-auto">
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              <span className={cn("hidden sm:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
+              <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[200px]">
+            <DropdownMenuLabel>Display</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={hideEmptyColumns}
+              onCheckedChange={setHideEmptyColumns}
+            >
+              Hide empty columns
+            </DropdownMenuCheckboxItem>
+            
+            {columnDefs.length > 1 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
                     <Columns className="h-4 w-4 mr-2" />
-                    <span>Columns: {activeColumnDef.label}</span>
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[180px]">
-                  {columnDefs.map((o: KanbanColumnDef<TItem>) => (
-                    <DropdownMenuItem key={o.key} onClick={() => onActiveColumnKeyChange?.(o.key)}>
-                      {o.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                    <span>Columns</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-[180px]">
+                    {columnDefs.map((o: KanbanColumnDef<TItem>) => (
+                      <DropdownMenuItem 
+                        key={o.key} 
+                        onClick={() => onActiveColumnKeyChange?.(o.key)}
+                        className={cn(activeColumnKey === o.key && "bg-accent")}
+                      >
+                        {o.label}
+                        {activeColumnKey === o.key && <Check className="h-4 w-4 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </>
+            )}
 
-          {groupByOptions.length > 0 && (
-            <div className="flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
-                    <span className={cn(!groupBy && "opacity-50")}>
-                      Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
-                    </span>
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[180px]">
-                  <DropdownMenuItem onClick={() => setGroupBy(null)}>None</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {groupByOptions.map((o: { key: string; label: string }) => (
-                    <DropdownMenuItem key={o.key} onClick={() => setGroupBy(o.key)}>
-                      {o.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {groupBy && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-l-none border-l-0 px-2"
-                  onClick={() => setGroupBy(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          )}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Show pills</DropdownMenuLabel>
+            {rightPills.map((p) => (
+              <DropdownMenuCheckboxItem
+                key={p.key}
+                checked={visiblePillKeys.includes(p.key)}
+                onCheckedChange={() => togglePillVisibility(p.key)}
+              >
+                {p.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-          {sortByOptions.length > 0 && (
-            <div className="flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
-                    <ArrowUpDown className="h-4 w-4 mr-2" />
-                    <span className={cn(sortBy === 'name' && "opacity-50")}>
-                      Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
-                    </span>
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[200px]">
-                  <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {sortByOptions.map((o: { key: string; label: string }) => (
-                    <DropdownMenuItem
-                      key={o.key}
-                      onClick={() => {
-                        const nextDirection =
-                          sortBy === o.key && sortDirection === 'asc' ? 'desc' : 'asc';
-                        setSortBy(o.key, nextDirection);
-                      }}
-                    >
-                      {o.label} {sortBy === o.key && <span className="ml-1">({sortDirection})</span>}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {sortBy !== 'name' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-l-none border-l-0 px-2"
-                  onClick={() => {
-                    setSortBy('name', 'asc');
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          )}
-
+        {groupByOptions.length > 0 && (
           <div className="flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
-                  <Filter className="h-4 w-4 mr-2" />
-                  <span className={cn(activeFilterCount === 0 && "opacity-50")}>
-                    Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+                <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
+                  <Layers className="h-4 w-4 mr-2" />
+                  <span className={cn("hidden sm:inline", !groupBy && "opacity-50")}>
+                    Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-2" />
+                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuItem onClick={() => setGroupBy(null)}>None</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {groupByOptions.map((o: { key: string; label: string }) => (
+                  <DropdownMenuItem key={o.key} onClick={() => setGroupBy(o.key)}>
+                    {o.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {groupBy && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-l-none border-l-0 px-2"
+                onClick={() => setGroupBy(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
+
+        {sortByOptions.length > 0 && (
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
+                    Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {sortByOptions.map((o: { key: string; label: string }) => (
+                  <DropdownMenuItem
+                    key={o.key}
+                    onClick={() => {
+                      const nextDirection =
+                        sortBy === o.key && sortDirection === 'asc' ? 'desc' : 'asc';
+                      setSortBy(o.key, nextDirection);
+                    }}
+                  >
+                    {o.label} {sortBy === o.key && <span className="ml-1">({sortDirection})</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {sortBy !== 'name' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-l-none border-l-0 px-2"
+                onClick={() => {
+                  setSortBy('name', 'asc');
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
+                <Filter className="h-4 w-4 mr-2" />
+                <span className={cn("hidden sm:inline", activeFilterCount === 0 && "opacity-50")}>
+                  Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+                </span>
+                <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
                 <DropdownMenuLabel>Filters</DropdownMenuLabel>
                 
-                <div className="px-2 py-1.5">
-                  <DropdownMenuCheckboxItem
-                    checked={hideEmptyColumns}
-                    onCheckedChange={setHideEmptyColumns}
-                  >
-                    Hide empty columns
-                  </DropdownMenuCheckboxItem>
-                </div>
+                {quickFilters.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Quick Filters
+                    </div>
+                    <div className="px-2 pb-2 flex flex-wrap gap-1">
+                      {quickFilters.map((qf) => (
+                        <Button
+                          key={qf.id}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            if (onApplyQuickFilter) {
+                              onApplyQuickFilter(qf);
+                            } else {
+                              setFilters(qf.config);
+                            }
+                          }}
+                        >
+                          {qf.name}
+                        </Button>
+                      ))}
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
 
-                <DropdownMenuSeparator />
-                
                 {activeFilterCount > 0 && (
                   <div className="px-2 pb-2 flex flex-wrap gap-1">
                     {Object.entries(filters).map(([columnKey, selected]: [string, unknown[]]) => {
@@ -507,65 +559,85 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 <DropdownMenuSeparator />
                 
                 <ScrollArea className="flex-1 overflow-y-auto">
-                  {statusColumn && (
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {statusColumn.options.map((opt: { value: any; label: string }) => {
-                          const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
-                          return (
-                            <DropdownMenuCheckboxItem
-                              key={String(opt.value)}
-                              checked={selected}
-                              onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
-                            >
-                              {opt.label}
-                            </DropdownMenuCheckboxItem>
-                          );
-                        })}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  )}
-                  {columnDefs.map((col: KanbanColumnDef<TItem>) => (
-                     <DropdownMenuSub key={col.key}>
-                      <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {col.options.map((opt: { value: any; label: string }) => {
-                          const selected = (filters[col.key] ?? []).includes(opt.value);
-                          return (
-                            <DropdownMenuCheckboxItem
-                              key={String(opt.value)}
-                              checked={selected}
-                              onCheckedChange={() => toggleFilter(col.key, opt.value)}
-                            >
-                              {opt.label}
-                            </DropdownMenuCheckboxItem>
-                          );
-                        })}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  ))}
-                  {rightPills
-                    .filter((p: EntityListPillColumn<TItem, any>) => p.filterable !== false && p.filterOptions?.length)
-                    .map((p: EntityListPillColumn<TItem, any>) => (
-                      <DropdownMenuSub key={p.key}>
-                        <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          {p.filterOptions!.map((opt: { value: any; label: string }) => {
-                            const selected = (filters[p.key] ?? []).includes(opt.value);
-                            return (
-                              <DropdownMenuCheckboxItem
-                                key={String(opt.value)}
-                                checked={selected}
-                                onCheckedChange={() => toggleFilter(p.key, opt.value)}
-                              >
-                                {opt.label}
-                              </DropdownMenuCheckboxItem>
-                            );
-                          })}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    ))}
+                  {(() => {
+                    const renderedKeys = new Set<string>();
+                    const filterElements: React.ReactNode[] = [];
+
+                    if (statusColumn && statusColumn.filterable !== false) {
+                      renderedKeys.add(statusColumn.key);
+                      filterElements.push(
+                        <DropdownMenuSub key={statusColumn.key}>
+                          <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {statusColumn.options.map((opt: { value: any; label: string }) => {
+                              const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
+                              return (
+                                <DropdownMenuCheckboxItem
+                                  key={String(opt.value)}
+                                  checked={selected}
+                                  onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
+                                >
+                                  {opt.label}
+                                </DropdownMenuCheckboxItem>
+                              );
+                            })}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
+
+                    columnDefs.forEach((col: KanbanColumnDef<TItem>) => {
+                      if (renderedKeys.has(col.key)) return;
+                      renderedKeys.add(col.key);
+                      filterElements.push(
+                        <DropdownMenuSub key={col.key}>
+                          <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {col.options.map((opt: { value: any; label: string }) => {
+                              const selected = (filters[col.key] ?? []).includes(opt.value);
+                              return (
+                                <DropdownMenuCheckboxItem
+                                  key={String(opt.value)}
+                                  checked={selected}
+                                  onCheckedChange={() => toggleFilter(col.key, opt.value)}
+                                >
+                                  {opt.label}
+                                </DropdownMenuCheckboxItem>
+                              );
+                            })}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    });
+
+                    rightPills
+                      .filter((p: EntityListPillColumn<TItem, any>) => p.filterable !== false && p.filterOptions?.length)
+                      .forEach((p: EntityListPillColumn<TItem, any>) => {
+                        if (renderedKeys.has(p.key)) return;
+                        renderedKeys.add(p.key);
+                        filterElements.push(
+                          <DropdownMenuSub key={p.key}>
+                            <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              {p.filterOptions!.map((opt: { value: any; label: string }) => {
+                                const selected = (filters[p.key] ?? []).includes(opt.value);
+                                return (
+                                  <DropdownMenuCheckboxItem
+                                    key={String(opt.value)}
+                                    checked={selected}
+                                    onCheckedChange={() => toggleFilter(p.key, opt.value)}
+                                  >
+                                    {opt.label}
+                                  </DropdownMenuCheckboxItem>
+                                );
+                              })}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        );
+                      });
+
+                    return filterElements;
+                  })()}
                 </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -581,8 +653,6 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             )}
           </div>
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
 
       {/* Board */}
       <div className="flex-1 min-h-0 relative">
@@ -622,6 +692,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     statusColumn={statusColumn}
                     rightPills={rightPills.filter(p => visiblePillKeys.includes(p.key))}
                     visiblePillKeys={visiblePillKeys}
+                    emptyMessage={emptyMessage}
                   />
                 );
               })}
@@ -658,6 +729,7 @@ interface KanbanColumnProps<TItem> {
   statusColumn?: EntityListStatusColumn<TItem, any>;
   rightPills: EntityListPillColumn<TItem, any>[];
   visiblePillKeys: string[];
+  emptyMessage: string;
 }
 
 function KanbanColumn<TItem>({
@@ -673,6 +745,7 @@ function KanbanColumn<TItem>({
   statusColumn,
   rightPills,
   visiblePillKeys,
+  emptyMessage,
 }: KanbanColumnProps<TItem>) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -743,7 +816,7 @@ function KanbanColumn<TItem>({
           ))}
           {items.length === 0 && (
             <div className="py-8 text-center text-xs text-muted-foreground">
-              No items
+              {emptyMessage}
             </div>
           )}
         </div>
