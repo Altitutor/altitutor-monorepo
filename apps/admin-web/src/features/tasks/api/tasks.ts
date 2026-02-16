@@ -17,6 +17,7 @@ export const tasksApi = {
       assignedTo,
       priority,
       search,
+      ...otherFilters
     } = filters || {};
 
     let query = supabase
@@ -34,23 +35,40 @@ export const tasksApi = {
 
     // Assigned to filter (support both single and array)
     if (assignedTo) {
-      if (Array.isArray(assignedTo)) {
-        if (assignedTo.length > 0) {
-          query = query.in('assigned_to', assignedTo);
-        }
-      } else {
-        query = query.eq('assigned_to', assignedTo);
+      const assignedToValues = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+      if (assignedToValues.length > 0) {
+        query = query.in('assigned_to', assignedToValues);
       }
     }
 
     // Priority filter (support both single and array)
     if (priority !== undefined) {
-      if (Array.isArray(priority)) {
-        if (priority.length > 0) {
-          query = query.in('priority', priority);
+      const priorityValues = Array.isArray(priority) ? priority : [priority];
+      if (priorityValues.length > 0) {
+        query = query.in('priority', priorityValues);
+      }
+    }
+
+    // Handle other dynamic filters
+    for (const [key, values] of Object.entries(otherFilters)) {
+      if (!Array.isArray(values) || values.length === 0) continue;
+      
+      const dateRanges = values.filter(v => typeof v === 'object' && v !== null && (v as any).type === 'date_range');
+      const otherValues = values.filter(v => typeof v !== 'object' || v === null || (v as any).type !== 'date_range');
+      
+      if (otherValues.length > 0) {
+        query = query.in(key, otherValues);
+      }
+      
+      if (dateRanges.length > 0) {
+        const dr = dateRanges[0] as any;
+        if (dr.operator === 'gte' && dr.start) {
+          query = query.gte(key, dr.start);
+        } else if (dr.operator === 'lte' && dr.end) {
+          query = query.lte(key, dr.end);
+        } else if (dr.start && dr.end) {
+          query = query.gte(key, dr.start).lte(key, dr.end);
         }
-      } else {
-        query = query.eq('priority', priority);
       }
     }
 

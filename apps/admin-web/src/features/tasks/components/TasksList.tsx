@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   EntityList,
   type EntityListPillColumn,
@@ -17,7 +17,7 @@ import { Button } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
-import { User, Check } from 'lucide-react';
+import { User, Check, ChevronDown } from 'lucide-react';
 import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
@@ -44,6 +44,9 @@ import { cn } from '@/shared/utils';
 import { Clock, Circle, CheckCircle, Eye } from 'lucide-react';
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { Gauge } from 'lucide-react';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'backlog', label: 'Backlog' },
@@ -65,6 +68,23 @@ export function TasksList() {
   const [filters, setFilters] = useState<Record<string, unknown[]>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const { data: quickFilters = [] } = useQuickFilters('tasks');
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = getSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    };
+    fetchUser();
+  }, []);
+
+  const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
+    const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentUserId || undefined);
+    setFilters(resolved);
+  }, [currentUserId]);
 
   const assigneeFilter = (filters.assignee ?? []) as string[];
   const priorityFilter = (filters.priority ?? []) as TaskPriority[];
@@ -244,7 +264,15 @@ export function TasksList() {
         groupable: true,
         sortable: true,
         filterable: true,
-        compare: (a, b) => (Number(b) ?? 0) - (Number(a) ?? 0),
+        alwaysAtBottom: [0],
+        compare: (a, b) => {
+          const pa = Number(a) || 0;
+          const pb = Number(b) || 0;
+          if (pa === pb) return 0;
+          if (pa === 0) return 1;
+          if (pb === 0) return -1;
+          return pa - pb;
+        },
         renderPill: (item, onChange, collapsed) => (
           <TaskPriorityEntityPill
             value={(item.priority ?? 0) as TaskPriority}
@@ -270,6 +298,7 @@ export function TasksList() {
     { key: 'assignee', label: 'Assignee' },
     { key: 'estimate', label: 'Estimate' },
     { key: 'status', label: 'Status' },
+    { key: 'priority', label: 'Priority' },
   ];
 
   const sortByOptions = [
@@ -298,6 +327,8 @@ export function TasksList() {
         isLoading={isLoading}
         filters={filters}
         onFiltersChange={setFilters}
+        quickFilters={quickFilters}
+        onApplyQuickFilter={handleApplyQuickFilter}
         getGroupLabel={(columnKey, valueKey) => {
           if (columnKey === 'assignee') {
             if (valueKey === '__null__') return 'Unassigned';
@@ -312,6 +343,10 @@ export function TasksList() {
           if (columnKey === 'status') {
             if (valueKey === '__null__') return 'No status';
             return getStatusLabel(valueKey as TaskStatus);
+          }
+          if (columnKey === 'priority') {
+            if (valueKey === '__null__') return 'No priority';
+            return getPriorityLabel(Number(valueKey) as TaskPriority);
           }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}

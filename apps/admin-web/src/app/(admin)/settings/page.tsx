@@ -87,6 +87,17 @@ export default function SettingsPage() {
         },
       ],
     },
+    {
+      title: 'System',
+      items: [
+        {
+          title: 'Quick Filters',
+          description: 'Manage global and personal quick filters',
+          href: '/settings/quick-filters',
+          icon: FileText,
+        },
+      ],
+    },
   ];
 
   return (

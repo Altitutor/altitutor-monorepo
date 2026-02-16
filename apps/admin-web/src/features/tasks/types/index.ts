@@ -38,6 +38,7 @@ export interface TaskFilters {
   assignedTo?: string | string[]; // Support both single and array for backward compatibility
   priority?: TaskPriority | TaskPriority[]; // Support both single and array for backward compatibility
   search?: string;
+  [key: string]: unknown;
 }
 
 /**
