@@ -2631,6 +2631,36 @@ export type Database = {
           },
         ]
       }
+      quick_filters: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          target_entity: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          id?: string
+          name: string
+          target_entity: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          target_entity?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           admin_shift_id: string | null
