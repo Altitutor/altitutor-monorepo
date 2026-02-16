@@ -11,6 +11,7 @@ export * from './components/command';
 export * from './components/data-table';
 export * from './components/dialog';
 export * from './components/dropdown-menu';
+export * from './components/entity-list';
 export * from './components/enum-badge';
 export * from './components/form';
 export * from './components/input';

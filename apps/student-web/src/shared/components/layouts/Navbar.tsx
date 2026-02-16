@@ -6,7 +6,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, User, LayoutDashboard } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, Settings } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
@@ -140,6 +140,12 @@ export function Navbar() {
                   <Link href="/my-profile" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
