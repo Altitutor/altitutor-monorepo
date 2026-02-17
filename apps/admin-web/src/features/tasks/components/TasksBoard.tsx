@@ -10,6 +10,9 @@ import {
 import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
 import { CreateTaskDialog } from './CreateTaskDialog';
@@ -57,14 +60,29 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
   const [createDefaultStatus, setCreateDefaultStatus] = useState<TaskStatus | undefined>(undefined);
   const [createDefaultValues, setCreateDefaultValues] = useState<any>({});
 
-  const assigneeFilter = (filters.assignee ?? []) as string[];
-  const priorityFilter = (filters.priority ?? []) as TaskPriority[];
-  const statusFilter = (filters.status ?? []) as TaskStatus[];
+  const { data: currentStaff } = useCurrentStaff();
+  const currentStaffId = currentStaff?.id;
+
+  const { data: quickFilters = [] } = useQuickFilters('tasks');
+
+  const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
+    const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentStaffId);
+    
+    // Normalize task assignment keys to 'assignee' which the UI expects for its pills
+    if (resolved.assigned_to && !resolved.assignee) {
+      resolved.assignee = resolved.assigned_to;
+      delete resolved.assigned_to;
+    }
+    if (resolved.assignedTo && !resolved.assignee) {
+      resolved.assignee = resolved.assignedTo;
+      delete resolved.assignedTo;
+    }
+
+    setFilters(resolved);
+  }, [currentStaffId]);
 
   const { data: tasks = [], isLoading } = useTasks({
-    assignedTo: assigneeFilter.length > 0 ? assigneeFilter : undefined,
-    priority: priorityFilter.length > 0 ? priorityFilter : undefined,
-    status: statusFilter.length > 0 ? statusFilter : undefined,
+    ...filters,
     search: initialFilters?.search,
   });
 
@@ -318,6 +336,8 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
         sortByOptions={sortByOptions}
         filters={filters}
         onFiltersChange={setFilters}
+        quickFilters={quickFilters as any}
+        onApplyQuickFilter={handleApplyQuickFilter}
         getGroupLabel={getGroupLabel}
         onAdd={handleAdd}
         isLoading={isLoading}

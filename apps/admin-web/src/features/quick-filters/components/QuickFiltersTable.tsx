@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -22,21 +22,33 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Checkbox,
 } from '@altitutor/ui';
-import { Edit2, Trash2, Plus } from 'lucide-react';
+import { Edit2, Trash2, Plus, X, Filter } from 'lucide-react';
 import { QuickFilter } from '@altitutor/shared';
 import { useCreateQuickFilter, useUpdateQuickFilter, useDeleteQuickFilter } from '../hooks/useQuickFilters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { SUPPORTED_ENTITIES, EntityConfig, FilterField } from '../config/entities';
+import { cn } from '@/shared/utils';
 
 interface QuickFiltersTableProps {
   filters: QuickFilter[];
   onUpdate: () => void;
 }
 
+const PLACEHOLDERS = [
+  { value: '$ME$', label: 'Current User' },
+  { value: '$TODAY$', label: 'Today' },
+  { value: '$TOMORROW$', label: 'Tomorrow' },
+  { value: '$YESTERDAY$', label: 'Yesterday' },
+  { value: '$FUTURE$', label: 'Future' },
+  { value: '$PAST$', label: 'Past' },
+  { value: '$THIS_WEEK$', label: 'This Week' },
+];
+
 export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps) {
   const [editingFilter, setEditingFilter] = useState<QuickFilter | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<Partial<QuickFilter>>({
     name: '',
@@ -49,14 +61,10 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
   const updateFilter = useUpdateQuickFilter();
   const deleteFilter = useDeleteQuickFilter();
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const supabase = getSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
-    };
-    fetchUser();
-  }, []);
+  const selectedEntity = useMemo(() => 
+    SUPPORTED_ENTITIES.find(e => e.id === formData.target_entity),
+    [formData.target_entity]
+  );
 
   const handleEdit = (filter: QuickFilter) => {
     setEditingFilter(filter);
@@ -68,19 +76,11 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
       if (editingFilter) {
         await updateFilter.mutateAsync({ 
           id: editingFilter.id, 
-          updates: {
-            ...formData,
-            user_id: formData.user_id === 'CURRENT' ? currentUserId : formData.user_id
-          } 
+          updates: formData
         });
         setEditingFilter(null);
       } else {
-        await createFilter.mutateAsync({
-          name: formData.name!,
-          target_entity: formData.target_entity!,
-          config: formData.config!,
-          user_id: formData.user_id === 'CURRENT' ? currentUserId : formData.user_id
-        } as any);
+        await createFilter.mutateAsync(formData as any);
         setIsCreateDialogOpen(false);
       }
       onUpdate();
@@ -101,6 +101,26 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
     }
   };
 
+  const toggleFilterValue = (fieldKey: string, value: any) => {
+    const currentConfig = { ...(formData.config || {}) };
+    const currentValues = currentConfig[fieldKey] || [];
+    
+    let nextValues;
+    if (currentValues.includes(value)) {
+      nextValues = currentValues.filter(v => v !== value);
+    } else {
+      nextValues = [...currentValues, value];
+    }
+
+    if (nextValues.length === 0) {
+      delete currentConfig[fieldKey];
+    } else {
+      currentConfig[fieldKey] = nextValues;
+    }
+
+    setFormData({ ...formData, config: currentConfig });
+  };
+
   return (
     <>
       <div className="flex justify-end mb-4">
@@ -116,7 +136,6 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Entity</TableHead>
-              <TableHead>Scope</TableHead>
               <TableHead>Config</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -125,12 +144,31 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
             {filters.map((filter) => (
               <TableRow key={filter.id}>
                 <TableCell className="font-medium">{filter.name}</TableCell>
-                <TableCell className="capitalize">{filter.target_entity}</TableCell>
-                <TableCell>
-                  {filter.user_id ? 'Personal' : 'Global'}
-                </TableCell>
-                <TableCell className="max-w-[300px] truncate font-mono text-xs">
-                  {JSON.stringify(filter.config)}
+                <TableCell className="capitalize">{filter.target_entity.replace('_', ' ')}</TableCell>
+                <TableCell className="max-w-[400px]">
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(filter.config).map(([key, values]) => {
+                      const entityConfig = SUPPORTED_ENTITIES.find(e => e.id === filter.target_entity);
+                      const field = entityConfig?.fields.find(f => f.key === key);
+                      const label = field?.label || key;
+                      
+                      return (
+                        <div key={key} className="bg-muted px-1.5 py-0.5 rounded text-[10px] border border-muted-foreground/20">
+                          <span className="font-semibold text-muted-foreground uppercase mr-1">{label}:</span>
+                          <span>
+                            {values.map(v => {
+                              if (typeof v === 'string') {
+                                const placeholder = PLACEHOLDERS.find(p => p.value === v);
+                                if (placeholder) return placeholder.label;
+                              }
+                              const opt = field?.options?.find(o => String(o.value) === String(v));
+                              return opt?.label || String(v);
+                            }).join(', ')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button
@@ -153,7 +191,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
             ))}
             {filters.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                   No quick filters configured
                 </TableCell>
               </TableRow>
@@ -172,82 +210,155 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
           }
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingFilter ? 'Edit Quick Filter' : 'Create Quick Filter'}
             </DialogTitle>
             <DialogDescription>
-              Configure the quick filter settings. Use placeholders like $ME$, $TODAY$, etc. in the JSON config.
+              Configure the quick filter settings. Multiple values for the same property are ORed, and different properties are ANDed.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="filter-name" className="text-right">Name</Label>
-              <Input
-                id="filter-name"
-                className="col-span-3"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Active assigned to me"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="target-entity" className="text-right">Target Entity</Label>
-              <div className="col-span-3">
+          
+          <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="filter-name">Filter Name</Label>
+                <Input
+                  id="filter-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Active My Tasks"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="target-entity">Target Entity</Label>
                 <Select 
                   value={formData.target_entity} 
-                  onValueChange={(val) => setFormData({ ...formData, target_entity: val })}
+                  onValueChange={(val) => setFormData({ ...formData, target_entity: val, config: {} })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select entity" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tasks">Tasks</SelectItem>
-                    <SelectItem value="students">Students</SelectItem>
+                    {SUPPORTED_ENTITIES.map(entity => (
+                      <SelectItem key={entity.id} value={entity.id}>
+                        {entity.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="scope" className="text-right">Scope</Label>
-              <div className="col-span-3">
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="scope">Scope</Label>
                 <Select 
                   value={formData.user_id ? 'personal' : 'global'} 
-                  onValueChange={(val) => setFormData({ ...formData, user_id: val === 'global' ? null : 'CURRENT' })}
+                  onValueChange={async (val) => {
+                    if (val === 'global') {
+                      setFormData({ ...formData, user_id: null });
+                    } else {
+                      const supabase = getSupabaseClient();
+                      const { data: { user } } = await supabase.auth.getUser();
+                      setFormData({ ...formData, user_id: user?.id || null });
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select scope" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="global">Global (All Users)</SelectItem>
+                    <SelectItem value="global">Global (All Admins)</SelectItem>
                     <SelectItem value="personal">Personal (Just Me)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="config">Config (JSON)</Label>
-              <textarea
-                id="config"
-                className="w-full h-48 p-2 border rounded-md font-mono text-sm bg-muted/50"
-                value={JSON.stringify(formData.config, null, 2)}
-                onChange={(e) => {
-                  try {
-                    const parsed = JSON.parse(e.target.value);
-                    setFormData({ ...formData, config: parsed });
-                  } catch (e) {
-                    // Just update the raw value if possible or ignore
-                  }
-                }}
-                spellCheck={false}
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Example: {"{ \"status\": [\"todo\", \"in_progress\"], \"assignee\": [\"$ME$\"] }"}
-              </p>
+
+            <div className="space-y-4">
+              <Label className="text-base">Filter Configuration</Label>
+              <div className="space-y-6 border rounded-lg p-4 bg-muted/30">
+                {selectedEntity?.fields.map((field) => (
+                  <div key={field.key} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{field.label}</span>
+                      {formData.config?.[field.key] && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-[10px]"
+                          onClick={() => {
+                            const newConfig = { ...formData.config };
+                            delete newConfig[field.key];
+                            setFormData({ ...formData, config: newConfig });
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {/* Standard Options */}
+                      {field.options?.map((opt) => (
+                        <div
+                          key={String(opt.value)}
+                          onClick={() => toggleFilterValue(field.key, opt.value)}
+                          className={cn(
+                            "cursor-pointer px-2 py-1 rounded-md border text-xs transition-colors",
+                            formData.config?.[field.key]?.includes(opt.value)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background hover:bg-muted"
+                          )}
+                        >
+                          {opt.label}
+                        </div>
+                      ))}
+
+                      {/* Placeholders */}
+                      {field.supportPlaceholders && (
+                        <>
+                          {field.type === 'select' && (
+                            <div
+                              onClick={() => toggleFilterValue(field.key, '$ME$')}
+                              className={cn(
+                                "cursor-pointer px-2 py-1 rounded-md border text-xs border-dashed transition-colors",
+                                formData.config?.[field.key]?.includes('$ME$')
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200"
+                              )}
+                            >
+                              $ME$ (Current User)
+                            </div>
+                          )}
+                          {field.type === 'date' && (
+                            PLACEHOLDERS.slice(1).map(p => (
+                              <div
+                                key={p.value}
+                                onClick={() => toggleFilterValue(field.key, p.value)}
+                                className={cn(
+                                  "cursor-pointer px-2 py-1 rounded-md border text-xs border-dashed transition-colors",
+                                  formData.config?.[field.key]?.includes(p.value)
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-200"
+                                )}
+                              >
+                                {p.value} ({p.label})
+                              </div>
+                            ))
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="pt-4 border-t">
             <Button variant="outline" onClick={() => {
               setEditingFilter(null);
               setIsCreateDialogOpen(false);
@@ -256,7 +367,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={!formData.name || !formData.target_entity}>
-              Save
+              Save Filter
             </Button>
           </DialogFooter>
         </DialogContent>

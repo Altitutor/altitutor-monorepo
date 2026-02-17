@@ -21,6 +21,7 @@ import { User, Check, ChevronDown } from 'lucide-react';
 import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { TaskTextWithTags } from './fields/TaskTextWithTags';
 import { EditTaskDialog } from './EditTaskDialog';
 import { TaskEditor } from './TaskEditor';
@@ -68,39 +69,40 @@ export function TasksList() {
   const [filters, setFilters] = useState<Record<string, unknown[]>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  const { data: currentStaff } = useCurrentStaff();
+  const currentStaffId = currentStaff?.id;
 
   const { data: quickFilters = [] } = useQuickFilters('tasks');
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const supabase = getSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
-    };
-    fetchUser();
-  }, []);
-
   const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
-    const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentUserId || undefined);
+    const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentStaffId);
+    
+    // Normalize task assignment keys to 'assignee' which the UI expects for its pills
+    if (resolved.assigned_to && !resolved.assignee) {
+      resolved.assignee = resolved.assigned_to;
+      delete resolved.assigned_to;
+    }
+    if (resolved.assignedTo && !resolved.assignee) {
+      resolved.assignee = resolved.assignedTo;
+      delete resolved.assignedTo;
+    }
+
     setFilters(resolved);
-  }, [currentUserId]);
+  }, [currentStaffId]);
 
   const assigneeFilter = (filters.assignee ?? []) as string[];
   const priorityFilter = (filters.priority ?? []) as TaskPriority[];
   const estimateFilter = (filters.estimate ?? []) as number[];
   const statusFilter = (filters.status ?? []) as TaskStatus[];
 
-  const { data: tasks = [], isLoading } = useTasks({
-    assignedTo: assigneeFilter.length > 0 ? assigneeFilter : undefined,
-    priority: priorityFilter.length > 0 ? priorityFilter : undefined,
-    status: statusFilter.length > 0 ? statusFilter : undefined,
-  });
+  const { data: tasks = [], isLoading } = useTasks(filters);
 
   const filteredTasks = useMemo(() => {
-    if (estimateFilter.length === 0) return tasks;
-    return tasks.filter((t) => t.estimate != null && estimateFilter.includes(t.estimate));
-  }, [tasks, estimateFilter]);
+    // Client-side filtering for fields not handled by server-side query if any
+    // For now, let's assume the server handles status, assigned_to, priority, and dynamic fields
+    return tasks;
+  }, [tasks]);
 
   const updateTask = useUpdateTask();
   const createTask = useCreateTask();

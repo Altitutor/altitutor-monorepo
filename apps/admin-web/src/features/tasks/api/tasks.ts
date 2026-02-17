@@ -15,6 +15,8 @@ export const tasksApi = {
     const {
       status,
       assignedTo,
+      assignee,
+      assigned_to, // Support all variants
       priority,
       search,
       ...otherFilters
@@ -33,9 +35,10 @@ export const tasksApi = {
       query = query.in('status', status);
     }
 
-    // Assigned to filter (support both single and array)
-    if (assignedTo) {
-      const assignedToValues = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+    // Assigned to filter (support both single and array, and all key names)
+    const effectiveAssignedTo = assignedTo || assignee || assigned_to;
+    if (effectiveAssignedTo) {
+      const assignedToValues = Array.isArray(effectiveAssignedTo) ? effectiveAssignedTo : [effectiveAssignedTo];
       if (assignedToValues.length > 0) {
         query = query.in('assigned_to', assignedToValues);
       }
