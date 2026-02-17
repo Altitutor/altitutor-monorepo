@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  type JSONContent,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
@@ -24,7 +25,7 @@ import type { UseFormReturn } from 'react-hook-form';
 
 type TaskFormData = {
   title: string;
-  description?: string;
+  description?: JSONContent | null;
   status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
   priority: number;
   assignedTo: string | null;
@@ -34,7 +35,7 @@ type TaskFormData = {
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
+  description: z.any().optional(),
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
@@ -54,7 +55,7 @@ const formSchema = z.object({
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
-type FormData = z.infer<typeof formSchema>;
+type FormData = TaskFormData;
 
 interface EditTaskDialogProps {
   isOpen: boolean;
@@ -84,7 +85,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
       title: '',
-      description: '',
+      description: null,
       status: 'backlog',
       priority: 0,
       assignedTo: null,
@@ -109,7 +110,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
 
       const resetData: FormData = {
         title: task.title,
-        description: task.description || '',
+        description: (task.description as unknown as JSONContent) || null,
         status: task.status as TaskStatus,
         priority: task.priority !== null && task.priority !== undefined ? task.priority : 0,
         assignedTo: task.assigned_to || null,
@@ -142,7 +143,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
         id: taskId,
         updates: {
           title: data.title,
-          description: data.description || null,
+          description: (data.description as any) || null,
           status: data.status,
           priority: data.priority,
           assigned_to: data.assignedTo || null,
@@ -227,7 +228,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -251,14 +252,14 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
                 <TaskPropertiesPanel
-                  form={form as unknown as UseFormReturn<TaskFormData>}
+                  form={form as any}
                   selectedAssignee={selectedAssignee}
                   onAssigneeChange={setSelectedAssignee}
                   taskStatus={task.status as TaskStatus}
                   enabled={isOpen}
                 />
                 <TaskContentPanel
-                  form={form as unknown as UseFormReturn<TaskFormData>}
+                  form={form as any}
                   taskId={taskId}
                   notes={notes}
                   isOpen={isOpen}
