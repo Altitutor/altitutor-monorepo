@@ -112,6 +112,8 @@ export interface EntityListProps<TItem> {
     }) => React.ReactNode;
     placeholder?: string;
   };
+  hideToolbar?: boolean;
+  noPadding?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +179,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     onApplyQuickFilter,
     getGroupLabel,
     descriptionConfig,
+    hideToolbar = false,
+    noPadding = false,
   } = props;
 
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
@@ -313,237 +317,212 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   return (
     <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="mr-auto">
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              <span className={cn("hidden sm:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
-              <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[200px]">
-            <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {rightPills.map((p) => (
-              <DropdownMenuCheckboxItem
-                key={p.key}
-                checked={visiblePillKeys.includes(p.key)}
-                onCheckedChange={() => togglePillVisibility(p.key)}
-              >
-                {p.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {groupByOptions.length > 0 && (
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
-                  <Layers className="h-4 w-4 mr-2" />
-                  <span className={cn("hidden sm:inline", !groupBy && "opacity-50")}>
-                    Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
-                  </span>
-                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[180px]">
-                <DropdownMenuItem onClick={() => handleSetGroupBy(null)}>None</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {groupByOptions.map((o) => (
-                  <DropdownMenuItem key={o.key} onClick={() => handleSetGroupBy(o.key)}>
-                    {o.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {groupBy && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-l-none border-l-0 px-2"
-                onClick={() => handleSetGroupBy(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
-
-        {sortByOptions.length > 0 && (
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
-                  <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
-                    Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
-                  </span>
-                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {visibleSortByOptions.map((o) => (
-                  <DropdownMenuItem
-                    key={o.key}
-                    onClick={() => {
-                      const nextDirection =
-                        sortBy === o.key && sortDirection === 'asc' ? 'desc' : 'asc';
-                      setSortBy(o.key, nextDirection);
-                    }}
-                  >
-                    {o.label} {sortBy === o.key && <span className="ml-1">({sortDirection})</span>}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {sortBy !== 'name' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-l-none border-l-0 px-2"
-                onClick={() => {
-                  setSortBy('name', 'asc');
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center">
+      {!hideToolbar && (
+        <div className="flex items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
-                <Filter className="h-4 w-4 mr-2" />
-                <span className={cn("hidden sm:inline", activeFilterCount === 0 && "opacity-50")}>
-                  Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
-                </span>
+              <Button variant="outline" size="sm" className="mr-auto">
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                <span className={cn("hidden sm:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
                 <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
-              <DropdownMenuLabel>Filters</DropdownMenuLabel>
-              
-              {quickFilters.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Quick Filters
-                  </div>
-                  <div className="px-2 pb-2 flex flex-wrap gap-1">
-                    {quickFilters.map((qf) => (
-                      <Button
-                        key={qf.id}
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          if (onApplyQuickFilter) {
-                            onApplyQuickFilter(qf);
-                          } else {
-                            setFilters(qf.config);
-                          }
-                        }}
-                      >
-                        {qf.name}
-                      </Button>
-                    ))}
-                  </div>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-
-              {activeFilterCount > 0 && (
-                <div className="px-2 pb-2 flex flex-wrap gap-1">
-                  {Object.entries(filters).map(([columnKey, selected]) => {
-                    if (!selected?.length) return null;
-                    const pill = rightPills.find((p) => p.key === columnKey);
-                    const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
-                    const label = pill?.label ?? statusCol?.label ?? columnKey;
-                    
-                    return (
-                      <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
-                        <span className="font-semibold">{label} is</span>
-                        {selected.map((val, idx) => {
-                          const opt = (pill?.filterOptions ?? statusColumn?.options ?? []).find(o => o.value === val);
-                          const valLabel = opt?.label ?? String(val);
-                          return (
-                            <React.Fragment key={String(val)}>
-                              {idx > 0 && <span className="opacity-50">OR</span>}
-                              <button
-                                onClick={() => removeFilterValue(columnKey, val)}
-                                className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                              >
-                                {valLabel}
-                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                              </button>
-                            </React.Fragment>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                  <button
-                    onClick={clearFilters}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded border text-xs font-medium transition-colors"
-                  >
-                    Clear all
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
+            <DropdownMenuContent align="start" className="w-[200px]">
+              <DropdownMenuLabel>Show columns</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
-              <ScrollArea className="flex-1 overflow-y-auto">
-                {(() => {
-                  const renderedKeys = new Set<string>();
-                  const filterElements: React.ReactNode[] = [];
+              {rightPills.map((p) => (
+                <DropdownMenuCheckboxItem
+                  key={p.key}
+                  checked={visiblePillKeys.includes(p.key)}
+                  onCheckedChange={() => togglePillVisibility(p.key)}
+                >
+                  {p.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-                  if (statusColumn && statusColumn.filterable !== false) {
-                    renderedKeys.add(statusColumn.key);
-                    filterElements.push(
-                      <DropdownMenuSub key={statusColumn.key}>
-                        <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          {statusColumn.options.map((opt) => {
-                            const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
+          {groupByOptions.length > 0 && (
+            <div className="flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
+                    <Layers className="h-4 w-4 mr-2" />
+                    <span className={cn("hidden sm:inline", !groupBy && "opacity-50")}>
+                      Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
+                    </span>
+                    <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[180px]">
+                  <DropdownMenuItem onClick={() => handleSetGroupBy(null)}>None</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {groupByOptions.map((o) => (
+                    <DropdownMenuItem key={o.key} onClick={() => handleSetGroupBy(o.key)}>
+                      {o.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {groupBy && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-l-none border-l-0 px-2"
+                  onClick={() => handleSetGroupBy(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          {sortByOptions.length > 0 && (
+            <div className="flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
+                      Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                  <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {visibleSortByOptions.map((o) => (
+                    <DropdownMenuItem
+                      key={o.key}
+                      onClick={() => {
+                        const nextDirection =
+                          sortBy === o.key && sortDirection === 'asc' ? 'desc' : 'asc';
+                        setSortBy(o.key, nextDirection);
+                      }}
+                    >
+                      {o.label} {sortBy === o.key && <span className="ml-1">({sortDirection})</span>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {sortBy !== 'name' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-l-none border-l-0 px-2"
+                  onClick={() => {
+                    setSortBy('name', 'asc');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
+                  <Filter className="h-4 w-4 mr-2" />
+                  <span className={cn("hidden sm:inline", activeFilterCount === 0 && "opacity-50")}>
+                    Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
+                <DropdownMenuLabel>Filters</DropdownMenuLabel>
+                
+                {quickFilters.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Quick Filters
+                    </div>
+                    <div className="px-2 pb-2 flex flex-wrap gap-1">
+                      {quickFilters.map((qf) => (
+                        <Button
+                          key={qf.id}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            if (onApplyQuickFilter) {
+                              onApplyQuickFilter(qf);
+                            } else {
+                              setFilters(qf.config);
+                            }
+                          }}
+                        >
+                          {qf.name}
+                        </Button>
+                      ))}
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
+                {activeFilterCount > 0 && (
+                  <div className="px-2 pb-2 flex flex-wrap gap-1">
+                    {Object.entries(filters).map(([columnKey, selected]) => {
+                      if (!selected?.length) return null;
+                      const pill = rightPills.find((p) => p.key === columnKey);
+                      const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
+                      const label = pill?.label ?? statusCol?.label ?? columnKey;
+                      
+                      return (
+                        <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
+                          <span className="font-semibold">{label} is</span>
+                          {selected.map((val, idx) => {
+                            const opt = (pill?.filterOptions ?? statusColumn?.options ?? []).find(o => o.value === val);
+                            const valLabel = opt?.label ?? String(val);
                             return (
-                              <DropdownMenuCheckboxItem
-                                key={String(opt.value)}
-                                checked={selected}
-                                onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
-                              >
-                                {opt.label}
-                              </DropdownMenuCheckboxItem>
+                              <React.Fragment key={String(val)}>
+                                {idx > 0 && <span className="opacity-50">OR</span>}
+                                <button
+                                  onClick={() => removeFilterValue(columnKey, val)}
+                                  className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                                >
+                                  {valLabel}
+                                  <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                                </button>
+                              </React.Fragment>
                             );
                           })}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    );
-                  }
+                        </div>
+                      );
+                    })}
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded border text-xs font-medium transition-colors"
+                    >
+                      Clear all
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
 
-                  rightPills
-                    .filter((p) => p.filterable !== false && p.filterOptions?.length)
-                    .forEach((p) => {
-                      if (renderedKeys.has(p.key)) return;
-                      renderedKeys.add(p.key);
+                <DropdownMenuSeparator />
+                
+                <ScrollArea className="flex-1 overflow-y-auto">
+                  {(() => {
+                    const renderedKeys = new Set<string>();
+                    const filterElements: React.ReactNode[] = [];
+
+                    if (statusColumn && statusColumn.filterable !== false) {
+                      renderedKeys.add(statusColumn.key);
                       filterElements.push(
-                        <DropdownMenuSub key={p.key}>
-                          <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                        <DropdownMenuSub key={statusColumn.key}>
+                          <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
-                            {p.filterOptions!.map((opt) => {
-                              const selected = (filters[p.key] ?? []).includes(opt.value);
+                            {statusColumn.options.map((opt) => {
+                              const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
                               return (
                                 <DropdownMenuCheckboxItem
                                   key={String(opt.value)}
                                   checked={selected}
-                                  onCheckedChange={() => toggleFilter(p.key, opt.value)}
+                                  onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
                                 >
                                   {opt.label}
                                 </DropdownMenuCheckboxItem>
@@ -552,29 +531,56 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                           </DropdownMenuSubContent>
                         </DropdownMenuSub>
                       );
-                    });
+                    }
 
-                  return filterElements;
-                })()}
-              </ScrollArea>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {activeFilterCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-l-none border-l-0 px-2"
-              onClick={clearFilters}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+                    rightPills
+                      .filter((p) => p.filterable !== false && p.filterOptions?.length)
+                      .forEach((p) => {
+                        if (renderedKeys.has(p.key)) return;
+                        renderedKeys.add(p.key);
+                        filterElements.push(
+                          <DropdownMenuSub key={p.key}>
+                            <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              {p.filterOptions!.map((opt) => {
+                                const selected = (filters[p.key] ?? []).includes(opt.value);
+                                return (
+                                  <DropdownMenuCheckboxItem
+                                    key={String(opt.value)}
+                                    checked={selected}
+                                    onCheckedChange={() => toggleFilter(p.key, opt.value)}
+                                  >
+                                    {opt.label}
+                                  </DropdownMenuCheckboxItem>
+                                );
+                              })}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        );
+                      });
+
+                    return filterElements;
+                  })()}
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {activeFilterCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-l-none border-l-0 px-2"
+                onClick={clearFilters}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* List */}
       <ScrollArea className="flex-1 min-h-0 w-full overflow-x-hidden">
-        <div className="px-6 pb-0 pt-2 w-full">
+        <div className={cn("pb-0 pt-2 w-full", noPadding ? "px-0" : "px-6")}>
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : grouped.every((g) => g.items.length === 0) ? (

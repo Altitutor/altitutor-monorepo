@@ -7,11 +7,11 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { useMentionField } from '@/features/tasks/hooks/useMentionField';
-import { MentionAutocomplete } from '@/features/tasks/components/fields/MentionAutocomplete';
+import { useMentionField } from '../../../tasks/hooks/useMentionField';
+import { MentionAutocomplete } from '../../../tasks/components/fields/MentionAutocomplete';
 import { useCallback } from 'react';
 import type { EntitySearchResult } from '@/shared/hooks/useEntitySearch';
-import type { TagEntityType } from '@/features/tasks/utils/tagParsing';
+import type { TagEntityType } from '../../../tasks/utils/tagParsing';
 
 interface IssueTitleFieldProps {
   form: UseFormReturn<{ name: string }>;
@@ -72,7 +72,7 @@ export function IssueTitleField({ form, value, onTagClick, onEnter, titleRef }: 
                 onBlur={handleBlur}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
-                data-placeholder="Issue name"
+                data-placeholder="Issue title"
                 className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none"
                 suppressContentEditableWarning
               />

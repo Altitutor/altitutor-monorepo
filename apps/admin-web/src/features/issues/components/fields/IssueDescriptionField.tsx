@@ -10,7 +10,7 @@ import {
   type JSONContent,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import type { TagEntityType } from '@/features/tasks/utils/tagParsing';
+import type { TagEntityType } from '../../../tasks/utils/tagParsing';
 
 interface IssueDescriptionFieldProps {
   form: UseFormReturn<any>;
@@ -32,7 +32,7 @@ export function IssueDescriptionField({ form, value, onTagClick, descriptionRef 
               content={field.value || ''}
               onChange={field.onChange}
               placeholder="Add issue description..."
-              className="min-h-[150px]"
+              className="min-h-0"
             />
           </FormControl>
           <FormMessage />

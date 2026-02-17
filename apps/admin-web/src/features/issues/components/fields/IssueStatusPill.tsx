@@ -29,15 +29,13 @@ export function IssueStatusPill({ form }: IssueStatusPillProps) {
       name="status"
       render={({ field }) => {
         const option = STATUS_OPTIONS.find(o => o.value === field.value) || STATUS_OPTIONS[0];
-        const Icon = option.icon;
 
         return (
-          <FormItem>
+          <FormItem className="w-fit">
             <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
-                <SelectTrigger className="h-8 px-3 text-xs border rounded-full">
+                <SelectTrigger className="h-8 w-fit px-3 text-xs border rounded-full">
                   <div className="flex items-center gap-1.5">
-                    <Icon className={cn('h-3 w-3', option.color)} />
                     <SelectValue placeholder="Select status" />
                   </div>
                 </SelectTrigger>

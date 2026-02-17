@@ -1,98 +1,242 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { ScrollArea, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
+import { useMemo } from 'react';
+import { ScrollArea, Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
+import { MessageThread } from '@/features/messages/components/MessageThread';
+import { Composer } from '@/features/messages/components/Composer';
+import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
+import { StudentCard } from '@/shared/components/StudentCard';
+import { StaffCard } from '@/shared/components/StaffCard';
+import { ClassCard } from '@/shared/components/ClassCard';
+import { SessionCard } from '@/shared/components/SessionCard';
+import { InvoiceCard } from '@/shared/components/InvoiceCard';
+import { useStudent } from '@/features/students/hooks/useStudentsQuery';
+import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
+import { useSessionData } from '@/features/sessions/hooks/useSessionData';
+import { useQuery } from '@tanstack/react-query';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { getContactIdFromConversation } from '@/features/messages/api/queries';
 import type { IssueWithTags, IssueTag } from '../../types';
-import { MessageSquare, Tags } from 'lucide-react';
-import { TabTriggerLabel } from '../tabs/TabTriggerLabel';
-import { EntityTabContent } from '../tabs/EntityTabContent';
+import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText } from 'lucide-react';
+import { cn } from '@/shared/utils';
 
 interface IssueContentPanelProps {
   issue: IssueWithTags;
   isOpen: boolean;
-  onClose: () => void;
 }
 
-export function IssueContentPanel({ issue, isOpen, onClose }: IssueContentPanelProps) {
-  const tabs = useMemo(() => {
-    const items: { id: string, type: 'message' | 'student' | 'staff' | 'class' | 'session' | 'invoice', entityId: string }[] = [];
-    
-    // Group tags by unique entity
-    issue.tags.forEach(tag => {
-      if (tag.conversation_id) {
-        items.push({ id: `msg-${tag.conversation_id}`, type: 'message', entityId: tag.conversation_id });
+export function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
+  const conversationTag = issue.tags.find(t => t.conversation_id);
+  const studentTag = issue.tags.find(t => t.student_id);
+  const contactRelatedId = studentTag?.student_id || undefined;
+  
+  const { data: contactId } = useQuery({
+    queryKey: ['issue-contact', issue.id, conversationTag?.conversation_id, contactRelatedId],
+    queryFn: async () => {
+      if (conversationTag?.conversation_id) {
+        return getContactIdFromConversation(conversationTag.conversation_id);
       }
-      if (tag.student_id) {
-        items.push({ id: `student-${tag.student_id}`, type: 'student', entityId: tag.student_id });
+      if (contactRelatedId) {
+        const supabase = getSupabaseClient();
+        const { data } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('student_id', contactRelatedId)
+          .maybeSingle();
+        return data?.id || null;
       }
-      if (tag.staff_id) {
-        items.push({ id: `staff-${tag.staff_id}`, type: 'staff', entityId: tag.staff_id });
-      }
-      if (tag.class_id) {
-        items.push({ id: `class-${tag.class_id}`, type: 'class', entityId: tag.class_id });
-      }
-      if (tag.session_id) {
-        items.push({ id: `session-${tag.session_id}`, type: 'session', entityId: tag.session_id });
-      }
-      if (tag.invoice_id) {
-        items.push({ id: `invoice-${tag.invoice_id}`, type: 'invoice', entityId: tag.invoice_id });
-      }
-    });
-    
-    return items;
-  }, [issue.tags]);
-
-  const [activeTab, setActiveTab] = useState<string>(tabs[0]?.id || 'no-tags');
-
-  if (tabs.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground p-8 text-center bg-muted/5 h-full">
-        <div>
-          <Tags className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p>No entities tagged to this issue yet.</p>
-          <p className="text-sm">Tag a student, staff, or conversation to see linked content.</p>
-        </div>
-      </div>
-    );
-  }
+      return null;
+    },
+    enabled: isOpen && (!!conversationTag || !!contactRelatedId)
+  });
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full bg-muted/5 overflow-hidden">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
-        <div className="flex-shrink-0 border-b bg-background overflow-x-auto no-scrollbar">
-          <TabsList className="inline-flex h-12 w-auto items-center justify-start rounded-none bg-transparent p-0">
-            {tabs.map((tab) => (
-              <TabsTrigger 
-                key={tab.id} 
-                value={tab.id}
-                className="inline-flex items-center justify-center whitespace-nowrap px-4 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none border-b-2 border-transparent h-full"
-              >
-                <div className="flex items-center gap-2">
-                  {tab.type === 'message' ? <MessageSquare className="h-4 w-4" /> : <Tags className="h-4 w-4" />}
-                  <TabTriggerLabel type={tab.type} id={tab.entityId} />
-                </div>
-              </TabsTrigger>
-            ))}
+    <div className="hidden md:flex w-80 border-r flex-col min-w-0 flex-shrink-0">
+      <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
+        <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10 px-6 pb-4 pt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="chat">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                <span>Chat</span>
+              </div>
+            </TabsTrigger>
+            <TabsTrigger value="entities">
+              <div className="flex items-center gap-2">
+                <Tags className="h-4 w-4" />
+                <span>Tagged Entities</span>
+              </div>
+            </TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="flex-1 min-h-0 relative">
-          {tabs.map((tab) => (
-            <TabsContent 
-              key={tab.id} 
-              value={tab.id} 
-              className="absolute inset-0 m-0 hidden data-[state=active]:block h-full overflow-hidden"
-            >
-              <EntityTabContent 
-                type={tab.type} 
-                id={tab.entityId} 
-                isOpen={isOpen && activeTab === tab.id} 
-                onClose={onClose}
-              />
-            </TabsContent>
-          ))}
+        <div className="flex-1 min-h-0">
+          <TabsContent value="chat" className="h-full m-0 data-[state=active]:flex flex-col overflow-hidden">
+            {contactId ? (
+              <>
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                  <MessageThread contactId={contactId} />
+                </div>
+                <div className="flex-shrink-0 border-t">
+                  <Composer contactId={contactId} />
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground p-8 text-center">
+                No conversation tagged. Tag a student, staff, or conversation to see messages.
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="entities" className="h-full m-0 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-6 space-y-6">
+                <IssueEntitiesList tags={issue.tags} />
+              </div>
+            </ScrollArea>
+          </TabsContent>
         </div>
       </Tabs>
     </div>
   );
+}
+
+function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
+  const studentTags = tags.filter(t => t.student_id);
+  const staffTags = tags.filter(t => t.staff_id);
+  const classTags = tags.filter(t => t.class_id);
+  const sessionTags = tags.filter(t => t.session_id);
+  const invoiceTags = tags.filter(t => t.invoice_id);
+
+  return (
+    <div className="space-y-6">
+      {studentTags.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <GraduationCap className="h-4 w-4" />
+            <span>Students</span>
+          </div>
+          <div className="grid gap-3">
+            {studentTags.map(tag => (
+              <StudentCardWrapper key={tag.id} studentId={tag.student_id!} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {staffTags.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <User className="h-4 w-4" />
+            <span>Staff</span>
+          </div>
+          <div className="grid gap-3">
+            {staffTags.map(tag => (
+              <StaffCardWrapper key={tag.id} staffId={tag.staff_id!} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {classTags.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>Classes</span>
+          </div>
+          <div className="grid gap-3">
+            {classTags.map(tag => (
+              <ClassCardWrapper key={tag.id} classId={tag.class_id!} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {sessionTags.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>Sessions</span>
+          </div>
+          <div className="grid gap-3">
+            {sessionTags.map(tag => (
+              <SessionCardWrapper key={tag.id} sessionId={tag.session_id!} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {invoiceTags.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <FileText className="h-4 w-4" />
+            <span>Invoices</span>
+          </div>
+          <div className="grid gap-3">
+            {invoiceTags.map(tag => (
+              <InvoiceCardWrapper key={tag.id} invoiceId={tag.invoice_id!} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tags.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+          No entities tagged to this issue yet.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudentCardWrapper({ studentId }: { studentId: string }) {
+  const { data: student, isLoading } = useStudent(studentId);
+  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (!student) return null;
+  return <StudentCard student={student as any} />;
+}
+
+function StaffCardWrapper({ staffId }: { staffId: string }) {
+  const { data: staff, isLoading } = useStaffById(staffId);
+  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (!staff) return null;
+  return <StaffCard staff={staff as any} />;
+}
+
+function ClassCardWrapper({ classId }: { classId: string }) {
+  // We need a useClass hook or fetch it manually
+  const supabase = getSupabaseClient();
+  const { data: classData, isLoading } = useQuery({
+    queryKey: ['classes', classId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('classes').select('*, subject:subjects(*), staff:classes_staff(staff(*))').eq('id', classId).single();
+      if (error) throw error;
+      return data;
+    }
+  });
+  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (!classData) return null;
+  return <ClassCard class={classData as any} staff={(classData as any).staff?.map((s: any) => s.staff) || []} />;
+}
+
+function SessionCardWrapper({ sessionId }: { sessionId: string }) {
+  const { data, isLoading } = useSessionData({ sessionId });
+  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (!data?.session) return null;
+  return <SessionCard session={data.session as any} />;
+}
+
+function InvoiceCardWrapper({ invoiceId }: { invoiceId: string }) {
+  const supabase = getSupabaseClient();
+  const { data: invoice, isLoading } = useQuery({
+    queryKey: ['invoices', invoiceId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).single();
+      if (error) throw error;
+      return data;
+    }
+  });
+  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (!invoice) return null;
+  return <InvoiceCard invoice={invoice as any} />;
 }

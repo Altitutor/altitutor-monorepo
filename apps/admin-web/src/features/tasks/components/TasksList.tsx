@@ -6,6 +6,7 @@ import {
   type EntityListPillColumn,
   type EntityListStatusColumn,
   type EntityListLeftIcon,
+  RichTextEditor,
 } from '@altitutor/ui';
 import {
   Select,
@@ -24,7 +25,6 @@ import { useStaffSearch } from '../hooks/useStaffSearch';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { TaskTextWithTags } from './fields/TaskTextWithTags';
 import { EditTaskDialog } from './EditTaskDialog';
-import { TaskEditor } from './TaskEditor';
 import {
   TaskAssigneeEntityPill,
   TaskPriorityEntityPill,
@@ -65,8 +65,25 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 4, label: 'Low' },
 ];
 
-export function TasksList() {
+export function TasksList({ 
+  issueId, 
+  compact = false,
+  hideToolbar = false,
+  noPadding = false,
+}: { 
+  issueId?: string; 
+  compact?: boolean;
+  hideToolbar?: boolean;
+  noPadding?: boolean;
+} = {}) {
   const [filters, setFilters] = useState<Record<string, unknown[]>>({});
+  
+  // Use useMemo to combine initial issue filter with active filters
+  const effectiveFilters = useMemo(() => ({
+    ...filters,
+    ...(issueId ? { issue_id: [issueId as unknown] } : {})
+  }), [filters, issueId]);
+
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
@@ -96,7 +113,7 @@ export function TasksList() {
   const estimateFilter = (filters.estimate ?? []) as number[];
   const statusFilter = (filters.status ?? []) as TaskStatus[];
 
-  const { data: tasks = [], isLoading } = useTasks(filters);
+  const { data: tasks = [], isLoading } = useTasks(effectiveFilters);
 
   const filteredTasks = useMemo(() => {
     // Client-side filtering for fields not handled by server-side query if any
@@ -144,9 +161,10 @@ export function TasksList() {
         assigned_to: data.assignee as string | null,
         priority: data.priority as number | null,
         estimate: data.estimate as number | null,
+        issue_id: issueId,
       });
     },
-    [createTask]
+    [createTask, issueId]
   );
 
   const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = {
@@ -355,8 +373,8 @@ export function TasksList() {
         descriptionConfig={{
           enabled: true,
           renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <TaskEditor
-              ref={ref}
+            <RichTextEditor
+              ref={ref as any}
               content={value}
               onChange={onChange}
               placeholder={placeholder}
@@ -365,6 +383,8 @@ export function TasksList() {
           ),
           placeholder: "Add task description..."
         }}
+        hideToolbar={hideToolbar}
+        noPadding={noPadding}
       />
 
       {selectedTaskId && (

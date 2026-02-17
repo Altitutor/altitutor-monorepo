@@ -17,6 +17,7 @@ import { Form } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { useIssue } from '../api/queries';
 import { useUpdateIssue, useDeleteIssue } from '../api/mutations';
+import { useNotes } from '@/shared/hooks/useNotes';
 import type { Tables } from '@altitutor/shared';
 import type { IssueStatus } from '../types';
 import { IssueContentPanel } from './panels/IssueContentPanel';
@@ -48,6 +49,13 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
   const deleteIssue = useDeleteIssue();
   const [isDeleting, setIsDeleting] = useState(false);
   const lastResetIssueIdRef = useRef<string | null>(null);
+
+  // Fetch notes for issue
+  const { data: notesData } = useNotes('issues', issueId || '', !!issueId && isOpen);
+  type NoteWithStaff = Tables<'notes'> & {
+    staff?: Tables<'staff'> | null;
+  };
+  const notes = (notesData || []) as NoteWithStaff[];
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -111,7 +119,7 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-7xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -136,31 +144,27 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
           ) : !issue ? (
             <div className="p-6">Issue not found</div>
           ) : (
-            <div className="h-full flex min-h-0">
+            <div className="h-full flex">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0 divide-x">
-                  <div className="flex-1 min-w-0 h-full overflow-hidden">
-                    <IssueContentPanel 
-                      issue={issue}
-                      isOpen={isOpen}
-                      onClose={onClose}
-                    />
-                  </div>
+                <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
+                  <IssueContentPanel 
+                    issue={issue}
+                    isOpen={isOpen}
+                  />
                   
-                  <div className="flex-1 min-w-0 h-full overflow-hidden">
-                    <IssuePropertiesPanel
-                      form={form as any}
-                      issue={issue}
-                      isOpen={isOpen}
-                    />
-                  </div>
+                  <IssuePropertiesPanel
+                    form={form as any}
+                    issue={issue}
+                    notes={notes}
+                    isOpen={isOpen}
+                  />
                 </form>
               </Form>
             </div>
           )}
         </div>
 
-        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t mt-0">
           <div className="flex items-center justify-between w-full">
             {isDeleting ? (
               <div className="flex items-center gap-2">
