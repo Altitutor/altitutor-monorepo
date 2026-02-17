@@ -574,7 +574,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
       {/* List */}
       <ScrollArea className="flex-1 min-h-0 w-full overflow-x-hidden">
-        <div className="p-2 w-full">
+        <div className="px-6 pb-0 pt-2 w-full">
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : grouped.every((g) => g.items.length === 0) ? (

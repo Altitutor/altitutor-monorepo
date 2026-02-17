@@ -669,7 +669,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           onDragEnd={handleDragEnd}
         >
           <div className="h-full w-full overflow-x-auto overflow-y-hidden">
-            <div className="flex h-full p-4 gap-4 min-w-max">
+            <div className="flex h-full px-6 pb-0 pt-2 gap-4 min-w-max">
               {activeColumnDef.options.map((option: { value: any; label: string }) => {
                 const columnItems = sortedItems.filter(
                   (item) => String(activeColumnDef.getValue(item)) === String(option.value)
