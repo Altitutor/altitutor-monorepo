@@ -17,6 +17,7 @@ import {
 import { Input } from './input';
 import { ScrollArea } from './scroll-area';
 import { cn } from '../lib/cn';
+import { type JSONContent } from './rich-text-editor';
 import {
   LayoutGrid,
   ArrowUpDown,
@@ -104,8 +105,8 @@ export interface EntityListProps<TItem> {
   descriptionConfig?: {
     enabled: boolean;
     renderEditor: (props: {
-      value: string;
-      onChange: (val: string) => void;
+      value: JSONContent | string | null;
+      onChange: (val: JSONContent) => void;
       placeholder?: string;
       ref?: React.RefObject<any>;
     }) => React.ReactNode;
@@ -633,7 +634,7 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
   const { onAdd, statusColumn, rightPills, visiblePillKeys, addButtonLabel, descriptionConfig } = props;
 
   const [addName, setAddName] = React.useState('');
-  const [addDescription, setAddDescription] = React.useState('');
+  const [addDescription, setAddDescription] = React.useState<JSONContent | string>('');
   const [isDescriptionVisible, setIsDescriptionVisible] = React.useState(false);
   const [addValues, setAddValues] = React.useState<Record<string, unknown>>(() => {
     const defaults: Record<string, unknown> = {};
@@ -656,7 +657,7 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
     if (!name) return;
     onAdd({
       name,
-      description: addDescription,
+      description: addDescription as string, // Cast to string for the generic onAdd interface
       ...addValues,
     });
     setAddName('');
@@ -748,7 +749,7 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
         </div>
       </div>
 
-      {descriptionConfig?.enabled && (isDescriptionVisible || addDescription.trim() !== '') && (
+      {descriptionConfig?.enabled && (isDescriptionVisible || (typeof addDescription === 'string' ? addDescription.trim() !== '' : !!addDescription)) && (
         <div className="px-11 pb-3">
           {descriptionConfig.renderEditor({
             value: addDescription,
