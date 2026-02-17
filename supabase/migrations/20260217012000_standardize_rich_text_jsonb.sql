@@ -38,8 +38,9 @@ $$ LANGUAGE plpgsql;
 ALTER TABLE public.tasks ALTER COLUMN description TYPE JSONB USING public.migrate_text_to_tiptap_jsonb(description);
 
 -- 2. Convert notes_documents.content to JSONB
--- Handle existing default and type conversion
+-- Handle existing default, constraints and type conversion
 ALTER TABLE public.notes_documents ALTER COLUMN content DROP DEFAULT;
+ALTER TABLE public.notes_documents ALTER COLUMN content DROP NOT NULL;
 ALTER TABLE public.notes_documents ALTER COLUMN content TYPE JSONB USING public.migrate_text_to_tiptap_jsonb(content);
 ALTER TABLE public.notes_documents ALTER COLUMN content SET DEFAULT NULL;
 
