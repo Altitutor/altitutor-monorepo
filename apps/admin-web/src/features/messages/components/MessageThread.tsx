@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useMemo, useState } from 'react';
-import Image from 'next/image';
 import { useMessagesForContact } from '../api/queries';
 import { useMarkRead } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -9,12 +8,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
 import { Input } from '@altitutor/ui';
-import { X, File, Download, Music, Play, Pause, Loader2 } from 'lucide-react';
+import { X, File, Download, Music, Play, Pause, AlertTriangle } from 'lucide-react';
 import { Button, Badge } from '@altitutor/ui';
+import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isHeicFile, convertHeicUrlToPreview } from '../utils/heicConverter';
+import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 
 interface Props {
   contactId: string;
@@ -30,34 +30,15 @@ interface AttachmentProps {
 }
 
 export function MessageAttachment({ attachment }: AttachmentProps) {
-  const [imageError, setImageError] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [urlError, setUrlError] = useState(false);
-  const [heicPreviewUrl, setHeicPreviewUrl] = useState<string | null>(null);
-  const [heicConverting, setHeicConverting] = useState(false);
-  const [heicError, setHeicError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // Check if it's HEIC/HEIF
+  // Check if it's a PDF
   const filenameLower = attachment.filename?.toLowerCase() || '';
-  const isHeic = isHeicFile({ mimeType: attachment.mime_type ?? undefined, filename: attachment.filename ?? undefined });
-  
-  // Check if it's an image (including HEIC)
-  const isImageByMime = attachment.mime_type?.startsWith('image/') && attachment.mime_type !== 'image';
-  const isImageByExtension = (
-    filenameLower.endsWith('.jpg') ||
-    filenameLower.endsWith('.jpeg') ||
-    filenameLower.endsWith('.png') ||
-    filenameLower.endsWith('.gif') ||
-    filenameLower.endsWith('.webp') ||
-    filenameLower.endsWith('.svg') ||
-    filenameLower.endsWith('.heic') ||
-    filenameLower.endsWith('.heif')
-  );
-  const isImage = (isImageByMime || isImageByExtension) && !imageError;
   const isPdf = attachment.mime_type === 'application/pdf' || filenameLower.endsWith('.pdf');
   const isAudioByMime = attachment.mime_type?.startsWith('audio/');
   const isAudioByExtension = filenameLower.endsWith('.mp3') ||
@@ -204,37 +185,13 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       .catch((err) => {
         console.error('Error creating signed URL:', err);
         setUrlError(true);
-      });
+    });
   }, [attachment.storage_url]);
-
-  // Convert HEIC to JPEG for preview if needed (must be before early returns)
-  useEffect(() => {
-    if (isHeic && signedUrl && !heicPreviewUrl && !heicConverting && !heicError) {
-      setHeicConverting(true);
-      convertHeicUrlToPreview(signedUrl)
-        .then((url) => {
-          setHeicPreviewUrl(url);
-          setHeicConverting(false);
-        })
-        .catch((error) => {
-          console.error('Failed to convert HEIC:', error);
-          setHeicError(true);
-          setHeicConverting(false);
-        });
-    }
-
-    // Cleanup blob URL on unmount
-    return () => {
-      if (heicPreviewUrl) {
-        URL.revokeObjectURL(heicPreviewUrl);
-      }
-    };
-  }, [isHeic, signedUrl, heicPreviewUrl, heicConverting, heicError]);
   
   // Show error state if URL generation failed
   if (urlError) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed max-w-[400px]">
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed max-w-[200px]">
         <File className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-xs text-muted-foreground truncate" title={attachment.filename || 'Attachment'}>
           {attachment.filename || 'Attachment'} (not available)
@@ -246,15 +203,14 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   // Show loading state while generating signed URL
   if (!signedUrl) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg max-w-[400px]">
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg max-w-[200px]">
         <File className="h-4 w-4 text-muted-foreground animate-pulse shrink-0" />
         <span className="text-xs text-muted-foreground">Loading...</span>
       </div>
     );
   }
 
-  // Use converted HEIC preview if available, otherwise use signed URL
-  const attachmentUrl = (isHeic && heicPreviewUrl) ? heicPreviewUrl : signedUrl;
+  const attachmentUrl = signedUrl;
 
   // Download handler
   const handleDownload = async (e: React.MouseEvent) => {
@@ -280,67 +236,6 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       window.open(attachmentUrl!, '_blank');
     }
   };
-  
-  // For images: show as main content (like iMessage)
-  if (isImage) {
-    // Show loading state while converting HEIC
-    if (isHeic && heicConverting) {
-      return (
-        <div className="relative group">
-          <div className="relative rounded-2xl overflow-hidden border shadow-sm flex items-center justify-center" style={{ maxWidth: '400px', maxHeight: '500px', minHeight: '200px' }}>
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="text-sm">Converting HEIC...</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Show error state if HEIC conversion failed
-    if (isHeic && heicError) {
-      return (
-        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed max-w-[400px]">
-          <File className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0" title={attachment.filename || 'HEIC Image'}>
-            {attachment.filename || 'HEIC Image'} (preview unavailable)
-          </span>
-          <button
-            onClick={handleDownload}
-            className="ml-auto p-1 hover:bg-muted-foreground/20 rounded shrink-0"
-            aria-label="Download file"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      );
-    }
-
-    return (
-      <div className="relative group">
-        <div className="relative rounded-2xl overflow-hidden border shadow-sm" style={{ maxWidth: '400px', maxHeight: '500px' }}>
-          <div className="relative w-full h-[500px]">
-            <Image
-              src={attachmentUrl || ''}
-              alt={attachment.filename || 'Image'}
-              fill
-              className="object-contain"
-              unoptimized
-              onError={() => setImageError(true)}
-            />
-          </div>
-          {/* Download button overlay */}
-          <button
-            onClick={handleDownload}
-            className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
-            aria-label="Download image"
-          >
-            <Download className="h-4 w-4 text-white" />
-          </button>
-        </div>
-      </div>
-    );
-  }
   
   // For audio files: show inline audio player
   if (isAudio) {
@@ -416,7 +311,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   const hasFileInfo = fileExtension || fileSize;
 
   return (
-    <div className="flex flex-col gap-1 px-3 py-2 bg-muted border border-border/50 rounded-lg hover:bg-muted/80 transition-colors group max-w-[400px]">
+    <div className="flex flex-col gap-1 px-3 py-2 bg-muted border border-border/50 rounded-lg hover:bg-muted/80 transition-colors group max-w-[200px]">
       <div className="flex items-center gap-2">
         <a
           href={attachmentUrl}
@@ -457,17 +352,16 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   const markRead = useMarkRead();
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastMessageRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const isInitialLoad = useRef(true);
   const prevContactId = useRef(contactId);
   const lastMarkedMessageId = useRef<string | null>(null);
   const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+  const [selectedMessageForIssue, setSelectedMessageForIssue] = useState<any>(null);
+  
   // Reset initial load flag when contact changes
   useEffect(() => {
     if (prevContactId.current !== contactId) {
-      isInitialLoad.current = true;
       prevContactId.current = contactId;
       lastMarkedMessageId.current = null; // Reset when contact changes
       // Cancel any pending markRead calls
@@ -569,64 +463,6 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     };
   }, [data, contactId, markRead]);
 
-  // Use IntersectionObserver on sentinel element - simple and reliable (like WhatsApp/Messages)
-  // This automatically handles: initial load, new messages, images loading, etc.
-  useEffect(() => {
-    if (!sentinelRef.current || !scrollRef.current) return;
-    
-    const sentinel = sentinelRef.current;
-    const scrollContainer = scrollRef.current;
-    
-    // Track if user has manually scrolled away from bottom
-    let userScrolledAway = false;
-    
-    const handleScroll = () => {
-      if (!scrollRef.current) return;
-      const currentScrollTop = scrollRef.current.scrollTop;
-      const distanceFromBottom = scrollRef.current.scrollHeight - currentScrollTop - scrollRef.current.clientHeight;
-      
-      // User scrolled away if they're more than 100px from bottom
-      userScrolledAway = distanceFromBottom > 100;
-    };
-    
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // When sentinel becomes invisible (images push it down), scroll it back into view
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        // If sentinel is not visible and user hasn't scrolled away, scroll it back into view
-        if (!entry.isIntersecting && (!userScrolledAway || isInitialLoad.current)) {
-          sentinel.scrollIntoView({ behavior: 'instant', block: 'end' });
-        }
-      },
-      {
-        root: scrollContainer,
-        rootMargin: '0px',
-        threshold: 0,
-      }
-    );
-    
-    observer.observe(sentinel);
-    
-    // Initial scroll to bottom
-    if (isInitialLoad.current) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (sentinelRef.current) {
-            sentinelRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
-            isInitialLoad.current = false;
-          }
-        });
-      });
-    }
-    
-    return () => {
-      observer.disconnect();
-      scrollContainer.removeEventListener('scroll', handleScroll);
-    };
-  }, [data]);
-
   // Filter and process messages for search
   const processedMessages = useMemo(() => {
     if (!data?.pages) return [];
@@ -638,16 +474,16 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
       | { type: 'separator'; count: number; id: string };
     
     if (!isSearching || !searchTerm.trim()) {
-      // When not searching, return items with type 'message'
-      return items.slice().reverse().map((m) => ({ ...m, type: 'message' as const })) as ProcessedMessageItem[];
+      // When not searching, return items with type 'message' - newest first for column-reverse
+      return items.map((m) => ({ ...m, type: 'message' as const })) as ProcessedMessageItem[];
     }
     
     const search = searchTerm.toLowerCase();
-    const reversedItems = items.slice().reverse();
+    const itemsToFilter = items;
     const filtered: ProcessedMessageItem[] = [];
     let hiddenCount = 0;
     
-    reversedItems.forEach((m, index) => {
+    itemsToFilter.forEach((m, index) => {
       const matches = m.body.toLowerCase().includes(search);
       
       if (matches) {
@@ -687,40 +523,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     );
   };
 
-  // Prevent scroll events from propagating to the page behind
-  useEffect(() => {
-    const scrollElement = scrollRef.current;
-    if (!scrollElement) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      const { scrollTop, scrollHeight, clientHeight } = scrollElement;
-      const isScrollable = scrollHeight > clientHeight;
-      
-      if (!isScrollable) {
-        // If not scrollable, allow event to propagate to page
-        return;
-      }
-      
-      const isAtTop = scrollTop <= 0;
-      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
-      
-      // Always stop propagation to prevent page scrolling
-      e.stopPropagation();
-      
-      // Only prevent default when at boundaries to prevent overscroll
-      if ((e.deltaY > 0 && isAtBottom) || (e.deltaY < 0 && isAtTop)) {
-        e.preventDefault();
-      }
-    };
-
-    scrollElement.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      scrollElement.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
-
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 h-full">
       {/* Search bar */}
       {isSearching && (
         <div className="p-3 border-b dark:border-brand-dark-border flex items-center gap-2 flex-shrink-0 bg-background sticky top-0 z-10">
@@ -739,11 +543,8 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
       
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0"
+        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0 flex flex-col-reverse"
       >
-        {hasNextPage && (
-          <button className="text-xs text-blue-600 hover:underline mb-2" onClick={() => fetchNextPage()}>Load older messages</button>
-        )}
         {processedMessages.length === 0 && !isSearching ? (
           <div className="text-xs text-muted-foreground">No messages yet.</div>
         ) : isSearching && processedMessages.length === 0 ? (
@@ -763,21 +564,17 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
               const m = item as Extract<typeof item, { type: 'message' }>;
               if (!m.created_at) return null; // Skip messages without created_at
               
-              const prevItem = arr[index - 1];
-              const prevIsMessage = prevItem && 'type' in prevItem && prevItem.type === 'message';
-              const prevCreatedAt = prevIsMessage && (prevItem as Extract<typeof prevItem, { type: 'message' }>).created_at;
-              const showDateSeparator = !isSearching && (index === 0 || (prevIsMessage && prevCreatedAt && isDifferentDay(m.created_at, prevCreatedAt)));
-              const isLastMessage = index === arr.length - 1;
+              const nextItem = arr[index + 1];
+              const nextIsMessage = nextItem && 'type' in nextItem && nextItem.type === 'message';
+              const nextCreatedAt = nextIsMessage && (nextItem as Extract<typeof nextItem, { type: 'message' }>).created_at;
+              
+              // Show date separator if this is the last message (oldest) or if the next message (older) is a different day
+              const showDateSeparator = !isSearching && (index === arr.length - 1 || (nextIsMessage && nextCreatedAt && isDifferentDay(m.created_at, nextCreatedAt)));
               
               const direction = m.direction as 'INBOUND' | 'OUTBOUND';
               
               return (
-                <div key={m.id} ref={isLastMessage ? lastMessageRef : undefined}>
-                  {showDateSeparator && (
-                    <div className="text-center text-xs text-muted-foreground my-3">
-                      {formatDaySeparator(m.created_at)}
-                    </div>
-                  )}
+                <div key={m.id}>
                   <div className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Staff avatar for outbound messages */}
                     {direction === 'OUTBOUND' && m.staff && (
@@ -788,7 +585,26 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       />
                     )}
                     
-                    <div className={`max-w-[80%] ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
+                    <div className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
+                      {/* Action Button: Add Issue */}
+                      <div className={cn(
+                        "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-10",
+                        direction === 'OUTBOUND' ? "right-full mr-2" : "left-full ml-2"
+                      )}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
+                          onClick={() => {
+                            setSelectedMessageForIssue(m);
+                            setIssueDialogOpen(true);
+                          }}
+                          title="Add issue from this message"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
+                        </Button>
+                      </div>
+
                       {/* Sender badge for outbound messages */}
                       {direction === 'OUTBOUND' && m.sender && (
                         <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
@@ -841,13 +657,31 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       </div>
                     </div>
                   </div>
+                  {showDateSeparator && (
+                    <div className="text-center text-xs text-muted-foreground my-3">
+                      {formatDaySeparator(m.created_at)}
+                    </div>
+                  )}
                 </div>
               );
             })
         )}
-        {/* Sentinel element at bottom - IntersectionObserver watches this */}
-        <div ref={sentinelRef} className="h-1" />
+        {hasNextPage && (
+          <button className="text-xs text-blue-600 hover:underline mb-2 py-2" onClick={() => fetchNextPage()}>Load older messages</button>
+        )}
       </div>
+
+      <CreateIssueDialog
+        isOpen={issueDialogOpen}
+        onClose={() => {
+          setIssueDialogOpen(false);
+          setSelectedMessageForIssue(null);
+        }}
+        initialTags={selectedMessageForIssue ? [
+          { message_id: selectedMessageForIssue.id },
+          { conversation_id: selectedMessageForIssue.conversation_id }
+        ] : []}
+      />
     </div>
   );
 }
