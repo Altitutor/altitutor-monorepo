@@ -12,7 +12,7 @@ import {
   Input,
   ScrollArea,
 } from '@altitutor/ui';
-import { User, Check, Circle, Clock, Eye, CheckCircle, AlertCircle, AlertTriangle, Info, Gauge } from 'lucide-react';
+import { User, Check, Circle, Clock, Eye, CheckCircle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
   getPriorityLabel,
@@ -47,7 +47,7 @@ export function TaskAssigneeEntityPill({
           type="button"
           className={cn(
             'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
-            collapsed ? 'w-8 justify-center p-0' : 'px-3 text-xs'
+            collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
           )}
           onClick={(e) => e.stopPropagation()}
         >
@@ -70,6 +70,7 @@ export function TaskAssigneeEntityPill({
               )}
             </>
           )}
+          <ChevronDown className={cn("h-3 w-3 text-muted-foreground opacity-40 group-hover:opacity-100", !assignee && "opacity-40")} />
         </button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[280px]" align="start" onClick={(e) => e.stopPropagation()}>
@@ -149,7 +150,7 @@ export function TaskPriorityEntityPill({
       <SelectTrigger
         className={cn(
           "h-8 border rounded-full bg-background group gap-1.5",
-          collapsed ? "w-8 justify-center p-0" : "px-3 text-xs w-auto"
+          collapsed ? "px-2 w-auto" : "px-3 text-xs w-auto"
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -189,7 +190,7 @@ export function TaskEstimateEntityPill({
       <SelectTrigger
         className={cn(
           "h-8 border rounded-full bg-background group gap-1.5",
-          collapsed ? "w-8 justify-center p-0" : "px-3 text-xs w-auto"
+          collapsed ? "px-2 w-auto" : "px-3 text-xs w-auto"
         )}
         onClick={(e) => e.stopPropagation()}
       >
