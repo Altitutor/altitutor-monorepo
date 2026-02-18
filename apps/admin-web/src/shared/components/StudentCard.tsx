@@ -66,17 +66,17 @@ export function StudentCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm">
+            <h4 className="font-semibold text-sm truncate">
               {student.first_name} {student.last_name}
             </h4>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
                 Year {student.year_level}
               </span>
               {student.school && (
                 <>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs text-muted-foreground truncate">
+                  <span className="text-xs text-muted-foreground hidden xs:inline">•</span>
+                  <span className="text-xs text-muted-foreground truncate max-w-full">
                     {student.school}
                   </span>
                 </>

@@ -60,11 +60,11 @@ export function StaffCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm">
+            <h4 className="font-semibold text-sm truncate">
               {staff.first_name} {staff.last_name}
             </h4>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground truncate">
                 {roleDisplay}
               </span>
             </div>

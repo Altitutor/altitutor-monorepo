@@ -227,8 +227,8 @@ export function ClassCard({
           
           {/* Staff */}
           {staff.length > 0 && (
-            <div className={cn('flex items-center gap-2 flex-wrap', shouldUseCompact ? 'mt-1' : 'mt-2')}>
-              <div className="flex flex-wrap gap-1">
+            <div className={cn('flex items-center gap-2 flex-wrap min-w-0', shouldUseCompact ? 'mt-1' : 'mt-2')}>
+              <div className="flex flex-wrap gap-1 min-w-0">
                 {staff.map((staffMember) => {
                   const fullName = `${staffMember.first_name} ${staffMember.last_name}`;
                   const display = !showFullNames ? getInitials(staffMember.first_name, staffMember.last_name) : fullName;
@@ -271,8 +271,8 @@ export function ClassCard({
           
           {/* Students */}
           {students.length > 0 && (
-            <div className={cn('flex items-center gap-2 flex-wrap', shouldUseCompact ? 'mt-1' : 'mt-2')}>
-              <div className="flex flex-wrap gap-1">
+            <div className={cn('flex items-center gap-2 flex-wrap min-w-0', shouldUseCompact ? 'mt-1' : 'mt-2')}>
+              <div className="flex flex-wrap gap-1 min-w-0">
                 {students.map((student) => {
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
