@@ -16,8 +16,9 @@ import { useSessionData } from '@/features/sessions/hooks/useSessionData';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getContactIdFromConversation } from '@/features/messages/api/queries';
+import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
-import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText } from 'lucide-react';
+import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
 interface IssueContentPanelProps {
@@ -104,7 +105,9 @@ export function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
 function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
   const studentTags = tags.filter(t => t.student_id);
   const staffTags = tags.filter(t => t.staff_id);
+  const parentTags = tags.filter(t => t.parent_id);
   const classTags = tags.filter(t => t.class_id);
+  const subjectTags = tags.filter(t => t.subject_id);
   const sessionTags = tags.filter(t => t.session_id);
   const invoiceTags = tags.filter(t => t.invoice_id);
 
@@ -119,6 +122,20 @@ function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
           <div className="grid gap-3">
             {studentTags.map(tag => (
               <StudentCardWrapper key={tag.id} studentId={tag.student_id!} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {parentTags.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>Parents</span>
+          </div>
+          <div className="grid gap-3">
+            {parentTags.map(tag => (
+              <ParentCardWrapper key={tag.id} parentId={tag.parent_id!} />
             ))}
           </div>
         </section>
@@ -141,12 +158,26 @@ function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
       {classTags.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Users className="h-4 w-4" />
+            <Calendar className="h-4 w-4" />
             <span>Classes</span>
           </div>
           <div className="grid gap-3">
             {classTags.map(tag => (
               <ClassCardWrapper key={tag.id} classId={tag.class_id!} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {subjectTags.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <BookOpen className="h-4 w-4" />
+            <span>Subjects</span>
+          </div>
+          <div className="grid gap-3">
+            {subjectTags.map(tag => (
+              <SubjectCardWrapper key={tag.id} subjectId={tag.subject_id!} />
             ))}
           </div>
         </section>
@@ -180,7 +211,7 @@ function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
         </section>
       )}
 
-      {tags.length === 0 && (
+      {tags.filter(t => !t.message_id && !t.conversation_id).length === 0 && (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
           No entities tagged to this issue yet.
         </div>
@@ -196,6 +227,21 @@ function StudentCardWrapper({ studentId }: { studentId: string }) {
   return <StudentCard student={student as any} />;
 }
 
+function ParentCardWrapper({ parentId }: { parentId: string }) {
+  const supabase = getSupabaseClient();
+  const { data: parent, isLoading } = useQuery({
+    queryKey: ['parents', parentId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('parents').select('*').eq('id', parentId).single();
+      if (error) throw error;
+      return data;
+    }
+  });
+  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (!parent) return null;
+  return <ParentCard parent={parent as any} />;
+}
+
 function StaffCardWrapper({ staffId }: { staffId: string }) {
   const { data: staff, isLoading } = useStaffById(staffId);
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
@@ -209,14 +255,65 @@ function ClassCardWrapper({ classId }: { classId: string }) {
   const { data: classData, isLoading } = useQuery({
     queryKey: ['classes', classId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('classes').select('*, subject:subjects(*), staff:classes_staff(staff(*))').eq('id', classId).single();
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*, subject:subjects(*), assigned_staff:classes_staff(staff:staff!class_assignments_staff_id_fkey(*))')
+        .eq('id', classId)
+        .single();
+      
+      if (error) {
+        throw error;
+      }
       return data;
     }
   });
+
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
-  if (!classData) return null;
-  return <ClassCard class={classData as any} staff={(classData as any).staff?.map((s: any) => s.staff) || []} />;
+  if (!classData) {
+    return null;
+  }
+  
+  const staff = (classData as any).assigned_staff?.map((s: any) => s.staff).filter(Boolean) || [];
+  
+  return (
+    <ClassCard 
+      class={classData as any} 
+      subject={(classData as any).subject}
+      staff={staff} 
+    />
+  );
+}
+
+function SubjectCardWrapper({ subjectId }: { subjectId: string }) {
+  const supabase = getSupabaseClient();
+  const { data: subject, isLoading } = useQuery({
+    queryKey: ['subjects', subjectId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('subjects').select('*').eq('id', subjectId).single();
+      if (error) {
+        throw error;
+      }
+      return data;
+    }
+  });
+
+  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (!subject) {
+    return null;
+  }
+  
+  // Simple subject card since we don't have a shared one
+  return (
+    <div className="p-3 border rounded-lg bg-card flex items-center gap-3">
+      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+        <BookOpen className="h-5 w-5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold truncate">{subject.name}</div>
+        {subject.code && <div className="text-xs text-muted-foreground">{subject.code}</div>}
+      </div>
+    </div>
+  );
 }
 
 function SessionCardWrapper({ sessionId }: { sessionId: string }) {
