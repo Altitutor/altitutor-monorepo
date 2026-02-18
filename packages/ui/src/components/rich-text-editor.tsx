@@ -129,6 +129,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         Mention.configure({
           HTMLAttributes: {
             class: 'bg-primary/10 text-primary px-1 rounded-sm font-medium cursor-pointer transition-colors hover:bg-primary/20',
+            'data-mention': 'true',
           },
           suggestion: {
             ...mentionSuggestions,

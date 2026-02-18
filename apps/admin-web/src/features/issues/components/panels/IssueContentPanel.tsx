@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, memo } from 'react';
-import { ScrollArea, Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
+import { ScrollArea, Button, Tabs, TabsList, TabsTrigger, TabsContent, Badge } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
@@ -19,7 +19,13 @@ import { getContactIdFromConversation } from '@/features/messages/api/queries';
 import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
 import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen } from 'lucide-react';
-import { cn } from '@/shared/utils';
+import { cn, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils';
+
+const handleEntityClick = (type: string, id: string) => {
+  window.dispatchEvent(new CustomEvent('mentionClick', { 
+    detail: { id, type } 
+  }));
+};
 
 interface IssueContentPanelProps {
   issue: IssueWithTags;
@@ -173,9 +179,9 @@ const IssueEntitiesList = memo(function IssueEntitiesList({ tags }: { tags: Issu
             <BookOpen className="h-4 w-4" />
             <span>Subjects</span>
           </div>
-          <div className="grid gap-3">
+          <div className="flex flex-wrap gap-2">
             {subjectTags.map(tag => (
-              <SubjectCardWrapper key={tag.id} subjectId={tag.subject_id!} />
+              <SubjectPillWrapper key={tag.id} subjectId={tag.subject_id!} />
             ))}
           </div>
         </section>
@@ -222,7 +228,7 @@ function StudentCardWrapper({ studentId }: { studentId: string }) {
   const { data: student, isLoading } = useStudent(studentId);
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!student) return null;
-  return <StudentCard student={student as any} />;
+  return <StudentCard student={student as any} onClick={() => handleEntityClick('student', studentId)} />;
 }
 
 function ParentCardWrapper({ parentId }: { parentId: string }) {
@@ -237,14 +243,14 @@ function ParentCardWrapper({ parentId }: { parentId: string }) {
   });
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!parent) return null;
-  return <ParentCard parent={parent as any} />;
+  return <ParentCard parent={parent as any} onClick={() => handleEntityClick('parent', parentId)} />;
 }
 
 function StaffCardWrapper({ staffId }: { staffId: string }) {
   const { data: staff, isLoading } = useStaffById(staffId);
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!staff) return null;
-  return <StaffCard staff={staff as any} />;
+  return <StaffCard staff={staff as any} onClick={() => handleEntityClick('staff', staffId)} />;
 }
 
 function ClassCardWrapper({ classId }: { classId: string }) {
@@ -278,11 +284,12 @@ function ClassCardWrapper({ classId }: { classId: string }) {
       class={classData as any} 
       subject={(classData as any).subject}
       staff={staff} 
+      onClick={() => handleEntityClick('class', classId)}
     />
   );
 }
 
-function SubjectCardWrapper({ subjectId }: { subjectId: string }) {
+function SubjectPillWrapper({ subjectId }: { subjectId: string }) {
   const supabase = getSupabaseClient();
   const { data: subject, isLoading } = useQuery({
     queryKey: ['subjects', subjectId],
@@ -295,22 +302,26 @@ function SubjectCardWrapper({ subjectId }: { subjectId: string }) {
     }
   });
 
-  if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
+  if (isLoading) return <div className="h-6 w-16 bg-muted animate-pulse rounded-full" />;
   if (!subject) {
     return null;
   }
   
-  // Simple subject card since we don't have a shared one
+  const shortName = formatSubjectShortName(subject as any);
+  const { style, textColorClass } = getSubjectColorStyle(subject as any);
+  const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+
   return (
-    <div className="p-3 border rounded-lg bg-card flex items-center gap-3">
-      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-        <BookOpen className="h-5 w-5 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold truncate">{subject.name}</div>
-        {(subject as any).code && <div className="text-xs text-muted-foreground">{(subject as any).code}</div>}
-      </div>
-    </div>
+    <Badge
+      className={cn(
+        "cursor-pointer hover:opacity-80 transition-opacity",
+        defaultClass || textColorClass
+      )}
+      style={style.backgroundColor ? style : undefined}
+      onClick={() => handleEntityClick('subject', subjectId)}
+    >
+      {shortName}
+    </Badge>
   );
 }
 
@@ -318,7 +329,7 @@ function SessionCardWrapper({ sessionId }: { sessionId: string }) {
   const { data, isLoading } = useSessionData({ sessionId });
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!data?.session) return null;
-  return <SessionCard session={data.session as any} />;
+  return <SessionCard session={data.session as any} onClick={() => handleEntityClick('session', sessionId)} />;
 }
 
 function InvoiceCardWrapper({ invoiceId }: { invoiceId: string }) {
@@ -333,5 +344,5 @@ function InvoiceCardWrapper({ invoiceId }: { invoiceId: string }) {
   });
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!invoice) return null;
-  return <InvoiceCard invoice={invoice as any} />;
+  return <InvoiceCard invoice={invoice as any} onClick={() => handleEntityClick('invoice', invoiceId)} />;
 }
