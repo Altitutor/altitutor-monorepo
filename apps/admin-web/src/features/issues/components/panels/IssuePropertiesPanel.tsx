@@ -1,26 +1,20 @@
 'use client';
 
-import { ScrollArea, type JSONContent, Separator } from '@altitutor/ui';
+import { useState, useRef, useCallback, memo } from 'react';
+import { ScrollArea, type JSONContent, Separator, Button } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { useRef, useCallback, useState } from 'react';
 import { TasksList } from '@/features/tasks/components/TasksList';
-import { IssueActivityTab } from '../IssueActivityTab';
-import { IssueStatusPill } from '../fields/IssueStatusPill';
-import { IssueTitleField } from '../fields/IssueTitleField';
-import { IssueDescriptionField } from '../fields/IssueDescriptionField';
-import { IssueNotes } from '../IssueNotes';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewClassModal } from '@/features/classes/components/modal/ViewClassModal';
-import { ViewParentModal } from '@/features/students/components/ViewParentModal';
-import { ViewSubjectModal } from '@/features/subjects/components';
-import { ViewTopicModal, FilePreviewModal } from '@/features/topics/components';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';
+import { IssueStatusPill } from '@/features/issues/components/fields/IssueStatusPill';
+import { IssueTitleField } from '@/features/issues/components/fields/IssueTitleField';
+import { IssueDescriptionField } from '@/features/issues/components/fields/IssueDescriptionField';
+import { IssueNotes } from '@/features/issues/components/IssueNotes';
 import type { RichTextEditorRef } from '@altitutor/ui';
-
 import type { IssueWithTags, IssueStatus } from '../../types';
 import type { TagEntityType } from '../../../tasks/utils/tagParsing';
 import type { Tables } from '@altitutor/shared';
+import { useDeleteIssue } from '../../api/mutations';
+import { Trash2, AlertCircle } from 'lucide-react';
 
 type NoteWithStaff = Tables<'notes'> & {
   staff?: Tables<'staff'> | null;
@@ -35,48 +29,26 @@ interface IssuePropertiesPanelProps {
   issue: IssueWithTags;
   notes: NoteWithStaff[];
   isOpen: boolean;
+  onClose: () => void;
 }
 
-export function IssuePropertiesPanel({
+export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   form,
   issue,
   notes,
   isOpen,
+  onClose,
 }: IssuePropertiesPanelProps) {
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<RichTextEditorRef>(null);
-
-  // Modal state for entity tags
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const deleteIssue = useDeleteIssue();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleTagClick = useCallback((type: TagEntityType, id: string) => {
-    setSelectedStudentId(null);
-    setSelectedStaffId(null);
-    setSelectedClassId(null);
-    setSelectedParentId(null);
-    setSelectedSubjectId(null);
-    setSelectedTopicId(null);
-    setSelectedSessionId(null);
-    setSelectedFileId(null);
-
-    if (type === 'student') setSelectedStudentId(id);
-    else if (type === 'staff') setSelectedStaffId(id);
-    else if (type === 'class') setSelectedClassId(id);
-    else if (type === 'parent') setSelectedParentId(id);
-    else if (type === 'subject') setSelectedSubjectId(id);
-    else if (type === 'topic') setSelectedTopicId(id);
-    else if (type === 'session') setSelectedSessionId(id);
-    else if (type === 'file') {
-      setSelectedFileId(id);
-      window.dispatchEvent(new CustomEvent('open-file-preview', { detail: { id } }));
-    }
+    // Dispatch custom event for MentionModalProvider to handle
+    window.dispatchEvent(new CustomEvent('mentionClick', { 
+      detail: { id, type } 
+    }));
   }, []);
 
   const handleTitleEnter = useCallback(() => {
@@ -87,6 +59,15 @@ export function IssuePropertiesPanel({
       }
     }
   }, []);
+
+  const handleDelete = async () => {
+    try {
+      await deleteIssue.mutateAsync(issue.id);
+      onClose();
+    } catch (error) {
+      console.error('Failed to delete issue:', error);
+    }
+  };
 
   return (
     <>
@@ -156,80 +137,54 @@ export function IssuePropertiesPanel({
                 invoiceIds={issue.tags.map(t => t.invoice_id!).filter(Boolean)}
               />
             </div>
+
+            {/* Delete Section */}
+            <div className="pt-12 pb-8 border-t">
+              {!isDeleting ? (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setIsDeleting(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Issue
+                </Button>
+              ) : (
+                <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-destructive">Delete this issue?</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This action cannot be undone. All linked data will be preserved but the issue record will be permanently removed.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDelete}
+                      disabled={deleteIssue.isPending}
+                    >
+                      {deleteIssue.isPending ? 'Deleting...' : 'Confirm Delete'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsDeleting(false)}
+                      disabled={deleteIssue.isPending}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </ScrollArea>
       </div>
-
-      {/* Entity Modals */}
-      {selectedStudentId && (
-        <ViewStudentModal
-          isOpen={!!selectedStudentId}
-          onClose={() => setSelectedStudentId(null)}
-          studentId={selectedStudentId}
-          onStudentUpdated={() => {}}
-        />
-      )}
-
-      {selectedStaffId && (
-        <ViewStaffModal
-          isOpen={!!selectedStaffId}
-          onClose={() => setSelectedStaffId(null)}
-          staffId={selectedStaffId}
-          onStaffUpdated={() => {}}
-        />
-      )}
-
-      {selectedClassId && (
-        <ViewClassModal
-          isOpen={!!selectedClassId}
-          onClose={() => setSelectedClassId(null)}
-          classId={selectedClassId}
-          onClassUpdated={() => {}}
-        />
-      )}
-
-      {selectedParentId && (
-        <ViewParentModal
-          isOpen={!!selectedParentId}
-          onClose={() => setSelectedParentId(null)}
-          parentId={selectedParentId}
-          onParentUpdated={() => {}}
-        />
-      )}
-
-      {selectedSubjectId && (
-        <ViewSubjectModal
-          isOpen={!!selectedSubjectId}
-          onClose={() => setSelectedSubjectId(null)}
-          subjectId={selectedSubjectId}
-          onSubjectUpdated={() => {}}
-        />
-      )}
-
-      {selectedTopicId && (
-        <ViewTopicModal
-          isOpen={!!selectedTopicId}
-          onClose={() => setSelectedTopicId(null)}
-          topicId={selectedTopicId}
-          onTopicUpdated={() => {}}
-        />
-      )}
-
-      {selectedSessionId && (
-        <SessionModal
-          isOpen={!!selectedSessionId}
-          onClose={() => setSelectedSessionId(null)}
-          sessionId={selectedSessionId}
-        />
-      )}
-
-      {selectedFileId && (
-        <FilePreviewModal
-          isOpen={!!selectedFileId}
-          onClose={() => setSelectedFileId(null)}
-          topicFileId={selectedFileId}
-        />
-      )}
     </>
   );
-}
+});

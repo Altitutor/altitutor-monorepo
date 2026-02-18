@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { ScrollArea, Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
@@ -26,9 +26,9 @@ interface IssueContentPanelProps {
   isOpen: boolean;
 }
 
-export function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
-  const conversationTag = issue.tags.find(t => t.conversation_id);
-  const studentTag = issue.tags.find(t => t.student_id);
+export const IssueContentPanel = memo(function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
+  const conversationTag = useMemo(() => issue.tags.find(t => t.conversation_id), [issue.tags]);
+  const studentTag = useMemo(() => issue.tags.find(t => t.student_id), [issue.tags]);
   const contactRelatedId = studentTag?.student_id || undefined;
   
   const { data: contactId } = useQuery({
@@ -58,13 +58,11 @@ export function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="chat">
               <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
                 <span>Chat</span>
               </div>
             </TabsTrigger>
             <TabsTrigger value="entities">
               <div className="flex items-center gap-2">
-                <Tags className="h-4 w-4" />
                 <span>Tagged Entities</span>
               </div>
             </TabsTrigger>
@@ -100,16 +98,16 @@ export function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
       </Tabs>
     </div>
   );
-}
+});
 
-function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
-  const studentTags = tags.filter(t => t.student_id);
-  const staffTags = tags.filter(t => t.staff_id);
-  const parentTags = tags.filter(t => t.parent_id);
-  const classTags = tags.filter(t => t.class_id);
-  const subjectTags = tags.filter(t => t.subject_id);
-  const sessionTags = tags.filter(t => t.session_id);
-  const invoiceTags = tags.filter(t => t.invoice_id);
+const IssueEntitiesList = memo(function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
+  const studentTags = useMemo(() => tags.filter(t => t.student_id), [tags]);
+  const staffTags = useMemo(() => tags.filter(t => t.staff_id), [tags]);
+  const parentTags = useMemo(() => tags.filter(t => t.parent_id), [tags]);
+  const classTags = useMemo(() => tags.filter(t => t.class_id), [tags]);
+  const subjectTags = useMemo(() => tags.filter(t => t.subject_id), [tags]);
+  const sessionTags = useMemo(() => tags.filter(t => t.session_id), [tags]);
+  const invoiceTags = useMemo(() => tags.filter(t => t.invoice_id), [tags]);
 
   return (
     <div className="space-y-6">
@@ -218,7 +216,7 @@ function IssueEntitiesList({ tags }: { tags: IssueTag[] }) {
       )}
     </div>
   );
-}
+});
 
 function StudentCardWrapper({ studentId }: { studentId: string }) {
   const { data: student, isLoading } = useStudent(studentId);
@@ -310,7 +308,7 @@ function SubjectCardWrapper({ subjectId }: { subjectId: string }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold truncate">{subject.name}</div>
-        {subject.code && <div className="text-xs text-muted-foreground">{subject.code}</div>}
+        {(subject as any).code && <div className="text-xs text-muted-foreground">{(subject as any).code}</div>}
       </div>
     </div>
   );
