@@ -29,6 +29,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tiptap/core": "^3.19.0",
     "@tiptap/extension-link": "^3.19.0",
+    "@tiptap/extension-mention": "^3.19.0",
     "@tiptap/extension-placeholder": "^3.19.0",
     "@tiptap/extension-table": "^3.19.0",
     "@tiptap/extension-text-style": "^3.19.0",
@@ -37,10 +38,12 @@
     "@tiptap/pm": "^3.19.0",
     "@tiptap/react": "^3.18.0",
     "@tiptap/starter-kit": "^3.17.0",
+    "@tiptap/suggestion": "^3.19.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.323.0",
     "react-phone-number-input": "^3.4.14",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "tippy.js": "^6.3.7"
   }
 }

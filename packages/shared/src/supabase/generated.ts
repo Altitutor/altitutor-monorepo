@@ -1980,9 +1980,11 @@ export type Database = {
           invoice_id: string | null
           issue_id: string
           message_id: string | null
+          parent_id: string | null
           session_id: string | null
           staff_id: string | null
           student_id: string | null
+          subject_id: string | null
         }
         Insert: {
           class_id?: string | null
@@ -1992,9 +1994,11 @@ export type Database = {
           invoice_id?: string | null
           issue_id: string
           message_id?: string | null
+          parent_id?: string | null
           session_id?: string | null
           staff_id?: string | null
           student_id?: string | null
+          subject_id?: string | null
         }
         Update: {
           class_id?: string | null
@@ -2004,9 +2008,11 @@ export type Database = {
           invoice_id?: string | null
           issue_id?: string
           message_id?: string | null
+          parent_id?: string | null
           session_id?: string | null
           staff_id?: string | null
           student_id?: string | null
+          subject_id?: string | null
         }
         Relationships: [
           {
@@ -2070,6 +2076,13 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
             referencedColumns: ["id"]
           },
           {
@@ -2147,6 +2160,27 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -2435,7 +2469,7 @@ export type Database = {
       }
       notes_documents: {
         Row: {
-          content: Json
+          content: Json | null
           created_at: string
           created_by: string
           folder_id: string | null
@@ -2446,7 +2480,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          content: Json
+          content?: Json | null
           created_at?: string
           created_by: string
           folder_id?: string | null
@@ -2457,7 +2491,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
-          content?: Json
+          content?: Json | null
           created_at?: string
           created_by?: string
           folder_id?: string | null
