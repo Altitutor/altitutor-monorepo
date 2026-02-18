@@ -1,6 +1,6 @@
 'use client';
 
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { TableKit } from '@tiptap/extension-table';
@@ -8,9 +8,12 @@ import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
+import Mention from '@tiptap/extension-mention';
 import { TextSelection } from '@tiptap/pm/state';
 import type { JSONContent } from '@tiptap/core';
+import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
+import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { cn } from '../lib/cn';
 
 export type { JSONContent };
@@ -49,6 +52,11 @@ export interface RichTextEditorProps {
    * Whether the editor is editable.
    */
   editable?: boolean;
+  /**
+   * Optional configuration for mentions.
+   * If provided, typing @ will trigger the mention suggestions.
+   */
+  mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
 }
 
 /**
@@ -66,6 +74,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   isMarkdown = false,
   minHeight = '200px',
   editable = true,
+  mentionSuggestions,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -116,6 +125,43 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           class: 'text-primary underline cursor-pointer',
         },
       }),
+      ...(mentionSuggestions ? [
+        Mention.configure({
+          HTMLAttributes: {
+            class: 'bg-primary/10 text-primary px-1 rounded-sm font-medium cursor-pointer transition-colors hover:bg-primary/20',
+          },
+          suggestion: {
+            ...mentionSuggestions,
+          },
+        }).extend({
+          addAttributes() {
+            return {
+              ...this.parent?.(),
+              id: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-id'),
+                renderHTML: attributes => ({
+                  'data-id': attributes.id,
+                }),
+              },
+              label: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-label') || element.innerText,
+                renderHTML: attributes => ({
+                  'data-label': attributes.label,
+                }),
+              },
+              type: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-type'),
+                renderHTML: attributes => ({
+                  'data-type': attributes.type,
+                }),
+              },
+            }
+          },
+        })
+      ] : []),
     ],
     content: (() => {
       if (!content) return { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -136,6 +182,38 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     editable,
     immediatelyRender: false,
     editorProps: {
+      handleClick: (view, _pos, event) => {
+        const target = event.target as HTMLElement;
+        const mentionNode = target.closest('[data-mention]') as HTMLElement | null;
+        if (mentionNode) {
+          const id = mentionNode.getAttribute('data-id');
+          const type = mentionNode.getAttribute('data-type');
+          const label = mentionNode.innerText;
+          
+          if (id && type) {
+            // Custom event for mention click
+            const customEvent = new CustomEvent('mentionClick', { 
+              detail: { id, type, label } 
+            });
+            window.dispatchEvent(customEvent);
+            return true;
+          }
+        }
+
+        const { state } = view;
+        const docSize = state.doc.content.size;
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        
+        if (coords && coords.pos >= docSize) {
+          const transaction = state.tr.setSelection(
+            TextSelection.near(state.doc.resolve(docSize))
+          );
+          view.dispatch(transaction);
+          view.focus();
+          return true;
+        }
+        return false;
+      },
       attributes: {
         class: cn(
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
@@ -161,21 +239,6 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           className
         ),
         'data-placeholder': placeholder,
-      },
-      handleClick: (view, _pos, event) => {
-        const { state } = view;
-        const docSize = state.doc.content.size;
-        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
-        
-        if (coords && coords.pos >= docSize) {
-          const transaction = state.tr.setSelection(
-            TextSelection.near(state.doc.resolve(docSize))
-          );
-          view.dispatch(transaction);
-          view.focus();
-          return true;
-        }
-        return false;
       },
     },
     onUpdate: ({ editor }) => {
