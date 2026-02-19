@@ -58,7 +58,7 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
             staffId={staff.id}
             onOpenSession={handleOpenSession}
             onOpenStudent={handleOpenStudent}
-            showAttendanceBreakdown={true}
+            attendanceView="staff"
           />
         </div>
       )}
