@@ -1,20 +1,60 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useState } from 'react';
-import { useMessagesForContact } from '../api/queries';
+import { useEffect, useRef, useMemo, useState, useLayoutEffect } from 'react';
+import { useMessagesForContact, useContactHeader } from '../api/queries';
 import { useMarkRead } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
-import { Input } from '@altitutor/ui';
 import { X, File, Download, Music, Play, Pause, AlertTriangle } from 'lucide-react';
-import { Button, Badge } from '@altitutor/ui';
+import { Input, Button, Badge, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, type JSONContent } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
+import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
+import { useIssues } from '@/features/issues/api/queries';
+import { issuesApi } from '@/features/issues/api/issues';
+import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
+import { extractMentions } from '@/shared/utils/extractMentions';
+import { TextWithTags } from '@/shared/components/TextWithTags';
+
+type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
+
+function getTagKey(tag: Partial<IssueTagInsert>) {
+  if (tag.student_id) return `student:${tag.student_id}`;
+  if (tag.staff_id) return `staff:${tag.staff_id}`;
+  if (tag.parent_id) return `parent:${tag.parent_id}`;
+  if (tag.class_id) return `class:${tag.class_id}`;
+  if (tag.session_id) return `session:${tag.session_id}`;
+  if (tag.invoice_id) return `invoice:${tag.invoice_id}`;
+  if (tag.subject_id) return `subject:${tag.subject_id}`;
+  return null;
+}
+
+function toMentionData(tag: Partial<IssueTagInsert>): { type: string; id: string; label: string } | null {
+  if (tag.student_id) return { type: 'student', id: tag.student_id, label: tag.student_id };
+  if (tag.staff_id) return { type: 'staff', id: tag.staff_id, label: tag.staff_id };
+  if (tag.parent_id) return { type: 'parent', id: tag.parent_id, label: tag.parent_id };
+  if (tag.class_id) return { type: 'class', id: tag.class_id, label: tag.class_id };
+  if (tag.session_id) return { type: 'session', id: tag.session_id, label: tag.session_id };
+  if (tag.invoice_id) return { type: 'invoice', id: tag.invoice_id, label: tag.invoice_id };
+  if (tag.subject_id) return { type: 'subject', id: tag.subject_id, label: tag.subject_id };
+  return null;
+}
+
+function issueTagToDraft(tag: IssueWithTags['tags'][number]): IssueTagDraft | null {
+  if (tag.student_id) return { student_id: tag.student_id };
+  if (tag.staff_id) return { staff_id: tag.staff_id };
+  if (tag.parent_id) return { parent_id: tag.parent_id };
+  if (tag.class_id) return { class_id: tag.class_id };
+  if (tag.session_id) return { session_id: tag.session_id };
+  if (tag.invoice_id) return { invoice_id: tag.invoice_id };
+  if (tag.subject_id) return { subject_id: tag.subject_id };
+  return null;
+}
 
 interface Props {
   contactId: string;
@@ -22,6 +62,7 @@ interface Props {
   searchTerm?: string;
   onSearchTermChange?: (term: string) => void;
   onExitSearch?: () => void;
+  hideAddIssueHover?: boolean;
 }
 
 interface AttachmentProps {
@@ -347,23 +388,28 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   );
 }
 
-export function MessageThread({ contactId, isSearching = false, searchTerm = '', onSearchTermChange, onExitSearch }: Props) {
+export function MessageThread({ contactId, isSearching = false, searchTerm = '', onSearchTermChange, onExitSearch, hideAddIssueHover = false }: Props) {
   const { data, fetchNextPage, hasNextPage } = useMessagesForContact(contactId);
   const markRead = useMarkRead();
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const lastRenderedContactIdRef = useRef<string | null>(null);
   const prevContactId = useRef(contactId);
   const lastMarkedMessageId = useRef<string | null>(null);
   const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
-  const [selectedMessageForIssue, setSelectedMessageForIssue] = useState<any>(null);
+  const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
+  const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [isIssueActionLoading, setIsIssueActionLoading] = useState(false);
   
   // Reset initial load flag when contact changes
   useEffect(() => {
     if (prevContactId.current !== contactId) {
       prevContactId.current = contactId;
       lastMarkedMessageId.current = null; // Reset when contact changes
+      shouldStickToBottomRef.current = true;
       // Cancel any pending markRead calls
       if (markReadTimeoutRef.current) {
         clearTimeout(markReadTimeoutRef.current);
@@ -506,6 +552,40 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
     return filtered;
   }, [data, isSearching, searchTerm]);
 
+  // Render oldest -> newest so native wheel direction behaves normally.
+  const renderedMessages = useMemo(() => [...processedMessages].reverse(), [processedMessages]);
+
+  // Keep viewport pinned to bottom on initial contact load and while user stays near bottom.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const isContactSwitch = lastRenderedContactIdRef.current !== contactId;
+    if (isContactSwitch || shouldStickToBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+
+    lastRenderedContactIdRef.current = contactId;
+  }, [contactId, renderedMessages.length]);
+
+  // Keep pinned to bottom while dynamic content (attachments, images, etc.) settles.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const observer = new MutationObserver(() => {
+      if (!shouldStickToBottomRef.current) return;
+      const target = scrollRef.current;
+      if (!target) return;
+      requestAnimationFrame(() => {
+        target.scrollTop = target.scrollHeight;
+      });
+    });
+
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [contactId]);
+
   // Highlight search term in message body
   const highlightText = (text: string, term: string) => {
     if (!term) return text;
@@ -521,6 +601,110 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         )}
       </>
     );
+  };
+
+  const { data: contact } = useContactHeader(contactId);
+  const { data: candidateIssues = [] } = useIssues({ status: ['open', 'awaiting_response'] });
+
+  const contactIssueTags = useMemo<IssueTagDraft[]>(() => {
+    const tags: IssueTagDraft[] = [];
+    if (contact?.students?.id) tags.push({ student_id: contact.students.id });
+    if (contact?.parents?.id) tags.push({ parent_id: contact.parents.id });
+    if (contact?.staff?.id) tags.push({ staff_id: contact.staff.id });
+
+    const seen = new Set<string>();
+    return tags.filter((tag) => {
+      const key = getTagKey(tag);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [contact?.parents?.id, contact?.staff?.id, contact?.students?.id]);
+
+  const matchedIssues = useMemo(() => {
+    const wantedKeys = new Set(
+      contactIssueTags.map((tag) => getTagKey(tag)).filter(Boolean) as string[]
+    );
+    if (wantedKeys.size === 0) return [] as IssueWithTags[];
+
+    return candidateIssues.filter((issue) =>
+      issue.tags.some((tag) => {
+        const key = getTagKey(tag);
+        return !!key && wantedKeys.has(key);
+      })
+    );
+  }, [candidateIssues, contactIssueTags]);
+
+  const appendTagsToIssueDescription = async (issue: IssueWithTags) => {
+    const existingIssueTags = issue.tags
+      .map(issueTagToDraft)
+      .filter((tag): tag is IssueTagDraft => !!tag);
+    const allTags = [...existingIssueTags, ...contactIssueTags].filter((tag, index, arr) => {
+      const key = getTagKey(tag);
+      if (!key) return false;
+      return arr.findIndex((candidate) => getTagKey(candidate) === key) === index;
+    });
+
+    const currentDescription = issue.description as JSONContent | null;
+    const currentDoc: JSONContent =
+      currentDescription && currentDescription.type === 'doc'
+        ? currentDescription
+        : { type: 'doc', content: [] };
+
+    const existingMentionKeys = new Set(
+      extractMentions(currentDoc).map((mention) => `${mention.type}:${mention.id}`)
+    );
+
+    const mentionParagraphs: JSONContent[] = [];
+    allTags.forEach((tag) => {
+      const mention = toMentionData(tag);
+      if (!mention) return;
+
+      const key = `${mention.type}:${mention.id}`;
+      if (existingMentionKeys.has(key)) return;
+
+      existingMentionKeys.add(key);
+      mentionParagraphs.push({
+        type: 'paragraph',
+        content: [
+          {
+            type: 'mention',
+            attrs: {
+              id: mention.id,
+              type: mention.type,
+              label: mention.label,
+            },
+          },
+          { type: 'text', text: ' ' },
+        ],
+      });
+    });
+
+    if (mentionParagraphs.length === 0) return;
+
+    const updatedDescription: JSONContent = {
+      ...currentDoc,
+      content: [...(currentDoc.content || []), ...mentionParagraphs],
+    };
+
+    await issuesApi.update(issue.id, { description: updatedDescription as IssueUpdate['description'] });
+  };
+
+  const handleCreateIssue = () => {
+    setIsCreateIssueOpen(true);
+  };
+
+  const handleAddToIssue = async (issue: IssueWithTags) => {
+    try {
+      setIsIssueActionLoading(true);
+      await appendTagsToIssueDescription(issue);
+      setSelectedIssueId(issue.id);
+      setIsEditIssueOpen(true);
+    } catch (error) {
+      console.error('Failed to add to issue:', error);
+    } finally {
+      setIsIssueActionLoading(false);
+    }
   };
 
   return (
@@ -543,14 +727,24 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
       
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0 flex flex-col-reverse"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+          shouldStickToBottomRef.current = distanceFromBottom < 48;
+        }}
+        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0 flex flex-col"
       >
+        {hasNextPage && (
+          <button className="text-xs text-blue-600 hover:underline mb-2 py-2" onClick={() => fetchNextPage()}>
+            Load older messages
+          </button>
+        )}
         {processedMessages.length === 0 && !isSearching ? (
           <div className="text-xs text-muted-foreground">No messages yet.</div>
         ) : isSearching && processedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">No messages found.</div>
         ) : (
-          processedMessages
+          renderedMessages
             .map((item, index, arr) => {
               if (item.type === 'separator') {
                 return (
@@ -564,12 +758,12 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
               const m = item as Extract<typeof item, { type: 'message' }>;
               if (!m.created_at) return null; // Skip messages without created_at
               
-              const nextItem = arr[index + 1];
-              const nextIsMessage = nextItem && 'type' in nextItem && nextItem.type === 'message';
-              const nextCreatedAt = nextIsMessage && (nextItem as Extract<typeof nextItem, { type: 'message' }>).created_at;
+              const prevItem = arr[index - 1];
+              const prevIsMessage = prevItem && 'type' in prevItem && prevItem.type === 'message';
+              const prevCreatedAt = prevIsMessage && (prevItem as Extract<typeof prevItem, { type: 'message' }>).created_at;
               
-              // Show date separator if this is the last message (oldest) or if the next message (older) is a different day
-              const showDateSeparator = !isSearching && (index === arr.length - 1 || (nextIsMessage && nextCreatedAt && isDifferentDay(m.created_at, nextCreatedAt)));
+              // Show date separator at the first message of each day.
+              const showDateSeparator = !isSearching && (index === 0 || (prevIsMessage && prevCreatedAt && isDifferentDay(m.created_at, prevCreatedAt)));
               
               const direction = m.direction as 'INBOUND' | 'OUTBOUND';
               
@@ -586,24 +780,53 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                     )}
                     
                     <div className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
-                      {/* Action Button: Add Issue */}
-                      <div className={cn(
-                        "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-10",
-                        direction === 'OUTBOUND' ? "right-full mr-2" : "left-full ml-2"
-                      )}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
-                          onClick={() => {
-                            setSelectedMessageForIssue(m);
-                            setIssueDialogOpen(true);
-                          }}
-                          title="Add issue from this message"
-                        >
-                          <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
-                        </Button>
-                      </div>
+                      {!hideAddIssueHover && (
+                        <div className={cn(
+                          "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-10",
+                          direction === 'OUTBOUND' ? "right-full mr-2" : "left-full ml-2"
+                        )}>
+                          {matchedIssues.length === 0 ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
+                              onClick={handleCreateIssue}
+                              title="Open issue"
+                              disabled={isIssueActionLoading}
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
+                            </Button>
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
+                                  title="Open issue"
+                                  disabled={isIssueActionLoading}
+                                >
+                                  <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align={direction === 'OUTBOUND' ? 'end' : 'start'}>
+                                <DropdownMenuItem onClick={handleCreateIssue}>
+                                  Create new issue
+                                </DropdownMenuItem>
+                                {matchedIssues.map((issue) => (
+                                  <DropdownMenuItem
+                                    key={issue.id}
+                                    onClick={() => handleAddToIssue(issue)}
+                                  >
+                                    <span className="mr-1">Add to open issue:</span>
+                                    <TextWithTags text={issue.name} />
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      )}
 
                       {/* Sender badge for outbound messages */}
                       {direction === 'OUTBOUND' && m.sender && (
@@ -666,24 +889,21 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
               );
             })
         )}
-        {hasNextPage && (
-          <button className="text-xs text-blue-600 hover:underline mb-2 py-2" onClick={() => fetchNextPage()}>Load older messages</button>
-        )}
       </div>
 
       <CreateIssueDialog
-        isOpen={issueDialogOpen}
+        isOpen={isCreateIssueOpen}
+        onClose={() => setIsCreateIssueOpen(false)}
+        initialTags={contactIssueTags}
+      />
+      <EditIssueDialog
+        isOpen={isEditIssueOpen}
+        issueId={selectedIssueId}
         onClose={() => {
-          setIssueDialogOpen(false);
-          setSelectedMessageForIssue(null);
+          setIsEditIssueOpen(false);
+          setSelectedIssueId(null);
         }}
-        initialTags={selectedMessageForIssue ? [
-          { message_id: selectedMessageForIssue.id },
-          { conversation_id: selectedMessageForIssue.conversation_id }
-        ] : []}
       />
     </div>
   );
 }
-
-

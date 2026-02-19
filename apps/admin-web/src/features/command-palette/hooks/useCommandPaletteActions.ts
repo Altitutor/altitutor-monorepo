@@ -68,6 +68,13 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     }
   }, [onClose, quickActions]);
 
+  const openCreateIssue = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openCreateIssueDialog();
+    }
+  }, [onClose, quickActions]);
+
   const openAnnouncementsModal = useCallback(() => {
     if (quickActions) {
       onClose();
@@ -87,6 +94,7 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     openLogStudentAbsence,
     openLogStaffAbsence,
     openCreateTask,
+    openCreateIssue,
     openAnnouncementsModal,
   };
 }

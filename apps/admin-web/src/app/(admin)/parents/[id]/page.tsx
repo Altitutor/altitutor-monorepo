@@ -159,6 +159,8 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         </div>
         <ActionsMenu
           type="parent"
+          entityId={parent.id}
+          copyTagDisplayText={`${parent.first_name || ''} ${parent.last_name || ''}`.trim()}
           onOpenInPage={() => {
             router.push(`/parents/${id}`);
           }}

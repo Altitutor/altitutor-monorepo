@@ -235,6 +235,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
               </div>
               <ActionsMenu
                 type="task"
+                entityId={taskId}
                 onOpenInPage={() => {
                   // Task detail page could be implemented here
                 }}
@@ -261,18 +262,18 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
                     isLoading={isLoading}
                     onSave={handleAutoSave}
                   />
-                  <TaskPropertiesPanel
-                    form={form as any}
-                    selectedAssignee={selectedAssignee}
-                    onAssigneeChange={setSelectedAssignee}
-                    taskStatus={task.status as TaskStatus}
-                    enabled={isOpen}
-                  />
                   <TaskContentPanel
                     form={form as any}
                     taskId={taskId}
                     notes={notes}
                     isOpen={isOpen}
+                    selectedAssignee={selectedAssignee}
+                    onAssigneeChange={setSelectedAssignee}
+                    taskStatus={task.status as TaskStatus}
+                    enabled={isOpen}
+                  />
+                  <TaskPropertiesPanel
+                    form={form as any}
                     selectedAssignee={selectedAssignee}
                     onAssigneeChange={setSelectedAssignee}
                     taskStatus={task.status as TaskStatus}

@@ -48,11 +48,6 @@ export function useLiveIssueTags({ form, initialTags = [] }: UseLiveIssueTagsOpt
         if (!uniqueTagsMap.has(uniqueKey)) {
           uniqueTagsMap.set(uniqueKey, tag);
         }
-      } else if (tag.conversation_id || tag.message_id) {
-        const key = tag.conversation_id ? `conv:${tag.conversation_id}` : `msg:${tag.message_id}`;
-        if (!uniqueTagsMap.has(key)) {
-          uniqueTagsMap.set(key, tag);
-        }
       }
     });
 

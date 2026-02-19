@@ -6,6 +6,7 @@ export {
   useSessionActivity,
   useParentActivity,
   useTaskActivity,
+  useIssueActivity,
   useAdminShiftActivity,
   activityKeys,
 } from './useActivityEvents';

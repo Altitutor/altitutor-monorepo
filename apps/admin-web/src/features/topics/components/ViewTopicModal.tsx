@@ -255,6 +255,7 @@ export function ViewTopicModal({
               {topicId && topic && !isEditing && (
                 <ActionsMenu
                   type="topic"
+                  entityId={topic.id}
                   {...topicActions}
                 />
               )}

@@ -20,6 +20,7 @@ import {
   formatInvoiceDate,
   formatInvoiceAmount,
   calculateLineItemsSubtotal,
+  formatInvoiceTagText,
 } from '../index';
 import { invoicesKeys } from '../hooks/useInvoicesQuery';
 
@@ -221,6 +222,12 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                 {invoiceId && (
                   <ActionsMenu
                     type="invoice"
+                    entityId={invoiceId}
+                    copyTagDisplayText={formatInvoiceTagText({
+                      invoiceDate: invoice.invoice_date,
+                      lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
+                      status: invoice.status,
+                    })}
                     {...invoiceActions}
                   />
                 )}
@@ -527,4 +534,3 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     </>
   );
 }
-

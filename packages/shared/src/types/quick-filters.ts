@@ -19,4 +19,6 @@ export type QuickFilterPlaceholder =
   | '$YESTERDAY$' 
   | '$FUTURE$' 
   | '$PAST$' 
-  | '$THIS_WEEK$';
+  | '$THIS_WEEK$'
+  | '$MONDAY_THIS_WEEK$'
+  | '$SUNDAY_THIS_WEEK$';

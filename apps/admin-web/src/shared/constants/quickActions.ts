@@ -29,7 +29,7 @@ export interface QuickActionConfig {
   // For booking actions, specify the session type
   bookingSessionType?: BookingSessionType;
   // For other actions, specify the action type
-  actionType?: 'tutor-log' | 'log-student-absence' | 'log-staff-absence' | 'create-task' | 'announcement';
+  actionType?: 'tutor-log' | 'log-student-absence' | 'log-staff-absence' | 'create-task' | 'announcement' | 'create-issue';
 }
 
 /**
@@ -70,6 +70,14 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: CheckSquare,
     keywords: ['task', 'create', 'new', 'todo'],
     actionType: 'create-task',
+  },
+  {
+    id: 'add-issue',
+    title: 'Add Issue',
+    description: 'Create a new issue',
+    icon: AlertTriangle,
+    keywords: ['issue', 'create', 'new', 'ticket'],
+    actionType: 'create-issue',
   },
   {
     id: 'make-announcement',

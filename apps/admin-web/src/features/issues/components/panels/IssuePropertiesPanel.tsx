@@ -24,7 +24,7 @@ interface IssuePropertiesPanelProps {
     description?: JSONContent | null;
     status: IssueStatus;
   }>;
-  issue: IssueWithTags;
+  issue?: IssueWithTags;
   notes: NoteWithStaff[];
   isOpen: boolean;
   onClose: () => void;
@@ -58,8 +58,8 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
 
   return (
     <>
-      <div className="flex-1 flex flex-col min-w-0">
-        <ScrollArea className="flex-1">
+      <div className="flex-1 flex flex-col min-w-0 border-r">
+        <ScrollArea className="flex-1 min-w-0 max-w-full">
           <div className="p-6 space-y-6">
             {/* Status and Title */}
             <div className="space-y-4">
@@ -85,45 +85,51 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
             </div>
 
             {/* Tasks Section */}
-            <div className="space-y-4">
-              <Separator />
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Linked Tasks</h3>
+            {issue?.id && (
+              <div className="space-y-4 min-w-0 max-w-full">
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Linked Tasks</h3>
+                </div>
+                <div className="border-y bg-background overflow-hidden w-full min-w-0 max-w-full">
+                    <TasksList 
+                      issueId={issue.id} 
+                      compact 
+                      hideToolbar 
+                      noPadding 
+                    />
+                </div>
               </div>
-              <div className="border-y bg-background overflow-hidden w-full">
-                  <TasksList 
-                    issueId={issue.id} 
-                    compact 
-                    hideToolbar 
-                    noPadding 
-                  />
-              </div>
-            </div>
+            )}
 
             {/* Notes Section */}
-            <div className="space-y-4">
-              <Separator />
-              <IssueNotes
-                issueId={issue.id}
-                notes={notes}
-                onNoteAdded={() => {}}
-              />
-            </div>
+            {issue?.id && (
+              <div className="space-y-4">
+                <Separator />
+                <IssueNotes
+                  issueId={issue.id}
+                  notes={notes}
+                  onNoteAdded={() => {}}
+                />
+              </div>
+            )}
 
             {/* Activity Section */}
-            <div className="space-y-4 pb-6">
-              <Separator />
-              <h3 className="text-lg font-semibold">Activity</h3>
-              <IssueActivityTab 
-                issueId={issue.id} 
-                isOpen={isOpen}
-                studentIds={issue.tags.map(t => t.student_id!).filter(Boolean)}
-                staffIds={issue.tags.map(t => t.staff_id!).filter(Boolean)}
-                classIds={issue.tags.map(t => t.class_id!).filter(Boolean)}
-                sessionIds={issue.tags.map(t => t.session_id!).filter(Boolean)}
-                invoiceIds={issue.tags.map(t => t.invoice_id!).filter(Boolean)}
-              />
-            </div>
+            {issue?.id && (
+              <div className="space-y-4 pb-6">
+                <Separator />
+                <h3 className="text-lg font-semibold">Activity</h3>
+                <IssueActivityTab 
+                  issueId={issue.id} 
+                  isOpen={isOpen}
+                  studentIds={issue.tags.map(t => t.student_id!).filter(Boolean)}
+                  staffIds={issue.tags.map(t => t.staff_id!).filter(Boolean)}
+                  classIds={issue.tags.map(t => t.class_id!).filter(Boolean)}
+                  sessionIds={issue.tags.map(t => t.session_id!).filter(Boolean)}
+                  invoiceIds={issue.tags.map(t => t.invoice_id!).filter(Boolean)}
+                />
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>

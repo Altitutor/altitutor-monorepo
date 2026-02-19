@@ -1,10 +1,69 @@
-import type { Tables, Database } from '@altitutor/shared';
+import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IssueFilters, IssueWithTags, IssueInsert, IssueUpdate, IssueTagInsert, IssueTag, Issue } from '../types';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import type { JSONContent } from '@altitutor/ui';
 import { parseTags } from '@/shared/utils/tagParsing';
+
+function tagToMention(tag: Omit<IssueTagInsert, 'issue_id'>): { type: string; id: string; label: string } | null {
+  if (tag.student_id) return { type: 'student', id: tag.student_id, label: tag.student_id };
+  if (tag.staff_id) return { type: 'staff', id: tag.staff_id, label: tag.staff_id };
+  if (tag.class_id) return { type: 'class', id: tag.class_id, label: tag.class_id };
+  if (tag.session_id) return { type: 'session', id: tag.session_id, label: tag.session_id };
+  if (tag.invoice_id) return { type: 'invoice', id: tag.invoice_id, label: tag.invoice_id };
+  if (tag.parent_id) return { type: 'parent', id: tag.parent_id, label: tag.parent_id };
+  if (tag.subject_id) return { type: 'subject', id: tag.subject_id, label: tag.subject_id };
+  return null;
+}
+
+function appendTagsToDescription(
+  description: JSONContent | null | undefined,
+  tags?: Omit<IssueTagInsert, 'issue_id'>[]
+): JSONContent | null {
+  if (!tags || tags.length === 0) return description ?? null;
+
+  const doc: JSONContent =
+    description && description.type === 'doc'
+      ? description
+      : { type: 'doc', content: [] };
+
+  const existingMentionKeys = new Set(
+    extractMentions(doc).map((mention) => `${mention.type}:${mention.id}`)
+  );
+
+  const mentionParagraphs: JSONContent[] = [];
+  tags.forEach((tag) => {
+    const mention = tagToMention(tag);
+    if (!mention) return;
+
+    const key = `${mention.type}:${mention.id}`;
+    if (existingMentionKeys.has(key)) return;
+    existingMentionKeys.add(key);
+
+    mentionParagraphs.push({
+      type: 'paragraph',
+      content: [
+        {
+          type: 'mention',
+          attrs: {
+            id: mention.id,
+            type: mention.type,
+            label: mention.label,
+          },
+        },
+        { type: 'text', text: ' ' },
+      ],
+    });
+  });
+
+  if (mentionParagraphs.length === 0) return description ?? null;
+
+  return {
+    ...doc,
+    content: [...(doc.content || []), ...mentionParagraphs],
+  };
+}
 
 /**
  * Issues API client for working with issue data
@@ -52,7 +111,7 @@ export const issuesApi = {
     // Get current tags
     const { data: currentTags } = await supabase
       .from('issue_tags')
-      .select('id, student_id, staff_id, class_id, session_id, invoice_id, message_id, conversation_id, parent_id, subject_id')
+      .select('id, student_id, staff_id, class_id, session_id, invoice_id, parent_id, subject_id')
       .eq('issue_id', issueId);
 
     const tagsToInsert: Omit<IssueTagInsert, 'issue_id'>[] = [];
@@ -64,8 +123,6 @@ export const issuesApi = {
       else if (tag.class_id) existingTagMap.set(`class:${tag.class_id}`, tag.id);
       else if (tag.session_id) existingTagMap.set(`session:${tag.session_id}`, tag.id);
       else if (tag.invoice_id) existingTagMap.set(`invoice:${tag.invoice_id}`, tag.id);
-      else if (tag.message_id) existingTagMap.set(`message:${tag.message_id}`, tag.id);
-      else if (tag.conversation_id) existingTagMap.set(`conversation:${tag.conversation_id}`, tag.id);
       else if (tag.parent_id) existingTagMap.set(`parent:${tag.parent_id}`, tag.id);
       else if (tag.subject_id) existingTagMap.set(`subject:${tag.subject_id}`, tag.id);
     });
@@ -80,8 +137,6 @@ export const issuesApi = {
                     tag.class_id ? `class:${tag.class_id}` :
                     tag.session_id ? `session:${tag.session_id}` :
                     tag.invoice_id ? `invoice:${tag.invoice_id}` :
-                    tag.message_id ? `message:${tag.message_id}` :
-                    tag.conversation_id ? `conversation:${tag.conversation_id}` : 
                     tag.parent_id ? `parent:${tag.parent_id}` :
                     tag.subject_id ? `subject:${tag.subject_id}` : null;
         return key && !newMentionKeys.has(key);
@@ -92,15 +147,13 @@ export const issuesApi = {
     allMentions.forEach(mention => {
       const key = `${mention.type}:${mention.id}`;
       if (!existingTagMap.has(key)) {
-        const tag: any = {};
+        const tag: Record<string, string> = {};
         const columnMap: Record<string, string> = {
           student: 'student_id',
           staff: 'staff_id',
           class: 'class_id',
           session: 'session_id',
           invoice: 'invoice_id',
-          message: 'message_id',
-          conversation: 'conversation_id',
           parent: 'parent_id',
           subject: 'subject_id'
         };
@@ -192,27 +245,26 @@ export const issuesApi = {
    */
   create: async ({ issue, tags }: { issue: IssueInsert, tags?: Omit<IssueTagInsert, 'issue_id'>[] }): Promise<IssueWithTags> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const issueWithDescriptionTags: IssueInsert = {
+      ...issue,
+      description: appendTagsToDescription(issue.description as JSONContent | null | undefined, tags),
+    };
     
     const { data: issueData, error: issueError } = await supabase
       .from('issues')
-      .insert(issue)
+      .insert(issueWithDescriptionTags)
       .select()
       .single();
 
     if (issueError) throw issueError;
 
     // Sync tags from mentions in name or description
-    if (issue.name || issue.description) {
-      await issuesApi.syncTags(issueData.id, issue.name, issue.description as JSONContent);
-    }
-
-    if (tags && tags.length > 0) {
-      const tagsToInsert = tags.map(tag => ({ ...tag, issue_id: issueData.id }));
-      const { error: tagsError } = await supabase
-        .from('issue_tags')
-        .insert(tagsToInsert);
-      
-      if (tagsError) throw tagsError;
+    if (issueWithDescriptionTags.name || issueWithDescriptionTags.description) {
+      await issuesApi.syncTags(
+        issueData.id,
+        issueWithDescriptionTags.name,
+        issueWithDescriptionTags.description as JSONContent
+      );
     }
 
     return issuesApi.get(issueData.id) as Promise<IssueWithTags>;

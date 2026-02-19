@@ -75,10 +75,12 @@ export const tasksApi = {
       }
     }
 
-    // Search filter (title and description)
+    // Search filter (full-text search)
     if (search && search.trim().length > 0) {
-      const searchTerm = `%${search.trim()}%`;
-      query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm}`);
+      query = query.textSearch('search_vector', search.trim(), {
+        type: 'websearch',
+        config: 'english',
+      });
     }
 
     // Order by priority DESC, then created_at DESC

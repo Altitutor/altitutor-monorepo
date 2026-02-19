@@ -137,6 +137,7 @@ export interface TrialStudentNotSignedUp {
   student_status: string;
   user_id: string | null;
   first_trial_session_date: string | null;
+  first_trial_session_id: string | null;
   created_at: string;
   updated_at: string;
 }

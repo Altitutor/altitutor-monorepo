@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -8,27 +8,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Button,
+  Input,
+  Badge,
+  SkeletonTable,
+  DataTableToolbar,
+  TablePagination,
 } from "@altitutor/ui";
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { SkeletonTable } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
-import { Checkbox } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
 import { 
-  Search, 
   ArrowUpDown,
   Check,
   X,
-  Filter
+  Search,
 } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from './TutorLogAvatar';
-import { DateRangePicker } from '@altitutor/ui';
-import { TablePagination } from '@/shared/components/TablePagination';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
@@ -36,6 +32,8 @@ import { useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { useSessionsTable } from '../hooks/useSessionsTable';
 import { getInvoiceStatusBadgeVariant } from '../utils/sessionsTableHelpers';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 
 type SessionsTableProps = {
   studentId?: string;
@@ -48,9 +46,6 @@ type SessionsTableProps = {
   onOpenSession?: (id: string) => void;
   onOpenStudent?: (id: string) => void;
   onOpenStaff?: (id: string) => void;
-  onFromChange?: (date: string) => void;
-  onToChange?: (date: string) => void;
-  onResetDates?: () => void; // Callback to reset dates to default
   hideBilling?: boolean; // Hide invoice status badges
   hideStudentFilter?: boolean; // Hide student filter UI
   hideTypeFilter?: boolean; // Hide type filter UI
@@ -73,9 +68,6 @@ export function SessionsTable({
   onOpenSession,
   onOpenStudent,
   onOpenStaff,
-  onFromChange,
-  onToChange,
-  onResetDates,
   hideBilling = false,
   hideStudentFilter = false,
   hideTypeFilter = false,
@@ -88,6 +80,28 @@ export function SessionsTable({
 }: SessionsTableProps) {
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('sessions');
+  
+  const defaultFilters = useMemo(() => ({}), []);
+  const defaultSort = useMemo(() => ({ field: 'start_at', direction: 'desc' as const }), []);
+  const defaultVisibleColumns = useMemo(() => ['date', 'time', 'class', 'staff', 'students', 'tutor_log'], []);
+
+  const {
+    state,
+    setSearch,
+    setSort,
+    setFilters,
+    setPage,
+    setPageSize,
+    setVisibleColumns,
+    applyQuickFilter,
+    resetFilters,
+  } = useDataTable({
+    defaultFilters,
+    defaultSort,
+    defaultVisibleColumns,
+    filterKeys: ['type', 'student', 'staff', 'tutor_log', 'from', 'to'],
+  });
 
   // Modal state (UI-specific, stays in component)
   const [actionSessionId, setActionSessionId] = useState<string | null>(null);
@@ -101,6 +115,8 @@ export function SessionsTable({
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [selectedTutorLogId, setSelectedTutorLogId] = useState<string | null>(null);
   const [isEditTutorLogModalOpen, setIsEditTutorLogModalOpen] = useState(false);
+  const [studentFilterSearch, setStudentFilterSearch] = useState('');
+  const [staffFilterSearch, setStaffFilterSearch] = useState('');
 
   // Session types constant
   const SESSION_TYPES = [
@@ -115,30 +131,6 @@ export function SessionsTable({
 
   // Use the main hook for all business logic
   const {
-    // Filter state
-    searchTerm,
-    setSearchTerm,
-    studentFilters,
-    toggleStudentFilter,
-    typeFilters,
-    toggleTypeFilter,
-    showLogged,
-    setShowLogged,
-    showUnlogged,
-    setShowUnlogged,
-    toggleSort,
-
-    // Student search
-    studentSearchQuery,
-    setStudentSearchQuery,
-    filteredStudents,
-
-    // Pagination
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
-
     // Data
     allSessions,
     filteredSessions,
@@ -151,10 +143,8 @@ export function SessionsTable({
     error,
     isFetching,
     refetch,
-
-    // Computed
-    isDefaultState,
-    clearAllFilters,
+    filteredStudents,
+    filteredStaff,
 
     // Formatting helpers
     formatDate,
@@ -173,8 +163,64 @@ export function SessionsTable({
     rangeEnd,
     hideStudentFilter,
     initialStudentFilters,
-    onResetDates,
+    studentSearchQuery: studentFilterSearch,
+    staffSearchQuery: staffFilterSearch,
+    state, // Pass the data table state
   });
+
+  // Bridge useDataTable state to useSessionsTable
+  // We'll update the useSessionsTable hook next to use these values
+  // For now, we'll manually filter if needed or just let useDataTable handle the URL
+
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    ...(hideTypeFilter ? [] : [{
+      key: 'type',
+      label: 'Session Type',
+      options: SESSION_TYPES.map(t => ({ label: formatSessionType(t), value: t })),
+    }]),
+    ...(hideStudentFilter ? [] : [{
+      key: 'student',
+      label: 'Student',
+      options: filteredStudents.map(s => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
+      searchable: true,
+      searchPlaceholder: 'Search students...',
+    }]),
+    ...[{
+      key: 'staff',
+      label: 'Staff',
+      options: filteredStaff.map(s => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
+      searchable: true,
+      searchPlaceholder: 'Search staff...',
+    }],
+    ...(hideTutorLogFilter ? [] : [{
+      key: 'tutor_log',
+      label: 'Tutor Log',
+      options: [
+        { label: 'Logged', value: 'logged' },
+        { label: 'Unlogged', value: 'unlogged' },
+      ],
+    }]),
+    { key: 'from', label: 'From date', type: 'date' },
+    { key: 'to', label: 'To date', type: 'date' },
+  ], [filteredStaff, filteredStudents, hideStudentFilter, hideTutorLogFilter, hideTypeFilter]);
+
+  const sortOptions: DataTableSortOption[] = [
+    { key: 'start_at', label: 'Date' },
+  ];
+
+  const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'date', label: 'Date' },
+    { key: 'time', label: 'Time' },
+    { key: 'class', label: 'Class' },
+    { key: 'staff', label: 'Staff' },
+    { key: 'students', label: 'Students' },
+    { key: 'tutor_log', label: 'Tutor Log' },
+  ];
+
+  // Reset to page 1 when search term or filters change
+  useEffect(() => {
+    setPage(1);
+  }, [state.search, state.filters, setPage]);
 
   const handleSessionClick = (id: string) => {
     if (onOpenSession) onOpenSession(id);
@@ -230,170 +276,31 @@ export function SessionsTable({
   return (
     <div className="space-y-4">
       {!limit && (
-        <div className="flex flex-wrap items-center gap-2">
-          {!hideSearch && (
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search sessions..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSearchTerm(value);
-                }}
-              />
-            </div>
-          )}
-          
-          <div className="flex flex-wrap items-center gap-2 justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Clear Filters */}
-              {!isDefaultState && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={clearAllFilters}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Clear
-                </Button>
-              )}
-              
-              {/* Student Filter */}
-              {!hideStudentFilter && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant={studentFilters.length > 0 ? "secondary" : "outline"} 
-                    size="sm"
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Student {studentFilters.length > 0 && `(${studentFilters.length})`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-0 w-[400px]" align="end">
-                  <div className="p-3">
-                    <Input
-                      placeholder="Search students..."
-                      value={studentSearchQuery}
-                      onChange={(e) => setStudentSearchQuery(e.target.value)}
-                      className="mb-3"
-                    />
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-1 pr-4">
-                        {filteredStudents.length === 0 ? (
-                          <div className="p-3 text-center text-sm text-muted-foreground">
-                            {studentSearchQuery
-                              ? 'No students match your search'
-                              : 'No students found'}
-                          </div>
-                        ) : (
-                          filteredStudents.map((student) => (
-                            <label
-                              key={student.id}
-                              className="flex items-center gap-2 cursor-pointer p-2 hover:bg-muted rounded"
-                            >
-                              <Checkbox
-                                checked={studentFilters.includes(student.id)}
-                                onCheckedChange={() => toggleStudentFilter(student.id)}
-                              />
-                              <div className="flex flex-col items-start flex-1">
-                                <div className="font-medium text-sm">
-                                  {student.first_name} {student.last_name}
-                                </div>
-                                {student.school && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {student.school}
-                                  </div>
-                                )}
-                              </div>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              )}
-
-              {/* Session Type Filter */}
-              {!hideTypeFilter && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant={typeFilters.length > 0 ? "secondary" : "outline"} 
-                    size="sm"
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Type {typeFilters.length > 0 && `(${typeFilters.length})`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56" align="end">
-                  <div className="space-y-2">
-                    <div className="font-medium text-sm mb-2">Session Type</div>
-                    {SESSION_TYPES.map((type) => (
-                      <label key={type} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={typeFilters.includes(type)}
-                          onCheckedChange={() => toggleTypeFilter(type)}
-                        />
-                        <span className="text-sm">{formatSessionType(type)}</span>
-                      </label>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              )}
-
-              {/* Tutor Log Filter */}
-              {!hideTutorLogFilter && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant={!showLogged || !showUnlogged ? "secondary" : "outline"} 
-                      size="sm"
-                    >
-                      <Filter className="h-4 w-4 mr-2" />
-                      Tutor Log
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56" align="end">
-                    <div className="space-y-2">
-                      <div className="font-medium text-sm mb-2">Tutor Log</div>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={showLogged}
-                          onCheckedChange={(checked) => setShowLogged(checked === true)}
-                        />
-                        <span className="text-sm">Tutor log</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={showUnlogged}
-                          onCheckedChange={(checked) => setShowUnlogged(checked === true)}
-                        />
-                        <span className="text-sm">Unlogged</span>
-                      </label>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
-
-            {/* Date Range Filter - Right aligned */}
-            {onFromChange && onToChange && (
-              <div className="ml-auto">
-                <DateRangePicker
-                  from={rangeStart || ''}
-                  to={rangeEnd || ''}
-                  onFromChange={onFromChange}
-                  onToChange={onToChange}
-                />
-              </div>
-            )}
-          </div>
+        <div className="flex flex-col gap-2">
+          <DataTableToolbar
+            state={state}
+            onSearchChange={setSearch}
+            onFiltersChange={setFilters}
+            onSortChange={setSort}
+            onGroupByChange={() => {}}
+            onVisibleColumnsChange={setVisibleColumns}
+            onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+            onReset={resetFilters}
+            filterDefinitions={filterDefinitions}
+            sortOptions={sortOptions}
+            columnDefinitions={columnDefinitions}
+            quickFilters={quickFilters}
+            filterSearchValues={{
+              student: studentFilterSearch,
+              staff: staffFilterSearch,
+            }}
+            onFilterSearchChange={(filterKey, value) => {
+              if (filterKey === 'student') setStudentFilterSearch(value);
+              if (filterKey === 'staff') setStaffFilterSearch(value);
+            }}
+            searchPlaceholder="Search sessions..."
+            isLoading={isFetching}
+          />
         </div>
       )}
 
@@ -401,32 +308,32 @@ export function SessionsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={toggleSort}>
-                Date
-                <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-100" />
-              </TableHead>
-              <TableHead>Time</TableHead>
-              {!classId && !hideClassColumn && !hideTypeColumn && (
+              {state.visibleColumns.includes('date') && (
+                <TableHead className="cursor-pointer" onClick={() => setSort('start_at', state.sortBy === 'start_at' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
+                  Date
+                  <ArrowUpDown className={cn(
+                    "ml-2 h-4 w-4 inline",
+                    state.sortBy === 'start_at' ? "opacity-100" : "opacity-40"
+                  )} />
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('time') && <TableHead>Time</TableHead>}
+              {state.visibleColumns.includes('class') && !classId && !hideClassColumn && !hideTypeColumn && (
                 <TableHead>Class</TableHead>
               )}
-              <TableHead>Staff</TableHead>
-              {!hideStudentsColumn && (
+              {state.visibleColumns.includes('staff') && <TableHead>Staff</TableHead>}
+              {state.visibleColumns.includes('students') && !hideStudentsColumn && (
                 <TableHead>Students</TableHead>
               )}
-              <TableHead>Tutor Log</TableHead>
+              {state.visibleColumns.includes('tutor_log') && <TableHead>Tutor Log</TableHead>}
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={
-                  5 + 
-                  (!classId && !hideClassColumn && !hideTypeColumn ? 1 : 0) + 
-                  (!hideStudentsColumn ? 1 : 0) +
-                  1 // Actions column
-                } className="text-center h-24">
-                  {searchTerm || studentFilters.length > 0 || typeFilters.length > 0
+                <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
+                  {state.search || Object.keys(state.filters).length > 0
                     ? "No sessions match your filters"
                     : "No sessions found"}
                 </TableCell>
@@ -438,18 +345,22 @@ export function SessionsTable({
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSessionClick(session.id)}
                 >
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{session.start_at ? formatDate(session.start_at) : '-'}</span>
-                      {session.status === 'INACTIVE' && (
-                        <Badge variant="secondary" className="text-xs">
-                          Inactive
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
-                  {!classId && !hideClassColumn && !hideTypeColumn && (
+                  {state.visibleColumns.includes('date') && (
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span>{session.start_at ? formatDate(session.start_at) : '-'}</span>
+                        {session.status === 'INACTIVE' && (
+                          <Badge variant="secondary" className="text-xs">
+                            Inactive
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
+                  {state.visibleColumns.includes('time') && (
+                    <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
+                  )}
+                  {state.visibleColumns.includes('class') && !classId && !hideClassColumn && !hideTypeColumn && (
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Badge className={getSessionTypeBadgeColor(session.type)}>
@@ -480,44 +391,46 @@ export function SessionsTable({
                     </div>
                   </TableCell>
                   )}
-                  <TableCell>
-                    {(() => {
-                      const staffList: any[] = (sessionStaff[session.id] || []) as any[];
-                      if (!staffList.length) return <span className="text-muted-foreground text-sm">-</span>;
-                      return (
-                        <div className="flex flex-col gap-1">
-                          {staffList.map((s) => {
-                            const plannedAbsence = s.planned_absence === true;
-                            const actualAttended = s.actual_attended;
-                            const nameClass = plannedAbsence 
-                              ? "text-muted-foreground line-through" 
-                              : "";
-                            
-                            return (
-                              <div key={s.id} className="flex items-center gap-1">
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  className={cn("h-auto p-0 text-xs justify-start", nameClass)}
-                                  onClick={(e) => { e.stopPropagation(); (onOpenStaff as any)?.(s.id); }}
-                                >
-                                  {s.first_name} {s.last_name}
-                                </Button>
-                                {actualAttended !== null && (
-                                  actualAttended ? (
-                                    <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                  ) : (
-                                    <X className="h-3 w-3 text-red-600 flex-shrink-0" />
-                                  )
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </TableCell>
-                  {!hideStudentsColumn && (
+                  {state.visibleColumns.includes('staff') && (
+                    <TableCell>
+                      {(() => {
+                        const staffList: any[] = (sessionStaff[session.id] || []) as any[];
+                        if (!staffList.length) return <span className="text-muted-foreground text-sm">-</span>;
+                        return (
+                          <div className="flex flex-col gap-1">
+                            {staffList.map((s) => {
+                              const planned_absence = s.planned_absence === true;
+                              const actualAttended = s.actual_attended;
+                              const nameClass = planned_absence 
+                                ? "text-muted-foreground line-through" 
+                                : "";
+                              
+                              return (
+                                <div key={s.id} className="flex items-center gap-1">
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    className={cn("h-auto p-0 text-xs justify-start", nameClass)}
+                                    onClick={(e) => { e.stopPropagation(); (onOpenStaff as any)?.(s.id); }}
+                                  >
+                                    {s.first_name} {s.last_name}
+                                  </Button>
+                                  {actualAttended !== null && (
+                                    actualAttended ? (
+                                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                    ) : (
+                                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                    )
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                  )}
+                  {state.visibleColumns.includes('students') && !hideStudentsColumn && (
                     <TableCell>
                       {(() => {
                         const studentList: any[] = (sessionStudents[session.id] || []) as any[];
@@ -526,11 +439,11 @@ export function SessionsTable({
                         return (
                           <div className="flex flex-col gap-1">
                             {studentList.map((s) => {
-                              const plannedAbsence = s.planned_absence === true;
+                              const planned_absence = s.planned_absence === true;
                               const actualAttended = s.actual_attended;
                               const invoiceStatus = s.invoice_status;
                               const isExtra = s.is_extra === true;
-                              const nameClass = plannedAbsence 
+                              const nameClass = planned_absence 
                                 ? "text-muted-foreground line-through" 
                                 : isExtra
                                 ? "text-orange-600 dark:text-orange-400"
@@ -568,16 +481,18 @@ export function SessionsTable({
                       })()}
                     </TableCell>
                   )}
-                  <TableCell>
-                    {tutorLogs[session.id] ? (
-                      <TutorLogAvatar
-                        firstName={tutorLogs[session.id].created_by_name.first_name}
-                        lastName={tutorLogs[session.id].created_by_name.last_name}
-                      />
-                    ) : (
-                      <span className="text-muted-foreground text-sm">-</span>
-                    )}
-                  </TableCell>
+                  {state.visibleColumns.includes('tutor_log') && (
+                    <TableCell>
+                      {tutorLogs[session.id] ? (
+                        <TutorLogAvatar
+                          firstName={tutorLogs[session.id].created_by_name.first_name}
+                          lastName={tutorLogs[session.id].created_by_name.last_name}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {(() => {
                       const sessionCanReschedule = canReschedule(session);
@@ -586,6 +501,8 @@ export function SessionsTable({
                       return (
                         <ActionsMenu
                           type="session"
+                          entityId={session.id}
+                          copyTagDisplayText={getClassShortDisplayName(session) || session.id}
                           onOpenInPage={() => {
                             router.push(`/sessions/${session.id}`);
                           }}
@@ -623,17 +540,12 @@ export function SessionsTable({
       
       {!limit && (
         <TablePagination
-          page={page}
-          pageSize={pageSize}
+          page={state.page}
+          pageSize={state.pageSize}
           total={filteredSessions.length}
           isFetching={isFetching}
-          onPageChange={(newPage) => {
-            setPage(newPage);
-          }}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setPage(1);
-          }}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
         />
       )}
 
@@ -718,4 +630,4 @@ export function SessionsTable({
       )}
     </div>
   );
-} 
+}

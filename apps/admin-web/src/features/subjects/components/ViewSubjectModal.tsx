@@ -294,6 +294,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                 {subjectId && !isEditing && (
                   <ActionsMenu
                     type="subject"
+                    entityId={subjectId}
+                    copyTagDisplayText={subject?.short_name || subject?.name || subjectId}
                     {...subjectActions}
                   />
                 )}

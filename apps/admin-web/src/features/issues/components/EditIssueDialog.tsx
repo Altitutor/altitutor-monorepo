@@ -191,6 +191,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
               </div>
               <ActionsMenu
                 type="issue"
+                entityId={issueId}
                 onOpenInPage={() => {
                   // For now, no specific issue detail page implemented
                 }}
@@ -200,15 +201,15 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0">
+        <div className="flex-1 overflow-hidden min-h-0 min-w-0">
           {isLoading ? (
             <div className="p-6">Loading issue data...</div>
           ) : !issue ? (
             <div className="p-6">Issue not found</div>
           ) : (
-            <div className="h-full flex">
+            <div className="h-full flex min-w-0">
               <Form {...form}>
-                <form className="flex-1 flex min-h-0">
+                <form className="flex-1 flex min-h-0 min-w-0">
                   <AutoSaveManager
                     form={form}
                     issueId={issueId}

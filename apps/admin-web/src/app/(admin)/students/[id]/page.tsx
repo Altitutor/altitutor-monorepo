@@ -335,6 +335,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         </div>
         <ActionsMenu
           type="student"
+          entityId={student.id}
+          copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
           {...studentActions}
         />
       </div>

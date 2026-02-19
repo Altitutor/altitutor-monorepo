@@ -178,6 +178,8 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         </div>
         <ActionsMenu
           type="session"
+          entityId={session.id}
+          copyTagDisplayText={sessionTitle || session.id}
           {...sessionActions}
         />
       </div>

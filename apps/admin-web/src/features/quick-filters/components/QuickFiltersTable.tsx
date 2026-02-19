@@ -41,6 +41,8 @@ const PLACEHOLDERS = [
   { value: '$TODAY$', label: 'Today' },
   { value: '$TOMORROW$', label: 'Tomorrow' },
   { value: '$YESTERDAY$', label: 'Yesterday' },
+  { value: '$MONDAY_THIS_WEEK$', label: 'Monday This Week' },
+  { value: '$SUNDAY_THIS_WEEK$', label: 'Sunday This Week' },
   { value: '$FUTURE$', label: 'Future' },
   { value: '$PAST$', label: 'Past' },
   { value: '$THIS_WEEK$', label: 'This Week' },
@@ -101,15 +103,20 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
     }
   };
 
-  const toggleFilterValue = (fieldKey: string, value: any) => {
+  const toggleFilterValue = (field: FilterField, value: any) => {
+    const fieldKey = field.key;
     const currentConfig = { ...(formData.config || {}) };
     const currentValues = currentConfig[fieldKey] || [];
     
     let nextValues;
-    if (currentValues.includes(value)) {
-      nextValues = currentValues.filter(v => v !== value);
+    if (field.type === 'date') {
+      nextValues = currentValues.includes(value) ? [] : [value];
     } else {
-      nextValues = [...currentValues, value];
+      if (currentValues.includes(value)) {
+        nextValues = currentValues.filter(v => v !== value);
+      } else {
+        nextValues = [...currentValues, value];
+      }
     }
 
     if (nextValues.length === 0) {
@@ -305,7 +312,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
                       {field.options?.map((opt) => (
                         <div
                           key={String(opt.value)}
-                          onClick={() => toggleFilterValue(field.key, opt.value)}
+                          onClick={() => toggleFilterValue(field, opt.value)}
                           className={cn(
                             "cursor-pointer px-2 py-1 rounded-md border text-xs transition-colors",
                             formData.config?.[field.key]?.includes(opt.value)
@@ -322,7 +329,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
                         <>
                           {field.type === 'select' && (
                             <div
-                              onClick={() => toggleFilterValue(field.key, '$ME$')}
+                              onClick={() => toggleFilterValue(field, '$ME$')}
                               className={cn(
                                 "cursor-pointer px-2 py-1 rounded-md border text-xs border-dashed transition-colors",
                                 formData.config?.[field.key]?.includes('$ME$')
@@ -337,7 +344,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
                             PLACEHOLDERS.slice(1).map(p => (
                               <div
                                 key={p.value}
-                                onClick={() => toggleFilterValue(field.key, p.value)}
+                                onClick={() => toggleFilterValue(field, p.value)}
                                 className={cn(
                                   "cursor-pointer px-2 py-1 rounded-md border text-xs border-dashed transition-colors",
                                   formData.config?.[field.key]?.includes(p.value)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, memo } from 'react';
-import { ScrollArea, Button, Tabs, TabsList, TabsTrigger, TabsContent, Badge } from '@altitutor/ui';
+import { ScrollArea, ScrollBar, Button, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
@@ -15,10 +15,10 @@ import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import { useSessionData } from '@/features/sessions/hooks/useSessionData';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { getContactIdFromConversation } from '@/features/messages/api/queries';
+import { getContactIdFromConversation, useContactHeader } from '@/features/messages/api/queries';
 import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
-import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen } from 'lucide-react';
+import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
 import { cn, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils';
 
 const handleEntityClick = (type: string, id: string) => {
@@ -35,28 +35,72 @@ interface IssueContentPanelProps {
 
 export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: propTags, isOpen }: IssueContentPanelProps) {
   const activeTags = useMemo(() => issue?.tags || propTags || [], [issue?.tags, propTags]);
-  const conversationTag = useMemo(() => activeTags.find(t => t.conversation_id), [activeTags]);
-  const studentTag = useMemo(() => activeTags.find(t => t.student_id), [activeTags]);
-  const contactRelatedId = studentTag?.student_id || undefined;
   
-  const { data: contactId } = useQuery({
-    queryKey: ['issue-contact', issue?.id || 'new', conversationTag?.conversation_id, contactRelatedId],
+  // Get all unique entity IDs from tags
+  const studentIds = useMemo(() => Array.from(new Set(activeTags.filter(t => t.student_id).map(t => t.student_id!))), [activeTags]);
+  const staffIds = useMemo(() => Array.from(new Set(activeTags.filter(t => t.staff_id).map(t => t.staff_id!))), [activeTags]);
+  const parentIds = useMemo(() => Array.from(new Set(activeTags.filter(t => t.parent_id).map(t => t.parent_id!))), [activeTags]);
+
+  const { data: contacts, isLoading: isLoadingContacts } = useQuery({
+    queryKey: ['issue-contacts', activeTags.map(t => t.id).join(',')],
     queryFn: async () => {
-      if (conversationTag?.conversation_id) {
-        return getContactIdFromConversation(conversationTag.conversation_id);
-      }
-      if (contactRelatedId) {
-        const supabase = getSupabaseClient();
+      const supabase = getSupabaseClient();
+      const results: Array<{ id: string; name: string; type: 'student' | 'staff' | 'parent' }> = [];
+
+      if (studentIds.length > 0) {
         const { data } = await supabase
           .from('contacts')
-          .select('id')
-          .eq('student_id', contactRelatedId)
-          .maybeSingle();
-        return data?.id || null;
+          .select('id, student_id, students(first_name, last_name)')
+          .in('student_id', studentIds);
+        
+        data?.forEach(c => {
+          if (c.students) {
+            results.push({
+              id: c.id,
+              name: `${c.students.first_name || ''} ${c.students.last_name || ''}`.trim() || 'Student',
+              type: 'student'
+            });
+          }
+        });
       }
-      return null;
+
+      if (staffIds.length > 0) {
+        const { data } = await supabase
+          .from('contacts')
+          .select('id, staff_id, staff(first_name, last_name)')
+          .in('staff_id', staffIds);
+        
+        data?.forEach(c => {
+          if (c.staff) {
+            results.push({
+              id: c.id,
+              name: `${c.staff.first_name || ''} ${c.staff.last_name || ''}`.trim() || 'Staff',
+              type: 'staff'
+            });
+          }
+        });
+      }
+
+      if (parentIds.length > 0) {
+        const { data } = await supabase
+          .from('contacts')
+          .select('id, parent_id, parents(first_name, last_name)')
+          .in('parent_id', parentIds);
+        
+        data?.forEach(c => {
+          if (c.parents) {
+            results.push({
+              id: c.id,
+              name: `${c.parents.first_name || ''} ${c.parents.last_name || ''}`.trim() || 'Parent',
+              type: 'parent'
+            });
+          }
+        });
+      }
+
+      return results;
     },
-    enabled: isOpen && (!!conversationTag || !!contactRelatedId)
+    enabled: isOpen && (studentIds.length > 0 || staffIds.length > 0 || parentIds.length > 0)
   });
 
   if (!issue && activeTags.length === 0) {
@@ -74,31 +118,66 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: 
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="chat">
               <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
                 <span>Chat</span>
               </div>
             </TabsTrigger>
             <TabsTrigger value="entities">
               <div className="flex items-center gap-2">
-                <span>Tagged Entities</span>
+                <Tags className="h-4 w-4" />
+                <span>Tagged</span>
               </div>
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="flex-1 min-h-0">
-          <TabsContent value="chat" className="h-full m-0 data-[state=active]:flex flex-col overflow-hidden">
-            {contactId ? (
-              <>
-                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                  <MessageThread contactId={contactId} />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <TabsContent value="chat" className="h-full min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+            {isLoadingContacts ? (
+              <div className="p-4 space-y-4">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-[400px] w-full" />
+              </div>
+            ) : contacts && contacts.length > 0 ? (
+              <Tabs defaultValue={contacts[0].id} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="flex-shrink-0 border-b bg-muted/30">
+                  <ScrollArea className="w-full">
+                    <TabsList className="h-9 w-max justify-start bg-transparent p-0 rounded-none border-b-0">
+                      {contacts.map((contact) => (
+                        <TabsTrigger
+                          key={contact.id}
+                          value={contact.id}
+                          className="px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent transition-none"
+                        >
+                          <span className="text-xs font-medium whitespace-nowrap">
+                            {contact.name}
+                          </span>
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
                 </div>
-                <div className="flex-shrink-0 border-t">
-                  <Composer contactId={contactId} />
-                </div>
-              </>
+
+                {contacts.map((contact) => (
+                  <TabsContent
+                    key={contact.id}
+                    value={contact.id}
+                    className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden"
+                  >
+                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                      <MessageThread contactId={contact.id} hideAddIssueHover />
+                    </div>
+                    <div className="flex-shrink-0 border-t">
+                      <Composer contactId={contact.id} />
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
             ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground p-8 text-center">
-                No conversation tagged. Tag a student, staff, or conversation to see messages.
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center gap-3">
+                <MessageCircle className="h-12 w-12 text-muted/50" />
+                <p className="text-sm">No students, staff, or parents tagged. Tag someone to start a chat.</p>
               </div>
             )}
           </TabsContent>
@@ -225,7 +304,7 @@ const IssueEntitiesList = memo(function IssueEntitiesList({ tags }: { tags: Issu
         </section>
       )}
 
-      {tags.filter(t => !t.message_id && !t.conversation_id).length === 0 && (
+      {tags.length === 0 && (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
           No entities tagged to this issue yet.
         </div>

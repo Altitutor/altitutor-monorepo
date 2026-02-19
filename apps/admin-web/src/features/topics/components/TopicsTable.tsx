@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -9,38 +9,33 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@altitutor/ui";
-import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@altitutor/ui";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Button,
+  Input,
+  SkeletonTable,
+  ScrollArea,
+  DataTableToolbar,
+  TablePagination,
 } from "@altitutor/ui";
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { SkeletonTable } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
 import { 
-  Search, 
   ChevronRight,
   ChevronDown,
-  Filter,
   X,
   Loader2,
 } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
-import { TablePagination } from '@/shared/components/TablePagination';
 import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
 import { getFileTypeLabel } from '@/shared/utils/file-type-icons';
 import { FilePreviewModal } from './FilePreviewModal';
 import { useSubjectSearch } from '@/features/subjects/hooks';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 interface TopicsTableProps {
   onRefresh?: number;
@@ -60,47 +55,37 @@ export function TopicsTable({
   hideSubjectFilter = false,
 }: TopicsTableProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('topics');
   
-  // Initialize from URL params
-  const getSearchFromUrl = () => searchParams.get('search') || '';
-  const getArrayFromUrl = (key: string): string[] => {
-    const param = searchParams.get(key);
-    return param ? param.split(',').filter(Boolean) : [];
-  };
+  const defaultFilters = useMemo(() => {
+    const filters: Record<string, unknown[]> = {};
+    if (subjectId) {
+      filters.subject = [subjectId];
+    }
+    return filters;
+  }, [subjectId]);
   
-  const updateUrlParams = (updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === '') {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-    router.push(`${basePath}?${params.toString()}`);
-  };
-  
-  // Filter and search state initialized from URL
-  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  // If subjectId prop is provided, use it; otherwise use URL params
-  const [subjectFilters, setSubjectFilters] = useState<string[]>(
-    subjectId ? [subjectId] : getArrayFromUrl('subject')
-  );
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
-  
-  // Sync from URL params
-  useEffect(() => {
-    setSearchTerm(getSearchFromUrl());
-    setSubjectFilters(getArrayFromUrl('subject'));
-    const pageParam = Number(searchParams.get('page'));
-    if (pageParam) setPage(pageParam);
-    const pageSizeParam = Number(searchParams.get('pageSize'));
-    if (pageSizeParam) setPageSize(pageSizeParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  const defaultSort = useMemo(() => ({ field: 'name', direction: 'asc' as const }), []);
+  const defaultVisibleColumns = useMemo(() => ['subject', 'name', 'files'], []);
+
+  const {
+    state,
+    setSearch,
+    setSort,
+    setFilters,
+    setPage,
+    setPageSize,
+    setVisibleColumns,
+    applyQuickFilter,
+    resetFilters,
+  } = useDataTable({
+    defaultFilters,
+    defaultSort,
+    defaultVisibleColumns,
+    filterKeys: ['subject'],
+  });
+
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
@@ -108,21 +93,6 @@ export function TopicsTable({
   // Subject filter popover state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
-
-  // Debounce search term
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setPage(1); // Reset to first page on search
-      updateUrlParams({ 
-        search: searchTerm || null,
-        page: null 
-      });
-    }, 300);
-    return () => clearTimeout(timeoutId);
-    // updateUrlParams is stable (uses searchParams which is from useSearchParams)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
 
   // Use React Query hook for debounced subject search
   const { subjects: subjectSearchResults, isLoading: isSubjectSearching } = useSubjectSearch({
@@ -132,8 +102,7 @@ export function TopicsTable({
   });
 
   // React Query hook for data fetching with server-side filtering
-  // If subjectId prop is provided, always use it; otherwise use subjectFilters from URL
-  const effectiveSubjectIds = subjectId ? [subjectId] : (subjectFilters.length > 0 ? subjectFilters : undefined);
+  const effectiveSubjectIds = subjectId ? [subjectId] : (state.filters.subject as string[] || undefined);
   
   const { 
     data: topicsData, 
@@ -142,10 +111,10 @@ export function TopicsTable({
     refetch,
     isFetching 
   } = useSearchTopics({
-    search: debouncedSearchTerm || undefined,
+    search: state.search || undefined,
     subjectIds: effectiveSubjectIds,
-    limit: pageSize,
-    offset: (page - 1) * pageSize,
+    limit: state.pageSize,
+    offset: (state.page - 1) * state.pageSize,
   });
 
   const allTopicsFromSearch = useMemo(() => {
@@ -177,28 +146,33 @@ export function TopicsTable({
     });
   };
 
-  const handleSubjectFilterToggle = (subjectId: string) => {
-    const newFilters = subjectFilters.includes(subjectId) 
-      ? subjectFilters.filter(id => id !== subjectId)
-      : [...subjectFilters, subjectId];
-    setSubjectFilters(newFilters);
-    setPage(1); // Reset to first page
-    updateUrlParams({ 
-      subject: newFilters.length > 0 ? newFilters.join(',') : null,
-      page: null 
-    });
-  };
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
+    if (hideSubjectFilter) return [];
+    
+    return [
+      {
+        key: 'subject',
+        label: 'Subject',
+        options: subjectSearchResults.map(s => ({ label: formatSubjectDisplay(s), value: s.id })),
+      },
+    ];
+  }, [hideSubjectFilter, subjectSearchResults]);
 
-  const clearAllFilters = () => {
-    setSubjectFilters([]);
-    setSearchTerm('');
+  const sortOptions: DataTableSortOption[] = [
+    { key: 'name', label: 'Name' },
+    { key: 'index', label: 'Index' },
+  ];
+
+  const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'subject', label: 'Subject' },
+    { key: 'name', label: 'Name' },
+    { key: 'files', label: 'Files' },
+  ];
+
+  // Reset to page 1 when search term or filters change
+  useEffect(() => {
     setPage(1);
-    updateUrlParams({ 
-      subject: null,
-      search: null,
-      page: null 
-    });
-  };
+  }, [state.search, state.filters, setPage]);
 
   const [selectedTopicInfo, setSelectedTopicInfo] = useState<{ topicName: string; fileCode: string } | null>(null);
 
@@ -208,32 +182,28 @@ export function TopicsTable({
     setIsFileModalOpen(true);
   };
 
-
-  // Count active filters
-  const activeFiltersCount = subjectFilters.length;
-
   // Loading state
   if (isLoading && rootTopics.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center gap-4">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search topics..."
-              className="pl-8"
-              disabled
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled>
-              <Filter className="h-4 w-4 mr-2" />
-              Subject
-            </Button>
-          </div>
-        </div>
+        <DataTableToolbar
+          state={state}
+          onSearchChange={setSearch}
+          onFiltersChange={setFilters}
+          onSortChange={setSort}
+          onGroupByChange={() => {}}
+          onVisibleColumnsChange={setVisibleColumns}
+          onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+          onReset={resetFilters}
+          filterDefinitions={filterDefinitions}
+          sortOptions={sortOptions}
+          columnDefinitions={columnDefinitions}
+          quickFilters={quickFilters}
+          searchPlaceholder="Search topics..."
+          isLoading={true}
+        />
         
-        <SkeletonTable rows={8} columns={3} />
+        <SkeletonTable rows={8} columns={state.visibleColumns.length + 1} />
         
         <div className="text-sm text-muted-foreground">
           Loading topics...
@@ -259,104 +229,40 @@ export function TopicsTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search topics..."
-            className="pl-8"
-              value={searchTerm}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSearchTerm(value);
-              }}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Clear Filters */}
-          {activeFiltersCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={clearAllFilters}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Clear
-            </Button>
-          )}
-
-          {/* Subject Filter - hide if hideSubjectFilter is true */}
-          {!hideSubjectFilter && (
-            <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button 
-                  variant={subjectFilters.length > 0 ? "secondary" : "outline"} 
-                  size="sm"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Subject {subjectFilters.length > 0 && `(${subjectFilters.length})`}
-                </Button>
-              </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="end">
-              <div className="p-3">
-                <Input
-                  placeholder="Search subjects..."
-                  value={subjectSearchQuery}
-                  onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
-                    {isSubjectSearching ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Searching...
-                      </div>
-                    ) : subjectSearchResults.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        {subjectSearchQuery ? 'No subjects match your search' : 'No subjects found'}
-                      </div>
-                    ) : (
-                      subjectSearchResults.map((subject) => {
-                        const isSelected = subjectFilters.includes(subject.id);
-                        return (
-                          <Button
-                            key={subject.id}
-                            variant={isSelected ? "secondary" : "ghost"}
-                            className="w-full justify-start h-auto p-2"
-                            onClick={() => handleSubjectFilterToggle(subject.id)}
-                          >
-                            <div className="font-medium">{formatSubjectDisplay(subject)}</div>
-                          </Button>
-                        );
-                      })
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
-          )}
-        </div>
-      </div>
+      <DataTableToolbar
+        state={state}
+        onSearchChange={setSearch}
+        onFiltersChange={setFilters}
+        onSortChange={setSort}
+        onGroupByChange={() => {}}
+        onVisibleColumnsChange={setVisibleColumns}
+        onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+        onReset={resetFilters}
+        filterDefinitions={filterDefinitions}
+        sortOptions={sortOptions}
+        columnDefinitions={columnDefinitions}
+        quickFilters={quickFilters}
+        searchPlaceholder="Search topics..."
+        isLoading={isFetching}
+      />
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"></TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Files</TableHead>
+              {state.visibleColumns.includes('subject') && <TableHead>Subject</TableHead>}
+              {state.visibleColumns.includes('name') && <TableHead>Name</TableHead>}
+              {state.visibleColumns.includes('files') && <TableHead>Files</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rootTopics.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center h-24">
+                <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
                   {isLoading ? (
                     "Loading topics..."
-                  ) : searchTerm || activeFiltersCount > 0 ? (
+                  ) : state.search || Object.keys(state.filters).length > 0 ? (
                     "No topics match your filters"
                   ) : (
                     "No topics found"
@@ -371,6 +277,7 @@ export function TopicsTable({
                 onToggleExpansion={toggleTopicExpansion}
                 onFileClick={handleFileClick}
                 onViewTopic={onViewTopic}
+                visibleColumns={state.visibleColumns}
                 level={0}
               />
             )}
@@ -380,22 +287,12 @@ export function TopicsTable({
 
       {/* Pagination */}
       <TablePagination
-        page={page}
-        pageSize={pageSize}
+        page={state.page}
+        pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={(newPage) => {
-          setPage(newPage);
-          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
-        }}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-          updateUrlParams({ 
-            pageSize: size === 50 ? null : String(size),
-            page: null 
-          });
-        }}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
 
       {/* File Preview Modal */}
@@ -421,6 +318,7 @@ interface TopicRowsProps {
   onToggleExpansion: (topicId: string) => void;
   onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
   onViewTopic?: (topicId: string) => void;
+  visibleColumns: string[];
   level: number;
   parentId?: string | null;
 }
@@ -432,6 +330,7 @@ function TopicRows({
   onToggleExpansion,
   onFileClick,
   onViewTopic,
+  visibleColumns,
   level,
   parentId = null,
 }: TopicRowsProps) {
@@ -476,6 +375,7 @@ function TopicRows({
             onToggleExpansion={onToggleExpansion}
             onFileClick={onFileClick}
             onViewTopic={onViewTopic}
+            visibleColumns={visibleColumns}
           />
         );
       })}
@@ -495,6 +395,7 @@ interface TopicRowProps {
   onToggleExpansion: (topicId: string) => void;
   onFileClick: (fileId: string, topicName?: string, fileCode?: string) => void;
   onViewTopic?: (topicId: string) => void;
+  visibleColumns: string[];
 }
 
 function TopicRow({
@@ -509,6 +410,7 @@ function TopicRow({
   onToggleExpansion,
   onFileClick,
   onViewTopic,
+  visibleColumns,
 }: TopicRowProps) {
   const { data: topicFiles = [] } = useTopicFilesByTopic(topic.id);
   const { data: childTopics = [] } = useChildTopics(isExpanded && hasChildren ? topic.id : null);
@@ -549,60 +451,66 @@ function TopicRow({
             </button>
           ) : null}
         </TableCell>
-        <TableCell>
-          <div
-            className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium"
-            style={{
-              backgroundColor: subjectColorHex ? `${subjectColorHex}20` : undefined,
-              color: subjectColorHex || undefined,
-            }}
-          >
-            {formatSubjectShortName(topic.subject)}
-          </div>
-        </TableCell>
-        <TableCell style={{ paddingLeft: `${paddingLeft}px` }}>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm text-muted-foreground">{topicCode}</span>
-            <span className="text-sm">{topic.name}</span>
-          </div>
-        </TableCell>
-        <TableCell onClick={(e) => e.stopPropagation()}>
-          <TooltipProvider>
-            <div className="space-y-1">
-              {topicFiles.map((tf) => {
-                const fileCode = tf.code || '';
-                const typeLabel = getFileTypeLabel(tf.type);
-                const filename = tf.file?.filename || 'Unknown file';
-                const fileId = tf.file?.id;
-
-                return (
-                  <div
-                    key={tf.id}
-                    className="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-muted/50"
-                  >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => fileId && onFileClick(fileId, topic.name, fileCode)}
-                          className="flex-1 text-left min-w-0 truncate text-sm"
-                        >
-                          <span className="font-mono">{fileCode}</span>{' '}
-                          <span className="text-muted-foreground">{typeLabel}</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{filename}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                );
-              })}
-              {topicFiles.length === 0 && (
-                <span className="text-sm text-muted-foreground">No files</span>
-              )}
+        {visibleColumns.includes('subject') && (
+          <TableCell>
+            <div
+              className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium"
+              style={{
+                backgroundColor: subjectColorHex ? `${subjectColorHex}20` : undefined,
+                color: subjectColorHex || undefined,
+              }}
+            >
+              {formatSubjectShortName(topic.subject)}
             </div>
-          </TooltipProvider>
-        </TableCell>
+          </TableCell>
+        )}
+        {visibleColumns.includes('name') && (
+          <TableCell style={{ paddingLeft: `${paddingLeft}px` }}>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm text-muted-foreground">{topicCode}</span>
+              <span className="text-sm">{topic.name}</span>
+            </div>
+          </TableCell>
+        )}
+        {visibleColumns.includes('files') && (
+          <TableCell onClick={(e) => e.stopPropagation()}>
+            <TooltipProvider>
+              <div className="space-y-1">
+                {topicFiles.map((tf) => {
+                  const fileCode = tf.code || '';
+                  const typeLabel = getFileTypeLabel(tf.type);
+                  const filename = tf.file?.filename || 'Unknown file';
+                  const fileId = tf.file?.id;
+
+                  return (
+                    <div
+                      key={tf.id}
+                      className="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-muted/50"
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => fileId && onFileClick(fileId, topic.name, fileCode)}
+                            className="flex-1 text-left min-w-0 truncate text-sm"
+                          >
+                            <span className="font-mono">{fileCode}</span>{' '}
+                            <span className="text-muted-foreground">{typeLabel}</span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{filename}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+                {topicFiles.length === 0 && (
+                  <span className="text-sm text-muted-foreground">No files</span>
+                )}
+              </div>
+            </TooltipProvider>
+          </TableCell>
+        )}
       </TableRow>
       {hasChildren && isExpanded && childTopicsWithSubjects.length > 0 && (
         <TopicRows
@@ -612,6 +520,7 @@ function TopicRow({
           onToggleExpansion={onToggleExpansion}
           onFileClick={onFileClick}
           onViewTopic={onViewTopic}
+          visibleColumns={visibleColumns}
           level={level + 1}
           parentId={topic.id}
         />

@@ -241,6 +241,59 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         ),
         'data-placeholder': placeholder,
       },
+      handlePaste: (view, event) => {
+        if (!mentionSuggestions) return false;
+
+        const pastedText = event.clipboardData?.getData('text/plain') || '';
+        if (!pastedText) return false;
+
+        const mentionType = view.state.schema.nodes.mention;
+        if (!mentionType) return false;
+
+        // Parse tag markers: @[type:id:displayText]
+        const markerRegex = /@\[([^:\]]+):([^:\]]+):(.+?)\]/g;
+        const hasMarker = markerRegex.test(pastedText);
+        markerRegex.lastIndex = 0;
+        if (!hasMarker) return false;
+
+        event.preventDefault();
+
+        const { state } = view;
+        let tr = state.tr.deleteSelection();
+        let insertPos = tr.selection.from;
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+
+        while ((match = markerRegex.exec(pastedText)) !== null) {
+          const [fullMatch, type, id, label] = match;
+
+          // Insert plain text before marker
+          const beforeText = pastedText.slice(lastIndex, match.index);
+          if (beforeText) {
+            tr = tr.insertText(beforeText, insertPos);
+            insertPos += beforeText.length;
+          }
+
+          // Insert mention node
+          const mentionNode = mentionType.create({ id, label, type });
+          tr = tr.insert(insertPos, mentionNode);
+          insertPos += mentionNode.nodeSize;
+
+          lastIndex = match.index + fullMatch.length;
+        }
+
+        // Insert trailing plain text
+        const trailingText = pastedText.slice(lastIndex);
+        if (trailingText) {
+          tr = tr.insertText(trailingText, insertPos);
+          insertPos += trailingText.length;
+        }
+
+        tr = tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(insertPos, tr.doc.content.size))));
+        view.dispatch(tr);
+        view.focus();
+        return true;
+      },
     },
     onUpdate: ({ editor }) => {
       if (!editor) return;

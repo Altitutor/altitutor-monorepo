@@ -114,6 +114,7 @@ export interface EntityListProps<TItem> {
   };
   hideToolbar?: boolean;
   noPadding?: boolean;
+  compact?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +182,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     descriptionConfig,
     hideToolbar = false,
     noPadding = false,
+    compact = false,
   } = props;
 
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
@@ -603,6 +605,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                       statusColumn={statusColumn}
                       rightPills={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
                       onRowClick={onRowClick}
+                      compact={compact}
                     />
                   ))}
                 </div>
@@ -621,6 +624,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           visiblePillKeys={visiblePillKeys}
           addButtonLabel={addButtonLabel}
           descriptionConfig={descriptionConfig}
+          compact={compact}
         />
       )}
     </div>
@@ -634,10 +638,11 @@ interface EntityListAddRowProps<TItem> {
   visiblePillKeys: string[];
   addButtonLabel: string;
   descriptionConfig?: EntityListProps<TItem>['descriptionConfig'];
+  compact?: boolean;
 }
 
 function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
-  const { onAdd, statusColumn, rightPills, visiblePillKeys, addButtonLabel, descriptionConfig } = props;
+  const { onAdd, statusColumn, rightPills, visiblePillKeys, addButtonLabel, descriptionConfig, compact = false } = props;
 
   const [addName, setAddName] = React.useState('');
   const [addDescription, setAddDescription] = React.useState<JSONContent | string>('');
@@ -710,6 +715,7 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
                 ...statusColumn,
                 onStatusChange: (_item, val) => setAddValues(prev => ({ ...prev, [statusColumn.key]: val }))
               }}
+              compact={compact}
             />
           </div>
         )}
@@ -743,13 +749,19 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
         <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill) => (
             <div key={pill.key} className="flex-shrink-0">
-              {/* Responsive: show full pill on larger screens, icon on smaller */}
-              <div className="hidden lg:block">
-                {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), false)}
-              </div>
-              <div className="lg:hidden">
-                {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)}
-              </div>
+              {compact ? (
+                pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)
+              ) : (
+                <>
+                  {/* Responsive: show full pill on larger screens, icon on smaller */}
+                  <div className="hidden lg:block">
+                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), false)}
+                  </div>
+                  <div className="lg:hidden">
+                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)}
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -777,6 +789,7 @@ interface EntityListRowProps<TItem> {
   statusColumn?: EntityListStatusColumn<TItem>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
   onRowClick?: (item: TItem) => void;
+  compact?: boolean;
 }
 
 function EntityListRow<TItem>({
@@ -786,6 +799,7 @@ function EntityListRow<TItem>({
   statusColumn,
   rightPills,
   onRowClick,
+  compact = false,
 }: EntityListRowProps<TItem>) {
   return (
     <div
@@ -799,7 +813,8 @@ function EntityListRow<TItem>({
         }
       }}
       className={cn(
-        'group flex items-center gap-3 px-2 py-2 rounded-md hover:bg-muted/60 transition-colors w-full min-w-0 overflow-hidden',
+        'group flex gap-3 px-2 py-2 rounded-md hover:bg-muted/60 transition-colors w-full min-w-0 overflow-hidden',
+        compact ? 'items-start' : 'items-center',
         onRowClick && 'cursor-pointer'
       )}
     >
@@ -818,13 +833,18 @@ function EntityListRow<TItem>({
           className="flex-shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <EntityListStatusBubble item={item} column={statusColumn} />
+          <EntityListStatusBubble item={item} column={statusColumn} compact={compact} />
         </div>
       )}
 
       {/* Name */}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium line-clamp-1">
+        <div
+          className={cn(
+            'text-sm font-medium',
+            compact ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : 'line-clamp-1'
+          )}
+        >
           {renderName(item)}
         </div>
       </div>
@@ -838,13 +858,19 @@ function EntityListRow<TItem>({
               onClick={(e) => e.stopPropagation()}
               className="transition-opacity flex-shrink-0"
             >
-              {/* Responsive: show full pill on larger screens, icon on smaller */}
-              <div className="hidden lg:block">
-                {pill.renderPill(item, () => {}, false)}
-              </div>
-              <div className="lg:hidden">
-                {pill.renderPill(item, () => {}, true)}
-              </div>
+              {compact ? (
+                pill.renderPill(item, () => {}, true)
+              ) : (
+                <>
+                  {/* Responsive: show full pill on larger screens, icon on smaller */}
+                  <div className="hidden lg:block">
+                    {pill.renderPill(item, () => {}, false)}
+                  </div>
+                  <div className="lg:hidden">
+                    {pill.renderPill(item, () => {}, true)}
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
@@ -856,9 +882,11 @@ function EntityListRow<TItem>({
 function EntityListStatusBubble<TItem, TValue>({
   item,
   column,
+  compact = false,
 }: {
   item: TItem;
   column: EntityListStatusColumn<TItem, TValue>;
+  compact?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const value = column.getValue(item);
@@ -874,13 +902,19 @@ function EntityListStatusBubble<TItem, TValue>({
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Responsive: show full bubble on larger screens, icon on smaller */}
-          <div className="hidden sm:block">
-            {column.renderBubble(value, false)}
-          </div>
-          <div className="sm:hidden">
-            {column.renderBubble(value, true)}
-          </div>
+          {compact ? (
+            column.renderBubble(value, true)
+          ) : (
+            <>
+              {/* Responsive: show full bubble on larger screens, icon on smaller */}
+              <div className="hidden sm:block">
+                {column.renderBubble(value, false)}
+              </div>
+              <div className="sm:hidden">
+                {column.renderBubble(value, true)}
+              </div>
+            </>
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>

@@ -389,6 +389,36 @@ export function useMentionField<T extends Record<string, unknown>>({
     }
   }, [form, fieldName, isMentionOpen, onTagClick, onEnter]);
 
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    if (!element || !(element instanceof Node)) return;
+
+    e.preventDefault();
+
+    const pastedText = e.clipboardData.getData('text/plain');
+    if (!pastedText) return;
+
+    const currentText = getTextWithLineBreaks(element);
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const cursorPosition = range ? getCursorPositionInText(element, range) : currentText.length;
+
+    const newText =
+      currentText.slice(0, cursorPosition) +
+      pastedText +
+      currentText.slice(cursorPosition);
+    const newCursorPosition = cursorPosition + pastedText.length;
+
+    isUpdatingRef.current = true;
+    setTextWithTags(element, newText, onTagClick);
+    form.setValue(fieldName, newText as PathValue<T, Path<T>>, { shouldValidate: true });
+
+    setCursorPosition(element, newCursorPosition);
+    setIsMentionOpen(false);
+    mentionStartRef.current = -1;
+    isUpdatingRef.current = false;
+  }, [fieldName, form, onTagClick]);
+
   const insertTag = useCallback((result: EntitySearchResult) => {
     if (!ref.current) {
       return;
@@ -532,6 +562,7 @@ export function useMentionField<T extends Record<string, unknown>>({
     handleBlur,
     handleInput,
     handleKeyDown,
+    handlePaste,
     mentionQuery,
     mentionPosition,
     isMentionOpen,

@@ -21,6 +21,51 @@ import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useEffect, useMemo } from 'react';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 
+function tagToMention(tag: Omit<IssueTagInsert, 'issue_id'>): { type: string; id: string; label: string } | null {
+  if (tag.student_id) return { type: 'student', id: tag.student_id, label: tag.student_id };
+  if (tag.staff_id) return { type: 'staff', id: tag.staff_id, label: tag.staff_id };
+  if (tag.class_id) return { type: 'class', id: tag.class_id, label: tag.class_id };
+  if (tag.session_id) return { type: 'session', id: tag.session_id, label: tag.session_id };
+  if (tag.invoice_id) return { type: 'invoice', id: tag.invoice_id, label: tag.invoice_id };
+  if (tag.parent_id) return { type: 'parent', id: tag.parent_id, label: tag.parent_id };
+  if (tag.subject_id) return { type: 'subject', id: tag.subject_id, label: tag.subject_id };
+  return null;
+}
+
+function buildDescriptionFromInitialTags(tags?: Omit<IssueTagInsert, 'issue_id'>[]): JSONContent | null {
+  if (!tags || tags.length === 0) return null;
+
+  const seen = new Set<string>();
+  const content: JSONContent[] = [];
+
+  tags.forEach((tag) => {
+    const mention = tagToMention(tag);
+    if (!mention) return;
+
+    const key = `${mention.type}:${mention.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    content.push({
+      type: 'paragraph',
+      content: [
+        {
+          type: 'mention',
+          attrs: {
+            id: mention.id,
+            type: mention.type,
+            label: mention.label,
+          },
+        },
+        { type: 'text', text: ' ' },
+      ],
+    });
+  });
+
+  if (content.length === 0) return null;
+  return { type: 'doc', content };
+}
+
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.any().optional(),
@@ -49,12 +94,13 @@ export function CreateIssueDialog({
   initialTags 
 }: CreateIssueDialogProps) {
   const createIssue = useCreateIssue();
+  const initialDescription = useMemo(() => buildDescriptionFromInitialTags(initialTags), [initialTags]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      description: null,
+      description: initialDescription,
       status: initialStatus,
     },
   });
@@ -65,11 +111,11 @@ export function CreateIssueDialog({
     if (isOpen) {
       form.reset({
         name: '',
-        description: null,
+        description: initialDescription,
         status: initialStatus,
       });
     }
-  }, [isOpen, initialStatus, form]);
+  }, [isOpen, initialStatus, initialDescription, form]);
 
   const onSubmit = async (data: FormData) => {
     try {

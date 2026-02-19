@@ -31,6 +31,7 @@ export function TaskTitleField({ form, value, onTagClick, onEnter, titleRef }: T
     handleBlur,
     handleInput,
     handleKeyDown,
+    handlePaste,
     mentionQuery,
     mentionPosition,
     isMentionOpen,
@@ -72,6 +73,7 @@ export function TaskTitleField({ form, value, onTagClick, onEnter, titleRef }: T
                 onBlur={handleBlur}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 data-placeholder="Task title"
                 className="text-2xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none"
                 suppressContentEditableWarning

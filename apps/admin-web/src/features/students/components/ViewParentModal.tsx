@@ -186,6 +186,8 @@ export function ViewParentModal({
                     {parentId && (
                       <ActionsMenu
                         type="parent"
+                        entityId={parentId}
+                        copyTagDisplayText={`${parent.first_name || ''} ${parent.last_name || ''}`.trim()}
                         onOpenInPage={() => {
                           router.push(`/parents/${parentId}`);
                           onClose();
@@ -355,4 +357,3 @@ export function ViewParentModal({
     </>
   );
 }
-

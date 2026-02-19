@@ -2,14 +2,19 @@ import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
 import { z } from 'zod';
+import type { JSONContent } from '@altitutor/ui';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  content: z.string(),
+  content: z.any(),
   folder_id: z.string().nullable().optional(),
 });
 
-type FormData = z.infer<typeof formSchema>;
+type FormData = {
+  title: string;
+  content: JSONContent | string;
+  folder_id?: string | null;
+};
 
 interface UseNoteAutoSaveOptions {
   form: UseFormReturn<FormData>;
@@ -17,7 +22,7 @@ interface UseNoteAutoSaveOptions {
   note: { id: string } | undefined;
   isInitialized: boolean;
   isUpdatingFromServer: boolean | (() => boolean);
-  onSave: (updates: { title?: string; content?: string; folder_id?: string | null }) => void;
+  onSave: (updates: { title?: string; content?: JSONContent | string; folder_id?: string | null }) => void;
 }
 
 /**
@@ -32,7 +37,7 @@ export function useNoteAutoSave({
   isUpdatingFromServer,
   onSave,
 }: UseNoteAutoSaveOptions): void {
-  const lastSavedValuesRef = useRef<{ title?: string; content?: string; folder_id?: string | null }>({});
+  const lastSavedValuesRef = useRef<{ title?: string; contentJson?: string; folder_id?: string | null }>({});
 
   // Watch form values
   const title = form.watch('title');
@@ -41,7 +46,7 @@ export function useNoteAutoSave({
 
   // Debounce title and content (folder_id saves immediately)
   const debouncedTitle = useDebounce(title, 1000);
-  const debouncedContent = useDebounce(content, 1000);
+  const debouncedContentTrigger = useDebounce(content, 1000);
 
   // Auto-save for title
   useEffect(() => {
@@ -56,7 +61,7 @@ export function useNoteAutoSave({
   }, [debouncedTitle, note, isInitialized, isUpdatingFromServer, onSave]);
 
   // Auto-save for content
-  // Use debouncedContent as trigger (fires after debounce), but save current content value
+  // Use debouncedContentTrigger as trigger (fires after debounce), but save current content value
   // This ensures we save the latest value, not a stale debounced value
   useEffect(() => {
     const isUpdating = typeof isUpdatingFromServer === 'function' 
@@ -64,12 +69,14 @@ export function useNoteAutoSave({
       : isUpdatingFromServer;
     
     if (!isInitialized || isUpdating) return;
+    
+    const contentJson = JSON.stringify(content);
     // Compare current content (not debounced) against last saved to ensure we save the latest value
-    if (note && content !== undefined && content !== lastSavedValuesRef.current.content) {
-      lastSavedValuesRef.current.content = content;
+    if (note && content !== undefined && contentJson !== lastSavedValuesRef.current.contentJson) {
+      lastSavedValuesRef.current.contentJson = contentJson;
       onSave({ content });
     }
-  }, [debouncedContent, content, note, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedContentTrigger, content, note, isInitialized, isUpdatingFromServer, onSave]);
 
   // Auto-save for folder_id (immediate, no debounce)
   useEffect(() => {
@@ -88,7 +95,7 @@ export function useNoteAutoSave({
     if (note && isInitialized) {
       lastSavedValuesRef.current = {
         title: title,
-        content: content,
+        contentJson: JSON.stringify(content),
         folder_id: folderId,
       };
     }

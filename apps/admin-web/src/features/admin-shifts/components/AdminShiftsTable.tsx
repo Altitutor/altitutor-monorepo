@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, Dispatch, SetStateAction, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -9,14 +9,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@altitutor/ui";
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { Label } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { SkeletonTable } from "@altitutor/ui";
-import { useToast } from "@altitutor/ui";
-import {
+  Button,
+  Input,
+  Label,
+  Badge,
+  SkeletonTable,
+  useToast,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -25,17 +23,21 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  DataTableToolbar,
+  TablePagination,
 } from "@altitutor/ui";
 import { Search, Loader2 } from 'lucide-react';
-import { TablePagination } from '@/shared/components/TablePagination';
 import { useAdminShiftsMinimalPaginated, useDeleteAdminShift } from '../hooks/useAdminShiftsQuery';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { AddAdminShiftModal } from './AddAdminShiftModal';
 import { ViewAdminShiftModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 interface AdminShiftsTableProps {
   addModalState?: [boolean, Dispatch<SetStateAction<boolean>>];
@@ -44,43 +46,29 @@ interface AdminShiftsTableProps {
 
 export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('admin-shifts');
   
-  // Initialize from URL params
-  const getSearchFromUrl = () => searchParams.get('search') || '';
-  const getNumberArrayFromUrl = (key: string): number[] => {
-    const param = searchParams.get(key);
-    return param ? param.split(',').map(Number).filter(n => !isNaN(n)) : [];
-  };
-  
-  const updateUrlParams = (updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === '') {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-    router.push(`/admin-shifts?${params.toString()}`);
-  };
-  
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
-  
-  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
-  const [dayFilter, setDayFilter] = useState<number[]>(getNumberArrayFromUrl('day'));
-  
-  // Sync from URL params
-  useEffect(() => {
-    setSearchTerm(getSearchFromUrl());
-    setDayFilter(getNumberArrayFromUrl('day'));
-    const pageParam = Number(searchParams.get('page'));
-    if (pageParam) setPage(pageParam);
-    const pageSizeParam = Number(searchParams.get('pageSize'));
-    if (pageSizeParam) setPageSize(pageSizeParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
+  const defaultSort = useMemo(() => ({ field: 'day_of_week', direction: 'asc' as const }), []);
+  const defaultVisibleColumns = useMemo(() => ['day', 'time', 'status', 'staff'], []);
+
+  const {
+    state,
+    setSearch,
+    setSort,
+    setFilters,
+    setPage,
+    setPageSize,
+    setVisibleColumns,
+    applyQuickFilter,
+    resetFilters,
+  } = useDataTable({
+    defaultFilters,
+    defaultSort,
+    defaultVisibleColumns,
+    filterKeys: ['day', 'status'],
+  });
 
   const { 
     data, 
@@ -89,13 +77,50 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
     refetch,
     isFetching 
   } = useAdminShiftsMinimalPaginated({
-    search: searchTerm,
-    daysOfWeek: dayFilter,
-    page,
-    pageSize,
-    orderBy: 'day_of_week',
-    ascending: true,
+    search: state.search,
+    daysOfWeek: state.filters.day as number[],
+    page: state.page,
+    pageSize: state.pageSize,
+    orderBy: state.sortBy as any || 'day_of_week',
+    ascending: state.sortDirection === 'asc',
   });
+
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    {
+      key: 'day',
+      label: 'Day',
+      options: [
+        { label: 'Monday', value: 1 },
+        { label: 'Tuesday', value: 2 },
+        { label: 'Wednesday', value: 3 },
+        { label: 'Thursday', value: 4 },
+        { label: 'Friday', value: 5 },
+        { label: 'Saturday', value: 6 },
+        { label: 'Sunday', value: 0 },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { label: 'ACTIVE', value: 'ACTIVE' },
+        { label: 'INACTIVE', value: 'INACTIVE' },
+      ],
+    },
+  ], []);
+
+  const sortOptions: DataTableSortOption[] = [
+    { key: 'day_of_week', label: 'Day of Week' },
+    { key: 'start_time', label: 'Start Time' },
+    { key: 'created_at', label: 'Created At' },
+  ];
+
+  const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'day', label: 'Day' },
+    { key: 'time', label: 'Time' },
+    { key: 'status', label: 'Status' },
+    { key: 'staff', label: 'Staff' },
+  ];
 
   const adminShifts: (Tables<'admin_shifts'> & {
     staff?: Tables<'staff'>[];
@@ -144,38 +169,6 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
     refetch();
   };
 
-  // Day filter toggle function
-  const toggleDay = (day: number) => {
-    setDayFilter(prev => {
-      if (prev.includes(day)) {
-        const next = prev.filter(d => d !== day);
-        setPage(1);
-        updateUrlParams({ 
-          day: next.length > 0 ? next.join(',') : null,
-          page: null 
-        });
-        return next;
-      } else {
-        const next = [...prev, day];
-        setPage(1);
-        updateUrlParams({ 
-          day: next.join(','),
-          page: null 
-        });
-        return next;
-      }
-    });
-  };
-
-  const clearDayFilter = () => {
-    setDayFilter([]);
-    setPage(1);
-    updateUrlParams({ 
-      day: null,
-      page: null 
-    });
-  };
-
   const _getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'ACTIVE':
@@ -190,33 +183,30 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
   // Reset to page 1 when search term or filters change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, dayFilter]);
+  }, [state.search, state.filters, setPage]);
 
   // Loading state
   if (isLoading && adminShifts.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search admin shifts"
-              className="pl-8"
-              value={""}
-              disabled
-            />
-          </div>
-          
-          <div className="flex items-center gap-1">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-              <Button key={day} variant="outline" size="sm" disabled>
-                {day}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <DataTableToolbar
+          state={state}
+          onSearchChange={setSearch}
+          onFiltersChange={setFilters}
+          onSortChange={setSort}
+          onGroupByChange={() => {}}
+          onVisibleColumnsChange={setVisibleColumns}
+          onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+          onReset={resetFilters}
+          filterDefinitions={filterDefinitions}
+          sortOptions={sortOptions}
+          columnDefinitions={columnDefinitions}
+          quickFilters={quickFilters}
+          searchPlaceholder="Search admin shifts..."
+          isLoading={true}
+        />
         
-        <SkeletonTable rows={8} columns={4} />
+        <SkeletonTable rows={8} columns={state.visibleColumns.length} />
         
         <div className="text-sm text-muted-foreground">
           Loading admin shifts...
@@ -244,107 +234,41 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
 
   return (
     <div className="space-y-4">
-      {/* Search and filters with dynamic wrapping */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search admin shifts"
-            className="pl-8"
-            value={searchTerm || ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSearchTerm(value);
-              setPage(1);
-              updateUrlParams({ 
-                search: value || null,
-                page: null 
-              });
-            }}
-          />
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-1">
-          <Button 
-            variant={dayFilter.includes(1) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(1)}
-          >
-            Mon
-          </Button>
-          <Button 
-            variant={dayFilter.includes(2) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(2)}
-          >
-            Tue
-          </Button>
-          <Button 
-            variant={dayFilter.includes(3) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(3)}
-          >
-            Wed
-          </Button>
-          <Button 
-            variant={dayFilter.includes(4) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(4)}
-          >
-            Thu
-          </Button>
-          <Button 
-            variant={dayFilter.includes(5) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(5)}
-          >
-            Fri
-          </Button>
-          <Button 
-            variant={dayFilter.includes(6) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(6)}
-          >
-            Sat
-          </Button>
-          <Button 
-            variant={dayFilter.includes(0) ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => toggleDay(0)}
-          >
-            Sun
-          </Button>
-          {dayFilter.length > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={clearDayFilter}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Clear
-            </Button>
-          )}
-        </div>
-      </div>
+      <DataTableToolbar
+        state={state}
+        onSearchChange={setSearch}
+        onFiltersChange={setFilters}
+        onSortChange={setSort}
+        onGroupByChange={() => {}}
+        onVisibleColumnsChange={setVisibleColumns}
+        onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+        onReset={resetFilters}
+        filterDefinitions={filterDefinitions}
+        sortOptions={sortOptions}
+        columnDefinitions={columnDefinitions}
+        quickFilters={quickFilters}
+        searchPlaceholder="Search admin shifts..."
+        isLoading={isFetching}
+      />
 
       <div className="rounded-md border" ref={parentRef}>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Day</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Staff</TableHead>
+                {state.visibleColumns.includes('day') && <TableHead>Day</TableHead>}
+                {state.visibleColumns.includes('time') && <TableHead>Time</TableHead>}
+                {state.visibleColumns.includes('status') && <TableHead>Status</TableHead>}
+                {state.visibleColumns.includes('staff') && <TableHead>Staff</TableHead>}
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {adminShifts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
+                  <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
                     {isLoading ? (
                       "Loading admin shifts..."
-                    ) : searchTerm || dayFilter.length > 0 ? (
+                    ) : state.search || Object.keys(state.filters).length > 0 ? (
                       "No admin shifts match your filters"
                     ) : (
                       "No admin shifts found"
@@ -360,37 +284,46 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleAdminShiftClick(shift)}
                     >
-                      <TableCell>{getDayOfWeek(shift.day_of_week)}</TableCell>
-                      <TableCell>
-                        {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={cn("text-xs", _getStatusBadgeColor(shift.status))}>
-                          {shift.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {getAdminShiftStaff(shift).length === 0 ? (
-                            <span className="text-muted-foreground text-sm">No staff</span>
-                          ) : (
-                            getAdminShiftStaff(shift).map((staff, staffIndex) => (
-                              <Button
-                                key={`${shift.id}-${staff.id}-${staffIndex}`}
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs justify-start"
-                                onClick={(e) => handleStaffClick(staff.id, e)}
-                              >
-                                {staff.first_name} {staff.last_name}
-                              </Button>
-                            ))
-                          )}
-                        </div>
-                      </TableCell>
+                      {state.visibleColumns.includes('day') && (
+                        <TableCell>{getDayOfWeek(shift.day_of_week)}</TableCell>
+                      )}
+                      {state.visibleColumns.includes('time') && (
+                        <TableCell>
+                          {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                        </TableCell>
+                      )}
+                      {state.visibleColumns.includes('status') && (
+                        <TableCell>
+                          <Badge className={cn("text-xs", _getStatusBadgeColor(shift.status))}>
+                            {shift.status}
+                          </Badge>
+                        </TableCell>
+                      )}
+                      {state.visibleColumns.includes('staff') && (
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {getAdminShiftStaff(shift).length === 0 ? (
+                              <span className="text-muted-foreground text-sm">No staff</span>
+                            ) : (
+                              getAdminShiftStaff(shift).map((staff, staffIndex) => (
+                                <Button
+                                  key={`${shift.id}-${staff.id}-${staffIndex}`}
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 text-xs justify-start"
+                                  onClick={(e) => handleStaffClick(staff.id, e)}
+                                >
+                                  {staff.first_name} {staff.last_name}
+                                </Button>
+                              ))
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <ActionsMenu
                           type="adminShift"
+                          entityId={shift.id}
                           onOpenInPage={() => {
                             router.push(`/admin-shifts/${shift.id}`);
                           }}
@@ -410,22 +343,12 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
         </div>
       
       <TablePagination
-        page={page}
-        pageSize={pageSize}
+        page={state.page}
+        pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={(newPage) => {
-          setPage(newPage);
-          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
-        }}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-          updateUrlParams({ 
-            pageSize: size === 50 ? null : String(size),
-            page: null 
-          });
-        }}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
 
       {/* Add Admin Shift Modal */}

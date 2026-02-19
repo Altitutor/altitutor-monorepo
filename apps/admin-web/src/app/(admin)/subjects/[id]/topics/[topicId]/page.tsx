@@ -260,6 +260,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
         {topic && !isEditing && (
           <ActionsMenu
             type="topic"
+            entityId={topic.id}
             {...topicActions}
           />
         )}

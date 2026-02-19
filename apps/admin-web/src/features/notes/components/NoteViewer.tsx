@@ -9,7 +9,7 @@ import type { JSONContent } from '@tiptap/core';
 import { cn } from '@/shared/utils';
 
 interface NoteViewerProps {
-  content: string; // JSON string
+  content: JSONContent | string | null | undefined;
   className?: string;
 }
 
@@ -29,12 +29,11 @@ export function NoteViewer({ content, className }: NoteViewerProps) {
   try {
     jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
   } catch {
-    // Fallback for legacy markdown content or invalid JSON
-    return (
-      <div className={cn('text-muted-foreground italic', className)}>
-        Invalid content format.
-      </div>
-    );
+    // Treat as plain text if JSON parsing fails
+    jsonContent = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: String(content) }] }]
+    };
   }
 
   const html = generateHTML(jsonContent, [

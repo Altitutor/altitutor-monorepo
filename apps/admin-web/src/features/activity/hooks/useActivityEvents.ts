@@ -15,6 +15,7 @@ export const activityKeys = {
   session: (sessionId: string) => [...activityKeys.all, 'session', sessionId] as const,
   parent: (parentId: string) => [...activityKeys.all, 'parent', parentId] as const,
   task: (taskId: string) => [...activityKeys.all, 'task', taskId] as const,
+  issue: (issueId: string) => [...activityKeys.all, 'issue', issueId] as const,
   adminShift: (adminShiftId: string) => [...activityKeys.all, 'adminShift', adminShiftId] as const,
 };
 
@@ -27,7 +28,7 @@ export function useActivityEvents(params: ActivityEventsParams & { enabled?: boo
   return useQuery({
     queryKey: activityKeys.list(queryParams),
     queryFn: () => activityApi.getActivityEvents(queryParams),
-    enabled: enabled && (!!queryParams.entityId || !!queryParams.studentId || !!queryParams.staffId || !!queryParams.classId || !!queryParams.sessionId || !!queryParams.parentId),
+    enabled: enabled && (!!queryParams.entityId || !!queryParams.studentId || !!queryParams.staffId || !!queryParams.classId || !!queryParams.sessionId || !!queryParams.parentId || !!queryParams.issueId),
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -106,6 +107,29 @@ export function useTaskActivity(taskId: string | null, enabled = true, limit = 5
     queryKey: activityKeys.task(taskId || ''),
     queryFn: () => activityApi.getTaskActivity(taskId!, limit),
     enabled: enabled && !!taskId,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Get activity events for an issue
+ */
+export function useIssueActivity(params: {
+  issueId: string | null;
+  studentIds?: string[];
+  staffIds?: string[];
+  classIds?: string[];
+  sessionIds?: string[];
+  invoiceIds?: string[];
+  enabled?: boolean;
+  limit?: number;
+}) {
+  const { issueId, enabled = true, limit = 50, ...ids } = params;
+  return useQuery({
+    queryKey: [...activityKeys.issue(issueId || ''), ids],
+    queryFn: () => activityApi.getIssueActivity({ issueId: issueId!, limit, ...ids }),
+    enabled: enabled && !!issueId,
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
   });

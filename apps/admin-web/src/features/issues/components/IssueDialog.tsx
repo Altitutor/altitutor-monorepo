@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,20 +9,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  DialogFooter,
   type JSONContent,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
-import { X, Check, Loader2, CloudOff } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useIssue } from '../api/queries';
 import { useUpdateIssue, useDeleteIssue } from '../api/mutations';
 import { useNotes } from '@/shared/hooks/useNotes';
@@ -30,8 +22,7 @@ import type { Tables } from '@altitutor/shared';
 import type { IssueStatus } from '../types';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
-import { useIssueAutoSave } from '../hooks/useIssueAutoSave';
-import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import type { UseFormReturn } from 'react-hook-form';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -42,7 +33,7 @@ const formSchema = z.object({
 type FormData = {
   name: string;
   description?: JSONContent | null;
-  status: IssueStatus;
+  status: 'open' | 'awaiting_response' | 'resolved' | 'closed';
 };
 
 interface IssueDialogProps {
@@ -52,44 +43,12 @@ interface IssueDialogProps {
   onIssueUpdated?: () => void;
 }
 
-interface AutoSaveManagerProps {
-  form: any;
-  issueId: string;
-  issue: any;
-  isInitialized: boolean;
-  isLoading: boolean;
-  onSave: (updates: any) => Promise<void>;
-}
-
-function AutoSaveManager({ form, issueId, issue, isInitialized, isLoading, onSave }: AutoSaveManagerProps) {
-  useIssueAutoSave({
-    form,
-    issueId,
-    issue,
-    isInitialized,
-    isUpdatingFromServer: isLoading,
-    onSave,
-  });
-  return null;
-}
-
 export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueDialogProps) {
   const { data: issue, isLoading } = useIssue(issueId || '', !!issueId && isOpen);
   const updateIssue = useUpdateIssue();
   const deleteIssue = useDeleteIssue();
+  const [isDeleting, setIsDeleting] = useState(false);
   const lastResetIssueIdRef = useRef<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  const handleDelete = async () => {
-    if (!issueId) return;
-    try {
-      await deleteIssue.mutateAsync(issueId);
-      onClose();
-    } catch (error) {
-      console.error('Failed to delete issue:', error);
-    }
-  };
 
   // Fetch notes for issue
   const { data: notesData } = useNotes('issues', issueId || '', !!issueId && isOpen);
@@ -115,30 +74,46 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
         status: issue.status as IssueStatus,
       });
       lastResetIssueIdRef.current = issue.id;
-      setIsInitialized(true);
+      setIsDeleting(false);
     }
   }, [issue, isOpen, isLoading, form]);
 
   useEffect(() => {
     if (!isOpen) {
       lastResetIssueIdRef.current = null;
-      setIsInitialized(false);
     }
   }, [isOpen]);
 
-  const handleAutoSave = useCallback(async (updates: Partial<FormData>) => {
+  const onSubmit = async (data: FormData) => {
     if (!issueId) return;
 
     try {
       await updateIssue.mutateAsync({
         id: issueId,
-        updates,
+        updates: {
+          name: data.name,
+          description: data.description || null,
+          status: data.status,
+        },
       });
-      // Removed onIssueUpdated?.() from auto-save to prevent parent re-renders while typing
+      onIssueUpdated?.();
+      onClose();
     } catch (error) {
-      console.error('Failed to auto-save issue:', error);
+      console.error('Failed to update issue:', error);
     }
-  }, [issueId, updateIssue]);
+  };
+
+  const handleDelete = async () => {
+    if (!issueId || !isDeleting) return;
+
+    try {
+      await deleteIssue.mutateAsync(issueId);
+      onClose();
+      onIssueUpdated?.();
+    } catch (error) {
+      console.error('Failed to delete issue:', error);
+    }
+  };
 
   if (!issueId || !isOpen) return null;
 
@@ -146,7 +121,7 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-center justify-between gap-4 w-full">
+          <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
               <Button
                 variant="outline"
@@ -158,38 +133,7 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
               </Button>
               <div className="flex-1">
                 <DialogTitle>{isLoading ? 'Loading...' : 'Edit Issue'}</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Edit the details, description, and status of this issue.
-                </DialogDescription>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
-                {updateIssue.isPending ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : updateIssue.isError ? (
-                  <>
-                    <CloudOff className="h-3 w-3 text-destructive" />
-                    <span className="text-destructive">Changes not saved</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" />
-                    <span>Saved</span>
-                  </>
-                )}
-              </div>
-              <ActionsMenu
-                type="issue"
-                onOpenInPage={() => {
-                  // For now, no specific issue detail page implemented
-                }}
-                onDelete={() => setIsDeleteDialogOpen(true)}
-              />
             </div>
           </div>
         </DialogHeader>
@@ -202,22 +146,14 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
           ) : (
             <div className="h-full flex">
               <Form {...form}>
-                <form className="flex-1 flex min-h-0">
-                  <AutoSaveManager
-                    form={form}
-                    issueId={issueId}
-                    issue={issue}
-                    isInitialized={isInitialized}
-                    isLoading={isLoading}
-                    onSave={handleAutoSave}
-                  />
+                <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex min-h-0">
                   <IssueContentPanel 
                     issue={issue}
                     isOpen={isOpen}
                   />
                   
                   <IssuePropertiesPanel
-                    form={form as any}
+                    form={form}
                     issue={issue}
                     notes={notes}
                     isOpen={isOpen}
@@ -228,36 +164,58 @@ export function IssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: IssueD
             </div>
           )}
         </div>
-      </DialogContent>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the issue
-              and all associated activity records.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleteIssue.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteIssue.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t mt-0">
+          <div className="flex items-center justify-between w-full">
+            {isDeleting ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Confirm delete?</span>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={deleteIssue.isPending}
+                >
+                  {deleteIssue.isPending ? 'Deleting...' : 'Yes, Delete'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDeleting(false)}
+                  disabled={deleteIssue.isPending}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setIsDeleting(true)}
+                disabled={deleteIssue.isPending || updateIssue.isPending || isLoading}
+              >
+                Delete
+              </Button>
+            )}
+            {!isDeleting && (
+              <div className="flex gap-2 ml-auto">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  onClick={form.handleSubmit(onSubmit as any)}
+                  disabled={updateIssue.isPending || deleteIssue.isPending || isLoading}
+                >
+                  {updateIssue.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

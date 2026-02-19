@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
-import { StudentModalSessionsTable } from './StudentModalSessionsTable';
+import { SessionsTable } from '@/features/sessions/components/SessionsTable';
 
 interface StudentSessionsTabProps {
   student: Tables<'students'>;
@@ -15,20 +15,6 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
   // View mode state
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
-  // Date filter state - default: no dates
-  const [dateRangeStart, setDateRangeStart] = useState<string>('');
-  const [dateRangeEnd, setDateRangeEnd] = useState<string>('');
-
-  // Prepare date range for API (YYYY-MM-DD format)
-  const rangeStart = dateRangeStart || undefined;
-  const rangeEnd = dateRangeEnd || undefined;
-
-  // Reset dates callback for clear button
-  const handleResetDates = useCallback(() => {
-    setDateRangeStart('');
-    setDateRangeEnd('');
-  }, []);
-
   const handleOpenSession = useCallback((sessionId: string) => {
     if (onOpenSession) {
       onOpenSession(sessionId);
@@ -37,6 +23,10 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
       window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
     }
   }, [onOpenSession]);
+
+  const handleOpenStaff = useCallback((staffId: string) => {
+    window.dispatchEvent(new CustomEvent('open-staff-modal', { detail: { id: staffId } }));
+  }, []);
 
   return (
     <div className="h-full flex flex-col space-y-4">
@@ -64,14 +54,11 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
       {/* Table View */}
       {viewMode === 'table' && (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <StudentModalSessionsTable
+          <SessionsTable
             studentId={student.id}
-            rangeStart={rangeStart}
-            rangeEnd={rangeEnd}
             onOpenSession={handleOpenSession}
-            onFromChange={setDateRangeStart}
-            onToChange={setDateRangeEnd}
-            onResetDates={handleResetDates}
+            onOpenStaff={handleOpenStaff}
+            hideStudentFilter={true}
           />
         </div>
       )}

@@ -301,6 +301,7 @@ export function ViewAdminShiftModal({
                 {adminShiftId && (
                   <ActionsMenu
                     type="adminShift"
+                    entityId={adminShiftId}
                     {...adminShiftActions}
                   />
                 )}

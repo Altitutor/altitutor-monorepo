@@ -1,13 +1,15 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useSearchTutorLogs } from './useTutorLogsQuery';
-import { useStaffSearch } from './useStaffSearch';
 import { useStaffByIds } from './useStaffByIds';
+import { useStaffSearchForFilter } from './useStaffSearchForFilter';
+import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
 import {
   extractCreatedByStaffIds,
   filterTutorLogsByStaff,
+  filterTutorLogsByStudent,
   paginateTutorLogs,
 } from '../utils/tutorLogsTableHelpers';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, DataTableState } from '@altitutor/shared';
 
 type SortField = 'session_start_at';
 type SortDirection = 'asc' | 'desc';
@@ -43,7 +45,9 @@ type TopicFileItem = {
 export interface UseTutorLogsTableParams {
   rangeStart?: string;
   rangeEnd?: string;
-  onResetDates?: () => void;
+  state?: DataTableState;
+  staffSearchQuery?: string;
+  studentSearchQuery?: string;
 }
 
 export interface UseTutorLogsTableReturn {
@@ -67,20 +71,10 @@ export interface UseTutorLogsTableReturn {
   createdByStaffMap: Record<string, { first_name: string; last_name: string }>;
   
   // Filter state
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
-  debouncedSearchTerm: string;
-  staffFilters: string[];
-  toggleStaffFilter: (staffId: string) => void;
-  staffSearchQuery: string;
-  setStaffSearchQuery: (query: string) => void;
   filteredStaff: Tables<'staff'>[];
+  filteredStudents: Tables<'students'>[];
   
   // Pagination state
-  page: number;
-  setPage: (page: number) => void;
-  pageSize: number;
-  setPageSize: (size: number) => void;
   paginatedTutorLogs: Array<{
     id: string;
     session_id: string;
@@ -89,20 +83,11 @@ export interface UseTutorLogsTableReturn {
     updated_at: string | null;
   }>;
   
-  // Sort state
-  sortField: SortField;
-  sortDirection: SortDirection;
-  handleSort: (field: SortField) => void;
-  
   // Loading/error states
   isLoading: boolean;
   isFetching: boolean;
   error: Error | null;
   refetch: () => void;
-  
-  // Actions
-  clearAllFilters: () => void;
-  isDefaultState: () => boolean;
 }
 
 /**
@@ -111,37 +96,35 @@ export interface UseTutorLogsTableReturn {
 export function useTutorLogsTable({
   rangeStart,
   rangeEnd,
-  onResetDates,
+  state,
+  staffSearchQuery = '',
+  studentSearchQuery = '',
 }: UseTutorLogsTableParams = {}): UseTutorLogsTableReturn {
-  // Filter and sort state
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
-  const [staffFilters, setStaffFilters] = useState<string[]>([]);
-  const [staffSearchQuery, setStaffSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [sortField, setSortField] = useState<SortField>('session_start_at');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  // Use state from useDataTable if provided
+  const search = state?.search || '';
+  const filters = state?.filters || {};
+  const page = state?.page || 1;
+  const pageSize = state?.pageSize || 50;
+  const sortField = (state?.sortBy as SortField) || 'session_start_at';
+  const sortDirection = state?.sortDirection || 'desc';
+  const fromFilters = (filters.from as string[]) || [];
+  const toFilters = (filters.to as string[]) || [];
+  const effectiveRangeStart = rangeStart || fromFilters[0];
+  const effectiveRangeEnd = rangeEnd || toFilters[0];
 
-  // Staff search hook
-  const { data: staffSearchResults } = useStaffSearch(staffSearchQuery);
-  // Convert StaffListItem[] to Tables<'staff'>[] by mapping to full staff records
-  // Note: StaffListItem is a subset of Tables<'staff'>, so we cast it
+  // Extract staff filters
+  const staffFilters = (filters.staff as string[]) || [];
+  const studentFilters = (filters.student as string[]) || [];
+
+  // Staff search hook (for filter options)
+  const { data: staffSearchResults } = useStaffSearchForFilter(staffSearchQuery);
+  const { data: studentSearchResults } = useStudentSearchForFilter(studentSearchQuery, ['ACTIVE', 'TRIAL']);
   const filteredStaff = useMemo(() => {
-    const staffList = staffSearchResults?.staff || [];
-    // StaffListItem has id, first_name, last_name, role, status, phone_number, email
-    // Tables<'staff'> has all these plus more fields, but we can safely cast since
-    // we're only using the fields that exist in StaffListItem
-    return staffList as unknown as Tables<'staff'>[];
+    return (staffSearchResults?.staff || []) as Tables<'staff'>[];
   }, [staffSearchResults?.staff]);
-
-  const toggleStaffFilter = useCallback((staffId: string) => {
-    setStaffFilters((prev) =>
-      prev.includes(staffId)
-        ? prev.filter((id) => id !== staffId)
-        : [...prev, staffId]
-    );
-  }, []);
+  const filteredStudents = useMemo(() => {
+    return (studentSearchResults?.students || []) as Tables<'students'>[];
+  }, [studentSearchResults?.students]);
 
   // Determine which staff filter to use for API call
   const apiStaffId = staffFilters.length === 1 ? staffFilters[0] : undefined;
@@ -154,9 +137,9 @@ export function useTutorLogsTable({
     refetch,
     isFetching,
   } = useSearchTutorLogs({
-    rangeStart: rangeStart || undefined,
-    rangeEnd: rangeEnd || undefined,
-    search: debouncedSearchTerm,
+    rangeStart: effectiveRangeStart || undefined,
+    rangeEnd: effectiveRangeEnd || undefined,
+    search: search,
     staffId: apiStaffId,
     limit: 10000, // High limit to get all
     offset: 0,
@@ -232,59 +215,14 @@ export function useTutorLogsTable({
 
   // Filter tutor logs (client-side filtering for multiple staff)
   const filteredTutorLogs = useMemo(() => {
-    return filterTutorLogsByStaff(tutorLogs, staffFilters, staffAttendance);
-  }, [tutorLogs, staffFilters, staffAttendance]);
+    const staffFiltered = filterTutorLogsByStaff(tutorLogs, staffFilters, staffAttendance);
+    return filterTutorLogsByStudent(staffFiltered, studentFilters, studentAttendance);
+  }, [tutorLogs, staffFilters, staffAttendance, studentFilters, studentAttendance]);
 
   // Paginated tutor logs
   const paginatedTutorLogs = useMemo(() => {
     return paginateTutorLogs(filteredTutorLogs, page, pageSize);
   }, [filteredTutorLogs, page, pageSize]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [staffFilters, debouncedSearchTerm, rangeStart, rangeEnd]);
-
-  const handleSort = useCallback(
-    (field: SortField) => {
-      if (sortField === field) {
-        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-      } else {
-        setSortField(field);
-        setSortDirection('desc');
-      }
-    },
-    [sortField]
-  );
-
-  // Debounce search term
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
-
-  const isDefaultState = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return (
-      staffFilters.length === 0 &&
-      !searchTerm &&
-      (!rangeStart || rangeStart === today) &&
-      (!rangeEnd || rangeEnd === today)
-    );
-  }, [staffFilters.length, searchTerm, rangeStart, rangeEnd]);
-
-  const clearAllFilters = useCallback(() => {
-    setStaffFilters([]);
-    setSearchTerm('');
-    setStaffSearchQuery('');
-    setPage(1);
-    if (onResetDates) {
-      onResetDates();
-    }
-  }, [onResetDates]);
 
   return {
     tutorLogs,
@@ -298,27 +236,12 @@ export function useTutorLogsTable({
     topics,
     topicFiles,
     createdByStaffMap,
-    searchTerm,
-    setSearchTerm,
-    debouncedSearchTerm,
-    staffFilters,
-    toggleStaffFilter,
-    staffSearchQuery,
-    setStaffSearchQuery,
     filteredStaff,
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
+    filteredStudents,
     paginatedTutorLogs,
-    sortField,
-    sortDirection,
-    handleSort,
     isLoading,
     isFetching,
     error: error as Error | null,
     refetch,
-    clearAllFilters,
-    isDefaultState,
   };
 }

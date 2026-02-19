@@ -35,6 +35,7 @@ export default function DashboardPage() {
     openAnnouncementsModal,
     closeAnnouncementsModal,
     openCreateTaskDialog,
+    openCreateIssueDialog,
     openBookingModal,
     closeBookingModal,
   } = useQuickActions();
@@ -156,6 +157,8 @@ export default function DashboardPage() {
                     openLogAbsenceDialog();
                   } else if (action.actionType === 'log-staff-absence') {
                     openLogStaffAbsenceDialog();
+                  } else if (action.actionType === 'create-issue') {
+                    openCreateIssueDialog();
                   }
                 };
 

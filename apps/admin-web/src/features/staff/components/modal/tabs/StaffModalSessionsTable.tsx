@@ -14,10 +14,13 @@ import { Badge } from '@altitutor/ui';
 import { SkeletonTable } from '@altitutor/ui';
 import { ArrowUpDown } from 'lucide-react';
 import { formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
+import { cn } from '@/shared/utils/index';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useSessionsTable } from '@/features/sessions/hooks/useSessionsTable';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import type { DataTableState } from '@altitutor/shared';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { processStaffSessionData } from '@/features/sessions/utils/modalSessionProcessing';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components/absences/LogStaffAbsenceDialog';
@@ -29,8 +32,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Calendar, FileText } from 'lucide-react';
+import { MoreVertical, ExternalLink, Calendar, FileText, Copy } from 'lucide-react';
+import { createTagMarker } from '@/shared/utils/tagParsing';
 
 type StaffModalSessionsTableProps = {
   staffId: string;
@@ -51,6 +56,7 @@ export function StaffModalSessionsTable({
   onResetDates,
   onOpenSession,
 }: StaffModalSessionsTableProps) {
+  const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
   const [actionSessionId, setActionSessionId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
@@ -60,12 +66,22 @@ export function StaffModalSessionsTable({
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
 
   const {
-    searchTerm,
-    toggleSort,
-    page,
+    state,
+    setSearch,
+    setSort,
+    setFilters,
     setPage,
-    pageSize,
     setPageSize,
+    setVisibleColumns,
+    applyQuickFilter,
+    resetFilters,
+  } = useDataTable({
+    defaultSort: { field: 'start_at', direction: 'desc' },
+    pageSize: 50,
+    skipUrlSync: true,
+  });
+
+  const {
     allSessions,
     filteredSessions,
     paginatedSessions,
@@ -86,6 +102,7 @@ export function StaffModalSessionsTable({
     rangeEnd,
     hideStudentFilter: true,
     onResetDates,
+    state,
   });
 
   // Process sessions with staff-specific attendance data
@@ -115,6 +132,22 @@ export function StaffModalSessionsTable({
     e.stopPropagation();
     setSelectedClassId(classId);
     setIsClassModalOpen(true);
+  };
+
+  const handleCopySessionId = async (sessionId: string, displayText: string) => {
+    try {
+      await navigator.clipboard.writeText(createTagMarker('session', sessionId, displayText || sessionId));
+      toast({
+        title: 'Copied ID',
+        description: 'Copied taggable ID to clipboard',
+      });
+    } catch {
+      toast({
+        title: 'Failed to copy',
+        description: 'Please try again',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Loading state
@@ -162,9 +195,15 @@ export function StaffModalSessionsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={toggleSort}>
+              <TableHead 
+                className="cursor-pointer" 
+                onClick={() => setSort('start_at', state.sortBy === 'start_at' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
+              >
                 Date
-                <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-100" />
+                <ArrowUpDown className={cn(
+                  "ml-2 h-4 w-4 inline",
+                  state.sortBy === 'start_at' ? "opacity-100" : "opacity-40"
+                )} />
               </TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Class</TableHead>
@@ -178,7 +217,7 @@ export function StaffModalSessionsTable({
             {processedSessions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-24">
-                  {searchTerm ? 'No sessions match your search' : 'No sessions found'}
+                  {state.search ? 'No sessions match your search' : 'No sessions found'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -258,6 +297,10 @@ export function StaffModalSessionsTable({
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Open in page
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCopySessionId(session.id, getClassShortDisplayName(session) || session.id)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy ID
+                          </DropdownMenuItem>
                           {!tutorLogs[session.id] && (
                             <DropdownMenuItem onClick={() => {
                               setLogSessionId(session.id);
@@ -288,17 +331,12 @@ export function StaffModalSessionsTable({
       </div>
 
       <TablePagination
-        page={page}
-        pageSize={pageSize}
+        page={state.page}
+        pageSize={state.pageSize}
         total={filteredSessions.length}
         isFetching={isFetching}
-        onPageChange={(newPage) => {
-          setPage(newPage);
-        }}
-        onPageSizeChange={(newSize) => {
-          setPageSize(newSize);
-          setPage(1);
-        }}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
 
       {/* Class Modal */}

@@ -196,6 +196,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                   {sessionId && (
                     <ActionsMenu
                       type="session"
+                      entityId={sessionId}
+                      copyTagDisplayText={sessionTitle || sessionId}
                       {...sessionActions}
                     />
                   )}

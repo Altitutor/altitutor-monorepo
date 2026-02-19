@@ -9,6 +9,7 @@ import {
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
 import { useUpdateIssue } from '../api/mutations';
+import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditIssueDialog } from './EditIssueDialog';
 import { CreateIssueDialog } from './CreateIssueDialog';
 import { cn } from '@/shared/utils';
@@ -77,7 +78,7 @@ export function IssuesList() {
       <EntityList<IssueWithTags>
         items={issues}
         getItemId={(i) => i.id}
-        renderName={(i) => <span>{i.name}</span>}
+        renderName={(i) => <TextWithTags text={i.name} />}
         statusColumn={statusColumn as any}
         rightPills={[]}
         onAdd={handleAdd}

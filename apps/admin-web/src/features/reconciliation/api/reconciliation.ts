@@ -171,9 +171,13 @@ export const reconciliationApi = {
           .select(`
             staff_id,
             type,
-            staff:staff(id, first_name, last_name, email)
+            staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name, email)
           `)
           .eq('session_id', session.id);
+
+        if (!staffData) {
+          // keep null fallback behavior when there are no assignments
+        }
         
         const assignedTutors = staffData?.map(s => ({
           id: (s.staff as any)?.id ?? s.staff_id,
@@ -587,16 +591,19 @@ export const reconciliationApi = {
     
     if (sessionsStudentsError) throw sessionsStudentsError;
     
-    // Build a map of student_id -> first trial session date
-    const studentFirstTrialSessionMap = new Map<string, string>();
+    // Build a map of student_id -> first trial session date + session id
+    const studentFirstTrialSessionMap = new Map<string, { date: string; sessionId: string }>();
     if (sessionsStudentsData) {
       sessionsStudentsData.forEach((item) => {
         const session = item.sessions as { start_at: string } | null;
         if (session?.start_at) {
           const studentId = item.student_id;
-          const existingDate = studentFirstTrialSessionMap.get(studentId);
-          if (!existingDate || new Date(session.start_at) < new Date(existingDate)) {
-            studentFirstTrialSessionMap.set(studentId, session.start_at);
+          const existing = studentFirstTrialSessionMap.get(studentId);
+          if (!existing || new Date(session.start_at) < new Date(existing.date)) {
+            studentFirstTrialSessionMap.set(studentId, {
+              date: session.start_at,
+              sessionId: item.session_id,
+            });
           }
         }
       });
@@ -629,7 +636,8 @@ export const reconciliationApi = {
       phone: student.phone,
       student_status: student.status,
       user_id: student.user_id,
-      first_trial_session_date: studentFirstTrialSessionMap.get(student.id) ?? null,
+      first_trial_session_date: studentFirstTrialSessionMap.get(student.id)?.date ?? null,
+      first_trial_session_id: studentFirstTrialSessionMap.get(student.id)?.sessionId ?? null,
       created_at: student.created_at ?? '',
       updated_at: student.updated_at ?? '',
     })) as TrialStudentNotSignedUp[];

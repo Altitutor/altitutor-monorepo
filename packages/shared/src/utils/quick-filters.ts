@@ -1,11 +1,9 @@
 import { 
-  startOfDay, 
-  endOfDay, 
+  format,
   addDays, 
   subDays, 
   startOfWeek, 
-  endOfWeek, 
-  formatISO 
+  endOfWeek
 } from 'date-fns';
 import { QuickFilterConfig } from '../types/quick-filters';
 
@@ -14,12 +12,7 @@ import { QuickFilterConfig } from '../types/quick-filters';
  * 
  * Supported placeholders:
  * - $ME$: Current user's ID
- * - $TODAY$: Range from start to end of today
- * - $TOMORROW$: Range from start to end of tomorrow
- * - $YESTERDAY$: Range from start to end of yesterday
- * - $FUTURE$: Range starting from now
- * - $PAST$: Range ending at now
- * - $THIS_WEEK$: Range from start of this week (Monday) to end of week (Sunday)
+ * - Date placeholders resolve to YYYY-MM-DD values for from/to keys
  */
 export function resolveQuickFilterPlaceholders(
   config: QuickFilterConfig,
@@ -27,6 +20,12 @@ export function resolveQuickFilterPlaceholders(
 ): QuickFilterConfig {
   const resolved: QuickFilterConfig = {};
   const now = new Date();
+  const mondayThisWeek = startOfWeek(now, { weekStartsOn: 1 });
+  const sundayThisWeek = endOfWeek(now, { weekStartsOn: 1 });
+
+  const formatDate = (date: Date) => format(date, 'yyyy-MM-dd');
+  const isFromKey = (key: string) => key.toLowerCase() === 'from' || key.toLowerCase().endsWith('_from');
+  const isToKey = (key: string) => key.toLowerCase() === 'to' || key.toLowerCase().endsWith('_to');
 
   for (const [key, values] of Object.entries(config)) {
     resolved[key] = values.map((val) => {
@@ -36,41 +35,21 @@ export function resolveQuickFilterPlaceholders(
         case '$ME$':
           return currentUserId || val;
         case '$TODAY$':
-          return {
-            start: formatISO(startOfDay(now)),
-            end: formatISO(endOfDay(now)),
-            type: 'date_range'
-          };
+          return formatDate(now);
         case '$TOMORROW$':
-          return {
-            start: formatISO(startOfDay(addDays(now, 1))),
-            end: formatISO(endOfDay(addDays(now, 1))),
-            type: 'date_range'
-          };
+          return formatDate(addDays(now, 1));
         case '$YESTERDAY$':
-          return {
-            start: formatISO(startOfDay(subDays(now, 1))),
-            end: formatISO(endOfDay(subDays(now, 1))),
-            type: 'date_range'
-          };
+          return formatDate(subDays(now, 1));
         case '$FUTURE$':
-          return {
-            start: formatISO(now),
-            operator: 'gte',
-            type: 'date_range'
-          };
+          return isFromKey(key) ? formatDate(now) : val;
         case '$PAST$':
-          return {
-            end: formatISO(now),
-            operator: 'lte',
-            type: 'date_range'
-          };
+          return isToKey(key) ? formatDate(now) : val;
         case '$THIS_WEEK$':
-          return {
-            start: formatISO(startOfWeek(now, { weekStartsOn: 1 })), // Monday
-            end: formatISO(endOfWeek(now, { weekStartsOn: 1 })),     // Sunday
-            type: 'date_range'
-          };
+          return isToKey(key) ? formatDate(sundayThisWeek) : formatDate(mondayThisWeek);
+        case '$MONDAY_THIS_WEEK$':
+          return formatDate(mondayThisWeek);
+        case '$SUNDAY_THIS_WEEK$':
+          return formatDate(sundayThisWeek);
         default:
           return val;
       }

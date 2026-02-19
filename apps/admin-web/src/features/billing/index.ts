@@ -15,4 +15,4 @@ export * from './hooks/useInvoiceData';
 export * from './hooks/useInvoiceModals';
 export * from './hooks/useInvoiceActions';
 export * from './utils/invoiceFormatters';
-
+export * from './utils/invoiceTagText';

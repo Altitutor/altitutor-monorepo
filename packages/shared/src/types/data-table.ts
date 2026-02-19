@@ -6,7 +6,10 @@ export interface DataTableFilterOption<TValue = unknown> {
 export interface DataTableFilterDefinition<TValue = unknown> {
   key: string;
   label: string;
-  options: DataTableFilterOption<TValue>[];
+  options?: DataTableFilterOption<TValue>[];
+  type?: 'multi-select' | 'date';
+  searchable?: boolean;
+  searchPlaceholder?: string;
   filterable?: boolean;
 }
 

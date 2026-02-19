@@ -385,6 +385,7 @@ export function TasksList({
         }}
         hideToolbar={hideToolbar}
         noPadding={noPadding}
+        compact={compact}
       />
 
       {selectedTaskId && (
