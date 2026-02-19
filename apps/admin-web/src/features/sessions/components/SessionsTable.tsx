@@ -14,12 +14,20 @@ import {
   SkeletonTable,
   DataTableToolbar,
   TablePagination,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@altitutor/ui";
 import { 
   ArrowUpDown,
   Check,
   X,
   Search,
+  MoreVertical,
+  ExternalLink,
+  Copy,
+  Calendar,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
@@ -36,6 +44,7 @@ import { useSessionsTable } from '../hooks/useSessionsTable';
 import { getInvoiceStatusBadgeVariant } from '../utils/sessionsTableHelpers';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { LogAbsenceDialog } from './absences';
 
 type SessionsTableProps = {
   studentId?: string;
@@ -223,6 +232,8 @@ export function SessionsTable({
 
   // Modal state (UI-specific, stays in component)
   const [actionSessionId, setActionSessionId] = useState<string | null>(null);
+  const [studentAbsenceSessionId, setStudentAbsenceSessionId] = useState<string | null>(null);
+  const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [selectedSessionForReschedule, setSelectedSessionForReschedule] =
@@ -370,6 +381,11 @@ export function SessionsTable({
     e.stopPropagation();
     setSelectedClassId(classId);
     setIsClassModalOpen(true);
+  };
+
+  const handleCopySessionId = async (id: string, displayText: string) => {
+    const sanitizedDisplay = displayText.replace(/\]/g, '');
+    await navigator.clipboard.writeText(`@[session:${id}:${sanitizedDisplay}]`);
   };
 
   // Loading state
@@ -730,7 +746,49 @@ export function SessionsTable({
                     </TableCell>
                   )}
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    {(() => {
+                    {isStudentAttendanceView ? (() => {
+                      const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
+                      const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
+                      const canLogAbsence = !!selectedStudent && selectedStudent.invoice_status !== 'paid';
+                      const canOpenAbsenceDialog = !!currentStaff && !!studentId;
+
+                      return (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="shrink-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              router.push(`/sessions/${session.id}`);
+                            }}>
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Open in page
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => {
+                              await handleCopySessionId(session.id, getClassShortDisplayName(session) || session.id);
+                            }}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy ID
+                            </DropdownMenuItem>
+                            {canLogAbsence && (
+                              <DropdownMenuItem
+                                disabled={!canOpenAbsenceDialog}
+                                onClick={() => {
+                                  if (!canOpenAbsenceDialog) return;
+                                  setStudentAbsenceSessionId(session.id);
+                                  setIsLogAbsenceDialogOpen(true);
+                                }}
+                              >
+                                <Calendar className="h-4 w-4 mr-2" />
+                                Log student absence
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      );
+                    })() : (() => {
                       const sessionCanReschedule = canReschedule(session);
                       const rescheduleStudentId = getRescheduleStudentId(session.id);
                       
@@ -813,6 +871,22 @@ export function SessionsTable({
           currentStaffId={currentStaff.id}
           adminMode={true}
           initialSessionId={actionSessionId}
+        />
+      )}
+
+      {/* Log Student Absence Dialog (student attendance view) */}
+      {currentStaff && studentAbsenceSessionId && studentId && (
+        <LogAbsenceDialog
+          isOpen={isLogAbsenceDialogOpen}
+          onClose={async () => {
+            setIsLogAbsenceDialogOpen(false);
+            setStudentAbsenceSessionId(null);
+            await refetch();
+          }}
+          staffId={currentStaff.id}
+          initialStudentId={studentId}
+          initialSessionId={studentAbsenceSessionId}
+          allowPastSessions={true}
         />
       )}
 
