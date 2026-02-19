@@ -57,7 +57,7 @@ type SessionsTableProps = {
   hideClassColumn?: boolean; // Hide Class column
   hideStudentsColumn?: boolean; // Hide Students column
   initialStudentFilters?: string[]; // Initial student filters (for external filter control)
-  showAttendanceBreakdown?: boolean; // Show planned and actual attendance badges per person
+  attendanceView?: 'student' | 'staff'; // Specialized attendance table mode for student/staff tabs
 };
 
 type SessionTableStudent = Tables<'students'> & {
@@ -184,15 +184,25 @@ export function SessionsTable({
   hideClassColumn = false,
   hideStudentsColumn = false,
   initialStudentFilters = [],
-  showAttendanceBreakdown = false,
+  attendanceView,
 }: SessionsTableProps) {
+  const isStudentAttendanceView = attendanceView === 'student';
+  const isStaffAttendanceView = attendanceView === 'staff';
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('sessions');
   
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'start_at', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['date', 'time', 'class', 'staff', 'students', 'tutor_log'], []);
+  const defaultVisibleColumns = useMemo(() => {
+    if (isStudentAttendanceView) {
+      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'invoice'];
+    }
+    if (isStaffAttendanceView) {
+      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'tutor_log'];
+    }
+    return ['date', 'time', 'class', 'staff', 'students', 'tutor_log'];
+  }, [isStaffAttendanceView, isStudentAttendanceView]);
 
   const {
     state,
@@ -316,14 +326,36 @@ export function SessionsTable({
     { key: 'start_at', label: 'Date' },
   ];
 
-  const columnDefinitions: DataTableColumnDefinition[] = [
-    { key: 'date', label: 'Date' },
-    { key: 'time', label: 'Time' },
-    { key: 'class', label: 'Class' },
-    { key: 'staff', label: 'Staff' },
-    { key: 'students', label: 'Students' },
-    { key: 'tutor_log', label: 'Tutor Log' },
-  ];
+  const columnDefinitions: DataTableColumnDefinition[] = useMemo(() => {
+    if (isStudentAttendanceView) {
+      return [
+        { key: 'date', label: 'Date' },
+        { key: 'time', label: 'Time' },
+        { key: 'class', label: 'Class' },
+        { key: 'planned_attendance', label: 'Planned Attendance' },
+        { key: 'actual_attendance', label: 'Actual Attendance' },
+        { key: 'invoice', label: 'Invoice' },
+      ];
+    }
+    if (isStaffAttendanceView) {
+      return [
+        { key: 'date', label: 'Date' },
+        { key: 'time', label: 'Time' },
+        { key: 'class', label: 'Class' },
+        { key: 'planned_attendance', label: 'Planned Attendance' },
+        { key: 'actual_attendance', label: 'Actual Attendance' },
+        { key: 'tutor_log', label: 'Tutor Log' },
+      ];
+    }
+    return [
+      { key: 'date', label: 'Date' },
+      { key: 'time', label: 'Time' },
+      { key: 'class', label: 'Class' },
+      { key: 'staff', label: 'Staff' },
+      { key: 'students', label: 'Students' },
+      { key: 'tutor_log', label: 'Tutor Log' },
+    ];
+  }, [isStaffAttendanceView, isStudentAttendanceView]);
 
   // Reset to page 1 when search term or filters change
   useEffect(() => {
@@ -429,10 +461,13 @@ export function SessionsTable({
               {state.visibleColumns.includes('class') && !classId && !hideClassColumn && !hideTypeColumn && (
                 <TableHead>Class</TableHead>
               )}
-              {state.visibleColumns.includes('staff') && <TableHead>Staff</TableHead>}
-              {state.visibleColumns.includes('students') && !hideStudentsColumn && (
+              {state.visibleColumns.includes('staff') && !isStudentAttendanceView && !isStaffAttendanceView && <TableHead>Staff</TableHead>}
+              {state.visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView && (
                 <TableHead>Students</TableHead>
               )}
+              {state.visibleColumns.includes('planned_attendance') && <TableHead>Planned Attendance</TableHead>}
+              {state.visibleColumns.includes('actual_attendance') && <TableHead>Actual Attendance</TableHead>}
+              {state.visibleColumns.includes('invoice') && <TableHead>Invoice</TableHead>}
               {state.visibleColumns.includes('tutor_log') && <TableHead>Tutor Log</TableHead>}
               <TableHead></TableHead>
             </TableRow>
@@ -499,18 +534,16 @@ export function SessionsTable({
                     </div>
                   </TableCell>
                   )}
-                  {state.visibleColumns.includes('staff') && (
+                  {state.visibleColumns.includes('staff') && !isStudentAttendanceView && !isStaffAttendanceView && (
                     <TableCell>
                       {(() => {
                         const staffList = (sessionStaff[session.id] || []) as SessionTableStaff[];
-                        const hasTutorLog = !!tutorLogs[session.id];
                         if (!staffList.length) return <span className="text-muted-foreground text-sm">-</span>;
                         return (
                           <div className="flex flex-col gap-1">
                             {staffList.map((s) => {
                               const planned_absence = s.planned_absence === true;
                               const nameClass = planned_absence ? "text-muted-foreground line-through" : "";
-                              const attendance = getStaffAttendanceStatus(s, hasTutorLog);
                               
                               return (
                                 <div key={s.id} className="flex items-center gap-2 flex-wrap">
@@ -522,33 +555,11 @@ export function SessionsTable({
                                   >
                                     {s.first_name} {s.last_name}
                                   </Button>
-                                  {showAttendanceBreakdown ? (
-                                    <>
-                                      <AttendanceCell
-                                        status={attendance.plannedStatus}
-                                        linkTo={
-                                          attendance.plannedStatus === 'swapped' && attendance.swappedStaffId
-                                            ? {
-                                                type: 'staff',
-                                                id: attendance.swappedStaffId,
-                                                onClick: () => (onOpenStaff as any)?.(attendance.swappedStaffId),
-                                              }
-                                            : undefined
-                                        }
-                                        linkText={attendance.swappedStaffName}
-                                      />
-                                      <AttendanceCell
-                                        status={attendance.actualStatus}
-                                        staffType={s.actual_type ?? undefined}
-                                      />
-                                    </>
-                                  ) : (
-                                    s.actual_attended !== null && (
-                                      s.actual_attended ? (
-                                        <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                      ) : (
-                                        <X className="h-3 w-3 text-red-600 flex-shrink-0" />
-                                      )
+                                  {s.actual_attended !== null && (
+                                    s.actual_attended ? (
+                                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                    ) : (
+                                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
                                     )
                                   )}
                                 </div>
@@ -559,16 +570,10 @@ export function SessionsTable({
                       })()}
                     </TableCell>
                   )}
-                  {state.visibleColumns.includes('students') && !hideStudentsColumn && (
+                  {state.visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView && (
                     <TableCell>
                       {(() => {
                         const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
-                        const hasTutorLog = !!tutorLogs[session.id];
-                        const plannedStudentIds = new Set(
-                          studentList
-                            .filter((student) => student.sessions_students_id !== null && student.sessions_students_id !== undefined)
-                            .map((student) => student.id)
-                        );
                         if (!studentList.length) return <span className="text-muted-foreground text-sm">-</span>;
                         
                         return (
@@ -582,7 +587,6 @@ export function SessionsTable({
                                 : isExtra
                                 ? "text-orange-600 dark:text-orange-400"
                                 : "";
-                              const attendance = getStudentAttendanceStatus(s, hasTutorLog, plannedStudentIds);
                               
                               const badgeInfo = getInvoiceStatusBadgeVariant(invoiceStatus);
                               
@@ -596,30 +600,11 @@ export function SessionsTable({
                                   >
                                     {s.first_name} {s.last_name}
                                   </Button>
-                                  {showAttendanceBreakdown ? (
-                                    <>
-                                      <AttendanceCell
-                                        status={attendance.plannedStatus}
-                                        linkTo={
-                                          attendance.plannedStatus === 'rescheduled' && attendance.rescheduledSessionId
-                                            ? {
-                                                type: 'session',
-                                                id: attendance.rescheduledSessionId,
-                                                onClick: () => onOpenSession?.(attendance.rescheduledSessionId),
-                                              }
-                                            : undefined
-                                        }
-                                        linkText={attendance.rescheduledDate}
-                                      />
-                                      <AttendanceCell status={attendance.actualStatus} />
-                                    </>
-                                  ) : (
-                                    s.actual_attended !== null && (
-                                      s.actual_attended ? (
-                                        <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                      ) : (
-                                        <X className="h-3 w-3 text-red-600 flex-shrink-0" />
-                                      )
+                                  {s.actual_attended !== null && (
+                                    s.actual_attended ? (
+                                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                    ) : (
+                                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
                                     )
                                   )}
                                   {!hideBilling && badgeInfo && (
@@ -632,6 +617,103 @@ export function SessionsTable({
                             })}
                           </div>
                         );
+                      })()}
+                    </TableCell>
+                  )}
+                  {state.visibleColumns.includes('planned_attendance') && (
+                    <TableCell>
+                      {(() => {
+                        if (isStudentAttendanceView) {
+                          const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
+                          const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
+                          if (!selectedStudent) return <span className="text-muted-foreground text-sm">-</span>;
+                          const plannedStudentIds = new Set(
+                            studentList
+                              .filter((student) => student.sessions_students_id !== null && student.sessions_students_id !== undefined)
+                              .map((student) => student.id)
+                          );
+                          const attendance = getStudentAttendanceStatus(selectedStudent, !!tutorLogs[session.id], plannedStudentIds);
+                          return (
+                            <AttendanceCell
+                              status={attendance.plannedStatus}
+                              linkTo={
+                                attendance.plannedStatus === 'rescheduled' && attendance.rescheduledSessionId
+                                  ? {
+                                      type: 'session',
+                                      id: attendance.rescheduledSessionId,
+                                      onClick: () => onOpenSession?.(attendance.rescheduledSessionId),
+                                    }
+                                  : undefined
+                              }
+                              linkText={attendance.rescheduledDate}
+                            />
+                          );
+                        }
+
+                        if (isStaffAttendanceView) {
+                          const staffList = (sessionStaff[session.id] || []) as SessionTableStaff[];
+                          const selectedStaff = staffList.find((s) => s.id === staffId) || staffList[0];
+                          if (!selectedStaff) return <span className="text-muted-foreground text-sm">-</span>;
+                          const attendance = getStaffAttendanceStatus(selectedStaff, !!tutorLogs[session.id]);
+                          return (
+                            <AttendanceCell
+                              status={attendance.plannedStatus}
+                              linkTo={
+                                attendance.plannedStatus === 'swapped' && attendance.swappedStaffId
+                                  ? {
+                                      type: 'staff',
+                                      id: attendance.swappedStaffId,
+                                      onClick: () => onOpenStaff?.(attendance.swappedStaffId),
+                                    }
+                                  : undefined
+                              }
+                              linkText={attendance.swappedStaffName}
+                            />
+                          );
+                        }
+
+                        return <span className="text-muted-foreground text-sm">-</span>;
+                      })()}
+                    </TableCell>
+                  )}
+                  {state.visibleColumns.includes('actual_attendance') && (
+                    <TableCell>
+                      {(() => {
+                        if (isStudentAttendanceView) {
+                          const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
+                          const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
+                          if (!selectedStudent) return <span className="text-muted-foreground text-sm">-</span>;
+                          const plannedStudentIds = new Set(
+                            studentList
+                              .filter((student) => student.sessions_students_id !== null && student.sessions_students_id !== undefined)
+                              .map((student) => student.id)
+                          );
+                          const attendance = getStudentAttendanceStatus(selectedStudent, !!tutorLogs[session.id], plannedStudentIds);
+                          return <AttendanceCell status={attendance.actualStatus} />;
+                        }
+
+                        if (isStaffAttendanceView) {
+                          const staffList = (sessionStaff[session.id] || []) as SessionTableStaff[];
+                          const selectedStaff = staffList.find((s) => s.id === staffId) || staffList[0];
+                          if (!selectedStaff) return <span className="text-muted-foreground text-sm">-</span>;
+                          const attendance = getStaffAttendanceStatus(selectedStaff, !!tutorLogs[session.id]);
+                          return <AttendanceCell status={attendance.actualStatus} staffType={selectedStaff.actual_type ?? undefined} />;
+                        }
+
+                        return <span className="text-muted-foreground text-sm">-</span>;
+                      })()}
+                    </TableCell>
+                  )}
+                  {state.visibleColumns.includes('invoice') && (
+                    <TableCell>
+                      {(() => {
+                        const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
+                        const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
+                        const status = selectedStudent?.invoice_status || null;
+                        if (!status) return <span className="text-xs text-muted-foreground">-</span>;
+                        const badgeInfo = getInvoiceStatusBadgeVariant(status);
+                        if (!badgeInfo) return <span className="text-xs text-muted-foreground">-</span>;
+                        return <Badge variant={badgeInfo.variant} className="text-xs">{badgeInfo.label}</Badge>;
                       })()}
                     </TableCell>
                   )}

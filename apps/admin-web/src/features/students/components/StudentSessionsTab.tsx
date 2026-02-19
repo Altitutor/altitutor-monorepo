@@ -59,7 +59,7 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
             onOpenSession={handleOpenSession}
             onOpenStaff={handleOpenStaff}
             hideStudentFilter={true}
-            showAttendanceBreakdown={true}
+            attendanceView="student"
           />
         </div>
       )}
