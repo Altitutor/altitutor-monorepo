@@ -235,7 +235,6 @@ export function Step2StaffAttendance({
                   <StaffCard
                     staff={staffMember}
                     showSubjects={false}
-                    showActions={false}
                   />
                 </div>
               ))}

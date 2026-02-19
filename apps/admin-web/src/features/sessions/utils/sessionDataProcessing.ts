@@ -3,6 +3,8 @@ import type { Tables } from '@altitutor/shared';
 
 export type ProcessedStudentData = {
   student: Tables<'students'>;
+  sessionsStudentsId: string | null;
+  rescheduledSessionsStudentsId: string | null;
   plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' | 'attending-trial' | 'attending-extra-trial';
   actualStatus: 'not-logged' | 'attended' | 'did-not-attend' | 'attended-trial';
   rescheduledDate: string;
@@ -14,6 +16,8 @@ export type ProcessedStudentData = {
 
 export type ProcessedStaffData = {
   staff: Tables<'staff'>;
+  sessionsStaffId: string | null;
+  swappedSessionsStaffId: string | null;
   plannedStatus: 'attending' | 'absent' | 'swapped';
   actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
   staffType?: string;
@@ -44,6 +48,7 @@ type SessionStudentItem = {
   student_id: string;
   student: Tables<'students'>;
   sessions_students_id?: string | null;
+  rescheduled_sessions_students_id?: string | null;
   planned_absence?: boolean;
   is_extra?: boolean;
   was_trial?: boolean;
@@ -62,10 +67,12 @@ type SessionStudentItem = {
 };
 
 type SessionStaffItem = {
+  id?: string;
   staff_id: string;
   staff: Tables<'staff'>;
   planned_absence?: boolean;
   is_swapped?: boolean;
+  swapped_sessions_staff_id?: string | null;
   swapped_staff?: {
     id: string;
     first_name: string;
@@ -156,6 +163,8 @@ export function processSessionStudents(
 
     return {
       student: ss.student,
+      sessionsStudentsId: ss.sessions_students_id ?? null,
+      rescheduledSessionsStudentsId: ss.rescheduled_sessions_students_id ?? null,
       plannedStatus,
       actualStatus,
       rescheduledDate,
@@ -201,6 +210,8 @@ export function processSessionStaff(
 
     return {
       staff: sf.staff,
+      sessionsStaffId: sf.id ?? null,
+      swappedSessionsStaffId: sf.swapped_sessions_staff_id ?? null,
       plannedStatus,
       actualStatus,
       staffType: actualAttendance?.type,

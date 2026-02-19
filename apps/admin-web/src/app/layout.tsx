@@ -12,6 +12,7 @@ import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
 import { MentionModalProvider } from '@/shared/components/MentionModalProvider';
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
+import { QuickActionsProvider } from '@/shared/contexts/QuickActionsContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -48,12 +49,14 @@ export default function RootLayout({
                   <MobileMenuProvider>
                     <CommandPaletteProvider>
                       <MentionModalProvider>
-                        <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
-                          <ConditionalNavbar />
-                          <MainContentWrapper>
-                            {children}
-                          </MainContentWrapper>
-                        </div>
+                        <QuickActionsProvider>
+                          <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                            <ConditionalNavbar />
+                            <MainContentWrapper>
+                              {children}
+                            </MainContentWrapper>
+                          </div>
+                        </QuickActionsProvider>
                       </MentionModalProvider>
                     </CommandPaletteProvider>
                   </MobileMenuProvider>

@@ -8,6 +8,7 @@ export const notesKeys = {
     [...notesKeys.lists(), filters] as const,
   details: () => [...notesKeys.all, 'detail'] as const,
   detail: (id: string) => [...notesKeys.details(), id] as const,
+  daily: (date: string) => [...notesKeys.all, 'daily', date] as const,
 };
 
 export const foldersKeys = {

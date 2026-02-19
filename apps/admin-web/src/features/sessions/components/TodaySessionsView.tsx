@@ -8,25 +8,25 @@ export type ViewMode = 'calendar' | 'table';
 
 type TodaySessionsViewProps = {
   viewMode: ViewMode;
+  date?: string;
   onOpenSession?: (id: string) => void;
   onOpenStudent?: (id: string) => void;
   onOpenStaff?: (id: string) => void;
 };
 
-export function TodaySessionsView({ viewMode, onOpenSession, onOpenStudent, onOpenStaff }: TodaySessionsViewProps) {
-  const today = new Date();
-  const todayStr = format(today, 'yyyy-MM-dd');
+export function TodaySessionsView({ date, viewMode, onOpenSession, onOpenStudent, onOpenStaff }: TodaySessionsViewProps) {
+  const dateStr = date || format(new Date(), 'yyyy-MM-dd');
 
   return (
     <div className="flex flex-col">
       {/* Render view based on mode */}
       <div>
         {viewMode === 'calendar' ? (
-          <TodaySessionsCalendarView onOpenSession={onOpenSession} />
+          <TodaySessionsCalendarView date={dateStr} onOpenSession={onOpenSession} />
         ) : (
           <SessionsTable 
-            rangeStart={todayStr}
-            rangeEnd={todayStr}
+            rangeStart={dateStr}
+            rangeEnd={dateStr}
             onOpenSession={onOpenSession}
             onOpenStudent={onOpenStudent}
             onOpenStaff={onOpenStaff}
@@ -36,4 +36,3 @@ export function TodaySessionsView({ viewMode, onOpenSession, onOpenStudent, onOp
     </div>
   );
 }
-

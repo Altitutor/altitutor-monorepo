@@ -4,20 +4,24 @@ export type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/share
 export type {
   AbsenceAction,
   AbsenceOperation,
+  UndoAbsenceOperation,
   AbsenceDecision,
   RescheduleSession,
   StudentSession,
   LogAbsencesResponse,
+  UndoAbsencesResponse,
   GetRescheduleSessionsParams,
 } from './absence';
 
 export type {
   StaffAbsenceAction,
   StaffAbsenceOperation,
+  UndoStaffAbsenceOperation,
   StaffAbsenceDecision,
   StaffSession,
   ReplacementStaff,
   LogStaffAbsencesResponse,
+  UndoStaffAbsencesResponse,
   GetReplacementStaffParams,
 } from './staff-absence';
 

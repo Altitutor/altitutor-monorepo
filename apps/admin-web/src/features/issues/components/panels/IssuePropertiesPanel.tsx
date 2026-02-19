@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useCallback, memo } from 'react';
+import { useRef, useCallback, memo } from 'react';
 import { ScrollArea, type JSONContent, Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';
 import { IssueStatusPill } from '@/features/issues/components/fields/IssueStatusPill';
+import { IssueDueDatePill } from '@/features/issues/components/fields/IssueDueDatePill';
 import { IssueTitleField } from '@/features/issues/components/fields/IssueTitleField';
 import { IssueDescriptionField } from '@/features/issues/components/fields/IssueDescriptionField';
 import { IssueNotes } from '@/features/issues/components/IssueNotes';
@@ -23,6 +24,7 @@ interface IssuePropertiesPanelProps {
     name: string;
     description?: JSONContent | null;
     status: IssueStatus;
+    dueDate: string | null;
   }>;
   issue?: IssueWithTags;
   notes: NoteWithStaff[];
@@ -35,7 +37,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   issue,
   notes,
   isOpen,
-  onClose,
+  onClose: _onClose,
 }: IssuePropertiesPanelProps) {
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<RichTextEditorRef>(null);
@@ -63,7 +65,10 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
           <div className="p-6 space-y-6">
             {/* Status and Title */}
             <div className="space-y-4">
-              <IssueStatusPill form={form as any} />
+              <div className="flex flex-wrap items-center gap-2">
+                <IssueStatusPill form={form as any} />
+                <IssueDueDatePill form={form as any} />
+              </div>
 
               <IssueTitleField
                 form={form as any}
@@ -96,6 +101,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
                       issueId={issue.id} 
                       compact 
                       hideToolbar 
+                      showIssuePill={false}
                       noPadding 
                     />
                 </div>

@@ -1,12 +1,19 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useNotepadStore } from '../state/notepadStore';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { useNotepad } from '../hooks/useNotepad';
 import { useUpdateNotepad } from '../hooks/useUpdateNotepad';
 import { ClipboardList } from 'lucide-react';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { cn } from '@/shared/utils';
 
-export function NotepadButton() {
+type NotepadButtonProps = {
+  variant?: 'floating' | 'inline';
+};
+
+export function NotepadButton({ variant = 'floating' }: NotepadButtonProps) {
   const isOpen = useNotepadStore((s) => s.isOpen);
   const content = useNotepadStore((s) => s.content);
   const toggleOpen = useNotepadStore((s) => s.toggleOpen);
@@ -14,9 +21,23 @@ export function NotepadButton() {
   const minimized = useChatStore((s) => s.minimized);
   const { data: notepad } = useNotepad();
   const updateNotepadMutation = useUpdateNotepad();
+  const [inlineOpen, setInlineOpen] = useState(false);
+  const [inlineContent, setInlineContent] = useState('');
+  const inlineTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Hide when chat is expanded (not minimized) - same logic as QuickActionsMenu
-  if (!minimized) {
+  useEffect(() => {
+    if (variant !== 'inline' || !inlineOpen || !inlineTextareaRef.current) return;
+    setTimeout(() => {
+      const textarea = inlineTextareaRef.current;
+      if (!textarea) return;
+      textarea.focus();
+      const length = textarea.value.length;
+      textarea.setSelectionRange(length, length);
+    }, 0);
+  }, [inlineOpen, variant]);
+
+  // Hide floating variant when chat is expanded (not minimized) - same logic as QuickActionsMenu
+  if (variant === 'floating' && !minimized) {
     return null;
   }
 
@@ -36,6 +57,54 @@ export function NotepadButton() {
       toggleOpen();
     }
   };
+
+  if (variant === 'inline') {
+    const handleOpenChange = (nextOpen: boolean) => {
+      if (nextOpen) {
+        setInlineContent(notepad?.content ?? '');
+        setInlineOpen(true);
+        return;
+      }
+
+      if (inlineContent !== (notepad?.content ?? '')) {
+        updateNotepadMutation.mutate(inlineContent);
+      }
+      setInlineOpen(false);
+    };
+
+    return (
+      <Popover open={inlineOpen} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <Button
+            variant={inlineOpen ? 'secondary' : 'outline'}
+            size="icon"
+            className="h-9 w-9"
+            title="Notepad"
+            aria-label="Notepad"
+          >
+            <ClipboardList className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-[380px] p-0">
+          <div className="flex items-center justify-between border-b px-4 py-2">
+            <span className="text-sm font-medium">Notepad</span>
+          </div>
+          <div className="p-3">
+            <textarea
+              ref={inlineTextareaRef}
+              value={inlineContent}
+              onChange={(e) => setInlineContent(e.target.value)}
+              placeholder="Type your notes here..."
+              className={cn(
+                'w-full h-[280px] resize-none rounded-md border bg-background p-3 text-sm',
+                'focus:outline-none focus:ring-2 focus:ring-ring'
+              )}
+            />
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
 
   return (
     <div className="fixed bottom-44 right-4 z-50">

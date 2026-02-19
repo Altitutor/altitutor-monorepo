@@ -3,7 +3,7 @@ import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 /**
  * Issue status types
  */
-export type IssueStatus = 'open' | 'awaiting_response' | 'resolved' | 'closed';
+export type IssueStatus = 'open' | 'awaiting_response' | 'resolved';
 
 /**
  * Issue type from database
@@ -48,5 +48,6 @@ export interface IssueWithTags extends Issue {
 export interface IssueFilters {
   status?: IssueStatus[];
   search?: string;
+  due_date?: unknown[];
   [key: string]: unknown;
 }

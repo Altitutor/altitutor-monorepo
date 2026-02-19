@@ -9,8 +9,7 @@ import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
-import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -19,11 +18,11 @@ import { AnnouncementsModal } from '@/features/messages/components/announcements
 import { BookSessionModal } from '@/features/bookings/components';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
-import { NotepadButton, NotepadPanel } from '@/features/notepad';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
+import { format } from 'date-fns';
 
 const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
   ssr: false,
@@ -147,6 +146,22 @@ const navItems: NavItem[] = [
   },
 ];
 
+const getTodayDashboardHref = () => `/dashboard/${format(new Date(), 'yyyy-MM-dd')}`;
+
+const getNavItemHref = (item: Extract<NavItem, { type?: 'link' }>) => {
+  if (item.title === 'Dashboard') {
+    return getTodayDashboardHref();
+  }
+  return item.href;
+};
+
+const isNavItemActive = (pathname: string, item: Extract<NavItem, { type?: 'link' }>) => {
+  if (item.title === 'Dashboard') {
+    return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+  }
+  return pathname === item.href;
+};
+
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   
@@ -218,13 +233,14 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                 }
                 
                 const Icon = item.icon;
+                const itemHref = getNavItemHref(item);
                 return (
                   <Link 
                     key={item.href} 
-                    href={item.href}
+                    href={itemHref}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                      pathname === item.href 
+                      isNavItemActive(pathname, item)
                         ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
                         : navHoverStyles
                     )}
@@ -306,13 +322,14 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
             }
             
             const Icon = item.icon;
+            const itemHref = getNavItemHref(item);
             return (
               <Link 
                 key={item.href} 
-                href={item.href}
+                href={itemHref}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                  pathname === item.href 
+                  isNavItemActive(pathname, item)
                     ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
                     : navHoverStyles,
                   collapsed && "justify-center px-0"
@@ -392,11 +409,6 @@ function AdminLayoutContent({
             </div>
           )}
           {children}
-          {/* Floating notepad */}
-          <NotepadButton />
-          <NotepadPanel />
-          {/* Floating quick actions menu */}
-          <QuickActionsMenu />
           {/* Floating chat dock (admin-only) */}
           <ChatDock />
           {/* Quick action modals */}
@@ -453,9 +465,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <QuickActionsProvider>
-      <AdminLayoutContent>{children}</AdminLayoutContent>
-    </QuickActionsProvider>
-  );
+  return <AdminLayoutContent>{children}</AdminLayoutContent>;
 }

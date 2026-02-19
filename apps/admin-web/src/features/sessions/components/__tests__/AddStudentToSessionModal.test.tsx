@@ -59,7 +59,7 @@ describe('AddStudentToSessionModal', () => {
     const nextButton = await screen.findByRole('button', { name: /next/i });
     expect(nextButton).toBeDisabled();
 
-    await user.click(await screen.findByRole('button', { name: /john doe/i }));
+    await user.click(await screen.findByText('John Doe'));
     expect(nextButton).toBeEnabled();
 
     await user.click(nextButton);
@@ -86,6 +86,6 @@ describe('AddStudentToSessionModal', () => {
     );
 
     expect(await screen.findByText(/no students available to add/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /john doe/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
   });
 });

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
-import { ThemeToggle } from '../theme-toggle';
 import { useRouter } from 'next/navigation';
 import { LogOut, User } from 'lucide-react';
 import Image from 'next/image';
@@ -24,11 +23,14 @@ import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { Search } from 'lucide-react';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
+import { NotepadButton } from '@/features/notepad';
+import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
+import { DashboardDatePicker } from './DashboardDatePicker';
 
 export function Navbar() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const { data: staffRecord } = useCurrentStaff();
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
@@ -122,30 +124,28 @@ export function Navbar() {
         )}
         
         <div className="flex items-center gap-2 flex-shrink-0 justify-end">
-          {/* Search Button */}
-            {user && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleCommandPalette}
-                className="h-9 w-9"
-                aria-label="Open command palette"
-                title="Search (Cmd+K / Ctrl+K)"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            )}
+          {user && <DashboardDatePicker />}
+
+          {/* Command palette */}
+          {user && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={toggleCommandPalette}
+              className="h-9 w-9"
+              aria-label="Open command palette"
+              title="Search (Cmd+K / Ctrl+K)"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          )}
+
+          {user && <QuickActionsMenu variant="inline" />}
+          {user && <NotepadButton variant="inline" />}
           
           {/* Notifications Button */}
           {user && staffRecord?.id && (
             <NotificationsTray staffId={staffRecord.id} />
-          )}
-          
-          {/* Theme Toggle - Desktop only */}
-          {user && (
-            <div className="hidden md:block">
-              <ThemeToggle />
-            </div>
           )}
           
           {/* Profile Menu */}
@@ -165,6 +165,16 @@ export function Navbar() {
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
+                  Light Theme
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
+                  Dark Theme
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
+                  System Theme
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="cursor-pointer">

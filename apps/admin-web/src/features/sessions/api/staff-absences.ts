@@ -1,6 +1,8 @@
 import type {
   StaffAbsenceOperation,
   LogStaffAbsencesResponse,
+  UndoStaffAbsenceOperation,
+  UndoStaffAbsencesResponse,
   GetReplacementStaffParams,
   StaffSession,
   ReplacementStaff,
@@ -59,6 +61,45 @@ export const staffAbsencesApi = {
       return result;
     } catch (error) {
       console.error('Error logging staff absences:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
+      };
+    }
+  },
+
+  /**
+   * Undo staff absences (swap or log revert)
+   * All operations are executed atomically via RPC function
+   */
+  undoStaffAbsences: async (
+    operations: UndoStaffAbsenceOperation[],
+    staffId: string
+  ): Promise<UndoStaffAbsencesResponse> => {
+    try {
+      const response = await fetch('/api/staff-absences/undo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          operations,
+          staffId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData.error || 'Failed to undo staff absences',
+        };
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error undoing staff absences:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'An unexpected error occurred',
@@ -235,4 +276,3 @@ export const staffAbsencesApi = {
     }
   },
 };
-

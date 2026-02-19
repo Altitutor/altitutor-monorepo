@@ -55,7 +55,7 @@ describe('AddStaffToSessionModal', () => {
       />
     );
 
-    await user.click(await screen.findByRole('button', { name: /jane tutor/i }));
+    await user.click(await screen.findByText('Jane Tutor'));
     await user.click(screen.getByRole('button', { name: /next/i }));
 
     expect(

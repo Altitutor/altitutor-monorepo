@@ -4,6 +4,8 @@ import { sessionsKeys } from './useSessionsQuery';
 import type {
   StaffAbsenceOperation,
   LogStaffAbsencesResponse,
+  UndoStaffAbsenceOperation,
+  UndoStaffAbsencesResponse,
   GetReplacementStaffParams,
   ReplacementStaff,
   StaffSession,
@@ -86,3 +88,30 @@ export function useLogStaffAbsences() {
   });
 }
 
+/**
+ * Hook to undo staff absences
+ */
+export function useUndoStaffAbsences() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UndoStaffAbsencesResponse, Error, { operations: UndoStaffAbsenceOperation[]; staffId: string }>({
+    mutationFn: ({ operations, staffId }) => staffAbsencesApi.undoStaffAbsences(operations, staffId),
+    onSuccess: (data, variables) => {
+      if (data.success) {
+        const affectedStaffIds = new Set(variables.operations.map(op => op.staff_id));
+        affectedStaffIds.forEach(staffId => {
+          queryClient.invalidateQueries({
+            queryKey: ['staffFutureSessions', staffId],
+          });
+        });
+
+        queryClient.invalidateQueries({
+          queryKey: sessionsKeys.all,
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Error undoing staff absences:', error);
+    },
+  });
+}

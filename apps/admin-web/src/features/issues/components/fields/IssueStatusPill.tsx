@@ -19,7 +19,6 @@ const STATUS_OPTIONS = [
   { value: 'open', label: 'Open', icon: Circle, color: 'text-blue-500' },
   { value: 'awaiting_response', label: 'Awaiting Response', icon: Clock, color: 'text-yellow-500' },
   { value: 'resolved', label: 'Resolved', icon: CheckCircle, color: 'text-green-500' },
-  { value: 'closed', label: 'Closed', icon: Circle, color: 'text-gray-500' },
 ] as const;
 
 export function IssueStatusPill({ form }: IssueStatusPillProps) {
@@ -28,8 +27,6 @@ export function IssueStatusPill({ form }: IssueStatusPillProps) {
       control={form.control}
       name="status"
       render={({ field }) => {
-        const option = STATUS_OPTIONS.find(o => o.value === field.value) || STATUS_OPTIONS[0];
-
         return (
           <FormItem className="w-fit">
             <Select onValueChange={field.onChange} value={field.value}>

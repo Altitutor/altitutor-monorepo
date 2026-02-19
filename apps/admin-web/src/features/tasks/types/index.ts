@@ -38,6 +38,7 @@ export interface TaskFilters {
   assignedTo?: string | string[]; // Support both single and array for backward compatibility
   assignee?: string | string[];   // Support UI key
   assigned_to?: string | string[]; // Support database column name key
+  issue_id?: string | string[];
   priority?: TaskPriority | TaskPriority[]; // Support both single and array for backward compatibility
   search?: string;
   [key: string]: unknown;
@@ -57,5 +58,8 @@ export interface TaskWithAssignee extends Task {
     first_name: string;
     last_name: string;
   } | null;
+  issue?: {
+    id: string;
+    name: string | null;
+  } | null;
 }
-

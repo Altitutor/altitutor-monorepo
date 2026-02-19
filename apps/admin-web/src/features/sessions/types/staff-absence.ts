@@ -16,6 +16,15 @@ export interface StaffAbsenceOperation {
 }
 
 /**
+ * Operation structure for undo API submission
+ */
+export interface UndoStaffAbsenceOperation {
+  staff_id: string;
+  original_sessions_staff_id: string;
+  action: StaffAbsenceAction;
+}
+
+/**
  * UI state for tracking user decisions during the wizard
  */
 export interface StaffAbsenceDecision {
@@ -54,6 +63,15 @@ export interface LogStaffAbsencesResponse {
 }
 
 /**
+ * Response from undo staff absences API
+ */
+export interface UndoStaffAbsencesResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+/**
  * Parameters for fetching available replacement staff
  */
 export interface GetReplacementStaffParams {
@@ -61,4 +79,3 @@ export interface GetReplacementStaffParams {
   subjectId?: string; // Optional, no longer used for filtering but kept for backward compatibility
   excludeStaffIds: string[]; // Staff IDs to exclude (original staff only - already assigned staff are filtered automatically)
 }
-

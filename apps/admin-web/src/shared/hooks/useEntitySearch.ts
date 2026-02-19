@@ -7,6 +7,8 @@ import { classesApi } from '@/features/classes/api/classes';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { topicsApi } from '@/features/topics/api/topics';
 import { topicsFilesApi } from '@/features/topics/api/topics-files';
+import { tasksApi } from '@/features/tasks/api/tasks';
+import { issuesApi } from '@/features/issues/api/issues';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
@@ -27,7 +29,7 @@ export function useEntitySearch({
   search, 
   enabled = true, 
   debounceMs = 250,
-  types = ['students', 'staff', 'parents', 'classes', 'subjects', 'topics', 'files']
+  types = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'topics', 'files']
 }: UseEntitySearchOptions) {
   const debouncedSearch = useDebounce(search, debounceMs);
   const trimmedSearch = debouncedSearch.trim();
@@ -155,6 +157,34 @@ export function useEntitySearch({
     staleTime: 30000,
   });
 
+  const tasksQuery = useQuery({
+    queryKey: ['entity-search-tasks', trimmedSearch],
+    queryFn: async () => {
+      const result = await tasksApi.search(trimmedSearch, entityTypes.tasks.limit);
+      return result.map((task) => ({
+        type: 'task' as const,
+        id: task.id,
+        data: task,
+      }));
+    },
+    enabled: shouldSearch && types.includes('tasks'),
+    staleTime: 30000,
+  });
+
+  const issuesQuery = useQuery({
+    queryKey: ['entity-search-issues', trimmedSearch],
+    queryFn: async () => {
+      const result = await issuesApi.search(trimmedSearch, entityTypes.issues.limit);
+      return result.map((issue) => ({
+        type: 'issue' as const,
+        id: issue.id,
+        data: issue,
+      }));
+    },
+    enabled: shouldSearch && types.includes('issues'),
+    staleTime: 30000,
+  });
+
   const filesQuery = useQuery({
     queryKey: ['entity-search-files', trimmedSearch],
     queryFn: async () => {
@@ -194,6 +224,8 @@ export function useEntitySearch({
     ...(parentsQuery.data || []),
     ...(classesQuery.data || []),
     ...(subjectsQuery.data || []),
+    ...(tasksQuery.data || []),
+    ...(issuesQuery.data || []),
     ...(topicsQuery.data || []),
     ...(filesQuery.data || []),
   ];
@@ -204,6 +236,8 @@ export function useEntitySearch({
     parentsQuery.isLoading ||
     classesQuery.isLoading ||
     subjectsQuery.isLoading ||
+    tasksQuery.isLoading ||
+    issuesQuery.isLoading ||
     topicsQuery.isLoading ||
     filesQuery.isLoading;
 
@@ -213,6 +247,8 @@ export function useEntitySearch({
     parentsQuery.isError ||
     classesQuery.isError ||
     subjectsQuery.isError ||
+    tasksQuery.isError ||
+    issuesQuery.isError ||
     topicsQuery.isError ||
     filesQuery.isError;
 

@@ -8,10 +8,11 @@ import {
   type EntityListStatusColumn,
 } from '@altitutor/ui';
 import { useTasks } from '../api/queries';
-import { useUpdateTask, useCreateTask } from '../api/mutations';
+import { useUpdateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useIssues } from '@/features/issues/api/queries';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
@@ -20,7 +21,6 @@ import {
   getStatusLabel,
   getStatusIconColor,
   getPriorityLabel,
-  getPriorityIconColor,
   getEstimateLabel,
   ESTIMATE_OPTIONS,
   PRIORITY_OPTIONS,
@@ -29,6 +29,7 @@ import {
   TaskAssigneeEntityPill,
   TaskPriorityEntityPill,
   TaskEstimateEntityPill,
+  TaskIssueEntityPill,
 } from './fields/TaskEntityPills';
 import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
 import { cn } from '@/shared/utils';
@@ -59,11 +60,16 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDefaultStatus, setCreateDefaultStatus] = useState<TaskStatus | undefined>(undefined);
   const [createDefaultValues, setCreateDefaultValues] = useState<any>({});
+  
+  // Default sortBy: priority ascending (same as list view)
+  const [sortBy, setSortBy] = useState<string>('priority');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
 
   const { data: quickFilters = [] } = useQuickFilters('tasks');
+  const { data: issues = [] } = useIssues();
 
   const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
     const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentStaffId);
@@ -87,8 +93,6 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
   });
 
   const updateTask = useUpdateTask();
-  const createTask = useCreateTask();
-
   const handleUpdate = useCallback(
     (task: TaskWithAssignee, updates: Partial<TaskWithAssignee>) => {
       updateTask.mutate({ id: task.id, updates: updates as any });
@@ -105,6 +109,10 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
         label: `${s.first_name} ${s.last_name}`,
       })),
     [staffList]
+  );
+  const issueFilterOptions = useMemo(
+    () => issues.map((issue) => ({ value: issue.id as unknown, label: issue.name || 'Untitled issue' })),
+    [issues]
   );
 
   const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = useMemo(() => ({
@@ -213,7 +221,15 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
         groupable: true,
         sortable: true,
         filterable: true,
-        compare: (a, b) => (Number(b) ?? 0) - (Number(a) ?? 0),
+        alwaysAtBottom: [0],
+        compare: (a, b) => {
+          const pa = Number(a) || 0;
+          const pb = Number(b) || 0;
+          if (pa === pb) return 0;
+          if (pa === 0) return 1; // No priority goes to bottom
+          if (pb === 0) return -1; // No priority goes to bottom
+          return pa - pb; // Ascending: 1 (Urgent) < 2 (High) < 3 (Medium) < 4 (Low)
+        },
         renderPill: (item, onChange, collapsed) => (
           <TaskPriorityEntityPill
             value={(item.priority ?? 0) as TaskPriority}
@@ -225,8 +241,31 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
           />
         ),
       },
+      {
+        key: 'issue_id',
+        label: 'Issue',
+        visibleByDefault: true,
+        getValue: (t) => t.issue_id ?? null,
+        defaultValue: null,
+        filterOptions: issueFilterOptions,
+        groupable: true,
+        sortable: false,
+        filterable: true,
+        filterSearchable: true,
+        renderPill: (item, onChange, collapsed) => (
+          <TaskIssueEntityPill
+            issue={item.issue ?? null}
+            issues={issues.map((i) => ({ id: i.id, name: i.name }))}
+            collapsed={collapsed}
+            onChange={(nextIssueId) => {
+              handleUpdate(item, { issue_id: nextIssueId });
+              onChange(nextIssueId);
+            }}
+          />
+        ),
+      },
     ],
-    [staffList, assigneeFilterOptions, handleUpdate]
+    [staffList, assigneeFilterOptions, issueFilterOptions, issues, handleUpdate]
   );
 
   const columnDefs: KanbanColumnDef<TaskWithAssignee, any>[] = useMemo(() => [
@@ -309,8 +348,18 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
       if (valueKey === '__null__') return 'No priority';
       return getPriorityLabel(Number(valueKey) as TaskPriority);
     }
+    if (columnKey === 'issue_id') {
+      if (valueKey === '__null__') return 'No issue';
+      const issue = issues.find((i) => i.id === valueKey);
+      return issue?.name || valueKey;
+    }
     return valueKey === '__null__' ? 'No value' : valueKey;
-  }, [staffList]);
+  }, [staffList, issues]);
+
+  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
+    setSortBy(key);
+    setSortDirection(direction);
+  }, []);
 
   return (
     <>
@@ -334,6 +383,9 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
         rightPills={rightPills}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortChange={handleSortChange}
         filters={filters}
         onFiltersChange={setFilters}
         quickFilters={quickFilters as any}

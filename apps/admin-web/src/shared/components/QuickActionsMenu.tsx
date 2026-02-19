@@ -14,16 +14,85 @@ import {
 import { Zap, Plus } from 'lucide-react';
 import { getBookingActions, getNonBookingActions } from '@/shared/constants/quickActions';
 
-export function QuickActionsMenu() {
+type QuickActionsMenuProps = {
+  variant?: 'floating' | 'inline';
+};
+
+export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps) {
   const minimized = useChatStore(s => s.minimized);
   const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog } = useQuickActions();
   
   const bookingActions = getBookingActions();
   const nonBookingActions = getNonBookingActions();
 
-  // Hide when messages are expanded (not minimized)
-  if (!minimized) {
+  // Hide floating variant when messages are expanded (not minimized)
+  if (variant === 'floating' && !minimized) {
     return null;
+  }
+
+  if (variant === 'inline') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="h-9 w-9 rounded-md border bg-background hover:bg-accent/20 inline-flex items-center justify-center"
+            title="Quick Notes"
+            aria-label="Quick Notes"
+          >
+            <Zap className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="bottom" className="w-48">
+          {bookingActions.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Plus className="h-4 w-4 mr-2" />
+                Add meeting
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {bookingActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={action.id}
+                      onClick={() => action.bookingSessionType && openBookingModal(action.bookingSessionType)}
+                    >
+                      <Icon className="h-4 w-4 mr-2" />
+                      {action.title}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          {nonBookingActions.map((action) => {
+            const Icon = action.icon;
+            const handleClick = () => {
+              if (action.actionType === 'create-task') {
+                openCreateTaskDialog();
+              } else if (action.actionType === 'announcement') {
+                openAnnouncementsModal();
+              } else if (action.actionType === 'tutor-log') {
+                openTutorLogModal();
+              } else if (action.actionType === 'log-student-absence') {
+                openLogAbsenceDialog();
+              } else if (action.actionType === 'log-staff-absence') {
+                openLogStaffAbsenceDialog();
+              } else if (action.actionType === 'create-issue') {
+                openCreateIssueDialog();
+              }
+            };
+
+            return (
+              <DropdownMenuItem key={action.id} onClick={handleClick}>
+                <Icon className="h-4 w-4 mr-2" />
+                {action.title}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   }
 
   return (

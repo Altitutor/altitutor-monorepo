@@ -43,6 +43,8 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   parent: 'parents',
   class: 'classes',
   subject: 'subjects',
+  task: 'tasks',
+  issue: 'issues',
   topic: 'topics',
   file: 'files',
 };
@@ -240,6 +242,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
       { type: 'parent', label: 'Parents' },
       { type: 'class', label: 'Classes' },
       { type: 'subject', label: 'Subjects' },
+      { type: 'task', label: 'Tasks' },
+      { type: 'issue', label: 'Issues' },
       { type: 'topic', label: 'Topics' },
       { type: 'file', label: 'Files' },
     ];
@@ -260,7 +264,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Search commands, pages, students, staff, parents, classes, subjects, topics, files..."
+              placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, topics, files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}

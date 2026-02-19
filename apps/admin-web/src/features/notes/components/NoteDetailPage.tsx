@@ -18,6 +18,7 @@ import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
+import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -35,6 +36,8 @@ interface NoteDetailPageProps {
   noteId: string;
 }
 
+const NOTE_MENTION_TYPES = ['issues', 'tasks', 'students', 'staff', 'parents', 'classes', 'subjects'] as const;
+
 export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const router = useRouter();
   const { data: note, isLoading } = useNote(noteId);
@@ -47,6 +50,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const noteEditorRef = useRef<NoteEditorRef>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
+  const mentionSuggestions = useMentionSuggestions({
+    types: NOTE_MENTION_TYPES,
+  });
   
   // Track initialization state
   const currentNoteIdRef = useRef<string | null>(null);
@@ -287,6 +293,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onChange={field.onChange}
                           placeholder="Start writing..."
                           onEditorReady={handleEditorReady}
+                          mentionSuggestions={mentionSuggestions as any}
                         />
                       </FormControl>
                     </FormItem>
@@ -317,7 +324,15 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       <div className="hidden md:flex flex-col h-[calc(100vh-var(--navbar-height)-5rem)] w-80 flex-shrink-0 sticky top-0">
         <div className="flex-1 overflow-y-auto m-4 mr-6 space-y-4">
           {/* Properties Panel */}
-          <NotePropertiesPanel form={form as any} folders={foldersArray} onDelete={handleDelete} />
+          <NotePropertiesPanel
+            form={form as any}
+            folders={foldersArray}
+            onDelete={handleDelete}
+            saveStatus={{
+              isPending: updateNote.isPending,
+              isError: updateNote.isError,
+            }}
+          />
           
           {/* Table of Contents Card */}
           <NoteTableOfContents editor={editorInstanceRef.current} />

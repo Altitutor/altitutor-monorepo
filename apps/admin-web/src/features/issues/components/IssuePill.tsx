@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Circle, Clock } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
 import { useOpenIssuesByEntity } from '../api/queries';
-import { IssueDialog } from './IssueDialog';
+import { EditIssueDialog } from './EditIssueDialog';
 import { cn } from '@/shared/utils';
 import { TextWithTags } from '@/shared/components/TextWithTags';
 
@@ -56,7 +56,7 @@ export function IssuePill({ entityType, entityId, enabled = true, className }: I
         })}
       </div>
 
-      <IssueDialog
+      <EditIssueDialog
         isOpen={isDialogOpen}
         onClose={() => {
           setIsDialogOpen(false);

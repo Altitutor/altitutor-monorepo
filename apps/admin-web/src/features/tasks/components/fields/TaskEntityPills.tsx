@@ -12,7 +12,7 @@ import {
   Input,
   ScrollArea,
 } from '@altitutor/ui';
-import { User, Check, Circle, Clock, Eye, CheckCircle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown } from 'lucide-react';
+import { User, Check, Circle, Clock, Eye, CheckCircle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown, Link2 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
   getPriorityLabel,
@@ -208,5 +208,84 @@ export function TaskEstimateEntityPill({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+export function TaskIssueEntityPill({
+  issue,
+  issues,
+  onChange,
+  collapsed,
+}: {
+  issue?: { id: string; name: string | null } | null;
+  issues: { id: string; name: string | null }[];
+  onChange: (issueId: string | null) => void;
+  collapsed?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Link2 className={cn("h-3 w-3 text-muted-foreground flex-shrink-0", !issue && "opacity-40 group-hover:opacity-100")} />
+          {!collapsed && (
+            <span className={cn("truncate max-w-[120px]", !issue && "text-muted-foreground opacity-40 group-hover:opacity-100")}>
+              {issue?.name || 'Issue'}
+            </span>
+          )}
+          <ChevronDown className={cn("h-3 w-3 text-muted-foreground", !issue && "opacity-40 group-hover:opacity-100")} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[320px]" align="start" onClick={(e) => e.stopPropagation()}>
+        <div className="p-2">
+          <Input
+            placeholder="Search issues..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 mb-2"
+          />
+          <ScrollArea className="h-[240px]">
+            <div className="space-y-0.5 pr-2">
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted text-left"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+              >
+                {!issue && <Check className="h-4 w-4" />}
+                <span>No issue</span>
+              </button>
+              {issues
+                .filter((i) => !search.trim() || (i.name || '').toLowerCase().includes(search.toLowerCase()))
+                .map((i) => (
+                  <button
+                    key={i.id}
+                    type="button"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted text-left"
+                    onClick={() => {
+                      onChange(i.id);
+                      setOpen(false);
+                    }}
+                  >
+                    {issue?.id === i.id && <Check className="h-4 w-4" />}
+                    <span className="truncate">{i.name || 'Untitled issue'}</span>
+                  </button>
+                ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

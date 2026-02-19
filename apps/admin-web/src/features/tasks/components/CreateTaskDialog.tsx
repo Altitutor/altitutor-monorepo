@@ -28,6 +28,7 @@ type TaskFormData = {
   status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
   priority: number;
   assignedTo: string | null;
+  issueId: string | null;
   estimate: number | null;
   dueDate: string | null;
 };
@@ -38,6 +39,7 @@ const formSchema = z.object({
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
+  issueId: z.union([z.string().uuid(), z.null()]).default(null),
   estimate: z.preprocess(
     (val) => {
       // Convert falsy or invalid values to null
@@ -62,6 +64,7 @@ interface CreateTaskDialogProps {
   onTaskCreated?: () => void;
   defaultStatus?: TaskStatus;
   defaultValues?: Partial<TaskFormData>;
+  issue?: { id: string; name: string | null } | null;
 }
 
 export function CreateTaskDialog({
@@ -70,9 +73,11 @@ export function CreateTaskDialog({
   onTaskCreated,
   defaultStatus,
   defaultValues,
+  issue,
 }: CreateTaskDialogProps) {
   const createTask = useCreateTask();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
 
   // Fetch notes for created task
@@ -90,6 +95,7 @@ export function CreateTaskDialog({
       status: defaultStatus || defaultValues?.status || 'todo',
       priority: defaultValues?.priority ?? 0,
       assignedTo: defaultValues?.assignedTo || null,
+      issueId: defaultValues?.issueId || issue?.id || null,
       estimate: defaultValues?.estimate || null,
       dueDate: defaultValues?.dueDate || null,
     },
@@ -104,13 +110,15 @@ export function CreateTaskDialog({
         status: defaultStatus || defaultValues?.status || 'todo',
         priority: defaultValues?.priority ?? 0,
         assignedTo: defaultValues?.assignedTo || null,
+        issueId: defaultValues?.issueId || issue?.id || null,
         estimate: defaultValues?.estimate || null,
         dueDate: defaultValues?.dueDate || null,
       });
       setSelectedAssignee(null);
+      setSelectedIssue(issue ?? null);
       setCreatedTaskId(null);
     }
-  }, [isOpen, defaultStatus, defaultValues, form]);
+  }, [isOpen, defaultStatus, defaultValues, form, issue]);
 
   const onSubmit = async (data: FormData): Promise<void> => {
     try {
@@ -120,6 +128,7 @@ export function CreateTaskDialog({
         status: data.status,
         priority: data.priority,
         assigned_to: data.assignedTo || null,
+        issue_id: data.issueId || null,
         estimate: data.estimate || null,
         due_date: data.dueDate ? new Date(data.dueDate as string).toISOString() : null,
       });
@@ -179,6 +188,8 @@ export function CreateTaskDialog({
                   form={form as any}
                   selectedAssignee={selectedAssignee}
                   onAssigneeChange={setSelectedAssignee}
+                  selectedIssue={selectedIssue}
+                  onIssueChange={setSelectedIssue}
                   taskStatus={defaultStatus}
                   enabled={isOpen}
                 />

@@ -61,6 +61,33 @@ async function appendTagsToDescription(
  */
 export const issuesApi = {
   /**
+   * Search issues for mention/command palette usage
+   */
+  search: async (
+    search: string,
+    limit = 8
+  ): Promise<Array<Pick<Issue, 'id' | 'name' | 'status' | 'due_date'>>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+
+    if (!search.trim()) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('issues')
+      .select('id, name, status, due_date')
+      .textSearch('search_vector', search.trim(), {
+        type: 'websearch',
+        config: 'english',
+      })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return (data ?? []) as Array<Pick<Issue, 'id' | 'name' | 'status' | 'due_date'>>;
+  },
+
+  /**
    * Sync tags based on mentions in name and description
    */
   syncTags: async (issueId: string, name?: string | null, description?: JSONContent | null): Promise<void> => {

@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import { cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskPriority } from '../types';
 import { getPriorityColor, getPriorityLabel, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
-import { Calendar } from 'lucide-react';
+import { Calendar, Link2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TextWithTags } from '@/shared/components/TextWithTags';
@@ -16,7 +16,7 @@ interface TaskCardProps {
   visiblePillKeys?: string[];
 }
 
-export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priority', 'estimate'] }: TaskCardProps) {
+export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priority', 'estimate', 'issue_id'] }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -74,6 +74,16 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
           </Badge>
         )}
 
+        {/* Issue */}
+        {task.issue_id && visiblePillKeys.includes('issue_id') && (
+          <Badge variant="outline" className="text-xs max-w-[220px]">
+            <span className="inline-flex items-center gap-1 truncate">
+              <Link2 className="h-3 w-3" />
+              <span className="truncate">{task.issue?.name || 'Linked issue'}</span>
+            </span>
+          </Badge>
+        )}
+
         {/* Due date */}
         {task.due_date && (
           <Badge
@@ -110,4 +120,3 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
     </div>
   );
 }
-
