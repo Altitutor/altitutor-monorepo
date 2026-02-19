@@ -17,6 +17,10 @@ interface UseSessionModalsReturn {
   selectedStudentForAbsence: string | null;
   isLogStaffAbsenceDialogOpen: boolean;
   selectedStaffForAbsence: string | null;
+  isAddStudentToSessionModalOpen: boolean;
+  isAddStaffToSessionModalOpen: boolean;
+  isRemoveFromSessionDialogOpen: boolean;
+  removeFromSessionTarget: { entityType: 'student' | 'staff'; entityId: string; entityName: string } | null;
 
   // Actions
   openStudentModal: (studentId: string) => void;
@@ -35,6 +39,12 @@ interface UseSessionModalsReturn {
   closeLogStudentAbsenceDialog: () => void;
   openLogStaffAbsenceDialog: (staffId: string) => void;
   closeLogStaffAbsenceDialog: () => void;
+  openAddStudentToSessionModal: () => void;
+  closeAddStudentToSessionModal: () => void;
+  openAddStaffToSessionModal: () => void;
+  closeAddStaffToSessionModal: () => void;
+  openRemoveFromSessionDialog: (target: { entityType: 'student' | 'staff'; entityId: string; entityName: string }) => void;
+  closeRemoveFromSessionDialog: () => void;
   reset: () => void;
 }
 
@@ -57,6 +67,10 @@ export function useSessionModals(): UseSessionModalsReturn {
   const [selectedStudentForAbsence, setSelectedStudentForAbsence] = useState<string | null>(null);
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
   const [selectedStaffForAbsence, setSelectedStaffForAbsence] = useState<string | null>(null);
+  const [isAddStudentToSessionModalOpen, setIsAddStudentToSessionModalOpen] = useState(false);
+  const [isAddStaffToSessionModalOpen, setIsAddStaffToSessionModalOpen] = useState(false);
+  const [isRemoveFromSessionDialogOpen, setIsRemoveFromSessionDialogOpen] = useState(false);
+  const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<{ entityType: 'student' | 'staff'; entityId: string; entityName: string } | null>(null);
 
   const openStudentModal = useCallback((studentId: string) => {
     setSelectedStudentId(studentId);
@@ -136,6 +150,32 @@ export function useSessionModals(): UseSessionModalsReturn {
     setSelectedStaffForAbsence(null);
   }, []);
 
+  const openAddStudentToSessionModal = useCallback(() => {
+    setIsAddStudentToSessionModalOpen(true);
+  }, []);
+
+  const closeAddStudentToSessionModal = useCallback(() => {
+    setIsAddStudentToSessionModalOpen(false);
+  }, []);
+
+  const openAddStaffToSessionModal = useCallback(() => {
+    setIsAddStaffToSessionModalOpen(true);
+  }, []);
+
+  const closeAddStaffToSessionModal = useCallback(() => {
+    setIsAddStaffToSessionModalOpen(false);
+  }, []);
+
+  const openRemoveFromSessionDialog = useCallback((target: { entityType: 'student' | 'staff'; entityId: string; entityName: string }) => {
+    setRemoveFromSessionTarget(target);
+    setIsRemoveFromSessionDialogOpen(true);
+  }, []);
+
+  const closeRemoveFromSessionDialog = useCallback(() => {
+    setIsRemoveFromSessionDialogOpen(false);
+    setRemoveFromSessionTarget(null);
+  }, []);
+
   const reset = useCallback(() => {
     setIsStudentModalOpen(false);
     setSelectedStudentId(null);
@@ -152,6 +192,10 @@ export function useSessionModals(): UseSessionModalsReturn {
     setSelectedStudentForAbsence(null);
     setIsLogStaffAbsenceDialogOpen(false);
     setSelectedStaffForAbsence(null);
+    setIsAddStudentToSessionModalOpen(false);
+    setIsAddStaffToSessionModalOpen(false);
+    setIsRemoveFromSessionDialogOpen(false);
+    setRemoveFromSessionTarget(null);
   }, []);
 
   return {
@@ -170,6 +214,10 @@ export function useSessionModals(): UseSessionModalsReturn {
     selectedStudentForAbsence,
     isLogStaffAbsenceDialogOpen,
     selectedStaffForAbsence,
+    isAddStudentToSessionModalOpen,
+    isAddStaffToSessionModalOpen,
+    isRemoveFromSessionDialogOpen,
+    removeFromSessionTarget,
     openStudentModal,
     closeStudentModal,
     openStaffModal,
@@ -186,6 +234,12 @@ export function useSessionModals(): UseSessionModalsReturn {
     closeLogStudentAbsenceDialog,
     openLogStaffAbsenceDialog,
     closeLogStaffAbsenceDialog,
+    openAddStudentToSessionModal,
+    closeAddStudentToSessionModal,
+    openAddStaffToSessionModal,
+    closeAddStaffToSessionModal,
+    openRemoveFromSessionDialog,
+    closeRemoveFromSessionDialog,
     reset,
   };
 }

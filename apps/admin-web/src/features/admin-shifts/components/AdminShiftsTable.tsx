@@ -79,6 +79,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
   } = useAdminShiftsMinimalPaginated({
     search: state.search,
     daysOfWeek: state.filters.day as number[],
+    statuses: state.filters.status as string[],
     page: state.page,
     pageSize: state.pageSize,
     orderBy: state.sortBy as any || 'day_of_week',

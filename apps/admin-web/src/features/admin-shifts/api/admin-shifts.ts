@@ -36,6 +36,7 @@ export const adminShiftsApi = {
     search?: string;
     dayOfWeek?: number | number[];
     daysOfWeek?: number[];
+    statuses?: string[];
     limit?: number;
     offset?: number;
     orderBy?: keyof Tables<'admin_shifts'>;
@@ -49,6 +50,7 @@ export const adminShiftsApi = {
       search = '',
       dayOfWeek,
       daysOfWeek = [],
+      statuses = [],
       limit = 50,
       offset = 0,
       orderBy = 'day_of_week',
@@ -72,6 +74,9 @@ export const adminShiftsApi = {
     // Apply filters
     if (dayFilters.length > 0) {
       query = query.in('day_of_week', dayFilters);
+    }
+    if (statuses.length > 0) {
+      query = query.in('status', statuses);
     }
 
     if (trimmed.length > 0) {

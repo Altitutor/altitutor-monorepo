@@ -97,7 +97,10 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
     return (
       <button
         type="button"
-        onClick={linkTo.onClick}
+        onClick={(e) => {
+          e.stopPropagation();
+          linkTo.onClick();
+        }}
         className="text-left hover:opacity-80 transition-opacity"
       >
         {content}
@@ -107,5 +110,4 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
   
   return content;
 }
-
 

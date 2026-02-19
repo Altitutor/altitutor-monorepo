@@ -11,7 +11,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 export default function TasksPage() {
   const search = useSearchParams();
   const router = useRouter();
-  const viewParam = (search.get('view') || 'list') as 'kanban' | 'list';
+  const viewParam = (search.get('view') || 'kanban') as 'kanban' | 'list';
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | undefined>(undefined);
 
