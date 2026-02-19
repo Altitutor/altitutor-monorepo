@@ -166,7 +166,7 @@ export const reconciliationApi = {
     const sessionsWithDetails = await Promise.all(
       unloggedSessions.map(async (session) => {
         // Get assigned tutors
-        const { data: staffData } = await supabase
+        const { data: staffData, error: staffError } = await supabase
           .from('sessions_staff')
           .select(`
             staff_id,
@@ -174,10 +174,8 @@ export const reconciliationApi = {
             staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name, email)
           `)
           .eq('session_id', session.id);
-
-        if (!staffData) {
-          // keep null fallback behavior when there are no assignments
-        }
+        
+        if (staffError) throw staffError;
         
         const assignedTutors = staffData?.map(s => ({
           id: (s.staff as any)?.id ?? s.staff_id,

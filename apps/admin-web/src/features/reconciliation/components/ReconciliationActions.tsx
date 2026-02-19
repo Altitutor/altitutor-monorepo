@@ -21,6 +21,7 @@ import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issu
 import type { JSONContent } from '@altitutor/ui';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import { TextWithTags } from '@/shared/components/TextWithTags';
+import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
 import type {
   UninvoicedSession,
   UnpaidInvoice,
@@ -58,17 +59,6 @@ function dedupeTags(tags: IssueTagDraft[]): IssueTagDraft[] {
   });
 
   return result;
-}
-
-function toMentionData(tag: Partial<IssueTagInsert>): { type: string; id: string; label: string } | null {
-  if (tag.student_id) return { type: 'student', id: tag.student_id, label: tag.student_id };
-  if (tag.staff_id) return { type: 'staff', id: tag.staff_id, label: tag.staff_id };
-  if (tag.parent_id) return { type: 'parent', id: tag.parent_id, label: tag.parent_id };
-  if (tag.class_id) return { type: 'class', id: tag.class_id, label: tag.class_id };
-  if (tag.session_id) return { type: 'session', id: tag.session_id, label: tag.session_id };
-  if (tag.invoice_id) return { type: 'invoice', id: tag.invoice_id, label: tag.invoice_id };
-  if (tag.subject_id) return { type: 'subject', id: tag.subject_id, label: tag.subject_id };
-  return null;
 }
 
 function issueTagToDraft(tag: IssueWithTags['tags'][number]): IssueTagDraft | null {
@@ -477,11 +467,12 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     );
 
     const mentionParagraphs: JSONContent[] = [];
+    const labels = await resolveTagLabels(allTags);
     allTags.forEach((tag) => {
-      const mention = toMentionData(tag);
-      if (!mention) return;
+      const entity = getTagEntity(tag);
+      if (!entity) return;
 
-      const key = `${mention.type}:${mention.id}`;
+      const key = `${entity.type}:${entity.id}`;
       if (existingMentionKeys.has(key)) return;
 
       existingMentionKeys.add(key);
@@ -491,9 +482,9 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           {
             type: 'mention',
             attrs: {
-              id: mention.id,
-              type: mention.type,
-              label: mention.label,
+              id: entity.id,
+              type: entity.type,
+              label: labels.get(key) || entity.id,
             },
           },
           { type: 'text', text: ' ' },

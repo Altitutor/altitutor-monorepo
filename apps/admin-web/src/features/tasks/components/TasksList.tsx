@@ -333,7 +333,7 @@ export function TasksList({
         items={filteredTasks}
         getItemId={(t) => t.id}
         renderName={(t) => <TextWithTags text={t.title} />}
-        statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee>}
+        statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}

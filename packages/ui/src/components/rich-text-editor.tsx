@@ -1,6 +1,6 @@
 'use client';
 
-import { useEditor, EditorContent, type Editor, ReactRenderer } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { TableKit } from '@tiptap/extension-table';
@@ -13,7 +13,6 @@ import { TextSelection } from '@tiptap/pm/state';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
-import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { cn } from '../lib/cn';
 
 export type { JSONContent };
@@ -110,7 +109,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }),
       TextStyleKit.configure({
         // Generic text style support
-      } as any),
+      } as Record<string, unknown>),
       Typography,
       Placeholder.configure({
         placeholder,
@@ -320,7 +319,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
-    let incomingContent = content;
+    const incomingContent = content;
     let isEcho = false;
 
     if (typeof incomingContent === 'string') {
@@ -347,7 +346,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       return incomingContent;
     })();
 
-    editor.commands.setContent(parsedContent as any, { contentType: isMarkdown ? 'markdown' : undefined });
+    editor.commands.setContent(parsedContent as JSONContent | string, { contentType: isMarkdown ? 'markdown' : undefined });
   }, [content, editor, isMarkdown]);
 
   // Sync editability

@@ -18,31 +18,22 @@ import { useCreateIssue } from '../api/mutations';
 import type { IssueStatus, IssueTagInsert } from '../types';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
+import { getTagEntity, resolveTagLabels } from '../utils/mentionLabels';
 
-function tagToMention(tag: Omit<IssueTagInsert, 'issue_id'>): { type: string; id: string; label: string } | null {
-  if (tag.student_id) return { type: 'student', id: tag.student_id, label: tag.student_id };
-  if (tag.staff_id) return { type: 'staff', id: tag.staff_id, label: tag.staff_id };
-  if (tag.class_id) return { type: 'class', id: tag.class_id, label: tag.class_id };
-  if (tag.session_id) return { type: 'session', id: tag.session_id, label: tag.session_id };
-  if (tag.invoice_id) return { type: 'invoice', id: tag.invoice_id, label: tag.invoice_id };
-  if (tag.parent_id) return { type: 'parent', id: tag.parent_id, label: tag.parent_id };
-  if (tag.subject_id) return { type: 'subject', id: tag.subject_id, label: tag.subject_id };
-  return null;
-}
-
-function buildDescriptionFromInitialTags(tags?: Omit<IssueTagInsert, 'issue_id'>[]): JSONContent | null {
+async function buildDescriptionFromInitialTags(tags?: Omit<IssueTagInsert, 'issue_id'>[]): Promise<JSONContent | null> {
   if (!tags || tags.length === 0) return null;
+  const labels = await resolveTagLabels(tags);
 
   const seen = new Set<string>();
   const content: JSONContent[] = [];
 
   tags.forEach((tag) => {
-    const mention = tagToMention(tag);
-    if (!mention) return;
+    const entity = getTagEntity(tag);
+    if (!entity) return;
 
-    const key = `${mention.type}:${mention.id}`;
+    const key = `${entity.type}:${entity.id}`;
     if (seen.has(key)) return;
     seen.add(key);
 
@@ -52,9 +43,9 @@ function buildDescriptionFromInitialTags(tags?: Omit<IssueTagInsert, 'issue_id'>
         {
           type: 'mention',
           attrs: {
-            id: mention.id,
-            type: mention.type,
-            label: mention.label,
+            id: entity.id,
+            type: entity.type,
+            label: labels.get(key) || entity.id,
           },
         },
         { type: 'text', text: ' ' },
@@ -94,13 +85,12 @@ export function CreateIssueDialog({
   initialTags 
 }: CreateIssueDialogProps) {
   const createIssue = useCreateIssue();
-  const initialDescription = useMemo(() => buildDescriptionFromInitialTags(initialTags), [initialTags]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      description: initialDescription,
+      description: null,
       status: initialStatus,
     },
   });
@@ -108,14 +98,23 @@ export function CreateIssueDialog({
   const liveTags = useLiveIssueTags({ form, initialTags });
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    let cancelled = false;
+    (async () => {
+      const description = await buildDescriptionFromInitialTags(initialTags);
+      if (cancelled) return;
       form.reset({
         name: '',
-        description: initialDescription,
+        description,
         status: initialStatus,
       });
-    }
-  }, [isOpen, initialStatus, initialDescription, form]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, initialStatus, initialTags, form]);
 
   const onSubmit = async (data: FormData) => {
     try {

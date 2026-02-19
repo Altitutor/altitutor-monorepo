@@ -78,8 +78,8 @@ export interface EntityListProps<TItem> {
   getItemId: (item: TItem) => string;
   renderName: (item: TItem) => React.ReactNode;
   leftIcons?: EntityListLeftIcon<TItem>[];
-  statusColumn?: EntityListStatusColumn<TItem, any>;
-  rightPills: EntityListPillColumn<TItem, any>[];
+  statusColumn?: EntityListStatusColumn<TItem, unknown>;
+  rightPills: EntityListPillColumn<TItem, unknown>[];
   groupByOptions?: { key: string; label: string }[];
   sortByOptions?: { key: string; label: string }[];
   onAdd?: (data: { name: string; description?: string } & Record<string, unknown>) => void;
@@ -108,7 +108,7 @@ export interface EntityListProps<TItem> {
       value: JSONContent | string | null;
       onChange: (val: JSONContent) => void;
       placeholder?: string;
-      ref?: React.RefObject<any>;
+      ref?: React.RefObject<unknown>;
     }) => React.ReactNode;
     placeholder?: string;
   };
@@ -125,7 +125,7 @@ function getGroupValue<TItem>(
   item: TItem,
   key: string,
   pills: EntityListPillColumn<TItem, unknown>[],
-  statusColumn?: EntityListStatusColumn<TItem>
+  statusColumn?: EntityListStatusColumn<TItem, unknown>
 ): unknown {
   if (statusColumn?.key === key) {
     return statusColumn.getValue(item);
@@ -255,7 +255,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           if (v === value) return true;
           
           // Handle date range objects from quick filters
-          if (typeof v === 'object' && v !== null && 'type' in v && (v as any).type === 'date_range') {
+          if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
             const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
             const itemDateStr = typeof value === 'string' ? value : null;
             if (!itemDateStr) return false;
@@ -314,7 +314,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
       label: getGroupLabel ? getGroupLabel(groupBy, k) : (k === '__null__' ? 'No value' : k),
       items: groupItems,
     }));
-  }, [sortedItems, groupBy, groupByOptions, rightPills, statusColumn, getGroupLabel]);
+  }, [sortedItems, groupBy, rightPills, statusColumn, getGroupLabel]);
 
   return (
     <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
@@ -633,8 +633,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
 interface EntityListAddRowProps<TItem> {
   onAdd: (data: { name: string; description?: string } & Record<string, unknown>) => void;
-  statusColumn?: EntityListStatusColumn<TItem, any>;
-  rightPills: EntityListPillColumn<TItem, any>[];
+  statusColumn?: EntityListStatusColumn<TItem, unknown>;
+  rightPills: EntityListPillColumn<TItem, unknown>[];
   visiblePillKeys: string[];
   addButtonLabel: string;
   descriptionConfig?: EntityListProps<TItem>['descriptionConfig'];
@@ -661,7 +661,7 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
   });
   const [isAddFocused, setIsAddFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const descriptionRef = React.useRef<any>(null);
+  const descriptionRef = React.useRef<{ focusToEnd?: () => void; getEditor?: () => unknown }>(null);
 
   const handleAddSubmit = () => {
     const name = addName.trim();
@@ -786,7 +786,7 @@ interface EntityListRowProps<TItem> {
   item: TItem;
   renderName: (item: TItem) => React.ReactNode;
   leftIcons: EntityListLeftIcon<TItem>[];
-  statusColumn?: EntityListStatusColumn<TItem>;
+  statusColumn?: EntityListStatusColumn<TItem, unknown>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
   onRowClick?: (item: TItem) => void;
   compact?: boolean;

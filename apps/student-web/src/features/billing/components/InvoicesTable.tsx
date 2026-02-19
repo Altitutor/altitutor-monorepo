@@ -117,25 +117,9 @@ export function InvoicesTable() {
     { key: 'receipt', label: 'Receipt' },
   ];
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-8 text-destructive">
-        Error loading invoices: {error.message}
-      </div>
-    );
-  }
-
   const filteredInvoices = useMemo(() => {
     const result = (invoices || []).filter((invoice) => {
-      if (state.filters.status?.length > 0 && !state.filters.status.includes(invoice.status as any)) {
+      if (state.filters.status?.length > 0 && !state.filters.status.includes(invoice.status as InvoiceStatus)) {
         return false;
       }
 
@@ -165,6 +149,22 @@ export function InvoicesTable() {
 
     return sorted;
   }, [invoices, state.filters.status, state.search, state.sortBy, state.sortDirection]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-destructive">
+        Error loading invoices: {error.message}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

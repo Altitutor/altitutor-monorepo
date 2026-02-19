@@ -1,15 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { 
-  LayoutGrid, 
-  ArrowUpDown, 
-  Filter, 
-  X, 
+import {
+  LayoutGrid,
+  ArrowUpDown,
+  Filter,
+  X,
   ChevronDown,
   Search,
-  Check,
-  Layers
+  Layers,
 } from 'lucide-react';
 import {
   DataTableState,
@@ -68,14 +67,14 @@ export function DataTableToolbar({
   onGroupByChange,
   onVisibleColumnsChange,
   onQuickFilterApply,
-  onReset,
+  onReset: _onReset,
   filterDefinitions = [],
   sortOptions = [],
   groupByOptions = [],
   columnDefinitions = [],
   quickFilters = [],
   searchPlaceholder = 'Search...',
-  isLoading = false,
+  isLoading: _isLoading = false,
   filterSearchValues = {},
   onFilterSearchChange,
 }: DataTableToolbarProps) {
@@ -88,7 +87,7 @@ export function DataTableToolbar({
     if (state.search !== searchValue) {
       setSearchValue(state.search);
     }
-  }, [state.search]);
+  }, [state.search, searchValue]);
 
   // Call onSearchChange when debounced value changes
   React.useEffect(() => {

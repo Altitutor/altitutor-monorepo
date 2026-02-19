@@ -20,6 +20,7 @@ import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
 import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
 import { cn, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils';
+import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 
 const handleEntityClick = (type: string, id: string) => {
   window.dispatchEvent(new CustomEvent('mentionClick', { 
@@ -418,7 +419,39 @@ function SessionCardWrapper({ sessionId }: { sessionId: string }) {
   const { data, isLoading } = useSessionData({ sessionId });
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!data?.session) return null;
-  return <SessionCard session={data.session as any} onClick={() => handleEntityClick('session', sessionId)} />;
+
+  const students = (data.sessionsStudents || [])
+    .map((row: any) => ({
+      ...(row.student || {}),
+      planned_absence: row.planned_absence,
+      is_extra: row.is_extra,
+      sessions_students_id: row.sessions_students_id ?? row.id ?? null,
+    }))
+    .filter((student: any) => !!student)
+    .filter((student: any, index: number, arr: any[]) =>
+      arr.findIndex((candidate: any) => candidate?.id === student?.id) === index
+    );
+
+  const staff = (data.sessionsStaff || [])
+    .map((row: any) => ({
+      ...(row.staff || {}),
+      planned_absence: row.planned_absence,
+      is_swapped_in: row.is_swapped_in,
+    }))
+    .filter((member: any) => !!member)
+    .filter((member: any, index: number, arr: any[]) =>
+      arr.findIndex((candidate: any) => candidate?.id === member?.id) === index
+    );
+
+  return (
+    <SessionCard
+      session={data.session as any}
+      title={getSessionTitle(data.session as any)}
+      students={students}
+      staff={staff}
+      onClick={() => handleEntityClick('session', sessionId)}
+    />
+  );
 }
 
 function InvoiceCardWrapper({ invoiceId }: { invoiceId: string }) {

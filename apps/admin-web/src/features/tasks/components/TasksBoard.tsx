@@ -330,7 +330,7 @@ export function TasksBoard({ filters: initialFilters }: TasksBoardProps) {
             }} 
           />
         )}
-        statusColumn={statusColumn}
+        statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}

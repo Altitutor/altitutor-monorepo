@@ -5,23 +5,14 @@ import type { IssueFilters, IssueWithTags, IssueInsert, IssueUpdate, IssueTagIns
 import { extractMentions } from '@/shared/utils/extractMentions';
 import type { JSONContent } from '@altitutor/ui';
 import { parseTags } from '@/shared/utils/tagParsing';
+import { getTagEntity, resolveTagLabels } from '../utils/mentionLabels';
 
-function tagToMention(tag: Omit<IssueTagInsert, 'issue_id'>): { type: string; id: string; label: string } | null {
-  if (tag.student_id) return { type: 'student', id: tag.student_id, label: tag.student_id };
-  if (tag.staff_id) return { type: 'staff', id: tag.staff_id, label: tag.staff_id };
-  if (tag.class_id) return { type: 'class', id: tag.class_id, label: tag.class_id };
-  if (tag.session_id) return { type: 'session', id: tag.session_id, label: tag.session_id };
-  if (tag.invoice_id) return { type: 'invoice', id: tag.invoice_id, label: tag.invoice_id };
-  if (tag.parent_id) return { type: 'parent', id: tag.parent_id, label: tag.parent_id };
-  if (tag.subject_id) return { type: 'subject', id: tag.subject_id, label: tag.subject_id };
-  return null;
-}
-
-function appendTagsToDescription(
+async function appendTagsToDescription(
   description: JSONContent | null | undefined,
   tags?: Omit<IssueTagInsert, 'issue_id'>[]
-): JSONContent | null {
+): Promise<JSONContent | null> {
   if (!tags || tags.length === 0) return description ?? null;
+  const labels = await resolveTagLabels(tags);
 
   const doc: JSONContent =
     description && description.type === 'doc'
@@ -34,10 +25,10 @@ function appendTagsToDescription(
 
   const mentionParagraphs: JSONContent[] = [];
   tags.forEach((tag) => {
-    const mention = tagToMention(tag);
-    if (!mention) return;
+    const entity = getTagEntity(tag);
+    if (!entity) return;
 
-    const key = `${mention.type}:${mention.id}`;
+    const key = `${entity.type}:${entity.id}`;
     if (existingMentionKeys.has(key)) return;
     existingMentionKeys.add(key);
 
@@ -47,9 +38,9 @@ function appendTagsToDescription(
         {
           type: 'mention',
           attrs: {
-            id: mention.id,
-            type: mention.type,
-            label: mention.label,
+            id: entity.id,
+            type: entity.type,
+            label: labels.get(key) || entity.id,
           },
         },
         { type: 'text', text: ' ' },
@@ -247,7 +238,7 @@ export const issuesApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const issueWithDescriptionTags: IssueInsert = {
       ...issue,
-      description: appendTagsToDescription(issue.description as JSONContent | null | undefined, tags),
+      description: await appendTagsToDescription(issue.description as JSONContent | null | undefined, tags),
     };
     
     const { data: issueData, error: issueError } = await supabase

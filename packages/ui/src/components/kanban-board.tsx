@@ -50,7 +50,7 @@ import { EntityListPillColumn, EntityListStatusColumn, QuickFilter } from './ent
 // Types
 // ---------------------------------------------------------------------------
 
-export interface KanbanColumnDef<TItem, TValue = any> {
+export interface KanbanColumnDef<TItem, TValue = unknown> {
   key: string;
   label: string;
   getValue: (item: TItem) => TValue;
@@ -63,15 +63,15 @@ export interface KanbanBoardProps<TItem> {
   getItemId: (item: TItem) => string;
   
   /** Configuration for what defines the kanban columns */
-  columnDefs: KanbanColumnDef<TItem, any>[];
+  columnDefs: KanbanColumnDef<TItem, unknown>[];
   activeColumnKey: string;
   onActiveColumnKeyChange?: (key: string) => void;
 
   renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
 
   // Shared features with EntityList
-  statusColumn?: EntityListStatusColumn<TItem, any>;
-  rightPills: EntityListPillColumn<TItem, any>[];
+  statusColumn?: EntityListStatusColumn<TItem, unknown>;
+  rightPills: EntityListPillColumn<TItem, unknown>[];
   
   groupByOptions?: { key: string; label: string }[];
   groupBy?: string | null;
@@ -95,7 +95,7 @@ export interface KanbanBoardProps<TItem> {
   quickFilters?: QuickFilter[];
   onApplyQuickFilter?: (filter: QuickFilter) => void;
 
-  onAdd?: (columnValue: any) => void;
+  onAdd?: (columnValue: unknown) => void;
   addButtonLabel?: string;
   isLoading?: boolean;
   emptyMessage?: string;
@@ -123,7 +123,7 @@ function getPropValue<TItem>(
   item: TItem,
   key: string,
   pills: EntityListPillColumn<TItem, unknown>[],
-  statusColumn?: EntityListStatusColumn<TItem>,
+  statusColumn?: EntityListStatusColumn<TItem, unknown>,
   columnDefs?: KanbanColumnDef<TItem>[]
 ): unknown {
   if (statusColumn?.key === key) {
@@ -248,7 +248,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             if (v === value) return true;
 
             // Handle date range objects from quick filters
-            if (typeof v === 'object' && v !== null && 'type' in v && (v as any).type === 'date_range') {
+            if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
               const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
               const itemDateStr = typeof value === 'string' ? value : null;
               if (!itemDateStr) return false;
@@ -309,7 +309,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     if (!over) return;
 
     const itemId = active.id as string;
-    let newColumnValue: any;
+    let newColumnValue: unknown;
 
     // Check if over a column or over another card
     const overId = String(over.id);
@@ -528,7 +528,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                           <span className="font-semibold">{label} is</span>
                           {selected.map((val, idx) => {
                             const options = pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
-                            const opt = options.find((o: any) => String(o.value) === String(val));
+                            const opt = options.find((o: { value: unknown; label: string }) => String(o.value) === String(val));
                             const valLabel = opt?.label ?? String(val);
                             return (
                               <React.Fragment key={String(val)}>
@@ -569,7 +569,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                         <DropdownMenuSub key={statusColumn.key}>
                           <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
-                            {statusColumn.options.map((opt: { value: any; label: string }) => {
+                            {statusColumn.options.map((opt: { value: unknown; label: string }) => {
                               const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
                               return (
                                 <DropdownMenuCheckboxItem
@@ -593,7 +593,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                         <DropdownMenuSub key={col.key}>
                           <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
-                            {col.options.map((opt: { value: any; label: string }) => {
+                            {col.options.map((opt: { value: unknown; label: string }) => {
                               const selected = (filters[col.key] ?? []).includes(opt.value);
                               return (
                                 <DropdownMenuCheckboxItem
@@ -611,15 +611,15 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     });
 
                     rightPills
-                      .filter((p: EntityListPillColumn<TItem, any>) => p.filterable !== false && p.filterOptions?.length)
-                      .forEach((p: EntityListPillColumn<TItem, any>) => {
+                      .filter((p: EntityListPillColumn<TItem, unknown>) => p.filterable !== false && p.filterOptions?.length)
+                      .forEach((p: EntityListPillColumn<TItem, unknown>) => {
                         if (renderedKeys.has(p.key)) return;
                         renderedKeys.add(p.key);
                         filterElements.push(
                           <DropdownMenuSub key={p.key}>
                             <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
-                              {p.filterOptions!.map((opt: { value: any; label: string }) => {
+                              {p.filterOptions!.map((opt: { value: unknown; label: string }) => {
                                 const selected = (filters[p.key] ?? []).includes(opt.value);
                                 return (
                                   <DropdownMenuCheckboxItem
@@ -670,7 +670,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
         >
           <div className="h-full w-full overflow-x-auto overflow-y-hidden">
             <div className="flex h-full px-6 pb-0 pt-2 gap-4 min-w-max">
-              {activeColumnDef.options.map((option: { value: any; label: string }) => {
+              {activeColumnDef.options.map((option: { value: unknown; label: string }) => {
                 const columnItems = sortedItems.filter(
                   (item) => String(activeColumnDef.getValue(item)) === String(option.value)
                 );
@@ -726,8 +726,8 @@ interface KanbanColumnProps<TItem> {
   addButtonLabel: string;
   groupBy: string | null;
   getGroupLabel?: (columnKey: string, valueKey: string) => string;
-  statusColumn?: EntityListStatusColumn<TItem, any>;
-  rightPills: EntityListPillColumn<TItem, any>[];
+  statusColumn?: EntityListStatusColumn<TItem, unknown>;
+  rightPills: EntityListPillColumn<TItem, unknown>[];
   visiblePillKeys: string[];
   emptyMessage: string;
 }
